@@ -21,7 +21,7 @@ import * as React from 'react';
 import { cn, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { SchemaRenderer } from '@object-ui/react';
 import { useObjectTranslation, useSafeTranslate } from '@object-ui/i18n';
-import { AlertCircle, ArrowRight, Copy, Check, RefreshCw, CornerDownLeft, Bot, Eye, GitCompareArrows, Rocket, Clock3, CheckCircle2, ChevronDown, XCircle, Loader2, ShieldCheck, TriangleAlert, ClipboardList, HelpCircle, Table2, WifiOff, Sparkles, Hourglass } from 'lucide-react';
+import { AlertCircle, ArrowRight, Copy, Check, RefreshCw, CornerDownLeft, Bot, Eye, GitCompareArrows, Rocket, Clock3, CheckCircle2, ChevronDown, XCircle, Loader2, ShieldCheck, TriangleAlert, ClipboardList, HelpCircle, Info, Table2, WifiOff, Sparkles, Hourglass } from 'lucide-react';
 import type { ChatStatus } from 'ai';
 import {
   humanizeToolName,
@@ -90,8 +90,10 @@ import {
   buildProgressFromDraftReview,
   type BuildResultChecklist,
   type DraftReview,
+  type ProposedChanges,
   type ProposedPlan,
   type ProposedPlanCard,
+  type ReplayOutcome,
 } from './mapMessages';
 
 /**
@@ -331,11 +333,13 @@ export interface ChatbotEnhancedToolInvocation {
   proposedPlan?: ProposedPlan;
   /** Granular metadata-change preview (confirm-before-change). Set only
    *  when a mutating tool returned status:'changes_proposed' — i.e. it was
-   *  NOT yet approved this turn, so nothing changed. Rendered as a 确认修改 card. */
-  proposedChanges?: {
-    summary?: string;
-    changes: Array<{ verb: string; object?: string; field?: string; type?: string; name?: string; details?: string }>;
-  };
+   *  NOT yet approved this turn, so nothing changed. Rendered as a 确认修改 card.
+   *
+   *  The shape is `mapMessages.ts`'s `ProposedChanges`, the type
+   *  `detectProposedChanges` returns, referenced rather than repeated for the
+   *  reason `draftReview` above gives (objectui#12894 added the posture and
+   *  the primary action to it). */
+  proposedChanges?: ProposedChanges;
   /**
    * ADR-0057 P4 — the `ask` agent's structured decline-and-redirect. Set when
    * the ask agent called `suggest_builder` (`{ handoff:'build', prompt,
@@ -365,14 +369,12 @@ export interface ChatbotEnhancedToolInvocation {
    * state on the ORIGINAL 确认修改 card — 已生效 / 已暂存为草稿 / 未生效 — so a
    * rolled-back publish exists somewhere a USER can see it, independent of
    * whether the model narrates it honestly.
+   *
+   * The shape is `mapMessages.ts`'s `ReplayOutcome`, referenced rather than
+   * repeated (objectui#12894 added the applied card of a change saved as a
+   * draft to it).
    */
-  replayOutcome?: {
-    kind: 'published' | 'drafted' | 'failed';
-    outcome?: string;
-    error?: string;
-    packageId?: string;
-    dispatchError?: boolean;
-  };
+  replayOutcome?: ReplayOutcome;
 }
 
 export interface ChatSource {
@@ -623,6 +625,30 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
   onPublishDrafts?: (
     packageId: string,
   ) => void | boolean | PublishOutcome | Promise<void | boolean | PublishOutcome>;
+  /**
+   * objectui#12894 — 查看变更并发布 on the applied card of a change the copilot
+   * saved as a draft (cloud#2924): open the host's review of the package's
+   * pending drafts (Studio's 变更), where the user checks them and publishes.
+   * Absent, the applied card keeps the inline Publish button `onPublishDrafts`
+   * draws, as before.
+   */
+  onReviewDrafts?: (packageId: string) => void;
+  /**
+   * objectui#12894 — 撤销 on the same applied card. The host wires it to
+   * `POST /api/v1/packages/:packageId/discard-drafts`, which discards EVERY
+   * pending draft of the package, not only this change's; the card says so,
+   * and asks first, whenever other drafts are pending (`draftState.others`, or
+   * the live count from `fetchPendingDraftCount` when the host gives one).
+   * Return `false` / `{ ok: false, error? }` on failure; any other outcome
+   * (incl. void) counts as done. Absent, no 撤销 is drawn.
+   */
+  onDiscardDrafts?: (
+    packageId: string,
+  ) =>
+    | void
+    | boolean
+    | { ok: boolean; error?: string }
+    | Promise<void | boolean | { ok: boolean; error?: string }>;
   /**
    * When provided, a finished build tree (`buildProgress.phase === 'done'`) that
    * created an `app` renders an "Open app" action so the user can jump straight
@@ -1181,6 +1207,362 @@ function formatChangeRow(
 }
 
 /**
+ * objectui#12894 — where 撤销 stands on one applied card: asking first (with
+ * the pending counts it can name), running, done, or refused by the host.
+ */
+type DraftDiscardState =
+  | { phase: 'confirm'; others?: number; total?: number }
+  | { phase: 'running' }
+  | { phase: 'done' }
+  | { phase: 'failed'; error?: string };
+
+/**
+ * objectui#12894 — the change card draws v2 when the envelope carries
+ * cloud#2924's posture (`posture` / `primaryAction`, which the producer sends
+ * together). An older cloud, or an environment that does not publish AI
+ * changes in the turn, sends neither, and the card draws as before.
+ */
+function isChangePlanV2(changes: ProposedChanges): boolean {
+  return changes.posture !== undefined || changes.primaryAction !== undefined;
+}
+
+type ChangeRow = ProposedChanges['changes'][number];
+type ChangeFace = 'add' | 'modify' | 'remove';
+
+/** What a row does to the app, by its verb: ＋ adds, ✎ changes, － removes. */
+function changeFaceOf(verb: string): ChangeFace {
+  if (verb === 'delete_field') return 'remove';
+  if (verb === 'add_field' || verb.startsWith('create_')) return 'add';
+  return 'modify';
+}
+
+const CHANGE_FACE_SYMBOL: Record<ChangeFace, string> = { add: '＋', modify: '✎', remove: '－' };
+const CHANGE_FACE_CLASS: Record<ChangeFace, string> = {
+  add: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  modify: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  remove: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+};
+
+/**
+ * objectui#12894 — the kind a change row names (字段 / 视图 / 对象 …), through the
+ * pack. A STATIC switch for the reason `useBuildGroupLabel` gives: a computed
+ * key is invisible to `check-i18n-call-site-keys`. A metadata row names its
+ * `type`; a type the pack has no word for renders as its machine name, and a
+ * verb no arm knows renders as its verb label, as the v1 row did.
+ */
+function useChangeKindLabel(verbLabels: Record<string, string>): (c: ChangeRow) => string {
+  const { t } = useObjectTranslation();
+  return React.useCallback(
+    (c: ChangeRow) => {
+      const kindOfType = (type: string | undefined): string | undefined => {
+        switch (type) {
+          case 'object':
+            return t('chatbot.changes.kind.object', { defaultValue: 'Object' });
+          case 'view':
+            return t('chatbot.changes.kind.view', { defaultValue: 'View' });
+          case 'dashboard':
+            return t('chatbot.changes.kind.dashboard', { defaultValue: 'Dashboard' });
+          case 'app':
+            return t('chatbot.changes.kind.app', { defaultValue: 'App' });
+          default:
+            return type;
+        }
+      };
+      switch (c.verb) {
+        case 'add_field':
+        case 'modify_field':
+        case 'delete_field':
+          return t('chatbot.changes.kind.field', { defaultValue: 'Field' });
+        case 'create_object':
+          return kindOfType('object')!;
+        case 'create_seed':
+          return t('chatbot.changes.kind.seed', { defaultValue: 'Sample data' });
+        case 'create_package':
+          return t('chatbot.changes.kind.package', { defaultValue: 'App package' });
+        case 'create_metadata':
+        case 'update_metadata': {
+          const kind = kindOfType(c.type);
+          if (kind) return kind;
+          break;
+        }
+        default:
+          break;
+      }
+      return verbLabels[c.verb] ?? DEFAULT_CHANGE_VERB_LABELS[c.verb] ?? c.verb;
+    },
+    [t, verbLabels],
+  );
+}
+
+/**
+ * objectui#12894 — the change card v2's body (the StudioRailCopilot artboard):
+ * 「修改方案 · N 项」, one row per change — the ＋ / ✎ / － symbol, the kind,
+ * `object · field` (the producer sends machine names only), and in small type
+ * the field type and the row's `details` (label · default · required) — then
+ * the posture note. When the change will be saved as a draft (`posture.mode:
+ * 'draft'`) the note is the producer's `summary`, drawn in amber; otherwise the
+ * summary reads as plain text.
+ */
+function ChangePlanBody({
+  changes,
+  verbLabels,
+}: {
+  changes: ProposedChanges;
+  verbLabels: Record<string, string>;
+}) {
+  const { t } = useObjectTranslation();
+  const kindOf = useChangeKindLabel(verbLabels);
+  const count = changes.changes.length;
+  return (
+    <>
+      <span
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground"
+        data-testid="proposed-changes-title"
+      >
+        <ClipboardList className="size-3.5 text-foreground/60" />
+        {t('chatbot.changes.planTitle', { count, defaultValue: 'Change plan · {{count}} changes' })}
+      </span>
+      <div className="flex flex-col" data-testid="proposed-changes-rows">
+        {changes.changes.map((c, idx) => {
+          const face = changeFaceOf(c.verb);
+          const target = c.field
+            ? c.object
+              ? `${c.object} · ${c.field}`
+              : c.field
+            : (c.name ?? c.object ?? '');
+          const params = [c.type, c.details].filter(Boolean).join(' · ');
+          return (
+            <div
+              key={idx}
+              className="flex items-start gap-2 border-t border-border/60 py-1.5 first-of-type:border-t-0"
+              data-testid="proposed-change-row"
+              data-change={face}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'inline-flex size-[18px] shrink-0 items-center justify-center rounded text-xs font-bold',
+                  CHANGE_FACE_CLASS[face],
+                )}
+                data-testid="proposed-change-symbol"
+              >
+                {CHANGE_FACE_SYMBOL[face]}
+              </span>
+              <span className="sr-only">
+                {verbLabels[c.verb] ?? DEFAULT_CHANGE_VERB_LABELS[c.verb] ?? c.verb}
+              </span>
+              <div className="flex min-w-0 flex-col">
+                <span className="text-xs text-foreground/90">
+                  <strong className="font-medium" data-testid="proposed-change-kind">
+                    {kindOf(c)}
+                  </strong>{' '}
+                  <span className="break-all" data-testid="proposed-change-target">
+                    {target}
+                  </span>
+                </span>
+                {params ? (
+                  <span
+                    className="break-words font-mono text-[11px] text-muted-foreground"
+                    data-testid="proposed-change-params"
+                  >
+                    {params}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {changes.summary ? (
+        changes.posture?.mode === 'draft' ? (
+          <div
+            className="flex gap-2 rounded-md bg-amber-50 px-2.5 py-2 text-xs leading-relaxed text-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+            data-testid="proposed-changes-posture-note"
+            data-posture="draft"
+          >
+            <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            <span>{changes.summary}</span>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground" data-testid="proposed-changes-summary">
+            {changes.summary}
+          </p>
+        )
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * objectui#12894 — the applied card of a change the copilot saved as a draft
+ * (cloud#2924, the StudioRailCopilot artboard): `appliedCard.title` beside a
+ * tick, its `lines`, then 查看变更并发布 (the host's review of the package's
+ * pending drafts) and 撤销. Without a review door the inline Publish button
+ * stays in its place, as the drafted badge drew it before.
+ *
+ * 撤销 runs a door that discards every pending draft of the package. When
+ * `draftState.others` says other drafts are pending, the button says so; the
+ * confirm the parent opens names the counts before anything runs.
+ */
+function AppliedDraftCard({
+  card,
+  others,
+  discard,
+  onReview,
+  onPublish,
+  publishLabel,
+  onDiscard,
+  onDiscardConfirm,
+  onDiscardCancel,
+}: {
+  card: NonNullable<ReplayOutcome['appliedCard']>;
+  others?: number;
+  discard?: DraftDiscardState;
+  onReview?: () => void;
+  onPublish?: () => void;
+  publishLabel: string;
+  onDiscard?: () => void;
+  onDiscardConfirm?: () => void;
+  onDiscardCancel: () => void;
+}) {
+  const { t } = useObjectTranslation();
+  const done = discard?.phase === 'done';
+  const running = discard?.phase === 'running';
+  return (
+    <div
+      className="flex flex-col gap-1.5 rounded-md border bg-background px-2.5 py-2"
+      data-testid="applied-card"
+    >
+      <span
+        className={cn(
+          'inline-flex items-center gap-2 text-xs font-semibold',
+          done ? 'text-muted-foreground line-through' : 'text-foreground',
+        )}
+        data-testid="applied-card-title"
+      >
+        <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+          <Check className="size-2.5" strokeWidth={3} aria-hidden="true" />
+        </span>
+        {card.title}
+      </span>
+      {card.lines.length > 0 ? (
+        <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground" data-testid="applied-card-lines">
+          {card.lines.map((line, idx) => (
+            <li key={idx} data-testid="applied-card-line">
+              {line}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {done ? (
+        <span
+          className="inline-flex h-7 w-fit items-center gap-1.5 rounded-md border bg-muted/40 px-3 text-xs font-medium text-foreground/70"
+          data-testid="applied-card-discarded"
+        >
+          <CheckCircle2 className="size-3.5" />
+          {t('chatbot.changes.undone', { defaultValue: 'Undone' })}
+        </span>
+      ) : discard?.phase === 'confirm' ? (
+        <div
+          className="flex flex-col gap-1.5 rounded-md bg-amber-50 px-2.5 py-2 text-xs leading-relaxed text-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+          role="alert"
+          data-testid="applied-card-discard-confirm"
+        >
+          <span data-testid="applied-card-discard-confirm-text">
+            {discard.others !== undefined && discard.total !== undefined
+              ? t('chatbot.changes.undoConfirm', {
+                  count: discard.others,
+                  total: discard.total,
+                  defaultValue:
+                    'Undo discards all {{total}} unpublished drafts of this package, including {{count}} that are not part of this change.',
+                })
+              : t('chatbot.changes.undoConfirmUnknown', {
+                  defaultValue: 'Undo discards every unpublished draft of this package, not only this change.',
+                })}
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onDiscardConfirm}
+              className="inline-flex h-7 items-center rounded-md bg-red-600 px-3 text-xs font-medium text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+              data-testid="applied-card-discard-confirm-run"
+            >
+              {t('chatbot.changes.undoConfirmAction', { defaultValue: 'Undo all' })}
+            </button>
+            <button
+              type="button"
+              onClick={onDiscardCancel}
+              className="inline-flex h-7 items-center rounded-md border bg-background px-3 text-xs font-medium text-foreground hover:bg-accent"
+              data-testid="applied-card-discard-cancel"
+            >
+              {t('chatbot.changes.undoCancel', { defaultValue: 'Cancel' })}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {onReview || onPublish || onDiscard ? (
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5" data-testid="proposed-changes-actions">
+              {onReview ? (
+                <button
+                  type="button"
+                  onClick={onReview}
+                  disabled={running}
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                  data-testid="applied-card-review"
+                >
+                  <GitCompareArrows className="size-3.5" />
+                  {t('chatbot.changes.reviewAndPublish', { defaultValue: 'Review changes and publish' })}
+                </button>
+              ) : onPublish ? (
+                <button
+                  type="button"
+                  onClick={onPublish}
+                  disabled={running}
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                  data-testid="proposed-changes-publish"
+                >
+                  <Rocket className="size-3.5" />
+                  {publishLabel}
+                </button>
+              ) : null}
+              {onDiscard ? (
+                <button
+                  type="button"
+                  onClick={onDiscard}
+                  disabled={running}
+                  className="inline-flex h-7 items-center rounded-md px-3 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  data-testid="applied-card-discard"
+                >
+                  {running
+                    ? t('chatbot.changes.undoing', { defaultValue: 'Undoing…' })
+                    : others !== undefined && others > 0
+                      ? t('chatbot.changes.undoWithOthers', {
+                          count: others,
+                          defaultValue: 'Undo (and {{count}} other drafts)',
+                        })
+                      : t('chatbot.changes.undo', { defaultValue: 'Undo' })}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {discard?.phase === 'failed' ? (
+            <span
+              className="flex flex-col text-[11px] text-red-700/80 dark:text-red-300/80"
+              role="alert"
+              data-testid="applied-card-discard-failed"
+            >
+              <span>{t('chatbot.changes.undoFailed', { defaultValue: 'Undo failed' })}</span>
+              {discard.error ? <span>{discard.error}</span> : null}
+            </span>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
  * True when this tool is the build agent's "propose a plan" step
  * (`propose_blueprint`). Matched by name so we can recognise it even when its
  * result did NOT parse into a structured `proposedPlan` — the case that used to
@@ -1541,6 +1923,8 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
       onReviewDraft,
       toolReviewLabel = (n) => `Review ${n} change${n === 1 ? '' : 's'}`,
       onPublishDrafts,
+      onReviewDrafts,
+      onDiscardDrafts,
       onOpenBuiltApp,
       openBuiltAppLabel = 'Open app',
       onDesignBuiltApp,
@@ -1625,6 +2009,9 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
     const planAwaitingLabel = tt('chatbot.plan.awaitingConfirm', 'Awaiting confirmation');
     const planObjectsLabel = tt('chatbot.plan.objectsAndFields', 'Objects and fields');
     const planViewsLabel = tt('chatbot.plan.views', 'Views');
+    // objectui#12894 — the change card's primary action when the envelope says
+    // the change will be saved as a draft (`primaryAction: 'save_draft'`).
+    const saveDraftLabel = tt('chatbot.changes.saveDraft', 'Save as draft');
 
     // Resolve localizable strings once. Precedence is host `labels` prop ->
     // locale pack -> the English default this component always shipped, so a
@@ -1814,6 +2201,85 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
         void refreshPendingCount(packageId);
       },
       [onPublishDrafts, messages, refreshPendingCount],
+    );
+
+    // objectui#12894 — 撤销 on the applied card of a change saved as a draft
+    // (cloud#2924). The door the host wires (`discard-drafts`) discards EVERY
+    // pending draft of the package, so the card asks before it runs whenever it
+    // cannot show that only this change is pending. Per card, keyed by the
+    // proposal's toolCallId; UI-owned like `confirmPendingIds`.
+    const [discardByToolCall, setDiscardByToolCall] = React.useState<
+      ReadonlyMap<string, DraftDiscardState>
+    >(() => new Map());
+    const setDiscardState = React.useCallback(
+      (toolCallId: string, state: DraftDiscardState | undefined) => {
+        setDiscardByToolCall((prev) => {
+          const next = new Map(prev);
+          if (state) next.set(toolCallId, state);
+          else next.delete(toolCallId);
+          return next;
+        });
+      },
+      [],
+    );
+    const runDiscardDrafts = React.useCallback(
+      async (toolCallId: string, packageId: string) => {
+        if (!onDiscardDrafts) return;
+        setDiscardState(toolCallId, { phase: 'running' });
+        try {
+          const res = await onDiscardDrafts(packageId);
+          const outcome = res && typeof res === 'object' ? res : undefined;
+          const ok = outcome ? outcome.ok !== false : res !== false;
+          setDiscardState(
+            toolCallId,
+            ok ? { phase: 'done' } : { phase: 'failed', ...(outcome?.error ? { error: outcome.error } : {}) },
+          );
+        } catch (e) {
+          const message = e instanceof Error ? e.message : typeof e === 'string' ? e : '';
+          setDiscardState(toolCallId, { phase: 'failed', ...(message ? { error: message } : {}) });
+        }
+        // Every card bound to this package reads the post-discard count.
+        void refreshPendingCount(packageId);
+      },
+      [onDiscardDrafts, setDiscardState, refreshPendingCount],
+    );
+    // The click on 撤销: run at once only when the drafts pending are this
+    // change's alone. The snapshot is `draftState` (read when the change
+    // landed); the host's live count, when it gives one, wins over it — a
+    // later change in the same conversation stages more drafts into the same
+    // package, and the snapshot on this older card cannot know that.
+    const requestDiscardDrafts = React.useCallback(
+      async (
+        toolCallId: string,
+        packageId: string,
+        draftState: ReplayOutcome['draftState'],
+      ) => {
+        if (!onDiscardDrafts) return;
+        let others = draftState?.others;
+        let total = draftState?.pending;
+        if (fetchPendingDraftCount) {
+          setDiscardState(toolCallId, { phase: 'running' });
+          try {
+            const live = await fetchPendingDraftCount(packageId);
+            if (typeof live === 'number' && Number.isInteger(live) && live >= 0) {
+              total = live;
+              others = draftState ? Math.max(0, live - (draftState.pending - draftState.others)) : undefined;
+            }
+          } catch {
+            // Unreadable: the snapshot stands.
+          }
+        }
+        if (others === 0) {
+          await runDiscardDrafts(toolCallId, packageId);
+          return;
+        }
+        setDiscardState(toolCallId, {
+          phase: 'confirm',
+          ...(others !== undefined ? { others } : {}),
+          ...(total !== undefined ? { total } : {}),
+        });
+      },
+      [onDiscardDrafts, fetchPendingDraftCount, runDiscardDrafts, setDiscardState],
     );
 
     // Auto-publish "magic moment": when the environment enables autoPublishDrafts
@@ -3163,24 +3629,35 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                 className="flex flex-col gap-2 border-t bg-muted/20 px-3 py-2.5"
                 data-testid="proposed-changes"
               >
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/80">
-                  <ClipboardList className="size-3.5" />
-                  {changesTitleLabel}
-                </span>
-                {tool.proposedChanges.summary ? (
-                  <p className="text-xs text-muted-foreground">{tool.proposedChanges.summary}</p>
-                ) : null}
-                <div className="flex flex-col gap-1">
-                  {tool.proposedChanges.changes.map((c, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-start gap-1.5 rounded-md border bg-background px-2 py-1 text-[11px] text-foreground/80"
-                    >
-                      <Table2 className="mt-px size-3 shrink-0 text-foreground/40" />
-                      <span>{formatChangeRow(c, changeVerbLabels)}</span>
+                {isChangePlanV2(tool.proposedChanges) ? (
+                  // objectui#12894 — change card v2 (the StudioRailCopilot
+                  // artboard), drawn when the envelope carries cloud#2924's
+                  // posture: 「修改方案 · N 项」, the posture note, one row per
+                  // change. An envelope without it draws the card below, as
+                  // before.
+                  <ChangePlanBody changes={tool.proposedChanges} verbLabels={changeVerbLabels} />
+                ) : (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/80">
+                      <ClipboardList className="size-3.5" />
+                      {changesTitleLabel}
+                    </span>
+                    {tool.proposedChanges.summary ? (
+                      <p className="text-xs text-muted-foreground">{tool.proposedChanges.summary}</p>
+                    ) : null}
+                    <div className="flex flex-col gap-1">
+                      {tool.proposedChanges.changes.map((c, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-1.5 rounded-md border bg-background px-2 py-1 text-[11px] text-foreground/80"
+                        >
+                          <Table2 className="mt-px size-3 shrink-0 text-foreground/40" />
+                          <span>{formatChangeRow(c, changeVerbLabels)}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                )}
                 {(() => {
                   // objectui#5695 — after 确认修改, the card carries the replay's
                   // verdict instead of going dark. Terminal states render on
@@ -3216,6 +3693,38 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                           </span>
                         ) : null}
                       </div>
+                    );
+                  }
+                  if (outcome?.kind === 'drafted' && outcome.appliedCard) {
+                    // objectui#12894 — the applied card of a change saved as a
+                    // draft (cloud#2924): its title and lines as the producer
+                    // wrote them, 查看变更并发布 and 撤销.
+                    const packageId = outcome.packageId;
+                    const discard = discardByToolCall.get(tool.toolCallId);
+                    return (
+                      <AppliedDraftCard
+                        card={outcome.appliedCard}
+                        others={outcome.draftState?.others}
+                        discard={discard}
+                        onReview={onReviewDrafts && packageId ? () => onReviewDrafts(packageId) : undefined}
+                        onPublish={
+                          !onReviewDrafts && onPublishDrafts && packageId
+                            ? () => void handlePublishDrafts(packageId)
+                            : undefined
+                        }
+                        publishLabel={publishDraftsLabel}
+                        onDiscard={
+                          onDiscardDrafts && packageId
+                            ? () => void requestDiscardDrafts(tool.toolCallId, packageId, outcome.draftState)
+                            : undefined
+                        }
+                        onDiscardConfirm={
+                          onDiscardDrafts && packageId
+                            ? () => void runDiscardDrafts(tool.toolCallId, packageId)
+                            : undefined
+                        }
+                        onDiscardCancel={() => setDiscardState(tool.toolCallId, undefined)}
+                      />
                     );
                   }
                   if (outcome?.kind === 'drafted') {
@@ -3318,7 +3827,15 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                         data-testid="proposed-changes-confirm"
                       >
                         <CheckCircle2 className="size-3.5" />
-                        {changesConfirmLabel}
+                        {/* objectui#12894 — the envelope's primary action wins
+                            over the host's label for `save_draft`, and only
+                            then (cloud#2924): the change will be saved as a
+                            draft, so the button says 存为草稿. The message it
+                            sends is unchanged — it is the approval the
+                            cloud confirm gate reads. */}
+                        {tool.proposedChanges?.primaryAction === 'save_draft'
+                          ? saveDraftLabel
+                          : changesConfirmLabel}
                       </button>
                       <button
                         type="button"

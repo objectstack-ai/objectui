@@ -573,10 +573,32 @@ export function detectBuildChecklist(result: unknown): BuildResultChecklist | un
 }
 
 /**
+ * cloud#2924 — how a copilot change to a package lands, as the change envelopes
+ * carry it (cloud `postureEnvelope`): `draft` when the app is live and its
+ * tables hold `liveRecords` records, so the change is saved as a Studio draft;
+ * `publish` when it goes live in the turn (a first build, an app holding no
+ * records, a platform package).
+ */
+export interface ChangePosture {
+  mode: 'draft' | 'publish';
+  /** Records the package's live tables hold. */
+  liveRecords: number;
+  /** The package is a platform package; the posture by state is not read there. */
+  platformPackage?: true;
+  /** In the turn that applied a blueprint: the rows that build seeded, left out of `liveRecords`. */
+  buildTurnRows?: number;
+}
+
+/**
  * A granular metadata-change preview (confirm-before-change). A mutating tool
  * that has NOT been approved this turn returns
  * { status: 'changes_proposed', changes: [...], summary? } instead of
  * committing, so the chat renders a "确认修改" card. Mirrors detectProposedPlan.
+ *
+ * objectui#12894 — cloud#2924 adds `posture` and `primaryAction`, read before
+ * the card is shown. Both are absent from an older cloud, and from an
+ * environment that does not publish AI changes in the turn; the card then
+ * draws as it did before.
  */
 export interface ProposedChanges {
   summary?: string;
@@ -586,8 +608,52 @@ export interface ProposedChanges {
     field?: string;
     type?: string;
     name?: string;
+    /** cloud#2924 — the row's parameters in small type (label · default · required), in the user's language. */
     details?: string;
   }>;
+  /** cloud#2924 — how the change will land once confirmed. */
+  posture?: ChangePosture;
+  /** cloud#2924 — the card's primary action: `save_draft` reads 存为草稿, `confirm` keeps the host's label. */
+  primaryAction?: 'save_draft' | 'confirm';
+}
+
+/** One pending draft, as Studio's 变更 list names it (cloud `PendingDraft`). */
+export interface PendingDraftItem {
+  type: string;
+  name: string;
+}
+
+/**
+ * cloud#2924 — the package's pending drafts, read after the change landed
+ * through `listDrafts`, the read Studio's 变更 badge makes (cloud `DraftState`).
+ */
+export interface ChangeDraftState {
+  /** Pending drafts in the package — the number Studio's 变更 badge shows. */
+  pending: number;
+  items: PendingDraftItem[];
+  /** Pending drafts this change did not stage (an earlier edit, the user's own). */
+  others: number;
+}
+
+/**
+ * cloud#2924 — a field the change added to a table that already holds records:
+ * every one of those `rows` has no value for it (cloud `ExistingRowsLine`).
+ */
+export interface ExistingRowsLine {
+  object: string;
+  field: string;
+  label: string;
+  rows: number;
+}
+
+/**
+ * cloud#2924 — the applied card of a change saved as a draft, in the user's
+ * language: its title (「已存为草稿 · 2 项未发布」) and its lines
+ * (「已有 12 条记录的续借次数为空」, 「核对：结构 ✓」).
+ */
+export interface AppliedCard {
+  title: string;
+  lines: string[];
 }
 
 /**
@@ -667,7 +733,66 @@ export function detectProposedChanges(result: unknown): ProposedChanges | undefi
     ];
   });
   if (changes.length === 0) return undefined;
-  return { ...(str(obj.summary) ? { summary: str(obj.summary) } : {}), changes };
+  const posture = changePostureOf(obj.posture);
+  const primaryAction =
+    obj.primaryAction === 'save_draft' || obj.primaryAction === 'confirm' ? obj.primaryAction : undefined;
+  return {
+    ...(str(obj.summary) ? { summary: str(obj.summary) } : {}),
+    changes,
+    ...(posture ? { posture } : {}),
+    ...(primaryAction ? { primaryAction } : {}),
+  };
+}
+
+/**
+ * cloud#2924 — the posture as `postureEnvelope` writes it. `mode` and
+ * `liveRecords` are the declared required pair: a value missing either is not
+ * a posture, and nothing of it is kept.
+ */
+function changePostureOf(raw: unknown): ChangePosture | undefined {
+  const r = recordOf(raw);
+  if (!r || (r.mode !== 'draft' && r.mode !== 'publish') || !isCount(r.liveRecords)) return undefined;
+  return {
+    mode: r.mode,
+    liveRecords: r.liveRecords,
+    ...(r.platformPackage === true ? { platformPackage: true as const } : {}),
+    ...(isCount(r.buildTurnRows) ? { buildTurnRows: r.buildTurnRows } : {}),
+  };
+}
+
+/**
+ * cloud#2924 — `draftState` as `readDraftState` writes it. A state without its
+ * two counts is not one: the card's 撤销 warning reads `others`, and a guessed
+ * count would be worse than none.
+ */
+function draftStateOf(raw: unknown): ChangeDraftState | undefined {
+  const r = recordOf(raw);
+  if (!r || !isCount(r.pending) || !isCount(r.others)) return undefined;
+  const items = (Array.isArray(r.items) ? r.items : []).flatMap((i) => {
+    const it = recordOf(i);
+    return it && isText(it.type) && isText(it.name) ? [{ type: it.type, name: it.name }] : [];
+  });
+  return { pending: r.pending, items, others: r.others };
+}
+
+/** cloud#2924 — `existingRows`: the well-formed lines only; none left is no key. */
+function existingRowsOf(raw: unknown): ExistingRowsLine[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const rows = raw.flatMap((l) => {
+    const r = recordOf(l);
+    return r && isText(r.object) && isText(r.field) && isText(r.label) && isCount(r.rows)
+      ? [{ object: r.object, field: r.field, label: r.label, rows: r.rows }]
+      : [];
+  });
+  return rows.length > 0 ? rows : undefined;
+}
+
+/** cloud#2924 — `appliedCard`: a title is required; its lines are the non-empty strings. */
+function appliedCardOf(raw: unknown): AppliedCard | undefined {
+  const r = recordOf(raw);
+  if (!r || !isText(r.title)) return undefined;
+  const lines = Array.isArray(r.lines) ? r.lines.filter(isText) : [];
+  return { title: r.title, lines };
 }
 
 /**
@@ -701,6 +826,16 @@ export interface ReplayOutcome {
    * so the card never says 未生效 over a change that actually landed.
    */
   dispatchError?: boolean;
+  /**
+   * objectui#12894 — on a `drafted` outcome only, what cloud#2924's
+   * `describeLandedChange` stamps after the change landed: the package's
+   * pending drafts, the existing rows a new field leaves empty, and the
+   * applied card's title and lines. Each is absent from an older cloud, and
+   * the card then draws the drafted badge as before.
+   */
+  draftState?: ChangeDraftState;
+  existingRows?: ExistingRowsLine[];
+  appliedCard?: AppliedCard;
 }
 
 export function detectReplayOutcome(
@@ -735,7 +870,16 @@ export function detectReplayOutcome(
       ...packageId,
     };
   }
-  return { kind: 'drafted', ...packageId };
+  const draftState = draftStateOf(obj.draftState);
+  const existingRows = existingRowsOf(obj.existingRows);
+  const appliedCard = appliedCardOf(obj.appliedCard);
+  return {
+    kind: 'drafted',
+    ...packageId,
+    ...(draftState ? { draftState } : {}),
+    ...(existingRows ? { existingRows } : {}),
+    ...(appliedCard ? { appliedCard } : {}),
+  };
 }
 
 /**

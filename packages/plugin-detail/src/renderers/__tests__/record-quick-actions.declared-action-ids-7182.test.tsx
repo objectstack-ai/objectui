@@ -31,7 +31,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { ActionProvider, MetadataCtx, RecordContextProvider } from '@object-ui/react';
+import { ActionProvider, MetadataCtx, PreviewModeProvider, RecordContextProvider } from '@object-ui/react';
 import type { MetadataContextValue } from '@object-ui/react';
 import { RecordQuickActionsRenderer } from '../record-quick-actions';
 
@@ -77,16 +77,17 @@ const METADATA: MetadataContextValue = {
   getTypeStatus: () => 'ready' as const,
 };
 
-function mount(schema: Record<string, unknown>) {
-  return render(
+function mount(schema: Record<string, unknown>, opts: { preview?: boolean } = {}) {
+  const tree = (
     <MetadataCtx.Provider value={METADATA}>
       <ActionProvider context={{ user: USER } as any}>
         <RecordContextProvider objectName="lead" recordId={RECORD.id} data={RECORD}>
           <RecordQuickActionsRenderer schema={schema as any} />
         </RecordContextProvider>
       </ActionProvider>
-    </MetadataCtx.Provider>,
+    </MetadataCtx.Provider>
   );
+  return render(opts.preview ? <PreviewModeProvider>{tree}</PreviewModeProvider> : tree);
 }
 
 /** Ordered accessible names of the buttons in the bar; `[]` when the bar drew none. */
@@ -173,8 +174,9 @@ describe('record:quick_actions — declared action ids through the shared rule (
   it('a lone unresolvable id renders the empty placeholder, not a refusal', async () => {
     // The control that separates "refused" from "resolved to nothing": a typo
     // is an all-id array that resolves nothing, and the bar says so in its
-    // ordinary empty state.
-    mount({ actions: ['covert_lead'] });
+    // ordinary empty state — developer copy, so drawn on a design / preview
+    // surface only (objectui#12995).
+    mount({ actions: ['covert_lead'] }, { preview: true });
     expect(await screen.findByText(/no actions configured/i)).toBeInTheDocument();
     expect(getItem).toHaveBeenCalledWith('object', 'lead');
     expect(errorMessages().filter((m) => m.includes('refused'))).toEqual([]);

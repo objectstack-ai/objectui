@@ -16,7 +16,7 @@
  */
 
 import React from 'react';
-import { useRecordContext, useActionEngine, useMetadataItem, useCondition, toPredicateInput, useActionTextLocalizer } from '@object-ui/react';
+import { useRecordContext, useActionEngine, useMetadataItem, useCondition, toPredicateInput, useActionTextLocalizer, usePreviewMode } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import {
   Button,
@@ -175,6 +175,15 @@ const RecordQuickActionsBody: React.FC<RecordQuickActionsRendererProps> = ({
     block: 'record:quick_actions',
   });
   const perms = usePermissions();
+  /**
+   * Is this bar drawn on a design / metadata preview surface (the Studio page
+   * canvas) rather than a live runtime route? The existing `@object-ui/react`
+   * signal, set by the preview surfaces that mount `PreviewModeProvider`; it
+   * defaults to `false`, so every runtime view reads "not authoring". Read up
+   * here with the other hooks because of the early returns below
+   * (objectui#12995).
+   */
+  const authoring = usePreviewMode();
   // The ONE resolver for a declared action's authored strings (objectui#4265).
   // This bar used to localize the button `label` only, while `executeAction`
   // ran the RAW def looked up out of the object's metadata — so its confirm
@@ -322,7 +331,25 @@ const RecordQuickActionsBody: React.FC<RecordQuickActionsRendererProps> = ({
 
   const visibleActions = actions.length > 0 && !noRecord ? getActionsForLocation(location) : [];
 
+  /**
+   * The empty bar (objectui#12995). Three different facts reach an empty
+   * `visibleActions`, and only one of them is an authoring slip:
+   *
+   *   - the block NAMES actions (`actions` above is the block's own declared
+   *     list, resolved — before the engine's location / capability / `visible`
+   *     filters ran) and every one was withheld, hidden or has no record to
+   *     run against → draw NOTHING, as the record header and the row menu do
+   *     for a fully withheld set. The block is told apart from "named none" by
+   *     its declared list, ⛔ never by re-running the capability check: that
+   *     check is `getActionsForLocation`'s alone.
+   *   - the block names NO action (or only ids that resolve to none) → the
+   *     dashed placeholder is developer copy, so it is drawn on a design /
+   *     preview surface only; a runtime view draws nothing.
+   *   - the declared array was REFUSED → unchanged: the refusal is named on
+   *     the surface and in the console (objectui#7182).
+   */
   if (visibleActions.length === 0) {
+    if (declared.kind !== 'refused' && (actions.length > 0 || !authoring)) return null;
     return (
       <div className={className} {...designer}>
         <div className="text-xs text-muted-foreground italic px-3 py-2 border border-dashed rounded">

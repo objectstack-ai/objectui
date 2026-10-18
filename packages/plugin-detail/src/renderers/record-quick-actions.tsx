@@ -209,7 +209,8 @@ const RecordQuickActionsBody: React.FC<RecordQuickActionsRendererProps> = ({
   // A record context that names an object but NO record has nothing to run a
   // record action against. That is what a `dataSource` binding matching no row
   // provides (objectui#12294, `./recordBinding`): the bar then offers no action
-  // and draws its empty state, the 0-row semantics of a bound record block.
+  // and draws nothing, the 0-row semantics of a bound record block (the empty
+  // bar's rules are below, objectui#12995).
   // The record page always names its record, so its bar is unaffected.
   const noRecord = ctx != null && ctx.recordId == null;
 
@@ -345,11 +346,16 @@ const RecordQuickActionsBody: React.FC<RecordQuickActionsRendererProps> = ({
    *   - the block names NO action (or only ids that resolve to none) → the
    *     dashed placeholder is developer copy, so it is drawn on a design /
    *     preview surface only; a runtime view draws nothing.
-   *   - the declared array was REFUSED → unchanged: the refusal is named on
-   *     the surface and in the console (objectui#7182).
+   *   - the declared array was REFUSED (objectui#7182) → the console error
+   *     above names it in every view; the dashed "refused at index N" box is
+   *     developer copy too, so it is drawn on a design / preview surface only
+   *     and a runtime view draws nothing (objectui#13000).
+   *
+   * Only an authoring surface reaches the placeholder at all, and there only
+   * when nothing was named that could be withheld.
    */
   if (visibleActions.length === 0) {
-    if (declared.kind !== 'refused' && (actions.length > 0 || !authoring)) return null;
+    if (!authoring || (declared.kind !== 'refused' && actions.length > 0)) return null;
     return (
       <div className={className} {...designer}>
         <div className="text-xs text-muted-foreground italic px-3 py-2 border border-dashed rounded">

@@ -25,6 +25,12 @@
  * applies to an already-resolved list — `locations` (`list_only` never renders
  * here) and `requiredPermissions` (`gated` is denied for this user) — so one
  * equivalence assertion measures both.
+ *
+ * The dashed "refused at index N (see console)" box is developer copy, drawn
+ * on a design / preview surface only (objectui#13000): the refusal cases that
+ * read it mount under `PreviewModeProvider`, and one more case pins that a
+ * runtime view of a refused array draws nothing while the console error still
+ * fires.
  */
 
 import * as React from 'react';
@@ -146,7 +152,7 @@ describe('record:quick_actions — declared action ids through the shared rule (
   });
 
   it('refuses a mixed id/object array — no buttons, and the placeholder and the console name the offending index', async () => {
-    const { container } = mount({ actions: ['convert', ACTIONS.qualify] });
+    const { container } = mount({ actions: ['convert', ACTIONS.qualify] }, { preview: true });
     // The refusal is visible on the surface, not only in the console.
     expect(await screen.findByText(/actions refused at index 1/i)).toBeInTheDocument();
     expect(buttonNames(container)).toEqual([]);
@@ -163,12 +169,28 @@ describe('record:quick_actions — declared action ids through the shared rule (
   });
 
   it('refuses a mixed `actionNames` array under the key it was authored on', async () => {
-    const { container } = mount({ actionNames: [ACTIONS.convert, 'qualify'] });
+    const { container } = mount({ actionNames: [ACTIONS.convert, 'qualify'] }, { preview: true });
     expect(await screen.findByText(/actionNames refused at index 1/i)).toBeInTheDocument();
     expect(buttonNames(container)).toEqual([]);
     const hits = errorMessages().filter((m) => m.includes('[record:quick_actions] actionNames refused'));
     expect(hits.length).toBe(1);
     expect(hits[0]).toContain('element 1 is an action id but element 0 is an inline action object');
+  });
+
+  it('a refused array draws nothing in a runtime view, and the console still names the offending index', () => {
+    // A refusal at index 2, not the index-1 arrays above: the reporter's
+    // warn-once ledger is keyed by index and message, so a repeat of an
+    // earlier refusal would be silenced and the console half could not be read.
+    const { container } = mount({ actions: ['convert', 'qualify', ACTIONS.list_only] });
+    expect(screen.queryByText(/refused at index/i)).toBeNull();
+    expect(screen.queryByText(/no actions configured/i)).toBeNull();
+    expect(buttonNames(container)).toEqual([]);
+    expect(container.textContent).toBe('');
+    expect(getItem).not.toHaveBeenCalled();
+
+    const hits = errorMessages().filter((m) => m.includes('[record:quick_actions] actions refused'));
+    expect(hits.length).toBe(1);
+    expect(hits[0]).toContain('refused at index 2');
   });
 
   it('a lone unresolvable id renders the empty placeholder, not a refusal', async () => {

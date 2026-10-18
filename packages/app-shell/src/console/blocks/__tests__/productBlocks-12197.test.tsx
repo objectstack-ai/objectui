@@ -24,7 +24,7 @@ import '@object-ui/components';
 import { ComponentRegistry } from '@object-ui/core';
 import { I18nProvider } from '@object-ui/i18n';
 import { SchemaRenderer, SchemaRendererContext } from '@object-ui/react';
-import type { DeclaredNode } from '@object-ui/types';
+import type { ChecklistBlockItem, DeclaredNode } from '@object-ui/types';
 import '../productBlocks';
 import { usageBarPercent } from '../productBlocks';
 
@@ -157,7 +157,7 @@ describe('usage-bar', () => {
 });
 
 describe('checklist', () => {
-  const ITEMS = [
+  const ITEMS: ChecklistBlockItem[] = [
     { label: 'Create an environment', done: true },
     { label: 'Invite a teammate', done: false, action: { type: 'element:button', properties: { label: 'Invite' } } },
   ];

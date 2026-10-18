@@ -24,7 +24,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import type { BaseSchema, DataSource } from '@object-ui/types';
 import type { ElementApiDataSource } from '@objectstack/spec/ui';
 import { SchemaRenderer } from '../../SchemaRenderer';
-import { SchemaRendererContext } from '../../context/SchemaRendererContext';
+import { SchemaRendererContext, type ApiFetch } from '../../context/SchemaRendererContext';
 import { useConfigBagEvaluator } from '../../hooks/useConfigBagEvaluator';
 import { selectElementApiPath } from '../useElementApiDataSource';
 
@@ -59,7 +59,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-function renderWithFetch(schema: ApiProbeNode, apiFetch: ReturnType<typeof vi.fn>) {
+function renderWithFetch(schema: ApiProbeNode, apiFetch: ApiFetch) {
   return render(
     <SchemaRendererContext.Provider value={{ dataSource: null as DataSource | null, apiFetch }}>
       <SchemaRenderer schema={schema} />
@@ -76,7 +76,7 @@ describe('the API binding of a page element (objectui#12197)', () => {
   });
 
   it('reads a same-origin endpoint through the host fetch and binds the selected value as `data`', async () => {
-    const apiFetch = vi.fn(async () => jsonResponse(HOME));
+    const apiFetch = vi.fn<ApiFetch>(async () => jsonResponse(HOME));
     renderWithFetch(
       {
         type: 'api-probe',
@@ -96,7 +96,7 @@ describe('the API binding of a page element (objectui#12197)', () => {
   });
 
   it('decides `visibleWhen` against the bound `data`', async () => {
-    const apiFetch = vi.fn(async () => jsonResponse(HOME));
+    const apiFetch = vi.fn<ApiFetch>(async () => jsonResponse(HOME));
     const { container } = renderWithFetch(
       {
         type: 'api-probe',
@@ -113,7 +113,7 @@ describe('the API binding of a page element (objectui#12197)', () => {
   });
 
   it('shows the node when `visibleWhen` holds against the bound `data` (control)', async () => {
-    const apiFetch = vi.fn(async () => jsonResponse(HOME));
+    const apiFetch = vi.fn<ApiFetch>(async () => jsonResponse(HOME));
     renderWithFetch(
       {
         type: 'api-probe',
@@ -127,7 +127,7 @@ describe('the API binding of a page element (objectui#12197)', () => {
   });
 
   it('refuses a cross-origin `url` with the spec\'s message and sends no request', () => {
-    const apiFetch = vi.fn(async () => jsonResponse(HOME));
+    const apiFetch = vi.fn<ApiFetch>(async () => jsonResponse(HOME));
     renderWithFetch(
       {
         type: 'api-probe',
@@ -143,7 +143,7 @@ describe('the API binding of a page element (objectui#12197)', () => {
   });
 
   it('refuses a protocol-relative `url` too', () => {
-    const apiFetch = vi.fn(async () => jsonResponse(HOME));
+    const apiFetch = vi.fn<ApiFetch>(async () => jsonResponse(HOME));
     renderWithFetch(
       { type: 'api-probe', dataSource: { provider: 'api', read: { url: '//evil.example/x' } } },
       apiFetch,
@@ -153,7 +153,7 @@ describe('the API binding of a page element (objectui#12197)', () => {
   });
 
   it('reports a failed read instead of rendering the node without its data', async () => {
-    const apiFetch = vi.fn(async () => jsonResponse({ error: 'nope' }, 503));
+    const apiFetch = vi.fn<ApiFetch>(async () => jsonResponse({ error: 'nope' }, 503));
     renderWithFetch(
       { type: 'api-probe', dataSource: { provider: 'api', read: { url: '/api/v1/cloud/home-503' } } },
       apiFetch,
@@ -164,7 +164,7 @@ describe('the API binding of a page element (objectui#12197)', () => {
   });
 
   it('reports a `path` that selects nothing, naming the missing segment', async () => {
-    const apiFetch = vi.fn(async () => jsonResponse(HOME));
+    const apiFetch = vi.fn<ApiFetch>(async () => jsonResponse(HOME));
     renderWithFetch(
       {
         type: 'api-probe',
@@ -177,7 +177,7 @@ describe('the API binding of a page element (objectui#12197)', () => {
   });
 
   it('leaves a node without an API binding untouched: no request, no `data` root', () => {
-    const apiFetch = vi.fn(async () => jsonResponse(HOME));
+    const apiFetch = vi.fn<ApiFetch>(async () => jsonResponse(HOME));
     renderWithFetch({ type: 'api-probe', properties: { content: 'plain' } }, apiFetch);
     expect(screen.getByTestId('api-probe-content').textContent).toBe('plain');
     expect(apiFetch).not.toHaveBeenCalled();

@@ -3492,9 +3492,13 @@ const ru = {
   //                   against). `humanizeToolName` looks each up as
   //                   `chatbot.tool.<tool_name>` and falls back to its English
   //                   title-caser for a custom / third-party tool, so a name
-  //                   missing here is degraded, never broken. The `en` values
-  //                   are deliberately EQUAL to what that title-caser produces:
-  //                   adding the key must not silently reword the English UI.
+  //                   missing here is degraded, never broken. Every value, `en`
+  //                   included, is a short sentence in the pack's language
+  //                   saying what the step does (cloud#2927 Target 3, ruled
+  //                   「同意」; objectui#12724): never the tool id, and never
+  //                   the title-caser's output for it, which is how the step
+  //                   reads for a tool the pack has no entry for.
+  //                   `toolLabels-locale-parity-7481` holds both.
   //   `toolState.*` — the card-header badge + activity-chip vocabulary. ONE
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
@@ -3513,41 +3517,41 @@ const ru = {
   // against the registry instead of against its own hand-held list.
   chatbot: {
     tool: {
-      aggregate_data: "Сводка данных",
-      get_record: "Получить запись",
-      query_data: "Запросить данные",
-      query_records: "Запросить записи",
-      search_knowledge: "Поиск по базе знаний",
-      visualize_data: "Построить график",
-      add_field: "Добавить поле",
-      apply_blueprint: "Собрать приложение",
-      apply_edit: "Применить изменения",
-      create_metadata: "Создать метаданные",
-      create_object: "Создать объект",
-      create_package: "Создать пакет",
-      create_seed: "Сгенерировать примеры данных",
-      delete_field: "Удалить поле",
-      describe_metadata: "Посмотреть метаданные",
-      describe_object: "Посмотреть структуру объекта",
-      get_active_package: "Получить активный пакет",
-      get_authoring_rules: "Читать правила разработки",
-      get_metadata_schema: "Получить схему метаданных",
-      get_package: "Получить пакет",
-      list_metadata: "Список метаданных",
-      list_objects: "Список объектов",
-      list_packages: "Список пакетов",
-      load_tools: "Загрузить инструменты",
-      modify_field: "Изменить поле",
-      open_record: "Открыть запись",
-      propose_blueprint: "Спроектировать приложение",
-      set_active_package: "Сменить активный пакет",
-      suggest_builder: "Предложить способ сборки",
-      test_flow: "Проверить процесс",
-      todo_write: "Записать задачи",
-      toggle_flow: "Включить или выключить процесс",
-      update_metadata: "Обновить метаданные",
-      validate_expression: "Проверить выражение",
-      verify_build: "Проверить сборку",
+      aggregate_data: "Агрегировать данные",
+      get_record: "Прочитать запись",
+      query_data: "Запросить нужные данные",
+      query_records: "Найти нужные записи",
+      search_knowledge: "Поискать в базе знаний",
+      visualize_data: "Показать данные на графике",
+      add_field: "Добавить поле в объект",
+      apply_blueprint: "Собрать приложение по плану",
+      apply_edit: "Применить это изменение",
+      create_metadata: "Создать элемент метаданных",
+      create_object: "Создать новый объект",
+      create_package: "Создать новый пакет",
+      create_seed: "Сгенерировать примеры данных для объектов",
+      delete_field: "Удалить одно поле",
+      describe_metadata: "Изучить метаданные",
+      describe_object: "Изучить структуру объекта",
+      get_active_package: "Проверить активный пакет",
+      get_authoring_rules: "Прочитать правила разработки",
+      get_metadata_schema: "Изучить формат метаданных",
+      get_package: "Посмотреть сведения о пакете",
+      list_metadata: "Перечислить имеющиеся метаданные",
+      list_objects: "Перечислить имеющиеся объекты",
+      list_packages: "Перечислить имеющиеся пакеты",
+      load_tools: "Загрузить другие инструменты",
+      modify_field: "Изменить одно поле",
+      open_record: "Открыть эту запись",
+      propose_blueprint: "Составить план приложения",
+      set_active_package: "Переключиться на нужный пакет",
+      suggest_builder: "Предложить собрать с помощью ИИ",
+      test_flow: "Пробно запустить процесс",
+      todo_write: "Записать, что проверить позже",
+      toggle_flow: "Включить или отключить процесс",
+      update_metadata: "Обновить элемент метаданных",
+      validate_expression: "Проверить корректность выражения",
+      verify_build: "Сверить результат сборки",
     },
     toolState: {
       agentActivity: "Действия агента",
@@ -3592,6 +3596,8 @@ const ru = {
       awaitingConfirm: "Ожидает подтверждения",
       objectsAndFields: "Объекты и поля",
       views: "Представления",
+      suggestedField: "предложено",
+      nameField: "Название: {{field}}",
     },
     build: {
       building: "Создание {{app}}…",
@@ -3614,6 +3620,7 @@ const ru = {
       nextStepsLead: "Дальше можно сказать: {{steps}}",
       nextStepQuote: "«{{step}}»",
       draftPosture: "Дальнейшие изменения сохраняются как черновики, а публикуете их вы в Studio.",
+      checksPassed: "Проверки пройдены {{passed}}/{{total}}",
     },
   },
   chatbotError: {

@@ -5,8 +5,8 @@
  * objectui#12724 — the build conversation per the AiBuild artboard, the
  * halves that need no new payload:
  *
- *  1. Progress: ONE collapsed line per phase (「设计方案 · 4 步 · 0:48 · 读取编写
- *     规范 · 列出对象 ×3 …」), repeated calls folded into one step with a
+ *  1. Progress: ONE collapsed line per phase (「设计方案 · 4 步 · 0:48 · 查阅编写
+ *     规范 · 列出已有对象 ×3 …」), repeated calls folded into one step with a
  *     count, and a chevron that expands the per-tool rows.
  *  2. The finished build card: the 「已搭建并上线 · APP」 header when the build
  *     is live, 打开应用 (primary) and 在 Studio 中查看, the 「接下来可以说」 line
@@ -72,7 +72,7 @@ describe('objectui#12724 — the progress collapses to one line per phase', () =
     expect(screen.getAllByTestId('tool-phase')).toHaveLength(1);
     expect(screen.getByTestId('tool-phase-headline')).toHaveTextContent(/^设计方案 · 4 步 · 0:48$/);
     expect(screen.getByTestId('tool-phase-steps')).toHaveTextContent(
-      /^读取编写规范 · 列出对象 ×3 · 记录待办 ×2 · 设计应用方案$/,
+      /^查阅编写规范 · 列出已有对象 ×3 · 记下后续检查项 ×2 · 拟定应用方案$/,
     );
   });
 

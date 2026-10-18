@@ -3348,9 +3348,13 @@ const ja = {
   //                   against). `humanizeToolName` looks each up as
   //                   `chatbot.tool.<tool_name>` and falls back to its English
   //                   title-caser for a custom / third-party tool, so a name
-  //                   missing here is degraded, never broken. The `en` values
-  //                   are deliberately EQUAL to what that title-caser produces:
-  //                   adding the key must not silently reword the English UI.
+  //                   missing here is degraded, never broken. Every value, `en`
+  //                   included, is a short sentence in the pack's language
+  //                   saying what the step does (cloud#2927 Target 3, ruled
+  //                   「同意」; objectui#12724): never the tool id, and never
+  //                   the title-caser's output for it, which is how the step
+  //                   reads for a tool the pack has no entry for.
+  //                   `toolLabels-locale-parity-7481` holds both.
   //   `toolState.*` — the card-header badge + activity-chip vocabulary. ONE
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
@@ -3369,41 +3373,41 @@ const ja = {
   // against the registry instead of against its own hand-held list.
   chatbot: {
     tool: {
-      aggregate_data: "データを集計",
-      get_record: "レコードを取得",
-      query_data: "データを照会",
-      query_records: "レコードを照会",
-      search_knowledge: "ナレッジを検索",
-      visualize_data: "グラフを作成",
-      add_field: "項目を追加",
-      apply_blueprint: "アプリを構築",
-      apply_edit: "変更を適用",
-      create_metadata: "メタデータを作成",
-      create_object: "オブジェクトを作成",
-      create_package: "パッケージを作成",
-      create_seed: "サンプルデータを生成",
-      delete_field: "項目を削除",
-      describe_metadata: "メタデータを確認",
-      describe_object: "オブジェクト構造を確認",
-      get_active_package: "現在のパッケージを取得",
-      get_authoring_rules: "作成ルールを取得",
-      get_metadata_schema: "メタデータ構造を取得",
-      get_package: "パッケージを取得",
-      list_metadata: "メタデータ一覧",
-      list_objects: "オブジェクト一覧",
-      list_packages: "パッケージ一覧",
-      load_tools: "ツールを読み込む",
-      modify_field: "項目を変更",
-      open_record: "レコードを開く",
-      propose_blueprint: "アプリ設計案を作成",
-      set_active_package: "現在のパッケージを切替",
-      suggest_builder: "構築方法を提案",
-      test_flow: "フローをテスト",
-      todo_write: "タスクを記録",
-      toggle_flow: "フローの有効・無効を切り替え",
-      update_metadata: "メタデータを更新",
-      validate_expression: "式を検証",
-      verify_build: "構築結果を検証",
+      aggregate_data: "関連データを集計する",
+      get_record: "このレコードを読み込む",
+      query_data: "必要なデータを照会する",
+      query_records: "該当するレコードを探す",
+      search_knowledge: "ナレッジベースで調べる",
+      visualize_data: "データをグラフにする",
+      add_field: "オブジェクトに項目を追加する",
+      apply_blueprint: "設計案どおりにアプリを構築する",
+      apply_edit: "この変更を適用する",
+      create_metadata: "メタデータを新しく作成する",
+      create_object: "オブジェクトを新しく作成する",
+      create_package: "パッケージを新しく作成する",
+      create_seed: "オブジェクトのサンプルデータを生成する",
+      delete_field: "項目を削除する",
+      describe_metadata: "メタデータの内容を確認する",
+      describe_object: "オブジェクトの構造を確認する",
+      get_active_package: "現在のパッケージを確認する",
+      get_authoring_rules: "作成ルールを読む",
+      get_metadata_schema: "メタデータの形式を調べる",
+      get_package: "パッケージの情報を確認する",
+      list_metadata: "既存のメタデータを一覧表示する",
+      list_objects: "既存のオブジェクトを一覧表示する",
+      list_packages: "既存のパッケージを一覧表示する",
+      load_tools: "ほかのツールを読み込む",
+      modify_field: "項目を変更する",
+      open_record: "このレコードを開く",
+      propose_blueprint: "アプリの設計案をまとめる",
+      set_active_package: "対象のパッケージに切り替える",
+      suggest_builder: "AI での構築を提案する",
+      test_flow: "フローを試しに実行する",
+      todo_write: "あとで確認する項目を書き留める",
+      toggle_flow: "フローを有効または無効にする",
+      update_metadata: "メタデータを更新する",
+      validate_expression: "式が正しいか確認する",
+      verify_build: "構築結果を照合する",
     },
     toolState: {
       agentActivity: "エージェントの動作",
@@ -3440,6 +3444,8 @@ const ja = {
       awaitingConfirm: "確認待ち",
       objectsAndFields: "オブジェクトとフィールド",
       views: "ビュー",
+      suggestedField: "追加提案",
+      nameField: "名前：{{field}}",
     },
     build: {
       building: "{{app}}を構築しています…",
@@ -3462,6 +3468,7 @@ const ja = {
       nextStepsLead: "次はこう話しかけられます：{{steps}}",
       nextStepQuote: "「{{step}}」",
       draftPosture: "以降の変更は下書きとして保存され、Studio で公開します。",
+      checksPassed: "照合済み {{passed}}/{{total}}",
     },
   },
   chatbotError: {

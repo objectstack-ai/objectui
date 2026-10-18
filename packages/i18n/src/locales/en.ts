@@ -4013,9 +4013,13 @@ const en = {
   //                   against). `humanizeToolName` looks each up as
   //                   `chatbot.tool.<tool_name>` and falls back to its English
   //                   title-caser for a custom / third-party tool, so a name
-  //                   missing here is degraded, never broken. The `en` values
-  //                   are deliberately EQUAL to what that title-caser produces:
-  //                   adding the key must not silently reword the English UI.
+  //                   missing here is degraded, never broken. Every value, `en`
+  //                   included, is a short sentence in the pack's language
+  //                   saying what the step does (cloud#2927 Target 3, ruled
+  //                   「同意」; objectui#12724): never the tool id, and never
+  //                   the title-caser's output for it, which is how the step
+  //                   reads for a tool the pack has no entry for.
+  //                   `toolLabels-locale-parity-7481` holds both.
   //   `toolState.*` — the card-header badge + activity-chip vocabulary. ONE
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
@@ -4044,41 +4048,41 @@ const en = {
   // against the registry instead of against its own hand-held list.
   chatbot: {
     tool: {
-      aggregate_data: 'Aggregate data',
-      get_record: 'Get record',
-      query_data: 'Query data',
-      query_records: 'Query records',
-      search_knowledge: 'Search knowledge',
-      visualize_data: 'Visualize data',
-      add_field: 'Add field',
-      apply_blueprint: 'Apply blueprint',
-      apply_edit: 'Apply edit',
-      create_metadata: 'Create metadata',
-      create_object: 'Create object',
-      create_package: 'Create package',
-      create_seed: 'Create seed',
-      delete_field: 'Delete field',
-      describe_metadata: 'Describe metadata',
-      describe_object: 'Describe object',
-      get_active_package: 'Get active package',
-      get_authoring_rules: 'Get authoring rules',
-      get_metadata_schema: 'Get metadata schema',
-      get_package: 'Get package',
-      list_metadata: 'List metadata',
-      list_objects: 'List objects',
-      list_packages: 'List packages',
-      load_tools: 'Load tools',
-      modify_field: 'Modify field',
-      open_record: 'Open record',
-      propose_blueprint: 'Propose blueprint',
-      set_active_package: 'Set active package',
-      suggest_builder: 'Suggest builder',
-      test_flow: 'Test flow',
-      todo_write: 'Todo write',
-      toggle_flow: 'Toggle flow',
-      update_metadata: 'Update metadata',
-      validate_expression: 'Validate expression',
-      verify_build: 'Verify build',
+      aggregate_data: 'Aggregate the data',
+      get_record: 'Read the record',
+      query_data: 'Query the data',
+      query_records: 'Look up the records',
+      search_knowledge: 'Search the knowledge base',
+      visualize_data: 'Chart the data',
+      add_field: 'Add a field',
+      apply_blueprint: 'Build the app from the plan',
+      apply_edit: 'Apply the change',
+      create_metadata: 'Create a metadata item',
+      create_object: 'Create an object',
+      create_package: 'Create a package',
+      create_seed: 'Generate sample data',
+      delete_field: 'Delete a field',
+      describe_metadata: 'Look at the metadata',
+      describe_object: 'Look at the object structure',
+      get_active_package: 'Check the active package',
+      get_authoring_rules: 'Read the authoring rules',
+      get_metadata_schema: 'Read the metadata format',
+      get_package: 'Look at the package',
+      list_metadata: 'List the existing metadata',
+      list_objects: 'List the existing objects',
+      list_packages: 'List the existing packages',
+      load_tools: 'Load more tools',
+      modify_field: 'Change a field',
+      open_record: 'Open the record',
+      propose_blueprint: 'Draft the app plan',
+      set_active_package: 'Switch to the target package',
+      suggest_builder: 'Suggest building it with AI',
+      test_flow: 'Try out the flow',
+      todo_write: 'Note follow-up checks',
+      toggle_flow: 'Turn the flow on or off',
+      update_metadata: 'Update a metadata item',
+      validate_expression: 'Check the expression',
+      verify_build: 'Check the build',
     },
     toolState: {
       agentActivity: 'Agent activity',
@@ -4115,6 +4119,8 @@ const en = {
       awaitingConfirm: 'Awaiting confirmation',
       objectsAndFields: 'Objects and fields',
       views: 'Views',
+      suggestedField: 'suggested',
+      nameField: 'Name: {{field}}',
     },
     build: {
       building: 'Building {{app}}…',
@@ -4137,6 +4143,7 @@ const en = {
       nextStepsLead: 'Next, you can say: {{steps}}',
       nextStepQuote: '“{{step}}”',
       draftPosture: 'Later changes are saved as drafts, and you publish them in Studio.',
+      checksPassed: 'Checks passed {{passed}}/{{total}}',
     },
   },
   chatbotError: {

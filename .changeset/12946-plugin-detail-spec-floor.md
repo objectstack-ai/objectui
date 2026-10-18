@@ -10,4 +10,4 @@ Since objectui#12922 the published `dist/synth/buildDefaultPageSchema.d.ts` impo
 
 A consumer whose `@objectstack/spec` resolves to `18.0.0-next.1` or `18.0.0-next.2` moves it to `18.0.0-next.3` or later. An install that resolves the newest `next` is unaffected.
 
-This package is the exception to the `18.0.0-next.3` note that every package keeps its `@objectstack/*` range. No export, prop, key or schema of the package changes, and no other package's range moves.
+This package is one of the two exceptions the `18.0.0-next.3` note names to its statement that every package keeps its `@objectstack/*` range; the other is `@object-ui/app-shell` (objectui#12943). No export, prop, key or schema of the package changes, and this change moves no other package's range.

@@ -1649,18 +1649,17 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * refuses any term with `400 INVALID_FIELD`: no quick-search box, and a term
    * restored at mount or carried across a view switch is not applied, for the
    * same two-readers reason as `searchlessViewOnScreen` above. Decided only
-   * once the definition has been read and only from it
-   * (`objectResolvesSearch`); a definition the data source cannot serve keeps
-   * the box, as before.
+   * from the definition (`objectResolvesSearch`); a definition the data source
+   * cannot serve keeps the box, as before.
+   *
+   * Until the definition is read the box is drawn, as before the card. On a
+   * searchless object it is withdrawn when the read lands; the list is in its
+   * loading state for that read anyway, since the data fetch waits on it.
    */
   const searchlessObject = React.useMemo(
     () => objectResolvesSearch(objectDef) === false,
     [objectDef],
   );
-  // The box waits for the definition read to settle rather than drawing and
-  // then withdrawing itself on a searchless object. Nothing searches before
-  // then anyway: the data fetch waits on the same flag.
-  const searchDecided = objectDefLoaded;
 
   // Resolve toolbar visibility flags: userActions overrides showX flags
   const toolbarFlags = React.useMemo(() => {
@@ -1691,7 +1690,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     return {
       // Not offered on `tree` or `chart`: see `searchlessViewOnScreen`.
       // Nor on an object whose search resolves to no field: see `searchlessObject`.
-      showSearch: ua?.search !== false && !searchlessViewOnScreen && searchDecided && !searchlessObject,
+      showSearch: ua?.search !== false && !searchlessViewOnScreen && !searchlessObject,
       showSort: ua?.sort !== false,
       // Not offered on a dataset-bound chart: see `datasetChartOnScreen`.
       showFilters: ua?.filter !== false && !datasetChartOnScreen,
@@ -1712,7 +1711,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       showAddRecordTop: addRecordEnabled && addRecordPlacement.top,
       showAddRecordBottom: addRecordEnabled && addRecordPlacement.bottom,
     };
-  }, [schema.userActions, schema.compactToolbar, schema.addRecord, datasetChartOnScreen, searchlessViewOnScreen, searchDecided, searchlessObject]);
+  }, [schema.userActions, schema.compactToolbar, schema.addRecord, datasetChartOnScreen, searchlessViewOnScreen, searchlessObject]);
 
   // What the user typed, or what the host restored at mount.
   const [searchInput, setSearchInput] = React.useState(() => initialSearchTerm ?? '');

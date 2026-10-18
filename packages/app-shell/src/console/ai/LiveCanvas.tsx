@@ -41,6 +41,13 @@ export interface LiveCanvasProps {
    * False (default) keeps the ADR-0037 draft-overlay preview for mutations.
    */
   materialized?: boolean;
+  /**
+   * objectui#12968 — the full router path to preview, beside the app segment:
+   * a drafted page, view or object surface (`draftPreviewPath`'s answer,
+   * `/apps/<segment>/…?preview=draft`) instead of the app's landing. Ignored
+   * once `materialized`, which shows the real app.
+   */
+  path?: string;
   /** Bump to reload the pane (the host coalesces invalidation storms). */
   refreshKey: number;
   onClose: () => void;
@@ -56,13 +63,17 @@ function spaBase(): string {
   return window.location.pathname.startsWith('/_console') ? '/_console' : '';
 }
 
-/** Canvas iframe target: the REAL app once materialized, the draft overlay otherwise. */
-function canvasSrc(appName: string, materialized: boolean): string {
+/**
+ * Canvas iframe target: the REAL app once materialized; otherwise the drafted
+ * surface's path when the host named one, else the app in the draft overlay.
+ */
+function canvasSrc(appName: string, materialized: boolean, path?: string): string {
   const base = `${spaBase()}/apps/${encodeURIComponent(appName)}`;
-  return materialized ? base : `${base}?preview=draft`;
+  if (materialized) return base;
+  return path ? `${spaBase()}${path}` : `${base}?preview=draft`;
 }
 
-export function LiveCanvas({ appName, appSegment, materialized = false, refreshKey, onClose }: LiveCanvasProps) {
+export function LiveCanvas({ appName, appSegment, materialized = false, path, refreshKey, onClose }: LiveCanvasProps) {
   const { t } = useObjectTranslation();
   const navigate = useNavigate();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -72,13 +83,13 @@ export function LiveCanvas({ appName, appSegment, materialized = false, refreshK
   // navigates it in place (no white-flash remount).
   useEffect(() => {
     if (!iframeRef.current) return;
-    const next = canvasSrc(routeSeg, materialized);
+    const next = canvasSrc(routeSeg, materialized, path);
     try {
       if (iframeRef.current.getAttribute('src') !== next) iframeRef.current.setAttribute('src', next);
     } catch {
       /* not ready — the mount src covers it */
     }
-  }, [routeSeg, materialized]);
+  }, [routeSeg, materialized, path]);
 
   // Refresh in place (src reload) instead of remounting the iframe — keeps
   // the pane from flashing white on every invalidation.
@@ -133,7 +144,7 @@ export function LiveCanvas({ appName, appSegment, materialized = false, refreshK
       <iframe
         ref={iframeRef}
         title={`Draft preview: ${appName}`}
-        src={canvasSrc(routeSeg, materialized)}
+        src={canvasSrc(routeSeg, materialized, path)}
         className="h-full w-full flex-1 border-0 bg-background"
         data-testid="live-canvas-frame"
       />

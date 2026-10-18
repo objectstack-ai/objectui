@@ -48,3 +48,40 @@ describe('LiveCanvas — Design in Studio bridge', () => {
     expect(screen.getByTestId('live-canvas-close')).toBeInTheDocument();
   });
 });
+
+describe('LiveCanvas — a drafted surface beside the app segment (objectui#12968)', () => {
+  it('opens the full preview path the host names, in draft preview', () => {
+    render(
+      <LiveCanvas
+        appName="app.crm"
+        appSegment="app.crm"
+        path="/apps/app.crm/crm_account/view/crm_account.pipeline?preview=draft"
+        refreshKey={0}
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('live-canvas-frame')).toHaveAttribute(
+      'src',
+      '/apps/app.crm/crm_account/view/crm_account.pipeline?preview=draft',
+    );
+  });
+
+  it('CONTROL: without a path the canvas opens the app in draft preview, as before', () => {
+    render(<LiveCanvas appName="crm" appSegment="app.crm" refreshKey={0} onClose={() => {}} />);
+    expect(screen.getByTestId('live-canvas-frame')).toHaveAttribute('src', '/apps/app.crm?preview=draft');
+  });
+
+  it('a materialized build shows the real app, whatever path was named', () => {
+    render(
+      <LiveCanvas
+        appName="crm"
+        appSegment="app.crm"
+        materialized
+        path="/apps/app.crm/crm_account?preview=draft"
+        refreshKey={0}
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('live-canvas-frame')).toHaveAttribute('src', '/apps/app.crm');
+  });
+});

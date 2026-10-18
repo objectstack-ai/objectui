@@ -113,6 +113,7 @@ import {
   type ShortcutLabelTranslate,
 } from '../../chrome/advertisedShortcuts.js';
 import { fetchPendingDraftCount } from '../../preview/draftStatus.js';
+import { draftPreviewPath } from '../../preview/draftSurface.js';
 import { emitMetadataRefresh, publishPlanApprovalPending } from '../../assistant/assistantBus.js';
 import { getRuntimeConfig, isAiStudioEnabled } from '../../runtime-config.js';
 import { makerConvergedOnBuild, makerVisibleAgents } from '../../hooks/surfaceAgent.js';
@@ -1748,7 +1749,11 @@ export function ChatPane({
   // drafted app rendered as-if-published (`?preview=draft`) beside the chat.
   // Per-artifact signals coalesce (800 ms) into one pane refresh so a
   // whole-app build doesn't trigger an invalidation storm.
-  const [canvasApp, setCanvasApp] = useState<{ name: string; segment?: string; materialized: boolean } | null>(null);
+  // objectui#12968 — `path`: a drafted page / view / object surface to show
+  // instead of the app's landing (`draftPreviewPath`, `onPreviewDraft` below).
+  const [canvasApp, setCanvasApp] = useState<
+    { name: string; segment?: string; materialized: boolean; path?: string } | null
+  >(null);
   const [canvasRefreshKey, setCanvasRefreshKey] = useState(0);
   // #2481 — a phone can't do the beside-chat split (chat's fixed min-width +
   // the preview together overflow the viewport, and the resize handle is
@@ -2835,6 +2840,20 @@ export function ChatPane({
           // phone open the full-screen overlay (desktop shows the split pane).
           if (isMobile) setMobileCanvasOpen(true);
         }}
+        // objectui#12968 (objectstack#24324 ruling A) — any other draft's
+        // Preview: the Live Canvas opens the affected surface (a page, the
+        // object's list on a view, the object's default list) in draft
+        // preview, at the path `draftPreviewPath` builds from the drafted
+        // items in the app routed at the package id (ADR-0048).
+        onPreviewDraft={(items, { appSegment }) => {
+          setCanvasApp({
+            name: appSegment,
+            segment: appSegment,
+            materialized: false,
+            path: draftPreviewPath(items, appSegment),
+          });
+          if (isMobile) setMobileCanvasOpen(true);
+        }}
         // ADR-0045: build materialized → canvas leaves the draft overlay for
         // the real (unlisted) app; the reload shows live seed rows.
         onBuildMaterialized={handleBuildMaterialized}
@@ -2876,6 +2895,7 @@ export function ChatPane({
             appName={canvasApp!.name}
             appSegment={canvasApp!.segment}
             materialized={canvasApp!.materialized}
+            path={canvasApp!.path}
             refreshKey={canvasRefreshKey}
             onClose={() => setCanvasApp(null)}
           />
@@ -2913,6 +2933,7 @@ export function ChatPane({
                 appName={canvasApp.name}
                 appSegment={canvasApp.segment}
                 materialized={canvasApp.materialized}
+                path={canvasApp.path}
                 refreshKey={canvasRefreshKey}
                 // Close returns to the chat; the pill re-offers the preview.
                 onClose={() => setMobileCanvasOpen(false)}

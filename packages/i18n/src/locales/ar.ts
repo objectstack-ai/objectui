@@ -2831,6 +2831,11 @@ const ar = {
     allDocs: 'كل الوثائق',
     onlineDocs: 'الوثائق عبر الإنترنت',
     loadingDocumentation: 'جارٍ تحميل الوثائق',
+    about: 'حول',
+    aboutTitle: 'حول وحدة التحكم هذه',
+    aboutDescription: 'الإصدار الذي بُنيت منه وحدة التحكم هذه.',
+    aboutBuild: 'إصدار وحدة التحكم',
+    aboutBuildUnknown: 'إصدار غير معروف (لم يُحدَّد أي إصدار عند بناء وحدة التحكم هذه)',
   },
   sidebar: {
     packageManagement: "إدارة الحزم",

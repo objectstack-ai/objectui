@@ -2698,6 +2698,11 @@ const zh = {
     allDocs: '全部文档',
     onlineDocs: '在线文档',
     loadingDocumentation: '正在加载文档',
+    about: '关于',
+    aboutTitle: '关于此控制台',
+    aboutDescription: '此控制台编译所用的构建。',
+    aboutBuild: '控制台构建',
+    aboutBuildUnknown: '未知构建（构建此控制台时未设置版本）',
   },
   sidebar: {
     settings: '设置',

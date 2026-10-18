@@ -8,6 +8,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
 import zlib from 'node:zlib';
+import { execFileSync } from 'node:child_process';
 // Relative specifiers carry their real file extension, and `__dirname` is
 // spelled `import.meta.dirname` throughout this file, so the config stays
 // loadable by Vite's `configLoader: 'native'` — which imports this file with
@@ -587,6 +588,27 @@ function serveRuntimeAssets(): Plugin {
 // stable across HTML revisions.
 const basePath = process.env.VITE_BASE_PATH || './';
 
+// The console's build identity (objectui#12970): `VITE_APP_VERSION` from the
+// build's environment when it is set (a CI or Docker build passes the objectui
+// commit), else the short sha of `HEAD` read from git right here, so a local
+// build names its commit too. Baked as `import.meta.env.VITE_APP_VERSION` — the
+// one spelling `@object-ui/app-shell`'s `buildIdentity.ts` reads for both the
+// help menu's About dialog and Sentry's release fallback. With neither (a build
+// context without `.git`), nothing is baked and the dialog says the build is
+// unknown. `rev-parse` answers in a shallow clone and on a detached HEAD alike.
+function readGitShortSha(): string {
+  try {
+    return execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
+      cwd: import.meta.dirname,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return '';
+  }
+}
+const consoleBuild = process.env.VITE_APP_VERSION?.trim() || readGitShortSha();
+
 // On Vercel/CI we skip the compression and visualizer plugins because the
 // Vercel CDN handles gzip/brotli automatically and bundle analysis is not
 // needed during CI builds.  This reduces peak memory by ~1.5 GB.
@@ -832,6 +854,7 @@ export default defineConfig({
     'process.env': {},
     'process.platform': '"browser"',
     'process.version': '"0.0.0"',
+    ...(consoleBuild ? { 'import.meta.env.VITE_APP_VERSION': JSON.stringify(consoleBuild) } : {}),
   },
 
   plugins: [

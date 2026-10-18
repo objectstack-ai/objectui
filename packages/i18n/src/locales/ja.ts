@@ -2621,6 +2621,11 @@ const ja = {
     allDocs: 'すべてのドキュメント',
     onlineDocs: 'オンラインドキュメント',
     loadingDocumentation: 'ドキュメントを読み込み中',
+    about: 'バージョン情報',
+    aboutTitle: 'このコンソールについて',
+    aboutDescription: 'このコンソールのコンパイル元となったビルドです。',
+    aboutBuild: 'コンソールのビルド',
+    aboutBuildUnknown: '不明なビルド（このコンソールのビルド時にバージョンが設定されていません）',
   },
   sidebar: {
     packageManagement: "パッケージ管理",

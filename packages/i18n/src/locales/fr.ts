@@ -2668,6 +2668,11 @@ const fr = {
     allDocs: 'Toute la documentation',
     onlineDocs: 'Documentation en ligne',
     loadingDocumentation: 'Chargement de la documentation',
+    about: 'À propos',
+    aboutTitle: 'À propos de cette console',
+    aboutDescription: 'Le build à partir duquel cette console a été compilée.',
+    aboutBuild: 'Build de la console',
+    aboutBuildUnknown: 'Build inconnu (aucune version n’a été définie lors de la compilation de cette console)',
   },
   sidebar: {
     packageManagement: "Gestion des packages",

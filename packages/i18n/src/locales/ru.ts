@@ -2735,6 +2735,11 @@ const ru = {
     allDocs: 'Вся документация',
     onlineDocs: 'Онлайн-документация',
     loadingDocumentation: 'Загрузка документации',
+    about: 'О программе',
+    aboutTitle: 'Об этой консоли',
+    aboutDescription: 'Сборка, из которой скомпилирована эта консоль.',
+    aboutBuild: 'Сборка консоли',
+    aboutBuildUnknown: 'Неизвестная сборка (при сборке этой консоли версия не была задана)',
   },
   sidebar: {
     packageManagement: "Управление пакетами",

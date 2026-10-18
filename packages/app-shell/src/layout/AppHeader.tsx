@@ -69,6 +69,7 @@ import {
   Keyboard,
   Pencil,
   MoreHorizontal,
+  Info,
 } from 'lucide-react';
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, type RefObject } from 'react';
@@ -107,6 +108,8 @@ import { resolveViewId } from '../utils/resolveViewId.js';
 import { getProductName, getLogoUrl } from '../runtime-config.js';
 import { LocalizedSidebarTrigger } from './LocalizedSidebarTrigger.js';
 import { PreviewBadge } from './PreviewBadge.js';
+import { AboutDialog } from './AboutDialog.js';
+import { getConsoleBuild } from '../buildIdentity.js';
 import { GO_HOME_SHORTCUT, useAdvertiseShortcut, type ShortcutChord } from '../chrome/advertisedShortcuts.js';
 
 function humanizeSlug(slug: string): string {
@@ -443,6 +446,9 @@ export function AppHeader({
   // Click-reachable entry for the keyboard-shortcuts dialog (was `?`-key only).
   // Shares the `?shortcuts=1` URL param with KeyboardShortcutsDialog (C2/C3).
   const { openOverlay: openShortcuts } = useUrlOverlay(KEYBOARD_SHORTCUTS_PARAM);
+  // The help menu's About dialog (objectui#12970): ephemeral, so component
+  // state, not a URL param — nobody shares a link to it.
+  const [aboutOpen, setAboutOpen] = useState(false);
   const {
     user,
     signOut,
@@ -1137,8 +1143,19 @@ export function AppHeader({
                   {t('help.onlineDocs', { defaultValue: 'Online documentation' })}
                 </a>
               </DropdownMenuItem>
+              {/* About — names the console's own build, on every variant
+                  (objectui#12970). */}
+              <DropdownMenuItem
+                className="cursor-pointer"
+                data-testid="action:about:open"
+                onClick={() => setAboutOpen(true)}
+              >
+                <Info className="mr-2 h-4 w-4" />
+                {t('help.about', { defaultValue: 'About' })}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} build={getConsoleBuild()} />
         </div>
 
         {/* Group 3: Account (theme + lang moved into avatar dropdown) */}

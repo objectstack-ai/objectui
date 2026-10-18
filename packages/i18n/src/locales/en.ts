@@ -3150,6 +3150,11 @@ const en = {
     keyboardShortcuts: 'Keyboard shortcuts',
     onlineDocs: 'Online documentation',
     loadingDocumentation: 'Loading documentation',
+    about: 'About',
+    aboutTitle: 'About this console',
+    aboutDescription: 'The build this console was compiled from.',
+    aboutBuild: 'Console build',
+    aboutBuildUnknown: 'Unknown build (no version was set when this console was built)',
   },
   sidebar: {
     settings: 'Settings',

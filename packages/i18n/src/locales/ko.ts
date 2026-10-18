@@ -2619,6 +2619,11 @@ const ko = {
     allDocs: '전체 문서',
     onlineDocs: '온라인 문서',
     loadingDocumentation: '문서 로딩 중',
+    about: '정보',
+    aboutTitle: '이 콘솔 정보',
+    aboutDescription: '이 콘솔이 컴파일된 빌드입니다.',
+    aboutBuild: '콘솔 빌드',
+    aboutBuildUnknown: '알 수 없는 빌드(이 콘솔을 빌드할 때 버전이 설정되지 않음)',
   },
   sidebar: {
     packageManagement: "패키지 관리",

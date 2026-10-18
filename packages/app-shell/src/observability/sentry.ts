@@ -62,12 +62,14 @@
  *  - `VITE_SENTRY_RELEASE` — which bundle produced a stack trace. It must match
  *    the source maps that bundle's pipeline uploaded, and a server cannot know
  *    which Console build it is serving, so this one stays build-time. Falls
- *    back to `VITE_APP_VERSION`, then `'unknown'`.
+ *    back to the console's build identity (`buildIdentity.ts`: `VITE_APP_VERSION`,
+ *    or the git sha the console's Vite config baked), then `'unknown'`.
  *
  * @module
  */
 
 import { getClientErrorReporting, type RuntimeClientErrorReporting } from '../runtime-config.js';
+import { resolveConsoleBuild, type BuildIdentityEnv } from '../buildIdentity.js';
 
 type SentryModule = typeof import('@sentry/react');
 
@@ -172,6 +174,22 @@ function rate(value: unknown, fallback: number): number {
     : fallback;
 }
 
+/** The slice of `import.meta.env` {@link resolveSentryRelease} reads. */
+export interface SentryReleaseEnv extends BuildIdentityEnv {
+  readonly VITE_SENTRY_RELEASE?: unknown;
+}
+
+/**
+ * The release Sentry tags events with: `VITE_SENTRY_RELEASE` when the build set
+ * one, else the console's build identity — read through `resolveConsoleBuild`,
+ * the same one read the help menu's About dialog shows (objectui#12970) — else
+ * `'unknown'`.
+ */
+export function resolveSentryRelease(env: SentryReleaseEnv): string {
+  const explicit = typeof env.VITE_SENTRY_RELEASE === 'string' ? env.VITE_SENTRY_RELEASE.trim() : '';
+  return explicit || resolveConsoleBuild(env) || 'unknown';
+}
+
 /**
  * Returns the loaded Sentry module, or `null` if Sentry was never initialized
  * (e.g. the runtime served no DSN). Callers must handle the null case.
@@ -216,7 +234,7 @@ export function initSentry(): Promise<boolean> {
         // a release identifies which bundle produced a stack trace and has to
         // match the source maps that bundle's pipeline uploaded, which no
         // server can know.
-        release: env.VITE_SENTRY_RELEASE || env.VITE_APP_VERSION || 'unknown',
+        release: resolveSentryRelease(env),
         tracesSampleRate: gate.tracesSampleRate,
         // IP address + User-Agent — decided by `resolveSentryGate` above, and
         // OPT-IN there. Defaulting it on is how PII left an air-gapped network

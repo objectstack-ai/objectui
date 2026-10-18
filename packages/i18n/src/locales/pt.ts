@@ -2666,6 +2666,11 @@ const pt = {
     allDocs: 'Toda a documentação',
     onlineDocs: 'Documentação online',
     loadingDocumentation: 'Carregando documentação',
+    about: 'Sobre',
+    aboutTitle: 'Sobre este console',
+    aboutDescription: 'A build a partir da qual este console foi compilado.',
+    aboutBuild: 'Build do console',
+    aboutBuildUnknown: 'Build desconhecida (nenhuma versão foi definida ao compilar este console)',
   },
   sidebar: {
     packageManagement: "Gerenciamento de pacotes",

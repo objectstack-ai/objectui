@@ -2671,6 +2671,11 @@ const es = {
     allDocs: 'Toda la documentación',
     onlineDocs: 'Documentación en línea',
     loadingDocumentation: 'Cargando documentación',
+    about: 'Acerca de',
+    aboutTitle: 'Acerca de esta consola',
+    aboutDescription: 'La compilación a partir de la cual se generó esta consola.',
+    aboutBuild: 'Compilación de la consola',
+    aboutBuildUnknown: 'Compilación desconocida (no se definió ninguna versión al compilar esta consola)',
   },
   sidebar: {
     packageManagement: "Gestión de paquetes",

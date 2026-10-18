@@ -2619,6 +2619,11 @@ const de = {
     allDocs: 'Gesamte Dokumentation',
     onlineDocs: 'Online-Dokumentation',
     loadingDocumentation: 'Dokumentation wird geladen',
+    about: 'Über',
+    aboutTitle: 'Über diese Konsole',
+    aboutDescription: 'Der Build, aus dem diese Konsole kompiliert wurde.',
+    aboutBuild: 'Konsolen-Build',
+    aboutBuildUnknown: 'Unbekannter Build (beim Erstellen dieser Konsole wurde keine Version gesetzt)',
   },
   sidebar: {
     packageManagement: "Paketverwaltung",

@@ -242,8 +242,8 @@ export function declaredObjectstackNames(projects) {
  * The `@objectstack/*` closure of `roots` inside an objectstack workspace, over
  * RUNTIME edges only (dependencies, optional, peer) -- what an installer of the
  * published packages receives. devDependencies are excluded on purpose: they pull
- * in the drivers, runtime and services a package's own tests use (measured at the
- * first pin: 36 projects with them, 7 without).
+ * in the drivers, runtime and services a package's own tests use (measured on
+ * objectui#12957 at objectstack main `2ee5861b0f`: 36 projects with them, 7 without).
  *
  * @param {Map<string, { dir: string, manifest: Record<string, any> }>} byName
  * @param {Iterable<string>} roots

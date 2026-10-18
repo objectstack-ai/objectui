@@ -4351,6 +4351,8 @@ const zh = {
     component: {
       sourceUnresolved: '无法解析此组件的数据源',
       noDataSource: '未解析到数据源',
+      apiRefused: '此组件的 API 数据源被拒绝',
+      apiUnreadable: '无法读取此组件的 API 数据源',
     },
     metadataViewer: {
       missingKey: '此视图缺少 {{key}}。',

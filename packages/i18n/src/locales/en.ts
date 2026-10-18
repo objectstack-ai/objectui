@@ -5057,6 +5057,11 @@ const en = {
       sourceUnresolved: 'This component’s data source could not be resolved',
       // The panel drawn when a block resolved no adapter at all.
       noDataSource: 'No data source resolved',
+      // objectui#12197 — the two titles of a page element's API binding
+      // (`dataSource: { provider: 'api', … }`): refused by the spec's schema,
+      // or read and failed.
+      apiRefused: 'This component’s API data source is refused',
+      apiUnreadable: 'This component’s API data source could not be read',
     },
     // objectui#12910 — `element:metadata_viewer` (the ```metadata doc fence).
     // A `{{name}}`-style slot that the renderer draws as a `<code>` chip is

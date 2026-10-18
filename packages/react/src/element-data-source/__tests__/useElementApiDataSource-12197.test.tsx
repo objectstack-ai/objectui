@@ -21,6 +21,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
+import { I18nProvider } from '@object-ui/i18n';
 import type { BaseSchema, DataSource } from '@object-ui/types';
 import type { ElementApiDataSource } from '@objectstack/spec/ui';
 import { SchemaRenderer } from '../../SchemaRenderer';
@@ -181,6 +182,53 @@ describe('the API binding of a page element (objectui#12197)', () => {
     renderWithFetch({ type: 'api-probe', properties: { content: 'plain' } }, apiFetch);
     expect(screen.getByTestId('api-probe-content').textContent).toBe('plain');
     expect(apiFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('the API binding\'s panel titles read the page\'s language (objectui#12197)', () => {
+  beforeEach(() => {
+    ComponentRegistry.register('api-probe', ApiProbe);
+  });
+  afterEach(() => {
+    ComponentRegistry.unregister?.('api-probe');
+  });
+
+  const renderIn = (language: string, schema: ApiProbeNode, apiFetch: ApiFetch) =>
+    render(
+      <I18nProvider persistLanguage={false} config={{ defaultLanguage: language, detectBrowserLanguage: false }}>
+        <SchemaRendererContext.Provider value={{ dataSource: null as DataSource | null, apiFetch }}>
+          <SchemaRenderer schema={schema} />
+        </SchemaRendererContext.Provider>
+      </I18nProvider>,
+    );
+  const heading = () => screen.getByTestId('api-probe-datasource-error').querySelector('p.font-medium')?.textContent;
+
+  it('titles a refused binding in zh-CN', () => {
+    renderIn(
+      'zh-CN',
+      { type: 'api-probe', dataSource: { provider: 'api', read: { url: 'https://evil.example/x' } } },
+      vi.fn<ApiFetch>(async () => jsonResponse(HOME)),
+    );
+    expect(heading()).toBe('此组件的 API 数据源被拒绝');
+  });
+
+  it('titles a failed read in zh-CN', async () => {
+    renderIn(
+      'zh-CN',
+      { type: 'api-probe', dataSource: { provider: 'api', read: { url: '/api/v1/cloud/home-zh-503' } } },
+      vi.fn<ApiFetch>(async () => jsonResponse({}, 503)),
+    );
+    await screen.findByTestId('api-probe-datasource-error');
+    expect(heading()).toBe('无法读取此组件的 API 数据源');
+  });
+
+  it('CONTROL: under en, the titles are the en pack values', () => {
+    renderIn(
+      'en',
+      { type: 'api-probe', dataSource: { provider: 'api', read: { url: '//evil.example/x' } } },
+      vi.fn<ApiFetch>(async () => jsonResponse(HOME)),
+    );
+    expect(heading()).toBe('This component’s API data source is refused');
   });
 });
 

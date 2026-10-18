@@ -4684,6 +4684,8 @@ const ar = {
     component: {
       sourceUnresolved: "تعذّر تحديد مصدر بيانات هذا المكوّن",
       noDataSource: "لم يُحدَّد أي مصدر بيانات",
+      apiRefused: "تم رفض مصدر بيانات API لهذا المكوّن",
+      apiUnreadable: "تعذّرت قراءة مصدر بيانات API لهذا المكوّن",
     },
     metadataViewer: {
       missingKey: "{{key}} مفقود لهذا العرض.",

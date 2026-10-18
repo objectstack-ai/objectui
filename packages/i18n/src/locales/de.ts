@@ -4292,6 +4292,8 @@ const de = {
     component: {
       sourceUnresolved: "Die Datenquelle dieser Komponente konnte nicht aufgelöst werden",
       noDataSource: "Keine Datenquelle aufgelöst",
+      apiRefused: "Die API-Datenquelle dieser Komponente wurde abgelehnt",
+      apiUnreadable: "Die API-Datenquelle dieser Komponente konnte nicht gelesen werden",
     },
     metadataViewer: {
       missingKey: "{{key}} fehlt für diese Ansicht.",

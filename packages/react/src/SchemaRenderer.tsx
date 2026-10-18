@@ -29,10 +29,8 @@ import { SchemaRendererContext } from './context/SchemaRendererContext.js';
 import { useRecordContext } from './context/RecordContext.js';
 import { usePredicateScope, PredicateScopeProvider } from './hooks/useExpression.js';
 import { useElementApiDataSource } from './element-data-source/useElementApiDataSource.js';
-import {
-  ElementDataSourceErrorPanel,
-  ElementDataSourceLoadingPanel,
-} from './element-data-source/ElementDataSourceGate.js';
+import { ElementDataSourceLoadingPanel } from './element-data-source/ElementDataSourceGate.js';
+import { ElementApiDataSourcePanel } from './element-data-source/ElementApiDataSourcePanel.js';
 import { usePageVariables } from './hooks/usePageVariables.js';
 import { resolveKeyedI18nLabel } from './utils/i18n.js';
 import { isConfigBag } from './utils/configBag.js';
@@ -2145,18 +2143,16 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   // The API binding's non-final states (objectui#12197), drawn in place of the
   // node — before its visibility, which may read `data` and so cannot be
   // decided yet. A refused binding names the spec's refusal; nothing was read.
+  // The error panel titles itself in the page's language: its translation
+  // hook mounts with it, never in this body, which runs for every node.
   if (apiStatus === 'loading') {
     return <ElementDataSourceLoadingPanel testId={String(evaluatedSchema.type)} />;
   }
   if (apiStatus === 'refused' || apiStatus === 'error') {
     return (
-      <ElementDataSourceErrorPanel
+      <ElementApiDataSourcePanel
         testId={String(evaluatedSchema.type)}
-        title={
-          apiStatus === 'refused'
-            ? 'This component’s API data source is refused'
-            : 'This component’s API data source could not be read'
-        }
+        state={apiStatus}
         message={apiBinding.error}
       />
     );

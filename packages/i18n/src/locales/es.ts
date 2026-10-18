@@ -4387,6 +4387,8 @@ const es = {
     component: {
       sourceUnresolved: "No se pudo resolver el origen de datos de este componente",
       noDataSource: "No se resolvió ningún origen de datos",
+      apiRefused: "Se rechazó el origen de datos de API de este componente",
+      apiUnreadable: "No se pudo leer el origen de datos de API de este componente",
     },
     metadataViewer: {
       missingKey: "Falta {{key}} en esta vista.",

@@ -4382,6 +4382,8 @@ const pt = {
     component: {
       sourceUnresolved: "Não foi possível resolver a fonte de dados deste componente",
       noDataSource: "Nenhuma fonte de dados resolvida",
+      apiRefused: "A fonte de dados de API deste componente foi recusada",
+      apiUnreadable: "Não foi possível ler a fonte de dados de API deste componente",
     },
     metadataViewer: {
       missingKey: "Falta {{key}} nesta visualização.",

@@ -4293,6 +4293,8 @@ const ja = {
     component: {
       sourceUnresolved: "このコンポーネントのデータソースを解決できませんでした",
       noDataSource: "データソースが解決されていません",
+      apiRefused: "このコンポーネントの API データソースは拒否されました",
+      apiUnreadable: "このコンポーネントの API データソースを読み取れませんでした",
     },
     metadataViewer: {
       missingKey: "このビューには {{key}} がありません。",

@@ -4290,6 +4290,8 @@ const ko = {
     component: {
       sourceUnresolved: "이 구성 요소의 데이터 소스를 확인할 수 없습니다",
       noDataSource: "확인된 데이터 소스가 없습니다",
+      apiRefused: "이 구성 요소의 API 데이터 소스가 거부되었습니다",
+      apiUnreadable: "이 구성 요소의 API 데이터 소스를 읽을 수 없습니다",
     },
     metadataViewer: {
       missingKey: "이 보기에 {{key}}이(가) 없습니다.",

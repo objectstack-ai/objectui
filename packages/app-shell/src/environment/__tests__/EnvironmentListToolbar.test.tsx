@@ -153,7 +153,7 @@ describe('EnvironmentListToolbar — the locked mark reaches only a viewer who c
     st({ ...o, plan: undefined, upgradeUrl: undefined, contactSalesUrl: undefined });
 
   /** Renders one toolbar, reads what it drew, and unmounts it. */
-  const drawn = (actions: any[], entitlements: EnvironmentEntitlementsState) => {
+  const drawn = (actions: object[], entitlements: EnvironmentEntitlementsState) => {
     const { container, unmount } = renderToolbar(<EnvironmentListToolbar actions={actions} entitlements={entitlements} />);
     const bar = screen.queryByTestId('action-bar');
     const mark = screen.queryByTestId(LOCKED_MARK);

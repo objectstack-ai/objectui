@@ -15,3 +15,5 @@ Two Cloud SDUI widgets are retired: `cloud:onboarding-next`, the Welcome page's 
 The two widget modules also leave the `sideEffects` array of `@object-ui/app-shell`. `useEnvironmentEntitlements` stays: the environment list and `cloud:workspace-timezone-notice` still read it.
 
 Fix for a page that still names either widget: compose it from generic blocks, as objectstack-ai/cloud#3010 did — declared `element:button` nodes over the home summary in place of `cloud:onboarding-next`, and a `visibleWhen` on the same summary in place of `cloud:plan-status`.
+
+Clause-②: no (narrowing)

@@ -8,7 +8,7 @@ A free-plan organization's environment list no longer offers a primary button th
 **What changed, in observable terms.**
 
 - When the organization owns its production environment and its plan does not allow development environments (the entitlement summary's `development.canCreate` is `false`), the toolbar used to show a primary "Add environment" button whose click opened the "Development environments are a paid feature" dialog. It now shows an outline mark with a lock icon, "Development environments · Team plan and up" (zh 「开发环境 · 团队版起」), in place of the create action. The mark is a plain link to the entitlement summary's `upgradeUrl`, resolved the way the entitlement dialog resolves its upgrade link: a control-plane-relative path is prefixed with the control-plane origin, and an absolute URL opens in a new tab. It opens no dialog.
-- When the summary carries no `upgradeUrl`, the mark is drawn unlinked. No URL is composed in the console (objectui#10437).
+- When the summary carries no `upgradeUrl`, no mark is drawn (objectui#12983: the control plane sends `upgradeUrl` only to a viewer who can upgrade). No URL is composed in the console (objectui#10437).
 - A `?runAction=create_environment` deep link in that state is still consumed (stripped from the URL), and now opens nothing: it used to open the same dialog.
 - The mark appears only where the create action would have rendered, so a create action filtered out by placement or by the capability gate still leaves no mark, as before.
 - Unchanged: the "Set up your production environment" and "Add development environment" states, the loading skeleton, and the dialog shown when the server refuses a create (`DEV_ENV_PLAN_LOCKED`, `DEV_ENV_LIMIT`, `PRODUCTION_ENV_LIMIT`).

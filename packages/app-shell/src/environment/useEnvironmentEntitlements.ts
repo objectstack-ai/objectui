@@ -97,8 +97,8 @@ async function resolveEntitlements(opts: EntitlementsResolveOptions): Promise<En
         canCreateDevelopmentEnv: data.development?.canCreate,
         plan: data.plan,
         // Verbatim, like `contactSalesUrl`: absent stays absent, and the
-        // toolbar's locked plan-tier mark is then drawn unlinked
-        // (objectui#10437, objectui#12190).
+        // toolbar's locked plan-tier mark is then not drawn (objectui#10437,
+        // objectui#12983: cloud sends it to managers only).
         upgradeUrl: data.upgradeUrl,
         contactSalesUrl: data.contactSalesUrl,
         // Verbatim, like `upgradeUrl`: absent stays absent, and the

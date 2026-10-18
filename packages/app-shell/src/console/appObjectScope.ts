@@ -64,13 +64,46 @@ function matchObjectScopeRoute(
   return { objectName: match.params.objectName, pageName: match.params.pageName };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+type BlockObjectArms = (props: Record<string, unknown>) => unknown[];
+
+/**
+ * The object names a block's own renderer reads off its `properties` bag,
+ * beyond the `objectName` and data-source arms every block shares
+ * (objectui#12980). Keyed by the spec's block type; each reads what its
+ * renderer reads as an object, and nothing else:
+ *
+ *  - `element:metadata_viewer` — `object`, which the state-machine view reads
+ *    by name (`useMetadataItem('object', object)`); the flow and permission
+ *    views do not read it.
+ *  - `record:line_items` — `childObject`, the object whose rows the panel
+ *    lists and whose schema it reads, and `parentObject`, the object the
+ *    panel's save writes the parent leg to.
+ *
+ * ⛔ `record:related_list`'s `add.picker.object` is not here: the panel reads
+ * it only once the user opens the picker, never while the page renders, so
+ * collecting it would hold the route on a read its open does not use.
+ */
+const BLOCK_OBJECT_ARMS: ReadonlyMap<string, BlockObjectArms> = new Map<string, BlockObjectArms>([
+  ['element:metadata_viewer', (props) => (props.type === 'state_machine' ? [props.object] : [])],
+  ['record:line_items', (props) => [props.childObject, props.parentObject]],
+]);
+
 /**
  * The objects a page definition binds (objectui#12980), derived from the page
  * itself, never listed by hand: the page's own `object` (a record page), its
  * interface source (`interfaceConfig.source`), and, at any depth of its
- * regions and blocks, every `objectName` and every `dataSource.object`. An
- * `api` data source binds no object. A block that names an object some other
- * way reads it by name when it asks (`PageView`).
+ * regions and blocks, every `objectName`, every `dataSource.object` and
+ * `parentDataSource.object` (`ElementDataSourceSchema`), every `data.object`
+ * of the `ViewDataSchema` object arm (`data: { provider: 'object', object }`,
+ * the record source the `object-*` blocks resolve first), and the object arms
+ * a block's renderer reads off its `properties` ({@link BLOCK_OBJECT_ARMS}).
+ * Only a string names an object: an expression envelope or any other value
+ * binds none, and neither does an `api` data source. A block that names an
+ * object some other way reads it by name when it asks (`PageView`).
  */
 export function pageObjectNames(page: unknown): string[] {
   const out = new Set<string>();
@@ -82,12 +115,15 @@ export function pageObjectNames(page: unknown): string[] {
       for (const item of node) walk(item, key);
       return;
     }
-    if (!node || typeof node !== 'object') return;
-    const record = node as Record<string, unknown>;
-    add(record.objectName);
-    if (key === 'dataSource') add(record.object);
-    if (key === 'interfaceConfig') add(record.source);
-    for (const [childKey, child] of Object.entries(record)) walk(child, childKey);
+    if (!isRecord(node)) return;
+    add(node.objectName);
+    if (key === 'dataSource' || key === 'parentDataSource') add(node.object);
+    if (key === 'interfaceConfig') add(node.source);
+    // `data` as one config object, never an array of pre-fetched records.
+    if (isRecord(node.data) && node.data.provider === 'object') add(node.data.object);
+    const arms = typeof node.type === 'string' ? BLOCK_OBJECT_ARMS.get(node.type) : undefined;
+    if (arms && isRecord(node.properties)) arms(node.properties).forEach(add);
+    for (const [childKey, child] of Object.entries(node)) walk(child, childKey);
   };
   if (page && typeof page === 'object') add((page as Record<string, unknown>).object);
   walk(page, undefined);

@@ -3238,7 +3238,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             // here as `rowHeight`, and this relay never names the retired key.
             // objectui#12474 — the density this user chose is laid over it:
             // the view's own is the default for a user who has not chosen.
-            rowHeight: viewPref?.rowHeight ?? viewRowHeight,
+            // The fold stays spelled out on this rung, where the relay census
+            // (`ObjectView.relayRungCensus-7559.test.ts`) reads it for the
+            // retired `densityMode`; `viewRowHeight` above is the same value.
+            rowHeight:
+                viewPref?.rowHeight
+                ?? (normalizeListViewSchema(viewDef ?? {}) as Pick<ListViewSchema, 'rowHeight'>).rowHeight
+                ?? listSchema.rowHeight,
             // Hydrate the persisted settings so they survive reload. The sort
             // and the column layout (objectui#12418), the density and the
             // hidden fields (objectui#12474) are the USER's: they are read

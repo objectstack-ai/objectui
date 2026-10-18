@@ -77,7 +77,6 @@ import {
 } from '@object-ui/components';
 import { toast } from 'sonner';
 import { useAuth } from '@object-ui/auth';
-import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale, useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
 import { useMetadata, usePredicateScope } from '@object-ui/react';
 import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
@@ -92,7 +91,6 @@ import {
   CheckSquare,
   Search,
   ArrowUpDown,
-  Copy,
   X,
   ExternalLink,
   User as UserIcon,
@@ -121,7 +119,6 @@ import {
   useUnresolvableRecordReferenceLabel,
 } from './unresolvableRecordReference';
 import { useHiddenFieldsByObject, type HiddenFieldsSource } from './hiddenFields';
-import { holdsStudioAccess } from '../../components/studioEntry';
 
 type TabKey = 'pending' | 'submitted' | 'all';
 
@@ -959,59 +956,6 @@ export function ApprovalsInboxPage() {
   // stripped from the URL so refresh/back doesn't re-open a dismissed drawer.
   const [searchParams, setSearchParams] = useSearchParams();
   const identities = useMemo(() => buildApproverIdentities(user as any), [user]);
-
-  /**
-   * [objectui#5553] May THIS viewer see the drawer's raw payload snapshot?
-   *
-   * ## What this closes
-   *
-   * The drawer's "Raw data (JSON)" panel rendered on `payload != null` alone —
-   * no principal check of any kind — so every business approver was handed the
-   * submitted record's complete raw row: `id`, `created_by`, `updated_by`,
-   * `owner_id`, `organization_id`, bare lookup ids, and **the fields the
-   * object's metadata declares `hidden: true`**. Reported from a live EHR
-   * deployment on 17.1.0, where the app author's `hidden` declaration is a
-   * patient-data control and this path silently bypassed it. The app author had
-   * no legitimate lever to remove the panel — field `hidden`, view columns, nav,
-   * permission sets and env vars are all ineffective against it — so the only
-   * remedies in the field were patching `dist` or injecting CSS.
-   *
-   * ## The signal, and why this one
-   *
-   * `studio.access` is a declared PLATFORM-scope capability that a tenant org
-   * owner does not hold by design (it is one of the framework's
-   * `PLATFORM_ADMIN_ONLY_CAPABILITIES`), and it already reaches the browser in
-   * `systemPermissions[]` from `GET /api/v1/auth/me/permissions` — the payload
-   * `MePermissionsProvider` mounts around every route this page renders under
-   * (`AppContent`). Nothing new is served, computed, or made authorable here:
-   * `holdsStudioAccess` is reused verbatim from `studioEntry`, which is the
-   * console's existing answer to "is this principal a platform operator rather
-   * than a business user", so the two surfaces cannot drift into two spellings
-   * of one fact. Minting an authorable key for this (`approvals.showRawPayload`
-   * or any sibling) would be new public surface and is deliberately NOT done.
-   *
-   * ## ⛔ Fail CLOSED — inverted from `hasCapabilities`
-   *
-   * `usePermissions().hasCapabilities` fails OPEN on an unreported answer, and
-   * that is right for an action button: the server still refuses the write, and
-   * hiding a holder's button is the worse outcome. This panel has the opposite
-   * stake — the measured defect IS a non-holder seeing it — so the RAW signal is
-   * read instead (`systemPermissions`, whose `undefined`-vs-`[]` distinction
-   * objectui#4656 made load-bearing) and every not-a-reported-grant answer
-   * denies: no provider, a backend predating ADR-0066 that omits the field, and
-   * the resolver's `catch` path that answers 200 with no `systemPermissions` at
-   * all. A deployment whose permission layer just failed must not be the one
-   * that leaks the snapshot. A reported empty array is a real answer and denies
-   * too. The cost of denying wrongly is a platform operator losing a debug
-   * affordance, recoverable with a reload; the cost of granting wrongly is the
-   * leak this card exists to close.
-   *
-   * The server-side residual — the payload reaching the client unfiltered in the
-   * first place — is a separate defect tracked in the objectstack repo. This
-   * gate does not depend on it and does not pretend to fix it.
-   */
-  const { systemPermissions } = usePermissions();
-  const maySeeRawPayload = holdsStudioAccess(systemPermissions);
 
   const tr = useCallback(
     (key: string, defaultValue: string, opts?: Record<string, unknown>) =>
@@ -2851,41 +2795,6 @@ export function ApprovalsInboxPage() {
                   </div>
                 )}
               </div>
-
-              {/* Raw snapshot — a platform-operator debug affordance, never the
-                  approver's read path. Gated on `maySeeRawPayload` (see its
-                  definition for the defect, the signal, and the fail-CLOSED
-                  posture); a business approver gets the structured summary,
-                  chain, activity and actions above and nothing else. */}
-              {maySeeRawPayload && selected.payload != null && (
-                <details className="group">
-                  <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none">
-                    {tr('rawData', 'Raw data (JSON)')}
-                  </summary>
-                  <div className="mt-2">
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(JSON.stringify(selected.payload, null, 2));
-                            toast.success(tr('copied', 'Copied'));
-                          } catch {
-                            toast.error(tr('copyFailed', 'Copy failed'));
-                          }
-                        }}
-                        className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-                      >
-                        <Copy className="h-3 w-3" />
-                        {tr('copy', 'Copy')}
-                      </button>
-                    </div>
-                    <pre className="text-[11px] bg-muted/50 rounded p-2 overflow-auto max-h-48 mt-1">
-                      {JSON.stringify(selected.payload, null, 2)}
-                    </pre>
-                  </div>
-                </details>
-              )}
 
               {selected.status === 'pending' && (
                 <>

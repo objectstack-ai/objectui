@@ -1,46 +1,48 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * Approvals Inbox — the raw payload snapshot is a platform-operator affordance,
- * never the business approver's read path (objectui#5553).
+ * Approvals Inbox — the side sheet has no raw payload panel, for ANY viewer
+ * (objectui#12490).
  *
- * ## The defect
+ * ## What changed
  *
- * The detail drawer's "Raw data (JSON)" panel rendered on `payload != null`
- * alone — no principal check of any kind — so every business approver was
- * handed the submitted record's complete raw row: internal ids, `created_by` /
- * `updated_by` / `owner_id` / `organization_id`, bare lookup ids, and the
- * fields the object's metadata declares `hidden: true`. Reported from a live
- * EHR deployment on 17.1.0 (objectstack#10734), where that declaration is a
- * patient-data control. Per the maintainer's ruling the panel does not render
- * for a business approver by default; holding a platform-admin-only capability
- * (`studio.access`, via `holdsStudioAccess`) is what restores it.
+ * The detail drawer used to end with a collapsed "Raw data (JSON)" panel: the
+ * submitted record's whole snapshot as indented JSON, with a copy button. Since
+ * objectui#5553 it rendered only for a holder of the platform-admin-only
+ * capability `studio.access`. The maintainer then ruled the panel has no
+ * business need at all — the person handling an approval decides from the
+ * structured summary, the chain, the activity and the actions, never from JSON
+ * — and ordered it deleted rather than kept behind a gate or ported to another
+ * surface. So no viewer gets it: not a business approver, and not a platform
+ * operator either.
  *
- * ## Why every absence case here carries a counter-probe
+ * ## Why the `studio.access` holder is the case that matters
+ *
+ * Every other principal below was already denied by the old gate, so for them
+ * absence held before this change too. The holder is the one viewer for whom
+ * the panel used to render; that row is the one that goes red if the panel
+ * comes back gated as it was. The other rows go red only if it comes back
+ * ungated (the objectui#5553 leak itself), and they are kept so the suite says
+ * "every viewer" rather than "this one viewer".
+ *
+ * ## Why every case carries a counter-probe
  *
  * The acceptance condition is that something does NOT render, and a suite that
- * renders nothing at all reproduces that perfectly. So each denial case also
- * asserts the drawer it is denying inside — the process label and the business
- * summary row — and the `studio.access` case renders the SAME fixture through
- * the SAME helper and finds the panel. An empty render fails the counter-probe;
- * a gate stuck open fails the denials. Neither can pass alone.
+ * renders nothing at all reproduces that perfectly. So each case also asserts
+ * the drawer it is looking inside — the process label and a business summary
+ * value. An empty render fails the counter-probe; a panel that came back fails
+ * the absence assertions. Neither can pass alone.
  *
  * ## The witnesses
  *
  * `created_by` and `organization_id` are bookkeeping columns to the page's
- * `isBookkeepingKey` (`@object-ui/types`' `isSystemManagedField`, objectui#11677),
- * so the summary card already drops them: their values can reach the DOM only
- * through the raw panel. That makes them exact witnesses for "the panel
- * rendered", not proxies. (Both are also long enough to trip the summary's
- * opaque-id filter, so neither can slip in by a second route.)
- *
- * ## ⛔ What this deliberately does NOT assert
- *
- * Nothing here says the summary card is trimmed by object metadata. This card
- * is the gate only; trimming the payload by `hidden: true` and the server-side
- * residual (the snapshot reaching the client unfiltered at all) are separate
- * and are tracked elsewhere. Asserting them here would pin behaviour this
- * change does not deliver.
+ * `isBookkeepingKey` (`@object-ui/types`' `isSystemManagedField`), so the
+ * summary card drops them: their values could reach the DOM only through the
+ * raw panel. That makes them exact witnesses for "a raw dump rendered", not
+ * proxies. (Both are also long enough to trip the summary's opaque-id filter,
+ * so neither can slip in by a second route.) The panel drew its JSON in a
+ * `pre` element, and the drawer draws no other, so "no `pre` in the drawer" is
+ * the shape half of the same assertion.
  *
  * No build artifact sits between the edit and this test: the root Vitest config
  * aliases every `@object-ui` specifier at that package's source directory, and
@@ -55,10 +57,10 @@ import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/pe
 
 const APP = 'com.objectstack.account';
 
-/** The panel's summary label, as the page spells it through `tr`. */
+/** The retired panel's summary label, as the page used to spell it through `tr`. */
 const PANEL_LABEL = 'Raw data (JSON)';
 
-/** Values that can only reach the DOM via the raw panel (see header). */
+/** Values that could only reach the DOM via a raw dump (see header). */
 const AUDIT_WITNESS = 'usr_audit_witness';
 const ORG_WITNESS = 'org_audit_witness';
 
@@ -142,7 +144,7 @@ import { ApprovalsInboxPage } from './ApprovalsInboxPage';
  * `/me/permissions` as the provider receives it. `systemPermissions` is passed
  * through EXACTLY as given — `undefined` stays absent from the payload rather
  * than becoming `[]`, because "never reported" and "reported, holds nothing"
- * are different facts (objectui#4656) and this gate must deny on both.
+ * are different facts (objectui#4656), and the old gate answered them apart.
  */
 function permissionsPayload(systemPermissions: string[] | undefined): MePermissionsResponse {
   const base: MePermissionsResponse = {
@@ -181,10 +183,18 @@ async function openedDrawer(): Promise<HTMLElement> {
   return dialog;
 }
 
+/** No raw dump of the snapshot, by label, by value, or by shape. */
+function expectNoRawPayloadPanel(dialog: HTMLElement): void {
+  expect(within(dialog).queryByText(PANEL_LABEL)).not.toBeInTheDocument();
+  expect(within(dialog).queryByText(new RegExp(AUDIT_WITNESS))).not.toBeInTheDocument();
+  expect(within(dialog).queryByText(new RegExp(ORG_WITNESS))).not.toBeInTheDocument();
+  expect(dialog.querySelector('pre')).toBeNull();
+}
+
 /**
  * The counter-probe, as one assertion: this drawer really did render its
- * business content. Every denial case runs it, so "the panel is absent" can
- * never be satisfied by an empty render.
+ * business content, so "the panel is absent" can never be satisfied by an
+ * empty render.
  */
 function expectBusinessDrawerRendered(dialog: HTMLElement): void {
   expect(within(dialog).getByText('Purchase Approval')).toBeInTheDocument();
@@ -197,54 +207,25 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe('Approvals Inbox — raw payload panel gating (objectui#5553)', () => {
-  it('does not render the panel for a business approver, whose drawer is otherwise intact', async () => {
-    // `setup.access` is a real, reported grant — an org-level admin holds it —
-    // and it is deliberately NOT one of the platform-admin-only capabilities.
-    renderDrawerFor(['setup.access']);
-    const dialog = await openedDrawer();
-
-    expect(within(dialog).queryByText(PANEL_LABEL)).not.toBeInTheDocument();
-    expect(within(dialog).queryByText(new RegExp(AUDIT_WITNESS))).not.toBeInTheDocument();
-    expect(within(dialog).queryByText(new RegExp(ORG_WITNESS))).not.toBeInTheDocument();
-
-    expectBusinessDrawerRendered(dialog);
-  });
-
-  it('renders the panel, with the raw row, for a holder of studio.access', async () => {
+describe('Approvals Inbox — no raw payload panel for any viewer (objectui#12490)', () => {
+  it('shows a studio.access holder no raw payload panel, in a drawer that is otherwise intact', async () => {
+    // The one principal the old gate let through: a platform operator.
     renderDrawerFor(['studio.access']);
     const dialog = await openedDrawer();
 
-    expect(within(dialog).getByText(PANEL_LABEL)).toBeInTheDocument();
-    // The raw row itself, not just its heading: the audit columns the business
-    // approver above could not reach are here, in the panel's JSON.
-    expect(within(dialog).getByText(new RegExp(AUDIT_WITNESS))).toBeInTheDocument();
-    expect(within(dialog).getByText(new RegExp(ORG_WITNESS))).toBeInTheDocument();
-
-    // Same fixture, same helper — so the denial above is a gate, not a fixture
-    // that renders nothing.
+    expectNoRawPayloadPanel(dialog);
     expectBusinessDrawerRendered(dialog);
   });
 
-  it('denies on a REPORTED EMPTY capability set — "holds nothing" is a real answer', async () => {
-    renderDrawerFor([]);
+  it.each([
+    ['a business approver holding setup.access', ['setup.access']],
+    ['a principal whose capability set is reported empty', []],
+    ['a principal whose capability set is never reported', undefined],
+  ] as const)('shows %s no raw payload panel either', async (_who, systemPermissions) => {
+    renderDrawerFor(systemPermissions === undefined ? undefined : [...systemPermissions]);
     const dialog = await openedDrawer();
 
-    expect(within(dialog).queryByText(PANEL_LABEL)).not.toBeInTheDocument();
-    expect(within(dialog).queryByText(new RegExp(AUDIT_WITNESS))).not.toBeInTheDocument();
-    expectBusinessDrawerRendered(dialog);
-  });
-
-  it('denies when the backend reports no capability set at all (fail CLOSED)', async () => {
-    // The inverted-stake case: `hasCapabilities` fails OPEN here, and a
-    // deployment whose permission resolution just failed answers 200 with no
-    // `systemPermissions` at all. That deployment must not be the one that
-    // leaks the snapshot, so this gate reads the raw signal and denies.
-    renderDrawerFor(undefined);
-    const dialog = await openedDrawer();
-
-    expect(within(dialog).queryByText(PANEL_LABEL)).not.toBeInTheDocument();
-    expect(within(dialog).queryByText(new RegExp(AUDIT_WITNESS))).not.toBeInTheDocument();
+    expectNoRawPayloadPanel(dialog);
     expectBusinessDrawerRendered(dialog);
   });
 });

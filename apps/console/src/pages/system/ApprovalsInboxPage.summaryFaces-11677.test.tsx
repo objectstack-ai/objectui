@@ -48,8 +48,8 @@
  * ## Why `setup.access`
  *
  * Same reason as `ApprovalsInboxPage.hiddenFieldTrim.test.tsx`: a real grant
- * that is not platform-admin-only, so the raw-JSON panel (objectui#5553) never
- * renders and the summary card is the only door under test.
+ * that is not platform-admin-only — a business approver. The summary card is
+ * the only door under test; the drawer has no raw-JSON panel (objectui#12490).
  */
 
 import '@testing-library/jest-dom/vitest';

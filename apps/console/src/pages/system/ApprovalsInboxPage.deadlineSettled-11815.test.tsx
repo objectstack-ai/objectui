@@ -13,7 +13,7 @@
  * snapshot's past deadline reads neutral and an open one's reads overdue.
  *
  * Harness: `ApprovalsInboxPage.summaryFaces-11677.test.tsx`'s, reduced to one
- * object (`setup.access` keeps the raw-JSON panel away for the same reason).
+ * object (`setup.access` for the same reason: a business approver).
  */
 
 import '@testing-library/jest-dom/vitest';

@@ -48,11 +48,12 @@
  *
  * ## Why `setup.access`
  *
- * The raw-JSON panel (objectui#5553) would print the whole snapshot, hidden
- * field included, by a second route. Every render here is a business approver
- * holding `setup.access` — a real, reported grant that is deliberately NOT one
- * of the platform-admin-only capabilities — so that panel never renders and the
- * summary card is the only door under test.
+ * Every render here is a business approver holding `setup.access` — a real,
+ * reported grant that is deliberately NOT one of the platform-admin-only
+ * capabilities. The drawer once also had a raw-JSON panel that printed the
+ * whole snapshot, hidden field included, by a second route; it is deleted for
+ * every viewer (objectui#12490), so the summary card is the only door under
+ * test.
  *
  * No build artifact sits between the edit and this test: the root Vitest config
  * aliases every `@object-ui` specifier at that package's source directory, and
@@ -167,8 +168,8 @@ function permissionsPayload(): MePermissionsResponse {
     permissionSets: [],
     objects: {},
     fields: {},
-    // A real, reported grant that is NOT platform-admin-only: the raw-JSON
-    // panel (objectui#5553) stays shut, so the summary card is the only door.
+    // A real, reported grant that is NOT platform-admin-only: a business
+    // approver. The summary card is the only door (no raw panel, objectui#12490).
     systemPermissions: ['setup.access'],
   };
 }

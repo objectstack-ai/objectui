@@ -43,6 +43,11 @@ function okFetch(body: unknown = { success: true, data: { ok: true } }) {
   return vi.fn(async () => ({ ok: true, status: 200, json: async () => body }));
 }
 
+/** The parsed JSON body of the `call`-th request a fetch stub was sent. */
+function sentBody(fetch: { mock: { calls: unknown[][] } }, call = 0): { recordId?: unknown; params?: unknown } {
+  return JSON.parse((fetch.mock.calls[call][1] as { body: string }).body);
+}
+
 /** A fetch stub answering the route's REFUSAL envelope — a real code + status. */
 function refusingFetch(status = 403, code = 'PERMISSION_DENIED') {
   return vi.fn(async () => ({
@@ -232,7 +237,7 @@ describe("operation: 'update' — undoable captures exactly the written fields",
     // `status` is written by the route from its declaration and never sent
     // (objectui#12941), so the snapshot is read off the route's merge, not off
     // the request: the request carries `note` alone.
-    expect(JSON.parse((fetch as any).mock.calls[0][1].body).params).toEqual({ note: 'typed' });
+    expect(sentBody(fetch).params).toEqual({ note: 'typed' });
   });
 
   it('offers no Undo affordance when `undoable` is not declared', async () => {
@@ -347,7 +352,7 @@ describe("operation: 'update' — against a route that refuses undeclared params
     expect(route.refusals).toEqual([]);
     expect(result.success).toBe(true);
     // The declared param travels; the patch does not, and the route still writes both.
-    expect(JSON.parse((route.fetch as any).mock.calls[0][1].body)).toEqual({
+    expect(sentBody(route.fetch)).toEqual({
       recordId: 'rec_10',
       params: { note: 'typed by the user' },
     });

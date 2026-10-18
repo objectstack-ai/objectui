@@ -696,6 +696,22 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
   /** Label for the preview-draft action (default "Preview"). */
   previewDraftLabel?: string;
   /**
+   * objectui#12968 (objectstack#24324 ruling A, preview-first) — preview ANY
+   * drafted result, not only a drafted app. When provided, a drafted tool
+   * result whose items include no `app` and whose owning `packageId` is known
+   * renders a Preview button beside Publish and Review; the click hands the
+   * host the drafted `{ type, name }` items and the package id as the app's
+   * route segment (ADR-0048). The host resolves the affected surface (a page,
+   * the object's list on a view, the object's default list) and opens it in
+   * draft preview (`?preview=draft`). A draft set that includes an app keeps
+   * {@link ChatbotEnhancedProps.onPreviewDraftApp}, unchanged. Preview never
+   * publishes: publish stays the human gate (ADR-0033).
+   */
+  onPreviewDraft?: (
+    items: Array<{ type: string; name: string }>,
+    opts: { appSegment: string },
+  ) => void;
+  /**
    * ADR-0037 Live Canvas: notifies the host whenever AI-authored draft
    * artifacts land in the conversation (build-progress items + drafted
    * envelopes), with the cumulative deduped set. Hosts use it to open and
@@ -1932,6 +1948,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
       getArtifactAction,
       onPreviewDraftApp,
       previewDraftLabel = 'Preview',
+      onPreviewDraft,
       onDraftArtifacts,
       onBuildMaterialized,
       onPlanApprovalPendingChange,
@@ -2981,7 +2998,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
             {tool.draftReview &&
             tool.draftReview.items.length > 0 &&
             (onReviewDraft ||
-              (onPublishDrafts && tool.draftReview.packageId)) ? (
+              ((onPublishDrafts || onPreviewDraft) && tool.draftReview.packageId)) ? (
               <>
                 {/* flex-wrap so the action buttons drop to a new line on a
                     narrow (mobile) row instead of forcing horizontal scroll. */}
@@ -3027,19 +3044,38 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                     </button>
                   ) : null}
                   {/* ADR-0037: drafted-app preview — see it as-if-published
-                      without publishing. Only when the draft set includes an
-                      app (the canvas previews whole apps, not single items).
-                      Hidden once the package has no pending drafts (live
-                      count when available, else this session's history). */}
-                  {onPreviewDraftApp && !draftIsPublished
+                      without publishing. A draft set that includes an app
+                      previews the app (the canvas previews whole apps).
+                      objectui#12968 (objectstack#24324 ruling A): any other
+                      draft previews too, through `onPreviewDraft`, which
+                      opens the affected surface; it needs the package id,
+                      the app's route segment. Hidden once the package has
+                      no pending drafts (live count when available, else this
+                      session's history). */}
+                  {!draftIsPublished
                     ? (() => {
-                        const app = tool.draftReview!.items.find((i) => i.type === 'app');
-                        return app ? (
+                        const review = tool.draftReview!;
+                        const app = review.items.find((i) => i.type === 'app');
+                        if (app) {
+                          return onPreviewDraftApp ? (
+                            <button
+                              type="button"
+                              onClick={() => onPreviewDraftApp(app.name, { materialized: review.materialized === true, appSegment: review.packageId })}
+                              className="inline-flex h-7 items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted"
+                              data-testid="draft-preview-app"
+                            >
+                              <Eye className="size-3.5" />
+                              {previewDraftLabel}
+                            </button>
+                          ) : null;
+                        }
+                        const appSegment = review.packageId;
+                        return onPreviewDraft && appSegment ? (
                           <button
                             type="button"
-                            onClick={() => onPreviewDraftApp(app.name, { materialized: tool.draftReview!.materialized === true, appSegment: tool.draftReview!.packageId })}
+                            onClick={() => onPreviewDraft(review.items, { appSegment })}
                             className="inline-flex h-7 items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted"
-                            data-testid="draft-preview-app"
+                            data-testid="draft-preview"
                           >
                             <Eye className="size-3.5" />
                             {previewDraftLabel}

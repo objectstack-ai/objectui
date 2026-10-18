@@ -23,7 +23,7 @@ import { ComponentRegistry, ExpressionEvaluator, declaredNameField, evalRowPredi
 import type { ComponentInput } from '@object-ui/core';
 import { actionRendersAt, resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
-import { useRecordContext, useAction, useCapabilityGate, usePredicateScope, usePageVariables, useInlineEdit, useActionTextLocalizer, useMetadataItem, reportUnresolvableVisibilityPredicate, resolveInlineAriaProps } from '@object-ui/react';
+import { useRecordContext, useAction, useCapabilityGate, usePredicateScope, usePageVariables, useInlineEdit, useActionTextLocalizer, useMetadataItem, reportUnresolvableVisibilityPredicate, resolveInlineAriaProps, buildNodeEvaluationScope } from '@object-ui/react';
 import { renderChildren, renderNodeSlot, cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { RelatedCountStore, useRelatedCountVersion } from '../../hooks/related-count-store';
@@ -662,13 +662,16 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const recordData: any = ctx?.data;
   const isItemVisible = (it: PageTabsItem): boolean => {
     if (it?.visibleWhen === undefined || it?.visibleWhen === null) return true;
+    // The node scope (`buildNodeEvaluationScope`: the ambient scope,
+    // `current_user`, `record`, `page`) plus this site's own breadth: the row
+    // spread flat underneath, and `record` / `data` set to the row
+    // unconditionally on top. Composed rather than spelled out again, so a
+    // root added to the node scope reaches this gate too (objectui#12992).
     const evaluator = new ExpressionEvaluator({
       ...(recordData && typeof recordData === 'object' ? recordData : {}),
-      ...predicateScope,
-      current_user: (predicateScope as any)?.user,
+      ...buildNodeEvaluationScope(predicateScope, recordData, pageVariables),
       record: recordData,
       data: recordData,
-      page: pageVariables,
     });
     // evaluateCondition is fail-open (unparseable predicate → visible) — the
     // same semantics SchemaRenderer applies to component-level `visibleWhen`,
@@ -724,12 +727,11 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
 
   // objectui#12987 — a related list the tab body does not draw is not counted.
   // The body draws each block through `SchemaRenderer`, which decides a node's
-  // `visibleWhen` with `ExpressionEvaluator.evaluateCondition` against the
-  // ambient predicate scope, `current_user` aliased to `user`, the page's
-  // bound row as `record` (only when there is one) and page variables as
-  // `page`. The gates below are decided by that same evaluator over that same
-  // scope, read from the same three hooks — NOT the item-level scope of
-  // `isItemVisible` above, which also spreads the row flat and binds `data`.
+  // `visibleWhen` with `ExpressionEvaluator.evaluateCondition` over the scope
+  // `buildNodeEvaluationScope` builds. The gates below are decided by that same
+  // evaluator over a scope built by that same function (objectui#12992), from
+  // the same three hooks — NOT the item-level scope of `isItemVisible` above,
+  // which also spreads the row flat and binds `data`.
   //
   // A predicate that cannot be evaluated yet (a root still loading, a
   // malformed source) is treated as the body treats it: `evaluateCondition`
@@ -752,14 +754,9 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const isGateOpen = (gate: any): boolean => {
     const known = gateVerdicts.get(gate);
     if (known !== undefined) return known;
-    blockEvaluator ??= new ExpressionEvaluator({
-      ...predicateScope,
-      current_user: (predicateScope as any)?.user,
-      ...(recordData && typeof recordData === 'object' && !Array.isArray(recordData)
-        ? { record: recordData }
-        : null),
-      page: pageVariables,
-    });
+    blockEvaluator ??= new ExpressionEvaluator(
+      buildNodeEvaluationScope(predicateScope, recordData, pageVariables),
+    );
     const verdict = blockEvaluator.evaluateCondition(gate.visibleWhen, {
       onFault: (reason) =>
         reportUnresolvableVisibilityPredicate(

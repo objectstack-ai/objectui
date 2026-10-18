@@ -5,6 +5,7 @@
   "sideEffects": [
     "./dist/index.js",
     "./dist/views/app-launcher-renderer.js",
+    "./dist/console/blocks/productBlocks.js",
     "./dist/console/cloud-connection/CloudConnectionPanel.js",
     "./dist/console/connect/ConnectAgentWidget.js",
     "./dist/console/diagnostics/CloudAiModelStatus.js",
@@ -24,6 +25,7 @@
     "./dist/views/studio-design/studio-canvas-preview.js",
     "./src/index.ts",
     "./src/views/app-launcher-renderer.tsx",
+    "./src/console/blocks/productBlocks.tsx",
     "./src/console/cloud-connection/CloudConnectionPanel.tsx",
     "./src/console/connect/ConnectAgentWidget.tsx",
     "./src/console/diagnostics/CloudAiModelStatus.tsx",

@@ -712,8 +712,16 @@ export function build({ root = REPO_ROOT, env = process.env } = {}) {
     assertLockfileRecordsBuild(root, overrides);
     return { skipped: false, stamp };
   } finally {
-    fs.rmSync(staging, { recursive: true, force: true });
-    fs.rmSync(scratch, { recursive: true, force: true });
+    // Cleanup never speaks for the build: a removal that fails (a child process
+    // still writing in the tree) is a warning, not an exception that would replace
+    // the build's own outcome.
+    for (const dir of [staging, scratch]) {
+      try {
+        fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+      } catch (error) {
+        console.warn(`⚠ objectstack-pin: could not remove ${dir}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
   }
 }
 
@@ -784,11 +792,14 @@ if (isEntrypoint(import.meta.url)) {
       process.exit(2);
     }
   } catch (error) {
-    if (error instanceof PinRefusal) {
-      console.error(`✗ objectstack-pin: ${error.message}`);
-      if (process.env.GITHUB_ACTIONS === 'true') console.error(annotation(error.message));
-      process.exit(1);
-    }
-    throw error;
+    // Every failure, a refusal or a crash, is said once on stderr and -- under
+    // GitHub Actions -- once as an annotation, written synchronously before exit.
+    const message =
+      error instanceof PinRefusal
+        ? error.message
+        : `crashed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`;
+    fs.writeSync(2, `✗ objectstack-pin: ${message}\n`);
+    if (process.env.GITHUB_ACTIONS === 'true') fs.writeSync(2, `${annotation(message)}\n`);
+    process.exit(1);
   }
 }

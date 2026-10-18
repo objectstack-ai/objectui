@@ -27,7 +27,12 @@ import {
 } from '@object-ui/core';
 import { SchemaRendererContext } from './context/SchemaRendererContext.js';
 import { useRecordContext } from './context/RecordContext.js';
-import { usePredicateScope } from './hooks/useExpression.js';
+import { usePredicateScope, PredicateScopeProvider } from './hooks/useExpression.js';
+import { useElementApiDataSource } from './element-data-source/useElementApiDataSource.js';
+import {
+  ElementDataSourceErrorPanel,
+  ElementDataSourceLoadingPanel,
+} from './element-data-source/ElementDataSourceGate.js';
 import { usePageVariables } from './hooks/usePageVariables.js';
 import { resolveKeyedI18nLabel } from './utils/i18n.js';
 import { isConfigBag } from './utils/configBag.js';
@@ -1110,7 +1115,41 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   // Ambient host scope (user / features), fed by app-shell's
   // ExpressionProvider. Threaded into `visible`/expression evaluation so
   // component predicates can gate on the signed-in user & deployment flags.
-  const predicateScope = usePredicateScope();
+  const ambientScope = usePredicateScope();
+  // ── The API binding (objectui#12197) ──────────────────────────────────────
+  //
+  // `@objectstack/spec`'s `ElementApiDataSourceSchema` declares what a node
+  // with `dataSource: { provider: 'api', read: { url }, path? }` does: it reads
+  // that one same-origin endpoint with the host's signed-in fetch and binds the
+  // selected value, "which the element reads as `data` in its expression holes
+  // and its `visibleWhen`". Both are evaluated in the memo below, so this is
+  // where the binding is honoured, for every node type: the read is the hook's
+  // (`element-data-source/useElementApiDataSource.ts`), and its answer becomes
+  // the `data` root of this node's evaluation scope.
+  //
+  // ⚠️ This is NOT the adapter-as-`data` root objectui#9308 retired. That root
+  // published the injected adapter, against which every `data.*` path resolved
+  // `undefined`; this one is the value the node's own binding selected, and it
+  // exists only on a node that declares one. A node with no API binding is
+  // byte-for-byte what it was: `ambientScope` passes through untouched.
+  //
+  // The answer is also published to the node's SUBTREE through
+  // `PredicateScopeProvider` (below), because a block's members are evaluated
+  // there — `useConfigBagEvaluator` reads the predicate scope, as does every
+  // nested `SchemaRenderer` — so a member's `${data.x}` resolves against the
+  // same value as the node's own.
+  //
+  // The evaluation memo builds its scope from the answer's VALUE (the hook's
+  // state) and keys on it, never on a memo's identity (AGENTS.md #10). The
+  // subtree's copy is memoised for cost only: an evaluation keyed on it
+  // recomputes the same values if React discards it.
+  const apiBinding = useElementApiDataSource(schema);
+  const apiStatus = apiBinding.status;
+  const apiData = apiBinding.data;
+  const subtreeScope = useMemo(
+    () => (apiStatus === 'ready' ? { ...ambientScope, data: apiData } : ambientScope),
+    [ambientScope, apiStatus, apiData],
+  );
   // The row the page is about, from `RecordContextProvider` (objectui#5454).
   //
   // `@objectstack/spec` has always DECLARED that a component node's
@@ -1175,6 +1214,11 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // an object spread.
     if (!schema || typeof schema !== 'object') return schema;
 
+    // The scope's host roots, plus the node's API-bound `data` once it has
+    // answered (see "The API binding" above).
+    const predicateScope: Record<string, unknown> =
+      apiStatus === 'ready' ? { ...ambientScope, data: apiData } : ambientScope;
+
     // The ambient host scope, plus the roots this tier can answer itself.
     // `current_user` is aliased to `user` so both `user.email` and
     // `current_user.email` resolve in component `visible`/`visibleOn`
@@ -1223,6 +1267,11 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // rather than as the authoring face (objectui#11349). See
     // `InterpreterWorkingCopy` for what it declares and why.
     const newSchema: InterpreterWorkingCopy = { ...schema };
+    // A node whose API binding has not answered is not evaluated: its holes
+    // name a `data` that does not exist yet, so evaluating them would report
+    // every one as unresolvable and decide its `visibleWhen` against nothing.
+    // The render pass below draws the binding's state instead.
+    if (apiStatus !== 'absent' && apiStatus !== 'ready') return newSchema;
 
     /**
      * Evaluate ONE visibility predicate, and make an unresolvable one LOUD
@@ -2015,7 +2064,7 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     }
 
     return newSchema;
-  }, [schema, dataSource, predicateScope, pageVariables, boundRecord]);
+  }, [schema, dataSource, ambientScope, pageVariables, boundRecord, apiStatus, apiData]);
 
   /**
    * SDUI scoped styling (ADR-0065): a node's `responsiveStyles` compiles to
@@ -2093,6 +2142,25 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   // callers and stored metadata; it replaces the empty-spread "Unknown
   // component type: undefined" box, which said nothing true about the input.
   if (typeof evaluatedSchema !== 'object') return <>{String(evaluatedSchema)}</>;
+  // The API binding's non-final states (objectui#12197), drawn in place of the
+  // node — before its visibility, which may read `data` and so cannot be
+  // decided yet. A refused binding names the spec's refusal; nothing was read.
+  if (apiStatus === 'loading') {
+    return <ElementDataSourceLoadingPanel testId={String(evaluatedSchema.type)} />;
+  }
+  if (apiStatus === 'refused' || apiStatus === 'error') {
+    return (
+      <ElementDataSourceErrorPanel
+        testId={String(evaluatedSchema.type)}
+        title={
+          apiStatus === 'refused'
+            ? 'This component’s API data source is refused'
+            : 'This component’s API data source could not be read'
+        }
+        message={apiBinding.error}
+      />
+    );
+  }
   // Handle visibility: if evaluated schema is hidden, render nothing.
   //
   // Reads AFTER the primitive narrowing above (objectui#4548) so the property
@@ -2438,6 +2506,10 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     </SchemaErrorBoundary>
   );
   debugTimeEnd(`render:${evaluatedSchema.type}:${evaluatedSchema.id ?? 'anon'}`);
+  // The bound value reaches the subtree as `data` (see "The API binding").
+  const output = apiStatus === 'ready'
+    ? <PredicateScopeProvider scope={subtreeScope}>{rendered}</PredicateScopeProvider>
+    : rendered;
 
   // Report render perf to DebugCollector when debug mode is active
   if (isDebug && renderStart) {
@@ -2450,6 +2522,6 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     });
   }
 
-  return rendered;
+  return output;
 });
 SchemaRenderer.displayName = 'SchemaRenderer';

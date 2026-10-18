@@ -335,6 +335,9 @@ import './services/builtinComponents.js';
 // SDUI widget for the metadata-driven Cloud Connection page (cloud ADR-0008).
 import './console/cloud-connection/CloudConnectionPanel.js';
 import './console/connect/ConnectAgentWidget.js';
+// Generic product-page blocks — hero, stat, usage-bar, checklist, tile-grid
+// (objectui#12197).
+import './console/blocks/productBlocks.js';
 // SDUI widget for the Cloud Welcome page's state-aware onboarding next-step.
 import './console/home/CloudOnboardingNext.js';
 // SDUI widget for the Cloud pricing page's "current plan" marker (objectui#10919).

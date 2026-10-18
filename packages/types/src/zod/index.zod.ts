@@ -451,6 +451,22 @@ export {
 } from './ai.zod.js';
 
 // ============================================================================
+// Product-page blocks - `@object-ui/app-shell` (objectui#12197)
+// ============================================================================
+export {
+  HeroBlockSchema,
+  StatBlockSchema,
+  UsageBarBlockSchema,
+  ChecklistBlockItemSchema,
+  ChecklistBlockSchema,
+  TileGridBlockItemSchema,
+  TileGridBlockAddTileSchema,
+  TileGridBlockSchema,
+  ProductBlockComponentSchema,
+} from './product-blocks.zod.js';
+export type { ProductBlockComponentZodType } from './product-blocks.zod.js';
+
+// ============================================================================
 // Designer Components - `@object-ui/plugin-designer` (objectui#10859)
 // ============================================================================
 export {
@@ -550,6 +566,7 @@ import { CRUDComponentSchema } from './crud.zod.js';
 import { ReportUnionSchema } from './reports.zod.js';
 import { ViewComponentSchema } from './views.zod.js';
 import { AIComponentSchema } from './ai.zod.js';
+import { ProductBlockComponentSchema } from './product-blocks.zod.js';
 import { DesignerUnionSchema } from './designer.zod.js';
 import { PublicBlockComponentSchema } from './public-blocks.zod.js';
 import { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.zod.js';
@@ -665,6 +682,7 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   // objectui#12363 — the two record panels the default record page emits.
   RecordApprovalsBlockSchema,
   RecordAttachmentsBlockSchema,
+  ProductBlockComponentSchema,
 ], {
   // Zod's default message for a missed discriminator spells out EVERY accepted
   // literal — measured, 1,462 chars naming all 107. That is the "print every

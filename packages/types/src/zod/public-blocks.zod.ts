@@ -665,8 +665,8 @@ export const PageSidebarBlockSchema = BaseSchema.extend({
 const RECORD_BLOCK_DATA_SOURCE = stripImportedDefaults(SpecElementDataSourceSchema)
   .optional()
   .describe(
-    'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
-    + '`PageComponentSchema.dataSource` declares, by reference. Binds the ONE record this block shows: '
+    'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the OBJECT binding '
+    + '`PageComponentSchema.dataSource` declares beside its API binding (`ElementApiDataSourceSchema`, which this arm does not admit), by reference. Binds the ONE record this block shows: '
     + 'the first row of the bound set by the binding\'s `sort` (declare `limit: 1`), read under the '
     + 'caller\'s identity; it overrides the record page\'s record for this block.',
   );
@@ -759,8 +759,8 @@ export const RecordRelatedListBlockSchema = BaseSchema.extend({
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(
-      'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
-      + '`PageComponentSchema.dataSource` declares, by reference. Binds the CHILD rows the list shows, '
+      'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the OBJECT binding '
+      + '`PageComponentSchema.dataSource` declares beside its API binding (`ElementApiDataSourceSchema`, which this arm does not admit), by reference. Binds the CHILD rows the list shows, '
       + 'not the parent record: `ElementDataSourceGate` lands its `object` on `objectName`, its `filter`, '
       + '`sort` and `limit` on the list\'s own, and a named `view`\'s columns on `columns`. The parent is '
       + 'the record the block sits on, or the first row of `properties.parentDataSource` when the node '
@@ -1137,8 +1137,8 @@ const RecordLineItemsBlockArm = BaseSchema.extend({
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(
-      'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
-      + '`PageComponentSchema.dataSource` declares, by reference. `ElementDataSourceGate` lands its `object` '
+      'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the OBJECT binding '
+      + '`PageComponentSchema.dataSource` declares beside its API binding (`ElementApiDataSourceSchema`, which this arm does not admit), by reference. `ElementDataSourceGate` lands its `object` '
       + 'on `childObject`, which is why the row leaves `childObject` optional.',
     ),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
@@ -1262,8 +1262,8 @@ export const ElementNumberBlockSchema = BaseSchema.extend({
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(
-      'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
-      + '`PageComponentSchema.dataSource` declares, by reference. The metric\'s object and filter are written '
+      'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the OBJECT binding '
+      + '`PageComponentSchema.dataSource` declares beside its API binding (`ElementApiDataSourceSchema`, which this arm does not admit), by reference. The metric\'s object and filter are written '
       + 'here; the row retired its flat `object` and `filter`.',
     ),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
@@ -1401,8 +1401,8 @@ export const ElementRepeaterBlockSchema = BaseSchema.extend({
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(
-      'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
-      + '`PageComponentSchema.dataSource` declares, by reference. The repeater\'s query is written here; the row '
+      'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the OBJECT binding '
+      + '`PageComponentSchema.dataSource` declares beside its API binding (`ElementApiDataSourceSchema`, which this arm does not admit), by reference. The repeater\'s query is written here; the row '
       + 'retired its flat `object`, `filter`, `sort` and `limit`.',
     ),
   // objectui#10872 batch 5: the renderer reads NEITHER content channel, so both are refused by name,

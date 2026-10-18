@@ -42,36 +42,10 @@ import { getIcon } from '../../utils/getIcon.js';
 import { timeAgo } from '../../utils/relativeTime.js';
 import { TILE_OPENED_TIME_FORMAT } from './appLastOpened.js';
 import type { FavoriteItem } from '../../hooks/useFavorites.js';
+import { ICON_BOX_CLASSES, TILE_CLASSES, launcherIconGradient } from './launcherTile.js';
 
 const COMPACT_LIMIT = 19;
 
-// iOS-springboard icon tints: a vibrant gradient per app, assigned
-// deterministically by name so an app keeps its colour across sessions.
-// (Literal class strings so Tailwind's source scan emits them.)
-const ICON_GRADIENTS = [
-  'from-blue-500 to-indigo-600',
-  'from-violet-500 to-purple-600',
-  'from-pink-500 to-rose-600',
-  'from-amber-400 to-orange-500',
-  'from-emerald-500 to-teal-600',
-  'from-sky-500 to-cyan-600',
-  'from-fuchsia-500 to-pink-600',
-  'from-orange-500 to-red-600',
-  'from-indigo-500 to-blue-600',
-  'from-teal-500 to-green-600',
-];
-
-function hashStr(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-/** One tile's box: 112 px wide, the 56 px icon above a one-line name. */
-const TILE_CLASSES =
-  'group relative flex w-28 flex-col items-center gap-2 rounded-lg px-2 py-3 text-center transition-colors hover:bg-muted active:scale-[0.96]';
-/** The 56 px icon square every tile draws, the app's own or a dashed stand-in. */
-const ICON_BOX_CLASSES = 'relative inline-flex size-14 items-center justify-center rounded-[14px]';
 /** The 12 px links at the heading's right. */
 const HEADER_LINK_CLASSES =
   'inline-flex items-center gap-1.5 rounded-sm text-xs transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
@@ -191,7 +165,7 @@ export function HomeAppsStrip({
           const Icon = getIcon(app.icon);
           const label = appLabel({ name: app.name, label: resolveKeyedI18nLabel(app.label, t) });
           const fav = favNames.has(app.name);
-          const grad = ICON_GRADIENTS[hashStr(app.name) % ICON_GRADIENTS.length];
+          const grad = launcherIconGradient(app.name);
           const openedAgo = timeAgo(lastOpened?.get(app.name), displayLocale, TILE_OPENED_TIME_FORMAT);
           return (
             <Link

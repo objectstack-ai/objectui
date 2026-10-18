@@ -15,6 +15,9 @@ export * from './data-invalidation.js';
 // PageComponentSchema.dataSource — mapping the spec's per-element data binding
 // onto the schema keys each object-bound block reads (objectstack#6953).
 export * from './element-data-source/ElementDataSourceGate.js';
+// PageComponentSchema.dataSource as the spec's API binding — the read behind
+// the `data` root `SchemaRenderer` binds for it (objectui#12197).
+export * from './element-data-source/useElementApiDataSource.js';
 
 // i18n utilities
 export { resolveKeyedI18nLabel } from './utils/i18n.js';

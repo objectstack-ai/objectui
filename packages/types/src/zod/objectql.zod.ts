@@ -336,8 +336,8 @@ const OBJECT_GRID_RESIZABLE_COLUMNS_RETIRED =
  * input (objectui#6678); the reads are reasoned on the TypeScript twin of `ObjectGridSchema`.
  */
 const ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION =
-  'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
-  + '`PageComponentSchema.dataSource` declares, by reference: { object, view?, filter?, sort?, limit? } '
+  'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the OBJECT binding '
+  + '`PageComponentSchema.dataSource` declares beside its API binding (`ElementApiDataSourceSchema`, which this arm does not admit), by reference: { object, view?, filter?, sort?, limit? } '
   + 'describing WHAT this block queries. Metadata, never the data-source adapter (the host injects that; '
   + '`SchemaRenderer` strips this key from the props it spreads so it cannot shadow the adapter).';
 

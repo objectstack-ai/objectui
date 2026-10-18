@@ -318,6 +318,7 @@ describe('`AnyComponentSchema` declaration emit headroom (objectui#11573)', () =
       { member: 'RecordApprovalDecisionBlockSchema', kind: 'arm', printsAs: 'inline' },
       { member: 'RecordApprovalsBlockSchema', kind: 'arm', printsAs: 'inline' },
       { member: 'RecordAttachmentsBlockSchema', kind: 'arm', printsAs: 'inline' },
+      { member: 'ProductBlockComponentSchema', kind: 'category union', printsAs: 'ProductBlockComponentZodType' },
     ]);
   });
 

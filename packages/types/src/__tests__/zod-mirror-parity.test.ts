@@ -954,6 +954,7 @@ import { AIConfigSchema, AIFieldSuggestionSchema, AIFormAssistSchema, AIRecommen
 import { AppComponentSchema, AppSchemaRendererNodeSchema, MenuItemSchema as AppMenuItemSchema, NavigationAreaSchema, NavigationItemSchema } from '../zod/app.zod.js';
 import { BaseSchema, ComponentConfigSchema, ComponentInputSchema, ComponentMetaSchema, KeyedI18nLabelSchema, SchemaNodeSchema } from '../zod/base.zod.js';
 import { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from '../zod/cloud.zod.js';
+import { ChecklistBlockItemSchema, ChecklistBlockSchema, HeroBlockSchema, StatBlockSchema, TileGridBlockAddTileSchema, TileGridBlockItemSchema, TileGridBlockSchema, UsageBarBlockSchema } from '../zod/product-blocks.zod.js';
 import { RecordApprovalDecisionBlockSchema } from '../zod/record-approval-decision.zod.js';
 import { RecordApprovalsBlockSchema, RecordAttachmentsBlockSchema } from '../zod/record-panels.zod.js';
 import { CalendarEventSchema, CalendarViewSchema, CarouselItemSchema, CarouselSchema, ChatbotSchema, ChatbotEnhancedSchema, ChatbotFloatingSchema, ChatMessageSchema, ChatMessageSourceSchema, ChatToolInvocationSchema, DashboardComponentSchema, DashboardConfigSchema, DashboardWidgetConfigSchema, DashboardWidgetLayoutSchema, DashboardWidgetSchema, FilterBuilderSchema, FilterFieldSchema, KanbanCardSchema, KanbanColumnSchema, CardTemplateSchema, FilterGroupSchema } from '../zod/complex.zod.js';
@@ -974,6 +975,7 @@ import type { AIConfig as Ts_AIConfig, AIFieldSuggestion as Ts_AIFieldSuggestion
 import type { AppComponentSchema as Ts_AppComponentSchema, AppSchemaRendererNodeSchema as Ts_AppSchemaRendererNodeSchema, NavigationArea as Ts_NavigationArea } from '../app';
 import type { BaseSchema as Ts_BaseSchema, ComponentConfig as Ts_ComponentConfig, ComponentInput as Ts_ComponentInput, ComponentMeta as Ts_ComponentMeta, KeyedI18nLabel as Ts_KeyedI18nLabel } from '../base';
 import type { CloudPlanStatusSchema as Ts_CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema as Ts_CloudWorkspaceTimezoneNoticeSchema } from '../cloud';
+import type { ChecklistBlockItem as Ts_ChecklistBlockItem, ChecklistBlockSchema as Ts_ChecklistBlockSchema, HeroBlockSchema as Ts_HeroBlockSchema, StatBlockSchema as Ts_StatBlockSchema, TileGridBlockAddTile as Ts_TileGridBlockAddTile, TileGridBlockItem as Ts_TileGridBlockItem, TileGridBlockSchema as Ts_TileGridBlockSchema, UsageBarBlockSchema as Ts_UsageBarBlockSchema } from '../product-blocks';
 import type { RecordApprovalDecisionBlockSchema as Ts_RecordApprovalDecisionBlockSchema } from '../record-approval-decision';
 import type { RecordApprovalsBlockSchema as Ts_RecordApprovalsBlockSchema, RecordAttachmentsBlockSchema as Ts_RecordAttachmentsBlockSchema } from '../record-panels';
 import type { CalendarEvent as Ts_CalendarEvent, CalendarViewSchema as Ts_CalendarViewSchema, CarouselItem as Ts_CarouselItem, CarouselSchema as Ts_CarouselSchema, ChatbotSchema as Ts_ChatbotSchema, ChatbotEnhancedSchema as Ts_ChatbotEnhancedSchema, ChatbotFloatingSchema as Ts_ChatbotFloatingSchema, ChatMessage as Ts_ChatMessage, ChatMessageSource as Ts_ChatMessageSource, ChatToolInvocation as Ts_ChatToolInvocation, DashboardComponentSchema as Ts_DashboardComponentSchema, DashboardWidgetLayout as Ts_DashboardWidgetLayout, DashboardWidgetSchema as Ts_DashboardWidgetSchema, FilterBuilderSchema as Ts_FilterBuilderSchema, FilterField as Ts_FilterField, KanbanCard as Ts_KanbanCard, KanbanColumn as Ts_KanbanColumn, CardTemplate as Ts_CardTemplate } from '../complex';
@@ -1815,6 +1817,15 @@ const MIRRORS = {
   'cloud.zod.ts#CloudPlanStatusSchema': CloudPlanStatusSchema,
   // objectui#11930 — the arm and its TS twin landed together.
   'cloud.zod.ts#CloudWorkspaceTimezoneNoticeSchema': CloudWorkspaceTimezoneNoticeSchema,
+  // objectui#12197 — the product-page blocks' arms and their TS twins landed together.
+  'product-blocks.zod.ts#ChecklistBlockItemSchema': ChecklistBlockItemSchema,
+  'product-blocks.zod.ts#ChecklistBlockSchema': ChecklistBlockSchema,
+  'product-blocks.zod.ts#HeroBlockSchema': HeroBlockSchema,
+  'product-blocks.zod.ts#StatBlockSchema': StatBlockSchema,
+  'product-blocks.zod.ts#TileGridBlockAddTileSchema': TileGridBlockAddTileSchema,
+  'product-blocks.zod.ts#TileGridBlockItemSchema': TileGridBlockItemSchema,
+  'product-blocks.zod.ts#TileGridBlockSchema': TileGridBlockSchema,
+  'product-blocks.zod.ts#UsageBarBlockSchema': UsageBarBlockSchema,
   'complex.zod.ts#CalendarEventSchema': CalendarEventSchema,
   'complex.zod.ts#CalendarViewSchema': CalendarViewSchema,
   'complex.zod.ts#CarouselItemSchema': CarouselItemSchema,
@@ -2021,6 +2032,14 @@ interface Declared {
   'base.zod.ts#KeyedI18nLabelSchema': Ts_KeyedI18nLabel;
   'cloud.zod.ts#CloudPlanStatusSchema': Ts_CloudPlanStatusSchema;
   'cloud.zod.ts#CloudWorkspaceTimezoneNoticeSchema': Ts_CloudWorkspaceTimezoneNoticeSchema;
+  'product-blocks.zod.ts#ChecklistBlockItemSchema': Ts_ChecklistBlockItem;
+  'product-blocks.zod.ts#ChecklistBlockSchema': Ts_ChecklistBlockSchema;
+  'product-blocks.zod.ts#HeroBlockSchema': Ts_HeroBlockSchema;
+  'product-blocks.zod.ts#StatBlockSchema': Ts_StatBlockSchema;
+  'product-blocks.zod.ts#TileGridBlockAddTileSchema': Ts_TileGridBlockAddTile;
+  'product-blocks.zod.ts#TileGridBlockItemSchema': Ts_TileGridBlockItem;
+  'product-blocks.zod.ts#TileGridBlockSchema': Ts_TileGridBlockSchema;
+  'product-blocks.zod.ts#UsageBarBlockSchema': Ts_UsageBarBlockSchema;
   'complex.zod.ts#CalendarEventSchema': Ts_CalendarEvent;
   'complex.zod.ts#CalendarViewSchema': Ts_CalendarViewSchema;
   'complex.zod.ts#CarouselItemSchema': Ts_CarouselItem;
@@ -4820,6 +4839,8 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     'a RETIRED node type refusal arm (objectui#8802), not a mirror — its only member is the `type` literal it refuses on, and the TS half of that retirement is the ABSENCE of an arm in `ComplexSchema`',
   'ai.zod.ts#AIComponentSchema':
     "a union OVER the mirrors, not an object of its own — its members are checked individually above",
+  'product-blocks.zod.ts#ProductBlockComponentSchema':
+    "a union OVER the mirrors (objectui#12197), not an object of its own — its members are checked individually above",
   // objectui#10872 — the ADR-0080 public-block arms. Each is `BaseSchema` plus a
   // `type` literal plus `properties`, which is the block's
   // `@objectstack/spec` `ComponentPropsMap` row by reference (through the
@@ -5255,6 +5276,17 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // (`listViews`) into the split's SPEC-DERIVED half, until objectui#7928 mirrored
   // it by reference to `ViewSchema.shape.listViews` and the entry left the ledger.
   'objectql.zod.ts#ObjectViewSchema',
+  // objectui#12197: every copy member is the spec's `I18nLabelSchema` by
+  // reference, and each block's `dataSource` is `ElementApiDataSourceSchema`, so
+  // a spec bump that moves either moves ONE side of these pairs.
+  'product-blocks.zod.ts#ChecklistBlockItemSchema',
+  'product-blocks.zod.ts#ChecklistBlockSchema',
+  'product-blocks.zod.ts#HeroBlockSchema',
+  'product-blocks.zod.ts#StatBlockSchema',
+  'product-blocks.zod.ts#TileGridBlockAddTileSchema',
+  'product-blocks.zod.ts#TileGridBlockItemSchema',
+  'product-blocks.zod.ts#TileGridBlockSchema',
+  'product-blocks.zod.ts#UsageBarBlockSchema',
   // objectui#10296: `options` is the spec's authoring `SelectOptionSchema` by
   // reference (ruling F1 on objectui#7759).
   'views.zod.ts#DetailViewFieldSchema',
@@ -5276,7 +5308,7 @@ const ZOD_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'zod');
  * MINUEND under it had moved. Nothing failed on any of those days, because nothing
  * compared the registry to a number. objectui#7433 is that absence, not the digits.
  */
-const EXPECTED_MIRROR_PAIRS = 198;
+const EXPECTED_MIRROR_PAIRS = 206;
 
 /**
  * A ledger this file can size from its own AST. `WiderThanDeclared` joined at

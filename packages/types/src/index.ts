@@ -853,6 +853,13 @@ import type { CRUDComponentSchema } from './crud.js';
 import type { ObjectQLComponentSchema, ListViewSchema } from './objectql.js';
 import type { AppComponentSchema, AppSchemaRendererNodeSchema } from './app.js';
 import type { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.js';
+import type {
+  HeroBlockSchema,
+  StatBlockSchema,
+  UsageBarBlockSchema,
+  ChecklistBlockSchema,
+  TileGridBlockSchema,
+} from './product-blocks.js';
 import type { RecordApprovalDecisionBlockSchema } from './record-approval-decision.js';
 import type { RecordApprovalsBlockSchema, RecordAttachmentsBlockSchema } from './record-panels.js';
 import type {
@@ -985,6 +992,25 @@ export type {
 } from './cloud.js';
 
 export type {
+  // The product-page blocks' TS twins, landed with their zod arms and their
+  // `@object-ui/app-shell` registrations (objectui#12197).
+  ProductBlockExpressionHole,
+  HeroBlockProps,
+  HeroBlockSchema,
+  StatBlockProps,
+  StatBlockSchema,
+  UsageBarBlockProps,
+  UsageBarBlockSchema,
+  ChecklistBlockItem,
+  ChecklistBlockProps,
+  ChecklistBlockSchema,
+  TileGridBlockItem,
+  TileGridBlockAddTile,
+  TileGridBlockProps,
+  TileGridBlockSchema,
+} from './product-blocks.js';
+
+export type {
   // The `record:approval_decision` node's TS twin, landed with its zod arm
   // and its `@object-ui/app-shell` registration (objectui#12342).
   RecordApprovalDecisionBlockSchema,
@@ -1100,7 +1126,13 @@ export type AnySchema =
   | RecordApprovalDecisionBlockSchema
   // objectui#12363 — landed with their zod arms.
   | RecordApprovalsBlockSchema
-  | RecordAttachmentsBlockSchema;
+  | RecordAttachmentsBlockSchema
+  // objectui#12197 — landed with their zod arms.
+  | HeroBlockSchema
+  | StatBlockSchema
+  | UsageBarBlockSchema
+  | ChecklistBlockSchema
+  | TileGridBlockSchema;
 
 /**
  * Utility type to extract the schema type from a type string.

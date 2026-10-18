@@ -514,27 +514,60 @@ export function objectstackEnv(env) {
 }
 
 /**
- * Run a command with inherited output; a non-zero exit is a refusal naming it.
+ * Run a command; a non-zero exit is a refusal naming it.
+ *
+ * With `logTo`, the command's output goes to that file instead of the terminal,
+ * and a failure carries the file's last lines in the refusal -- so the cause
+ * reaches the place a refusal is read (a CI annotation, see the CLI below) and
+ * not only a job log.
  *
  * @param {string} cmd
  * @param {string[]} args
- * @param {{ cwd: string, capture?: boolean, env?: NodeJS.ProcessEnv }} opts
+ * @param {{ cwd: string, capture?: boolean, env?: NodeJS.ProcessEnv, logTo?: string }} opts
  * @returns {string} captured stdout (empty unless `capture`)
  */
-function run(cmd, args, { cwd, capture = false, env = process.env }) {
-  const result = spawnSync(cmd, args, {
-    cwd,
-    env,
-    encoding: 'utf8',
-    stdio: capture ? ['ignore', 'pipe', 'inherit'] : 'inherit',
-    maxBuffer: 256 * 1024 * 1024,
-  });
+function run(cmd, args, { cwd, capture = false, env = process.env, logTo }) {
+  const fd = logTo ? fs.openSync(logTo, 'a') : null;
+  let result;
+  try {
+    result = spawnSync(cmd, args, {
+      cwd,
+      env,
+      encoding: 'utf8',
+      stdio: fd !== null ? ['ignore', fd, fd] : capture ? ['ignore', 'pipe', 'inherit'] : 'inherit',
+      maxBuffer: 256 * 1024 * 1024,
+    });
+  } finally {
+    if (fd !== null) fs.closeSync(fd);
+  }
   if (result.error) throw new PinRefusal(`could not run \`${cmd} ${args.join(' ')}\` in ${cwd}: ${result.error.message}`);
   if (result.status !== 0) {
-    const said = capture && result.stdout ? `\n${result.stdout.trim().slice(-2000)}` : '';
+    let said = capture && result.stdout ? `\n${result.stdout.trim().slice(-2000)}` : '';
+    if (logTo) said = `\n--- its last output lines ---\n${tailLines(fs.readFileSync(logTo, 'utf8'), 40)}`;
     throw new PinRefusal(`\`${cmd} ${args.join(' ')}\` exited ${result.status} in ${cwd}.${said}`);
   }
   return capture ? result.stdout : '';
+}
+
+/**
+ * @param {string} text
+ * @param {number} n
+ * @returns {string}
+ */
+export function tailLines(text, n) {
+  return text.trimEnd().split('\n').slice(-n).join('\n');
+}
+
+/**
+ * A refusal as a GitHub Actions error annotation: annotations are readable
+ * through the checks API, where a job's raw log may not be.
+ *
+ * @param {string} message
+ * @returns {string}
+ */
+export function annotation(message) {
+  const escaped = message.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+  return `::error title=objectstack-pin::${escaped}`;
 }
 
 function step(label, fn) {
@@ -551,11 +584,12 @@ function step(label, fn) {
  * @param {string} dir
  * @param {string} sha
  * @param {string} url
+ * @param {string} logTo
  */
-function checkoutPin(dir, sha, url) {
+function checkoutPin(dir, sha, url, logTo) {
   run('git', ['init', '-q', dir], { cwd: os.tmpdir() });
   run('git', ['remote', 'add', 'origin', url], { cwd: dir });
-  run('git', ['fetch', '-q', '--depth=1', '--no-tags', 'origin', sha], { cwd: dir });
+  run('git', ['fetch', '-q', '--depth=1', '--no-tags', 'origin', sha], { cwd: dir, logTo });
   run('git', ['checkout', '-q', '--detach', 'FETCH_HEAD'], { cwd: dir });
   const head = run('git', ['rev-parse', 'HEAD'], { cwd: dir, capture: true }).trim();
   if (head !== sha) throw new PinRefusal(`fetched ${head} from ${url}, but the pin is ${sha}.`);
@@ -624,7 +658,7 @@ export function build({ root = REPO_ROOT, env = process.env } = {}) {
     let tree = external;
     if (!external) {
       tree = path.join(scratch, 'src');
-      step(`fetch objectstack ${pin.slice(0, 12)}`, () => checkoutPin(tree, pin, env.OBJECTSTACK_REPO_URL || DEFAULT_REPO_URL));
+      step(`fetch objectstack ${pin.slice(0, 12)}`, () => checkoutPin(tree, pin, env.OBJECTSTACK_REPO_URL || DEFAULT_REPO_URL, path.join(scratch, 'fetch.log')));
     }
     const projects = readWorkspace(tree);
     /** @type {Map<string, { dir: string, manifest: Record<string, any> }>} */
@@ -638,8 +672,8 @@ export function build({ root = REPO_ROOT, env = process.env } = {}) {
       // The workspace root carries the build toolchain (tsup, tsx); the filters
       // carry the packages and their runtime closure.
       const treeEnv = objectstackEnv(env);
-      step('install the build closure', () => run('pnpm', ['install', '--frozen-lockfile', '--filter', rootName, ...filters], { cwd: tree, env: treeEnv }));
-      step(`build ${names.join(', ')}`, () => run('pnpm', [...filters, 'run', 'build'], { cwd: tree, env: treeEnv }));
+      step('install the build closure', () => run('pnpm', ['install', '--frozen-lockfile', '--filter', rootName, ...filters], { cwd: tree, env: treeEnv, logTo: path.join(scratch, 'install.log') }));
+      step(`build ${names.join(', ')}`, () => run('pnpm', [...filters, 'run', 'build'], { cwd: tree, env: treeEnv, logTo: path.join(scratch, 'build.log') }));
     }
 
     const tarballs = path.join(scratch, 'tarballs');
@@ -752,6 +786,7 @@ if (isEntrypoint(import.meta.url)) {
   } catch (error) {
     if (error instanceof PinRefusal) {
       console.error(`✗ objectstack-pin: ${error.message}`);
+      if (process.env.GITHUB_ACTIONS === 'true') console.error(annotation(error.message));
       process.exit(1);
     }
     throw error;

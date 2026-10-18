@@ -32,6 +32,8 @@ import {
   judgeStamp,
   lockfileDependencyNames,
   objectstackEnv,
+  annotation,
+  tailLines,
   readOverrides,
   readPin,
   readWorkspace,
@@ -251,6 +253,16 @@ describe('the objectstack tree is configured by its own .npmrc (objectui#12957)'
       HTTPS_PROXY: 'http://proxy',
     });
     expect(Object.keys(env).sort()).toEqual(['HTTPS_PROXY', 'PATH', 'npm_config_https_proxy', 'npm_config_noproxy', 'npm_config_registry']);
+  });
+});
+
+describe('a refusal reaches the checks API (objectui#12957)', () => {
+  it('encodes a multi-line refusal as one GitHub error annotation', () => {
+    expect(annotation('a 100% fail\nline two\r')).toBe('::error title=objectstack-pin::a 100%25 fail%0Aline two%0D');
+  });
+
+  it('keeps the last lines of a command\'s output', () => {
+    expect(tailLines('1\n2\n3\n4\n', 2)).toBe('3\n4');
   });
 });
 

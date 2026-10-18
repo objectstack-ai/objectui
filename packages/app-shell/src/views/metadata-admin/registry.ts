@@ -240,6 +240,19 @@ export interface MetadataResourceConfig {
   createSchema?: Record<string, unknown>;
 
   /**
+   * The create writes the item LIVE instead of into the draft buffer, when no
+   * package binding (`?package=`) is active (objectui#7611).
+   *
+   * For a type whose {@link EditPage} edits the live item and reads no draft —
+   * the permission set's matrix editor outside a package. A create left in the
+   * draft buffer is then a draft that page never reads: the editor opens an
+   * empty set without the label the create named, saves its edits live, and
+   * the draft stays pending, so a later Publish replaces every one of those
+   * edits with the empty create body.
+   */
+  createLive?: boolean;
+
+  /**
    * Field path used as the metadata's identity — the URL slug AND
    * the key on the saved body. Defaults to `'name'`. Override when
    * the spec uses a different identifier (e.g. `permission` uses `id`

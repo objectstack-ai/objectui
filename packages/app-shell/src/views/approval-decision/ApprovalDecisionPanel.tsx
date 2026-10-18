@@ -11,23 +11,33 @@
  * of objectui#2763; ruling 6079807016, letter 乙), the page component type
  * `record:approval_decision`.
  *
- * One node, four parts, each drawn by a piece already shipped:
+ * One node, six parts, each drawn by a piece already shipped:
  *
- *  0. **What was submitted** (objectui#12483) — the declared amount and a
+ *  0. **Where the request came from** (objectui#12491) — a request no person
+ *     submitted (opened by a flow run with no user context, such as a
+ *     scheduled run) is marked with the Approval Center's "Flow-initiated"
+ *     copy, as the approvals inbox's request sheet marks it. See "The flow
+ *     origin" below.
+ *  1. **What was submitted** (objectui#12483) — the declared amount and a
  *     summary of the request's record snapshot, under the target object's
  *     declared labels and through the record page's own cells, with the
  *     object's `hidden: true` fields and the reader's unreadable fields left
  *     out. `RecordSnapshotSummary` draws it from the bound row's `payload`
  *     and `payload_display`; see its header for what it reads.
- *  1. **Progress** — `DecisionProgressIndicator` (A3), drawn from the request's
+ *  2. **Where the flow stands** (objectui#12491) — the vertical step line of
+ *     the owning flow, from the bound row's `flow_steps`, when the flow has
+ *     more than one approval step, at ANY status: a decided request and a
+ *     `first_response` node draw it too, as the sheet draws it. The markup is
+ *     `ApprovalStepLine`, the one the business record's approvals panel draws.
+ *  3. **Progress** — `DecisionProgressIndicator` (A3), drawn from the request's
  *     server-computed `decision_progress` tally. It is present only on a
  *     pending node that aggregates more than one decision, and the panel draws
  *     it only then; nothing is re-derived here.
- *  2. **Who the pending step waits on** (objectui#12482) — each pending
+ *  4. **Who the pending step waits on** (objectui#12482) — each pending
  *     approver named, with a position's label and the countersign group the
  *     slot fills, as the approvals inbox's request sheet names them. See
  *     "Naming the pending approvers" below.
- *  3. **Decisions** — `DeclaredActionsBar` over `sys_approval_request`'s OWN
+ *  5. **Decisions** — `DeclaredActionsBar` over `sys_approval_request`'s OWN
  *     declared actions at `record_section`, the location and the bar the
  *     business record page already runs them through (objectui#3055). Every
  *     decision is an ordinary declared `type:'api'` action, its form is
@@ -62,6 +72,21 @@
  * record's panel both draw the tally and the names as two parts under two
  * gates (a tally present; a pending request with a slot), and so does this
  * panel.
+ *
+ * ## The flow origin (objectui#12491)
+ *
+ * The contract represents "no human submitter" one way: the request's
+ * `submitter_id` is null (ADR-0118 D1), and the approvals get serves a null
+ * column as an absent key. So the panel marks the origin when the bound row's
+ * `submitter_id` is absent or null, and only then. ⛔ It reads no `flow:` or
+ * `system:` prefix off a submitter id: no writer stores such a sentinel, and a
+ * prefix branch here would be a second, tolerated spelling of the same fact
+ * (AGENTS.md #0.1). The flow's display name is the served page's highlights
+ * strip's to show, not this panel's.
+ *
+ * Why not inside `DecisionProgressIndicator` either: the step line and the
+ * origin, like the names, are drawn where no tally exists, so each is its own
+ * part under its own gate.
  *
  * ## No authorable props
  *
@@ -107,6 +132,8 @@
 import * as React from 'react';
 import { notifyDataChanged, useObjectTranslation, useRecordContext } from '@object-ui/react';
 import { cn, Badge } from '@object-ui/components';
+import { Workflow } from 'lucide-react';
+import { ApprovalStepLine } from '../approval-progress/ApprovalStepLine.js';
 import { DecisionProgressIndicator } from '../approval-progress/DecisionProgressIndicator.js';
 import { eligibleApproverCount } from '../approval-progress/eligibleApprovers.js';
 import { DeclaredActionsBar } from '../DeclaredActionsBar.js';
@@ -185,7 +212,28 @@ function PendingApprovers({ request }: { request: ApprovalRequestLite }) {
   );
 }
 
-/** The three parts over one request row. Module-internal: no package export. */
+/**
+ * Where the request came from: the "Flow-initiated" marker on a request no
+ * person submitted, its `submitter_id` absent or null (objectui#12491); nothing
+ * for a request a person submitted. See "The flow origin" above.
+ */
+function FlowOrigin({ request }: { request: ApprovalRequestLite }) {
+  const { t } = useObjectTranslation();
+  if (request.submitter_id != null) return null;
+  return (
+    <div
+      className="flex items-center gap-1 text-xs text-muted-foreground"
+      data-testid="approval-decision-flow-origin"
+    >
+      <Workflow className="h-3 w-3 shrink-0" aria-hidden />
+      <span className="italic">
+        {String(t('approvalsInbox.flowOrigin', { defaultValue: 'Flow-initiated' }))}
+      </span>
+    </div>
+  );
+}
+
+/** The parts over one request row. Module-internal: no package export. */
 export function ApprovalDecisionPanel({ request, className }: ApprovalDecisionPanelProps) {
   const progress = request.decision_progress;
   const eligible = eligibleApproverCount(request);
@@ -198,11 +246,13 @@ export function ApprovalDecisionPanel({ request, className }: ApprovalDecisionPa
 
   return (
     <div className={cn('space-y-3', className)} data-testid="approval-decision-panel">
+      <FlowOrigin request={request} />
       <RecordSnapshotSummary
         objectName={request.object_name}
         snapshot={request.payload}
         display={request.payload_display}
       />
+      <ApprovalStepLine steps={request.flow_steps} />
       {progress && <DecisionProgressIndicator progress={progress} eligibleApprovers={eligible} />}
       <PendingApprovers request={request} />
       <DeclaredActionsBar

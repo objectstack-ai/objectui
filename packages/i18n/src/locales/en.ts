@@ -864,9 +864,6 @@ const en = {
       needMatchFields: 'Select at least one field to match on.',
       matchOnlyField: '(match only)',
       optCreateOptions: 'Keep unknown option values',
-      optRunAutomations: 'Run automations & triggers',
-      optTreatHistorical: 'Import as historical data',
-      optTreatHistoricalHint: '(import completed records as-is — skip state-machine checks and keep their original timestamps & author instead of stamping now)',
       optSkipBlankKey: 'Skip rows with a blank match value',
       optBackground: 'Import in the background',
       optBackgroundHint: '(runs as an undoable job)',
@@ -2365,7 +2362,7 @@ const en = {
       // NOT the same thing as the platform's manual automation surfaces, which
       // are real and stay as they are: `home.build.subtitle` (that card opens
       // Studio, which does author flows), `engine.studio.landing.description`,
-      // `dataImport.optRunAutomations`, `packagedAutomation.*` and the
+      // `packagedAutomation.*` and the
       // marketplace `automation` category. The boundary is v1 AI AUTHORING, not
       // the word "automation".
       //

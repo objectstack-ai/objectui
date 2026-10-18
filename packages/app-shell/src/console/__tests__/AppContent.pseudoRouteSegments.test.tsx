@@ -144,9 +144,6 @@ vi.mock('../../views/metadata-admin', () => ({
 vi.mock('../marketplace/MarketplacePage', () => ({
   MarketplacePage: () => <div data-testid="marketplace-page">marketplace</div>,
 }));
-vi.mock('../marketplace/MarketplaceInstalledPage', () => ({
-  MarketplaceInstalledPage: () => <div data-testid="marketplace-installed-page" />,
-}));
 vi.mock('../marketplace/MarketplacePackagePage', () => ({
   MarketplacePackagePage: () => <div data-testid="marketplace-package-page" />,
 }));
@@ -373,7 +370,6 @@ describe('AppContent pseudo-routes — live input surface stays special (objectu
   it.each([
     // [url, page testid, resulting pathname]
     ['/apps/ghost/system/marketplace', 'marketplace-page', '/apps/ghost/system/marketplace'],
-    ['/apps/ghost/system/marketplace/installed', 'marketplace-installed-page', '/apps/ghost/system/marketplace/installed'],
     ['/apps/ghost/system/marketplace/acme.crm', 'marketplace-package-page', '/apps/ghost/system/marketplace/acme.crm'],
     ['/apps/ghost/system', 'system-hub-page', '/apps/ghost/system'],
     ['/apps/ghost/system/settings', 'system-settings-page', '/apps/ghost/system/settings'],

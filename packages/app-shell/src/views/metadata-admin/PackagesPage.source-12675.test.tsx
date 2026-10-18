@@ -13,20 +13,15 @@
  * - `?source=VALUE` filters the list; an unknown or repeated value, and a row
  *   whose origin the signals cannot place, are refused by name and nothing is
  *   drawn in their place.
- * - The `marketplace:installed-list` widget (the plugin's Installed Apps page)
- *   and the legacy `system/marketplace/installed` route open Packages filtered
- *   to Source = marketplace.
  *
  * The wire is stubbed (`fetch`), the runtime config is the real module booted
  * over a served body, and `marketplaceApi` is not mocked.
  */
 
 import '@testing-library/jest-dom/vitest';
-import type * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { ComponentRegistry } from '@object-ui/core';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 
 const admin = vi.hoisted(() => ({ value: true }));
 
@@ -38,8 +33,6 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 import { PackagesPage, type InstalledPackageRow } from './PackagesPage';
 import { t, tFormat } from './i18n';
 import { initRuntimeConfig, resetRuntimeConfigForTesting } from '../../runtime-config';
-import '../../console/marketplace/InstalledListWidget';
-import { MarketplaceInstalledPage } from '../../console/marketplace/MarketplaceInstalledPage';
 
 const CODE: InstalledPackageRow = {
   manifest: { id: 'com.acme.code', name: 'Code App', version: '1.0.0', scope: 'project' },
@@ -268,37 +261,5 @@ describe('Packages — an origin or filter the Source boundary cannot place is r
     );
     await waitFor(() => expect(calls.some((c) => c.path === '/api/v1/packages')).toBe(true));
     expect(screen.queryAllByTestId('pkg-source')).toHaveLength(0);
-  });
-});
-
-describe('The Installed Apps entries open Packages filtered to Source = marketplace (objectui#12675)', () => {
-  it('the `marketplace:installed-list` widget still resolves, and lands on the filtered Packages URL', () => {
-    const Widget = ComponentRegistry.get('marketplace:installed-list') as unknown as React.ComponentType;
-    expect(Widget).toBeTypeOf('function');
-    render(
-      <MemoryRouter initialEntries={['/apps/setup/page/marketplace_installed']}>
-        <LocationProbe />
-        <Routes>
-          <Route path="/apps/:appName/page/:pageName" element={<Widget />} />
-          <Route path="*" element={null} />
-        </Routes>
-      </MemoryRouter>,
-    );
-    expect(screen.getByTestId('location')).toHaveTextContent(`${PACKAGES_PATH}?source=marketplace`);
-  });
-
-  it('the legacy `system/marketplace/installed` route lands on the same URL, keeping the app segment', () => {
-    render(
-      <MemoryRouter initialEntries={['/apps/crm/system/marketplace/installed']}>
-        <LocationProbe />
-        <Routes>
-          <Route path="/apps/:appName/system/marketplace/installed" element={<MarketplaceInstalledPage />} />
-          <Route path="*" element={null} />
-        </Routes>
-      </MemoryRouter>,
-    );
-    expect(screen.getByTestId('location')).toHaveTextContent(
-      '/apps/crm/component/developer/packages?source=marketplace',
-    );
   });
 });

@@ -162,9 +162,11 @@ const REFUSED_AT_TYPE = 0;
  * `main` at the time), once the `field:` namespace left the population, so a
  * field widget moves this pin no more. objectui#12363: minus `record:approvals`
  * and `record:attachments`, the two spec-18 record panels the default record
- * page emits, armed from their `ComponentPropsMap` rows.
+ * page emits, armed from their `ComponentPropsMap` rows. objectui#12733: minus
+ * the Installed Apps widget's key and its `app-shell:` twin, both retired from
+ * the registry with the view.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 306;
+const NAMESPACED_REFUSED_AT_TYPE = 304;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));

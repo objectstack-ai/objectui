@@ -974,7 +974,7 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'global:notifications':
     'EMPTY SPEC SHAPE. Same shape and same reasoning as `app:launcher` above: `app-shell/src/views/global-notifications-renderer.tsx` registers it propless because the spec shape is empty, and that registration is not in this file\'s import graph. objectui#8176.',
   'marketplace:installed-list':
-    'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/marketplace/InstalledListWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
+    'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Not registered here since objectui#12733: objectstack#23933 stopped serving the one page that rendered it, and the list that page led to is Setup → Packages filtered to Marketplace, whose rows carry its actions (`MarketplaceRowActions.installedAppsPins.test.tsx`). The empty shape is the load-bearing half either way; the spec retiring the type makes this entry RETIRED UPSTREAM. objectui#7122, objectui#12733, ledger objectui#8176.',
   'mcp:connect-agent':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/connect/ConnectAgentWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
   'record:approval_decision':

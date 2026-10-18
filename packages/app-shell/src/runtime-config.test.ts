@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { initRuntimeConfig, getRuntimeConfig, getPlatformStage, isAiStudioEnabled, isMarketplaceEnabled, isStorageUsageServed, getClientErrorReporting, resetRuntimeConfigForTesting } from './runtime-config.js';
+import { initRuntimeConfig, getRuntimeConfig, getPlatformStage, isAiStudioEnabled, isMarketplaceEnabled, isStorageUsageServed, isSingleAppSwitcherHidden, getClientErrorReporting, resetRuntimeConfigForTesting } from './runtime-config.js';
 
 function mockConfig(features: Record<string, unknown>) {
     vi.stubGlobal('fetch', vi.fn(async () => ({
@@ -215,6 +215,68 @@ describe('runtime-config storageUsage (objectui#11002)', () => {
         mockConfig({ marketplace: true });
         await initRuntimeConfig();
         expect(isStorageUsageServed()).toBe(false);
+    });
+});
+
+/**
+ * `hideSingleAppSwitcher` — a host's request for no app switcher when the
+ * viewer is served one app (objectui#12913). A top-level member of the
+ * payload, not a `features` flag: it is how this host wants its chrome drawn,
+ * not a capability. ON only when the host sends the literal `true`, and
+ * re-derived from each payload, so a runtime that says nothing keeps today's
+ * switcher. What the switcher does with it is
+ * `layout/__tests__/AppSwitcher.hostSingleApp-12913.test.tsx`'s pin.
+ */
+function mockPayload(payload: Record<string, unknown>) {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+        ok: true,
+        json: async () => payload,
+    })) as any);
+}
+
+describe('runtime-config hideSingleAppSwitcher (objectui#12913)', () => {
+    it('is OFF before init', () => {
+        resetRuntimeConfigForTesting();
+        expect(getRuntimeConfig().hideSingleAppSwitcher).toBe(false);
+        expect(isSingleAppSwitcherHidden()).toBe(false);
+    });
+
+    it('is ON when the host sends the literal true', async () => {
+        mockPayload({ hideSingleAppSwitcher: true });
+        await initRuntimeConfig();
+        expect(getRuntimeConfig().hideSingleAppSwitcher).toBe(true);
+        expect(isSingleAppSwitcherHidden()).toBe(true);
+    });
+
+    it.each([
+        ['absent (every runtime that does not ask)', { singleEnvironment: true }],
+        ['false', { hideSingleAppSwitcher: false }],
+        ["the string 'true'", { hideSingleAppSwitcher: 'true' }],
+        ['the number 1', { hideSingleAppSwitcher: 1 }],
+        ['nested under features, where it is not read', { features: { hideSingleAppSwitcher: true } }],
+    ])('is OFF when the key is %s', async (_label, payload) => {
+        mockPayload(payload);
+        await initRuntimeConfig();
+        expect(getRuntimeConfig().hideSingleAppSwitcher).toBe(false);
+        expect(isSingleAppSwitcherHidden()).toBe(false);
+    });
+
+    it('is OFF when the config fetch itself fails', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => {
+            throw new Error('network down');
+        }));
+        await initRuntimeConfig();
+        expect(isSingleAppSwitcherHidden()).toBe(false);
+    });
+
+    it('withdraws it when a later fetch no longer serves it', async () => {
+        mockPayload({ hideSingleAppSwitcher: true });
+        await initRuntimeConfig();
+        expect(isSingleAppSwitcherHidden()).toBe(true);
+
+        mockPayload({ singleEnvironment: false });
+        await initRuntimeConfig();
+        expect(isSingleAppSwitcherHidden()).toBe(false);
     });
 });
 

@@ -297,6 +297,28 @@ export interface AppShellRuntimeConfig {
    * absent case themselves.
    */
   telemetry: RuntimeTelemetry;
+  /**
+   * The host asks the console to draw no app switcher for a viewer served ONE
+   * app (objectui#12913). Meant for a deployment that is one product, such as
+   * the cloud control plane (`createStudioRuntimeConfigPlugin` in
+   * `@objectstack/service-cloud`), whose 「All apps」 row would only lead back
+   * to the app the viewer is already in.
+   *
+   * It is a REQUEST, not the rule. `AppSwitcher` draws the app's own name and
+   * glyph in place of its pill — so no dropdown, and no 「Back to home」 /
+   * 「All apps」 / 「Settings」 rows — only when this is `true` AND the viewer's
+   * app list holds exactly one active, un-hidden app, counted off the same
+   * list the dropdown draws. A viewer served two or more keeps the switcher:
+   * it is their way to the other app. The product mark still links home, and
+   * the platform-stage chip still follows the app's name.
+   *
+   * Optional and OFF unless served: only a real `true` turns it on (see
+   * {@link isSingleAppSwitcherHidden}), so a runtime that says nothing — every
+   * runtime predating the key, a self-hosted one, a failed config fetch — keeps
+   * today's switcher. Re-derived from each payload in full, like
+   * `singleEnvironment`: a later payload without it withdraws it.
+   */
+  hideSingleAppSwitcher?: boolean;
 }
 
 const defaults: AppShellRuntimeConfig = {
@@ -313,6 +335,8 @@ const defaults: AppShellRuntimeConfig = {
   // guarantee for the two states no payload can speak for: "the config has
   // not arrived yet" and "the fetch failed".
   telemetry: {},
+  // The switcher is drawn until a host asks otherwise (objectui#12913).
+  hideSingleAppSwitcher: false,
 };
 
 /** Valid {@link PlatformStage} values, for validating server-pushed config. */
@@ -414,6 +438,9 @@ export async function initRuntimeConfig(baseUrl: string = ''): Promise<void> {
     applyUpdate({
       cloudUrl: typeof body.cloudUrl === 'string' ? body.cloudUrl.replace(/\/+$/, '') : current.cloudUrl,
       singleEnvironment: !!body.singleEnvironment,
+      // objectui#12913 — a host's request, so only a real `true` turns it on;
+      // `'true'`, `1` and an absent key all keep the switcher.
+      hideSingleAppSwitcher: body.hideSingleAppSwitcher === true,
       defaultOrgId: body.defaultOrgId ?? current.defaultOrgId ?? null,
       defaultEnvironmentId: body.defaultEnvironmentId ?? current.defaultEnvironmentId ?? null,
       features: body.features
@@ -643,6 +670,21 @@ export function isAiStudioEnabled(): boolean {
  */
 export function isStorageUsageServed(): boolean {
   return current.features?.storageUsage === true;
+}
+
+/**
+ * Has the host asked for no app switcher when the viewer is served one app?
+ * (objectui#12913, {@link AppShellRuntimeConfig.hideSingleAppSwitcher})
+ *
+ * The request half of the rule only. The other half — exactly one active,
+ * un-hidden app in the viewer's list — is `AppSwitcher`'s to count, off the
+ * list it draws, so the count and the dropdown cannot read two lists.
+ *
+ * Fails CLOSED to today's chrome (`=== true`): every runtime that does not
+ * serve the key keeps its switcher.
+ */
+export function isSingleAppSwitcherHidden(): boolean {
+  return current.hideSingleAppSwitcher === true;
 }
 
 /**

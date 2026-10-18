@@ -96,9 +96,10 @@ import type { Plugin, Rollup } from 'vite';
  * AppContent declares `lazy()` for more than the eight single-file views, and
  * objectui#6535 deliberately parsed only those: a directory barrel
  * (`../views/metadata-admin/index.js`, six declarations), a sibling directory
- * (`./marketplace/*.js`, three) and a package (`@object-ui/plugin-designer`,
- * three). Measured on `b98352a15` from `apps/console/dist/eager-closure.json`
- * and the emitted chunks' own module lists, three of those four surfaces were
+ * (`./marketplace/*.js`, three then, two since objectui#12733) and a package
+ * (`@object-ui/plugin-designer`, three). Measured on `b98352a15` from
+ * `apps/console/dist/eager-closure.json` and the emitted chunks' own module
+ * lists, three of those four surfaces were
  * eager and worth 182,134 bytes gzipped — 5.6% of a 3180.2 KB closure, and more
  * than four times its 42.5 KB of headroom:
  *
@@ -106,17 +107,18 @@ import type { Plugin, Rollup } from 'vite';
  * |----------------------------|----------|------------------------------------|
  * | `metadata-admin`           | 172,651  | real static edges — FIXED, #6776   |
  * | `MarketplacePackagePage`   |    7,647 | chunk co-tenancy — FIXED           |
- * | `MarketplaceInstalledPage` |    1,836 | chunk co-tenancy — FIXED           |
+ * | the Installed Apps page    |    1,836 | chunk co-tenancy — FIXED; RETIRED  |
  * | `MarketplacePage`          |        0 | already lazy (the control)         |
  *
  * The two marketplace chunks were held by objectui#6680's mechanism, not by an
  * import of the page: rolldown had put `MarketplacePackagePage.tsx` in a chunk
  * with `components/SuggestedBindingsPanel.tsx` (which eager
- * `views/studio-design/StudioDesignSurface.tsx` imports statically) and
- * `MarketplaceInstalledPage.tsx` in a chunk with
- * `console/marketplace/InstalledListWidget.tsx` (which the package barrel
- * bare-imports for its SDUI registration). `MarketplacePage.tsx` had no eager
+ * `views/studio-design/StudioDesignSurface.tsx` imports statically) and the
+ * Installed Apps page in a chunk with the SDUI widget module the package barrel
+ * bare-imported for its registration. `MarketplacePage.tsx` had no eager
  * co-tenant and was already lazy — the control that makes the mechanism legible.
+ * objectui#12733 retired the Installed Apps page and its widget together, so
+ * AppContent declares two marketplace pages lazy today, not three.
  * The repair is the `app-shell-eager-leaves` group in
  * `apps/console/vite.config.ts`, which isolates the co-tenants; the eager
  * closure moved 3180.2 KB -> 3171.5 KB (-8,888 bytes, 48 -> 45 eager chunks).
@@ -126,7 +128,7 @@ import type { Plugin, Rollup } from 'vite';
  * the three declared-lazy pages became an attractor for 47 modules — including
  * `runtime-config.ts`, `providers/MetadataProvider.tsx` and
  * `@object-ui/plugin-form` — and emitted a 44 KB EAGER chunk, because the same
- * bare-imported `InstalledListWidget.tsx` got swept into it. Net -1,697 bytes
+ * bare-imported widget module got swept into it. Net -1,697 bytes
  * against -8,888, and three other lazy boundaries destroyed. A chunk group is
  * not a laziness declaration; it decides co-tenancy, and co-tenancy runs both
  * ways.

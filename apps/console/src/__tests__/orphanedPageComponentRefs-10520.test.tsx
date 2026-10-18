@@ -68,9 +68,6 @@ vi.mock('../../../../packages/app-shell/src/views/metadata-admin', () => ({
 vi.mock('../../../../packages/app-shell/src/console/marketplace/MarketplacePage', () => ({
   MarketplacePage: () => <div data-testid="marketplace-page" />,
 }));
-vi.mock('../../../../packages/app-shell/src/console/marketplace/MarketplaceInstalledPage', () => ({
-  MarketplaceInstalledPage: () => <div data-testid="marketplace-installed-page" />,
-}));
 vi.mock('../../../../packages/app-shell/src/console/marketplace/MarketplacePackagePage', () => ({
   MarketplacePackagePage: () => <div data-testid="marketplace-package-page" />,
 }));

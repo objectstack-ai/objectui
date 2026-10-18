@@ -13,6 +13,12 @@
  * Setup app, when the viewer's app list carries it). For the viewers the top
  * bar offers its Studio button to, 「Edit APP in Studio」 follows a second
  * divider.
+ *
+ * One app, on a host's request (objectui#12913): when the runtime config asks
+ * for it (`hideSingleAppSwitcher`) and the viewer's list holds exactly one
+ * active, un-hidden app, the pill is the app's glyph and name with no
+ * dropdown. Every other viewer, and every runtime that does not ask, gets the
+ * pill above.
  * @module
  */
 
@@ -33,6 +39,7 @@ import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { useHomePath } from '../hooks/useHomePath.js';
 import { SETUP_APP_NAME, SETUP_APP_PACKAGE_ID } from '../console/ConsoleShell.js';
 import { GO_HOME_SHORTCUT, shortcutKeycaps } from '../chrome/advertisedShortcuts.js';
+import { isSingleAppSwitcherHidden } from '../runtime-config.js';
 import { AppMark } from './AppMark.js';
 
 /**
@@ -83,6 +90,27 @@ export function AppSwitcher({ activeAppName, onAppChange, designInStudioPath }: 
   if (!activeApp) return null;
 
   const appLabelText = appLabel({ name: activeApp.name, label: resolveKeyedI18nLabel(activeApp.label, t) });
+
+  // objectui#12913 — the host asked for no switcher, and there is nothing to
+  // switch to: the viewer is served one active, un-hidden app, counted off the
+  // same `activeApps` the menu draws (Setup included, so a viewer served Setup
+  // as well keeps the menu and its 「Settings」 row). The app's glyph and name
+  // stand in the pill's place, with no dropdown; the product mark is still the
+  // way home. Below `sm` the name is for assistive technology only, as the
+  // pill's glyph-alone form is.
+  if (isSingleAppSwitcherHidden() && activeApps.length === 1) {
+    return (
+      <span
+        data-testid="app-switcher-single-app"
+        title={appLabelText}
+        className="flex min-w-0 items-center gap-1.5 px-1.5 py-1 text-sm font-medium text-foreground/80 max-w-[40vw] sm:max-w-none"
+      >
+        <AppMark app={activeApp} size="sm" />
+        <span className="truncate whitespace-nowrap max-sm:sr-only">{appLabelText}</span>
+      </span>
+    );
+  }
+
   // objectui#12605 — Setup is the menu's 「Settings」 row, not one of the apps
   // to switch between. Read off the viewer's own list: a viewer whose list
   // carries no Setup app (the server withholds it without `setup.access`) is

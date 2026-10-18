@@ -4641,6 +4641,50 @@ const ar = {
     recordPicker: {
       sourceUnresolved: "تعذّر تحديد مصدر بيانات منتقي السجلات هذا",
     },
+    calendar: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات هذا التقويم",
+    },
+    chart: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات هذا المخطط",
+    },
+    pivotTable: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات هذا الجدول المحوري",
+    },
+    detailView: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات عرض التفاصيل هذا",
+    },
+    relatedList: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات هذه القائمة المرتبطة",
+      parentUnreadable: "تعذّرت قراءة السجل الأصل لهذه القائمة المرتبطة",
+    },
+    form: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات هذا النموذج",
+    },
+    lineItems: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات لوحة البنود هذه",
+    },
+    gantt: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات مخطط جانت هذا",
+    },
+    grid: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات هذه الشبكة",
+    },
+    board: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات هذه اللوحة",
+    },
+    listView: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات عرض القائمة هذا",
+    },
+    map: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات هذه الخريطة",
+    },
+    timeline: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات هذا المخطط الزمني",
+    },
+    component: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات هذا المكوّن",
+      noDataSource: "لم يُحدَّد أي مصدر بيانات",
+    },
     metadataViewer: {
       missingKey: "{{key}} مفقود لهذا العرض.",
       loading: "جارٍ تحميل {{name}}…",

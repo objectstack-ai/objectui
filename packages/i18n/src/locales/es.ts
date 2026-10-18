@@ -4344,6 +4344,50 @@ const es = {
     recordPicker: {
       sourceUnresolved: "No se pudo resolver el origen de datos de este selector de registros",
     },
+    calendar: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de este calendario",
+    },
+    chart: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de este gráfico",
+    },
+    pivotTable: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de esta tabla dinámica",
+    },
+    detailView: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de esta vista de detalle",
+    },
+    relatedList: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de esta lista relacionada",
+      parentUnreadable: "No se pudo leer el registro principal de esta lista relacionada",
+    },
+    form: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de este formulario",
+    },
+    lineItems: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de este panel de líneas",
+    },
+    gantt: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de este diagrama de Gantt",
+    },
+    grid: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de esta cuadrícula",
+    },
+    board: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de este tablero",
+    },
+    listView: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de esta vista de lista",
+    },
+    map: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de este mapa",
+    },
+    timeline: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de esta línea de tiempo",
+    },
+    component: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de este componente",
+      noDataSource: "No se resolvió ningún origen de datos",
+    },
     metadataViewer: {
       missingKey: "Falta {{key}} en esta vista.",
       loading: "Cargando {{name}}…",

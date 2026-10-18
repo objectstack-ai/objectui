@@ -4249,6 +4249,50 @@ const de = {
     recordPicker: {
       sourceUnresolved: "Die Datenquelle dieser Datensatzauswahl konnte nicht aufgelöst werden",
     },
+    calendar: {
+      sourceUnresolved: "Die Datenquelle dieses Kalenders konnte nicht aufgelöst werden",
+    },
+    chart: {
+      sourceUnresolved: "Die Datenquelle dieses Diagramms konnte nicht aufgelöst werden",
+    },
+    pivotTable: {
+      sourceUnresolved: "Die Datenquelle dieser Pivot-Tabelle konnte nicht aufgelöst werden",
+    },
+    detailView: {
+      sourceUnresolved: "Die Datenquelle dieser Detailansicht konnte nicht aufgelöst werden",
+    },
+    relatedList: {
+      sourceUnresolved: "Die Datenquelle dieser Bezugsliste konnte nicht aufgelöst werden",
+      parentUnreadable: "Der übergeordnete Datensatz dieser Bezugsliste konnte nicht gelesen werden",
+    },
+    form: {
+      sourceUnresolved: "Die Datenquelle dieses Formulars konnte nicht aufgelöst werden",
+    },
+    lineItems: {
+      sourceUnresolved: "Die Datenquelle dieses Positionsbereichs konnte nicht aufgelöst werden",
+    },
+    gantt: {
+      sourceUnresolved: "Die Datenquelle dieses Gantt-Diagramms konnte nicht aufgelöst werden",
+    },
+    grid: {
+      sourceUnresolved: "Die Datenquelle dieses Rasters konnte nicht aufgelöst werden",
+    },
+    board: {
+      sourceUnresolved: "Die Datenquelle dieses Boards konnte nicht aufgelöst werden",
+    },
+    listView: {
+      sourceUnresolved: "Die Datenquelle dieser Listenansicht konnte nicht aufgelöst werden",
+    },
+    map: {
+      sourceUnresolved: "Die Datenquelle dieser Karte konnte nicht aufgelöst werden",
+    },
+    timeline: {
+      sourceUnresolved: "Die Datenquelle dieser Zeitleiste konnte nicht aufgelöst werden",
+    },
+    component: {
+      sourceUnresolved: "Die Datenquelle dieser Komponente konnte nicht aufgelöst werden",
+      noDataSource: "Keine Datenquelle aufgelöst",
+    },
     metadataViewer: {
       missingKey: "{{key}} fehlt für diese Ansicht.",
       loading: "{{name}} wird geladen…",

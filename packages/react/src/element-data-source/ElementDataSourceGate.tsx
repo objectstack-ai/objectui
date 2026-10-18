@@ -515,7 +515,10 @@ export interface ElementDataSourceStatusPanelProps {
    * asserting about rather than a shared anonymous id.
    */
   testId: string;
-  /** Panel heading; defaults to a block-neutral sentence. */
+  /**
+   * Panel heading; defaults to a block-neutral sentence read from the bundle
+   * (objectui#12920). A passed `title`, an empty string included, wins.
+   */
   title?: string;
   /** The author-facing explanation from {@link useElementDataSourceSchema}. */
   message?: string;
@@ -528,16 +531,28 @@ export interface ElementDataSourceStatusPanelProps {
  */
 export function ElementDataSourceErrorPanel({
   testId,
-  title = 'This component’s data source could not be resolved',
+  title,
   message,
 }: ElementDataSourceStatusPanelProps): React.ReactElement {
+  // objectui#12920 — the default reads the bundle; it was an English literal.
+  // Only an ABSENT `title` takes it, as the parameter default did. The hook
+  // runs on this error path only, for the reason
+  // {@link ElementDataSourceMalformedFilterPanel} gives, and the inline
+  // `defaultValue` is the `en` pack's value (`pnpm check:i18n-keys`).
+  const { t } = useObjectTranslation();
+  const heading =
+    title === undefined
+      ? t('element.component.sourceUnresolved', {
+          defaultValue: 'This component’s data source could not be resolved',
+        })
+      : title;
   return (
     <div
       className="p-4 border border-red-500 rounded text-red-500 bg-red-50 my-2"
       role="alert"
       data-testid={`${testId}-datasource-error`}
     >
-      <p className="font-medium">{title}</p>
+      <p className="font-medium">{heading}</p>
       {message ? <p className="text-sm mt-1">{message}</p> : null}
     </div>
   );
@@ -740,16 +755,23 @@ export function noDataSourceMessage(blockKey: string, objectName?: unknown): str
  */
 export function NoDataSourcePanel({
   testId,
-  title = 'No data source resolved',
+  title,
   message,
 }: ElementDataSourceStatusPanelProps): React.ReactElement {
+  // objectui#12920 — same reading as {@link ElementDataSourceErrorPanel}: an
+  // absent `title` reads the bundle, a passed one wins.
+  const { t } = useObjectTranslation();
+  const heading =
+    title === undefined
+      ? t('element.component.noDataSource', { defaultValue: 'No data source resolved' })
+      : title;
   return (
     <div
       className="p-4 border border-red-500 rounded text-red-500 bg-red-50 my-2"
       role="alert"
       data-testid={`${testId}-no-data-source`}
     >
-      <p className="font-medium">{title}</p>
+      <p className="font-medium">{heading}</p>
       {message ? <p className="text-sm mt-1">{message}</p> : null}
     </div>
   );

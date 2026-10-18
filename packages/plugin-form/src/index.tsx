@@ -15,6 +15,7 @@ import {
   useResolvedDataSource,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
+import { useObjectTranslation } from '@object-ui/i18n';
 import type { DataSource } from '@object-ui/types';
 import { ObjectForm } from './ObjectForm';
 import { hasInlineFieldSource } from './submitTarget';
@@ -214,12 +215,16 @@ const ObjectFormRenderer: React.FC<{ schema: any; dataSource?: unknown }> = elem
   // A `view` name is still resolved, so naming one that does not exist reports
   // instead of rendering; a view that DOES resolve contributes nothing on this
   // block, which is recorded as the residual gap on objectstack#6953.
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
   return (
     <ElementDataSourceGate
       schema={schema}
       dataSource={dataSource}
       testId="object-form"
-      errorTitle="This form’s data source could not be resolved"
+      errorTitle={t('element.form.sourceUnresolved', {
+        defaultValue: 'This form’s data source could not be resolved',
+      })}
       // `ObjectForm` builds its fields from the object's metadata, which only an
       // adapter can serve — its own effect calls the branch it comments as
       // "cannot proceed" and then renders a field-less card in silence
@@ -424,12 +429,16 @@ const EmbeddableFormRenderer: React.FC<{ schema: any }> = elementDataSourceBlock
   // ordered layout, not a projection a list view's columns could fill, so none of
   // them is mapped. A `view` name is still resolved (a typo reports rather than
   // rendering), and a view that does resolve contributes nothing here.
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
   return (
     <ElementDataSourceGate
       schema={schema}
       dataSource={dataSource}
       testId="embeddable-form"
-      errorTitle="This form’s data source could not be resolved"
+      errorTitle={t('element.form.sourceUnresolved', {
+        defaultValue: 'This form’s data source could not be resolved',
+      })}
       // A public form that names its object in neither place has no fields to
       // fetch and no object to `create()` the submission in, and drew an empty
       // form with a Submit button (objectui#11605).
@@ -511,12 +520,16 @@ const MasterDetailFormRenderer: React.FC<{ schema: any }> = elementDataSourceBlo
   // `schema.details`, at a fixed `$top: 500`, not from anything the binding
   // carries. `details[].columns` is a per-child editable grid spec, not a
   // projection a saved view could supply.
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
   return (
     <ElementDataSourceGate
       schema={schema}
       dataSource={dataSource}
       testId="object-master-detail-form"
-      errorTitle="This form’s data source could not be resolved"
+      errorTitle={t('element.form.sourceUnresolved', {
+        defaultValue: 'This form’s data source could not be resolved',
+      })}
       // With no parent object in either place there is no parent form to draw
       // and no relationship to derive: it drew an empty parent and a detail
       // hint about a missing link to a blank parent (objectui#11605).
@@ -657,21 +670,27 @@ const RECORD_LINE_ITEMS_DATA_SOURCE: ElementDataSourceMapping = {
   limit: 'limit',
 };
 
-const LineItemsPanelRenderer: React.FC<{ schema: any }> = elementDataSourceBlock(({ schema }) => (
-  // The spec's `PageComponentSchema.dataSource` binding (objectstack#7121). No
-  // `dataSource` is passed: the gate falls back to `SchemaRendererContext`, which
-  // is the very adapter `LineItemsPanel` loads its rows through — resolving `view`
-  // against a different source than the rows come from could report a view as
-  // missing on a host that has it.
-  <ElementDataSourceGate
-    schema={schema}
-    mapping={RECORD_LINE_ITEMS_DATA_SOURCE}
-    testId="record-line-items"
-    errorTitle="This line-items panel’s data source could not be resolved"
-  >
-    {(bound) => <LineItemsPanel schema={bound} />}
-  </ElementDataSourceGate>
-));
+const LineItemsPanelRenderer: React.FC<{ schema: any }> = elementDataSourceBlock(({ schema }) => {
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
+  return (
+    // The spec's `PageComponentSchema.dataSource` binding (objectstack#7121). No
+    // `dataSource` is passed: the gate falls back to `SchemaRendererContext`, which
+    // is the very adapter `LineItemsPanel` loads its rows through — resolving `view`
+    // against a different source than the rows come from could report a view as
+    // missing on a host that has it.
+    <ElementDataSourceGate
+      schema={schema}
+      mapping={RECORD_LINE_ITEMS_DATA_SOURCE}
+      testId="record-line-items"
+      errorTitle={t('element.lineItems.sourceUnresolved', {
+        defaultValue: 'This line-items panel’s data source could not be resolved',
+      })}
+    >
+      {(bound) => <LineItemsPanel schema={bound} />}
+    </ElementDataSourceGate>
+  );
+});
 
 ComponentRegistry.register('line_items', LineItemsPanelRenderer, {
   namespace: 'record',

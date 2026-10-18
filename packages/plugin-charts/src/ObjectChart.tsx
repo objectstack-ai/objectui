@@ -1729,30 +1729,36 @@ const chartNeedsObject = (node: BaseSchema): boolean =>
  * `__tests__/ObjectChartBlock.props-8885.test.tsx`.
  */
 export const ObjectChartBlock = elementDataSourceBlock(
-  (props: Omit<ObjectChartProps, 'schema'> & { schema: BaseSchema }) => (
-    <ElementDataSourceGate
-      schema={props.schema}
-      mapping={OBJECT_CHART_DATA_SOURCE}
-      dataSource={props.dataSource}
-      testId="object-chart"
-      errorTitle="This chart’s data source could not be resolved"
-      // A chart that names its object in neither place has nothing to
-      // aggregate, and drew an empty chart frame with no axis and no message
-      // (objectui#11605). Inline `data`, a semantic-layer `dataset` and a `bind`
-      // path are its other record sources, so any of them opts out.
-      requiresObject={chartNeedsObject(props.schema)}
-    >
-      {(bound) => (
-        // The ONE loose member of this signature, kept on purpose. This is
-        // where the pre-gate node becomes the component's post-gate schema,
-        // and `ObjectChart` is where the post-gate claim belongs. The gate
-        // maps the binding and does not validate, so the claim has to be
-        // made here, at one line, instead of on the published signature
-        // above.
-        <ObjectChart {...props} schema={bound as ObjectChartSchema} />
-      )}
-    </ElementDataSourceGate>
-  ),
+  (props: Omit<ObjectChartProps, 'schema'> & { schema: BaseSchema }) => {
+    // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+    const { t } = useObjectTranslation();
+    return (
+      <ElementDataSourceGate
+        schema={props.schema}
+        mapping={OBJECT_CHART_DATA_SOURCE}
+        dataSource={props.dataSource}
+        testId="object-chart"
+        errorTitle={t('element.chart.sourceUnresolved', {
+          defaultValue: 'This chart’s data source could not be resolved',
+        })}
+        // A chart that names its object in neither place has nothing to
+        // aggregate, and drew an empty chart frame with no axis and no message
+        // (objectui#11605). Inline `data`, a semantic-layer `dataset` and a `bind`
+        // path are its other record sources, so any of them opts out.
+        requiresObject={chartNeedsObject(props.schema)}
+      >
+        {(bound) => (
+          // The ONE loose member of this signature, kept on purpose. This is
+          // where the pre-gate node becomes the component's post-gate schema,
+          // and `ObjectChart` is where the post-gate claim belongs. The gate
+          // maps the binding and does not validate, so the claim has to be
+          // made here, at one line, instead of on the published signature
+          // above.
+          <ObjectChart {...props} schema={bound as ObjectChartSchema} />
+        )}
+      </ElementDataSourceGate>
+    );
+  },
 );
 
 // Register it

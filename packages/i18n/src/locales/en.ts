@@ -5008,6 +5008,56 @@ const en = {
     recordPicker: {
       sourceUnresolved: 'This record picker’s data source could not be resolved',
     },
+    // objectui#12920 — the same panel title for every other data-bound block,
+    // one key per block kind. `element:number` above also titles the
+    // dashboard's `object-metric`; `component` is the @object-ui/react
+    // panel's own default, for a block that passes no title.
+    calendar: {
+      sourceUnresolved: 'This calendar’s data source could not be resolved',
+    },
+    chart: {
+      sourceUnresolved: 'This chart’s data source could not be resolved',
+    },
+    pivotTable: {
+      sourceUnresolved: 'This pivot table’s data source could not be resolved',
+    },
+    detailView: {
+      sourceUnresolved: 'This detail view’s data source could not be resolved',
+    },
+    relatedList: {
+      sourceUnresolved: 'This related list’s data source could not be resolved',
+      // The panel drawn when the list's `parentDataSource` read fails.
+      parentUnreadable: 'This related list’s parent record could not be read',
+    },
+    form: {
+      sourceUnresolved: 'This form’s data source could not be resolved',
+    },
+    lineItems: {
+      sourceUnresolved: 'This line-items panel’s data source could not be resolved',
+    },
+    gantt: {
+      sourceUnresolved: 'This gantt chart’s data source could not be resolved',
+    },
+    grid: {
+      sourceUnresolved: 'This grid’s data source could not be resolved',
+    },
+    board: {
+      sourceUnresolved: 'This board’s data source could not be resolved',
+    },
+    listView: {
+      sourceUnresolved: 'This list view’s data source could not be resolved',
+    },
+    map: {
+      sourceUnresolved: 'This map’s data source could not be resolved',
+    },
+    timeline: {
+      sourceUnresolved: 'This timeline’s data source could not be resolved',
+    },
+    component: {
+      sourceUnresolved: 'This component’s data source could not be resolved',
+      // The panel drawn when a block resolved no adapter at all.
+      noDataSource: 'No data source resolved',
+    },
     // objectui#12910 — `element:metadata_viewer` (the ```metadata doc fence).
     // A `{{name}}`-style slot that the renderer draws as a `<code>` chip is
     // filled with a private-use mark and split on, so each language places

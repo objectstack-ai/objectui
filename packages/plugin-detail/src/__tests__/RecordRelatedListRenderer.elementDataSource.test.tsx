@@ -33,6 +33,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import * as React from 'react';
 import { RecordContextProvider } from '@object-ui/react';
+import { I18nProvider } from '@object-ui/i18n';
 import { RecordRelatedListRenderer } from '../renderers/record-related-list';
 
 // Capture what the renderer passes down to RelatedList — the question actually
@@ -157,5 +158,26 @@ describe('record:related_list — dataSource: { object, view } (objectstack#6953
     renderRelated({ objectName: 'contact', filter: authored });
     await waitFor(() => expect(h.captured).toBeTruthy());
     expect(h.captured.filter).toBe(authored);
+  });
+});
+
+describe('record:related_list — the unresolvable-view panel title reads the bundle (objectui#12920)', () => {
+  it('under zh-CN the panel is titled in Chinese, not the English literal', async () => {
+    const { container } = render(
+      <I18nProvider persistLanguage={false} config={{ defaultLanguage: 'zh-CN', detectBrowserLanguage: false }}>
+        <RecordContextProvider objectName="account" recordId="ACC-1" dataSource={makeDataSource() as any}>
+          <RecordRelatedListRenderer
+            schema={{ relationshipField: 'account_id', dataSource: { object: 'contact', view: 'nope' } } as any}
+          />
+        </RecordContextProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="record-related-list-datasource-error"]')).not.toBeNull(),
+    );
+    expect(
+      container.querySelector('[data-testid="record-related-list-datasource-error"] p.font-medium')?.textContent,
+    ).toBe('无法解析此相关列表的数据源');
   });
 });

@@ -36,6 +36,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { I18nProvider } from '@object-ui/i18n';
 // Registers `list-view` (and the ListViewBlock bridge under test).
 import '../index';
 
@@ -377,5 +378,25 @@ describe('list-view — an unresolvable dataSource.view fails loudly', () => {
     });
     expect(panel.textContent).toContain('cannot list the saved views');
     expect(adapter.find).not.toHaveBeenCalled();
+  });
+});
+
+describe('list-view — the unresolvable-view panel title reads the bundle (objectui#12920)', () => {
+  it('under zh-CN the panel is titled in Chinese, not the English literal', async () => {
+    const adapter = makeAdapter();
+    const { container } = render(
+      <I18nProvider persistLanguage={false} config={{ defaultLanguage: 'zh-CN', detectBrowserLanguage: false }}>
+        <SchemaRendererProvider dataSource={adapter as any}>
+          <SchemaRenderer schema={{ type: 'list-view', dataSource: { object: 'account', view: 'lukewarm' } } as any} />
+        </SchemaRendererProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="list-view-datasource-error"]')).not.toBeNull(),
+    );
+    expect(container.querySelector('[data-testid="list-view-datasource-error"] p.font-medium')?.textContent).toBe(
+      '无法解析此列表视图的数据源',
+    );
   });
 });

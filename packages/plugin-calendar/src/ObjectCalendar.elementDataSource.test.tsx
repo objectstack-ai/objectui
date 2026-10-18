@@ -21,6 +21,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { I18nProvider } from '@object-ui/i18n';
 // Registers `object-calendar` (and the ElementDataSourceGate wiring under test).
 import './index';
 
@@ -135,5 +136,25 @@ describe('object-calendar — dataSource: { object, view } (objectstack#6953)', 
     // sending `{ name: 'desc' }`. The shared sink reads a missing `order` as
     // ascending — what `QueryParams.$orderby`'s member shape declares.
     expect(params.$orderby).toEqual({ starts_at: 'asc', name: 'desc' });
+  });
+});
+
+describe('object-calendar — the unresolvable-view panel title reads the bundle (objectui#12920)', () => {
+  it('under zh-CN the panel is titled in Chinese, not the English literal', async () => {
+    const adapter = makeAdapter();
+    const { container } = render(
+      <I18nProvider persistLanguage={false} config={{ defaultLanguage: 'zh-CN', detectBrowserLanguage: false }}>
+        <SchemaRendererProvider dataSource={adapter as any}>
+          <SchemaRenderer schema={{ type: 'object-calendar', calendar: CALENDAR, dataSource: { object: 'account', view: 'nope' } } as any} />
+        </SchemaRendererProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="object-calendar-datasource-error"]')).not.toBeNull(),
+    );
+    expect(container.querySelector('[data-testid="object-calendar-datasource-error"] p.font-medium')?.textContent).toBe(
+      '无法解析此日历的数据源',
+    );
   });
 });

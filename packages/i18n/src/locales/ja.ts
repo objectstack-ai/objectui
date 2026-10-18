@@ -4250,6 +4250,50 @@ const ja = {
     recordPicker: {
       sourceUnresolved: "このレコードピッカーのデータソースを解決できませんでした",
     },
+    calendar: {
+      sourceUnresolved: "このカレンダーのデータソースを解決できませんでした",
+    },
+    chart: {
+      sourceUnresolved: "このグラフのデータソースを解決できませんでした",
+    },
+    pivotTable: {
+      sourceUnresolved: "このピボットテーブルのデータソースを解決できませんでした",
+    },
+    detailView: {
+      sourceUnresolved: "この詳細ビューのデータソースを解決できませんでした",
+    },
+    relatedList: {
+      sourceUnresolved: "この関連リストのデータソースを解決できませんでした",
+      parentUnreadable: "この関連リストの親レコードを読み込めませんでした",
+    },
+    form: {
+      sourceUnresolved: "このフォームのデータソースを解決できませんでした",
+    },
+    lineItems: {
+      sourceUnresolved: "この明細行パネルのデータソースを解決できませんでした",
+    },
+    gantt: {
+      sourceUnresolved: "このガントチャートのデータソースを解決できませんでした",
+    },
+    grid: {
+      sourceUnresolved: "このグリッドのデータソースを解決できませんでした",
+    },
+    board: {
+      sourceUnresolved: "このボードのデータソースを解決できませんでした",
+    },
+    listView: {
+      sourceUnresolved: "このリストビューのデータソースを解決できませんでした",
+    },
+    map: {
+      sourceUnresolved: "この地図のデータソースを解決できませんでした",
+    },
+    timeline: {
+      sourceUnresolved: "このタイムラインのデータソースを解決できませんでした",
+    },
+    component: {
+      sourceUnresolved: "このコンポーネントのデータソースを解決できませんでした",
+      noDataSource: "データソースが解決されていません",
+    },
     metadataViewer: {
       missingKey: "このビューには {{key}} がありません。",
       loading: "{{name}} を読み込み中…",

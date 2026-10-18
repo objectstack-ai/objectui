@@ -13,6 +13,7 @@ import {
   useSchemaContext,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
+import { useObjectTranslation } from '@object-ui/i18n';
 import { ObjectGantt } from './ObjectGantt';
 
 export { ObjectGantt };
@@ -99,13 +100,17 @@ export const ObjectGanttRenderer: React.FC<{ schema: any }> = elementDataSourceB
   // gantt authored with the binding and no flat `objectName` produced no data
   // config at all, so `resolveDataSource` had nothing to fetch through: an empty
   // chart, no request, no diagnostic.
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
   return (
     <ElementDataSourceGate
       schema={schema}
       mapping={OBJECT_GANTT_DATA_SOURCE}
       dataSource={dataSource}
       testId="object-gantt"
-      errorTitle="This gantt chart’s data source could not be resolved"
+      errorTitle={t('element.gantt.sourceUnresolved', {
+        defaultValue: 'This gantt chart’s data source could not be resolved',
+      })}
     >
       {(bound) => <ObjectGantt schema={bound} dataSource={dataSource} />}
     </ElementDataSourceGate>

@@ -311,6 +311,7 @@ import {
   useSchemaContext,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
+import { useObjectTranslation } from '@object-ui/i18n';
 
 /**
  * `object-timeline` maps `object` + `filter` + `sort` + `limit` — every key its
@@ -341,13 +342,17 @@ export const ObjectTimelineRenderer: React.FC<any> = elementDataSourceBlock(({ s
   // timeline authored with the binding and no flat `objectName` never fetched —
   // every branch of its effect is gated on `schema.objectName` — and rendered an
   // empty rail with no request and no error.
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
   return (
     <ElementDataSourceGate
       schema={schema}
       mapping={OBJECT_TIMELINE_DATA_SOURCE}
       dataSource={dataSource}
       testId="object-timeline"
-      errorTitle="This timeline’s data source could not be resolved"
+      errorTitle={t('element.timeline.sourceUnresolved', {
+        defaultValue: 'This timeline’s data source could not be resolved',
+      })}
     >
       {(bound) => <ObjectTimeline schema={bound} dataSource={dataSource} {...props} />}
     </ElementDataSourceGate>

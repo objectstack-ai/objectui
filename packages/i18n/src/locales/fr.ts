@@ -4341,6 +4341,50 @@ const fr = {
     recordPicker: {
       sourceUnresolved: "La source de données de ce sélecteur d’enregistrement n’a pas pu être résolue",
     },
+    calendar: {
+      sourceUnresolved: "La source de données de ce calendrier n’a pas pu être résolue",
+    },
+    chart: {
+      sourceUnresolved: "La source de données de ce graphique n’a pas pu être résolue",
+    },
+    pivotTable: {
+      sourceUnresolved: "La source de données de ce tableau croisé dynamique n’a pas pu être résolue",
+    },
+    detailView: {
+      sourceUnresolved: "La source de données de cette vue détaillée n’a pas pu être résolue",
+    },
+    relatedList: {
+      sourceUnresolved: "La source de données de cette liste associée n’a pas pu être résolue",
+      parentUnreadable: "L’enregistrement parent de cette liste associée n’a pas pu être lu",
+    },
+    form: {
+      sourceUnresolved: "La source de données de ce formulaire n’a pas pu être résolue",
+    },
+    lineItems: {
+      sourceUnresolved: "La source de données de ce panneau de lignes n’a pas pu être résolue",
+    },
+    gantt: {
+      sourceUnresolved: "La source de données de ce diagramme de Gantt n’a pas pu être résolue",
+    },
+    grid: {
+      sourceUnresolved: "La source de données de cette grille n’a pas pu être résolue",
+    },
+    board: {
+      sourceUnresolved: "La source de données de ce tableau n’a pas pu être résolue",
+    },
+    listView: {
+      sourceUnresolved: "La source de données de cette vue en liste n’a pas pu être résolue",
+    },
+    map: {
+      sourceUnresolved: "La source de données de cette carte n’a pas pu être résolue",
+    },
+    timeline: {
+      sourceUnresolved: "La source de données de cette chronologie n’a pas pu être résolue",
+    },
+    component: {
+      sourceUnresolved: "La source de données de ce composant n’a pas pu être résolue",
+      noDataSource: "Aucune source de données résolue",
+    },
     metadataViewer: {
       missingKey: "{{key}} manquant pour cette vue.",
       loading: "Chargement de {{name}}…",

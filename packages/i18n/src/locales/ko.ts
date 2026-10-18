@@ -4247,6 +4247,50 @@ const ko = {
     recordPicker: {
       sourceUnresolved: "이 레코드 선택기의 데이터 소스를 확인할 수 없습니다",
     },
+    calendar: {
+      sourceUnresolved: "이 캘린더의 데이터 소스를 확인할 수 없습니다",
+    },
+    chart: {
+      sourceUnresolved: "이 차트의 데이터 소스를 확인할 수 없습니다",
+    },
+    pivotTable: {
+      sourceUnresolved: "이 피벗 테이블의 데이터 소스를 확인할 수 없습니다",
+    },
+    detailView: {
+      sourceUnresolved: "이 상세 보기의 데이터 소스를 확인할 수 없습니다",
+    },
+    relatedList: {
+      sourceUnresolved: "이 관련 목록의 데이터 소스를 확인할 수 없습니다",
+      parentUnreadable: "이 관련 목록의 상위 레코드를 읽을 수 없습니다",
+    },
+    form: {
+      sourceUnresolved: "이 양식의 데이터 소스를 확인할 수 없습니다",
+    },
+    lineItems: {
+      sourceUnresolved: "이 품목 패널의 데이터 소스를 확인할 수 없습니다",
+    },
+    gantt: {
+      sourceUnresolved: "이 간트 차트의 데이터 소스를 확인할 수 없습니다",
+    },
+    grid: {
+      sourceUnresolved: "이 그리드의 데이터 소스를 확인할 수 없습니다",
+    },
+    board: {
+      sourceUnresolved: "이 보드의 데이터 소스를 확인할 수 없습니다",
+    },
+    listView: {
+      sourceUnresolved: "이 목록 보기의 데이터 소스를 확인할 수 없습니다",
+    },
+    map: {
+      sourceUnresolved: "이 지도의 데이터 소스를 확인할 수 없습니다",
+    },
+    timeline: {
+      sourceUnresolved: "이 타임라인의 데이터 소스를 확인할 수 없습니다",
+    },
+    component: {
+      sourceUnresolved: "이 구성 요소의 데이터 소스를 확인할 수 없습니다",
+      noDataSource: "확인된 데이터 소스가 없습니다",
+    },
     metadataViewer: {
       missingKey: "이 보기에 {{key}}이(가) 없습니다.",
       loading: "{{name}} 로딩 중…",

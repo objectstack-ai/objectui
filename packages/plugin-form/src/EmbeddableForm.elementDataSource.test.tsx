@@ -24,6 +24,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { I18nProvider } from '@object-ui/i18n';
 // Registers `embeddable-form` (and the ElementDataSourceGate wiring under test).
 import './index';
 
@@ -134,5 +135,25 @@ describe('embeddable-form — dataSource: { object } (objectstack#7121)', () => 
     );
 
     await waitFor(() => expect(adapter.getObjectSchema).toHaveBeenCalledWith('lead'));
+  });
+});
+
+describe('embeddable-form — the unresolvable-view panel title reads the bundle (objectui#12920)', () => {
+  it('under zh-CN the panel is titled in Chinese, not the English literal', async () => {
+    const adapter = makeAdapter();
+    const { container } = render(
+      <I18nProvider persistLanguage={false} config={{ defaultLanguage: 'zh-CN', detectBrowserLanguage: false }}>
+        <SchemaRendererProvider dataSource={adapter as any}>
+          <SchemaRenderer schema={{ type: 'embeddable-form', formId: 'contact-us', fields: FIELDS, dataSource: { object: 'lead', view: 'nope' } } as any} />
+        </SchemaRendererProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="embeddable-form-datasource-error"]')).not.toBeNull(),
+    );
+    expect(container.querySelector('[data-testid="embeddable-form-datasource-error"] p.font-medium')?.textContent).toBe(
+      '无法解析此表单的数据源',
+    );
   });
 });

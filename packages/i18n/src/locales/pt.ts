@@ -4339,6 +4339,50 @@ const pt = {
     recordPicker: {
       sourceUnresolved: "Não foi possível resolver a fonte de dados deste seletor de registros",
     },
+    calendar: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados deste calendário",
+    },
+    chart: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados deste gráfico",
+    },
+    pivotTable: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados desta tabela dinâmica",
+    },
+    detailView: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados desta visualização de detalhes",
+    },
+    relatedList: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados desta lista relacionada",
+      parentUnreadable: "Não foi possível ler o registro pai desta lista relacionada",
+    },
+    form: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados deste formulário",
+    },
+    lineItems: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados deste painel de itens",
+    },
+    gantt: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados deste gráfico de Gantt",
+    },
+    grid: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados desta grade",
+    },
+    board: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados deste quadro",
+    },
+    listView: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados desta visualização de lista",
+    },
+    map: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados deste mapa",
+    },
+    timeline: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados desta linha do tempo",
+    },
+    component: {
+      sourceUnresolved: "Não foi possível resolver a fonte de dados deste componente",
+      noDataSource: "Nenhuma fonte de dados resolvida",
+    },
     metadataViewer: {
       missingKey: "Falta {{key}} nesta visualização.",
       loading: "Carregando {{name}}…",

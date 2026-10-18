@@ -9,6 +9,7 @@
 import React from 'react';
 import { ComponentRegistry, elementDataSourceBlock } from '@object-ui/core';
 import { ElementDataSourceGate, type ElementDataSourceMapping } from '@object-ui/react';
+import { useObjectTranslation } from '@object-ui/i18n';
 import { DashboardRenderer } from './DashboardRenderer';
 import { DashboardGridLayout } from './DashboardGridLayout';
 import { MetricWidget } from './MetricWidget';
@@ -233,29 +234,35 @@ const OBJECT_METRIC_DATA_SOURCE: ElementDataSourceMapping = {
  * grid path" as such a host until objectui#11525 retired the dashboards'
  * inline `object-metric` node; that path builds none now.)
  */
-const ObjectMetricBlock: React.FC<{ schema?: any; [key: string]: any }> = elementDataSourceBlock(({ schema, ...props }) => (
-  <ElementDataSourceGate
-    schema={schema}
-    mapping={OBJECT_METRIC_DATA_SOURCE}
-    dataSource={props.dataSource}
-    testId="object-metric"
-    errorTitle="This metric’s data source could not be resolved"
-    // A metric that names its object in neither place has nothing to
-    // aggregate, and drew a bare dash, which reads as a value (objectui#11605).
-    // A host rendering this widget with explicit props and no schema is not a
-    // node and is left alone, and an authored `fallbackValue` is a static tile
-    // the author chose.
-    requiresObject={schema != null && schema.fallbackValue === undefined}
-  >
-    {(bound) => (
-      <ObjectMetricWidget
-        {...(props as any)}
-        objectName={bound?.objectName ?? props.objectName}
-        filter={bound?.filter ?? props.filter}
-      />
-    )}
-  </ElementDataSourceGate>
-));
+const ObjectMetricBlock: React.FC<{ schema?: any; [key: string]: any }> = elementDataSourceBlock(({ schema, ...props }) => {
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
+  return (
+    <ElementDataSourceGate
+      schema={schema}
+      mapping={OBJECT_METRIC_DATA_SOURCE}
+      dataSource={props.dataSource}
+      testId="object-metric"
+      errorTitle={t('element.number.sourceUnresolved', {
+        defaultValue: 'This metric’s data source could not be resolved',
+      })}
+      // A metric that names its object in neither place has nothing to
+      // aggregate, and drew a bare dash, which reads as a value (objectui#11605).
+      // A host rendering this widget with explicit props and no schema is not a
+      // node and is left alone, and an authored `fallbackValue` is a static tile
+      // the author chose.
+      requiresObject={schema != null && schema.fallbackValue === undefined}
+    >
+      {(bound) => (
+        <ObjectMetricWidget
+          {...(props as any)}
+          objectName={bound?.objectName ?? props.objectName}
+          filter={bound?.filter ?? props.filter}
+        />
+      )}
+    </ElementDataSourceGate>
+  );
+});
 
 // Register object-aware metric widget (async data loading with error states)
 ComponentRegistry.register(
@@ -391,23 +398,29 @@ const OBJECT_PIVOT_DATA_SOURCE: ElementDataSourceMapping = {
  * is no binding — so the dashboard/manual paths that render this component with a
  * plain schema behave exactly as before.
  */
-const ObjectPivotBlock: React.FC<{ schema?: any; [key: string]: any }> = elementDataSourceBlock(({ schema, ...props }) => (
-  <ElementDataSourceGate
-    schema={schema}
-    mapping={OBJECT_PIVOT_DATA_SOURCE}
-    dataSource={props.dataSource}
-    testId="object-pivot"
-    errorTitle="This pivot table’s data source could not be resolved"
-    // A pivot that names its object in neither place has nothing to fetch, and
-    // drew the empty state that says its query "returned no records yet" — a
-    // query it never ran (objectui#11605). Inline `data` rows and a `bind`
-    // path are this table's other record sources, and a host rendering it with
-    // no schema is not a node.
-    requiresObject={schema != null && schema.data == null && schema.bind == null}
-  >
-    {(bound) => <ObjectPivotTable {...(props as any)} schema={bound as any} />}
-  </ElementDataSourceGate>
-));
+const ObjectPivotBlock: React.FC<{ schema?: any; [key: string]: any }> = elementDataSourceBlock(({ schema, ...props }) => {
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
+  return (
+    <ElementDataSourceGate
+      schema={schema}
+      mapping={OBJECT_PIVOT_DATA_SOURCE}
+      dataSource={props.dataSource}
+      testId="object-pivot"
+      errorTitle={t('element.pivotTable.sourceUnresolved', {
+        defaultValue: 'This pivot table’s data source could not be resolved',
+      })}
+      // A pivot that names its object in neither place has nothing to fetch, and
+      // drew the empty state that says its query "returned no records yet" — a
+      // query it never ran (objectui#11605). Inline `data` rows and a `bind`
+      // path are this table's other record sources, and a host rendering it with
+      // no schema is not a node.
+      requiresObject={schema != null && schema.data == null && schema.bind == null}
+    >
+      {(bound) => <ObjectPivotTable {...(props as any)} schema={bound as any} />}
+    </ElementDataSourceGate>
+  );
+});
 
 // Register object-aware pivot table (async data loading)
 ComponentRegistry.register(

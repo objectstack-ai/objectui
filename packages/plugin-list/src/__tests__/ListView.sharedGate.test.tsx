@@ -38,6 +38,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import * as React from 'react';
 import { SchemaRendererProvider } from '@object-ui/react';
+import { en } from '@object-ui/i18n';
 import { ListViewBlock } from '../ListViewBlock';
 
 const h = vi.hoisted(() => ({ captured: null as any, gate: [] as any[] }));
@@ -139,8 +140,12 @@ describe('list-view — the seam: the binding is read through the SHARED gate (o
     // The prefix is what keeps the shared panels byte-compatible with the
     // assertions objectstack#5576 already carries.
     expect(h.gate[0].testId).toBe('list-view');
-    expect(h.gate[0].errorTitle).toBe('This list view’s data source could not be resolved');
-    expect(container.textContent).toContain('This list view’s data source could not be resolved');
+    // Edited deliberately (objectui#12920): the title is read from the bundle,
+    // no longer an English literal. With no `I18nProvider` mounted it is the
+    // `en` pack's value, which the call site's inline default repeats; the
+    // zh-CN render is pinned in `ListView.elementDataSource.test.tsx`.
+    expect(h.gate[0].errorTitle).toBe(en.element.listView.sourceUnresolved);
+    expect(container.textContent).toContain(en.element.listView.sourceUnresolved);
   });
 
   it('gives the gate the same adapter it gives ListView', async () => {

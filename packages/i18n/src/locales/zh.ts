@@ -4308,6 +4308,50 @@ const zh = {
     recordPicker: {
       sourceUnresolved: '无法解析此记录选择器的数据源',
     },
+    calendar: {
+      sourceUnresolved: '无法解析此日历的数据源',
+    },
+    chart: {
+      sourceUnresolved: '无法解析此图表的数据源',
+    },
+    pivotTable: {
+      sourceUnresolved: '无法解析此数据透视表的数据源',
+    },
+    detailView: {
+      sourceUnresolved: '无法解析此详情视图的数据源',
+    },
+    relatedList: {
+      sourceUnresolved: '无法解析此相关列表的数据源',
+      parentUnreadable: '无法读取此相关列表的父记录',
+    },
+    form: {
+      sourceUnresolved: '无法解析此表单的数据源',
+    },
+    lineItems: {
+      sourceUnresolved: '无法解析此明细行面板的数据源',
+    },
+    gantt: {
+      sourceUnresolved: '无法解析此甘特图的数据源',
+    },
+    grid: {
+      sourceUnresolved: '无法解析此表格的数据源',
+    },
+    board: {
+      sourceUnresolved: '无法解析此看板的数据源',
+    },
+    listView: {
+      sourceUnresolved: '无法解析此列表视图的数据源',
+    },
+    map: {
+      sourceUnresolved: '无法解析此地图的数据源',
+    },
+    timeline: {
+      sourceUnresolved: '无法解析此时间线的数据源',
+    },
+    component: {
+      sourceUnresolved: '无法解析此组件的数据源',
+      noDataSource: '未解析到数据源',
+    },
     metadataViewer: {
       missingKey: '此视图缺少 {{key}}。',
       loading: '正在加载 {{name}}…',

@@ -33,6 +33,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { I18nProvider } from '@object-ui/i18n';
 import { DEFAULT_KANBAN_FETCH_BATCH_SIZE } from './ObjectKanban';
 // Registers `object-kanban` (and the ElementDataSourceGate wiring under test).
 import './index';
@@ -473,5 +474,25 @@ describe('object-kanban — the binding’s five members, each with its disposit
     );
     const [, boundParams] = await firstQuery(bound);
     expect(boundParams.$top).toBe(3);
+  });
+});
+
+describe('object-kanban — the unresolvable-view panel title reads the bundle (objectui#12920)', () => {
+  it('under zh-CN the panel is titled in Chinese, not the English literal', async () => {
+    const adapter = makeAdapter();
+    const { container } = render(
+      <I18nProvider persistLanguage={false} config={{ defaultLanguage: 'zh-CN', detectBrowserLanguage: false }}>
+        <SchemaRendererProvider dataSource={adapter as any}>
+          <SchemaRenderer schema={{ type: 'object-kanban', groupBy: 'status', columns: LANES, dataSource: { object: 'account', view: 'nope' } } as any} />
+        </SchemaRendererProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="object-kanban-datasource-error"]')).not.toBeNull(),
+    );
+    expect(container.querySelector('[data-testid="object-kanban-datasource-error"] p.font-medium')?.textContent).toBe(
+      '无法解析此看板的数据源',
+    );
   });
 });

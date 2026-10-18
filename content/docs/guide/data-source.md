@@ -529,3 +529,41 @@ Remaining gap, recorded rather than papered over:
 
 Blocks not in the table (`dashboard`, the other `record:*` panels) do not consume
 the binding yet.
+
+## Binding a page element to an API endpoint (`provider: 'api'`)
+
+`PageComponentSchema.dataSource` has a second shape beside the object binding:
+the spec's `ElementApiDataSourceSchema`. It binds one same-origin endpoint
+instead of the rows of an object:
+
+```json
+{
+  "type": "stat",
+  "dataSource": { "provider": "api", "read": { "url": "/api/v1/cloud/home" }, "path": "data" },
+  "properties": { "label": "Members", "value": "${data.members.count}" }
+}
+```
+
+`SchemaRenderer` honours it on every node:
+
+- It reads `read.url` with `GET`, through the host's authenticated fetch
+  (`SchemaRendererProvider`'s `apiFetch`; the console passes its signed-in
+  fetch), and selects `path` from the answer — dotted keys, a numeric segment
+  indexing a list. Omit `path` to bind the whole answer.
+- The selected value is `data` in the node's `${…}` holes and in its
+  `visibleWhen`, and in the holes of everything the node renders. A hole that is
+  the whole string (`"${data.members.count}"`) evaluates to the value itself — a
+  number, a boolean, a list — rather than to text.
+- While the read is in flight the node draws a loading line; a failed read, or
+  a `path` that selects nothing, draws an error panel naming why. The node is
+  never drawn without its data.
+- The binding is judged by the spec's own schema before anything is read. An
+  absolute or protocol-relative `url`, a credential key, or a `method` other
+  than `GET` is refused with the spec's message, and no request is sent.
+
+Elements that bind the same URL at the same time share one request. Nothing is
+cached: a page that mounts again reads again.
+
+The console's product-page blocks — `hero`, `stat`, `usage-bar`, `checklist` and
+`tile-grid` — accept this binding in their arms; see the `@object-ui/app-shell`
+README.

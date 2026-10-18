@@ -260,6 +260,21 @@ That form still reads `dataSource`, so it still owes the seam: mark the renderer
 at its registration, `register('x', elementDataSourceBlock(XRenderer), { … })` —
 again importing `elementDataSourceBlock` from `@object-ui/core`.
 
+### useElementApiDataSource — the API binding
+
+`SchemaRenderer` honours the spec's API binding of a page element,
+`dataSource: { provider: 'api', read: { url }, path? }`, on every node: it reads
+the same-origin `url` with `GET` through the provider's `apiFetch` (the global
+`fetch` when none is given), selects `path` from the answer, and binds the value
+as `data` in the node's `${…}` holes and `visibleWhen` — and in its subtree's.
+A binding the spec refuses (a cross-origin `url`, a credential key) is refused
+with the spec's message and nothing is read; a failed read or an empty `path`
+draws an error panel in place of the node.
+
+`useElementApiDataSource(schema)` is the hook behind it, exported for renderers
+that need the same reading; `selectElementApiPath` and `readElementApi` are its
+pure halves.
+
 ### useSettledSchema
 
 The settled-schema RESOLUTION half, shared by every view that gates a record

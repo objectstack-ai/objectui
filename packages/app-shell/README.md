@@ -475,6 +475,39 @@ naive shape earned a 400 on every submission until objectstack#5061.
 POSTs its value unchanged — no zone handling lives at the dialog boundary.
 See the full table in [ADR-0059](../../docs/adr/0059-action-params-shared-field-widgets.md#value-shapes-the-emitted-shape-contract).
 
+## Product-page blocks
+
+Five generic blocks for the pages a product composes as metadata (a product's
+welcome page, a CRM's sales home), registered by this package and named for
+what they draw. Each reads its props from the node's `properties`; copy is a
+string or an inline translation map (`{ en, "zh-CN" }`), resolved in the
+viewer's language.
+
+| `type` | Draws | Props |
+|---|---|---|
+| `hero` | the page-top card | `title`, `subtitle?`, `meta?` (drawn with a copy button), `status?`, `statusTone?` (`neutral` · `success` · `warning` · `danger`), `primary?` / `secondary?` (`element:button` or `action:button` nodes) |
+| `stat` | one labelled figure | `label`, `value` (a number is formatted in the viewer's locale), `hint?` |
+| `usage-bar` | how much of a limit is used | `label`, `used`, `limit?` (absent or `0` = unlimited: no bar), `unit?` |
+| `checklist` | steps that tick as they are done | `items: [{ label, done, action? }]`, `collapsedWhenDone?` (draw nothing once every step is done) |
+| `tile-grid` | the console home's launcher tiles | `items: [{ label, href, icon?, caption? }]`, `addTile?: { label, href }` |
+
+Any of them can carry the spec's API binding, and then read values from the
+answer through `${…}` holes:
+
+```json
+{
+  "type": "usage-bar",
+  "dataSource": { "provider": "api", "read": { "url": "/api/v1/cloud/home" }, "path": "data" },
+  "properties": { "label": "Storage", "used": "${data.storage.usedMb}", "limit": "${data.storage.limitMb}", "unit": "MB" }
+}
+```
+
+The read, its loading and error states, and the `data` root are
+`SchemaRenderer`'s (see "Binding a page element to an API endpoint" in the data
+source guide). The blocks' arms are `@object-ui/types`'
+`zod/product-blocks.zod.ts`; the console's preview gallery draws every block at
+`/preview-gallery.html?only=product_blocks` (`&theme=dark` for dark mode).
+
 ## Metadata designers
 
 The metadata-admin engine (`src/views/metadata-admin`) renders an in-app editor

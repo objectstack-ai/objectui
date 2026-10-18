@@ -12,10 +12,12 @@
  *                                  must never error.
  *   • has prod + dev allowed     → "Add development environment" (the create POST
  *                                  makes a dev env).
- *   • has prod + dev NOT allowed → an outline, LOCKED mark naming the tier
+ *   • has prod + dev NOT allowed → for a viewer the summary sends an `upgradeUrl`
+ *                                  to, an outline, LOCKED mark naming the tier
  *                                  development environments start at, linking
- *                                  to the summary's `upgradeUrl`. No button, no
- *                                  dialog, no POST (objectui#12190).
+ *                                  to that URL; for a viewer it sends none, no
+ *                                  mark (objectui#12983). Either way no button,
+ *                                  no dialog, no POST (objectui#12190).
  *   • still resolving            → a SKELETON where the create button will land —
  *                                  no label at all (see below).
  *   • settled with no signal     → the action's metadata label (neutral), with the
@@ -97,9 +99,11 @@ const CREATE_ACTION = 'create_environment';
  * bar (`hasCreateAction`), AND entitlements must have resolved — while loading
  * we must not trigger an action whose meaning (prod vs dev create) isn't known
  * yet. In the `upgrade_for_development` state arming consumes the param and
- * runs NOTHING (objectui#12190: no dialog): the locked mark that stands in for
- * the create action is the page's whole answer to "create" there, so the
- * intent is spent on that answer rather than lost. When either
+ * runs NOTHING (objectui#12190: no dialog): the server has already answered
+ * "create" there (no development environment on this plan), so the intent is
+ * spent on that answer rather than lost. The answer is drawn as the locked
+ * mark for a viewer who can upgrade, and as no create affordance at all for
+ * one who cannot (objectui#12983). When either conjunct
  * fails, the honest degradation is to leave the URL alone: the next mount that
  * CAN act on the deep link still does.
  *
@@ -141,30 +145,20 @@ const DEVELOPMENT_LOCKED_MARK = 'environment-development-locked';
  *
  * The destination is the entitlement summary's `upgradeUrl`, verbatim, resolved
  * the way the entitlement dialog resolves its CTA (`resolveCtaHref`: a
- * control-plane-relative path is prefixed with the control-plane origin). With
- * no `upgradeUrl` the mark is drawn UNLINKED: the URL is the control plane's to
- * name and none is composed here (objectui#10437), while the fact the mark
- * states (development environments need a higher tier) is still true and is
- * the only explanation of why this page has no create button.
+ * control-plane-relative path is prefixed with the control-plane origin). The
+ * URL is the control plane's to name and none is composed here (objectui#10437).
+ *
+ * The mark exists only as that link, so it is drawn only for a viewer the
+ * summary sends an `upgradeUrl` to (objectui#12983, ruling B on
+ * objectstack-ai/cloud#2917: the upsell reaches only whoever can upgrade). The
+ * control plane trims `upgradeUrl` by role (cloud's `resolveSummaryCanManage`:
+ * it is sent only to a viewer who manages the organization, such as its owner
+ * or an admin), so its presence is the server's own answer to "can this viewer
+ * upgrade?", and no viewer flag is read or added for it. A viewer it sends none
+ * (a plain member) cannot upgrade, so no mark is drawn for them.
  */
-function DevelopmentLockedMark({ upgradeUrl }: { upgradeUrl?: string }) {
+function DevelopmentLockedMark({ upgradeUrl }: { upgradeUrl: string }) {
   const { t } = useObjectTranslation();
-  const content = (
-    <>
-      <Lock className="h-4 w-4" aria-hidden="true" />
-      <span>{t('environment.developmentLocked', { tier: t('planTier.teamAndUp') })}</span>
-    </>
-  );
-  if (!upgradeUrl) {
-    return (
-      <span
-        className="inline-flex h-8 sm:h-9 items-center gap-1.5 sm:gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium text-muted-foreground"
-        data-testid={DEVELOPMENT_LOCKED_MARK}
-      >
-        {content}
-      </span>
-    );
-  }
   const { href, external } = resolveCtaHref(
     upgradeUrl,
     (import.meta.env.VITE_SERVER_URL as string | undefined) || '',
@@ -176,7 +170,8 @@ function DevelopmentLockedMark({ upgradeUrl }: { upgradeUrl?: string }) {
         {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
         data-testid={DEVELOPMENT_LOCKED_MARK}
       >
-        {content}
+        <Lock className="h-4 w-4" aria-hidden="true" />
+        <span>{t('environment.developmentLocked', { tier: t('planTier.teamAndUp') })}</span>
       </a>
     </Button>
   );
@@ -245,18 +240,22 @@ export function EnvironmentListToolbar({ actions, entitlements }: Props) {
 
   // Plan-locked state: a free-plan org must NOT POST-then-403, and no primary
   // button may open a paywall dialog (objectui#12190). The create action gives
-  // way to the locked mark; any other (non-create) toolbar actions still render
-  // through the normal bar.
+  // way to the locked mark, drawn only for a viewer who can upgrade
+  // (objectui#12983); any other (non-create) toolbar actions still render
+  // through the normal bar, for every viewer.
   if (ctaKind === 'upgrade_for_development') {
+    const upgradeUrl = entitlements.upgradeUrl;
     return (
       <>
         <OtherActionsBar actions={otherActions(toolbarActions)} />
         {/*
           The mark stands in for the create action. With no create action on
           the bar there is nothing to stand in for, so it must not appear either
-          (#4123): same one-list rule as the arming predicate above.
+          (#4123): same one-list rule as the arming predicate above. With no
+          `upgradeUrl` the server has said this viewer cannot upgrade, and the
+          upsell is not drawn (objectui#12983; see `DevelopmentLockedMark`).
         */}
-        {hasCreateAction && <DevelopmentLockedMark upgradeUrl={entitlements?.upgradeUrl} />}
+        {hasCreateAction && upgradeUrl ? <DevelopmentLockedMark upgradeUrl={upgradeUrl} /> : null}
       </>
     );
   }

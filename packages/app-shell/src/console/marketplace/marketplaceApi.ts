@@ -881,9 +881,11 @@ export async function installLocal(input: {
 /**
  * `GET /api/v1/marketplace/install-local`, strictly: a failed request or an
  * answer with no `items` array throws instead of reading as "nothing
- * installed". The Packages page's Source column reads its marketplace half
- * from this (objectui#12675), where an empty answer would silently relabel
- * every marketplace install as `code`.
+ * installed". The Packages page lists the marketplace installs from this
+ * (objectui#12675): an empty answer would silently drop the rows of the
+ * installs the runtime did not load, and the actions of the ones it did.
+ * The page's Source column does not read it: since objectui#12790 it reads
+ * each row's served `source`.
  */
 export async function fetchLocalInstalls(): Promise<LocalInstallEntry[]> {
   const res = await fetch(`${API_BASE}/install-local`, {
@@ -956,10 +958,13 @@ export async function listInstalledPackages(): Promise<InstalledPackagesResult> 
 
 /**
  * What the marketplace slice lists as installed — the read the Installed Apps
- * list made, now the marketplace half of the Packages page's Source column
- * (objectui#12675). `cloud` = the control plane's list (a cloud-connected
- * environment: installs by any path); `local` = this runtime's install-local
- * ledger. The local leg is strict ({@link fetchLocalInstalls}).
+ * list made, now what the Packages page's marketplace rows act on: their
+ * Details and Uninstall, and the rows of installs the runtime did not load
+ * (objectui#12675). It names no registry row's Source; the page reads the
+ * served `source` for that (objectui#12790). `cloud` = the control plane's
+ * list (a cloud-connected environment: installs by any path); `local` = this
+ * runtime's install-local ledger. The local leg is strict
+ * ({@link fetchLocalInstalls}).
  */
 export async function readMarketplaceInstalls(): Promise<{ source: 'cloud' | 'local'; items: LocalInstallEntry[] }> {
   const cloud = await listInstalledPackages();

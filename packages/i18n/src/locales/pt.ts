@@ -4079,6 +4079,10 @@ const pt = {
       publishing: 'Publicando…',
       exit: 'Sair da pré-visualização',
       changes: 'Alterações',
+      pendingHere: 'Pré-visualização do rascunho · {{count}} alterações não publicadas nesta página',
+      pendingHere_one: 'Pré-visualização do rascunho · {{count}} alteração não publicada nesta página',
+      pendingHere_many: 'Pré-visualização do rascunho · {{count}} de alterações não publicadas nesta página',
+      pendingHere_other: 'Pré-visualização do rascunho · {{count}} alterações não publicadas nesta página',
     },
     changes: {
       title: 'Alterações pendentes',

@@ -2981,6 +2981,9 @@ const zh = {
       publishing: '发布中…',
       exit: '退出预览',
       changes: '变更',
+      pendingHere: '草稿预览 · 本页 {{count}} 项未发布',
+      pendingHere_one: '草稿预览 · 本页 {{count}} 项未发布',
+      pendingHere_other: '草稿预览 · 本页 {{count}} 项未发布',
       // 魔法时刻提示：刚搭好的草稿因为种子/示例数据要发布后才载入，预览里
       // 仪表板显示 0、列表显示“暂无内容”。直接说明，避免把空预览误当成搭坏了。
       sampleDataTitle: '示例数据将在发布后出现',

@@ -4081,6 +4081,10 @@ const fr = {
       publishing: 'Publication…',
       exit: "Quitter l'aperçu",
       changes: 'Modifications',
+      pendingHere: 'Aperçu du brouillon · {{count}} modifications non publiées sur cette page',
+      pendingHere_one: 'Aperçu du brouillon · {{count}} modification non publiée sur cette page',
+      pendingHere_many: 'Aperçu du brouillon · {{count}} de modifications non publiées sur cette page',
+      pendingHere_other: 'Aperçu du brouillon · {{count}} modifications non publiées sur cette page',
     },
     changes: {
       title: 'Modifications en attente',

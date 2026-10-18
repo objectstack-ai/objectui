@@ -4084,6 +4084,10 @@ const es = {
       publishing: 'Publicando…',
       exit: 'Salir de la vista previa',
       changes: 'Cambios',
+      pendingHere: 'Vista previa del borrador · {{count}} cambios sin publicar en esta página',
+      pendingHere_one: 'Vista previa del borrador · {{count}} cambio sin publicar en esta página',
+      pendingHere_many: 'Vista previa del borrador · {{count}} de cambios sin publicar en esta página',
+      pendingHere_other: 'Vista previa del borrador · {{count}} cambios sin publicar en esta página',
     },
     changes: {
       title: 'Cambios pendientes',

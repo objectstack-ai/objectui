@@ -3996,6 +3996,9 @@ const ko = {
       publishing: '게시 중…',
       exit: '미리보기 종료',
       changes: '변경 사항',
+      pendingHere: '초안 미리보기 · 이 페이지의 게시되지 않은 변경 {{count}}개',
+      pendingHere_one: '초안 미리보기 · 이 페이지의 게시되지 않은 변경 {{count}}개',
+      pendingHere_other: '초안 미리보기 · 이 페이지의 게시되지 않은 변경 {{count}}개',
     },
     changes: {
       title: '대기 중인 변경 사항',

@@ -3451,6 +3451,10 @@ const en = {
       publishing: 'Publishing…',
       exit: 'Exit preview',
       changes: 'Changes',
+      // objectui#12968 — what is pending on the surface the preview shows.
+      pendingHere: 'Draft preview · {{count}} unpublished changes on this page',
+      pendingHere_one: 'Draft preview · {{count}} unpublished change on this page',
+      pendingHere_other: 'Draft preview · {{count}} unpublished changes on this page',
       // Magic-moment hint: a freshly-built draft renders empty (dashboards at 0,
       // lists "Nothing here yet") because seed/sample rows only load on publish.
       // Say so plainly so an empty preview never reads as a broken build.

@@ -3999,6 +3999,9 @@ const ja = {
       publishing: '公開中…',
       exit: 'プレビューを終了',
       changes: '変更',
+      pendingHere: '下書きプレビュー · このページの未公開の変更 {{count}} 件',
+      pendingHere_one: '下書きプレビュー · このページの未公開の変更 {{count}} 件',
+      pendingHere_other: '下書きプレビュー · このページの未公開の変更 {{count}} 件',
     },
     changes: {
       title: '保留中の変更',

@@ -80,8 +80,11 @@ export function __resetBootPainted(): void {
 }
 
 export async function loadLocales(): Promise<string[]> {
-  if (!(await whenSessionAnswered())) return [];
+  // The paint first, the session after it: the session is asked at the moment
+  // the read would go out, so a sign-out while the paint was pending sends
+  // nothing rather than an anonymous read.
   await whenBootPainted();
+  if (!(await whenSessionAnswered())) return [];
   try {
     const serverUrl = import.meta.env.VITE_SERVER_URL || '';
     const res = await i18nFetch(`${serverUrl}/api/v1/i18n/locales`);

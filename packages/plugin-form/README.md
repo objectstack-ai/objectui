@@ -137,6 +137,29 @@ import type {
 } from '@object-ui/plugin-form';
 ```
 
+### Deriving a master-detail grid outside the form
+
+`deriveDetail` and `deriveColumns` build a child collection's grid columns from
+the child object's schema. A `boolean` or `toggle` child field becomes a select
+column whose two options store `'true'` and `'false'`; their labels are the
+session's word for each value, so both functions require a `booleanLabel`. Pass
+the one `@object-ui/fields` publishes for this, called in your component:
+
+```tsx
+import { useBooleanValueLabel } from '@object-ui/fields';
+import { deriveDetail, type ChildObjectSchemaLike } from '@object-ui/plugin-form';
+
+declare const childSchema: ChildObjectSchemaLike; // as your DataSource's getObjectSchema serves it
+
+export function useInvoiceLines() {
+  const booleanLabel = useBooleanValueLabel(); // common.yes / common.no
+  return deriveDetail('invoice_line', childSchema, 'invoice', { booleanLabel });
+}
+```
+
+There is no default: an English one would label the options in English for a
+session in any other language.
+
 ### Registering a component under your own key
 
 To put one of these components on a schema type of your own, register the

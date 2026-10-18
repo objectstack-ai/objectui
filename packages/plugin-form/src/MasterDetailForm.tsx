@@ -33,7 +33,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BatchTransactionOperation, DataSource, GridFieldMetadata, I18nLabel } from '@object-ui/types';
 import { resolveAffordance, runBatchTransaction } from '@object-ui/core';
-import { LineItemsField } from '@object-ui/fields';
+import { LineItemsField, useBooleanValueLabel, type BooleanValueLabel, type GridColumn } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
 import {
   formatDisplayNumber,
@@ -403,6 +403,17 @@ interface DetailEntry {
    * currency. Internal state, never part of the authored config.
    */
   amountFieldDef?: CurrencyFieldDef;
+  /**
+   * The resolve effect's column derivation for this entry, re-runnable with
+   * another `booleanLabel` (objectui#12924): the same `deriveDetail` call over
+   * the same child schema and authored config. The line grid's columns are
+   * drawn through it at render, keyed on the session's two boolean words, so
+   * a catalogue that lands after the child schema re-labels a derived
+   * `boolean` / `toggle` column's options without re-running the effect.
+   * Absent when the entry was not derived. Internal state, never part of the
+   * authored config.
+   */
+  columnsWith?: (booleanLabel: BooleanValueLabel) => GridColumn[];
 }
 
 /** The field shape `resolveFieldCurrency` reads — the one currency resolver. */
@@ -992,6 +1003,19 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   // The defaults behind those three, and the built-in save toast, in the
   // session locale (objectui#11039). See `formChrome.ts`.
   const { t } = useFormChromeTranslation();
+  // The session's word for a boolean value, which draws a derived `boolean` /
+  // `toggle` column's two option labels (objectui#12924). The resolve effect
+  // derives with the words of the latest render (the ref); the line grid then
+  // re-labels at render with the current words (`linesEntries` below), so a
+  // catalogue that lands after the child schema still reaches the options.
+  // ⛔ Not an effect dependency: re-running the effect re-resolves every
+  // entry, and a new `resolvedEntries` re-reads the lines over any unsaved
+  // edit.
+  const booleanLabel = useBooleanValueLabel();
+  const booleanLabelRef = useRef(booleanLabel);
+  booleanLabelRef.current = booleanLabel;
+  const booleanTrueWord = booleanLabel(true);
+  const booleanFalseWord = booleanLabel(false);
 
   // A detail can be configured with just `{ childObject }` — the relationship
   // FK and grid columns are then derived from the child object's metadata
@@ -1027,6 +1051,25 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
 
   const [resolvedEntries, setResolvedEntries] = useState<DetailEntry[] | null>(null);
   const entries = resolvedEntries ?? baseEntries; // length always matches rawDetails
+  /**
+   * What the line grids draw: `entries`, each derived entry's columns re-run
+   * with the CURRENT session words (objectui#12924). A host that has not
+   * awaited the active catalogue renders through the `en` fallback until it
+   * lands, and a child schema that arrives first is derived with the `en`
+   * words; this is what re-labels those options when the catalogue lands or
+   * the language is switched. Keyed on the two WORDS, not on `booleanLabel`,
+   * a new function every render (AGENTS.md #10). ⛔ Only the grids read it:
+   * `entries` and `resolvedEntries` keep their identity, so the lines are not
+   * re-read and an unsaved edit survives.
+   */
+  const linesEntries = useMemo(
+    () =>
+      entries.map((e) =>
+        e.columnsWith ? { ...e, config: { ...e.config, columns: e.columnsWith(booleanLabel) } } : e,
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `booleanLabel` keyed on its WORDS, see above
+    [entries, booleanTrueWord, booleanFalseWord],
+  );
 
   useEffect(() => {
     if (!needsDerive) { setResolvedEntries(baseEntries); return; }
@@ -1105,11 +1148,20 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
             // over the derived one. The sort field is the derived one, full
             // stop: there is no authored override to weigh it against
             // (objectui#11070 round 9).
-            const derived = deriveDetail(d.childObject, childSchema, schema.objectName, {
+            const overrides = {
               relationshipField: d.relationshipField,
               columns: d.columns,
               amountField: d.amountField,
+            };
+            const derived = deriveDetail(d.childObject, childSchema, schema.objectName, {
+              booleanLabel: booleanLabelRef.current,
+              ...overrides,
             });
+            // The same derivation with the words of a later render — see
+            // `DetailEntry.columnsWith`. Pure over inputs that already derived
+            // once, so it cannot throw where this call did not.
+            const columnsWith = (label: BooleanValueLabel) =>
+              deriveDetail(d.childObject, childSchema, schema.objectName, { booleanLabel: label, ...overrides }).columns;
             const amountField = d.amountField ?? derived.amountField;
             // Author gave the FK + an explicit column set but left some columns
             // untyped — hydrate just their widget types from the schema, keeping
@@ -1127,6 +1179,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
                 status: 'ready',
                 sortField: derived.sortField,
                 amountFieldDef: childFieldDef(childSchema, amountField),
+                columnsWith,
               };
             }
             return {
@@ -1142,6 +1195,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
               },
               sortField: derived.sortField,
               amountFieldDef: childFieldDef(childSchema, amountField),
+              columnsWith,
             };
           } catch (err) {
             // THE DERIVE FAILED, on a schema that loaded fine — almost always
@@ -1847,7 +1901,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
           live header record (scraped from the form host) so header edits never
           re-render — and thus never reset — the header <ObjectForm> (see #1581). */}
       <MasterDetailLines
-        entries={entries}
+        entries={linesEntries}
         rowState={rowState}
         setRows={setRows}
         saving={saving}

@@ -149,6 +149,21 @@ When grid columns are auto-derived from a child object's schema (master-detail
 subforms), `file` / `image` / `avatar` fields map to `file` columns
 automatically — image-flavoured fields default to `accept: ['image/*']`.
 
+Shown as text (read-only, or in the per-row form's list), a file cell reads the
+file's name, or a count of its files when it holds several. The count and the
+word used for a file with no name come from the session language's pack
+(`detail.fileCount`, `fields.file.fileFallback`): an English session reads
+`2 files` and `File`, and every other language reads its own pack's words, in
+the plural form that language takes for the count.
+
+### Boolean columns from a child object
+
+When columns are auto-derived, a `boolean` or `toggle` child field becomes a
+`select` column whose options store `'true'` and `'false'`. Their labels are the
+session language's words for yes and no (`common.yes` / `common.no`), `Yes` /
+`No` in an English session. Only the label is translated; the stored value is
+the same in every language.
+
 Because file/image/avatar now render in-grid, a child object with a *single*
 such field keeps the inline **grid** form factor by default (the smart
 `inlineEdit` heuristic no longer forces a per-row form for one attachment

@@ -497,19 +497,34 @@ function currencyText(c: GridColumn, n: number, currency: string | undefined, lo
   }
 }
 
+/**
+ * The session-language words a file cell's text is made of (objectui#12924),
+ * read by the component from the packs and handed to {@link cellDisplayText}:
+ * the count a cell holding several files states (`detail.fileCount`, the count
+ * family `FileCellRenderer` states a file count with), and the name a file
+ * whose value carries none is shown by (`fields.file.fileFallback`, the name
+ * `FileField` and `FileCellRenderer` give it). Both used to be the English
+ * literals `N files` / `File` here, on every locale.
+ */
+interface FileCellText {
+  count: (count: number) => string;
+  nameless: string;
+}
+
 /** Read-only display text for a cell in list mode (select → option label,
- *  currency/number → formatted, date/datetime/time → localized, empty → em
- *  dash). Lookups render separately. `currency` is the column's resolved
- *  currency, read only by the currency branch. */
-function displayText(c: GridColumn, value: any, locale: string, currency?: string): string {
+ *  currency/number → formatted, date/datetime/time → localized, file → its
+ *  name or a count of its files, empty → em dash). Lookups render separately.
+ *  `currency` is the column's resolved currency, read only by the currency
+ *  branch. The component binds `fileText` once, as its `displayText`. */
+function cellDisplayText(c: GridColumn, value: any, locale: string, fileText: FileCellText, currency?: string): string {
   if (value === null || value === undefined || value === '') return '—';
   if (isTemporal(c.type)) return temporalText(c.type, value, locale);
   if (c.type === 'file') {
     const files = Array.isArray(value) ? value : [value];
     if (files.length === 0) return '—';
-    if (files.length > 1) return `${files.length} files`;
+    if (files.length > 1) return fileText.count(files.length);
     const f = files[0];
-    return typeof f === 'string' ? f : f?.name || f?.original_name || 'File';
+    return typeof f === 'string' ? f : f?.name || f?.original_name || fileText.nameless;
   }
   if (c.type === 'select' && Array.isArray(c.options)) {
     const opt = c.options.find((o) => String(o.value) === String(value));
@@ -698,6 +713,16 @@ function GridFieldBody({
   // in `{{field}}`: the sentence the form renderer shows for a required field.
   const requiredCellText = (c: GridColumn) =>
     t('validation.required', { field: c.label || c.name, defaultValue: '{{field}} is required' });
+  // A file cell's text in the session language (objectui#12924): the count of
+  // several files and the name of a nameless one. Bound into `displayText`
+  // here, so every cell that draws its text through it — the list-mode cell,
+  // the computed cell and the read-only table — takes the same words.
+  const fileText: FileCellText = {
+    count: (count) => t('detail.fileCount', { count, defaultValue: '{{count}} files' }),
+    nameless: t('fields.file.fileFallback', { defaultValue: 'File' }),
+  };
+  const displayText = (c: GridColumn, value: any, locale: string, cellCurrency?: string) =>
+    cellDisplayText(c, value, locale, fileText, cellCurrency);
   const cellIdBase = React.useId();
   // The tenant default currency (ADR-0053) — the resolver's last step, and in
   // practice the currency of every `currency` column (objectui#10355, see

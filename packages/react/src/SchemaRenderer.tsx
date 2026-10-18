@@ -35,6 +35,7 @@ import { usePageVariables } from './hooks/usePageVariables.js';
 import { resolveKeyedI18nLabel } from './utils/i18n.js';
 import { isConfigBag } from './utils/configBag.js';
 import { PARAMS_KEY, isParamsBag, mapParamsLeaves } from './utils/paramsBag.js';
+import { isInlineLocaleMap, mapLocaleMapMembers } from './utils/localeMap.js';
 import { reportUnevaluatedExpressions } from './utils/unevaluatedExpression.js';
 import { reportDroppedPropsBag, reportRefusedPropsPredicate } from './utils/propsBagDiagnostic.js';
 import { reportRefusedDataPropSpread } from './utils/refusedDataPropDiagnostic.js';
@@ -642,6 +643,14 @@ const isExpressionEnvelope = (value: unknown): boolean =>
  * whole. Nothing is walked: a template nested inside a data object stays raw,
  * as it always did for an object without a `source`. The loops stay per-value
  * and shallow, which is the radius the unevaluated-expression diagnostic reads.
+ *
+ * One object this answers `true` for is not handed over as authored: an inline
+ * locale map (`utils/localeMap.ts`, objectui#12936). It is a display string
+ * written once per language, so {@link evaluateConfigValueWith} evaluates each
+ * member like a plain string on the same key. That is one level, and only for
+ * a map whose every key is a locale tag and every value a string, in the
+ * spec's own `InlineLocaleMapSchema` sense; every other data object keeps this
+ * rule, and the diagnostic reads the members through the same module.
  */
 const isDataObjectValue = (key: string, value: unknown): boolean =>
   !PREDICATE_CHAIN_KEYS.has(key) && isConfigBag(value) && !isExpressionEnvelope(value);
@@ -672,9 +681,11 @@ const configEvaluationScope = (
 /**
  * Evaluate ONE config value by its key. This is the per-key rule of the
  * evaluation memo (the `params` rule, objectui#7867, is stated there): a
- * `params` bag has every string leaf evaluated, a data object is handed over as
- * authored, and every other value is evaluated per value and shallow, with a
- * CEL predicate envelope preserved.
+ * `params` bag has every string leaf evaluated, an inline locale map has each
+ * member evaluated like a plain string on the same key (objectui#12936,
+ * `utils/localeMap.ts`), any other data object is handed over as authored, and
+ * every other value is evaluated per value and shallow, with a CEL predicate
+ * envelope preserved.
  */
 const evaluateConfigValueWith = (
   evaluator: ExpressionEvaluator,
@@ -684,7 +695,9 @@ const evaluateConfigValueWith = (
   key === PARAMS_KEY && isParamsBag(value)
     ? mapParamsLeaves(value, (leaf) => evaluator.evaluate(leaf))
     : isDataObjectValue(key, value)
-      ? value
+      ? isInlineLocaleMap(value)
+        ? mapLocaleMapMembers(value, (member) => evaluator.evaluate(member))
+        : value
       : preservePredicateEnvelope(key, value, (v) => evaluator.evaluate(v as any));
 
 /**
@@ -1564,7 +1577,9 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     //
     // A DATA OBJECT on any other key ({@link isDataObjectValue},
     // objectui#10288) is handed over as authored: `evaluate` would collapse
-    // one that carries a string `source` to that string.
+    // one that carries a string `source` to that string. An inline locale map
+    // is the one object that is not: each member is evaluated like a plain
+    // string on the same key (objectui#12936, `utils/localeMap.ts`).
     //
     // The rule itself is `evaluateConfigValueWith`, at module scope, so that
     // `useConfigBagEvaluator` applies the same one to an action container's
@@ -1610,8 +1625,10 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     //
     // ONE key is deep, by that separate decision, and on both spellings at once:
     // `params` (objectui#7867, ruling A) — every string leaf of a `params` bag
-    // is evaluated, through {@link evaluateConfigValue} above. Every other key
-    // keeps the shallow reading this paragraph describes.
+    // is evaluated, through {@link evaluateConfigValue} above. ONE value shape
+    // is one level deep, on any non-predicate key and both spellings: an inline
+    // locale map's members (objectui#12936). Every other value keeps the
+    // shallow reading this paragraph describes.
     //
     // "Passed through" used to have one exception: `evaluate` unwraps an object
     // with a string `source` to that string, so a data object carrying a

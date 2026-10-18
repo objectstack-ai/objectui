@@ -7,6 +7,7 @@
  */
 
 import { isConfigBag } from './configBag.js';
+import { isInlineLocaleMap, mapLocaleMapMembers } from './localeMap.js';
 import { PARAMS_KEY, isParamsBag, mapParamsLeaves } from './paramsBag.js';
 
 /**
@@ -67,6 +68,13 @@ import { PARAMS_KEY, isParamsBag, mapParamsLeaves } from './paramsBag.js';
  * that still cannot resolve is reported by its path (`params.target.id`,
  * `properties.params.ids[0]`). Radius equal to evaluation by construction,
  * not by two copies agreeing; every other key stays shallow on both sides.
+ *
+ * And for exactly ONE value shape, one level deep: an inline locale map
+ * (objectui#12936). Each member is evaluated like a plain string on the same
+ * key, so each member is scanned like one, through the same recogniser and
+ * walker (`localeMap.ts`), and a member whose expression threw is reported by
+ * its locale (`properties.title.zh-CN`). Any other object stays unscanned, as
+ * it stays unevaluated.
  */
 
 /** What counts as an expression — the evaluator's own definition. */
@@ -99,7 +107,9 @@ export type UnevaluatedChannel = 'schema' | 'properties' | 'props';
 export interface UnevaluatedExpressionFinding {
   /**
    * The key holding the raw source — or, for a leaf of a `params` bag, that
-   * leaf's path from the bag (`params.target.id`, `params.ids[0]`).
+   * leaf's path from the bag (`params.target.id`, `params.ids[0]`), or, for a
+   * member of an inline locale map, the key and the member's locale
+   * (`title.zh-CN`).
    */
   key: string;
   /** The authored channel the key was read from. */
@@ -139,6 +149,16 @@ function scanBag(
       mapParamsLeaves(value, (leaf, path) => {
         pushIfUnevaluated(path, channel, leaf, into);
         return leaf;
+      });
+      continue;
+    }
+    // objectui#12936 — an inline locale map's members are evaluated like plain
+    // strings, so they are scanned like them, through the evaluator's own
+    // recogniser and walker. The visitor returns each member unchanged.
+    if (isInlineLocaleMap(value)) {
+      mapLocaleMapMembers(value, (member, locale) => {
+        pushIfUnevaluated(key + '.' + locale, channel, member, into);
+        return member;
       });
       continue;
     }

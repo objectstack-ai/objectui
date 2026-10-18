@@ -28,6 +28,12 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_MAX_INLINE_GRID_COLUMNS, deriveInlineGridColumns } from '@objectstack/spec/data';
 import { deriveColumns, type ChildObjectSchemaLike } from './deriveMasterDetail';
+import { en } from '@object-ui/i18n';
+
+/** The `en` session's word for a boolean value: what `useBooleanValueLabel`
+ *  (`@object-ui/fields`) draws under `en`. The derive functions require one
+ *  (objectui#12924). */
+const booleanLabel = (value: boolean) => (value ? en.common.yes : en.common.no);
 
 type Opts = { relationshipField?: string; exclude?: string[]; maxColumns?: number };
 
@@ -267,18 +273,18 @@ const CORPUS: Array<{ title: string; schema: ChildObjectSchemaLike | undefined; 
 
 describe('deriveColumns derives its columns through the spec rule (objectui#11345)', () => {
   it.each(CORPUS)("$title: names, order and defaultHidden are the spec's deriveInlineGridColumns", ({ schema, opts }) => {
-    const identity = deriveColumns(schema, opts).map(({ name, defaultHidden }) =>
+    const identity = deriveColumns(schema, { ...opts, booleanLabel }).map(({ name, defaultHidden }) =>
       defaultHidden === undefined ? { name } : { name, defaultHidden },
     );
     expect(identity).toStrictEqual(deriveInlineGridColumns(schema, opts));
   });
 
   it.each(CORPUS)('$title: the output is unchanged from the local budget it replaced', ({ schema, opts, before }) => {
-    expect(deriveColumns(schema, opts)).toStrictEqual(before);
+    expect(deriveColumns(schema, { ...opts, booleanLabel })).toStrictEqual(before);
   });
 
   it("an omitted maxColumns leaves the spec's budget visible", () => {
-    const cols = deriveColumns({ name: 'invoice_line', fields: wide }, { relationshipField: 'invoice' });
+    const cols = deriveColumns({ name: 'invoice_line', fields: wide }, { relationshipField: 'invoice', booleanLabel });
     expect(cols.filter((c) => !c.defaultHidden)).toHaveLength(DEFAULT_MAX_INLINE_GRID_COLUMNS);
     expect(cols.length).toBeGreaterThan(DEFAULT_MAX_INLINE_GRID_COLUMNS);
   });

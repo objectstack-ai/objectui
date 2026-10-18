@@ -57,6 +57,12 @@ import {
   type ChildObjectSchemaLike,
   type FieldDefaultsSchemaLike,
 } from '../index';
+import { en } from '@object-ui/i18n';
+
+/** The `en` session's word for a boolean value: what `useBooleanValueLabel`
+ *  (`@object-ui/fields`) draws under `en`. The derive functions require one
+ *  (objectui#12924). */
+const booleanLabel = (value: boolean) => (value ? en.common.yes : en.common.no);
 
 /** Invariant type equality — `Equals<X, X>` is `true`, anything else `false`. */
 type Equals<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false;
@@ -149,7 +155,7 @@ describe('objectui#7324 — published parameter types are nameable', () => {
   });
 
   it('a child schema held under the published name flows through the published deriver', () => {
-    const columns = deriveColumns(consumerHeldChildSchema, { relationshipField: 'product' });
+    const columns = deriveColumns(consumerHeldChildSchema, { booleanLabel, relationshipField: 'product' });
     expect(columns.map((c) => c.name)).toContain('qty');
     expect(columns.map((c) => c.name)).not.toContain('product');
   });

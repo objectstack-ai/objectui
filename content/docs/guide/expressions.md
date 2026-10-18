@@ -69,6 +69,28 @@ Mix expressions with static text:
 }
 ```
 
+### Localized Copy
+
+Copy written once per language is an inline locale map. Under a node's `properties`, each member
+of the map is evaluated exactly like a plain string on the same key, against the same scope, and
+the block then draws the member for the viewer's language:
+
+```json
+{
+  "type": "element:text",
+  "properties": {
+    "content": {
+      "en": "Welcome back, ${current_user.name}",
+      "zh-CN": "欢迎回来,${current_user.name}"
+    }
+  }
+}
+```
+
+An object counts as a locale map when every key is a locale tag (`en`, `zh-CN`, or `default`) and
+every value is a string. Any other object under `properties` reaches the block as written: a
+`${…}` nested inside it is not evaluated.
+
 ## Operators
 
 ### Arithmetic Operators

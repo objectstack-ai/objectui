@@ -350,6 +350,12 @@ export interface ProposedPlanCard {
       label: string;
       /** The format the sample data is held to, as the chip's words (`format.label`). */
       format?: { label: string };
+      /**
+       * objectui#12994 — the stage field's lifecycle, as the chip's words
+       * (`lifecycle.label`, e.g. 「借出 · 已还 ✓完成 · 逾期 ⚠」). The producer's
+       * `options` are not drawn, so they are not lifted.
+       */
+      lifecycle?: { label: string };
       /** The model added this field; the user's words did not name it. */
       suggested?: true;
     }>;
@@ -509,11 +515,13 @@ function liftPlanCard(raw: unknown): ProposedPlanCard | undefined {
       const fr = recordOf(f);
       if (!fr || !isText(fr.name) || !isText(fr.label)) return [];
       const format = recordOf(fr.format);
+      const lifecycle = recordOf(fr.lifecycle);
       return [
         {
           name: fr.name,
           label: fr.label,
           ...(format && isText(format.label) ? { format: { label: format.label } } : {}),
+          ...(lifecycle && isText(lifecycle.label) ? { lifecycle: { label: lifecycle.label } } : {}),
           ...(fr.suggested === true ? { suggested: true as const } : {}),
         },
       ];

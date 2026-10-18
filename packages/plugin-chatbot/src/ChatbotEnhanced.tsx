@@ -5088,9 +5088,10 @@ function BlueprintProgressPanel({
  * objectui#12724 — the plan card's object rows from `planCard.objects` (the
  * AiBuild artboard): the object's label, one chip per field with the format its
  * sample data is held to in mono type (`format.label`), a dashed 「补充」 chip for
- * a field the user's words did not name (`suggested`), and 「名称：FIELD」 under
- * the chips when the object declares its name field (`nameField`). Each of
- * those three is drawn only when its key is present.
+ * a field the user's words did not name (`suggested`), the stage field's
+ * lifecycle beside its label (`lifecycle.label`, objectui#12994), and
+ * 「名称：FIELD」 under the chips when the object declares its name field
+ * (`nameField`). Each of those four is drawn only when its key is present.
  */
 function PlanCardObjectRows({
   objects,
@@ -5138,6 +5139,11 @@ function PlanCardObjectRows({
                       data-testid="proposed-plan-field-format"
                     >
                       {f.format.label}
+                    </span>
+                  ) : null}
+                  {f.lifecycle ? (
+                    <span className="text-[10.5px] text-muted-foreground" data-testid="proposed-plan-field-lifecycle">
+                      {f.lifecycle.label}
                     </span>
                   ) : null}
                   {f.suggested ? <span>· {suggestedMark}</span> : null}

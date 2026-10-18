@@ -54,6 +54,7 @@ const W = {
     borrowed: '借出',
     returned: '已还',
     overdueOption: '逾期',
+    statusLifecycle: '借出 · 已还 ✓完成 · 逾期 ⚠',
     nextSteps: ['给借阅记录加续借次数', '做一个本月借出统计的仪表盘', '只允许管理员删除图书'],
   },
   en: {
@@ -95,6 +96,7 @@ const W = {
     borrowed: 'Borrowed',
     returned: 'Returned',
     overdueOption: 'Overdue',
+    statusLifecycle: 'Borrowed · Returned ✓done · Overdue ⚠',
     nextSteps: ['Add a renewal count to loans', 'Make a dashboard of this month’s loans', 'Only admins may delete books'],
   },
 } as const;
@@ -217,7 +219,20 @@ export function planEnvelope(lang: Lang) {
             { name: 'loan_date', label: w.loanDate, type: 'date' },
             { name: 'due_date', label: w.dueDate, type: 'date' },
             { name: 'return_date', label: w.returnDate, type: 'date' },
-            { name: 'status', label: w.status, type: 'select' },
+            {
+              name: 'status',
+              label: w.status,
+              type: 'select',
+              // objectui#12994 — the stage field's lifecycle, as cloud's `cardFieldLifecycle` writes it.
+              lifecycle: {
+                options: [
+                  { value: 'borrowed', label: w.borrowed, kind: 'open' },
+                  { value: 'returned', label: w.returned, kind: 'won' },
+                  { value: 'overdue', label: w.overdueOption, kind: 'lost' },
+                ],
+                label: w.statusLifecycle,
+              },
+            },
           ],
         },
       ],

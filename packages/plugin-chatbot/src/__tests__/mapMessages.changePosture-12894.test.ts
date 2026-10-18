@@ -104,6 +104,8 @@ describe('objectui#12894 — detectReplayOutcome keeps the applied card of a cha
     expect(out).toEqual({
       kind: 'drafted',
       packageId: PACKAGE_ID,
+      // objectui#12968 — the items this replay drafted, for the card's Preview.
+      items: [{ type: 'object', name: BORROWING }],
       draftState: {
         pending: 2,
         items: [
@@ -117,9 +119,10 @@ describe('objectui#12894 — detectReplayOutcome keeps the applied card of a cha
     });
   });
 
-  it('an older cloud drafted replay lifts exactly what it lifted before', () => {
+  it('an older cloud drafted replay lifts none of the cloud#2924 keys', () => {
     const out = detectReplayOutcome('replay_turn_0', draftedEnvelope('en', { withCard: false }));
-    expect(out).toEqual({ kind: 'drafted', packageId: PACKAGE_ID });
+    // `items` is objectui#12968's lift of `drafted[]`, which every cloud sends.
+    expect(out).toEqual({ kind: 'drafted', packageId: PACKAGE_ID, items: [{ type: 'object', name: BORROWING }] });
   });
 
   it('each key degrades on its own: a card without a draft state keeps the card', () => {
@@ -137,7 +140,7 @@ describe('objectui#12894 — detectReplayOutcome keeps the applied card of a cha
       appliedCard: { lines: ['已有 12 条记录的续借次数为空'] },
       existingRows: [{ object: BORROWING, field: 'renewal_count', rows: 12 }, 'x'],
     });
-    expect(out).toEqual({ kind: 'drafted', packageId: PACKAGE_ID });
+    expect(out).toEqual({ kind: 'drafted', packageId: PACKAGE_ID, items: [{ type: 'object', name: BORROWING }] });
   });
 
   it('a card keeps only its string lines; a draft state only its well-formed items', () => {

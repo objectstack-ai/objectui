@@ -14,8 +14,8 @@
  * keeps a read-only preview from ever being confused with the live app.
  */
 
-import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Eye, X, Rocket, GitCompareArrows, Sparkles } from 'lucide-react';
 import { Button, cn } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
@@ -23,6 +23,7 @@ import { usePreviewDrafts, markPreviewExit, PREVIEW_QUERY_FLAG } from './Preview
 import { usePendingDrafts } from './usePendingDrafts.js';
 import { usePublishAllDrafts } from './usePublishAllDrafts.js';
 import { DraftChangesPanel } from './DraftChangesPanel.js';
+import { draftSurfaceOf, draftsOnSurface } from './draftSurface.js';
 
 export function DraftPreviewBar() {
   const preview = usePreviewDrafts();
@@ -35,11 +36,24 @@ export function DraftPreviewBar() {
   // actually promote. The shared source (objectui#5801) refreshes on the
   // metadata-refresh pulse; the pathname effect keeps the old "drafts staged
   // while the preview is open" trigger too.
-  const { count: pendingCount, refresh: refreshPending } = usePendingDrafts({ enabled: Boolean(preview) });
+  const { count: pendingCount, entries: pendingEntries, refresh: refreshPending } = usePendingDrafts({
+    enabled: Boolean(preview),
+  });
   useEffect(() => {
     if (!preview) return;
     void refreshPending();
   }, [preview, location.pathname, refreshPending]);
+  // objectui#12968 — what is pending on the surface this preview shows: the
+  // route below `/apps/:appName` names it (an object, a page, a dashboard or a
+  // report), and the entries the count above already read are filtered to it.
+  // No surface (the app's landing, admin pages) or an unknown count → no line.
+  const appSubPath = useParams()['*'];
+  const surface = useMemo(
+    () => (appSubPath === undefined ? null : draftSurfaceOf(appSubPath)),
+    [appSubPath],
+  );
+  const pendingHere =
+    surface && typeof pendingCount === 'number' ? draftsOnSurface(pendingEntries, surface).length : 0;
 
   if (!preview) return null;
 
@@ -90,10 +104,15 @@ export function DraftPreviewBar() {
             ? t('preview.draftBar.messageClean', {
                 defaultValue: 'Draft preview — no unpublished changes; everything here is already live.',
               })
-            : t('preview.draftBar.message', {
-                defaultValue:
-                  'Draft preview — you are seeing unpublished changes. Nothing here is live until you publish.',
-              })}
+            : pendingHere > 0
+              ? t('preview.draftBar.pendingHere', {
+                  count: pendingHere,
+                  defaultValue: 'Draft preview · {{count}} unpublished changes on this page',
+                })
+              : t('preview.draftBar.message', {
+                  defaultValue:
+                    'Draft preview — you are seeing unpublished changes. Nothing here is live until you publish.',
+                })}
         </p>
         {!noChanges && (
           <Button

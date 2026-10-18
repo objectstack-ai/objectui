@@ -269,7 +269,10 @@ export function defaultMapFromObject(objectDef: any): { locationField: string } 
 
 export function InterfaceListPage({ page, className, onConfigChange, reserveEditAffordance }: InterfaceListPageProps) {
   const { t } = useObjectTranslation();
-  const { objects } = useMetadata();
+  // objectui#12980 — the source object, read by name (the names-only scope),
+  // not the whole registry: reading `objects` would load every object to find
+  // one. A hand-rolled metadata context has no scope, and is read as it is.
+  const metadata = useMetadata();
   const dataSource = useAdapter();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -290,10 +293,13 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
   );
 
   const cfg = page?.interfaceConfig || {};
-  const objectDef = React.useMemo(
-    () => (objects || []).find((o: any) => o.name === cfg.source),
-    [objects, cfg.source],
-  );
+  const sourceObjects: any[] = !cfg.source
+    ? []
+    : metadata.readObjectScope
+      ? metadata.readObjectScope({ names: [cfg.source] }).objects
+      : metadata.objects || [];
+  // Not memoised: the scope's list is read afresh each render, as `objects` was.
+  const objectDef = sourceObjects.find((o: any) => o?.name === cfg.source);
   const resolvedView = React.useMemo(
     () => resolveSourceView(objectDef, cfg.sourceView),
     [objectDef, cfg.sourceView],
@@ -660,7 +666,10 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
               recordIdOverride={String(record?.id ?? record?._id ?? drawerRecordId ?? '')}
               embedded
               dataSource={dataSource}
-              objects={objects}
+              // A record overlay reads the whole registry: its related lists
+              // come from every object that points at the record. Read only
+              // once a record is opened (objectui#12980).
+              objects={metadata.objects}
               onEdit={() => {}}
             />
           )}

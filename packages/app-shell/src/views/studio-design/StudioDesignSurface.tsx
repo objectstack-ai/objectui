@@ -16,7 +16,7 @@
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import { useParams, useNavigate, Link, Navigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link, Navigate } from 'react-router-dom';
 import { useAdapter, SchemaRendererProvider, useMetadata } from '@object-ui/react';
 // The ONE draft-envelope reader (objectui#8181): unwrap AND strip the
 // framework's read decorations in one place. This file used to carry its own
@@ -226,6 +226,7 @@ import { SourcePageEditor } from '../metadata-admin/previews/SourcePageEditor.js
 import { SourcePageProperties, type SourcePageNavEntry } from '../metadata-admin/previews/SourcePageProperties.js';
 import { fetchPendingDrafts, usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { emitMetadataRefresh, subscribeMetadataRefresh } from '../../assistant/assistantBus.js';
+import { STUDIO_CHANGES_PARAM, STUDIO_CHANGES_REVIEW } from './studioChangesLink.js';
 import {
   dashboardHeldEdit,
   flowHeldEdit,
@@ -1323,6 +1324,31 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // objectui#12517 — which trigger opened the sheet: Publish opens it to
   // confirm (rows expanded, focus on Publish all), Changes opens it to review.
   const [changesPosture, setChangesPosture] = React.useState<DraftChangesPosture>('review');
+  // objectui#12894 — the drawer's one way in from outside the top bar:
+  // `?changes=review` (`studioChangesLink.ts`), written by the copilot's
+  // applied card (查看变更并发布). Opened to review, then the param is dropped
+  // (replace) so a refresh or a Back does not reopen it. Read on every change,
+  // not only at mount: the Studio copilot writes it while the surface is up.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const changesRequest = searchParams.get(STUDIO_CHANGES_PARAM);
+  React.useEffect(() => {
+    if (changesRequest === null) return;
+    if (changesRequest === STUDIO_CHANGES_REVIEW) {
+      setChangesPosture('review');
+      setChangesOpen(true);
+    }
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete(STUDIO_CHANGES_PARAM);
+        return next;
+      },
+      { replace: true },
+    );
+    // Keyed on the param's value alone: `setSearchParams` is re-minted with
+    // every search change (objectui#8640 — never key on a hook's identity).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [changesRequest]);
   const [publishing, setPublishing] = React.useState(false);
   const [publishNonce, setPublishNonce] = React.useState(0); // ↑ → pillars re-read the published baseline
   const [draftNonce, setDraftNonce] = React.useState(0); // ↑ → a draft save landed (`onDraftSaved`)

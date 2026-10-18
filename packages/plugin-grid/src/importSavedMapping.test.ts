@@ -13,14 +13,13 @@ describe('assembleImportRequest — named mapping branch', () => {
   it('emits mappingName + rows and drops writeMode/matchFields', () => {
     const req = assembleImportRequest(rows, {
       writeMode: 'upsert', matchFields: ['email'],
-      createMissingOptions: true, runAutomations: true, skipBlankMatchKey: true,
+      createMissingOptions: true, skipBlankMatchKey: true,
       mappingName: 'inquiry_feed',
     });
     expect(req).toEqual({
       format: 'json',
       rows,
       mappingName: 'inquiry_feed',
-      runAutomations: true,
     });
     expect(req).not.toHaveProperty('writeMode');
     expect(req).not.toHaveProperty('matchFields');
@@ -30,7 +29,7 @@ describe('assembleImportRequest — named mapping branch', () => {
   it('carries dryRun through the named-mapping branch', () => {
     const req = assembleImportRequest(rows, {
       writeMode: 'insert', matchFields: [],
-      createMissingOptions: false, runAutomations: false, skipBlankMatchKey: false,
+      createMissingOptions: false, skipBlankMatchKey: false,
       mappingName: 'inquiry_feed', dryRun: true,
     });
     expect(req.dryRun).toBe(true);
@@ -40,7 +39,7 @@ describe('assembleImportRequest — named mapping branch', () => {
   it('without mappingName, keeps the existing inline-mapping payload shape', () => {
     const req = assembleImportRequest(rows, {
       writeMode: 'upsert', matchFields: ['email'],
-      createMissingOptions: false, runAutomations: false, skipBlankMatchKey: false,
+      createMissingOptions: false, skipBlankMatchKey: false,
     });
     expect(req.mappingName).toBeUndefined();
     expect(req.writeMode).toBe('upsert');

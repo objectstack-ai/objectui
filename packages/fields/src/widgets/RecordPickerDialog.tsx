@@ -46,6 +46,7 @@ import { usePermissions } from '@object-ui/permissions';
 import { RelatedRecordActionsProvider, useRelatedRecordActions } from '@object-ui/react';
 import { useFieldTranslation } from './useFieldTranslation.js';
 import { useRecordQuery } from './useRecordQuery.js';
+import { objectResolvesSearch } from './searchOffer.js';
 // The one place a lookup column's display value is decided — shared with the
 // inline dropdown in LookupField so a single `lookupColumns` declaration
 // cannot render two different ways (objectui#5492).
@@ -804,6 +805,10 @@ export function RecordPickerDialog({
   const setCurrentPage = query.setPage;
   const handleSort = query.toggleSort;
   const handleSearchChange = query.setSearch;
+  // objectui#12966 — no type-ahead on an object whose search resolves to no
+  // field: the server refuses that search with `400 INVALID_FIELD`. The table
+  // still lists and pages the records. An unknown schema keeps the box.
+  const searchOffered = objectResolvesSearch(objectSchema) !== false;
 
   // Reset non-query UI/selection state when the dialog closes. Query state
   // (search/page/sort/records) is cleared by useRecordQuery when `enabled`
@@ -1219,25 +1224,27 @@ export function RecordPickerDialog({
             (objectui#11903). A bordered wrapper around a borderless input
             stacked two outlines; `focus-visible:ring-0` still drew the
             primitive's ring offset as a second, 2px ring. */}
-        <div className="relative">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
-          />
-          <Input
-            placeholder={t('table.search')}
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-9 pr-9"
-            data-testid="record-picker-search"
-          />
-          {loading && (
-            <Loader2
-              className="absolute right-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground"
-              data-testid="record-picker-loading-indicator"
+        {searchOffered && (
+          <div className="relative">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
             />
-          )}
-        </div>
+            <Input
+              placeholder={t('table.search')}
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-9 pr-9"
+              data-testid="record-picker-search"
+            />
+            {loading && (
+              <Loader2
+                className="absolute right-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground"
+                data-testid="record-picker-loading-indicator"
+              />
+            )}
+          </div>
+        )}
 
         {/* Filter bar (inline) — supports external FilterUI via renderFilterBar slot */}
         {effectiveFilterColumns && effectiveFilterColumns.length > 0 && (

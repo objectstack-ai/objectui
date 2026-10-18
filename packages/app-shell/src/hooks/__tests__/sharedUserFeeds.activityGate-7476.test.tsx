@@ -62,7 +62,7 @@ const fakeAdapter = {
 };
 vi.mock('../../providers/AdapterProvider', () => ({ useAdapter: () => fakeAdapter }));
 
-const { useSharedActivityFeed, __resetSharedUserFeeds } = await import('../sharedUserFeeds');
+const { useSharedActivityFeed, __resetSharedUserFeeds, __markFirstPainted } = await import('../sharedUserFeeds');
 const { objectPresence } = await import('../useObjectPresence');
 
 const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(0); });
@@ -106,6 +106,8 @@ const WITH_AUDIT = [...TENANT_OBJECTS, { name: 'sys_activity' }];
 beforeEach(() => {
   vi.useFakeTimers();
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
   finds.length = 0;
   vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 404 }))));
 });

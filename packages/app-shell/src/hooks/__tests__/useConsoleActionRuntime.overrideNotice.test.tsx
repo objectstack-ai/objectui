@@ -128,12 +128,12 @@ function Harness({ onReady }: { onReady: (fn: any) => void }) {
  * state the dialog received. The promise stays pending (nothing resolves it) —
  * that is the real shape too: nothing is POSTed until the dialog's own Confirm.
  */
-async function collectParams(dispatch: Record<string, unknown>) {
+async function collectParams(dispatch: Record<string, unknown>, interpolate?: (text: string) => string) {
   paramDialogState = null;
   let collect: any;
   render(<Harness onReady={(fn) => { collect = fn; }} />);
   await act(async () => {
-    void collect(PARAMS, dispatch as any);
+    void collect(PARAMS, dispatch as any, interpolate);
     await Promise.resolve();
   });
 }
@@ -223,5 +223,29 @@ describe('useConsoleActionRuntime — the override notice in the param dialog (o
       overrideNotice: '',
     });
     expect(paramDialogState.description).toBe('Declared copy.');
+  });
+});
+
+describe('useConsoleActionRuntime — the param dialog fills the runner\'s template holes (objectui#12967)', () => {
+  /** Stands in for the runner's evaluator over this dispatch's `record` (a list row). */
+  const interpolate = (text: string) => text.replace(/\$\{record\.display_name\}/g, 'Acme');
+
+  it('fills a record hole in the localized description and hands `interpolate` to the dialog for `helpText`', async () => {
+    bundleDescription = 'Pausing ${record.display_name} (translated)';
+    await collectParams({ name: 'pause', label: 'Pause', description: 'Pausing ${record.display_name}' }, interpolate);
+    // Filled on the text the user reads — the bundle's, not the literal.
+    expect(paramDialogState.description).toBe('Pausing Acme (translated)');
+    expect(paramDialogState.interpolate).toBe(interpolate);
+  });
+
+  it('never reads the override notice as a template: approver names are data', async () => {
+    const notice = 'Bypasses ${record.display_name} — an approver name, not a hole.';
+    await collectParams({
+      name: 'approval_reject',
+      label: 'Override Reject',
+      description: 'Rejecting ${record.display_name}',
+      overrideNotice: notice,
+    }, interpolate);
+    expect(paramDialogState.description).toBe(`${notice}\n\nRejecting Acme`);
   });
 });

@@ -709,7 +709,7 @@ function PasswordCard({ changePassword, setInitialPassword, hasLocalPassword, hi
       } else {
         await setInitialPassword(newPassword);
         setSuccess(t('profile.password.localSet', {
-          defaultValue: 'Local password set. You can now sign in with email and password on this environment.',
+          defaultValue: 'Local password set. You can now sign in with email and password.',
         }));
         setHasPassword(true);
         onPasswordSet?.();
@@ -739,11 +739,11 @@ function PasswordCard({ changePassword, setInitialPassword, hasLocalPassword, hi
         <CardDescription>
           {hasPassword
             ? t('profile.password.changeDescription', {
-                defaultValue: 'Update the password you use to sign in to this environment.',
+                defaultValue: 'Update the password you use to sign in.',
               })
             : t('profile.password.setDescription', {
                 defaultValue:
-                  'You signed in via single sign-on. Set a local password to also sign in with email and password on this environment.',
+                  'You signed in via single sign-on. Set a local password to also sign in with email and password.',
               })}
         </CardDescription>
       </CardHeader>

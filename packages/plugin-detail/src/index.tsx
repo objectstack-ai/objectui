@@ -910,7 +910,7 @@ ComponentRegistry.register('quick_actions', RecordQuickActionsRenderer, {
     // taught to authors and to tooling — objectstack#8744 quoted it verbatim.
     // Implementing the fallback would be a behaviour expansion and needs its own
     // card; pinned by `recordQuickActionsInputs.actionNamesFallback.test.tsx`.
-    { name: 'actionNames', type: 'array', of: 'string', description: 'Action names to expose, in order — resolved from the actions declared on the object. With no names (and no host-supplied actions) nothing is looked up and the bar renders its empty placeholder' },
+    { name: 'actionNames', type: 'array', of: 'string', description: 'Action names to expose, in order — resolved from the actions declared on the object. With no names (and no host-supplied actions) nothing is looked up: the bar renders its empty placeholder on a design / preview surface and nothing at runtime' },
     // The contract's shared record-block describe, verbatim (objectstack#18159):
     // `record:quick_actions` carries the one text `record:details`,
     // `record:highlights` and `record:related_list` share, and objectui#8649

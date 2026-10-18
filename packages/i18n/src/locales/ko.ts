@@ -583,9 +583,6 @@ const ko = {
       needMatchFields: "일치 기준 필드를 하나 이상 선택하세요.",
       matchOnlyField: "(일치 전용)",
       optCreateOptions: "알 수 없는 선택 값 유지",
-      optRunAutomations: "자동화 및 트리거 실행",
-      optTreatHistorical: "과거 데이터로 가져오기",
-      optTreatHistoricalHint: "(완료된 레코드를 그대로 가져옵니다 — 상태 머신 검사를 건너뛰고 현재 시각을 찍는 대신 원래 타임스탬프와 작성자를 유지합니다)",
       optSkipBlankKey: "일치 값이 비어 있는 행 건너뛰기",
       optBackground: "백그라운드에서 가져오기",
       optBackgroundHint: "(되돌릴 수 있는 작업으로 실행됩니다)",
@@ -1687,13 +1684,13 @@ const ko = {
     savedViewsUnreadable: "이 목록이 비어 있는 것은 읽지 못했기 때문이며, 이 오브젝트에 저장된 보기가 없어서가 아닙니다. 다시 시도하고, 계속 발생하면 문제를 보고하세요.",
     settingsHub: {
       title: "설정",
-      subtitle: "환경, 연동, 기능 플래그를 구성합니다.",
+      subtitle: "시스템, 연동, 기능 플래그를 구성합니다.",
       loadError: "설정을 불러오지 못했습니다",
       empty: "등록된 설정이 없습니다. 플러그인은 SettingsService를 통해 설정 매니페스트를 등록할 수 있습니다.",
       settingsCount: "설정 {{n}}개",
       beta: "베타",
       categories: {
-        Workspace: "환경",
+        Workspace: "일반",
         Communication: "커뮤니케이션",
         Security: "보안",
         Infrastructure: "인프라",
@@ -2039,12 +2036,12 @@ const ko = {
       unsupportedSpecifierType: "지원되지 않는 설정 항목 유형: {{type}}",
     },
     workspaceTimezonePrompt: {
-      title: "환경 시간대 설정",
-      description: "이 환경은 아직 플랫폼 기본 시간대({{current}})를 사용하고 있습니다. 환경 시간대는 수식에서 \"오늘\"의 의미, 보고서의 날짜별 그룹화, 날짜와 시간의 표시 방식을 결정하며 환경의 모든 사용자에게 적용됩니다. 아래에 브라우저 시간대가 입력되어 있습니다.",
+      title: "시스템 시간대 설정",
+      description: "이 시스템은 아직 플랫폼 기본 시간대({{current}})를 사용하고 있습니다. 시스템 시간대는 수식에서 \"오늘\"의 의미, 보고서의 날짜별 그룹화, 날짜와 시간의 표시 방식을 결정하며 시스템의 모든 사용자에게 적용됩니다. 아래에 브라우저 시간대가 입력되어 있습니다.",
       laterHint: "설정 페이지에서 언제든지 변경할 수 있습니다.",
       decline: "기본값 유지",
       confirm: "시간대 설정",
-      saved: "환경 시간대를 {{zone}}(으)로 설정했습니다",
+      saved: "시스템 시간대를 {{zone}}(으)로 설정했습니다",
     },
     error: {
       connectionFailed: "서버에 연결할 수 없습니다",
@@ -2104,9 +2101,9 @@ const ko = {
     },
     // objectui#9954 — see the `en` pack for what raises each case.
     readRate: {
-      ratioTitle: '이 환경의 읽기 양이 비정상적입니다',
+      ratioTitle: '이 시스템의 읽기 양이 비정상적입니다',
       ratio: '쓰기 1행당 {{ratio}}행을 읽고 있습니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
-      noWritesTitle: '이 환경은 읽기만 있고 쓰기가 전혀 없습니다',
+      noWritesTitle: '이 시스템은 읽기만 있고 쓰기가 전혀 없습니다',
       noWrites: '행을 읽고 있지만 쓰기가 전혀 없어 읽기 비율에 상한이 없습니다. 가장 심각한 수치입니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
     },
     // objectui#10439 — see the `en` pack for what raises each case.
@@ -2267,7 +2264,7 @@ const ko = {
   auth: {
     setPassword: {
       title: "복구 비밀번호 설정",
-      description: "싱글 사인온으로 로그인했습니다. SSO를 사용할 수 없게 되더라도 이 환경에 직접 로그인할 수 있도록 로컬 비밀번호를 설정하세요.",
+      description: "싱글 사인온으로 로그인했습니다. SSO를 사용할 수 없게 되더라도 직접 로그인할 수 있도록 로컬 비밀번호를 설정하세요.",
       email: "이메일",
       newPassword: "새 비밀번호",
       confirmPassword: "비밀번호 확인",
@@ -2352,7 +2349,7 @@ const ko = {
       orText: "또는 이메일로 계속",
       errors: {
         userExists: "해당 이메일로 이미 계정이 존재합니다. 로그인해 보세요.",
-        selfRegistrationClosed: "이 환경에서는 직접 가입을 받지 않습니다. 관리자에게 초대를 요청하세요.",
+        selfRegistrationClosed: "이 시스템에서는 직접 가입을 받지 않습니다. 관리자에게 초대를 요청하세요.",
         emailDomainNotAllowed: "이 이메일의 도메인으로는 여기에서 가입할 수 없습니다. 조직 이메일을 사용하거나 관리자에게 초대를 요청하세요.",
       },
       verifyInbox: {
@@ -2429,7 +2426,7 @@ const ko = {
       checkSpam: "이메일을 받지 못하셨나요? 스팸 폴더를 확인하거나 지원팀에 문의하세요.",
       or: "또는",
       // objectui#3546 slice three.
-      resendUnavailable: "이 환경에서는 이메일 발송이 구성되지 않았을 수 있습니다. 문제가 계속되면 지원팀에 문의하세요.",
+      resendUnavailable: "이 시스템에서는 이메일 발송이 구성되지 않았을 수 있습니다. 문제가 계속되면 지원팀에 문의하세요.",
     },
     setup: {
       welcomeTitle: "ObjectStack에 오신 것을 환영합니다",
@@ -2473,7 +2470,7 @@ const ko = {
       disabledDescription: "이 배포에는 장치 승인이 활성화되어 있지 않으므로 여기에서 이 장치를 승인할 수 없습니다.",
     },
     shell: {
-      tenantHostHint: "이 환경에 로그인하는 중입니다",
+      tenantHostHint: "이 시스템에 로그인하는 중입니다",
     },
     layout: {
       headline: "강력한 비즈니스 애플리케이션을 더 빠르게.",
@@ -2570,9 +2567,9 @@ const ko = {
     password: {
       changeTitle: "비밀번호 변경",
       setTitle: "로컬 비밀번호 설정",
-      changeDescription: "이 환경에 로그인할 때 사용하는 비밀번호를 업데이트하세요.",
+      changeDescription: "로그인할 때 사용하는 비밀번호를 업데이트하세요.",
       setDescription:
-        "통합 인증(SSO)으로 로그인하셨습니다. 로컬 비밀번호를 설정하면 이 환경에서 이메일과 비밀번호로도 로그인할 수 있습니다.",
+        "통합 인증(SSO)으로 로그인하셨습니다. 로컬 비밀번호를 설정하면 이메일과 비밀번호로도 로그인할 수 있습니다.",
       current: "현재 비밀번호",
       new: "새 비밀번호",
       password: "비밀번호",
@@ -2581,7 +2578,7 @@ const ko = {
       mismatch: "비밀번호가 일치하지 않습니다",
       enterCurrent: "현재 비밀번호를 입력하세요",
       changed: "비밀번호가 변경되었습니다.",
-      localSet: "로컬 비밀번호가 설정되었습니다. 이제 이 환경에서 이메일과 비밀번호로 로그인할 수 있습니다.",
+      localSet: "로컬 비밀번호가 설정되었습니다. 이제 이메일과 비밀번호로 로그인할 수 있습니다.",
       changeAction: "비밀번호 변경",
       setAction: "비밀번호 설정",
     },
@@ -2619,6 +2616,11 @@ const ko = {
     allDocs: '전체 문서',
     onlineDocs: '온라인 문서',
     loadingDocumentation: '문서 로딩 중',
+    about: '정보',
+    aboutTitle: '이 콘솔 정보',
+    aboutDescription: '이 콘솔이 컴파일된 빌드입니다.',
+    aboutBuild: '콘솔 빌드',
+    aboutBuildUnknown: '알 수 없는 빌드(이 콘솔을 빌드할 때 버전이 설정되지 않음)',
   },
   sidebar: {
     packageManagement: "패키지 관리",
@@ -2659,7 +2661,7 @@ const ko = {
   home: {
     build: {
       title: "앱 만들기",
-      noCapability: "이 환경에서는 앱 만들기를 사용할 수 없습니다 — ‘메타데이터 관리’ 권한이 필요하지만 계정에 해당 권한이 없습니다.",
+      noCapability: "이 시스템에서는 앱 만들기를 사용할 수 없습니다 — ‘메타데이터 관리’ 권한이 필요하지만 계정에 해당 권한이 없습니다.",
     },
     template: {
       title: "템플릿으로 시작",
@@ -2669,7 +2671,7 @@ const ko = {
     welcomeAdminDescriptionNoBuild: "왼쪽 관리 메뉴에서 첫 애플리케이션을 설정하세요. 데이터가 쌓이면 AI 어시스턴트가 살펴보는 것을 도와줍니다.",
     welcomeAdminDescriptionNoAi: "왼쪽 관리 메뉴에서 첫 애플리케이션을 설정하세요.",
     noAppsTitle: "아직 애플리케이션이 없습니다",
-    noAppsDescription: "환경을 준비하고 있습니다 — 관리자가 공유한 앱이 여기에 표시됩니다.",
+    noAppsDescription: "시스템을 준비하고 있습니다 — 관리자가 공유한 앱이 여기에 표시됩니다.",
     buildWithAI: "AI로 빌드",
     askAI: "AI에게 질문",
     recoveryReminder: {
@@ -2717,7 +2719,7 @@ const ko = {
       notifications: "알림",
       notificationsEmpty: "읽지 않은 알림이 없습니다",
     },
-    loading: "환경 로드 중…",
+    loading: "로딩 중…",
     welcome: "ObjectUI에 오신 것을 환영합니다",
     welcomeDescription: "첫 애플리케이션을 만들거나 시스템 설정을 구성하여 시작하세요.",
     createFirstApp: "첫 앱 만들기",
@@ -2728,7 +2730,7 @@ const ko = {
       manageObjects: "객체 관리",
       manageObjectsDesc: "데이터 모델 구성",
       systemSettings: "시스템 설정",
-      systemSettingsDesc: "환경 구성",
+      systemSettingsDesc: "시스템 구성",
     },
     appCard: {
       noDescription: "설명 없음",
@@ -3192,10 +3194,10 @@ const ko = {
       body: 'MCP 서비스가 꺼져 있습니다(OS_MCP_SERVER_ENABLED=false). 운영자에게 다시 활성화를 요청하세요.',
     },
     url: {
-      title: '이 환경의 MCP 엔드포인트',
+      title: '이 시스템의 MCP 엔드포인트',
       body: 'MCP를 지원하는 모든 AI 클라이언트가 이 URL로 연결합니다. 인증은 셀프서비스입니다. 배포 자체가 OAuth 2.1 인가 서버이므로 브라우저 로그인만 하면 되고, 모든 호출은 본인의 권한과 행 수준 보안 아래 실행됩니다.',
       downloadSkill: 'SKILL.md 다운로드',
-      skillHint: '이식 가능한 에이전트 스킬: 스킬을 지원하는 에이전트에게 이 환경 사용법을 알려줍니다.',
+      skillHint: '이식 가능한 에이전트 스킬: 스킬을 지원하는 에이전트에게 이 시스템 사용법을 알려줍니다.',
     },
     claude: {
       body: '설정 → 커넥터 → 사용자 지정 커넥터 추가에서 이 URL을 붙여넣고 브라우저에서 로그인하세요.',
@@ -3326,8 +3328,8 @@ const ko = {
     rowConversational: "Build / Ask 모델",
     rowStructured: "구조화(블루프린트 / 시드)",
     rowReasoning: "추론 강도",
-    readFailed: "유효한 AI 모델을 읽을 수 없습니다. 이 환경에서 AI 서비스가 실행되지 않거나 ai:read 권한이 없을 수 있습니다.",
-    readFailedWithStatus: "유효한 AI 모델을 읽을 수 없습니다(HTTP {{status}}). 이 환경에서 AI 서비스가 실행되지 않거나 ai:read 권한이 없을 수 있습니다.",
+    readFailed: "유효한 AI 모델을 읽을 수 없습니다. 이 시스템에서 AI 서비스가 실행되지 않거나 ai:read 권한이 없을 수 있습니다.",
+    readFailedWithStatus: "유효한 AI 모델을 읽을 수 없습니다(HTTP {{status}}). 이 시스템에서 AI 서비스가 실행되지 않거나 ai:read 권한이 없을 수 있습니다.",
     overridesInEffect: "적용 중인 재정의: ",
     noOverrides: "없음 — 배포된 코드의 기본값으로 실행 중입니다.",
     adapter: "어댑터: ",
@@ -3996,6 +3998,9 @@ const ko = {
       publishing: '게시 중…',
       exit: '미리보기 종료',
       changes: '변경 사항',
+      pendingHere: '초안 미리보기 · 이 페이지의 게시되지 않은 변경 {{count}}개',
+      pendingHere_one: '초안 미리보기 · 이 페이지의 게시되지 않은 변경 {{count}}개',
+      pendingHere_other: '초안 미리보기 · 이 페이지의 게시되지 않은 변경 {{count}}개',
     },
     changes: {
       title: '대기 중인 변경 사항',

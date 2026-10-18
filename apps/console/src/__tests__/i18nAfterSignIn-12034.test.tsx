@@ -360,11 +360,15 @@ describe('console i18n before and after sign-in (objectui#12034)', () => {
 
     await waitFor(() => expect(heading).toHaveTextContent('线索'));
     expect(heading).toBeInTheDocument();
-    expect(i18nReads).toEqual(
-      expect.arrayContaining([
-        { path: '/api/v1/i18n/translations/zh', authorization: `Bearer ${TOKEN}`, status: 200 },
-        { path: '/api/v1/i18n/locales', authorization: `Bearer ${TOKEN}`, status: 200 },
-      ]),
+    // The locale list is read after the console's first paint (objectui#12980),
+    // so it may land a beat after the heading re-renders.
+    await waitFor(() =>
+      expect(i18nReads).toEqual(
+        expect.arrayContaining([
+          { path: '/api/v1/i18n/translations/zh', authorization: `Bearer ${TOKEN}`, status: 200 },
+          { path: '/api/v1/i18n/locales', authorization: `Bearer ${TOKEN}`, status: 200 },
+        ]),
+      ),
     );
     expect(i18nReads.every((read) => read.status === 200)).toBe(true);
   });

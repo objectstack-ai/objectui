@@ -153,9 +153,6 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.needMatchFields': 'Select at least one field to match on.',
   'grid.import.matchOnlyField': '(match only)',
   'grid.import.optCreateOptions': 'Keep unknown option values',
-  'grid.import.optRunAutomations': 'Run automations & triggers',
-  'grid.import.optTreatHistorical': 'Import as historical data',
-  'grid.import.optTreatHistoricalHint': '(import completed records as-is — skip state-machine checks and keep their original timestamps & author instead of stamping now)',
   'grid.import.optSkipBlankKey': 'Skip rows with a blank match value',
   'grid.import.optBackground': 'Import in the background',
   'grid.import.optBackgroundHint': '(runs as an undoable job)',
@@ -899,22 +896,27 @@ function transformedSourceColumns(m: SavedMapping | null, headers: string[]): Se
 /** Assemble the server `/import` request from mapping-applied raw rows plus the
  *  current write-mode + coercion options. Kept pure (no component state) so the
  *  real import and the dry-run pre-check send byte-identical payloads and it can
- *  be unit-tested. `matchFields` is only sent when the write-mode consults it. */
+ *  be unit-tested. `matchFields` is only sent when the write-mode consults it.
+ *
+ *  The request never carries the two control opt-outs, `runAutomations: false`
+ *  and `treatAsHistorical: true`: both import doors honour them for the system
+ *  principal only and refuse every signed-in caller `403 PERMISSION_DENIED`
+ *  (objectstack-ai/objectstack#24348), so the wizard does not offer them
+ *  (objectui#12985). Omitting both keys is the server's declared default —
+ *  automations run and the state machine is walked. */
 function assembleImportRequest(
   rows: Record<string, string>[],
   opts: {
     writeMode: ImportWriteMode;
     matchFields: string[];
     createMissingOptions: boolean;
-    runAutomations: boolean;
-    treatAsHistorical?: boolean;
     skipBlankMatchKey: boolean;
     dryRun?: boolean;
     /** When set, the server resolves this registered mapping and owns the
      *  rename + transform + write semantics (objectstack-ai/objectstack#2611). `rows` must
      *  then carry SOURCE headers (see buildSourceRows), and the inline
      *  column mapping / write-mode are omitted — mutually exclusive per the
-     *  server contract. `runAutomations` is still honored. */
+     *  server contract. */
     mappingName?: string;
   },
 ): ImportRequestOptions {
@@ -923,8 +925,6 @@ function assembleImportRequest(
       format: 'json',
       rows,
       mappingName: opts.mappingName,
-      runAutomations: opts.runAutomations,
-      ...(opts.treatAsHistorical ? { treatAsHistorical: true } : {}),
       ...(opts.dryRun ? { dryRun: true } : {}),
     };
   }
@@ -934,8 +934,6 @@ function assembleImportRequest(
     writeMode: opts.writeMode,
     ...(opts.writeMode !== 'insert' ? { matchFields: opts.matchFields } : {}),
     createMissingOptions: opts.createMissingOptions,
-    runAutomations: opts.runAutomations,
-    ...(opts.treatAsHistorical ? { treatAsHistorical: true } : {}),
     skipBlankMatchKey: opts.skipBlankMatchKey,
     ...(opts.dryRun ? { dryRun: true } : {}),
   };
@@ -1797,10 +1795,6 @@ const ImportOptions: React.FC<{
   onToggleMatchField: (name: string) => void;
   createMissingOptions: boolean;
   onCreateMissingOptions: (v: boolean) => void;
-  runAutomations: boolean;
-  onRunAutomations: (v: boolean) => void;
-  treatAsHistorical: boolean;
-  onTreatAsHistorical: (v: boolean) => void;
   skipBlankMatchKey: boolean;
   onSkipBlankMatchKey: (v: boolean) => void;
   showBackground: boolean;
@@ -1808,8 +1802,7 @@ const ImportOptions: React.FC<{
   onBackgroundImport: (v: boolean) => void;
 }> = ({
   fields, mapping, writeMode, onWriteMode, writeModes, matchFields, onToggleMatchField,
-  createMissingOptions, onCreateMissingOptions, runAutomations, onRunAutomations,
-  treatAsHistorical, onTreatAsHistorical,
+  createMissingOptions, onCreateMissingOptions,
   skipBlankMatchKey, onSkipBlankMatchKey,
   showBackground, backgroundImport, onBackgroundImport,
 }) => {
@@ -1871,17 +1864,6 @@ const ImportOptions: React.FC<{
               {t('grid.import.optSkipBlankKey')}
             </label>
           )}
-          <label className="flex items-center gap-2 text-xs" data-testid="import-opt-run-automations">
-            <Checkbox checked={runAutomations} onCheckedChange={(v) => onRunAutomations(v === true)} />
-            {t('grid.import.optRunAutomations')}
-          </label>
-          <label className="flex items-center gap-2 text-xs" data-testid="import-opt-treat-historical">
-            <Checkbox checked={treatAsHistorical} onCheckedChange={(v) => onTreatAsHistorical(v === true)} />
-            <span>
-              {t('grid.import.optTreatHistorical')}
-              <span className="ml-1 text-[11px] text-muted-foreground">{t('grid.import.optTreatHistoricalHint')}</span>
-            </span>
-          </label>
           {showBackground && (
             <label className="flex items-center gap-2 text-xs" data-testid="import-opt-background">
               <Checkbox checked={backgroundImport} onCheckedChange={(v) => onBackgroundImport(v === true)} />
@@ -2114,13 +2096,6 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const [writeMode, setWriteMode] = useState<ImportWriteMode>(defaultWriteMode);
   const [matchFields, setMatchFields] = useState<string[]>([]);
   const [createMissingOptions, setCreateMissingOptions] = useState(false);
-  // Default ON: automations always ran on import before framework#2922 wired
-  // the flag up server-side, so preserving behavior means opt-out, not opt-in.
-  const [runAutomations, setRunAutomations] = useState(true);
-  // Default OFF (opt-in): a normal import must still walk the state machine —
-  // only an explicit "historical" import skips it so mid-lifecycle rows aren't
-  // rejected by initialStates (objectstack-ai/objectstack#3479). The strict behavior is the default.
-  const [treatAsHistorical, setTreatAsHistorical] = useState(false);
   const [skipBlankMatchKey, setSkipBlankMatchKey] = useState(false);
   // Opt-in: route this import through a background job even when the row count
   // is under the async threshold. This is the only way to obtain an undoable
@@ -2590,11 +2565,11 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
       // hand-mapped, field-keyed rows are for the manual path only.
       mappingName ? buildSourceRows(headers, rows, corrections) : buildRawRows(),
       {
-        writeMode, matchFields, createMissingOptions, runAutomations, treatAsHistorical, skipBlankMatchKey, dryRun,
+        writeMode, matchFields, createMissingOptions, skipBlankMatchKey, dryRun,
         ...(mappingName ? { mappingName } : {}),
       },
     ),
-  [buildRawRows, mappingName, headers, rows, corrections, writeMode, matchFields, createMissingOptions, runAutomations, treatAsHistorical, skipBlankMatchKey]);
+  [buildRawRows, mappingName, headers, rows, corrections, writeMode, matchFields, createMissingOptions, skipBlankMatchKey]);
 
   const handleImport = useCallback(async () => {
     setImporting(true); setProgress(0);
@@ -2737,7 +2712,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   // never reflects data the user has since edited.
   useEffect(() => {
     setDryRunResult(null);
-  }, [mapping, corrections, writeMode, matchFields, createMissingOptions, runAutomations, skipBlankMatchKey]);
+  }, [mapping, corrections, writeMode, matchFields, createMissingOptions, skipBlankMatchKey]);
 
   // User-initiated cancel of an in-flight async job. Stops the poll loop, asks
   // the server to cancel (best-effort), then reads the job back until its
@@ -2795,7 +2770,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     setStep('upload'); setHeaders([]); setRows([]); setMapping({}); setProgress(0); setResult(null);
     setCorrections({}); setSelectedTemplateId(null); setMappingName(null);
     setWriteMode(defaultWriteMode); setMatchFields([]);
-    setCreateMissingOptions(false); setRunAutomations(true); setSkipBlankMatchKey(false);
+    setCreateMissingOptions(false); setSkipBlankMatchKey(false);
     setJobId(null); setAsyncCounts(null);
     setValidating(false); setDryRunResult(null);
     setShowHistory(false);
@@ -2925,10 +2900,6 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                   onToggleMatchField={toggleMatchField}
                   createMissingOptions={createMissingOptions}
                   onCreateMissingOptions={setCreateMissingOptions}
-                  runAutomations={runAutomations}
-                  onRunAutomations={setRunAutomations}
-                  treatAsHistorical={treatAsHistorical}
-                  onTreatAsHistorical={setTreatAsHistorical}
                   skipBlankMatchKey={skipBlankMatchKey}
                   onSkipBlankMatchKey={setSkipBlankMatchKey}
                   showBackground={supportsImportJob && rows.length <= ASYNC_IMPORT_THRESHOLD}

@@ -2267,7 +2267,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.embedded.readOnly': 'Read-only',
   'engine.embedded.noPathHint': 'No embedded path registered — cannot determine where to write this item back.',
   'engine.packages.title': 'Packages',
-  'engine.packages.description': 'Author, publish, and manage the packages installed in this environment.',
+  'engine.packages.description': 'Author, publish, and manage the packages installed in this system.',
   'engine.packages.refresh': 'Refresh',
   'engine.packages.import': 'Import',
   'engine.packages.importing': 'Importing…',
@@ -2327,7 +2327,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // `manage_metadata` capability, and its refusal is an English sentence that
   // reached a zh console verbatim. Deployments that withhold the capability do
   // so deliberately, so this states the posture rather than inviting a retry.
-  'engine.packages.noCapability': 'You do not have permission to manage packages in this environment — it requires the “Manage Metadata” permission.',
+  'engine.packages.noCapability': 'You do not have permission to manage packages in this system — it requires the “Manage Metadata” permission.',
   'engine.packages.form.basics': 'Basics',
   'engine.packages.form.advanced': 'Advanced',
   'engine.packages.form.namespace': 'Namespace',
@@ -2390,7 +2390,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.packages.detail.duplicated': 'Package duplicated into a new base.',
   'engine.packages.detail.adoptOrphans': 'Adopt loose items',
   'engine.packages.detail.adopting': 'Adopting…',
-  'engine.packages.detail.adoptConfirm': 'Move all package-less (loose) metadata in this environment INTO "{name}"? This rebinds orphaned items to this base.',
+  'engine.packages.detail.adoptConfirm': 'Move all package-less (loose) metadata in this system INTO "{name}"? This rebinds orphaned items to this base.',
   'engine.packages.detail.adopted': 'Loose items adopted into this base.',
   'engine.quickfind.placeholder': "Find metadata types or items… (try 'view', 'account')",
   'engine.quickfind.empty': 'Type to search across all metadata types.',
@@ -2561,16 +2561,16 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // set on it. The hint names the hatch only to say so, as the server's own
   // refusal sentence does.
   'perm.readOnly.artifact.hint':
-    'A code package ships this permission set, so it is locked here: an environment-scope edit would overlay a packaged item, and the metadata-type registry declares allowEnvironmentOverlay false for permission (ADR-0131 D6 forbids an environment overlay of a packaged set: silent privilege drift). The server refuses the write with 403 not_overridable. Clone to customize: the copy is an ordinary permission set authored in this environment, under a new name, that you edit here, and upgrades keep flowing to this base. Other routes: edit the source artifact and redeploy, or create a new runtime set. The OS_METADATA_WRITABLE escape hatch does not open a set a package ships (ADR-0131 D6).',
+    'A code package ships this permission set, so it is locked here: an environment-scope edit would overlay a packaged item, and the metadata-type registry declares allowEnvironmentOverlay false for permission (ADR-0131 D6 forbids an environment overlay of a packaged set: silent privilege drift). The server refuses the write with 403 not_overridable. Clone to customize: the copy is an ordinary permission set authored in this system, under a new name, that you edit here, and upgrades keep flowing to this base. Other routes: edit the source artifact and redeploy, or create a new runtime set. The OS_METADATA_WRITABLE escape hatch does not open a set a package ships (ADR-0131 D6).',
   // objectui#5987 — "Clone to customize", the locked editor's primary action.
   // objectui#7611 — it asks for a new name and label (`PermissionSetCloneDialog.tsx`)
   // and calls the server's clone door (`permission-set-clone.ts`), which copies
   // the whole definition; never a hand-rolled copy.
   'perm.clone.action': 'Clone to customize',
   'perm.clone.hint':
-    'Copies this set under a new name you choose. The copy is an ordinary permission set authored in this environment, editable here, and upgrades keep flowing to the package-provided base.',
+    'Copies this set under a new name you choose. The copy is an ordinary permission set authored in this system, editable here, and upgrades keep flowing to the package-provided base.',
   'perm.clone.guidance':
-    'Locked: a code package provides this permission set, so it cannot be edited in place here (upgrades keep flowing to it). Clone to customize — the copy is an ordinary permission set authored in this environment, editable here.',
+    'Locked: a code package provides this permission set, so it cannot be edited in place here (upgrades keep flowing to it). Clone to customize — the copy is an ordinary permission set authored in this system, editable here.',
   'perm.clone.dialogTitle': 'Clone permission set',
   'perm.clone.dialogBody':
     'Copies {name} under a new machine name and label. The server decides what the copy carries, and says what it left out.',
@@ -2589,7 +2589,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // the same guidance as the lock, keyed on the refusal's code (never its
   // prose), instead of the transport's generic message.
   'perm.save.locked':
-    'Save refused (403 not_overridable): a code package provides this permission set, so the server does not accept an in-place edit. Clone to customize instead — the copy is an ordinary permission set authored in this environment, and upgrades keep flowing to this base.',
+    'Save refused (403 not_overridable): a code package provides this permission set, so the server does not accept an in-place edit. Clone to customize instead — the copy is an ordinary permission set authored in this system, and upgrades keep flowing to this base.',
   // Designer wrapper
   'designer.unsavedChanges': 'Unsaved changes',
   'designer.editingOverlay': 'Editing overlay',
@@ -5692,7 +5692,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.embedded.readOnly': '只读',
   'engine.embedded.noPathHint': '未注册 embeddedPath，无法判断该条目应写回哪里。',
   'engine.packages.title': '软件包',
-  'engine.packages.description': '创建、发布和管理此环境中安装的软件包。',
+  'engine.packages.description': '创建、发布和管理本系统中安装的软件包。',
   'engine.packages.refresh': '刷新',
   'engine.packages.import': '导入',
   'engine.packages.importing': '导入中…',
@@ -5747,7 +5747,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.packages.create.failed': '创建软件包失败',
   'engine.packages.create.exists': '已存在相同 ID 的软件包。',
   // objectstack#8270 — 这条正是在 zh 控制台里显示为英文原文的服务端拒绝信息。
-  'engine.packages.noCapability': '你没有在此环境管理软件包的权限 — 该操作需要「管理元数据」权限。',
+  'engine.packages.noCapability': '你没有在本系统管理软件包的权限 — 该操作需要「管理元数据」权限。',
   'engine.packages.form.basics': '基本信息',
   'engine.packages.form.advanced': '高级',
   'engine.packages.form.namespace': '命名空间',
@@ -5836,7 +5836,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.packages.detail.duplicated': '软件包已复制为新基座。',
   'engine.packages.detail.adoptOrphans': '收编散落项',
   'engine.packages.detail.adopting': '收编中…',
-  'engine.packages.detail.adoptConfirm': '把本环境中所有无软件包（散落）的元数据移动到 "{name}" 吗？这会把孤儿项重新绑定到此基座。',
+  'engine.packages.detail.adoptConfirm': '把本系统中所有无软件包（散落）的元数据移动到 "{name}" 吗？这会把孤儿项重新绑定到此基座。',
   'engine.packages.detail.adopted': '散落项已收编进此基座。',
   'engine.quickfind.placeholder': '搜索元数据类型或条目…（如：view、account）',
   'engine.quickfind.empty': '输入关键字以搜索所有元数据类型。',
@@ -5876,7 +5876,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.cap.none': '无附加系统能力',
   'perm.cap.add': '添加能力',
   'perm.badge.package': '包内置',
-  'perm.badge.custom': '本环境自定义',
+  'perm.badge.custom': '自定义',
   'perm.badge.default': '新用户默认',
   'perm.field.loading': '加载字段中…',
   'perm.field.empty': '该对象未注册字段。',
@@ -5973,13 +5973,13 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.readOnly.artifact': '只读（该权限集由代码包提供）',
   // objectui#5987 — 见 EN 表同键注释：裁定的路径（克隆后自定义）放在最前。
   'perm.readOnly.artifact.hint':
-    '该权限集由代码包提供，因此在此处被锁定：在环境作用域下编辑它属于覆盖（overlay）已打包的条目，而元数据类型注册表对 permission 声明 allowEnvironmentOverlay 为 false（ADR-0131 D6 禁止对已打包权限集做环境覆盖：会造成权限静默漂移）。服务端会以 403 not_overridable 拒绝该写入。请「克隆后自定义」：副本以新名称保存为本环境中创作的普通权限集、可在此编辑，升级会继续流向这个基线。其他途径：修改源工件后重新部署，或新建一个运行时权限集。OS_METADATA_WRITABLE 逃生阀不会开放由包提供的权限集（ADR-0131 D6）。',
+    '该权限集由代码包提供，因此在此处被锁定：在环境作用域下编辑它属于覆盖（overlay）已打包的条目，而元数据类型注册表对 permission 声明 allowEnvironmentOverlay 为 false（ADR-0131 D6 禁止对已打包权限集做环境覆盖：会造成权限静默漂移）。服务端会以 403 not_overridable 拒绝该写入。请「克隆后自定义」：副本以新名称保存为本系统中创作的普通权限集、可在此编辑，升级会继续流向这个基线。其他途径：修改源工件后重新部署，或新建一个运行时权限集。OS_METADATA_WRITABLE 逃生阀不会开放由包提供的权限集（ADR-0131 D6）。',
   // objectui#5987 — 见 EN 表同键注释。
   'perm.clone.action': '克隆后自定义',
   'perm.clone.hint':
-    '以你指定的新名称复制该权限集。副本是本环境中创作的普通权限集，可在此编辑，升级会继续流向由包提供的基线。',
+    '以你指定的新名称复制该权限集。副本是本系统中创作的普通权限集，可在此编辑，升级会继续流向由包提供的基线。',
   'perm.clone.guidance':
-    '已锁定：该权限集由代码包提供，不能在此处原地编辑（升级会继续流向它）。请「克隆后自定义」—— 副本是本环境中创作的普通权限集，可在此编辑。',
+    '已锁定：该权限集由代码包提供，不能在此处原地编辑（升级会继续流向它）。请「克隆后自定义」—— 副本是本系统中创作的普通权限集，可在此编辑。',
   'perm.clone.dialogTitle': '克隆权限集',
   'perm.clone.dialogBody': '以新的机器名和显示名复制 {name}。副本携带哪些内容由服务端决定，未复制的部分会由服务端说明。',
   'perm.clone.name': '新的机器名',
@@ -5990,7 +5990,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.clone.noName': '克隆已创建，但服务端的响应未给出其名称。请从权限集列表中打开它。',
   'perm.clone.done': '已克隆为 {name}。请从权限集列表中打开它进行编辑。',
   'perm.save.locked':
-    '保存被拒绝（403 not_overridable）：该权限集由代码包提供，服务端不接受原地编辑。请改为「克隆后自定义」—— 副本是本环境中创作的普通权限集，升级会继续流向这个基线。',
+    '保存被拒绝（403 not_overridable）：该权限集由代码包提供，服务端不接受原地编辑。请改为「克隆后自定义」—— 副本是本系统中创作的普通权限集，升级会继续流向这个基线。',
   // Designer wrapper
   'designer.unsavedChanges': '未保存的修改',
   'designer.editingOverlay': '编辑覆盖层',

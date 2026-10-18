@@ -26,6 +26,7 @@ import React, { useEffect } from 'react';
 import { render, waitFor } from '@testing-library/react';
 import { MetadataCtx, AdapterCtx, type MetadataContextValue } from '@object-ui/react';
 import { NavigationSyncEffect, useNavigationSync } from '../useNavigationSync';
+import { __markFirstPainted } from '../sharedUserFeeds';
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -67,6 +68,9 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // objectui#12980 — the effect reads nothing before the console's first
+  // paint; these cases are about the diff, so they start past it.
+  __markFirstPainted();
 });
 
 describe('objectui#9868 — NavigationSyncEffect writes unnamed entries with NO label', () => {

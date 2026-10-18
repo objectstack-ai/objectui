@@ -187,7 +187,10 @@ const BLOCKS: BlockCase[] = [
     },
     showsNone: async (m) => {
       await settled('record:quick_actions');
-      expect(await screen.findByText(/no actions configured/i)).toBeInTheDocument();
+      // A bar that names an action with no record to run it against draws
+      // nothing — not the authoring placeholder, which would claim the block
+      // names no action (objectui#12995).
+      expect(screen.queryByText(/no actions configured/i)).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Approve environment/i })).not.toBeInTheDocument();
       expect(m.api).not.toHaveBeenCalled();
     },

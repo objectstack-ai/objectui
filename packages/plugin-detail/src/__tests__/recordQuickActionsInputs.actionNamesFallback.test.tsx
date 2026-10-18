@@ -22,7 +22,8 @@
  * The measured chain, which the first two cases drive for real rather than
  * restate: no `actionNames` and no host `actions` → `namesToResolve` is empty →
  * `needsLookup` is false → the object metadata is NEVER queried → `actions` is
- * `[]` → the dashed placeholder renders. Per the triage ruling on #4663 the
+ * `[]` → the dashed placeholder renders (on a design / preview surface; a
+ * runtime view draws nothing, objectui#12995). Per the triage ruling on #4663 the
  * fallback is a behaviour EXPANSION and is not being implemented here, so the
  * sentence is what changes; these cases are what stops it drifting back into a
  * promise.
@@ -38,7 +39,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ComponentRegistry } from '@object-ui/core';
-import { MetadataCtx, RecordContextProvider } from '@object-ui/react';
+import { MetadataCtx, PreviewModeProvider, RecordContextProvider } from '@object-ui/react';
 import type { MetadataContextValue } from '@object-ui/react';
 import { RecordQuickActionsRenderer } from '../renderers/record-quick-actions';
 import '../index';
@@ -78,14 +79,15 @@ const METADATA: MetadataContextValue = {
   getTypeStatus: () => 'ready' as const,
 };
 
-function mount(schema: Record<string, unknown>) {
-  return render(
+function mount(schema: Record<string, unknown>, opts: { preview?: boolean } = {}) {
+  const tree = (
     <MetadataCtx.Provider value={METADATA}>
       <RecordContextProvider objectName="crm_account" recordId="rec-1" data={{ id: 'rec-1' }}>
         <RecordQuickActionsRenderer schema={schema as any} />
       </RecordContextProvider>
-    </MetadataCtx.Provider>,
+    </MetadataCtx.Provider>
   );
+  return render(opts.preview ? <PreviewModeProvider>{tree}</PreviewModeProvider> : tree);
 }
 
 const actionNamesInput = () =>
@@ -97,7 +99,8 @@ beforeEach(() => getItem.mockClear());
 
 describe('record:quick_actions — `actionNames` description vs measured behaviour (objectui#4663)', () => {
   it('with no `actionNames` and no host `actions`, the object\'s declared actions are NOT pulled in', async () => {
-    mount({});
+    // On a preview surface, where the empty placeholder is drawn (objectui#12995).
+    mount({}, { preview: true });
 
     // The bar's empty state, not the object's action.
     expect(await screen.findByText(/no actions configured/i)).toBeInTheDocument();

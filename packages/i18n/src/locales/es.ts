@@ -605,9 +605,6 @@ const es = {
       needMatchFields: "Seleccione al menos un campo por el que coincidir.",
       matchOnlyField: "(solo coincidencia)",
       optCreateOptions: "Conservar los valores de opción desconocidos",
-      optRunAutomations: "Ejecutar automatizaciones y disparadores",
-      optTreatHistorical: "Importar como datos históricos",
-      optTreatHistoricalHint: "(importa los registros completados tal cual: omite las comprobaciones de la máquina de estados y conserva sus marcas de tiempo y autor originales en lugar de sellarlos ahora)",
       optSkipBlankKey: "Omitir las filas con valor de coincidencia vacío",
       optBackground: "Importar en segundo plano",
       optBackgroundHint: "(se ejecuta como un trabajo reversible)",
@@ -1733,13 +1730,13 @@ const es = {
     savedViewsUnreadable: "Esta lista está vacía porque no se pudo leer, no porque este objeto no tenga vistas guardadas. Inténtalo de nuevo e informa del problema si continúa.",
     settingsHub: {
       title: "Configuración",
-      subtitle: "Configure su entorno, las integraciones y los indicadores de funciones.",
+      subtitle: "Configure su sistema, las integraciones y los indicadores de funciones.",
       loadError: "No se pudo cargar la configuración",
       empty: "No hay configuraciones registradas. Los plugins pueden registrar manifiestos de configuración mediante el SettingsService.",
       settingsCount: "{{n}} configuraciones",
       beta: "Beta",
       categories: {
-        Workspace: "Entorno",
+        Workspace: "General",
         Communication: "Comunicación",
         Security: "Seguridad",
         Infrastructure: "Infraestructura",
@@ -2088,12 +2085,12 @@ const es = {
       unsupportedSpecifierType: "Tipo de ajuste no admitido: {{type}}",
     },
     workspaceTimezonePrompt: {
-      title: "Configure la zona horaria del entorno",
-      description: "Este entorno aún usa la zona horaria predeterminada de la plataforma, {{current}}. La zona horaria del entorno determina qué significa «hoy» en las fórmulas, cómo agrupan los informes por fecha y cómo se muestran las fechas y horas, para todos en el entorno. Abajo se indica la zona horaria de su navegador.",
+      title: "Configure la zona horaria del sistema",
+      description: "Este sistema aún usa la zona horaria predeterminada de la plataforma, {{current}}. La zona horaria del sistema determina qué significa «hoy» en las fórmulas, cómo agrupan los informes por fecha y cómo se muestran las fechas y horas, para todos en el sistema. Abajo se indica la zona horaria de su navegador.",
       laterHint: "Puede cambiarla en cualquier momento en la página de Configuración.",
       decline: "Mantener la predeterminada",
       confirm: "Configurar zona horaria",
-      saved: "Zona horaria del entorno configurada en {{zone}}",
+      saved: "Zona horaria del sistema configurada en {{zone}}",
     },
     error: {
       connectionFailed: "No se puede conectar al servidor",
@@ -2153,9 +2150,9 @@ const es = {
     },
     // objectui#9954 — see the `en` pack for what raises each case.
     readRate: {
-      ratioTitle: 'Volumen de lectura inusual en este entorno',
+      ratioTitle: 'Volumen de lectura inusual en este sistema',
       ratio: 'Se leen {{ratio}} filas por cada fila escrita. La plataforma señala todo lo que supere {{threshold}}. No se limita ni se bloquea nada; es un informe para que se pueda revisar el patrón de lectura.',
-      noWritesTitle: 'Lecturas sin ninguna escritura en este entorno',
+      noWritesTitle: 'Lecturas sin ninguna escritura en este sistema',
       noWrites: 'Se están leyendo filas sin escribir ninguna, por lo que la tasa de lectura no tiene límite superior. Es la lectura más grave. La plataforma señala todo lo que supere {{threshold}}. No se limita ni se bloquea nada; es un informe para que se pueda revisar el patrón de lectura.',
     },
     // objectui#10439 — see the `en` pack for what raises each case.
@@ -2319,7 +2316,7 @@ const es = {
   auth: {
     setPassword: {
       title: "Establecer una contraseña de recuperación",
-      description: "Ha iniciado sesión mediante inicio de sesión único. Establezca una contraseña local para poder seguir accediendo directamente a este entorno si el SSO deja de estar disponible.",
+      description: "Ha iniciado sesión mediante inicio de sesión único. Establezca una contraseña local para poder seguir accediendo directamente si el SSO deja de estar disponible.",
       email: "Correo electrónico",
       newPassword: "Nueva contraseña",
       confirmPassword: "Confirmar la contraseña",
@@ -2404,7 +2401,7 @@ const es = {
       orText: "o continúe con correo electrónico",
       errors: {
         userExists: "Ya existe una cuenta con ese correo. Intente iniciar sesión.",
-        selfRegistrationClosed: "El registro por cuenta propia no está abierto en este entorno. Solicite una invitación a un administrador.",
+        selfRegistrationClosed: "El registro por cuenta propia no está abierto en este sistema. Solicite una invitación a un administrador.",
         emailDomainNotAllowed: "El dominio de este correo no está autorizado para registrarse aquí. Use el correo de su organización o solicite una invitación a un administrador.",
       },
       verifyInbox: {
@@ -2481,7 +2478,7 @@ const es = {
       checkSpam: "¿No recibió el correo? Revise su carpeta de spam o contacte soporte.",
       or: "O",
       // objectui#3546 slice three.
-      resendUnavailable: "Puede que el envío de correos no esté configurado en este entorno. Contacte soporte si el problema persiste.",
+      resendUnavailable: "Puede que el envío de correos no esté configurado en este sistema. Contacte soporte si el problema persiste.",
     },
     setup: {
       welcomeTitle: "Bienvenido a ObjectStack",
@@ -2525,7 +2522,7 @@ const es = {
       disabledDescription: "Esta implementación no tiene habilitada la autorización de dispositivos, por lo que este dispositivo no puede aprobarse aquí.",
     },
     shell: {
-      tenantHostHint: "Está iniciando sesión en este entorno",
+      tenantHostHint: "Está iniciando sesión en este sistema",
     },
     layout: {
       headline: "Cree aplicaciones empresariales potentes, más rápido.",
@@ -2622,9 +2619,9 @@ const es = {
     password: {
       changeTitle: "Cambiar contraseña",
       setTitle: "Establecer contraseña local",
-      changeDescription: "Actualice la contraseña que usa para iniciar sesión en este entorno.",
+      changeDescription: "Actualice la contraseña que usa para iniciar sesión.",
       setDescription:
-        "Inició sesión mediante inicio de sesión único. Establezca una contraseña local para poder iniciar sesión también con correo y contraseña en este entorno.",
+        "Inició sesión mediante inicio de sesión único. Establezca una contraseña local para poder iniciar sesión también con correo y contraseña.",
       current: "Contraseña actual",
       new: "Nueva contraseña",
       password: "Contraseña",
@@ -2633,7 +2630,7 @@ const es = {
       mismatch: "Las contraseñas no coinciden",
       enterCurrent: "Introduzca su contraseña actual",
       changed: "Contraseña cambiada.",
-      localSet: "Contraseña local establecida. Ahora puede iniciar sesión con correo y contraseña en este entorno.",
+      localSet: "Contraseña local establecida. Ahora puede iniciar sesión con correo y contraseña.",
       changeAction: "Cambiar contraseña",
       setAction: "Establecer contraseña",
     },
@@ -2671,6 +2668,11 @@ const es = {
     allDocs: 'Toda la documentación',
     onlineDocs: 'Documentación en línea',
     loadingDocumentation: 'Cargando documentación',
+    about: 'Acerca de',
+    aboutTitle: 'Acerca de esta consola',
+    aboutDescription: 'La compilación a partir de la cual se generó esta consola.',
+    aboutBuild: 'Compilación de la consola',
+    aboutBuildUnknown: 'Compilación desconocida (no se definió ninguna versión al compilar esta consola)',
   },
   sidebar: {
     packageManagement: "Gestión de paquetes",
@@ -2711,7 +2713,7 @@ const es = {
   home: {
     build: {
       title: "Crear una aplicación",
-      noCapability: "La creación de aplicaciones no está disponible en este entorno: requiere el permiso «Gestionar metadatos», que su cuenta no tiene.",
+      noCapability: "La creación de aplicaciones no está disponible en este sistema: requiere el permiso «Gestionar metadatos», que su cuenta no tiene.",
     },
     template: {
       title: "Empezar con una plantilla",
@@ -2721,7 +2723,7 @@ const es = {
     welcomeAdminDescriptionNoBuild: "Configure su primera aplicación desde el menú de Administración de la izquierda. Cuando tenga datos, el asistente de IA podrá ayudarle a explorarlos.",
     welcomeAdminDescriptionNoAi: "Configure su primera aplicación desde el menú de Administración de la izquierda.",
     noAppsTitle: "Todavía no hay aplicaciones",
-    noAppsDescription: "Su entorno se está preparando — las aplicaciones que su administrador comparta aparecerán aquí.",
+    noAppsDescription: "El sistema se está preparando — las aplicaciones que su administrador comparta aparecerán aquí.",
     buildWithAI: "Crear con IA",
     askAI: "Preguntar a la IA",
     recoveryReminder: {
@@ -2771,7 +2773,7 @@ const es = {
       notifications: "Notificaciones",
       notificationsEmpty: "No hay notificaciones sin leer",
     },
-    loading: "Cargando entorno…",
+    loading: "Cargando…",
     welcome: "Bienvenido a ObjectUI",
     welcomeDescription: "Comienza creando tu primera aplicación o configura los ajustes del sistema.",
     createFirstApp: "Crea tu primera aplicación",
@@ -2782,7 +2784,7 @@ const es = {
       manageObjects: "Gestionar objetos",
       manageObjectsDesc: "Configura modelos de datos",
       systemSettings: "Configuración del sistema",
-      systemSettingsDesc: "Configura tu entorno",
+      systemSettingsDesc: "Configura tu sistema",
     },
     appCard: {
       noDescription: "Sin descripción",
@@ -3255,10 +3257,10 @@ const es = {
       body: 'La superficie MCP está apagada (OS_MCP_SERVER_ENABLED=false). Pida a su operador que la vuelva a habilitar.',
     },
     url: {
-      title: 'Endpoint MCP de este entorno',
+      title: 'Endpoint MCP de este sistema',
       body: 'Cualquier cliente de IA compatible con MCP se conecta con esta URL. La identidad es autoservicio: la implementación es su propio servidor de autorización OAuth 2.1 — inicia sesión como usted mismo y cada llamada corre bajo sus permisos y seguridad a nivel de fila.',
       downloadSkill: 'Descargar SKILL.md',
-      skillHint: 'La skill portátil del agente: enseña a cualquier agente compatible cómo trabajar con este entorno.',
+      skillHint: 'La skill portátil del agente: enseña a cualquier agente compatible cómo trabajar con este sistema.',
     },
     claude: {
       body: 'Configuración → Conectores → Añadir conector personalizado, pegue esta URL e inicie sesión en el navegador.',
@@ -3392,8 +3394,8 @@ const es = {
     rowConversational: "Modelo Build / Ask",
     rowStructured: "Estructurado (blueprint / seed)",
     rowReasoning: "Esfuerzo de razonamiento",
-    readFailed: "No se pudo leer el modelo de IA efectivo. Puede que este entorno no ejecute un servicio de IA o que no tenga el permiso ai:read.",
-    readFailedWithStatus: "No se pudo leer el modelo de IA efectivo (HTTP {{status}}). Puede que este entorno no ejecute un servicio de IA o que no tenga el permiso ai:read.",
+    readFailed: "No se pudo leer el modelo de IA efectivo. Puede que este sistema no ejecute un servicio de IA o que no tenga el permiso ai:read.",
+    readFailedWithStatus: "No se pudo leer el modelo de IA efectivo (HTTP {{status}}). Puede que este sistema no ejecute un servicio de IA o que no tenga el permiso ai:read.",
     overridesInEffect: "Anulaciones vigentes: ",
     noOverrides: "ninguna: se usan los valores predeterminados del código desplegado.",
     adapter: "Adaptador: ",
@@ -4084,6 +4086,10 @@ const es = {
       publishing: 'Publicando…',
       exit: 'Salir de la vista previa',
       changes: 'Cambios',
+      pendingHere: 'Vista previa del borrador · {{count}} cambios sin publicar en esta página',
+      pendingHere_one: 'Vista previa del borrador · {{count}} cambio sin publicar en esta página',
+      pendingHere_many: 'Vista previa del borrador · {{count}} de cambios sin publicar en esta página',
+      pendingHere_other: 'Vista previa del borrador · {{count}} cambios sin publicar en esta página',
     },
     changes: {
       title: 'Cambios pendientes',

@@ -1,4 +1,4 @@
-// Vendored from objectstack-ai/cloud packages/service-ai-studio/schema/build-cards.schema.json at 69632617 (cloud PR #2979); the object below is that file verbatim.
+// Vendored from objectstack-ai/cloud packages/service-ai-studio/schema/build-cards.schema.json at 5a562dfc (cloud PR #3037); the object below is that file verbatim.
 //
 // objectui#12724 — the producer's contract for the two build cards the chat draws:
 // `ProposeBlueprintCardPayload` (`propose_blueprint`'s `planCard`, beside the
@@ -110,6 +110,50 @@ export const BUILD_CARDS_SCHEMA: Record<string, unknown> =
                           },
                           "required": [
                             "kind",
+                            "label"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "lifecycle": {
+                          "type": "object",
+                          "properties": {
+                            "options": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "value": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "open",
+                                      "won",
+                                      "lost"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "value",
+                                  "label",
+                                  "kind"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "label": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "options",
                             "label"
                           ],
                           "additionalProperties": false

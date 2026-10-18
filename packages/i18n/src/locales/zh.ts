@@ -592,8 +592,6 @@ const zh = {
       importNRows_other: '导入 {{count}} 行',
       importingProgress: '导入中…',
       requiredMark: '*',
-      optTreatHistorical: '作为历史数据导入',
-      optTreatHistoricalHint: '（按原样导入已完结的记录——跳过状态机校验，保留原始时间戳与作者，而不是记为当前时间）',
       missingRequiredHint: '无法继续——以下必填字段未映射：{{fields}}。请在文件中添加对应的列，或返回上一步重新上传包含该列的文件。',
       legacyFallbackNotice: '已通过兼容模式导入：当前连接不支持服务端导入接口，因此所有值均以文本写入，未做服务端类型转换。请升级后端/客户端以获得完整的导入支持（类型转换与关联查找）。',
       required: '必填',
@@ -648,7 +646,6 @@ const zh = {
       matchFieldsHint: '按这些字段将行匹配到已有记录。',
       needMatchFields: '请至少选择一个匹配字段。',
       matchOnlyField: '（仅匹配）',
-      optRunAutomations: '运行自动化与触发器',
       optCreateOptions: '保留未知选项值',
       optSkipBlankKey: '跳过匹配值为空的行',
       optBackground: '后台导入',
@@ -1781,14 +1778,14 @@ const zh = {
     },
     settingsHub: {
       title: '设置',
-      subtitle: '配置环境、集成与功能开关。',
+      subtitle: '配置系统、集成与功能开关。',
       loadError: '加载设置失败',
       empty: '尚未注册任何设置。插件可通过 SettingsService 注册设置清单。',
       settingsCount: '{{n}} 项设置',
       beta: 'Beta',
       // 分类小标题，按 manifest 的 `category` 值取键;未知(插件自定义)分类回退到原始字符串。
       categories: {
-        Workspace: '环境',
+        Workspace: '常规',
         Communication: '通讯',
         Security: '安全',
         Infrastructure: '基础设施',
@@ -1829,12 +1826,12 @@ const zh = {
       unsupportedSpecifierType: '不支持的设置项类型:{{type}}',
     },
     workspaceTimezonePrompt: {
-      title: '设置环境时区',
-      description: '此环境仍在使用平台默认时区 {{current}}。环境时区决定公式中“今天”的含义、报表如何按日期分组，以及日期和时间如何显示，对环境内所有人生效。下方已填入你的浏览器时区。',
+      title: '设置系统时区',
+      description: '本系统仍在使用平台默认时区 {{current}}。系统时区决定公式中“今天”的含义、报表如何按日期分组，以及日期和时间如何显示，对系统内所有人生效。下方已填入你的浏览器时区。',
       laterHint: '之后可随时在“设置”页面中修改。',
       decline: '保持默认',
       confirm: '设置时区',
-      saved: '环境时区已设置为 {{zone}}',
+      saved: '系统时区已设置为 {{zone}}',
     },
     error: {
       connectionFailed: '无法连接到服务器',
@@ -2172,9 +2169,9 @@ const zh = {
     },
     // objectui#9954 — see the `en` pack for what raises each case.
     readRate: {
-      ratioTitle: '本环境读取量异常',
+      ratioTitle: '本系统读取量异常',
       ratio: '每写入 1 行就读取 {{ratio}} 行。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
-      noWritesTitle: '本环境只有读取、完全没有写入',
+      noWritesTitle: '本系统只有读取、完全没有写入',
       noWrites: '有行被读取,却完全没有任何写入,因此读取比率没有上限。这是最严重的读数。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
     },
     // objectui#10439 — see the `en` pack for what raises each case.
@@ -2418,7 +2415,7 @@ const zh = {
       orText: '或使用邮箱继续',
       errors: {
         userExists: '该邮箱已被注册，请直接登录或更换邮箱。',
-        selfRegistrationClosed: '本环境未开放自助注册，请联系管理员获取邀请。',
+        selfRegistrationClosed: '本系统未开放自助注册，请联系管理员获取邀请。',
         emailDomainNotAllowed: '该邮箱的域名不允许在此注册，请使用组织邮箱，或联系管理员获取邀请。',
       },
       verifyInbox: {
@@ -2459,7 +2456,7 @@ const zh = {
     },
     setPassword: {
       title: '设置一个备用密码',
-      description: '您是通过单点登录进入的。设置一个本地密码，这样即使单点登录不可用，您仍能直接登录此环境。',
+      description: '您是通过单点登录进入的。设置一个本地密码，这样即使单点登录不可用，您仍能直接登录。',
       email: '邮箱',
       newPassword: '新密码',
       confirmPassword: '确认密码',
@@ -2509,7 +2506,7 @@ const zh = {
       checkSpam: '没有收到邮件？请检查垃圾邮件文件夹或联系支持。',
       or: '或',
       // objectui#3546 slice three.
-      resendUnavailable: '此环境可能未配置邮件发送服务。如果问题持续存在，请联系支持。',
+      resendUnavailable: '本系统可能未配置邮件发送服务。如果问题持续存在，请联系支持。',
     },
     setup: {
       welcomeTitle: '欢迎使用 ObjectStack',
@@ -2553,7 +2550,7 @@ const zh = {
       disabledDescription: '此部署未启用设备授权，因此无法在此批准该设备。',
     },
     shell: {
-      tenantHostHint: '您正在登录此环境',
+      tenantHostHint: '您正在登录本系统',
     },
     layout: {
       headline: '更快地构建强大的业务应用。',
@@ -2650,8 +2647,8 @@ const zh = {
     password: {
       changeTitle: '修改密码',
       setTitle: '设置本地密码',
-      changeDescription: '更新您在此环境登录所用的密码。',
-      setDescription: '您通过单点登录进入。设置本地密码后，也可以在此环境使用邮箱和密码登录。',
+      changeDescription: '更新您登录所用的密码。',
+      setDescription: '您通过单点登录进入。设置本地密码后，也可以使用邮箱和密码登录。',
       current: '当前密码',
       new: '新密码',
       password: '密码',
@@ -2660,7 +2657,7 @@ const zh = {
       mismatch: '两次输入的密码不一致',
       enterCurrent: '请输入当前密码',
       changed: '密码已修改。',
-      localSet: '本地密码已设置。现在您可以在此环境使用邮箱和密码登录。',
+      localSet: '本地密码已设置。现在您可以使用邮箱和密码登录。',
       changeAction: '修改密码',
       setAction: '设置密码',
     },
@@ -2698,6 +2695,11 @@ const zh = {
     allDocs: '全部文档',
     onlineDocs: '在线文档',
     loadingDocumentation: '正在加载文档',
+    about: '关于',
+    aboutTitle: '关于此控制台',
+    aboutDescription: '此控制台编译所用的构建。',
+    aboutBuild: '控制台构建',
+    aboutBuildUnknown: '未知构建（构建此控制台时未设置版本）',
   },
   sidebar: {
     settings: '设置',
@@ -2772,25 +2774,25 @@ const zh = {
     appOpened: '{{time}}打开',
     build: {
       title: '构建应用',
-      noCapability: '此环境不提供构建应用功能 — 它需要「管理元数据」权限,而你的账号没有该权限。',
+      noCapability: '本系统不提供构建应用功能 — 它需要「管理元数据」权限,而你的账号没有该权限。',
     },
     template: {
       title: '从模板开始',
       marketplaceDisabled: '本运行时未配置应用市场，因此这里没有可安装的模板。',
     },
     open: '打开',
-    loading: '正在加载环境…',
+    loading: '加载中…',
     welcome: '用 AI 搭建你的业务系统',
     welcomeDescription: '用一句话描述你的业务，AI 帮你生成对象、界面、API 和 agent 工具。也可以手动从零开始。',
     welcomeAdminDescription: '用一句话描述你的业务，AI 会为你生成对象、界面、API 和智能体工具；也可以从左侧菜单自行搭建。',
     welcomeAdminDescriptionNoBuild: '从左侧的「管理」菜单创建你的第一个应用。有了数据后，AI 助手可以帮你查询和分析。',
     welcomeAdminDescriptionNoAi: '从左侧的「管理」菜单创建你的第一个应用。',
     noAppsTitle: '还没有应用',
-    noAppsDescription: '环境正在准备中——管理员共享给你的应用会显示在这里。',
+    noAppsDescription: '系统正在准备中——管理员共享给你的应用会显示在这里。',
     buildWithAI: '用 AI 搭建',
     askAI: '问 AI',
     recoveryReminder: {
-      message: '建议设置一个备用密码，这样即使单点登录不可用，你仍能直接登录此环境。',
+      message: '建议设置一个备用密码，这样即使单点登录不可用，你仍能直接登录。',
       cta: '设置密码',
       dismiss: '关闭',
     },
@@ -2824,7 +2826,7 @@ const zh = {
       manageObjects: '管理对象',
       manageObjectsDesc: '配置数据模型',
       systemSettings: '系统设置',
-      systemSettingsDesc: '配置您的环境',
+      systemSettingsDesc: '配置您的系统',
     },
     recentApps: {
       title: '最近访问',
@@ -2981,6 +2983,9 @@ const zh = {
       publishing: '发布中…',
       exit: '退出预览',
       changes: '变更',
+      pendingHere: '草稿预览 · 本页 {{count}} 项未发布',
+      pendingHere_one: '草稿预览 · 本页 {{count}} 项未发布',
+      pendingHere_other: '草稿预览 · 本页 {{count}} 项未发布',
       // 魔法时刻提示：刚搭好的草稿因为种子/示例数据要发布后才载入，预览里
       // 仪表板显示 0、列表显示“暂无内容”。直接说明，避免把空预览误当成搭坏了。
       sampleDataTitle: '示例数据将在发布后出现',
@@ -3332,10 +3337,10 @@ const zh = {
       body: 'MCP 服务已关闭(OS_MCP_SERVER_ENABLED=false),暂无可连接的端点。请联系运维人员重新启用。',
     },
     url: {
-      title: '本环境的 MCP 端点',
+      title: '本系统的 MCP 端点',
       body: '任何支持 MCP 的 AI 客户端都用这个 URL 连接。身份是自助的:部署自身就是 OAuth 2.1 授权服务器,交互式客户端只需在浏览器登录——以你自己的身份连接,每次调用都受你的权限和行级安全约束。',
       downloadSkill: '下载 SKILL.md',
-      skillHint: '可移植的智能体技能文件:教会任何支持技能的智能体如何使用本环境。',
+      skillHint: '可移植的智能体技能文件:教会任何支持技能的智能体如何使用本系统。',
     },
     claude: {
       body: '设置 → 连接器 → 添加自定义连接器,粘贴此 URL,按提示在浏览器登录。',
@@ -3466,8 +3471,8 @@ const zh = {
     rowConversational: 'Build / Ask 模型',
     rowStructured: '结构化（蓝图 / 种子）',
     rowReasoning: '推理强度',
-    readFailed: '无法读取有效 AI 模型。该环境可能未运行 AI 服务，或你没有 ai:read 权限。',
-    readFailedWithStatus: '无法读取有效 AI 模型（HTTP {{status}}）。该环境可能未运行 AI 服务，或你没有 ai:read 权限。',
+    readFailed: '无法读取有效 AI 模型。本系统可能未运行 AI 服务，或你没有 ai:read 权限。',
+    readFailedWithStatus: '无法读取有效 AI 模型（HTTP {{status}}）。本系统可能未运行 AI 服务，或你没有 ai:read 权限。',
     overridesInEffect: '生效的 env 覆盖：',
     noOverrides: '无 —— 跑的是部署代码的默认值。',
     adapter: '适配器：',

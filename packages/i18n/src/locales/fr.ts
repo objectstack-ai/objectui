@@ -601,9 +601,6 @@ const fr = {
       needMatchFields: "Sélectionnez au moins un champ de correspondance.",
       matchOnlyField: "(correspondance seule)",
       optCreateOptions: "Conserver les valeurs d'option inconnues",
-      optRunAutomations: "Exécuter les automatisations et déclencheurs",
-      optTreatHistorical: "Importer comme données historiques",
-      optTreatHistoricalHint: "(importer les enregistrements terminés tels quels — ignorer les contrôles de la machine à états et conserver leurs horodatages et auteurs d'origine au lieu d'horodater maintenant)",
       optSkipBlankKey: "Ignorer les lignes dont la valeur de correspondance est vide",
       optBackground: "Importer en arrière-plan",
       optBackgroundHint: "(s'exécute comme une tâche annulable)",
@@ -1730,13 +1727,13 @@ const fr = {
     savedViewsUnreadable: "Cette liste est vide parce qu’elle n’a pas pu être lue, et non parce que cet objet n’aurait aucune vue enregistrée. Réessayez, et signalez le problème s’il persiste.",
     settingsHub: {
       title: "Paramètres",
-      subtitle: "Configurez votre environnement, vos intégrations et vos indicateurs de fonctionnalité.",
+      subtitle: "Configurez votre système, vos intégrations et vos indicateurs de fonctionnalité.",
       loadError: "Échec du chargement des paramètres",
       empty: "Aucun paramètre enregistré. Les plugins peuvent enregistrer des manifestes de paramètres via le SettingsService.",
       settingsCount: "{{n}} paramètres",
       beta: "Bêta",
       categories: {
-        Workspace: "Environnement",
+        Workspace: "Général",
         Communication: "Communication",
         Security: "Sécurité",
         Infrastructure: "Infrastructure",
@@ -2085,12 +2082,12 @@ const fr = {
       unsupportedSpecifierType: "Type de paramètre non pris en charge : {{type}}",
     },
     workspaceTimezonePrompt: {
-      title: "Définir le fuseau horaire de l’environnement",
-      description: "Cet environnement utilise encore le fuseau horaire par défaut de la plateforme, {{current}}. Le fuseau horaire de l’environnement détermine ce que signifie « aujourd’hui » dans les formules, la façon dont les rapports regroupent les dates et l’affichage des dates et des heures, pour tous les membres de l’environnement. Le fuseau horaire de votre navigateur est renseigné ci-dessous.",
+      title: "Définir le fuseau horaire du système",
+      description: "Ce système utilise encore le fuseau horaire par défaut de la plateforme, {{current}}. Le fuseau horaire du système détermine ce que signifie « aujourd’hui » dans les formules, la façon dont les rapports regroupent les dates et l’affichage des dates et des heures, pour tous les utilisateurs du système. Le fuseau horaire de votre navigateur est renseigné ci-dessous.",
       laterHint: "Vous pouvez le modifier à tout moment sur la page Paramètres.",
       decline: "Conserver la valeur par défaut",
       confirm: "Définir le fuseau horaire",
-      saved: "Fuseau horaire de l’environnement défini sur {{zone}}",
+      saved: "Fuseau horaire du système défini sur {{zone}}",
     },
     error: {
       connectionFailed: "Impossible de se connecter au serveur",
@@ -2150,9 +2147,9 @@ const fr = {
     },
     // objectui#9954 — see the `en` pack for what raises each case.
     readRate: {
-      ratioTitle: 'Volume de lecture inhabituel dans cet environnement',
+      ratioTitle: 'Volume de lecture inhabituel dans ce système',
       ratio: '{{ratio}} lignes sont lues pour chaque ligne écrite. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
-      noWritesTitle: 'Lectures sans aucune écriture dans cet environnement',
+      noWritesTitle: 'Lectures sans aucune écriture dans ce système',
       noWrites: 'Des lignes sont lues alors qu’aucune n’est écrite, de sorte que le taux de lecture n’a aucune limite supérieure. C’est la mesure la plus grave. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
     },
     // objectui#10439 — see the `en` pack for what raises each case.
@@ -2316,7 +2313,7 @@ const fr = {
   auth: {
     setPassword: {
       title: "Définir un mot de passe de secours",
-      description: "Vous vous êtes connecté via l'authentification unique. Définissez un mot de passe local afin de pouvoir toujours vous connecter directement à cet environnement si le SSO devenait indisponible.",
+      description: "Vous vous êtes connecté via l'authentification unique. Définissez un mot de passe local afin de pouvoir toujours vous connecter directement si le SSO devenait indisponible.",
       email: "E-mail",
       newPassword: "Nouveau mot de passe",
       confirmPassword: "Confirmer le mot de passe",
@@ -2401,7 +2398,7 @@ const fr = {
       orText: "ou continuer avec l'e-mail",
       errors: {
         userExists: "Un compte avec cet e-mail existe déjà. Essayez de vous connecter.",
-        selfRegistrationClosed: "L'inscription libre n'est pas ouverte dans cet environnement. Demandez une invitation à un administrateur.",
+        selfRegistrationClosed: "L'inscription libre n'est pas ouverte sur ce système. Demandez une invitation à un administrateur.",
         emailDomainNotAllowed: "Le domaine de cet e-mail n'est pas autorisé à s'inscrire ici. Utilisez l'e-mail de votre organisation ou demandez une invitation à un administrateur.",
       },
       verifyInbox: {
@@ -2478,7 +2475,7 @@ const fr = {
       checkSpam: "E-mail non reçu ? Vérifiez votre dossier spam ou contactez le support.",
       or: "Ou",
       // objectui#3546 slice three.
-      resendUnavailable: "L'envoi d'e-mails n'est peut-être pas configuré pour cet environnement. Contactez le support si le problème persiste.",
+      resendUnavailable: "L'envoi d'e-mails n'est peut-être pas configuré pour ce système. Contactez le support si le problème persiste.",
     },
     setup: {
       welcomeTitle: "Bienvenue sur ObjectStack",
@@ -2522,7 +2519,7 @@ const fr = {
       disabledDescription: "L'autorisation d'appareil n'est pas activée sur ce déploiement, cet appareil ne peut donc pas être approuvé ici.",
     },
     shell: {
-      tenantHostHint: "Vous vous connectez à cet environnement",
+      tenantHostHint: "Vous vous connectez à ce système",
     },
     layout: {
       headline: "Créez des applications métier puissantes, plus vite.",
@@ -2619,9 +2616,9 @@ const fr = {
     password: {
       changeTitle: "Changer le mot de passe",
       setTitle: "Définir un mot de passe local",
-      changeDescription: "Mettez à jour le mot de passe que vous utilisez pour vous connecter à cet environnement.",
+      changeDescription: "Mettez à jour le mot de passe que vous utilisez pour vous connecter.",
       setDescription:
-        "Vous vous êtes connecté via l'authentification unique. Définissez un mot de passe local pour pouvoir également vous connecter avec votre e-mail et un mot de passe sur cet environnement.",
+        "Vous vous êtes connecté via l'authentification unique. Définissez un mot de passe local pour pouvoir également vous connecter avec votre e-mail et un mot de passe.",
       current: "Mot de passe actuel",
       new: "Nouveau mot de passe",
       password: "Mot de passe",
@@ -2630,7 +2627,7 @@ const fr = {
       mismatch: "Les mots de passe ne correspondent pas",
       enterCurrent: "Saisissez votre mot de passe actuel",
       changed: "Mot de passe modifié.",
-      localSet: "Mot de passe local défini. Vous pouvez désormais vous connecter avec votre e-mail et votre mot de passe sur cet environnement.",
+      localSet: "Mot de passe local défini. Vous pouvez désormais vous connecter avec votre e-mail et votre mot de passe.",
       changeAction: "Changer le mot de passe",
       setAction: "Définir le mot de passe",
     },
@@ -2668,6 +2665,11 @@ const fr = {
     allDocs: 'Toute la documentation',
     onlineDocs: 'Documentation en ligne',
     loadingDocumentation: 'Chargement de la documentation',
+    about: 'À propos',
+    aboutTitle: 'À propos de cette console',
+    aboutDescription: 'Le build à partir duquel cette console a été compilée.',
+    aboutBuild: 'Build de la console',
+    aboutBuildUnknown: 'Build inconnu (aucune version n’a été définie lors de la compilation de cette console)',
   },
   sidebar: {
     packageManagement: "Gestion des packages",
@@ -2708,7 +2710,7 @@ const fr = {
   home: {
     build: {
       title: "Créer une application",
-      noCapability: "La création d'applications n'est pas disponible dans cet environnement : elle requiert l'autorisation « Gérer les métadonnées », que votre compte ne possède pas.",
+      noCapability: "La création d'applications n'est pas disponible dans ce système : elle requiert l'autorisation « Gérer les métadonnées », que votre compte ne possède pas.",
     },
     template: {
       title: "Partir d'un modèle",
@@ -2718,7 +2720,7 @@ const fr = {
     welcomeAdminDescriptionNoBuild: "Configurez votre première application depuis le menu Administration à gauche. Une fois les données en place, l'assistant IA pourra vous aider à les explorer.",
     welcomeAdminDescriptionNoAi: "Configurez votre première application depuis le menu Administration à gauche.",
     noAppsTitle: "Aucune application pour l'instant",
-    noAppsDescription: "Votre environnement est en cours de configuration — les applications partagées par votre administrateur apparaîtront ici.",
+    noAppsDescription: "Le système est en cours de configuration — les applications partagées par votre administrateur apparaîtront ici.",
     buildWithAI: "Créer avec l'IA",
     askAI: "Demander à l'IA",
     recoveryReminder: {
@@ -2768,7 +2770,7 @@ const fr = {
       notifications: "Notifications",
       notificationsEmpty: "Aucune notification non lue",
     },
-    loading: "Chargement de l'environnement…",
+    loading: "Chargement…",
     welcome: "Bienvenue dans ObjectUI",
     welcomeDescription: "Commencez par créer votre première application ou configurer les paramètres système.",
     createFirstApp: "Créez votre première app",
@@ -2779,7 +2781,7 @@ const fr = {
       manageObjects: "Gérer les objets",
       manageObjectsDesc: "Configurer les modèles de données",
       systemSettings: "Paramètres système",
-      systemSettingsDesc: "Configurez votre environnement",
+      systemSettingsDesc: "Configurez votre système",
     },
     appCard: {
       noDescription: "Aucune description",
@@ -3252,10 +3254,10 @@ const fr = {
       body: 'La surface MCP est désactivée (OS_MCP_SERVER_ENABLED=false). Demandez à votre opérateur de la réactiver.',
     },
     url: {
-      title: 'Endpoint MCP de cet environnement',
+      title: 'Endpoint MCP de ce système',
       body: 'Tout client IA compatible MCP se connecte avec cette URL. L’identité est en libre-service : le déploiement est son propre serveur d’autorisation OAuth 2.1 — vous vous connectez en votre nom, et chaque appel s’exécute sous vos permissions et la sécurité au niveau des lignes.',
       downloadSkill: 'Télécharger SKILL.md',
-      skillHint: 'La skill d’agent portable : apprend à tout agent compatible à travailler avec cet environnement.',
+      skillHint: 'La skill d’agent portable : apprend à tout agent compatible à travailler avec ce système.',
     },
     claude: {
       body: 'Paramètres → Connecteurs → Ajouter un connecteur personnalisé, collez cette URL puis connectez-vous dans le navigateur.',
@@ -3389,8 +3391,8 @@ const fr = {
     rowConversational: "Modèle Build / Ask",
     rowStructured: "Structuré (blueprint / seed)",
     rowReasoning: "Effort de raisonnement",
-    readFailed: "Impossible de lire le modèle d'IA effectif. Cet environnement n'exécute peut-être pas de service d'IA, ou vous n'avez pas la permission ai:read.",
-    readFailedWithStatus: "Impossible de lire le modèle d'IA effectif (HTTP {{status}}). Cet environnement n'exécute peut-être pas de service d'IA, ou vous n'avez pas la permission ai:read.",
+    readFailed: "Impossible de lire le modèle d'IA effectif. Ce système n'exécute peut-être pas de service d'IA, ou vous n'avez pas la permission ai:read.",
+    readFailedWithStatus: "Impossible de lire le modèle d'IA effectif (HTTP {{status}}). Ce système n'exécute peut-être pas de service d'IA, ou vous n'avez pas la permission ai:read.",
     overridesInEffect: "Surcharges actives : ",
     noOverrides: "aucune — les valeurs par défaut du code déployé s'appliquent.",
     adapter: "Adaptateur : ",
@@ -4081,6 +4083,10 @@ const fr = {
       publishing: 'Publication…',
       exit: "Quitter l'aperçu",
       changes: 'Modifications',
+      pendingHere: 'Aperçu du brouillon · {{count}} modifications non publiées sur cette page',
+      pendingHere_one: 'Aperçu du brouillon · {{count}} modification non publiée sur cette page',
+      pendingHere_many: 'Aperçu du brouillon · {{count}} de modifications non publiées sur cette page',
+      pendingHere_other: 'Aperçu du brouillon · {{count}} modifications non publiées sur cette page',
     },
     changes: {
       title: 'Modifications en attente',

@@ -69,6 +69,7 @@ import {
   Keyboard,
   Pencil,
   MoreHorizontal,
+  Info,
 } from 'lucide-react';
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, type RefObject } from 'react';
@@ -107,6 +108,8 @@ import { resolveViewId } from '../utils/resolveViewId.js';
 import { getProductName, getLogoUrl } from '../runtime-config.js';
 import { LocalizedSidebarTrigger } from './LocalizedSidebarTrigger.js';
 import { PreviewBadge } from './PreviewBadge.js';
+import { AboutDialog } from './AboutDialog.js';
+import { getConsoleBuild } from '../buildIdentity.js';
 import { GO_HOME_SHORTCUT, useAdvertiseShortcut, type ShortcutChord } from '../chrome/advertisedShortcuts.js';
 
 function humanizeSlug(slug: string): string {
@@ -443,6 +446,9 @@ export function AppHeader({
   // Click-reachable entry for the keyboard-shortcuts dialog (was `?`-key only).
   // Shares the `?shortcuts=1` URL param with KeyboardShortcutsDialog (C2/C3).
   const { openOverlay: openShortcuts } = useUrlOverlay(KEYBOARD_SHORTCUTS_PARAM);
+  // The help menu's About dialog (objectui#12970): ephemeral, so component
+  // state, not a URL param — nobody shares a link to it.
+  const [aboutOpen, setAboutOpen] = useState(false);
   const {
     user,
     signOut,
@@ -459,7 +465,12 @@ export function AppHeader({
   const { enabled: aiEnabled } = useAiSurfaceEnabled();
   const { t } = useObjectTranslation();
   const { objectPluralLabel, dashboardLabel, pageLabel, reportLabel, viewLabel, appLabel } = useObjectLabel();
-  const { apps: metadataApps, dashboards: metadataDashboards, pages: metadataPages, reports: metadataReports } = useMetadata();
+  // The dashboard, page and report lists are LAZY getters: reading one starts
+  // its `/meta/:type` read. They are read below only on the route type that
+  // names one (the phone bar's title), never destructured here, so a route of
+  // another type starts none of them (objectui#12980).
+  const metadata = useMetadata();
+  const metadataApps = metadata.apps;
   // The views a server read served, already translated — `/meta/view`, and the
   // object document's own `listViews` (objectui#11295, objectui#11336).
   const servedViews = useServedViewItems();
@@ -518,8 +529,13 @@ export function AppHeader({
    * It carries its status and the caller's read grant (objectui#12081): a
    * caller who may not read `sys_activity` is offered no Activity tab and
    * issues no read, and a read that fails says so rather than reading empty.
+   *
+   * objectui#12980 — no badge reads it, so it is read when the bell is about to
+   * open (a pointer over it, focus, a click), not on every console open.
    */
-  const apiActivity = useSharedActivityFeed();
+  const [activityWanted, setActivityWanted] = useState(false);
+  const wantActivity = useCallback(() => setActivityWanted(true), []);
+  const apiActivity = useSharedActivityFeed({ enabled: activityWanted && !activities });
   /**
    * The bell's inbox — rows, badge addends and the three mark-read paths — now
    * comes from `useInboxBell`, the ONE wiring of `sharedUserFeeds` onto an
@@ -654,7 +670,7 @@ export function AppHeader({
       if (pathParts[3]) {
         const dashboardName = pathParts[3];
         // ADR-0048 Phase 2 — prefer the current app's package (container-scoped).
-        const dashboardDef = preferLocal(metadataDashboards as any[], dashboardName, (currentApp as any)?._packageId);
+        const dashboardDef = preferLocal(metadata.dashboards as any[], dashboardName, (currentApp as any)?._packageId);
         // A dashboard the `/meta` read served carries its label already
         // translated (a published edit kept over the packaged catalog), so it
         // is drawn as given — the page header draws it the same way. Only the
@@ -671,7 +687,7 @@ export function AppHeader({
       // above its list. The label below names it in the phone bar only.
       if (pathParts[3]) {
         const pageName = pathParts[3];
-        const pageDef = preferLocal(metadataPages as any[], pageName, (currentApp as any)?._packageId);
+        const pageDef = preferLocal(metadata.pages as any[], pageName, (currentApp as any)?._packageId);
         const fallback = pageDef?.label || humanizeSlug(pageName);
         routeTitle = pageLabel({ name: pageName, label: fallback });
       }
@@ -680,7 +696,7 @@ export function AppHeader({
       // branch's reason: the trail goes from the app straight to the report.
       if (pathParts[3]) {
         const reportName = pathParts[3];
-        const reportDef = preferLocal(metadataReports as any[], reportName, (currentApp as any)?._packageId);
+        const reportDef = preferLocal(metadata.reports as any[], reportName, (currentApp as any)?._packageId);
         const fallback = reportDef?.label || humanizeSlug(reportName);
         extraSegments.push({ label: reportLabel({ name: reportName, label: fallback }) });
       }
@@ -1058,15 +1074,26 @@ export function AppHeader({
            * separate top-bar buttons (ActivityFeed, Approvals, Notifications).
            * Reduces visual noise and removes the duplicated "9+" badges.
            */}
-          <InboxPopover
-            notifications={notifications}
-            unreadCount={unreadCount}
-            pendingApprovalsCount={pendingApprovalsCount}
-            activity={activeActivity}
-            onMarkAllRead={markAllRead}
-            onMarkRead={markNotificationRead}
-            onMarkManyRead={markManyRead}
-          />
+          {/* objectui#12980 — the open intent that starts the Activity read.
+              `contents` keeps the wrapper out of the bar's flex layout; the
+              events still reach it from the bell inside. */}
+          <span
+            className="contents"
+            data-testid="inbox-bell-intent"
+            onPointerEnter={wantActivity}
+            onFocus={wantActivity}
+            onClickCapture={wantActivity}
+          >
+            <InboxPopover
+              notifications={notifications}
+              unreadCount={unreadCount}
+              pendingApprovalsCount={pendingApprovalsCount}
+              activity={activeActivity}
+              onMarkAllRead={markAllRead}
+              onMarkRead={markNotificationRead}
+              onMarkManyRead={markManyRead}
+            />
+          </span>
 
           {/* AI Assistant — only when the runtime serves AI (hidden on
               Community Edition so it can't dead-end on an agent-less chat). */}
@@ -1137,8 +1164,19 @@ export function AppHeader({
                   {t('help.onlineDocs', { defaultValue: 'Online documentation' })}
                 </a>
               </DropdownMenuItem>
+              {/* About — names the console's own build, on every variant
+                  (objectui#12970). */}
+              <DropdownMenuItem
+                className="cursor-pointer"
+                data-testid="action:about:open"
+                onClick={() => setAboutOpen(true)}
+              >
+                <Info className="mr-2 h-4 w-4" />
+                {t('help.about', { defaultValue: 'About' })}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} build={getConsoleBuild()} />
         </div>
 
         {/* Group 3: Account (theme + lang moved into avatar dropdown) */}

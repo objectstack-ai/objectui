@@ -31,7 +31,7 @@ vi.mock('../../providers/AdapterProvider', () => ({ useAdapter: () => null }));
 vi.mock('../../utils/authToken', () => ({ bearerAuthHeaders: () => ({}) }));
 
 import { useHomeInbox } from '../useHomeInbox';
-import { __resetSharedUserFeeds } from '../sharedUserFeeds';
+import { __resetSharedUserFeeds, __markFirstPainted } from '../sharedUserFeeds';
 
 /** How the approvals endpoint answers this case; `pending` never settles. */
 let answer: 'pending' | { status: number; ids?: string[] } = 'pending';
@@ -47,6 +47,8 @@ beforeEach(() => {
   requested = [];
   answer = 'pending';
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string) => {
@@ -66,6 +68,8 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
 });
 
 describe('useHomeInbox passes the approvals status through (objectui#12601)', () => {

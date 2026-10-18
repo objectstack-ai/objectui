@@ -132,7 +132,7 @@ const fakeAdapter = {
 };
 vi.mock('../../providers/AdapterProvider', () => ({ useAdapter: () => fakeAdapter }));
 
-import { useSharedInboxFeed, __resetSharedUserFeeds } from '../sharedUserFeeds';
+import { useSharedInboxFeed, __resetSharedUserFeeds, __markFirstPainted } from '../sharedUserFeeds';
 import { useHomeInbox } from '../useHomeInbox';
 
 /** The declared foreground cadence (`INBOX_POLL_MS`), restated as the pin's unit. */
@@ -172,6 +172,8 @@ beforeEach(() => {
   setHidden(false);
   // Module-scoped stores outlive any one render tree.
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
   // Approvals degrade to 0 (404) so the REST feed is not this suite's subject.
   vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 404 }))));
 });
@@ -240,6 +242,8 @@ describe('objectui#7249 — the inbox feed holds ONE declared cadence', () => {
     const withThree = inboxReads();
 
     __resetSharedUserFeeds();
+    // objectui#12980 — these cases start past the console's first paint.
+    __markFirstPainted();
     findCalls.length = 0;
 
     renderHook(() => useSharedInboxFeed());

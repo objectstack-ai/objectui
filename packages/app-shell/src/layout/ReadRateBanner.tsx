@@ -95,9 +95,9 @@ export function ReadRateBanner({ apiBase, className }: ReadRateBannerProps) {
 
   const title = noWrites
     ? t('console.readRate.noWritesTitle', {
-        defaultValue: 'Reads with no writes at all in this environment',
+        defaultValue: 'Reads with no writes at all in this system',
       })
-    : t('console.readRate.ratioTitle', { defaultValue: 'Unusual read volume in this environment' });
+    : t('console.readRate.ratioTitle', { defaultValue: 'Unusual read volume in this system' });
 
   const body = noWrites
     ? t('console.readRate.noWrites', {

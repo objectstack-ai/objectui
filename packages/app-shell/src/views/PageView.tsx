@@ -12,7 +12,7 @@
  * page, built by the same `appStudioRoutePath` (objectui#12540).
  */
 
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation, useHref } from 'react-router-dom';
 import {
   SchemaRenderer,
@@ -33,6 +33,7 @@ import { useStudioDesignGate } from '../hooks/useStudioDesignGate.js';
 import { pageRecordActionsValue } from './pageRecordActions.js';
 import { RelatedRecordActionsBridge } from './RelatedRecordActionsBridge.js';
 import { pageKindNode } from './pageKindNode.js';
+import { readPageObjectScope } from '../console/appObjectScope.js';
 
 /**
  * Only an interface page (ADR-0047, `interfaceConfig.source`) draws
@@ -75,7 +76,14 @@ export function PageView() {
   // publishes document hrefs from it (objectui#12233).
   const routerRootHref = useHref('/');
   const location = useLocation();
-  const { pages, objects, getTypeStatus } = useMetadata();
+  // ⛔ `objects` is not destructured: reading it loads the whole registry. A
+  // page reads the objects it binds (objectui#12980), below.
+  const metadata = useMetadata();
+  const { pages, getTypeStatus, readObjectScope } = metadata;
+  // The objects a block asked for by name that the page does not bind. One
+  // set for the page's life, added to while a block renders: never state that
+  // re-renders, since the answer landing is what re-renders the page.
+  const [requestedObjects] = useState(() => new Set<string>());
   // ADR-0048 Phase 2 — prefer the page owned by the current app's package so
   // two packages shipping `page/<same-name>` each resolve within their own
   // container instead of by load order.
@@ -133,6 +141,24 @@ export function PageView() {
 
   const params = Object.fromEntries(searchParams.entries());
 
+  // objectui#12980 — the objects this page reads: the ones its definition
+  // binds, read by name (`readPageObjectScope`), never the whole registry. A
+  // block that names an object outside them (a lookup target, a list a block
+  // links to) has it read by name when it asks, and the page re-renders when
+  // it lands. A hand-rolled metadata context has no scope to offer, and its
+  // `objects` is what it holds.
+  const readPageObjects = () =>
+    readPageObjectScope(readObjectScope!, activeApp as Record<string, any> | undefined, page, [
+      ...requestedObjects,
+    ]).scope;
+  const objects: any[] = readObjectScope ? readPageObjects().objects : metadata.objects ?? [];
+  const knownObjects = new Set(objects.map((o: any) => o?.name));
+  const requestObject = (name: string) => {
+    if (!readObjectScope || !name || knownObjects.has(name) || requestedObjects.has(name)) return;
+    requestedObjects.add(name);
+    readPageObjects();
+  };
+
   // Resolve the app slug from the path (`/apps/:app/page/:name`) so the record
   // navigator's links survive whatever Router basename the host mounts under.
   const appName = location.pathname.match(/\/apps\/([^/]+)/)?.[1];
@@ -146,8 +172,34 @@ export function PageView() {
   // the lists that bound a parent (objectui#12870). Not memoised: the schema
   // below is rebuilt on every render too, and nothing may rest on this
   // object's identity (AGENTS.md #10).
-  const servePageRecordActions = (bridge: RelatedRecordActionsValue) =>
-    pageRecordActionsValue(appName, (objects ?? []) as unknown[], navigate, routerRootHref, bridge);
+  //
+  // objectui#12980 — an object outside the page's objects is asked for by
+  // name when a block asks the navigator about it: an href answers `null`
+  // until it lands, and an open goes once the per-object read answers.
+  const servePageRecordActions = (bridge: RelatedRecordActionsValue): RelatedRecordActionsValue => {
+    const value = pageRecordActionsValue(appName, objects as unknown[], navigate, routerRootHref, bridge);
+    if (!readObjectScope) return value;
+    const whenKnown = (objectName: string, go: (known: RelatedRecordActionsValue) => void) => {
+      if (knownObjects.has(objectName)) return go(value);
+      requestObject(objectName);
+      void metadata.getItem('object', objectName).then((item: unknown) => {
+        if (item) go(pageRecordActionsValue(appName, [item], navigate, routerRootHref, bridge));
+      });
+    };
+    return {
+      ...value,
+      recordHref: (objectName, recordId) => {
+        requestObject(objectName);
+        return value.recordHref!(objectName, recordId);
+      },
+      listHref: (objectName, viewName) => {
+        requestObject(objectName);
+        return value.listHref!(objectName, viewName);
+      },
+      openRecord: (objectName, recordId) => whenKnown(objectName, (known) => known.openRecord!(objectName, recordId)),
+      openList: (objectName, viewName) => whenKnown(objectName, (known) => known.openList!(objectName, viewName)),
+    };
+  };
 
   return (
     // Mount the shared console action runtime so page-level `action:button`s can
@@ -192,7 +244,7 @@ export function PageView() {
             // `serve` publishes the page's own value over it (objectui#12870).
             <RelatedRecordActionsBridge
               appName={appName}
-              objects={objects ?? []}
+              objects={objects}
               dataSource={dataSource}
               serve={servePageRecordActions}
               parentFromList

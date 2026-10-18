@@ -75,6 +75,9 @@ export interface GlobalSearchRendererProps {
   [k: string]: any;
 }
 
+/** Nothing to search until the user types. */
+const NO_SEARCH_OBJECTS: any[] = [];
+
 export const GlobalSearchRenderer: React.FC<GlobalSearchRendererProps> = ({
   className,
   schema: _schema,
@@ -82,10 +85,19 @@ export const GlobalSearchRenderer: React.FC<GlobalSearchRendererProps> = ({
 }) => {
   const { t } = useObjectTranslation();
   const [query, setQuery] = useState('');
-  const { apps, objects: metadataObjects } = useMetadata();
+  const metadata = useMetadata();
+  const { apps, ensureType } = metadata;
   const dataSource = useAdapter();
   const { appName } = useParams();
   const { currentAppName } = useNavigationContext();
+
+  // objectui#12980 — the searchable objects are every object, so the whole
+  // registry is read only once the user types: a page that places this block
+  // does not load it on open. `ensureType('object')` asks for it; `objects` is
+  // read only from then on.
+  const searching = query.trim() !== '';
+  if (searching) void ensureType('object');
+  const metadataObjects = searching ? metadata.objects : NO_SEARCH_OBJECTS;
 
   // `useMetadata().objects` can hand back a fresh array each call; the hook
   // derives its own signature from the names, but a stable reference keeps the

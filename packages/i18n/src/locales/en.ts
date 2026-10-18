@@ -864,9 +864,6 @@ const en = {
       needMatchFields: 'Select at least one field to match on.',
       matchOnlyField: '(match only)',
       optCreateOptions: 'Keep unknown option values',
-      optRunAutomations: 'Run automations & triggers',
-      optTreatHistorical: 'Import as historical data',
-      optTreatHistoricalHint: '(import completed records as-is — skip state-machine checks and keep their original timestamps & author instead of stamping now)',
       optSkipBlankKey: 'Skip rows with a blank match value',
       optBackground: 'Import in the background',
       optBackgroundHint: '(runs as an undoable job)',
@@ -2095,7 +2092,7 @@ const en = {
     },
     settingsHub: {
       title: 'Settings',
-      subtitle: 'Configure your environment, integrations, and feature flags.',
+      subtitle: 'Configure your system, integrations, and feature flags.',
       loadError: 'Failed to load settings',
       empty: 'No settings registered. Plugins can register settings manifests via the SettingsService.',
       settingsCount: '{{n}} settings',
@@ -2103,7 +2100,7 @@ const en = {
       // Section headers, keyed by the manifest `category` value. Unknown
       // (plugin-authored) categories fall back to the literal category string.
       categories: {
-        Workspace: 'Environment',
+        Workspace: 'General',
         Communication: 'Communication',
         Security: 'Security',
         Infrastructure: 'Infrastructure',
@@ -2180,12 +2177,12 @@ const en = {
     // administrator while `localization.timezone` is still the manifest default.
     // `{{current}}` is that default, `{{zone}}` the zone the admin confirmed.
     workspaceTimezonePrompt: {
-      title: 'Set the environment timezone',
-      description: 'This environment still uses the platform default timezone, {{current}}. The environment timezone decides what "today" means in formulas, how reports group dates and how dates and times are shown, for everyone in the environment. Your browser timezone is filled in below.',
+      title: 'Set the system timezone',
+      description: 'This system still uses the platform default timezone, {{current}}. The system timezone decides what "today" means in formulas, how reports group dates and how dates and times are shown, for everyone in the system. Your browser timezone is filled in below.',
       laterHint: 'You can change it at any time on the Settings page.',
       decline: 'Keep the default',
       confirm: 'Set timezone',
-      saved: 'Environment timezone set to {{zone}}',
+      saved: 'System timezone set to {{zone}}',
     },
     error: {
       connectionFailed: 'Cannot connect to server',
@@ -2365,7 +2362,7 @@ const en = {
       // NOT the same thing as the platform's manual automation surfaces, which
       // are real and stay as they are: `home.build.subtitle` (that card opens
       // Studio, which does author flows), `engine.studio.landing.description`,
-      // `dataImport.optRunAutomations`, `packagedAutomation.*` and the
+      // `packagedAutomation.*` and the
       // marketplace `automation` category. The boundary is v1 AI AUTHORING, not
       // the word "automation".
       //
@@ -2580,9 +2577,9 @@ const en = {
     // from the wire; this repo holds no copy of the line. Report only — the copy
     // states that nothing is limited or blocked, and must keep doing so.
     readRate: {
-      ratioTitle: 'Unusual read volume in this environment',
+      ratioTitle: 'Unusual read volume in this system',
       ratio: 'Reads are running at {{ratio}} rows for every row written. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
-      noWritesTitle: 'Reads with no writes at all in this environment',
+      noWritesTitle: 'Reads with no writes at all in this system',
       noWrites: 'Rows are being read while none at all are being written, so the read rate has no upper bound. This is the most severe reading. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
     },
     // objectui#10439 — the environment admin's storage-capacity banner (cloud#2135).
@@ -2847,7 +2844,7 @@ const en = {
       orText: 'or continue with email',
       errors: {
         userExists: 'An account with this email already exists. Try signing in instead.',
-        selfRegistrationClosed: 'Self-registration is not open on this environment. Ask an administrator for an invitation.',
+        selfRegistrationClosed: 'Self-registration is not open on this system. Ask an administrator for an invitation.',
         emailDomainNotAllowed: "This email's domain is not allowed to register here. Use your organization email, or ask an administrator for an invitation.",
       },
       verifyInbox: {
@@ -2922,7 +2919,7 @@ const en = {
       resentDescription: 'Please check your inbox and click the verification link.',
       resendFailed: 'Cannot resend verification email',
       resendUnavailable:
-        'Email delivery may not be configured for this environment. Contact support if this persists.',
+        'Email delivery may not be configured for this system. Contact support if this persists.',
       signInLink: 'Go to sign in',
       backToSignIn: 'Back to sign in',
       backToLogin: 'Back to login',
@@ -2973,7 +2970,7 @@ const en = {
       cancel: 'Cancel',
     },
     shell: {
-      tenantHostHint: 'You are signing in to this environment',
+      tenantHostHint: 'You are signing in to this system',
     },
     // These were previously supplied only as inline `defaultValue:` args at the
     // SetPasswordPage call sites, so `zh` was the only pack that could carry a
@@ -2981,7 +2978,7 @@ const en = {
     setPassword: {
       title: 'Set a recovery password',
       description:
-        'You signed in via single sign-on. Set a local password so you can still sign in to this environment directly if SSO ever becomes unavailable.',
+        'You signed in via single sign-on. Set a local password so you can still sign in directly if SSO ever becomes unavailable.',
       email: 'Email',
       newPassword: 'New password',
       confirmPassword: 'Confirm password',
@@ -3101,9 +3098,9 @@ const en = {
     password: {
       changeTitle: 'Change Password',
       setTitle: 'Set Local Password',
-      changeDescription: 'Update the password you use to sign in to this environment.',
+      changeDescription: 'Update the password you use to sign in.',
       setDescription:
-        'You signed in via single sign-on. Set a local password to also sign in with email and password on this environment.',
+        'You signed in via single sign-on. Set a local password to also sign in with email and password.',
       current: 'Current password',
       new: 'New password',
       password: 'Password',
@@ -3112,7 +3109,7 @@ const en = {
       mismatch: 'Passwords do not match',
       enterCurrent: 'Enter your current password',
       changed: 'Password changed.',
-      localSet: 'Local password set. You can now sign in with email and password on this environment.',
+      localSet: 'Local password set. You can now sign in with email and password.',
       changeAction: 'Change password',
       setAction: 'Set password',
     },
@@ -3150,6 +3147,11 @@ const en = {
     keyboardShortcuts: 'Keyboard shortcuts',
     onlineDocs: 'Online documentation',
     loadingDocumentation: 'Loading documentation',
+    about: 'About',
+    aboutTitle: 'About this console',
+    aboutDescription: 'The build this console was compiled from.',
+    aboutBuild: 'Console build',
+    aboutBuildUnknown: 'Unknown build (no version was set when this console was built)',
   },
   sidebar: {
     settings: 'Settings',
@@ -3238,21 +3240,21 @@ const en = {
     appOpened: '{{time}}',
     build: {
       title: 'Build an app',
-      noCapability: 'Building apps isn\'t available in this environment — it requires the “Manage Metadata” permission, which your account doesn\'t have.',
+      noCapability: 'Building apps isn\'t available in this system — it requires the “Manage Metadata” permission, which your account doesn\'t have.',
     },
     template: {
       title: 'Start with a template',
       marketplaceDisabled: 'This runtime has no app marketplace configured, so there are no templates to install here.',
     },
     open: 'Open',
-    loading: 'Loading environment…',
+    loading: 'Loading…',
     welcome: 'Build your business system with AI',
     welcomeDescription: 'Describe your business in one sentence — AI generates the objects, screens, APIs and agent tools. Or start from scratch.',
     welcomeAdminDescription: 'Describe your business in one sentence — AI generates the objects, screens, APIs and agent tools. Or set things up yourself from the menu on the left.',
     welcomeAdminDescriptionNoBuild: 'Set up your first application from the Administration menu on the left. Once you have data, the AI assistant can help you explore it.',
     welcomeAdminDescriptionNoAi: 'Set up your first application from the Administration menu on the left.',
     noAppsTitle: 'No applications yet',
-    noAppsDescription: 'Your environment is being set up — apps your admin shares with you will show up here.',
+    noAppsDescription: 'The system is being set up — apps your admin shares with you will show up here.',
     buildWithAI: 'Build with AI',
     askAI: 'Ask AI',
     recoveryReminder: {
@@ -3292,7 +3294,7 @@ const en = {
       manageObjects: 'Manage Objects',
       manageObjectsDesc: 'Configure data models',
       systemSettings: 'System Settings',
-      systemSettingsDesc: 'Configure your environment',
+      systemSettingsDesc: 'Configure your system',
     },
     recentApps: {
       title: 'Recently Accessed',
@@ -3451,6 +3453,10 @@ const en = {
       publishing: 'Publishing…',
       exit: 'Exit preview',
       changes: 'Changes',
+      // objectui#12968 — what is pending on the surface the preview shows.
+      pendingHere: 'Draft preview · {{count}} unpublished changes on this page',
+      pendingHere_one: 'Draft preview · {{count}} unpublished change on this page',
+      pendingHere_other: 'Draft preview · {{count}} unpublished changes on this page',
       // Magic-moment hint: a freshly-built draft renders empty (dashboards at 0,
       // lists "Nothing here yet") because seed/sample rows only load on publish.
       // Say so plainly so an empty preview never reads as a broken build.
@@ -3845,10 +3851,10 @@ const en = {
       body: 'The MCP surface is off (OS_MCP_SERVER_ENABLED=false), so there is nothing to connect. Ask your operator to re-enable it.',
     },
     url: {
-      title: 'This environment\'s MCP endpoint',
+      title: 'This system\'s MCP endpoint',
       body: 'Any MCP-capable AI client connects with this URL. Identity is self-serve: the deployment is its own OAuth 2.1 authorization server, so interactive clients just open a browser login — you connect as yourself, and every call runs under your own permissions and row-level security.',
       downloadSkill: 'Download SKILL.md',
-      skillHint: 'The portable agent skill: teaches any skills-capable agent how to work with this environment.',
+      skillHint: 'The portable agent skill: teaches any skills-capable agent how to work with this system.',
     },
     claude: {
       body: 'Settings → Connectors → Add custom connector, then paste this URL. Sign in through the browser when prompted.',
@@ -3994,8 +4000,8 @@ const en = {
     rowConversational: 'Build / Ask model',
     rowStructured: 'Structured (blueprint / seed)',
     rowReasoning: 'Reasoning effort',
-    readFailed: 'Couldn\'t read the effective AI model. This environment may not run an AI service, or you may lack the ai:read permission.',
-    readFailedWithStatus: 'Couldn\'t read the effective AI model (HTTP {{status}}). This environment may not run an AI service, or you may lack the ai:read permission.',
+    readFailed: 'Couldn\'t read the effective AI model. This system may not run an AI service, or you may lack the ai:read permission.',
+    readFailedWithStatus: 'Couldn\'t read the effective AI model (HTTP {{status}}). This system may not run an AI service, or you may lack the ai:read permission.',
     overridesInEffect: 'Overrides in effect: ',
     noOverrides: 'none — running the deployed code defaults.',
     adapter: 'Adapter: ',

@@ -30,8 +30,10 @@ import { SchemaRenderer, toRenderableSchema, useInlineEdit, usePrintPage, usePre
 import { resolveFieldAffordance, isDeadlineSettled } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
+  BooleanCellRenderer,
   getCellRenderer,
   resolveCellRendererType,
+  useBooleanValueLabel,
   resolveRecordPointer,
   RECORD_POINTER_CARD_TYPE,
   coerceToSafeValue,
@@ -192,6 +194,11 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   const [visibleCount, setVisibleCount] = React.useState<number | undefined>(undefined);
   const [showEmptyOverride, setShowEmptyOverride] = React.useState(false);
   const { t } = useDetailTranslation();
+  // The word a read-only boolean row is drawn with (objectui#12933): the same
+  // `common.yes` / `common.no` pair every read-only boolean face reads
+  // (objectui#11689), not a second word pair. Read once, above every early
+  // return, so the hook count does not move with the section's contents.
+  const booleanLabel = useBooleanValueLabel();
   const { fieldLabel, translateOptions } = useSafeFieldLabel();
   /**
    * The SERVER's per-field refusals from the last rejected inline save
@@ -544,6 +551,20 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
       }
       if (resolvedType) {
         const CellRenderer = getCellRenderer(resolvedType);
+        // A boolean the viewer cannot edit reads as a WORD, not as the grid's
+        // checkbox (objectui#12933). `BooleanCellRenderer` draws a disabled
+        // checkbox, which on a record page reads as a setting that cannot be
+        // clicked. "Cannot edit" is `fieldEditable`, the per-field answer this
+        // row already computes for its own edit affordance: the field's and
+        // the object definition's `readonly`, the computed / system / excluded
+        // types, and the caller's write grant. An editable boolean keeps the
+        // checkbox, and so does a value that is not a boolean: the renderer's
+        // own guard (objectui#8582) draws the shared "No value" affordance for
+        // it, so `false` is never invented here. Matched by renderer identity,
+        // so `toggle` reads the same and a host's own boolean face is kept.
+        if (CellRenderer === BooleanCellRenderer && !fieldEditable && typeof value === 'boolean') {
+          return booleanLabel(value);
+        }
         if (CellRenderer) {
           return (
             <CellRenderer

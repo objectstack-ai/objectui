@@ -586,13 +586,22 @@ function step(label, fn) {
  * @param {string} url
  * @param {string} logTo
  */
-function checkoutPin(dir, sha, url, logTo) {
+export function checkoutPin(dir, sha, url, logTo) {
   run('git', ['init', '-q', dir], { cwd: os.tmpdir() });
   run('git', ['remote', 'add', 'origin', url], { cwd: dir });
   run('git', ['fetch', '-q', '--depth=1', '--no-tags', 'origin', sha], { cwd: dir, logTo });
   run('git', ['checkout', '-q', '--detach', 'FETCH_HEAD'], { cwd: dir });
   const head = run('git', ['rev-parse', 'HEAD'], { cwd: dir, capture: true }).trim();
   if (head !== sha) throw new PinRefusal(`fetched ${head} from ${url}, but the pin is ${sha}.`);
+  // HERMETIC: the remote goes once the commit is in. objectstack's spec build
+  // anchors its schema ratchets on `origin/main` and fetches it when it can, so
+  // with a remote the build of a fixed commit judged it against wherever main
+  // was THAT minute. Measured on objectui#12957: the 18.0.0-next.3 commit built
+  // fine against main as it was earlier and failed in 13 of 25 CI jobs once main
+  // had added two schemas (`❌ 2 schema(s) left the published set`). With no
+  // remote it anchors on the commit's own committed baseline, so the build is a
+  // function of the pin alone.
+  run('git', ['remote', 'remove', 'origin'], { cwd: dir });
 }
 
 /**

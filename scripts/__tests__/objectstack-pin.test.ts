@@ -25,6 +25,7 @@ import {
   STAMP_FILE,
   build,
   checkOverrideSet,
+  checkoutPin,
   declaredObjectstackNames,
   dependencyDrift,
   entryTargets,
@@ -263,6 +264,36 @@ describe('a refusal reaches the checks API (objectui#12957)', () => {
 
   it('keeps the last lines of a command\'s output', () => {
     expect(tailLines('1\n2\n3\n4\n', 2)).toBe('3\n4');
+  });
+});
+
+describe('the pinned checkout is hermetic (objectui#12957)', () => {
+  it('fetches exactly the pinned commit and then drops the remote, so no build script can read a moving main', () => {
+    const git = (cwd: string, ...args: string[]) => {
+      const r = spawnSync('git', args, {
+        cwd,
+        encoding: 'utf8',
+        env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.invalid', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.invalid' },
+      });
+      if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr}`);
+      return r.stdout.trim();
+    };
+    const upstream = path.join(scratch, 'hermetic-upstream');
+    fs.mkdirSync(upstream, { recursive: true });
+    git(upstream, 'init', '-q', '-b', 'main');
+    git(upstream, 'config', 'uploadpack.allowAnySHA1InWant', 'true');
+    fs.writeFileSync(path.join(upstream, 'a.txt'), 'pinned\n');
+    git(upstream, 'add', '.');
+    git(upstream, 'commit', '-qm', 'pinned');
+    const pinned = git(upstream, 'rev-parse', 'HEAD');
+    fs.writeFileSync(path.join(upstream, 'a.txt'), 'later on main\n');
+    git(upstream, 'commit', '-qam', 'later');
+
+    const dir = path.join(scratch, 'hermetic-checkout');
+    checkoutPin(dir, pinned, `file://${upstream}`, path.join(scratch, 'hermetic-fetch.log'));
+    expect(git(dir, 'rev-parse', 'HEAD')).toBe(pinned);
+    expect(fs.readFileSync(path.join(dir, 'a.txt'), 'utf8')).toBe('pinned\n');
+    expect(git(dir, 'remote')).toBe('');
   });
 });
 

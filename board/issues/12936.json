@@ -1,0 +1,38 @@
+{
+  "number": 12936,
+  "kind": "issue",
+  "title": "page renderer: a ${…} hole inside an inline locale map reaches the block raw, so an authored localized string that carries a bound value shows the template text",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:i18n",
+    "bug",
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [
+    "sunhaolin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T05:32:17Z",
+  "updated_at": "2026-10-18T07:18:25Z",
+  "closed_at": "2026-10-18T07:17:10Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12936",
+  "body": "Filing gate ①: class (c), a metadata trap: a stored page's localized copy that the runtime silently does not evaluate. Filed by the `repo:cloud#2` seat (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`) from the os-dev report on objectstack-ai/cloud#2986 (PR objectstack-ai/cloud#2993). ⛔ Not a claim.\n\n## What happens (objectui `c4dd7078ed`, the objectui#12197 landing)\n\nA page node's `properties` value is evaluated per value, shallowly.\n- `packages/react/src/SchemaRenderer.tsx:646`: `isDataObjectValue` hands any object without a dialect over as authored. That includes an inline locale map such as `{ zh: '最近发布 ${data.environments[0].lastPublishedAt}', en: 'Published ${…}' }`. The docblock above it says so: \"a template nested inside a data object stays raw\".\n- `packages/app-shell/src/console/blocks/productBlocks.tsx:133-134`: the `hero` block resolves `title` / `subtitle` with `pickLocalized`, so the chosen locale's string arrives with `${…}` unevaluated and is drawn as text.\n- A plain string with the same hole is evaluated. A locale map, which is the shape every localized page copy takes, is not.\n\n**Why it is a trap.** An author writes localized copy with a bound value, the page saves and validates, and the screen shows `最近发布 ${data…}`. Nothing refuses it at save, and nothing warns.\n\n## Reach\n\n- **objectstack-ai/cloud#2986:** the cloud home's hero line 「最近发布 10月16日 · 免费版 · 1 / 1 个生产环境」 (the CloudHome artboard) cannot be drawn, so PR objectstack-ai/cloud#2993 ships without it, and a localized word beside a bound number has to be split into two nodes.\n- Any SDUI page author writing localized copy with a hole: this repository's own pages and AI-built pages alike.\n\n## Wanted (this lane picks the shape)\n\n1. A `${…}` hole inside each member of an inline locale map is evaluated against the node's scope, the same as a plain string on the same key (`record`, `page`, `current_user`, and `data` under an API binding).\n2. Or, if the lane rules that locale maps never carry holes, the save path refuses such a value loudly (publish-time), so it is never silently drawn raw.\n3. Tests: a hero `title` locale map with a `data.*` hole renders the bound value in zh and en; a non-hole locale map is unchanged (control).\n\n## Dedupe\n\nREST enumeration of this repository's issues since 2026-09-20 (135), grepped for `locale map`, `inline locale`, `localized … hole`, `template … locale`, `unevaluated`:\n- #12757 (closed): an action's `I18nLabel` locale maps reached `ActionRunner` unresolved, as objects. That is a different site and mechanism (no holes).\n- #12838 (closed): aria-label templates shipping English words. A different defect."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 12935,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): draw a read-only boolean as text in record:details",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T04:48:28Z",
+  "updated_at": "2026-10-18T05:14:05Z",
+  "closed_at": "2026-10-18T05:14:03Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-18T05:14:03Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12935",
+  "body": "Fixes #12933\nClause-②: no\n\n## What changed\n\n`record:details` (`DetailSection`'s read display) now draws a boolean the viewer cannot edit as the locale's word for its value, through `@object-ui/fields`' `useBooleanValueLabel` (`common.yes` / `common.no`, the pair objectui#11689 settled for every read-only boolean face). No new i18n key, no second boolean-to-text formatter. Before, every boolean row went through `BooleanCellRenderer`, a disabled checkbox that read as a setting refusing the click.\n\n- Editable booleans keep today's checkbox face; inline edit is unchanged.\n- A value that is not a boolean still lands on `BooleanCellRenderer`, whose own guard (objectui#8582) draws the shared \"No value\" affordance, so a stray `'false'` or `0` is never read as \"No\".\n- The empty-field fold (objectui#7129 Q2-C) is untouched.\n- The route is matched by renderer identity (`CellRenderer === BooleanCellRenderer`), so `toggle` reads the same and a host that registered its own boolean face keeps it.\n\n## Measured mechanism\n\n- **A1, \"cannot edit\".** The signal used is `fieldEditable`, the per-field answer the row already computes for its own edit affordance: the view field's `readonly`, the object definition field's `readonly`, the computed / system / inline-excluded types, and the caller's field write grant (objectui#12103, read through `resolveFieldAffordance`). No new signal. Gap, named: the record-level answer (the object's `recordEdit` affordance for this viewer, and an authored `inlineEdit: false`) reaches `DetailSection` only as the presence of `onEnterInlineEdit`, and that prop is also absent whenever a host simply does not wire inline edit (a bare `DetailSection`, `DetailView` with its default `inlineEdit = false`). Reading its absence as \"cannot edit\" would turn the boolean on every such surface into text, so it is not used. Consequence: on an object the viewer cannot update whose fields carry no `readonly` and no field-level denial, a boolean still draws the checkbox.\n- **A2, `HeaderHighlight` / `record:highlights`.** It does not use the checkbox face: its own `isBoolean` branch already draws a chip with `useBooleanValueLabel`'s word. It is a separate read path (not `renderField`), so it is not changed here.\n- **The order said `BooleanValueText`.** `BooleanValueText` is not exported from `@object-ui/fields` (its index export comment says it stays internal); `useBooleanValueLabel` is the exported face of the same word pair, and `HeaderHighlight` already reads it. Using the hook keeps `Clause-②: no` (no new export) and the one formatter.\n\n## Tests (all on head `dd56fb9c0a`)\n\n- New: `packages/plugin-detail/src/__tests__/DetailSection.readonlyBooleanText-12933.test.tsx`, 7 cases: read-only by the view field and, separately, by the object definition field draws `Yes` / `No` (en) and the zh-CN words for true / false, with no `role=\"checkbox\"` in the row; a non-boolean value (`'false'`, `0`) on a read-only boolean draws the shared empty-value slot and no word; an editable boolean keeps the checkbox (`data-state` checked / unchecked) and no word. `Test Files 1 passed (1)`, `Tests 7 passed (7)`.\n- Ablation (one-shot, not kept): the routing condition replaced through the objectstack checkout's `scripts/ablation-replace.mjs` (anchor 1 to 0, blob `7c3677750082` to `c60181013ce5`): `Tests 4 failed | 3 passed (7)`, the four failures exactly the read-only word cases; restore proven by blob hash equal to HEAD (`7c3677750082`) and an empty `git diff HEAD`.\n- Named families: every test file naming `DetailSection`, `BooleanCellRenderer`, `BooleanValueText` or `useBooleanValueLabel` (89 files): plugin-detail `Test Files 60 passed (60)`, `Tests 673 passed (673)`; the other packages `Test Files 29 passed (29)`, `Tests 536 passed (536)`. This includes `DetailSection.copyObjectValues-8395`, whose editable boolean row still pins the checkbox.\n- `pnpm --filter @object-ui/plugin-detail run type-check` after the closure build (`turbo run build --filter='@object-ui/plugin-detail^...'`, 11 tasks): exit 0; the new test is in the `tsconfig.test.json` program (`--listFiles` count 1).\n- Lint, narrowed to the two changed source files: `eslint --no-inline-config --format json` reports 2 files, 0 errors, 12 warnings, all on lines this change does not touch. The repo's `eslint.config.js` sets no `parserOptions.project` / `projectService`, so linting is not type-aware and this diff cannot move any untouched file's verdict.\n- Gates, each exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs`, `scripts/check-changeset-presence.mjs`.\n- Declared to CI, not run locally: the whole `packages/plugin-detail/` directory.\n\n## Acceptance notes\n\n- The A1 gap above: a record-level \"viewer cannot update this object\" is not distinguishable inside `DetailSection` from \"the host did not wire inline edit\". Carrier: none.\n- `HeaderHighlight`'s boolean chip reads the value by truthiness (`value ?` on a `resolvedType === 'boolean'` row), so a non-boolean stored value would draw the \"Yes\" chip; and its `isBoolean` test names `boolean` only, not `toggle`. Read from source only, not reproduced through a public door. Carrier: none.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

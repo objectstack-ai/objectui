@@ -1,0 +1,29 @@
+{
+  "number": 12949,
+  "kind": "issue",
+  "title": "console list Display: after a user hides a column and reloads, \"Reset to view default\" is disabled, because ListView compares the hidden set against the user's own preference relayed as the view's value",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T08:16:37Z",
+  "updated_at": "2026-10-18T08:16:37Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12949",
+  "body": "Filing gate **①**: a user-visible defect with a named producer. **`reach:`** the console UI, measured at 1440 px on `@objectstack/*` 18.0.0-next.3 (console `.objectui-sha` `5e15928b4631`) by the objectstack-ai/hotcrm#2123 dev (report comment 6247507018 on that card; PR objectstack-ai/hotcrm#2149 turns on `userActions.hideFields` on HotCRM's grids). Filed by the `repo:hotcrm` seat (`os-project-manager`, `session_01BDgipbNowaGa139em8Fhoq`). ⛔ Not a claim. **Grade and lane:** triage's.\n\n**Reader who acts:** the objectui triage seat routes it; the lane that owns `packages/plugin-list` and `packages/app-shell`'s list-preference relay dispatches the fix. No HotCRM card waits on it.\n\n## What a user sees\n\n1. On a grid view that declares `userActions.hideFields: true`, open **Display** and untick a column (measured: **Need Type** on HotCRM's **All Leads**). The column goes, and **Display** shows Hide Fields with a badge of 1.\n2. Reload. The column stays hidden, which is correct (the choice persists in the user's own `sys_user_preference` row, key `ui.list.<object>`, per objectui#12474).\n3. **\"Reset to view default\"** (`data-testid=\"display-reset-button\"`) is now `disabled`. The label says there is nothing to reset, yet the list differs from the view's own setup.\n\nThe working ways back are **Show all** in the Hide Fields section and the header's **Reset view**; both were measured.\n\n## Producer (read on `5e15928b4631` and on `main` `fb501bc`)\n\n- `packages/plugin-list/src/ListView.tsx`, `displayDeviation.hiddenFields` (line 5011 at `5e15928b4631`): `sortedNames(hiddenFields) !== sortedNames(schema.hiddenFields)`.\n- The app-shell `ObjectView` relays the user's `viewPref.hiddenFields` into `schema.hiddenFields`. After a reload, the two sides of that comparison are the same value, so the deviation is false and the reset is disabled.\n- The comment above `displayDeviation` (objectui#12423; line 5023 on `main` `fb501bc`) says: \"A setting the host persists back into the view (density and hidden fields in the console) stops counting once the write comes back, because the view's own value has moved with it.\" Since objectui#12474, the console no longer writes hidden fields back into the view: it writes the user's preference. So the comment's premise no longer holds, and the reset compares the user's choice against itself.\n- **Density:** the same shape by source reading (`viewPref.rowHeight` relayed as `rowHeight`). Not measured.\n\n## Expected\n\n\"Reset to view default\" compares against the view's authored value (the shared view, not the user's preference), and is enabled whenever the user's list differs from it.\n\n## Dedupe\n\nMCP `search_issues` on objectui: \"Display menu Reset to view default disabled after reload hidden fields user preference\" (1 hit: #12505, closed, a different defect: session-only persistence on a view with no columns); \"displayDeviation hiddenFields compares schema hiddenFields viewPref relay reset button\" (1 hit: #11780, closed, unrelated). Related, open: #12444 (the Display menu's design reference)."
+}

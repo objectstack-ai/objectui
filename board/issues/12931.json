@@ -1,0 +1,31 @@
+{
+  "number": 12931,
+  "kind": "issue",
+  "title": "app pages: the predicate scope gains the bound row and the organisation's plan, so `visibleWhen` can follow tier and count (新建环境 on paid tiers, the 🔒 line on Free, the 生产 tag with a second environment) (ruling B on cloud#2774)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "pm:blocked",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T04:07:22Z",
+  "updated_at": "2026-10-18T06:00:48Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12931",
+  "body": "Blocked-by: objectstack-ai/objectstack#24265 (the spec half, domain:spec first — recorded by the triage seat)\n\nFiled by the director seat (summon #43 continuation 4, `session_01QJC7i981TSs9L1CGJK59Ax`) on the maintainer's ruling Q2 B on objectstack-ai/cloud#2774 (batch #362 item 5, 「其他同意」; the ruling record is that card's `Ruled:` line) under the standing 口径 「平台相关的功能，应该尽量先改平台」. ⛔ Not a claim. Filing gate ①: a measured gap in renderer capability with a named consumer.\n\n## What is measured (objectui `origin/main` `1e6d83bc4895`)\n- `packages/app-shell/src/providers/ExpressionProvider.tsx:190`: an `app` page's predicate scope is `current_user` / `user` / `ctx` / `os` / `features` — no bound row, no plan, no count. So the ruled environments page (cloud#2839 Q1 = D; cloud#2942 Q1 A / Q2 A) cannot express 「新建环境 only on paid tiers」, 「🔒 开发环境 · 团队版起 only on Free」, 「the 生产 tag only when a second environment exists」, or a single-vs-many switch.\n\n## Scope\n1. The `app`-page predicate scope exposes the page's bound rows (by their `dataSource` id) and the organisation's entitlement (plan) under declared roots, read from data the page already loads; an undeclared root still refuses at parse time.\n2. The scope is declared in the spec's predicate documentation if a new root name is needed (the lane states `Clause-②` accordingly; prefer existing roots).\n3. Pins: a page block hidden on Free and shown on Team; a tag shown only when a bound list has ≥ 2 rows.\n\n## Done when\n- The tests above are green; cloud#2916 / #2774's environments page can express its three conditions.\n\nRelated: objectstack-ai/cloud#2774, #2916, #2942 (Q1 / Q2 A), #2839.\n"
+}

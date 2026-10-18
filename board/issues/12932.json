@@ -1,0 +1,31 @@
+{
+  "number": 12932,
+  "kind": "issue",
+  "title": "record blocks bound to a dataSource that yields no row draw an authored empty state, not the renderer's raw placeholder (ruling B on cloud#2774)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "pm:blocked",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T04:07:58Z",
+  "updated_at": "2026-10-18T06:02:38Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12932",
+  "body": "Blocked-by: objectstack-ai/objectstack#24266 (the spec half, domain:spec first — recorded by the triage seat)\n\nFiled by the director seat (summon #43 continuation 4, `session_01QJC7i981TSs9L1CGJK59Ax`) on the maintainer's ruling Q2 B on objectstack-ai/cloud#2774 (batch #362 item 5, 「其他同意」; the ruling record is that card's `Ruled:` line) under the standing 口径 「平台相关的功能，应该尽量先改平台」. ⛔ Not a claim. Filing gate ①: a measured gap with a named consumer.\n\n## What is measured (objectui `origin/main` `1e6d83bc4895`, cloud dev's R7)\n- A `record:details` / `record:highlights` / `record:quick_actions` block bound through a per-element `dataSource` (objectui#12294) that yields no row draws the renderer's own 「record not found」 or a dashed 「no actions configured」; there is no authored empty state. An organisation with no production environment would see the raw placeholder on the ruled environments page.\n\n## Scope\n1. The four record blocks accept an authored empty state (the spec's existing empty-state shape where one exists; otherwise the lane declares `Clause-②` for one key) and draw it when the bound source yields no row.\n2. The default stays the loud renderer text, never a blank.\n\n## Done when\n- A test: a bound `record:details` with no row draws the authored empty state; without one it draws the loud default.\n\nRelated: objectstack-ai/cloud#2774, #2916; objectui#12294.\n"
+}

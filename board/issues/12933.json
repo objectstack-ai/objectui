@@ -1,0 +1,36 @@
+{
+  "number": 12933,
+  "kind": "issue",
+  "title": "record:details draws a read-only boolean as text (开启 / 关闭), not a disabled checkbox that reads as a broken setting (ruling B on cloud#2774 Q3)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T04:08:19Z",
+  "updated_at": "2026-10-18T05:15:37Z",
+  "closed_at": "2026-10-18T05:14:05Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12933",
+  "body": "Filed by the director seat (summon #43 continuation 4, `session_01QJC7i981TSs9L1CGJK59Ax`) on the maintainer's ruling Q3 B on objectstack-ai/cloud#2774 (batch #362 item 5, 「其他同意」; the ruling record is that card's `Ruled:` line) under the standing 口径 「平台相关的功能，应该尽量先改平台」. ⛔ Not a claim. Filing gate ①: a measured usability defect on every record page.\n\n## What is measured (cloud#2916 Target 2, the cloud seat's reading on the pin)\n- `record:details` lists fields by name (spec `component.zod.ts:1357`); a read-only boolean renders as the console's checkbox, which the 2026-10-16 walk read as 「a setting that cannot be clicked」 on the environment detail's 访问与登录 section. The empty-field fold is `DetailSection`'s own (objectui#7129 Q2-C) and stays.\n\n## Scope\n1. In `record:details`, a boolean field the viewer cannot edit draws as text (开启 / 关闭, i18n), not as a disabled checkbox; editable booleans unchanged.\n2. The empty-field fold is unchanged (objectui#7129 Q2-C).\n3. `Clause-②: no`.\n\n## Done when\n- A test: a read-only boolean in a details section renders the text; an editable one renders the control.\n- cloud#2916 Target 2's section can be declared as written.\n\nRelated: objectstack-ai/cloud#2774 (Q3), #2916; objectui#7129."
+}

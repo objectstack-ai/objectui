@@ -1,0 +1,35 @@
+{
+  "number": 12945,
+  "kind": "pull_request",
+  "title": "deps(app-shell): raise the @objectstack/spec floor to ^18.0.0-next.3 (objectui#12943)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: app-shell"
+  ],
+  "assignees": [
+    "sunhaolin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T07:39:05Z",
+  "updated_at": "2026-10-18T08:22:15Z",
+  "closed_at": "2026-10-18T08:22:13Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-18T08:22:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12945",
+  "body": "Fixes #12943\nClause-②: no\n\nRaises `@object-ui/app-shell`'s `@objectstack/spec` floor from `^18.0.0-next.2` to `^18.0.0-next.3`, as the maintainer ruled on the card (verbatim there: 「下限提到 next.3」). The Packages page refuses a row with no `source` and types the row from `InstalledPackageAtEitherStage['source']`; `18.0.0-next.3` is the first spec release that declares it, and the first whose paired runtime serves it.\n\n## What changed\n\nThree files: `packages/app-shell/package.json` (the one range), `pnpm-lock.yaml` (the app-shell importer's specifier, regenerated with `pnpm install --frozen-lockfile=false`, never hand-edited) and `.changeset/12943-app-shell-spec-floor.md` (patch for `@object-ui/app-shell`: the floor, and why). No other package's floor moves.\n\n## Measured\n\n1. **The lockfile moves one line and no resolution.** After the install, `git diff --stat` lists the manifest and the lockfile, one line each. The lockfile hunk is the app-shell importer's `specifier` line only; the resolution beside it stays `18.0.0-next.3`.\n2. **Other `@objectstack/*` ranges in app-shell.** It declares `@objectstack/formula` and `@objectstack/lint` (both `^18.0.0-next.1`) besides spec. Neither moves: this diff changes no source, so nothing newly reads from them.\n3. **Pins on the old floor.** Searching `18.0.0-next.2` outside the lockfile and CHANGELOGs: the only assertion of app-shell's declared floor is its manifest line, which moved. Left, with reasons: two pending changesets that describe what their own PRs did (history); a synthetic prerelease-ordering fixture in the floors gate's unit test (not app-shell's manifest); `packages/components` and `packages/types` manifests and their two lockfile specifiers (other packages' floors, which the ruling holds); prose in tests, docs and script comments saying \"measured at 18.0.0-next.2\" (a statement of when something was measured; the installed-pin gate ledgers them). The two tests that read app-shell's manifest read `exports` and its path, not a dependency range.\n4. **The card's claim reproduces on the published tarballs.** In `18.0.0-next.2` the `api-assembled` either-stage row schema has no `source` member and `InstalledPackageSourceSchema` is absent; in `18.0.0-next.3` each union arm carries `source`, and the schema is exported. `InstalledPackageAtEitherStage` exists in both, which is why the symbol-presence gate cannot see this change.\n\n## Gates (local; each exit code captured before any pipe)\n\n- `check:installed-pin-claims` 0; `check:lockfile-integrity` 0 (clean); `check:lockfile-dedupe` 0 (deduped).\n- `check-changeset-presence` 0; `changeset:check` 0; `check:changeset-claims` 0, re-run on the committed tree so it read the changeset (the first run, before the commit, read none and measured nothing).\n- `check:phantom-deps` 0; `check:control-bytes` 0; `check:new-line-citations` 0; the diff's three paths are NOT GOVERNED.\n- The floors gate judges built `dist/`, so the packages were built first under the shared verification lock: `turbo run build --filter=\"./packages/*\" --concurrency=2`, exit 0, every task successful.\n- **`check:spec-floors` exits 1, and not because of this PR.** See below.\n\n## `check:spec-floors` is red on `main` for another package\n\nThe card says no other published artifact reads a `next.3`-only key. One does. The gate's single finding: `@object-ui/plugin-detail`'s published `dist/synth/buildDefaultPageSchema.d.ts` references `SelectOptionKind` from `@objectstack/spec/data`, while the package declares `^18.0.0-next.1`.\n\n- **Control.** With app-shell's manifest restored to its base value, the gate prints the same single finding. So it pre-exists this change. It also says nothing about app-shell in either direction, as its header documents.\n- **Source.** objectui#12922 (`8392f74a`) added the import and touched no `package.json`. `SelectOptionKind` is exported by the `data` entry of `18.0.0-next.3` and not by `18.0.0-next.2`. The nightly `Spec Range Floors` run on `main` at `c4dd7078` concluded `failure` (2026-10-18), after a green night on 2026-10-17.\n- **Probe.** In a throwaway mutation, raising only plugin-detail to `^18.0.0-next.3` turns the gate green. Restored afterwards; `git diff HEAD` empty.\n- **Why it is not here.** The card rules that no other floor moves, and the claim's file surface is app-shell's manifest. \n- **Reach.** `Spec Range Floors` is a nightly alarm, not a pull-request job, so this PR's checks will not show it. The same gate runs inside `pnpm changeset:publish`, so it would cancel the next release until plugin-detail's floor is raised. That wants its own card.\n\n## Acceptance notes\n\n- No source, test or doc file changes; the published contract of `@object-ui/app-shell` moves only in its declared `@objectstack/spec` range.\n- `Dependabot` PR 11845 also touches `pnpm-lock.yaml`; whichever lands second regenerates the lockfile with pnpm.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_0188TsgPV8kQXfuRuKmkj2ks)_\n"
+}

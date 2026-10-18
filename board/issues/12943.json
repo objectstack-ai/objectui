@@ -1,0 +1,36 @@
+{
+  "number": 12943,
+  "kind": "issue",
+  "title": "deps(app-shell): raise @object-ui/app-shell's @objectstack/spec floor from ^18.0.0-next.2 to ^18.0.0-next.3, the first release that declares and serves the package row's `source` the Packages page now requires",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "dependencies",
+    "domain:ui"
+  ],
+  "assignees": [
+    "sunhaolin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T07:27:10Z",
+  "updated_at": "2026-10-18T08:23:45Z",
+  "closed_at": "2026-10-18T08:22:14Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12943",
+  "body": "**Filing gate ③, a task the maintainer directed.** The maintainer said, verbatim, in `domain:ui` seat 1's session `session_0188TsgPV8kQXfuRuKmkj2ks`: 「下限提到 next.3」. That answers the seat's round-report question, Q2 of objectui#12790's dev report, carried in the ACCEPT on PR #12939 (`6246795614`). ⛔ Not a claim.\n\n**Reader who acts:** `domain:ui` seat 1. It claims and dispatches this card in the same act.\n\n## Measured\n\n- At objectui `main` `32b492b6`, `packages/app-shell/package.json` declares `\"@objectstack/spec\": \"^18.0.0-next.2\"`.\n- Since PR #12939 (`bc96bc3`, objectui#12790), app-shell's Packages page refuses a row with no `source`, and types the row from `InstalledPackageAtEitherStage['source']` (`@objectstack/spec/api-assembled`).\n- In the published `18.0.0-next.2` tarball, the `kernel` entry exports no `InstalledPackageSourceSchema`. The objectstack half, PR objectstack-ai/objectstack#24010 (`66d2757024`), first ships in `18.0.0-next.3`, built from `2c9bf9430a`.\n- So the declared floor admits a spec, and a paired runtime, that the page refuses on every row.\n- `check:spec-floors` stays green because it judges symbol presence only, and `InstalledPackageAtEitherStage` exists in `next.2`. Its own header documents that boundary.\n- objectui `main`'s lockfile already resolves `18.0.0-next.3` (objectui#12873), so resolution does not move.\n\n## Done when\n\n- `packages/app-shell/package.json` declares `\"@objectstack/spec\": \"^18.0.0-next.3\"`.\n- `pnpm-lock.yaml`'s importer specifier is regenerated with pnpm, never by hand, and its resolution stays `18.0.0-next.3`.\n- `check:spec-floors`, `check:installed-pin-claims` and `check:lockfile-integrity` are green.\n- One changeset for `@object-ui/app-shell` says the floor and why.\n- ⛔ No other package's floor moves: no other published artifact reads a `next.3`-only key.\n\n**Dedupe:** a REST enumeration of this repository's issues (`state=all`, `since=2026-10-01`; 837 issues; controls objectui#12790, #12873 and #12626 found), grepped for `(spec|objectstack)…(floor|range)`, `floor…next.3` and `^18.0.0-next.3`. 7 hits came back, all closed and none a floor raise for app-shell. The nearest are objectui#12030, which moved the dependencies to the `next` prereleases, and objectui#12873, which moved the lockfile to `next.3` with no floor."
+}

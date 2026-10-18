@@ -148,28 +148,28 @@ const MarketplacePackagePage = routeChunk.lazy(() => import('./marketplace/Marke
  * (paths relative to `/apps/:appName`, as `appRouteMetadataReads.ts` spells
  * them). A path not listed renders an eagerly bundled element.
  */
-const APP_ROUTE_CHUNKS: ReadonlyArray<{ path: string; element: { preload: () => Promise<unknown> } }> = [
-  { path: 'metadata', element: MetadataDirectoryPage },
-  { path: 'metadata/_diagnostics', element: MetadataDiagnosticsPage },
-  { path: 'metadata/:type', element: MetadataResourceListPage },
-  { path: 'metadata/:type/new', element: MetadataResourceEditPage },
-  { path: 'metadata/:type/:name', element: MetadataResourceEditPage },
-  { path: 'metadata/:type/:name/history', element: MetadataResourceHistoryPage },
-  { path: ':objectName/new', element: RecordFormPage },
-  { path: ':objectName/data', element: ObjectDataPage },
-  { path: ':objectName/record/:recordId', element: RecordDetailView },
-  { path: ':objectName/record/:recordId/edit', element: RecordFormPage },
-  { path: ':objectName/record/:recordId/page/:pageName', element: RecordDetailView },
-  { path: 'dashboard/:dashboardName', element: DashboardView },
-  { path: 'report/:reportName', element: ReportView },
-  { path: 'page/:pageName', element: PageView },
-  { path: 'component/:ns/:name/*', element: ComponentNavView },
-  { path: 'design/dashboard/:dashboardName', element: DashboardDesignPage },
-  { path: 'search', element: SearchResultsPage },
-  { path: 'create-app', element: CreateAppPage },
-  { path: 'edit-app/:editAppName', element: EditAppPage },
-  { path: 'system/marketplace', element: MarketplacePage },
-  { path: 'system/marketplace/:packageId', element: MarketplacePackagePage },
+const APP_ROUTE_CHUNKS: ReadonlyArray<{ path: string; chunk: { preload: () => Promise<unknown> } }> = [
+  { path: 'metadata', chunk: MetadataDirectoryPage },
+  { path: 'metadata/_diagnostics', chunk: MetadataDiagnosticsPage },
+  { path: 'metadata/:type', chunk: MetadataResourceListPage },
+  { path: 'metadata/:type/new', chunk: MetadataResourceEditPage },
+  { path: 'metadata/:type/:name', chunk: MetadataResourceEditPage },
+  { path: 'metadata/:type/:name/history', chunk: MetadataResourceHistoryPage },
+  { path: ':objectName/new', chunk: RecordFormPage },
+  { path: ':objectName/data', chunk: ObjectDataPage },
+  { path: ':objectName/record/:recordId', chunk: RecordDetailView },
+  { path: ':objectName/record/:recordId/edit', chunk: RecordFormPage },
+  { path: ':objectName/record/:recordId/page/:pageName', chunk: RecordDetailView },
+  { path: 'dashboard/:dashboardName', chunk: DashboardView },
+  { path: 'report/:reportName', chunk: ReportView },
+  { path: 'page/:pageName', chunk: PageView },
+  { path: 'component/:ns/:name/*', chunk: ComponentNavView },
+  { path: 'design/dashboard/:dashboardName', chunk: DashboardDesignPage },
+  { path: 'search', chunk: SearchResultsPage },
+  { path: 'create-app', chunk: CreateAppPage },
+  { path: 'edit-app/:editAppName', chunk: EditAppPage },
+  { path: 'system/marketplace', chunk: MarketplacePage },
+  { path: 'system/marketplace/:packageId', chunk: MarketplacePackagePage },
 ];
 
 /**
@@ -182,15 +182,15 @@ function preloadAppRouteChunk(subPath: string, hostPaths: readonly string[] = []
   const routes = [
     ...APP_ROUTE_METADATA_READS.map(({ path }) => ({
       path,
-      element: APP_ROUTE_CHUNKS.find((row) => row.path === path)?.element,
+      chunk: APP_ROUTE_CHUNKS.find((row) => row.path === path)?.chunk,
     })),
-    ...hostPaths.map((path) => ({ path, element: undefined })),
+    ...hostPaths.map((path) => ({ path, chunk: undefined })),
   ];
   const matches = matchRoutes(routes, `/${subPath.replace(/^\/+/, '')}`);
-  const element = matches?.[matches.length - 1].route.element;
+  const chunk = matches?.[matches.length - 1].route.chunk;
   // A failed import rejects here as well as in the route's own render; the
   // render's error boundary is the one that reports it.
-  if (element) void element.preload().catch(() => {});
+  if (chunk) void chunk.preload().catch(() => {});
 }
 
 interface AppContentProps {

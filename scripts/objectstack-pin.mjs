@@ -51,10 +51,22 @@
  * With `OBJECTSTACK_ROOT` set, `build` packs the same packages from THAT tree into
  * the same directories, instead of building the pin. Nothing in it is installed,
  * built or regenerated (`pnpm pack` runs with scripts off): the tree must already be
- * built, and a missing entry point refuses with the command that builds it. The
- * lockfile does not change; a frozen install stays valid as long as that tree's
- * packages declare the dependencies the lockfile records -- when they do not, the
- * frozen install fails and names the mismatch.
+ * installed (`pnpm pack` reads each `workspace:` dependency's version from the
+ * installed links) and built, and a missing entry point refuses with the command
+ * that builds it. The lockfile does not change.
+ *
+ * ## The lockfile must record what the build declares -- and pnpm will not check it
+ *
+ * Measured on objectui#12957: with a pinned package's manifest given a dependency
+ * the lockfile does not record, `pnpm install --frozen-lockfile` exited 0 and did
+ * NOT install it -- a frozen install re-links a directory's files but resolves its
+ * dependencies from the lockfile alone. So a pin (or a stand-in) whose packages
+ * declare a different dependency set would install silently without it. `build`
+ * therefore compares every packed manifest's dependency NAMES with the ones the
+ * lockfile's `snapshots:` entry records for that package, after the cache is in
+ * place, and refuses on any difference -- naming the remedy (`pnpm install`
+ * rewrites the lockfile, reading the directories just written). ⚠️ Names, not
+ * ranges: a range that moved while its name stayed is not compared here.
  *
  * ## Refusals (exit 1, nothing written)
  *
@@ -67,7 +79,9 @@
  *   - a packed package's `main`/`module`/`types`/`exports` target is missing.
  *
  * Every write goes to a staging directory that replaces the cache only once all
- * packages packed, so a failed run leaves the previous build in place.
+ * packages packed, so a failed run leaves the previous build in place. One refusal
+ * comes AFTER the write, on purpose: the lockfile-drift one above, whose remedy
+ * (`pnpm install`) needs the new build on disk to read.
  *
  * ⛔ Node builtins only: CI runs this BEFORE `pnpm install`
  * (`scripts/check-pre-install-import-graph.mjs` holds that).
@@ -307,7 +321,7 @@ export function entryTargets(manifest) {
     }
   };
   walk(manifest.exports);
-  return [...targets].map((t) => t.replace(/^\.\//, '')).sort();
+  return [...new Set([...targets].map((t) => t.replace(/^\.\//, '')))].sort();
 }
 
 /**
@@ -317,6 +331,96 @@ export function entryTargets(manifest) {
 export function missingEntryTargets(dir) {
   const manifest = readJson(path.join(dir, 'package.json'));
   return entryTargets(manifest).filter((t) => !fs.existsSync(path.join(dir, t)));
+}
+
+/**
+ * The dependency names the lockfile records for each pinned-build package: the
+ * `dependencies` and `optionalDependencies` of every `snapshots:` entry keyed
+ * `'@objectstack/<name>@file:…'`, unioned across peer contexts.
+ *
+ * @param {string} lockText
+ * @returns {Map<string, Set<string>>}
+ */
+export function lockfileDependencyNames(lockText) {
+  const recorded = new Map();
+  const lines = lockText.split('\n');
+  const start = lines.indexOf('snapshots:');
+  if (start === -1) return recorded;
+  let current = null;
+  let inDeps = false;
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\S/.test(line)) break;
+    const key = line.match(/^ {2}'?(@objectstack\/[a-z0-9-]+)@file:[^:]*?'?:(?:\s.*)?$/);
+    if (key) {
+      current = key[1];
+      if (!recorded.has(current)) recorded.set(current, new Set());
+      inDeps = false;
+      continue;
+    }
+    if (/^ {2}\S/.test(line)) {
+      current = null;
+      continue;
+    }
+    if (!current) continue;
+    const block = line.match(/^ {4}(\w+):\s*$/);
+    if (block) {
+      inDeps = block[1] === 'dependencies' || block[1] === 'optionalDependencies';
+      continue;
+    }
+    const dep = inDeps && line.match(/^ {6}'?([^'\s:]+)'?:/);
+    if (dep) recorded.get(current).add(dep[1]);
+  }
+  return recorded;
+}
+
+/**
+ * Packages whose packed manifest declares a dependency set the lockfile does not
+ * record. A declared peer may appear in the lockfile (pnpm installs peers); a
+ * runtime dependency the lockfile lacks, or one it records that nothing declares,
+ * is drift.
+ *
+ * @param {Map<string, Set<string>>} recorded
+ * @param {Map<string, Record<string, any>>} manifests package name -> packed manifest
+ * @returns {Array<{ name: string, missing: string[], extra: string[], absent: boolean }>}
+ */
+export function dependencyDrift(recorded, manifests) {
+  const drift = [];
+  for (const [name, manifest] of [...manifests].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    const runtime = new Set([...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.optionalDependencies ?? {})]);
+    const peers = new Set(Object.keys(manifest.peerDependencies ?? {}));
+    const inLock = recorded.get(name);
+    if (!inLock) {
+      drift.push({ name, missing: [...runtime].sort(), extra: [], absent: true });
+      continue;
+    }
+    const missing = [...runtime].filter((d) => !inLock.has(d)).sort();
+    const extra = [...inLock].filter((d) => !runtime.has(d) && !peers.has(d)).sort();
+    if (missing.length || extra.length) drift.push({ name, missing, extra, absent: false });
+  }
+  return drift;
+}
+
+/**
+ * Refuse when the cache and the lockfile disagree about dependencies.
+ *
+ * @param {string} root
+ * @param {Map<string, string>} overrides
+ */
+export function assertLockfileRecordsBuild(root, overrides) {
+  const manifests = new Map([...overrides].map(([name, dir]) => [name, readJson(path.join(root, CACHE_DIR, dir, 'package.json'))]));
+  const drift = dependencyDrift(lockfileDependencyNames(fs.readFileSync(path.join(root, 'pnpm-lock.yaml'), 'utf8')), manifests);
+  if (!drift.length) return;
+  const lines = drift.map((d) =>
+    d.absent
+      ? `  ${d.name}: pnpm-lock.yaml has no pinned-build entry for it`
+      : `  ${d.name}:${d.missing.length ? ` declares ${d.missing.join(', ')}, which the lockfile does not record;` : ''}${d.extra.length ? ` the lockfile records ${d.extra.join(', ')}, which it no longer declares;` : ''}`,
+  );
+  throw new PinRefusal(
+    `pnpm-lock.yaml does not record the dependencies the build in ${CACHE_DIR} declares:\n${lines.join('\n')}\n` +
+      'A frozen install would link this build WITHOUT them and exit 0 -- pnpm resolves a directory dependency from the lockfile alone. ' +
+      'The build is in place: run `pnpm install` to rewrite the lockfile from it, and commit pnpm-lock.yaml.',
+  );
 }
 
 // ── the cache ───────────────────────────────────────────────────────────────
@@ -399,7 +503,10 @@ function run(cmd, args, { cwd, capture = false, env = process.env }) {
     maxBuffer: 256 * 1024 * 1024,
   });
   if (result.error) throw new PinRefusal(`could not run \`${cmd} ${args.join(' ')}\` in ${cwd}: ${result.error.message}`);
-  if (result.status !== 0) throw new PinRefusal(`\`${cmd} ${args.join(' ')}\` exited ${result.status} in ${cwd}.`);
+  if (result.status !== 0) {
+    const said = capture && result.stdout ? `\n${result.stdout.trim().slice(-2000)}` : '';
+    throw new PinRefusal(`\`${cmd} ${args.join(' ')}\` exited ${result.status} in ${cwd}.${said}`);
+  }
   return capture ? result.stdout : '';
 }
 
@@ -473,6 +580,7 @@ export function build({ root = REPO_ROOT, env = process.env } = {}) {
     const verdict = judgeStamp(readStamp(root), { pin, overrides, root });
     if (verdict.current) {
       console.log(`✓ ${CACHE_DIR} is ${verdict.why} -- nothing to build.`);
+      assertLockfileRecordsBuild(root, overrides);
       return { skipped: true, stamp: readStamp(root) };
     }
     console.log(`→ ${CACHE_DIR}: ${verdict.why}. Building @objectstack/* at ${pin}.`);
@@ -483,11 +591,11 @@ export function build({ root = REPO_ROOT, env = process.env } = {}) {
   const cacheParent = path.dirname(path.join(root, CACHE_DIR));
   fs.mkdirSync(cacheParent, { recursive: true });
   const staging = fs.mkdtempSync(path.join(cacheParent, 'objectstack.staging-'));
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'objectstack-pin-'));
+  const scratch = fs.mkdtempSync(path.join(scratchBase(env), 'ospin-'));
   try {
     let tree = external;
     if (!external) {
-      tree = path.join(scratch, 'objectstack');
+      tree = path.join(scratch, 'src');
       step(`fetch objectstack ${pin.slice(0, 12)}`, () => checkoutPin(tree, pin, env.OBJECTSTACK_REPO_URL || DEFAULT_REPO_URL));
     }
     const projects = readWorkspace(tree);
@@ -538,6 +646,7 @@ export function build({ root = REPO_ROOT, env = process.env } = {}) {
         (external ? `from ${external} (${String(stamp.sha).slice(0, 12)}${stamp.dirty ? ', with uncommitted changes' : ''})` : `built at ${pin.slice(0, 12)}`) +
         '. Run `pnpm install` so node_modules links it.',
     );
+    assertLockfileRecordsBuild(root, overrides);
     return { skipped: false, stamp };
   } finally {
     fs.rmSync(staging, { recursive: true, force: true });
@@ -561,6 +670,25 @@ export function status({ root = REPO_ROOT } = {}) {
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Where the pinned commit is checked out and built. SHORT on purpose: the spec's
+ * build runs `tsx`, which listens on a unix socket under the package's
+ * `node_modules/.tmp/`, and a socket path has a hard length limit (104 bytes on
+ * macOS, 108 on Linux). Measured on objectui#12957: an install under a long
+ * scratch directory died in the spec's `prepare` with `listen EADDRINUSE` on that
+ * socket path. macOS's `os.tmpdir()` (`/var/folders/…/T/`) alone spends about half
+ * the budget, so `/tmp` is preferred wherever it exists; `OBJECTSTACK_BUILD_TMP`
+ * overrides both.
+ *
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {string}
+ */
+export function scratchBase(env) {
+  if (env.OBJECTSTACK_BUILD_TMP) return env.OBJECTSTACK_BUILD_TMP;
+  if (process.platform !== 'win32' && fs.existsSync('/tmp')) return '/tmp';
+  return os.tmpdir();
+}
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));

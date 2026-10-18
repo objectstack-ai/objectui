@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -200,6 +201,25 @@ describe('the pin, read from two faces', () => {
     );
     expect(twoFaced.pins.has('@objectstack/spec')).toBe(false);
     expect(twoFaced.conflicts).toHaveLength(1);
+  });
+
+  it('follows a pinned-build `file:` resolution to the version its directory declares (objectui#12957)', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pin-claims-'));
+    try {
+      const key = "  '@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))':\n";
+      expect(pinsFromLockfile(key, root).get('@objectstack/spec')).toEqual(
+        new Set(['(pinned build absent: node_modules/.cache/objectstack/spec — run `pnpm objectstack:build`)']),
+      );
+      fs.mkdirSync(path.join(root, 'node_modules/.cache/objectstack/spec'), { recursive: true });
+      fs.writeFileSync(path.join(root, 'node_modules/.cache/objectstack/spec/package.json'), '{"version":"18.0.0-next.3"}');
+      expect(pinsFromLockfile(key, root).get('@objectstack/spec')).toEqual(new Set(['18.0.0-next.3']));
+      // An absent build is a conflict that names it, never an empty face.
+      const absent = reconcilePins(pinsFromLockfile(key, path.join(root, 'nowhere')), new Map([['@objectstack/spec', new Set(['18.0.0-next.3'])]]));
+      expect(absent.pins.has('@objectstack/spec')).toBe(false);
+      expect(absent.conflicts[0].lock[0]).toMatch(/pinned build absent/);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('a package in the lockfile but linked nowhere is transitive, not a conflict', () => {

@@ -17,6 +17,7 @@ import { useAdapter } from '../providers/AdapterProvider.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { matchAppBySegment } from '../utils/appRoute.js';
 import { usePreviewDrafts } from '../preview/PreviewModeContext.js';
+import { useAfterFirstPaint } from './sharedUserFeeds.js';
 
 // ============================================================================
 // Pure utility helpers (exported for testing)
@@ -583,8 +584,19 @@ export function useNavigationSync(): UseNavigationSyncReturn {
  * > **Rename detection** is not possible with a simple diff — callers
  * > should invoke `syncPageRenamed` / `syncDashboardRenamed` explicitly.
  */
+/** What `NavigationSyncEffect` holds for a list it has not read yet. */
+const NOT_READ_YET: never[] = [];
+
 export function NavigationSyncEffect(): null {
-  const { pages, dashboards, apps, getTypeStatus } = useMetadata();
+  // objectui#12980 — `pages` and `dashboards` are LAZY getters: reading one
+  // starts its `/meta/:type` read. Nothing on the first paint needs this diff,
+  // so they are not read until the console has painted; the load-state guard
+  // below then waits for both, as it always has.
+  const painted = useAfterFirstPaint();
+  const metadata = useMetadata();
+  const { apps, getTypeStatus } = metadata;
+  const pages = painted ? metadata.pages : NOT_READ_YET;
+  const dashboards = painted ? metadata.dashboards : NOT_READ_YET;
   const adapter = useAdapter();
   const adapterRef = useRef(adapter);
   adapterRef.current = adapter;
@@ -618,6 +630,10 @@ export function NavigationSyncEffect(): null {
     app && typeof app === 'object' && 'name' in app ? (app as { name: string }).name : undefined;
 
   useEffect(() => {
+    // Before the first paint nothing is read, so there is nothing to seed a
+    // baseline from: seeding an empty one would diff the real lists, once
+    // they land, as every page and dashboard "added".
+    if (!painted) return;
     if (syncingRef.current) return;
     if (previewDrafts) {
       // Drop the baseline so leaving preview re-seeds instead of diffing the
@@ -729,7 +745,7 @@ export function NavigationSyncEffect(): null {
     return () => {
       cancelled = true;
     };
-  }, [pages, dashboards, apps, previewDrafts, getTypeStatus, syncPageCreated, syncDashboardCreated, syncPageDeleted, syncDashboardDeleted]);
+  }, [painted, pages, dashboards, apps, previewDrafts, getTypeStatus, syncPageCreated, syncDashboardCreated, syncPageDeleted, syncDashboardDeleted]);
 
   return null;
 }

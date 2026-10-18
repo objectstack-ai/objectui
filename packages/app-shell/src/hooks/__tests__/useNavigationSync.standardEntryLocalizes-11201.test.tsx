@@ -50,6 +50,7 @@ import {
   useObjectTranslation,
 } from '@object-ui/i18n';
 import { NavigationSyncEffect } from '../useNavigationSync';
+import { __markFirstPainted } from '../sharedUserFeeds';
 import { useNavTargetLabel } from '../useNavTargetLabel';
 
 vi.mock('sonner', () => ({
@@ -103,6 +104,9 @@ async function syncedDashboardEntry(): Promise<Record<string, unknown>> {
       </MetadataCtx.Provider>
     </AdapterCtx.Provider>
   );
+  // objectui#12980 — the effect reads nothing before the console's first
+  // paint; this case is about the stored entry, so it starts past it.
+  __markFirstPainted();
   const { rerender, unmount } = render(tree([]));
   await flush();
   rerender(tree([DASHBOARD]));

@@ -115,7 +115,7 @@ const fakeAdapter = {
 };
 vi.mock('../../providers/AdapterProvider', () => ({ useAdapter: () => fakeAdapter }));
 
-import { useSharedInboxFeed, __resetSharedUserFeeds } from '../sharedUserFeeds';
+import { useSharedInboxFeed, __resetSharedUserFeeds, __markFirstPainted } from '../sharedUserFeeds';
 
 /** Let the attach-time read settle without moving the clock past a poll. */
 const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(0); });
@@ -124,6 +124,8 @@ beforeEach(() => {
   vi.useFakeTimers();
   // Module-scoped stores outlive any one render tree.
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
   inboxRows = [RAW_ROW];
   // Approvals degrade to 0 (404) so nothing here depends on the REST feed.
   vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 404 }))));

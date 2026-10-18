@@ -298,10 +298,8 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
     : metadata.readObjectScope
       ? metadata.readObjectScope({ names: [cfg.source] }).objects
       : metadata.objects || [];
-  const objectDef = React.useMemo(
-    () => sourceObjects.find((o: any) => o?.name === cfg.source),
-    [sourceObjects, cfg.source],
-  );
+  // Not memoised: the scope's list is read afresh each render, as `objects` was.
+  const objectDef = sourceObjects.find((o: any) => o?.name === cfg.source);
   const resolvedView = React.useMemo(
     () => resolveSourceView(objectDef, cfg.sourceView),
     [objectDef, cfg.sourceView],

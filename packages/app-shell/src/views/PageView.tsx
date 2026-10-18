@@ -12,7 +12,7 @@
  * page, built by the same `appStudioRoutePath` (objectui#12540).
  */
 
-import { lazy, Suspense, useRef } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation, useHref } from 'react-router-dom';
 import {
   SchemaRenderer,
@@ -80,8 +80,10 @@ export function PageView() {
   // page reads the objects it binds (objectui#12980), below.
   const metadata = useMetadata();
   const { pages, getTypeStatus, readObjectScope } = metadata;
-  // The objects a block asked for by name that the page does not bind.
-  const requestedObjects = useRef<Set<string>>(new Set());
+  // The objects a block asked for by name that the page does not bind. One
+  // set for the page's life, added to while a block renders: never state that
+  // re-renders, since the answer landing is what re-renders the page.
+  const [requestedObjects] = useState(() => new Set<string>());
   // ADR-0048 Phase 2 — prefer the page owned by the current app's package so
   // two packages shipping `page/<same-name>` each resolve within their own
   // container instead of by load order.
@@ -147,13 +149,13 @@ export function PageView() {
   // `objects` is what it holds.
   const readPageObjects = () =>
     readPageObjectScope(readObjectScope!, activeApp as Record<string, any> | undefined, page, [
-      ...requestedObjects.current,
+      ...requestedObjects,
     ]).scope;
   const objects: any[] = readObjectScope ? readPageObjects().objects : metadata.objects ?? [];
   const knownObjects = new Set(objects.map((o: any) => o?.name));
   const requestObject = (name: string) => {
-    if (!readObjectScope || !name || knownObjects.has(name) || requestedObjects.current.has(name)) return;
-    requestedObjects.current.add(name);
+    if (!readObjectScope || !name || knownObjects.has(name) || requestedObjects.has(name)) return;
+    requestedObjects.add(name);
     readPageObjects();
   };
 

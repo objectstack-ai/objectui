@@ -227,7 +227,6 @@ function boot(url: string) {
 }
 
 const objectCalls = () => server.calls.filter((c) => c === 'object' || c.startsWith('object?') || c.startsWith('object/'));
-const splashUp = () => document.querySelector('[data-boot-splash]') !== null;
 
 beforeEach(() => {
   server.calls = [];

@@ -10,7 +10,7 @@
  *      objectstack-shaped workspace packed by the real `pnpm pack` — the input
  *      objectstack#24306 consumes. No network: nothing is fetched or installed.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -41,10 +41,9 @@ import {
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SHA = '0123456789abcdef0123456789abcdef01234567';
 
-let scratch = '';
-beforeAll(() => {
-  scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'objectstack-pin-test-'));
-});
+// Anchored on the OS temp directory at module scope, so no path below can be
+// read as relative to the process cwd (`pnpm check:test-path-roots`).
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'objectstack-pin-test-'));
 afterAll(() => {
   fs.rmSync(scratch, { recursive: true, force: true });
 });

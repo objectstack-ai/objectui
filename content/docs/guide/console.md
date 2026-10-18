@@ -11,7 +11,7 @@ The **Console** is the reference application for [ObjectUI](/docs/guide). It ren
 
 ```bash
 # From the repository root
-pnpm install
+pnpm run setup      # builds @objectstack/* at .objectstack-sha, then installs
 pnpm dev            # starts the console dev server (Vite)
 ```
 

@@ -268,6 +268,9 @@ describe('prose cannot be mistaken for a reference', () => {
     expect(parseRefs(source, 'repo-gates.yml').map((r: { ref: string }) => r.ref)).toEqual([
       'actions/checkout@v7',
       'actions/setup-node@v7',
+      // The pinned @objectstack build's restore and save (objectui#12957).
+      'actions/cache/restore@v6',
+      'actions/cache/save@v6',
     ]);
   });
 

@@ -456,9 +456,11 @@ describe('performance-budget.yml contract', () => {
   });
 
   it('gates the size report, the renderer and the comment on !cancelled()', () => {
-    // Four: those three, plus the turbo cache report (objectui#12276), which is
-    // bookkeeping after the verdict and reports on a red run for the same reason.
-    expect(conditions.filter((c) => c.includes('!cancelled()'))).toHaveLength(4);
+    // Five: those three, plus the turbo cache report (objectui#12276), which is
+    // bookkeeping after the verdict and reports on a red run for the same reason,
+    // plus the pinned @objectstack build's save (objectui#12957), bookkeeping after
+    // the verdict that keeps the build whatever the verdict was.
+    expect(conditions.filter((c) => c.includes('!cancelled()'))).toHaveLength(5);
   });
 
   it('generates the size report only from a complete package build', () => {
@@ -578,6 +580,8 @@ describe('performance-budget.yml contract', () => {
       'scripts/invoked-as.mjs',
       // The turbo cache report and prune the job runs after its verdict (objectui#12276).
       'scripts/report-turbo-cache.mjs',
+      // The pinned @objectstack build the job restores or builds before install (objectui#12957).
+      'scripts/objectstack-pin.mjs',
     ];
 
     it('triggers on its whole runtime closure, so no part of this gate ships unexercised', () => {

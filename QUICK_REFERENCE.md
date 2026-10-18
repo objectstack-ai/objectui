@@ -7,7 +7,8 @@ A one-page cheat-sheet for working in the `objectui` monorepo.
 ### Install & Build
 
 ```bash
-pnpm install              # Install all workspace dependencies
+pnpm run setup            # Build @objectstack/* at .objectstack-sha, then install (clean checkout)
+pnpm install              # Install all workspace dependencies (once the pinned build exists)
 pnpm build                # Build every package (turbo, parallel & cached)
 pnpm type-check           # Run tsc --noEmit across the workspace (turbo)
 pnpm lint                 # Run eslint across the workspace

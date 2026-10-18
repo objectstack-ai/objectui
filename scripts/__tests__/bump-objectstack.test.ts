@@ -15,7 +15,7 @@
  * The cases that pin a commit are the firing controls of the refusal cases: a
  * guard that refused everything would fail them.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -26,7 +26,9 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 const SCRIPT = path.join(repoRoot, 'scripts/bump-objectstack.sh');
 const OLD_PIN = 'a'.repeat(40);
 
-let scratch = '';
+// Anchored on the OS temp directory at module scope, so no path below can be
+// read as relative to the process cwd (`pnpm check:test-path-roots`).
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'bump-objectstack-'));
 
 function git(cwd: string, ...args: string[]): string {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8', env: GIT_ENV });
@@ -62,10 +64,10 @@ function makeObjectstack(name: string, { withOrigin = true } = {}) {
   const upstream = path.join(base, 'upstream');
   fs.mkdirSync(upstream, { recursive: true });
   git(upstream, 'init', '-q', '-b', 'main');
-  fs.writeFileSync(path.join(upstream, 'README.md'), 'one\n');
+  fs.writeFileSync(path.join(upstream, 'VERSION.txt'), 'one\n');
   git(upstream, 'add', '.');
   git(upstream, 'commit', '-q', '-m', 'feat(spec): first');
-  fs.writeFileSync(path.join(upstream, 'README.md'), 'two\n');
+  fs.writeFileSync(path.join(upstream, 'VERSION.txt'), 'two\n');
   git(upstream, 'commit', '-qam', 'feat(spec): second on main');
   const checkout = path.join(base, 'objectstack');
   if (withOrigin) {
@@ -76,7 +78,7 @@ function makeObjectstack(name: string, { withOrigin = true } = {}) {
   }
   const mainTip = git(checkout, 'rev-parse', 'HEAD');
   git(checkout, 'checkout', '-q', '-b', 'feature');
-  fs.writeFileSync(path.join(checkout, 'README.md'), 'three\n');
+  fs.writeFileSync(path.join(checkout, 'VERSION.txt'), 'three\n');
   git(checkout, 'commit', '-qam', 'wip: not on main');
   const featureTip = git(checkout, 'rev-parse', 'HEAD');
   git(checkout, 'checkout', '-q', 'main');
@@ -93,9 +95,6 @@ function bump(objectui: string, objectstack: string, ...args: string[]) {
 
 const pinOf = (objectui: string) => fs.readFileSync(path.join(objectui, '.objectstack-sha'), 'utf8');
 
-beforeAll(() => {
-  scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'bump-objectstack-'));
-});
 afterAll(() => {
   fs.rmSync(scratch, { recursive: true, force: true });
 });

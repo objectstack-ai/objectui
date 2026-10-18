@@ -84,6 +84,21 @@ jobs:
           node-version: '22.x'
           cache: 'pnpm'
 
+      # objectui#12957: every @objectstack/* package resolves to the build of the
+      # commit `.objectstack-sha` pins, read from node_modules/.cache/objectstack, so
+      # it must be there before pnpm resolves anything. Restored by the pin and built
+      # only on a miss (scripts/objectstack-pin.mjs); the save is this job's last step.
+      - name: Restore the pinned @objectstack build
+        id: objectstack-pin
+        uses: actions/cache/restore@v6
+        with:
+          path: node_modules/.cache/objectstack
+          key: objectstack-pin-${{ runner.os }}-${{ hashFiles('.objectstack-sha', 'scripts/objectstack-pin.mjs') }}
+
+      - name: Build @objectstack at the pin (skips a restored build)
+        id: objectstack-build
+        run: node scripts/objectstack-pin.mjs build
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -95,3 +110,16 @@ jobs:
       # entries actually evaluated.
       - name: Build every published package and import its entry under plain Node
         run: pnpm check:node-esm-load
+
+      # The pinned @objectstack build, saved only when this job built it (a cache
+      # miss) and whatever the verdict above was -- it does not depend on it.
+      # Bookkeeping: bounded and non-fatal (objectui#6577, objectui#7048). The bound
+      # is not yet derived from a measured save; re-derive it from this step's runs.
+      - name: Save the pinned @objectstack build
+        if: ${{ !cancelled() && steps.objectstack-build.outcome == 'success' && steps.objectstack-pin.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        timeout-minutes: 2
+        uses: actions/cache/save@v6
+        with:
+          path: node_modules/.cache/objectstack
+          key: objectstack-pin-${{ runner.os }}-${{ hashFiles('.objectstack-sha', 'scripts/objectstack-pin.mjs') }}

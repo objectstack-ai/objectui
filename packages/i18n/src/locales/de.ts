@@ -1687,13 +1687,13 @@ const de = {
     savedViewsUnreadable: "Diese Liste ist leer, weil sie nicht gelesen werden konnte, nicht weil dieses Objekt keine gespeicherten Ansichten hätte. Versuchen Sie es erneut und melden Sie das Problem, wenn es weiterhin auftritt.",
     settingsHub: {
       title: "Einstellungen",
-      subtitle: "Konfigurieren Sie Ihre Umgebung, Integrationen und Feature-Flags.",
+      subtitle: "Konfigurieren Sie Ihr System, Integrationen und Feature-Flags.",
       loadError: "Einstellungen konnten nicht geladen werden",
       empty: "Keine Einstellungen registriert. Plugins können Einstellungsmanifeste über den SettingsService registrieren.",
       settingsCount: "{{n}} Einstellungen",
       beta: "Beta",
       categories: {
-        Workspace: "Umgebung",
+        Workspace: "Allgemein",
         Communication: "Kommunikation",
         Security: "Sicherheit",
         Infrastructure: "Infrastruktur",
@@ -2039,12 +2039,12 @@ const de = {
       unsupportedSpecifierType: "Nicht unterstützter Einstellungstyp: {{type}}",
     },
     workspaceTimezonePrompt: {
-      title: "Zeitzone der Umgebung festlegen",
-      description: "Diese Umgebung verwendet noch die Standardzeitzone der Plattform, {{current}}. Die Zeitzone der Umgebung bestimmt, welcher Tag in Formeln als heute gilt, wie Berichte nach Datum gruppieren und wie Datum und Uhrzeit angezeigt werden – für alle in der Umgebung. Unten ist die Zeitzone Ihres Browsers eingetragen.",
+      title: "Zeitzone des Systems festlegen",
+      description: "Dieses System verwendet noch die Standardzeitzone der Plattform, {{current}}. Die Zeitzone des Systems bestimmt, welcher Tag in Formeln als heute gilt, wie Berichte nach Datum gruppieren und wie Datum und Uhrzeit angezeigt werden – für alle im System. Unten ist die Zeitzone Ihres Browsers eingetragen.",
       laterHint: "Sie können sie jederzeit in den Einstellungen ändern.",
       decline: "Standard beibehalten",
       confirm: "Zeitzone festlegen",
-      saved: "Zeitzone der Umgebung auf {{zone}} festgelegt",
+      saved: "Zeitzone des Systems auf {{zone}} festgelegt",
     },
     error: {
       connectionFailed: "Verbindung zum Server nicht möglich",
@@ -2104,9 +2104,9 @@ const de = {
     },
     // objectui#9954 — see the `en` pack for what raises each case.
     readRate: {
-      ratioTitle: 'Ungewöhnliches Lesevolumen in dieser Umgebung',
+      ratioTitle: 'Ungewöhnliches Lesevolumen in diesem System',
       ratio: 'Pro geschriebener Zeile werden {{ratio}} Zeilen gelesen. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
-      noWritesTitle: 'Lesevorgänge ganz ohne Schreibvorgänge in dieser Umgebung',
+      noWritesTitle: 'Lesevorgänge ganz ohne Schreibvorgänge in diesem System',
       noWrites: 'Es werden Zeilen gelesen, aber überhaupt keine geschrieben, sodass die Leserate keine Obergrenze hat. Das ist der schwerwiegendste Messwert. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
     },
     // objectui#10439 — see the `en` pack for what raises each case.
@@ -2267,7 +2267,7 @@ const de = {
   auth: {
     setPassword: {
       title: "Wiederherstellungspasswort festlegen",
-      description: "Sie haben sich über Single Sign-on angemeldet. Legen Sie ein lokales Passwort fest, damit Sie sich weiterhin direkt an dieser Umgebung anmelden können, falls SSO einmal nicht verfügbar ist.",
+      description: "Sie haben sich über Single Sign-on angemeldet. Legen Sie ein lokales Passwort fest, damit Sie sich weiterhin direkt anmelden können, falls SSO einmal nicht verfügbar ist.",
       email: "E-Mail",
       newPassword: "Neues Passwort",
       confirmPassword: "Passwort bestätigen",
@@ -2352,7 +2352,7 @@ const de = {
       orText: "oder mit E-Mail fortfahren",
       errors: {
         userExists: "Ein Konto mit dieser E-Mail existiert bereits. Versuchen Sie sich anzumelden.",
-        selfRegistrationClosed: "Die Selbstregistrierung ist in dieser Umgebung nicht möglich. Bitten Sie einen Administrator um eine Einladung.",
+        selfRegistrationClosed: "Die Selbstregistrierung ist in diesem System nicht möglich. Bitten Sie einen Administrator um eine Einladung.",
         emailDomainNotAllowed: "Die Domain dieser E-Mail-Adresse ist für die Registrierung hier nicht zugelassen. Verwenden Sie die E-Mail-Adresse Ihrer Organisation oder bitten Sie einen Administrator um eine Einladung.",
       },
       verifyInbox: {
@@ -2429,7 +2429,7 @@ const de = {
       checkSpam: "E-Mail nicht erhalten? Überprüfen Sie Ihren Spam-Ordner oder kontaktieren Sie den Support.",
       or: "Oder",
       // objectui#3546 slice three.
-      resendUnavailable: "Für diese Umgebung ist möglicherweise kein E-Mail-Versand konfiguriert. Kontaktieren Sie den Support, wenn das Problem bestehen bleibt.",
+      resendUnavailable: "Für dieses System ist möglicherweise kein E-Mail-Versand konfiguriert. Kontaktieren Sie den Support, wenn das Problem bestehen bleibt.",
     },
     setup: {
       welcomeTitle: "Willkommen bei ObjectStack",
@@ -2473,7 +2473,7 @@ const de = {
       disabledDescription: "Für diese Bereitstellung ist die Geräteautorisierung nicht aktiviert, daher kann dieses Gerät hier nicht genehmigt werden.",
     },
     shell: {
-      tenantHostHint: "Sie melden sich bei dieser Umgebung an",
+      tenantHostHint: "Sie melden sich bei diesem System an",
     },
     layout: {
       headline: "Leistungsstarke Geschäftsanwendungen schneller entwickeln.",
@@ -2570,9 +2570,9 @@ const de = {
     password: {
       changeTitle: "Passwort ändern",
       setTitle: "Lokales Passwort festlegen",
-      changeDescription: "Aktualisieren Sie das Passwort, mit dem Sie sich in dieser Umgebung anmelden.",
+      changeDescription: "Aktualisieren Sie das Passwort, mit dem Sie sich anmelden.",
       setDescription:
-        "Sie haben sich per Single Sign-On angemeldet. Legen Sie ein lokales Passwort fest, um sich in dieser Umgebung auch mit E-Mail und Passwort anmelden zu können.",
+        "Sie haben sich per Single Sign-On angemeldet. Legen Sie ein lokales Passwort fest, um sich auch mit E-Mail und Passwort anmelden zu können.",
       current: "Aktuelles Passwort",
       new: "Neues Passwort",
       password: "Passwort",
@@ -2581,7 +2581,7 @@ const de = {
       mismatch: "Die Passwörter stimmen nicht überein",
       enterCurrent: "Geben Sie Ihr aktuelles Passwort ein",
       changed: "Passwort geändert.",
-      localSet: "Lokales Passwort festgelegt. Sie können sich in dieser Umgebung jetzt auch mit E-Mail und Passwort anmelden.",
+      localSet: "Lokales Passwort festgelegt. Sie können sich jetzt auch mit E-Mail und Passwort anmelden.",
       changeAction: "Passwort ändern",
       setAction: "Passwort festlegen",
     },
@@ -2659,7 +2659,7 @@ const de = {
   home: {
     build: {
       title: "App erstellen",
-      noCapability: "Das Erstellen von Apps ist in dieser Umgebung nicht verfügbar — es erfordert die Berechtigung „Metadaten verwalten“, die Ihr Konto nicht besitzt.",
+      noCapability: "Das Erstellen von Apps ist in diesem System nicht verfügbar — es erfordert die Berechtigung „Metadaten verwalten“, die Ihr Konto nicht besitzt.",
     },
     template: {
       title: "Mit einer Vorlage starten",
@@ -2669,7 +2669,7 @@ const de = {
     welcomeAdminDescriptionNoBuild: "Richten Sie Ihre erste Anwendung über das Verwaltungsmenü links ein. Sobald Daten vorhanden sind, kann der KI-Assistent bei der Auswertung helfen.",
     welcomeAdminDescriptionNoAi: "Richten Sie Ihre erste Anwendung über das Verwaltungsmenü links ein.",
     noAppsTitle: "Noch keine Anwendungen",
-    noAppsDescription: "Ihre Umgebung wird eingerichtet — Apps, die Ihr Administrator für Sie freigibt, erscheinen hier.",
+    noAppsDescription: "Das System wird eingerichtet — Apps, die Ihr Administrator für Sie freigibt, erscheinen hier.",
     buildWithAI: "Mit KI erstellen",
     askAI: "KI fragen",
     recoveryReminder: {
@@ -2718,7 +2718,7 @@ const de = {
       notifications: "Benachrichtigungen",
       notificationsEmpty: "Keine ungelesenen Benachrichtigungen",
     },
-    loading: "Umgebung wird geladen…",
+    loading: "Wird geladen…",
     welcome: "Willkommen bei ObjectUI",
     welcomeDescription: "Erstellen Sie zunächst Ihre erste Anwendung oder konfigurieren Sie Ihre Systemeinstellungen.",
     createFirstApp: "Erstellen Sie Ihre erste App",
@@ -2729,7 +2729,7 @@ const de = {
       manageObjects: "Objekte verwalten",
       manageObjectsDesc: "Datenmodelle konfigurieren",
       systemSettings: "Systemeinstellungen",
-      systemSettingsDesc: "Konfigurieren Sie Ihre Umgebung",
+      systemSettingsDesc: "Konfigurieren Sie Ihr System",
     },
     appCard: {
       noDescription: "Keine Beschreibung",
@@ -3193,10 +3193,10 @@ const de = {
       body: 'Die MCP-Schnittstelle ist ausgeschaltet (OS_MCP_SERVER_ENABLED=false). Bitten Sie Ihren Betreiber, sie wieder zu aktivieren.',
     },
     url: {
-      title: 'MCP-Endpunkt dieser Umgebung',
+      title: 'MCP-Endpunkt dieses Systems',
       body: 'Jeder MCP-fähige KI-Client verbindet sich über diese URL. Die Identität ist Self-Service: Die Bereitstellung ist ihr eigener OAuth-2.1-Autorisierungsserver — Sie melden sich als Sie selbst an, und jeder Aufruf unterliegt Ihren Berechtigungen und der Zeilensicherheit.',
       downloadSkill: 'SKILL.md herunterladen',
-      skillHint: 'Die portable Agenten-Skill-Datei: erklärt jedem skill-fähigen Agenten die Arbeit mit dieser Umgebung.',
+      skillHint: 'Die portable Agenten-Skill-Datei: erklärt jedem skill-fähigen Agenten die Arbeit mit diesem System.',
     },
     claude: {
       body: 'Einstellungen → Connectors → Benutzerdefinierten Connector hinzufügen, dann diese URL einfügen und im Browser anmelden.',
@@ -3327,8 +3327,8 @@ const de = {
     rowConversational: "Build-/Ask-Modell",
     rowStructured: "Strukturiert (Blueprint / Seed)",
     rowReasoning: "Reasoning-Aufwand",
-    readFailed: "Das effektive KI-Modell konnte nicht gelesen werden. In dieser Umgebung läuft möglicherweise kein KI-Dienst, oder Ihnen fehlt die Berechtigung ai:read.",
-    readFailedWithStatus: "Das effektive KI-Modell konnte nicht gelesen werden (HTTP {{status}}). In dieser Umgebung läuft möglicherweise kein KI-Dienst, oder Ihnen fehlt die Berechtigung ai:read.",
+    readFailed: "Das effektive KI-Modell konnte nicht gelesen werden. In diesem System läuft möglicherweise kein KI-Dienst, oder Ihnen fehlt die Berechtigung ai:read.",
+    readFailedWithStatus: "Das effektive KI-Modell konnte nicht gelesen werden (HTTP {{status}}). In diesem System läuft möglicherweise kein KI-Dienst, oder Ihnen fehlt die Berechtigung ai:read.",
     overridesInEffect: "Aktive Overrides: ",
     noOverrides: "keine — es gelten die Standardwerte des bereitgestellten Codes.",
     adapter: "Adapter: ",

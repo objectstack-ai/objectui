@@ -1687,13 +1687,13 @@ const ja = {
     savedViewsUnreadable: "このリストが空なのは読み取れなかったためであり、このオブジェクトに保存済みビューがないためではありません。再試行し、繰り返し発生する場合は報告してください。",
     settingsHub: {
       title: "設定",
-      subtitle: "環境、連携、機能フラグを設定します。",
+      subtitle: "システム、連携、機能フラグを設定します。",
       loadError: "設定の読み込みに失敗しました",
       empty: "登録された設定はありません。プラグインは SettingsService 経由で設定マニフェストを登録できます。",
       settingsCount: "{{n}} 件の設定",
       beta: "ベータ",
       categories: {
-        Workspace: "環境",
+        Workspace: "一般",
         Communication: "コミュニケーション",
         Security: "セキュリティ",
         Infrastructure: "インフラストラクチャ",
@@ -2041,12 +2041,12 @@ const ja = {
       unsupportedSpecifierType: "サポートされていない設定項目の種類: {{type}}",
     },
     workspaceTimezonePrompt: {
-      title: "環境のタイムゾーンを設定",
-      description: "この環境は、まだプラットフォームの既定のタイムゾーン（{{current}}）を使用しています。環境のタイムゾーンは、数式での「今日」の意味、レポートの日付ごとのグループ化、日付と時刻の表示方法を決め、環境の全員に適用されます。下にブラウザーのタイムゾーンを入力しています。",
+      title: "システムのタイムゾーンを設定",
+      description: "このシステムは、まだプラットフォームの既定のタイムゾーン（{{current}}）を使用しています。システムのタイムゾーンは、数式での「今日」の意味、レポートの日付ごとのグループ化、日付と時刻の表示方法を決め、システムの全員に適用されます。下にブラウザーのタイムゾーンを入力しています。",
       laterHint: "設定ページでいつでも変更できます。",
       decline: "既定のままにする",
       confirm: "タイムゾーンを設定",
-      saved: "環境のタイムゾーンを {{zone}} に設定しました",
+      saved: "システムのタイムゾーンを {{zone}} に設定しました",
     },
     error: {
       connectionFailed: "サーバーに接続できません",
@@ -2106,9 +2106,9 @@ const ja = {
     },
     // objectui#9954 — see the `en` pack for what raises each case.
     readRate: {
-      ratioTitle: 'この環境の読み取り量が異常です',
+      ratioTitle: 'このシステムの読み取り量が異常です',
       ratio: '書き込み 1 行あたり {{ratio}} 行を読み取っています。プラットフォームは {{threshold}} を超える比率を検出対象とします。制限やブロックは一切行われていません。読み取りパターンを確認するための報告です。',
-      noWritesTitle: 'この環境は読み取りのみで書き込みがまったくありません',
+      noWritesTitle: 'このシステムは読み取りのみで書き込みがまったくありません',
       noWrites: '行の読み取りはある一方で書き込みがまったくないため、読み取り比率に上限がありません。これは最も深刻な読み取り値です。プラットフォームは {{threshold}} を超える比率を検出対象とします。制限やブロックは一切行われていません。読み取りパターンを確認するための報告です。',
     },
     // objectui#10439 — see the `en` pack for what raises each case.
@@ -2269,7 +2269,7 @@ const ja = {
   auth: {
     setPassword: {
       title: "リカバリー用パスワードを設定",
-      description: "シングルサインオンでサインインしました。SSO が利用できなくなったときにもこの環境へ直接サインインできるよう、ローカルパスワードを設定してください。",
+      description: "シングルサインオンでサインインしました。SSO が利用できなくなったときにも直接サインインできるよう、ローカルパスワードを設定してください。",
       email: "メールアドレス",
       newPassword: "新しいパスワード",
       confirmPassword: "パスワードの確認",
@@ -2354,7 +2354,7 @@ const ja = {
       orText: "またはメールアドレスで続行",
       errors: {
         userExists: "このメールアドレスのアカウントはすでに存在します。代わりにサインインしてください。",
-        selfRegistrationClosed: "この環境ではセルフ登録を受け付けていません。管理者に招待を依頼してください。",
+        selfRegistrationClosed: "このシステムではセルフ登録を受け付けていません。管理者に招待を依頼してください。",
         emailDomainNotAllowed: "このメールアドレスのドメインはここでの登録が許可されていません。組織のメールアドレスを使用するか、管理者に招待を依頼してください。",
       },
       verifyInbox: {
@@ -2431,7 +2431,7 @@ const ja = {
       checkSpam: "メールが届きませんか？スパムフォルダーを確認するか、サポートに連絡してください。",
       or: "または",
       // objectui#3546 slice three.
-      resendUnavailable: "この環境ではメール配信が設定されていない可能性があります。問題が続く場合はサポートに連絡してください。",
+      resendUnavailable: "このシステムではメール配信が設定されていない可能性があります。問題が続く場合はサポートに連絡してください。",
     },
     setup: {
       welcomeTitle: "ObjectStackへようこそ",
@@ -2475,7 +2475,7 @@ const ja = {
       disabledDescription: "このデプロイメントではデバイス認証が有効になっていないため、ここでこのデバイスを承認できません。",
     },
     shell: {
-      tenantHostHint: "この環境にサインインしています",
+      tenantHostHint: "このシステムにサインインしています",
     },
     layout: {
       headline: "強力なビジネスアプリを、より速く。",
@@ -2572,9 +2572,9 @@ const ja = {
     password: {
       changeTitle: "パスワードを変更",
       setTitle: "ローカルパスワードを設定",
-      changeDescription: "この環境へのサインインに使用するパスワードを更新します。",
+      changeDescription: "サインインに使用するパスワードを更新します。",
       setDescription:
-        "シングルサインオンでサインインしています。ローカルパスワードを設定すると、この環境でメールアドレスとパスワードでもサインインできます。",
+        "シングルサインオンでサインインしています。ローカルパスワードを設定すると、メールアドレスとパスワードでもサインインできます。",
       current: "現在のパスワード",
       new: "新しいパスワード",
       password: "パスワード",
@@ -2583,7 +2583,7 @@ const ja = {
       mismatch: "パスワードが一致しません",
       enterCurrent: "現在のパスワードを入力してください",
       changed: "パスワードを変更しました。",
-      localSet: "ローカルパスワードを設定しました。この環境でメールアドレスとパスワードでサインインできます。",
+      localSet: "ローカルパスワードを設定しました。メールアドレスとパスワードでサインインできます。",
       changeAction: "パスワードを変更",
       setAction: "パスワードを設定",
     },
@@ -2661,7 +2661,7 @@ const ja = {
   home: {
     build: {
       title: "アプリを作る",
-      noCapability: "この環境ではアプリの作成はできません — 「メタデータ管理」権限が必要ですが、お使いのアカウントにはありません。",
+      noCapability: "このシステムではアプリの作成はできません — 「メタデータ管理」権限が必要ですが、お使いのアカウントにはありません。",
     },
     template: {
       title: "テンプレートから始める",
@@ -2671,7 +2671,7 @@ const ja = {
     welcomeAdminDescriptionNoBuild: "左の管理メニューから最初のアプリケーションを設定してください。データが入ると、AI アシスタントが分析を手伝えます。",
     welcomeAdminDescriptionNoAi: "左の管理メニューから最初のアプリケーションを設定してください。",
     noAppsTitle: "アプリケーションがまだありません",
-    noAppsDescription: "環境を準備中です — 管理者が共有したアプリがここに表示されます。",
+    noAppsDescription: "システムを準備中です — 管理者が共有したアプリがここに表示されます。",
     buildWithAI: "AI でビルド",
     askAI: "AI に質問",
     recoveryReminder: {
@@ -2720,7 +2720,7 @@ const ja = {
       notifications: "通知",
       notificationsEmpty: "未読の通知はありません",
     },
-    loading: "環境を読み込み中…",
+    loading: "読み込み中…",
     welcome: "ObjectUI へようこそ",
     welcomeDescription: "最初のアプリケーションを作成するか、システム設定を行ってください。",
     createFirstApp: "最初のアプリを作成",
@@ -2731,7 +2731,7 @@ const ja = {
       manageObjects: "オブジェクトを管理",
       manageObjectsDesc: "データモデルを設定",
       systemSettings: "システム設定",
-      systemSettingsDesc: "環境を設定",
+      systemSettingsDesc: "システムを設定",
     },
     appCard: {
       noDescription: "説明なし",
@@ -3195,10 +3195,10 @@ const ja = {
       body: 'MCP サーフェスがオフになっています(OS_MCP_SERVER_ENABLED=false)。運用担当者に再有効化を依頼してください。',
     },
     url: {
-      title: 'この環境の MCP エンドポイント',
+      title: 'このシステムの MCP エンドポイント',
       body: 'MCP 対応の AI クライアントはこの URL で接続します。認証はセルフサービスです:デプロイメント自体が OAuth 2.1 認可サーバーなので、ブラウザでログインするだけ。すべての呼び出しはあなたの権限と行レベルセキュリティの下で実行されます。',
       downloadSkill: 'SKILL.md をダウンロード',
-      skillHint: 'ポータブルなエージェントスキル:スキル対応エージェントにこの環境の使い方を教えます。',
+      skillHint: 'ポータブルなエージェントスキル:スキル対応エージェントにこのシステムの使い方を教えます。',
     },
     claude: {
       body: '設定 → コネクタ → カスタムコネクタを追加で、この URL を貼り付け、ブラウザでログインしてください。',
@@ -3329,8 +3329,8 @@ const ja = {
     rowConversational: "Build / Ask モデル",
     rowStructured: "構造化（ブループリント / シード）",
     rowReasoning: "推論の強度",
-    readFailed: "有効な AI モデルを読み取れませんでした。この環境は AI サービスを実行していないか、ai:read 権限がない可能性があります。",
-    readFailedWithStatus: "有効な AI モデルを読み取れませんでした（HTTP {{status}}）。この環境は AI サービスを実行していないか、ai:read 権限がない可能性があります。",
+    readFailed: "有効な AI モデルを読み取れませんでした。このシステムは AI サービスを実行していないか、ai:read 権限がない可能性があります。",
+    readFailedWithStatus: "有効な AI モデルを読み取れませんでした（HTTP {{status}}）。このシステムは AI サービスを実行していないか、ai:read 権限がない可能性があります。",
     overridesInEffect: "有効なオーバーライド: ",
     noOverrides: "なし — デプロイ済みコードの既定値で動作しています。",
     adapter: "アダプター: ",

@@ -29,7 +29,7 @@ export function signUpRefusalMessages(t: TranslateFn): Record<string, string> {
     // invitation only, or only from allowlisted email domains.
     SELF_REGISTRATION_CLOSED: t('auth.register.errors.selfRegistrationClosed', {
       defaultValue:
-        'Self-registration is not open on this environment. Ask an administrator for an invitation.',
+        'Self-registration is not open on this system. Ask an administrator for an invitation.',
     }),
     EMAIL_DOMAIN_NOT_ALLOWED: t('auth.register.errors.emailDomainNotAllowed', {
       defaultValue:

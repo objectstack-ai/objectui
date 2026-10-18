@@ -83,7 +83,7 @@ export function VerifyEmailPromptPage() {
         (err as Error)?.message?.trim() ||
         t('auth.verifyEmail.resendUnavailable', {
           defaultValue:
-            'Email delivery may not be configured for this environment. Contact support if this persists.',
+            'Email delivery may not be configured for this system. Contact support if this persists.',
         });
       setResent(false);
       setResendError(description);

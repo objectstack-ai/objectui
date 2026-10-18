@@ -51,7 +51,7 @@ export function QuickActions() {
     {
       id: 'system-settings',
       label: t('home.quickActions.systemSettings', { defaultValue: 'System Settings' }),
-      description: t('home.quickActions.systemSettingsDesc', { defaultValue: 'Configure your environment' }),
+      description: t('home.quickActions.systemSettingsDesc', { defaultValue: 'Configure your system' }),
       icon: Settings,
       // #3611 — the system hub, not the bare `/apps/setup` (which is the
       // "No Apps Configured" empty state's own URL on a zero-app deployment).

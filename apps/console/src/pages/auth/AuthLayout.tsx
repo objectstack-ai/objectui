@@ -154,7 +154,7 @@ export function AuthLayout({ children, formWidth = 'sm' }: AuthLayoutProps) {
             <span
               className="rounded-full border border-border/60 bg-background/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground"
               title={t('auth.shell.tenantHostHint', {
-                defaultValue: 'You are signing in to this environment',
+                defaultValue: 'You are signing in to this system',
               })}
             >
               {host}

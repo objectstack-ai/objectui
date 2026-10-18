@@ -1728,13 +1728,13 @@ const pt = {
     savedViewsUnreadable: "Esta lista está vazia porque não pôde ser lida, não porque este objeto não tenha exibições salvas. Tente novamente e relate o problema se ele persistir.",
     settingsHub: {
       title: "Configurações",
-      subtitle: "Configure seu ambiente, integrações e sinalizadores de recursos.",
+      subtitle: "Configure seu sistema, integrações e sinalizadores de recursos.",
       loadError: "Falha ao carregar as configurações",
       empty: "Nenhuma configuração registrada. Os plugins podem registrar manifestos de configuração pelo SettingsService.",
       settingsCount: "{{n}} configurações",
       beta: "Beta",
       categories: {
-        Workspace: "Ambiente",
+        Workspace: "Geral",
         Communication: "Comunicação",
         Security: "Segurança",
         Infrastructure: "Infraestrutura",
@@ -2083,12 +2083,12 @@ const pt = {
       unsupportedSpecifierType: "Tipo de configuração não suportado: {{type}}",
     },
     workspaceTimezonePrompt: {
-      title: "Definir o fuso horário do ambiente",
-      description: "Este ambiente ainda usa o fuso horário padrão da plataforma, {{current}}. O fuso horário do ambiente define o que \"hoje\" significa nas fórmulas, como os relatórios agrupam por data e como datas e horas são exibidas, para todos no ambiente. O fuso horário do seu navegador foi preenchido abaixo.",
+      title: "Definir o fuso horário do sistema",
+      description: "Este sistema ainda usa o fuso horário padrão da plataforma, {{current}}. O fuso horário do sistema define o que \"hoje\" significa nas fórmulas, como os relatórios agrupam por data e como datas e horas são exibidas, para todos no sistema. O fuso horário do seu navegador foi preenchido abaixo.",
       laterHint: "Você pode alterá-lo a qualquer momento na página de Configurações.",
       decline: "Manter o padrão",
       confirm: "Definir fuso horário",
-      saved: "Fuso horário do ambiente definido como {{zone}}",
+      saved: "Fuso horário do sistema definido como {{zone}}",
     },
     error: {
       connectionFailed: "Não é possível conectar ao servidor",
@@ -2148,9 +2148,9 @@ const pt = {
     },
     // objectui#9954 — see the `en` pack for what raises each case.
     readRate: {
-      ratioTitle: 'Volume de leitura incomum neste ambiente',
+      ratioTitle: 'Volume de leitura incomum neste sistema',
       ratio: 'São lidas {{ratio}} linhas para cada linha gravada. A plataforma sinaliza tudo acima de {{threshold}}. Nada está sendo limitado ou bloqueado; este é um relatório para que o padrão de leitura possa ser revisado.',
-      noWritesTitle: 'Leituras sem nenhuma gravação neste ambiente',
+      noWritesTitle: 'Leituras sem nenhuma gravação neste sistema',
       noWrites: 'Linhas estão sendo lidas sem que nenhuma seja gravada, portanto a taxa de leitura não tem limite superior. Esta é a leitura mais grave. A plataforma sinaliza tudo acima de {{threshold}}. Nada está sendo limitado ou bloqueado; este é um relatório para que o padrão de leitura possa ser revisado.',
     },
     // objectui#10439 — see the `en` pack for what raises each case.
@@ -2314,7 +2314,7 @@ const pt = {
   auth: {
     setPassword: {
       title: "Definir uma senha de recuperação",
-      description: "Você entrou por logon único. Defina uma senha local para continuar conseguindo acessar este ambiente diretamente caso o SSO fique indisponível.",
+      description: "Você entrou por logon único. Defina uma senha local para continuar conseguindo entrar diretamente caso o SSO fique indisponível.",
       email: "E-mail",
       newPassword: "Nova senha",
       confirmPassword: "Confirmar a senha",
@@ -2399,7 +2399,7 @@ const pt = {
       orText: "ou continue com e-mail",
       errors: {
         userExists: "Já existe uma conta com esse e-mail. Tente fazer login.",
-        selfRegistrationClosed: "O cadastro por conta própria não está aberto neste ambiente. Peça um convite a um administrador.",
+        selfRegistrationClosed: "O cadastro por conta própria não está aberto neste sistema. Peça um convite a um administrador.",
         emailDomainNotAllowed: "O domínio deste e-mail não tem permissão para se cadastrar aqui. Use o e-mail da sua organização ou peça um convite a um administrador.",
       },
       verifyInbox: {
@@ -2476,7 +2476,7 @@ const pt = {
       checkSpam: "Não recebeu o e-mail? Verifique sua pasta de spam ou entre em contato com o suporte.",
       or: "Ou",
       // objectui#3546 slice three.
-      resendUnavailable: "O envio de e-mails pode não estar configurado neste ambiente. Entre em contato com o suporte se o problema persistir.",
+      resendUnavailable: "O envio de e-mails pode não estar configurado neste sistema. Entre em contato com o suporte se o problema persistir.",
     },
     setup: {
       welcomeTitle: "Bem-vindo ao ObjectStack",
@@ -2520,7 +2520,7 @@ const pt = {
       disabledDescription: "Esta implantação não tem a autorização de dispositivo habilitada, por isso este dispositivo não pode ser aprovado aqui.",
     },
     shell: {
-      tenantHostHint: "Você está fazendo login neste ambiente",
+      tenantHostHint: "Você está fazendo login neste sistema",
     },
     layout: {
       headline: "Crie aplicativos de negócios poderosos, com mais rapidez.",
@@ -2617,9 +2617,9 @@ const pt = {
     password: {
       changeTitle: "Alterar senha",
       setTitle: "Definir senha local",
-      changeDescription: "Atualize a senha que você usa para entrar neste ambiente.",
+      changeDescription: "Atualize a senha que você usa para entrar.",
       setDescription:
-        "Você entrou via logon único (SSO). Defina uma senha local para também poder entrar com e-mail e senha neste ambiente.",
+        "Você entrou via logon único (SSO). Defina uma senha local para também poder entrar com e-mail e senha.",
       current: "Senha atual",
       new: "Nova senha",
       password: "Senha",
@@ -2628,7 +2628,7 @@ const pt = {
       mismatch: "As senhas não coincidem",
       enterCurrent: "Digite sua senha atual",
       changed: "Senha alterada.",
-      localSet: "Senha local definida. Agora você pode entrar com e-mail e senha neste ambiente.",
+      localSet: "Senha local definida. Agora você pode entrar com e-mail e senha.",
       changeAction: "Alterar senha",
       setAction: "Definir senha",
     },
@@ -2706,7 +2706,7 @@ const pt = {
   home: {
     build: {
       title: "Criar um aplicativo",
-      noCapability: "A criação de aplicativos não está disponível neste ambiente — ela exige a permissão “Gerenciar metadados”, que sua conta não possui.",
+      noCapability: "A criação de aplicativos não está disponível neste sistema — ela exige a permissão “Gerenciar metadados”, que sua conta não possui.",
     },
     template: {
       title: "Comece com um modelo",
@@ -2716,7 +2716,7 @@ const pt = {
     welcomeAdminDescriptionNoBuild: "Configure seu primeiro aplicativo pelo menu de Administração à esquerda. Quando houver dados, o assistente de IA poderá ajudar a explorá-los.",
     welcomeAdminDescriptionNoAi: "Configure seu primeiro aplicativo pelo menu de Administração à esquerda.",
     noAppsTitle: "Ainda não há aplicativos",
-    noAppsDescription: "Seu ambiente está sendo preparado — os aplicativos que seu administrador compartilhar aparecerão aqui.",
+    noAppsDescription: "O sistema está sendo preparado — os aplicativos que seu administrador compartilhar aparecerão aqui.",
     buildWithAI: "Criar com IA",
     askAI: "Perguntar à IA",
     recoveryReminder: {
@@ -2766,7 +2766,7 @@ const pt = {
       notifications: "Notificações",
       notificationsEmpty: "Nenhuma notificação não lida",
     },
-    loading: "Carregando ambiente…",
+    loading: "Carregando…",
     welcome: "Bem-vindo ao ObjectUI",
     welcomeDescription: "Comece criando sua primeira aplicação ou configurando as preferências do sistema.",
     createFirstApp: "Crie sua primeira app",
@@ -2777,7 +2777,7 @@ const pt = {
       manageObjects: "Gerenciar objetos",
       manageObjectsDesc: "Configure modelos de dados",
       systemSettings: "Configurações do sistema",
-      systemSettingsDesc: "Configure seu ambiente",
+      systemSettingsDesc: "Configure seu sistema",
     },
     appCard: {
       noDescription: "Sem descrição",
@@ -3250,10 +3250,10 @@ const pt = {
       body: 'A superfície MCP está desligada (OS_MCP_SERVER_ENABLED=false). Peça ao operador para reativá-la.',
     },
     url: {
-      title: 'Endpoint MCP deste ambiente',
+      title: 'Endpoint MCP deste sistema',
       body: 'Qualquer cliente de IA compatível com MCP conecta-se com esta URL. A identidade é autosserviço: a implantação é seu próprio servidor de autorização OAuth 2.1 — você entra como você mesmo e cada chamada corre sob suas permissões e segurança em nível de linha.',
       downloadSkill: 'Baixar SKILL.md',
-      skillHint: 'A skill portátil do agente: ensina qualquer agente compatível a trabalhar com este ambiente.',
+      skillHint: 'A skill portátil do agente: ensina qualquer agente compatível a trabalhar com este sistema.',
     },
     claude: {
       body: 'Configurações → Conectores → Adicionar conector personalizado, cole esta URL e faça login no navegador.',
@@ -3387,8 +3387,8 @@ const pt = {
     rowConversational: "Modelo Build / Ask",
     rowStructured: "Estruturado (blueprint / seed)",
     rowReasoning: "Esforço de raciocínio",
-    readFailed: "Não foi possível ler o modelo de IA efetivo. Este ambiente pode não executar um serviço de IA, ou você pode não ter a permissão ai:read.",
-    readFailedWithStatus: "Não foi possível ler o modelo de IA efetivo (HTTP {{status}}). Este ambiente pode não executar um serviço de IA, ou você pode não ter a permissão ai:read.",
+    readFailed: "Não foi possível ler o modelo de IA efetivo. Este sistema pode não executar um serviço de IA, ou você pode não ter a permissão ai:read.",
+    readFailedWithStatus: "Não foi possível ler o modelo de IA efetivo (HTTP {{status}}). Este sistema pode não executar um serviço de IA, ou você pode não ter a permissão ai:read.",
     overridesInEffect: "Substituições em vigor: ",
     noOverrides: "nenhuma — usando os padrões do código implantado.",
     adapter: "Adaptador: ",

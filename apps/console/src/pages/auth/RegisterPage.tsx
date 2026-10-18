@@ -238,7 +238,7 @@ export function RegisterPage() {
               title={t('auth.register.title', { defaultValue: 'Create an account' })}
               description={t('auth.register.errors.selfRegistrationClosed', {
                 defaultValue:
-                  'Self-registration is not open on this environment. Ask an administrator for an invitation.',
+                  'Self-registration is not open on this system. Ask an administrator for an invitation.',
               })}
             />
             <p className="px-8 text-center text-sm text-muted-foreground">

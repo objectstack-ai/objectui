@@ -3891,17 +3891,6 @@ const en = {
     importAction: 'Import',
     dismiss: 'Dismiss',
   },
-  cloudOnboarding: {
-    hintCreate: 'An environment is a private instance that runs your apps, with its own URL, database, and plan.',
-    hintReady: 'Your environment is ready — a private instance that runs your apps, with its own URL, database, and plan.',
-    createEnvironment: 'Create your environment',
-    openWorkspace: 'Open',
-    manageEnvironments: 'Manage environments',
-  },
-  // `cloud:plan-status` — the Cloud pricing page's current-plan marker (objectui#10919).
-  cloudPlanStatus: {
-    current: 'Current plan',
-  },
   // `cloud:workspace-timezone-notice` — the Cloud welcome page's line naming the
   // timezone a workspace was seeded with at creation (objectui#11930). `{{zone}}`
   // is the seed, an IANA id printed verbatim.

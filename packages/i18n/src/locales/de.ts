@@ -3239,16 +3239,6 @@ const de = {
     importAction: "Importieren",
     dismiss: "Verwerfen",
   },
-  cloudOnboarding: {
-    hintCreate: "Eine Umgebung ist eine private Instanz, in der Ihre Apps laufen, mit eigener URL, Datenbank und eigenem Tarif.",
-    hintReady: "Ihre Umgebung ist bereit — eine private Instanz, in der Ihre Apps laufen, mit eigener URL, Datenbank und eigenem Tarif.",
-    createEnvironment: "Umgebung erstellen",
-    openWorkspace: "Öffnen",
-    manageEnvironments: "Umgebungen verwalten",
-  },
-  cloudPlanStatus: {
-    current: "Aktueller Tarif",
-  },
   cloudWorkspaceTimezoneNotice: {
     seeded: "Die Zeitzone der Umgebung wurde beim Erstellen anhand Ihres Browsers auf {{zone}} festgelegt. Sie können sie unter Einstellungen → Lokalisierung ändern.",
   },

@@ -164,9 +164,11 @@ const REFUSED_AT_TYPE = 0;
  * and `record:attachments`, the two spec-18 record panels the default record
  * page emits, armed from their `ComponentPropsMap` rows. objectui#12733: minus
  * the Installed Apps widget's key and its `app-shell:` twin, both retired from
- * the registry with the view.
+ * the registry with the view. objectui#12954: minus `cloud:onboarding-next` and
+ * its `app-shell:` twin, retired from the registry with the widget; the armed
+ * `cloud:plan-status` left with its arm, so it moved nothing here.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 304;
+const NAMESPACED_REFUSED_AT_TYPE = 302;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
@@ -608,12 +610,11 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
     expect(BARE_KEYS).not.toContain('line_items');
   });
 
-  it('counts `cloud:plan-status` armed — it registered WITH its arm (objectui#10919)', () => {
-    // One registry key (`skipFallback: true`, so no bare `plan-status`), armed in
-    // `@object-ui/types/zod` in the same change, so the pin above did not move.
-    expect(NAMESPACED_KEYS).toContain('cloud:plan-status');
-    expect(BARE_KEYS).not.toContain('plan-status');
-    expect(refusedAtType('cloud:plan-status')).toBe(false);
+  it('refuses `cloud:plan-status` at `type` — its registration and its arm retired together (objectui#12954)', () => {
+    // It was one registry key, armed, so the pair leaving in one change moves
+    // neither count. A page still authoring the type is refused, not passed.
+    expect(NAMESPACED_KEYS).not.toContain('cloud:plan-status');
+    expect(refusedAtType('cloud:plan-status')).toBe(true);
   });
 
   it('counts `cloud:workspace-timezone-notice` armed — it registered WITH its arm (objectui#11930)', () => {

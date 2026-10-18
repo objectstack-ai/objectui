@@ -3241,16 +3241,6 @@ const ja = {
     importAction: "インポート",
     dismiss: "閉じる",
   },
-  cloudOnboarding: {
-    hintCreate: "環境は、アプリを実行する専用のインスタンスで、独自の URL・データベース・プランを持ちます。",
-    hintReady: "準備が整った環境は、アプリを実行する専用のインスタンスで、独自の URL・データベース・プランを持ちます。",
-    createEnvironment: "環境を作成",
-    openWorkspace: "開く",
-    manageEnvironments: "環境を管理",
-  },
-  cloudPlanStatus: {
-    current: "現在のプラン",
-  },
   cloudWorkspaceTimezoneNotice: {
     seeded: "環境のタイムゾーンは、作成時にブラウザーに合わせて {{zone}} に設定されました。「設定 → ローカリゼーション」で変更できます。",
   },

@@ -13,7 +13,7 @@
  * panel never re-computes the model (a second compute source is exactly the
  * drift trap the boot-convergence guard fixed). The component owns only the
  * fetch + render; the endpoint path comes from page metadata `properties`, so
- * the Cloud/Setup page owns its URL. Same pattern as `cloud:onboarding-next`.
+ * the Cloud/Setup page owns its URL.
  */
 
 import { useEffect, useMemo, useState } from 'react';

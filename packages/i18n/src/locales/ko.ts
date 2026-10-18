@@ -3238,16 +3238,6 @@ const ko = {
     importAction: "가져오기",
     dismiss: "닫기",
   },
-  cloudOnboarding: {
-    hintCreate: "환경은 앱을 실행하는 전용 인스턴스로, 고유한 URL과 데이터베이스, 요금제를 갖습니다.",
-    hintReady: "준비된 환경은 앱을 실행하는 전용 인스턴스로, 고유한 URL과 데이터베이스, 요금제를 갖습니다.",
-    createEnvironment: "환경 만들기",
-    openWorkspace: "열기",
-    manageEnvironments: "환경 관리",
-  },
-  cloudPlanStatus: {
-    current: "현재 요금제",
-  },
   cloudWorkspaceTimezoneNotice: {
     seeded: "환경 시간대는 생성 시 브라우저에 맞춰 {{zone}}(으)로 설정되었습니다. 설정 → 현지화에서 변경할 수 있습니다.",
   },

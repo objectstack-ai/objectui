@@ -534,7 +534,7 @@ export {
 // ============================================================================
 // Cloud Widgets - `@object-ui/app-shell`'s `cloud:` SDUI widgets (objectui#10919)
 // ============================================================================
-export { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.zod.js';
+export { CloudWorkspaceTimezoneNoticeSchema } from './cloud.zod.js';
 
 // ============================================================================
 // `record:approval_decision` - `@object-ui/app-shell`'s approval decision panel (objectui#12342)
@@ -569,7 +569,7 @@ import { AIComponentSchema } from './ai.zod.js';
 import { ProductBlockComponentSchema } from './product-blocks.zod.js';
 import { DesignerUnionSchema } from './designer.zod.js';
 import { PublicBlockComponentSchema } from './public-blocks.zod.js';
-import { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.zod.js';
+import { CloudWorkspaceTimezoneNoticeSchema } from './cloud.zod.js';
 import { RecordApprovalDecisionBlockSchema } from './record-approval-decision.zod.js';
 import { RecordApprovalsBlockSchema, RecordAttachmentsBlockSchema } from './record-panels.zod.js';
 import { nestedComponentJudgment } from './nested-component-walk.js';
@@ -675,7 +675,6 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   AIComponentSchema,
   DesignerUnionSchema,
   PublicBlockComponentSchema,
-  CloudPlanStatusSchema,
   CloudWorkspaceTimezoneNoticeSchema,
   // objectui#12342 — landed with its registration.
   RecordApprovalDecisionBlockSchema,

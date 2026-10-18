@@ -3,18 +3,13 @@
   "registrations": [
     "app-shell:cloud-connection:panel",
     "app-shell:cloud:ai-model-status",
-    "app-shell:cloud:onboarding-next",
     "cloud-connection:panel",
     "cloud:ai-model-status",
-    "cloud:onboarding-next",
-    "cloud:plan-status",
     "cloud:workspace-timezone-notice"
   ],
   "files": [
     "packages/app-shell/src/console/cloud-connection/CloudConnectionPanel.tsx",
     "packages/app-shell/src/console/diagnostics/CloudAiModelStatus.tsx",
-    "packages/app-shell/src/console/home/CloudOnboardingNext.tsx",
-    "packages/app-shell/src/console/home/CloudPlanStatus.tsx",
     "packages/app-shell/src/console/home/CloudWorkspaceTimezoneNotice.tsx",
     "packages/app-shell/src/console/organizations/CreateWorkspaceDialog.tsx",
     "packages/app-shell/src/console/organizations/OrganizationsLayout.tsx",
@@ -85,16 +80,6 @@
       "waiting.openItHere",
       "waiting.polling",
       "waiting.popupOpened"
-    ],
-    "cloudOnboarding": [
-      "createEnvironment",
-      "hintCreate",
-      "hintReady",
-      "manageEnvironments",
-      "openWorkspace"
-    ],
-    "cloudPlanStatus": [
-      "current"
     ],
     "cloudWorkspaceTimezoneNotice": [
       "seeded"

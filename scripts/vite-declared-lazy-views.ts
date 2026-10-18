@@ -63,9 +63,9 @@ import type { Plugin, Rollup } from 'vite';
  * 2026-08-29): the package now declares a precise `sideEffects` ARRAY, guarded
  * by `scripts/check-side-effects-array.mjs`. `"sideEffects": false` stays
  * disproven and is NOT what shipped — measured, it silently DROPS three real
- * SDUI widget registrations (`mcp:connect-agent`, `cloud:onboarding-next`,
- * `cloud:ai-model-status`, all registered through bare side-effect imports in
- * the barrel). The ARRAY names those modules, and
+ * SDUI widget registrations (`mcp:connect-agent`, `cloud:onboarding-next` --
+ * since retired, objectui#12954 -- and `cloud:ai-model-status`, all registered
+ * through bare side-effect imports in the barrel). The ARRAY names those modules, and
  * `scripts/check-sdui-registration-pins.mjs` weighs the built console for them.
  *
  * This plugin is NOT made redundant by that. It is scoped to AppContent's

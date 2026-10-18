@@ -70,11 +70,6 @@ describe('product-page blocks are registered under product-neutral names (object
       for (const input of config?.inputs ?? []) expect(input.description, `${type}.${input.name}`).toBeTruthy();
     }
   });
-
-  it('keeps `cloud:onboarding-next` registered (control)', async () => {
-    await import('../../home/CloudOnboardingNext');
-    expect(ComponentRegistry.get('app-shell:cloud:onboarding-next')).toBeTruthy();
-  });
 });
 
 describe('hero', () => {

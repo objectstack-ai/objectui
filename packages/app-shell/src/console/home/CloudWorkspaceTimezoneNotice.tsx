@@ -27,9 +27,8 @@
  *
  * ## The summary is read through `useEnvironmentEntitlements`
  *
- * The same hook `cloud:plan-status` and the environment list use: one reading of
- * the endpoint and its strict `{ success, data }` envelope, not another copy of
- * the fetch.
+ * The same hook the environment list uses: one reading of the endpoint and its
+ * strict `{ success, data }` envelope, not another copy of the fetch.
  */
 
 import { useState } from 'react';

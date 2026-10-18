@@ -3297,16 +3297,6 @@ const pt = {
     importAction: "Importar",
     dismiss: "Dispensar",
   },
-  cloudOnboarding: {
-    hintCreate: "Um ambiente é uma instância privada que executa seus aplicativos, com URL, banco de dados e plano próprios.",
-    hintReady: "Seu ambiente está pronto — uma instância privada que executa seus aplicativos, com URL, banco de dados e plano próprios.",
-    createEnvironment: "Crie seu ambiente",
-    openWorkspace: "Abrir",
-    manageEnvironments: "Gerenciar ambientes",
-  },
-  cloudPlanStatus: {
-    current: "Plano atual",
-  },
   cloudWorkspaceTimezoneNotice: {
     seeded: "O fuso horário do ambiente foi definido como {{zone}} com base no seu navegador quando ele foi criado. Você pode alterá-lo em Configurações → Localização.",
   },

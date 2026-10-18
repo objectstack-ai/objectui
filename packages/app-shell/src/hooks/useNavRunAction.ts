@@ -194,18 +194,3 @@ export function useOfferedNavRunAction(
 
   return useConsumeOnce(requested, () => candidate !== undefined && !hidden);
 }
-
-/**
- * Build a list-surface deep link that runs `actionName` on arrival.
- *
- * For the one producer that is NOT a nav item: a page widget whose target route
- * came from page metadata rather than from a `NavigationItem` (see
- * `CloudOnboardingNext`). It still goes through {@link NAV_RUN_ACTION_PARAM},
- * so there is no second spelling of the wire format — only a second, equally
- * declared, source for the action NAME.
- */
-export function navRunActionHref(route: string, actionName: string): string {
-  if (!actionName) return route;
-  const sep = route.includes('?') ? '&' : '?';
-  return `${route}${sep}${NAV_RUN_ACTION_PARAM}=${encodeURIComponent(actionName)}`;
-}

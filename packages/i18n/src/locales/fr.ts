@@ -3299,16 +3299,6 @@ const fr = {
     importAction: "Importer",
     dismiss: "Ignorer",
   },
-  cloudOnboarding: {
-    hintCreate: "Un environnement est une instance privée qui exécute vos applications, avec sa propre URL, sa base de données et son offre.",
-    hintReady: "Votre environnement est prêt — une instance privée qui exécute vos applications, avec sa propre URL, sa base de données et son offre.",
-    createEnvironment: "Créer votre environnement",
-    openWorkspace: "Ouvrir",
-    manageEnvironments: "Gérer les environnements",
-  },
-  cloudPlanStatus: {
-    current: "Offre actuelle",
-  },
   cloudWorkspaceTimezoneNotice: {
     seeded: "Le fuseau horaire de l’environnement a été défini sur {{zone}} d’après votre navigateur lors de sa création. Vous pouvez le modifier dans Paramètres → Localisation.",
   },

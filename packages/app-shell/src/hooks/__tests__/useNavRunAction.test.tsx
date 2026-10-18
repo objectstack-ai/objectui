@@ -21,7 +21,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { NAV_RUN_ACTION_PARAM } from '@object-ui/layout';
-import { useNavRunAction, navRunActionHref } from '../useNavRunAction';
+import { useNavRunAction } from '../useNavRunAction';
 
 const ROUTE = '/apps/cloud_control/sys_environment';
 
@@ -144,32 +144,5 @@ describe('useNavRunAction — not armed (arming is destructive, #4123)', () => {
     const { seen } = probe(() => true);
 
     expect(seen.every((s) => s === null)).toBe(true);
-  });
-});
-
-describe('navRunActionHref — the non-nav producer uses the same wire format', () => {
-  it('appends the declared param to a bare route', () => {
-    expect(navRunActionHref(ROUTE, 'create_environment')).toBe(
-      `${ROUTE}?${NAV_RUN_ACTION_PARAM}=create_environment`,
-    );
-  });
-
-  it('joins with & when the route already carries a query', () => {
-    expect(navRunActionHref(`${ROUTE}?tab=all`, 'create_environment')).toBe(
-      `${ROUTE}?tab=all&${NAV_RUN_ACTION_PARAM}=create_environment`,
-    );
-  });
-
-  it('encodes the name', () => {
-    expect(navRunActionHref(ROUTE, 'a b')).toBe(`${ROUTE}?${NAV_RUN_ACTION_PARAM}=a%20b`);
-  });
-
-  it('round-trips into the hook — producer and consumer agree by construction', () => {
-    const href = navRunActionHref(ROUTE, 'create_environment');
-    window.history.replaceState({}, '', href);
-
-    const { seen } = probe(() => true);
-
-    expect(seen[0]).toBe('create_environment');
   });
 });

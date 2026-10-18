@@ -3302,16 +3302,6 @@ const es = {
     importAction: "Importar",
     dismiss: "Descartar",
   },
-  cloudOnboarding: {
-    hintCreate: "Un entorno es una instancia privada que ejecuta sus aplicaciones, con su propia URL, base de datos y plan.",
-    hintReady: "Su entorno está listo: una instancia privada que ejecuta sus aplicaciones, con su propia URL, base de datos y plan.",
-    createEnvironment: "Cree su entorno",
-    openWorkspace: "Abrir",
-    manageEnvironments: "Gestionar entornos",
-  },
-  cloudPlanStatus: {
-    current: "Plan actual",
-  },
   cloudWorkspaceTimezoneNotice: {
     seeded: "La zona horaria del entorno se configuró en {{zone}} a partir de su navegador al crearlo. Puede cambiarla en Configuración → Localización.",
   },

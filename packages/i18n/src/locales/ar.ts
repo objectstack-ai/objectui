@@ -3498,16 +3498,6 @@ const ar = {
     importAction: "استيراد",
     dismiss: "تجاهل",
   },
-  cloudOnboarding: {
-    hintCreate: "البيئة نسخة مستقلة تشغّل تطبيقاتك، ولها رابطها وقاعدة بياناتها وخطتها.",
-    hintReady: "بيئتك جاهزة — نسخة مستقلة تشغّل تطبيقاتك، ولها رابطها وقاعدة بياناتها وخطتها.",
-    createEnvironment: "أنشئ بيئتك",
-    openWorkspace: "فتح",
-    manageEnvironments: "إدارة البيئات",
-  },
-  cloudPlanStatus: {
-    current: "الخطة الحالية",
-  },
   cloudWorkspaceTimezoneNotice: {
     seeded: "تم تعيين المنطقة الزمنية للبيئة إلى {{zone}} وفقًا لمتصفحك عند إنشائها. يمكنك تغييرها من الإعدادات → التوطين.",
   },

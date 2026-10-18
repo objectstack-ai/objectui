@@ -70,10 +70,11 @@ const stripComments = (src: string): string =>
  * Every file that used to hand-write the param name, plus the two that consume
  * it today. If a future file needs the name, it imports the constant — so this
  * list is allowed to grow only with files that DON'T contain the literal.
+ * `CloudOnboardingNext.tsx`, the producer half of the retired convention, left
+ * the list when the widget itself retired (objectui#12954).
  */
 const SOURCES_THAT_MUST_NOT_SPELL_IT = [
   'packages/app-shell/src/environment/EnvironmentListToolbar.tsx',
-  'packages/app-shell/src/console/home/CloudOnboardingNext.tsx',
   'packages/app-shell/src/views/ObjectView.tsx',
   'packages/app-shell/src/hooks/useNavRunAction.ts',
 ];
@@ -99,16 +100,6 @@ describe('the private `?runAction=` convention is gone from the source (#5216)',
     // would be a second set of #4123 semantics waiting to drift.
     expect(src).not.toContain('URLSearchParams');
     expect(src).toContain('useNavRunAction');
-  });
-
-  it('the welcome CTA no longer concatenates its own deep link', () => {
-    const src = read('packages/app-shell/src/console/home/CloudOnboardingNext.tsx');
-
-    expect(src).toContain('navRunActionHref');
-    // The exact template that used to build it. Comments are stripped for the
-    // same reason as above: the comment there NAMES the retired string while
-    // explaining what replaced it, which is documentation, not a producer.
-    expect(stripComments(src)).not.toContain('?runAction=create_environment');
   });
 });
 

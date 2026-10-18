@@ -332,8 +332,8 @@ export async function resolveGroupByLabels(
     // `ds.getObjectSchema(schema.objectName)`, so this IS the object-schema def).
     // `FieldSchema` refuses `id_field`/`display_field` on the AUTHORING path, but
     // the SERVE path runs no parse — `ObjectStackAdapter.getObjectSchema` returns
-    // the server document plus only `normalizeSchemaReferenceKeys` and
-    // `applyFieldWidgetOverrides` — so a stored pre-strict def still arrives here.
+    // the server document plus only `normalizeSchemaReferenceKeys` — so a stored
+    // pre-strict def still arrives here.
     // ⛔ `idField` is NOT a leg this read may gain, and the carve-out is
     // RE-MEASURED on the pin actually resolved here (`@objectstack/spec@17.4.0`,
     // not the 17.2.0 the note used to cite): `FieldSchema` refuses `idField`

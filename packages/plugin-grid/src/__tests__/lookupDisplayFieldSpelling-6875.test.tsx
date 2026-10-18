@@ -48,8 +48,7 @@
  * (`@object-ui/data-objectstack`) is the choke point every schema read goes
  * through, and its only key rewrite is `normalizeSchemaReferenceKeys` — a
  * legacy `reference_to` folded onto `reference`, nothing else (it stamped the
- * pair both ways until objectui#11070 round 4). `applyFieldWidgetOverrides`
- * adds `widget` and touches no other key.
+ * pair both ways until objectui#11070 round 4).
  *
  * ⇒ On a live path the ONLY display-field spelling that can reach this grid is
  * `displayField`, and it was the one spelling `RELATIONAL_META_KEYS` did not

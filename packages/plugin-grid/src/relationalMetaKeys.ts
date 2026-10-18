@@ -144,9 +144,9 @@
  *
  * Nothing manufactures one on the way in, either. `getObjectSchema` in
  * `@object-ui/data-objectstack` is the choke point every schema read passes
- * through, and its only key rewrites are `normalizeSchemaReferenceKeys` (a
- * legacy `reference_to` / `referenceTo` folded onto `reference`) and
- * `applyFieldWidgetOverrides` (`widget`). Whatever the server serves for every
+ * through, and its only key rewrite is `normalizeSchemaReferenceKeys` (a
+ * legacy `reference_to` / `referenceTo` folded onto `reference`). Whatever the
+ * server serves for every
  * other property arrives verbatim.
  *
  * ⇒ Copying a key that is not spec-declared writes a member from the def on

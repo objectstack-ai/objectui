@@ -4655,6 +4655,7 @@ const ar = {
     },
     relatedList: {
       sourceUnresolved: "تعذّر تحديد مصدر بيانات هذه القائمة المرتبطة",
+      parentUnreadable: "تعذّرت قراءة السجل الأصل لهذه القائمة المرتبطة",
     },
     form: {
       sourceUnresolved: "تعذّر تحديد مصدر بيانات هذا النموذج",

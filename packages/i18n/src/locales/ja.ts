@@ -4264,6 +4264,7 @@ const ja = {
     },
     relatedList: {
       sourceUnresolved: "この関連リストのデータソースを解決できませんでした",
+      parentUnreadable: "この関連リストの親レコードを読み込めませんでした",
     },
     form: {
       sourceUnresolved: "このフォームのデータソースを解決できませんでした",

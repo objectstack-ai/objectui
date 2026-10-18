@@ -4261,6 +4261,7 @@ const ko = {
     },
     relatedList: {
       sourceUnresolved: "이 관련 목록의 데이터 소스를 확인할 수 없습니다",
+      parentUnreadable: "이 관련 목록의 상위 레코드를 읽을 수 없습니다",
     },
     form: {
       sourceUnresolved: "이 양식의 데이터 소스를 확인할 수 없습니다",

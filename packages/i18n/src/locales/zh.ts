@@ -4322,6 +4322,7 @@ const zh = {
     },
     relatedList: {
       sourceUnresolved: '无法解析此相关列表的数据源',
+      parentUnreadable: '无法读取此相关列表的父记录',
     },
     form: {
       sourceUnresolved: '无法解析此表单的数据源',

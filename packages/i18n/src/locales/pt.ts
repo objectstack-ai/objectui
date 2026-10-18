@@ -4353,6 +4353,7 @@ const pt = {
     },
     relatedList: {
       sourceUnresolved: "Não foi possível resolver a fonte de dados desta lista relacionada",
+      parentUnreadable: "Não foi possível ler o registro pai desta lista relacionada",
     },
     form: {
       sourceUnresolved: "Não foi possível resolver a fonte de dados deste formulário",

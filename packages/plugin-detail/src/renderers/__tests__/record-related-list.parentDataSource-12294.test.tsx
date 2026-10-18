@@ -30,6 +30,7 @@ import '@testing-library/jest-dom';
 import { ComponentRegistry } from '@object-ui/core';
 import { RecordContextProvider, SchemaRenderer, SchemaRendererProvider, notifyDataChanged } from '@object-ui/react';
 import type { DataSource, DeclaredNode } from '@object-ui/types';
+import { I18nProvider } from '@object-ui/i18n';
 import '../../index';
 
 /** `RelatedList` never reads over the network with an adapter; answered anyway, as the sibling suites do. */
@@ -279,5 +280,23 @@ describe('record:related_list declares both bindings it reads (objectui#12294)',
     expect(parent?.type).toBe('object');
     expect(parent?.description ?? '').not.toMatch(/PLANNED/);
     expect(inputs.map((i) => i.name)).toContain('dataSource');
+  });
+});
+
+describe('record:related_list — the parent-read panel title reads the bundle (objectui#12920)', () => {
+  it('under zh-CN a failed parent read is titled in Chinese, not the English literal', async () => {
+    const adapter = makeAdapter({ parents: PARENTS, children: CHILDREN }, { rejectParent: new Error('upstream exploded') });
+    render(
+      <I18nProvider persistLanguage={false} config={{ defaultLanguage: 'zh-CN', detectBrowserLanguage: false }}>
+        <SchemaRendererProvider dataSource={adapter as unknown as DataSource}>
+          <SchemaRenderer schema={node({ object: PARENT_OBJECT, limit: 1 }) as unknown as DeclaredNode} />
+        </SchemaRendererProvider>
+      </I18nProvider>,
+    );
+
+    const panel = await screen.findByTestId('record-related-list-parent-datasource-error');
+    expect(panel.querySelector('p.font-medium')?.textContent).toBe('无法读取此相关列表的父记录');
+    // The thrown message is still shown beneath it, as thrown.
+    expect(panel).toHaveTextContent('upstream exploded');
   });
 });

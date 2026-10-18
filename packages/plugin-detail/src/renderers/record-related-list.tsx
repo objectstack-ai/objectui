@@ -808,12 +808,16 @@ const NoParentRecord: React.FC<{
 export const RecordRelatedListRenderer: React.FC<RecordRelatedListRendererProps> = elementDataSourceBlock((props) => {
   const { schema, className, ...rest } = props;
   const parentBinding = schema?.parentDataSource;
+  // objectui#12920 — the parent-read panel's title reads the bundle.
+  const { t } = useObjectTranslation();
   return (
     <ParentRecordBinding
       binding={parentBinding}
       blockKey="record:related_list"
       testId="record-related-list-parent"
-      errorTitle="This related list’s parent record could not be read"
+      errorTitle={t('element.relatedList.parentUnreadable', {
+        defaultValue: 'This related list’s parent record could not be read',
+      })}
       absent={<NoParentRecord object={parentBinding?.object} className={className} designer={splitDesigner(rest).designer} />}
     >
       <RecordRelatedListChildRows {...props} />

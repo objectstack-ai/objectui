@@ -5026,6 +5026,8 @@ const en = {
     },
     relatedList: {
       sourceUnresolved: 'This related list’s data source could not be resolved',
+      // The panel drawn when the list's `parentDataSource` read fails.
+      parentUnreadable: 'This related list’s parent record could not be read',
     },
     form: {
       sourceUnresolved: 'This form’s data source could not be resolved',

@@ -4263,6 +4263,7 @@ const de = {
     },
     relatedList: {
       sourceUnresolved: "Die Datenquelle dieser Bezugsliste konnte nicht aufgelöst werden",
+      parentUnreadable: "Der übergeordnete Datensatz dieser Bezugsliste konnte nicht gelesen werden",
     },
     form: {
       sourceUnresolved: "Die Datenquelle dieses Formulars konnte nicht aufgelöst werden",

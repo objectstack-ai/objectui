@@ -71,8 +71,11 @@ export interface MetadataContextValue extends MetadataCacheState {
    * without a definition; `settled` is true once the package list and every
    * name have been answered.
    *
-   * With no `packageId` it is the whole registry, as `objects` is; `objects`
-   * keeps that meaning everywhere. Optional, as `getTypeStatus` is: a
+   * With `names` and no `packageId` it is a names-only scope (objectui#12980):
+   * no package list, each of `names` fetched by name, for a reader with no
+   * package to scope by (a page route in an app item without `_packageId`).
+   * With neither it is the whole registry, as `objects` is; `objects` keeps
+   * that meaning everywhere. Optional, as `getTypeStatus` is: a
    * hand-rolled context without it has nothing narrower to offer, and its
    * readers read `objects`.
    */

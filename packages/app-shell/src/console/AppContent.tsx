@@ -56,6 +56,7 @@ import { useNavMemberGates, navEntriesShownToMember } from '../hooks/useNavMembe
 import { resolveSetupAppPath } from './ConsoleShell.js';
 import { collectRoutePaths, metadataReadsForAppRoute, type LazyMetadataType } from './appRouteMetadataReads.js';
 import { readAppObjectScope } from './appObjectScope.js';
+import { preferLocal } from '../utils/preferLocal.js';
 import { SkeletonDashboard, SkeletonDetail, SkeletonGrid } from '../skeletons/index.js';
 
 // Route-based code splitting — lazy-load less-frequently-used routes
@@ -285,13 +286,21 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // objectui#12811 — which objects this route and the chrome around it read:
   // the app's object scope on the routes `appObjectScope.ts` names, inside an
   // app whose served item carries its package; the whole registry everywhere
-  // else, as before (that module says why).
+  // else, as before (that module says why). A page route reads the objects
+  // its page binds (objectui#12980), resolved as `PageView` resolves the page.
   const { candidate: scopeCandidate, scope: objectScope, ready: objectScopeReady } = readAppObjectScope(
     readObjectScope,
     activeApp,
     appSubPath,
     location.search,
     hostRoutePaths,
+    (pageName) => {
+      const status = getTypeStatus?.('page');
+      return {
+        page: preferLocal(metadata.pages as any[], pageName, (activeApp as any)?._packageId),
+        settled: status === undefined || status === 'ready' || status === 'error',
+      };
+    },
   );
   // Until the app list has loaded, a scope candidate does not know its package
   // yet, and reads nothing (the splash is up).

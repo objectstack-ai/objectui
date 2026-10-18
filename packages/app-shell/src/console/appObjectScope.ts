@@ -11,6 +11,13 @@
  * (`requiresObject`), and the navigation's objects while the command palette
  * is open.
  *
+ * A page (`page/:pageName`, objectui#12980) reads only the objects its page
+ * definition binds ({@link pageObjectNames}), by name, beside the app's
+ * package list when the app names a package and as the names-only scope when
+ * it does not; never the whole registry, whatever its package holds. An object
+ * a block names outside that set is read by name when the block asks for it
+ * (`PageView`).
+ *
  * Everywhere else the route reads the whole registry, as before. A record
  * surface derives its related lists from every object that points at its
  * object, in any package, so a record overlay (`?recordId=`, `?form=`) reads
@@ -44,14 +51,95 @@ export type AppObjectScope = ReturnType<ReadObjectScope>;
  * spells them, and matched against that table, so a more specific route
  * (`search`, `create-app`, a host route) is never taken for `:objectName`.
  */
-export const APP_OBJECT_SCOPE_ROUTES: readonly string[] = ['/', ':objectName', ':objectName/view/:viewId'];
+export const APP_OBJECT_SCOPE_ROUTES: readonly string[] = ['/', ':objectName', ':objectName/view/:viewId', 'page/:pageName'];
 
-function matchObjectScopeRoute(subPath: string, hostPaths: readonly string[]): { objectName?: string } | null {
+function matchObjectScopeRoute(
+  subPath: string,
+  hostPaths: readonly string[],
+): { objectName?: string; pageName?: string } | null {
   const routes = [...APP_ROUTE_METADATA_READS.map(({ path }) => ({ path })), ...hostPaths.map((path) => ({ path }))];
   const matches = matchRoutes(routes, `/${subPath.replace(/^\/+/, '')}`);
   const match = matches?.[matches.length - 1];
   if (!match || !APP_OBJECT_SCOPE_ROUTES.includes(match.route.path)) return null;
-  return { objectName: match.params.objectName };
+  return { objectName: match.params.objectName, pageName: match.params.pageName };
+}
+
+/**
+ * The objects a page definition binds (objectui#12980), derived from the page
+ * itself, never listed by hand: the page's own `object` (a record page), its
+ * interface source (`interfaceConfig.source`), and, at any depth of its
+ * regions and blocks, every `objectName` and every `dataSource.object`. An
+ * `api` data source binds no object. A block that names an object some other
+ * way reads it by name when it asks (`PageView`).
+ */
+export function pageObjectNames(page: unknown): string[] {
+  const out = new Set<string>();
+  const add = (value: unknown) => {
+    if (typeof value === 'string' && value) out.add(value);
+  };
+  const walk = (node: unknown, key: string | undefined) => {
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, key);
+      return;
+    }
+    if (!node || typeof node !== 'object') return;
+    const record = node as Record<string, unknown>;
+    add(record.objectName);
+    if (key === 'dataSource') add(record.object);
+    if (key === 'interfaceConfig') add(record.source);
+    for (const [childKey, child] of Object.entries(record)) walk(child, childKey);
+  };
+  if (page && typeof page === 'object') add((page as Record<string, unknown>).object);
+  walk(page, undefined);
+  return [...out];
+}
+
+/** No objects, and nothing to wait for: a page that binds none, in an app with no package. */
+const NO_OBJECT_SCOPE: AppObjectScope = Object.freeze({
+  objects: [],
+  served: [],
+  missing: [],
+  settled: true,
+}) as unknown as AppObjectScope;
+
+/** The page has not landed yet: nothing is known, and nothing is read. */
+const PENDING_OBJECT_SCOPE: AppObjectScope = Object.freeze({
+  objects: [],
+  served: [],
+  missing: [],
+  settled: false,
+}) as unknown as AppObjectScope;
+
+/** The page definition a page route resolves to, and whether the `page` type has answered. */
+export interface PageRead {
+  page: unknown;
+  settled: boolean;
+}
+
+/**
+ * The objects a page reads (objectui#12980): the names it binds, plus
+ * `extraNames` (the chrome's, or what a block asked for), by name. In an app
+ * that names a package they ride its scope, so the package list the chrome
+ * reads anyway is read once; without one they are the names-only scope. No
+ * name at all, and no package, reads nothing. `ready` is true once the page's
+ * own objects have answered; the extras and the lookup targets of the page's
+ * objects are asked beside them and not waited for.
+ */
+export function readPageObjectScope(
+  readObjectScope: ReadObjectScope,
+  app: Record<string, any> | undefined,
+  page: unknown,
+  extraNames: readonly string[] = [],
+): { scope: AppObjectScope; ready: boolean } {
+  const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
+  const read = (names: readonly string[]): AppObjectScope =>
+    packageId ? readObjectScope({ packageId, names }) : names.length > 0 ? readObjectScope({ names }) : NO_OBJECT_SCOPE;
+  const bound = pageObjectNames(page);
+  const ready = read(bound).settled;
+  const names = [...new Set([...bound, ...extraNames])];
+  const first = read(names);
+  const lookups = bound.flatMap((name) => lookupTargetNames(first.objects.find((o: any) => o?.name === name)));
+  return { scope: lookups.length > 0 ? read([...new Set([...names, ...lookups])]) : first, ready };
 }
 
 /** A record overlay the URL carries: the detail drawer, or the record form. */
@@ -86,7 +174,7 @@ function lookupTargetNames(def: any): string[] {
 }
 
 /** The names a navigation tree carries under `key` on its entries, at every group depth. */
-function navigationNames(navigation: unknown, pick: (item: Record<string, unknown>) => unknown): string[] {
+export function navigationNames(navigation: unknown, pick: (item: Record<string, unknown>) => unknown): string[] {
   const out: string[] = [];
   const walk = (items: unknown) => {
     if (!Array.isArray(items)) return;
@@ -125,10 +213,28 @@ export function readAppObjectScope(
   subPath: string,
   search: string,
   hostPaths: readonly string[] = [],
+  readPage?: (pageName: string) => PageRead,
 ): AppObjectScopeRead {
   const route = matchObjectScopeRoute(subPath, hostPaths);
   const candidate = !!route && !!readObjectScope && !hasRecordOverlay(search);
   const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
+  if (candidate && readObjectScope && route && route.pageName !== undefined) {
+    // objectui#12980 — a page route: the app list first (it names the
+    // package), then the page, then the objects the page binds.
+    if (!app) return { candidate, scope: null, ready: false };
+    const pageRead = readPage?.(route.pageName);
+    if (!pageRead?.page) {
+      // Not landed: the package list starts beside the page. Landed without
+      // the page: `PageView` draws its not-found, and reads no object.
+      if (pageRead?.settled) return { candidate, scope: NO_OBJECT_SCOPE, ready: true };
+      return { candidate, scope: packageId ? readObjectScope({ packageId }) : PENDING_OBJECT_SCOPE, ready: false };
+    }
+    const extra = navigationNames(app.navigation, (item) => item.requiresObject);
+    if (new URLSearchParams(search).has(COMMAND_PALETTE_PARAM)) {
+      extra.push(...navigationNames(app.navigation, (item) => (item.type === 'object' ? item.objectName : undefined)));
+    }
+    return { candidate, ...readPageObjectScope(readObjectScope, app, pageRead.page, extra) };
+  }
   if (!candidate || !packageId || !readObjectScope || !route) return { candidate, scope: null, ready: false };
   // The package list first: no name is asked until it shows the app holds
   // objects of its own.

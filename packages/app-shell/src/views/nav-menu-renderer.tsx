@@ -139,6 +139,7 @@ import { withoutUnreadableObjectEntries } from '../utils/navObjectReadGate.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
 import { getIcon } from '../utils/getIcon.js';
 import { appRouteSegment, matchAppBySegment } from '../utils/index.js';
+import { navigationNames } from '../console/appObjectScope.js';
 
 /** Keep the designer's own data attributes on the wrapper, drop the rest. */
 const splitDesigner = (props: Record<string, any>) => {
@@ -150,6 +151,10 @@ const ROW =
   'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/80 ' +
   'transition-colors hover:bg-accent hover:text-foreground ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
+const NO_MISSING_OBJECTS: readonly string[] = [];
+/** No entry requires an object, and no package scopes the read: nothing to ask. */
+const NO_CAPABILITY_SCOPE = Object.freeze({ objects: [] as any[], served: [] as any[], missing: NO_MISSING_OBJECTS, settled: true });
 
 export interface NavMenuRendererProps {
   schema?: Record<string, any>;
@@ -163,7 +168,10 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
   ...props
 }) => {
   const { t, language } = useObjectTranslation();
-  const { apps, objects } = useMetadata();
+  // ⛔ `objects` is not destructured: reading it loads the whole registry
+  // (objectui#12980). The capability gate below reads the app's scope.
+  const metadata = useMetadata();
+  const { apps } = metadata;
   const { appName } = useParams();
   const { currentAppName } = useNavigationContext();
   const { pathname, search } = useLocation();
@@ -195,13 +203,47 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
     [can, hasCapabilities],
   );
 
+  /* ── Which app, and which slice of its navigation ──────────────────────── */
+
+  const activeApp = useMemo(() => {
+    const list = ((apps as any[]) || []).filter((a: any) => a?.active !== false);
+    return matchAppBySegment(list, appName ?? currentAppName ?? null);
+  }, [apps, appName, currentAppName]);
+
+  // The runtime-capability gate for `requiresObject` entries. objectui#12980 —
+  // it reads the objects the app's entries require, by name (beside the app's
+  // package list when the app names one, the names-only scope when it does
+  // not), never the whole registry: an object the answer holds is registered,
+  // one the server answered without a definition is not, and one not yet
+  // answered shows, as every entry did while the whole list loaded. A
+  // hand-rolled metadata context has no scope, and its `objects` is read.
+  const requiredObjects = [
+    ...navigationNames(activeApp?.navigation, (item) => item.requiresObject),
+    ...((activeApp?.areas ?? []) as Array<{ navigation?: unknown } | undefined>).flatMap((area) =>
+      navigationNames(area?.navigation, (item) => item.requiresObject),
+    ),
+  ];
+  const appPackageId =
+    typeof activeApp?._packageId === 'string' && activeApp._packageId ? (activeApp._packageId as string) : undefined;
+  const capabilityScope = !metadata.readObjectScope
+    ? null
+    : appPackageId
+      ? metadata.readObjectScope({ packageId: appPackageId, names: requiredObjects })
+      : requiredObjects.length > 0
+        ? metadata.readObjectScope({ names: requiredObjects })
+        : NO_CAPABILITY_SCOPE;
+  const registeredObjects = capabilityScope ? capabilityScope.objects : metadata.objects;
   const registeredObjectNames = useMemo(
-    () => new Set<string>(((objects as any[]) || []).map((o: any) => o?.name).filter(Boolean)),
-    [objects],
+    () => new Set<string>(((registeredObjects as any[]) || []).map((o: any) => o?.name).filter(Boolean)),
+    [registeredObjects],
   );
+  const missingObjects = capabilityScope ? capabilityScope.missing : NO_MISSING_OBJECTS;
+  const missingObjectNames = useMemo(() => new Set<string>(missingObjects), [missingObjects]);
+  const scoped = capabilityScope !== null;
   const checkCap = useCallback(
     (kind: 'object' | 'service', name: string): boolean => {
       if (kind === 'object') {
+        if (scoped) return registeredObjectNames.has(name) || !missingObjectNames.has(name);
         // While metadata is still loading the set is empty; show entries by
         // default rather than flickering the whole menu away (`UnifiedSidebar`
         // does the same, and it must match or the two menus disagree on first paint).
@@ -210,15 +252,8 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
       }
       return true;
     },
-    [registeredObjectNames],
+    [registeredObjectNames, missingObjectNames, scoped],
   );
-
-  /* ── Which app, and which slice of its navigation ──────────────────────── */
-
-  const activeApp = useMemo(() => {
-    const list = ((apps as any[]) || []).filter((a: any) => a?.active !== false);
-    return matchAppBySegment(list, appName ?? currentAppName ?? null);
-  }, [apps, appName, currentAppName]);
 
   // A `doc` entry the member may not read is not drawn (objectui#10188) — the
   // same hook `UnifiedSidebar` wires, so the two menus agree.

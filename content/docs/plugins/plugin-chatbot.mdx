@@ -402,6 +402,20 @@ Tool messages represent results from tool invocations during AI streaming. They 
 
 By default, `ChatbotEnhanced` renders tool invocations as a compact agent activity summary. Repeated calls are grouped, raw tool names are hidden, and reasoning text is not shown. Use `processVisibility="debug"` for developer/admin views that need the full reasoning panel, raw tool names, parameters, and results. Use `processVisibility="hidden"` to suppress non-interactive activity entirely; approval and draft-review actions remain visible.
 
+Each step is named by the locale pack's `chatbot.tool.<tool_name>` entry, a
+short sentence in the user's language ("List the existing objects"). A tool
+the pack has no entry for falls back to its name, title-cased.
+
+The AI build conversation's two cards draw only what the build agent's tool
+results declare. The plan card (`propose_blueprint`) reads the result's
+`planCard`: a chip per field with the format its sample data is held to, a
+dashed chip for a field the agent added on its own, the record's name field,
+one line per view, the assumptions, and the sample data the build will stage.
+The result card (`apply_blueprint`, then a later `verify_build` in the same
+turn) reads `checklist`: a passed/total chip, the verified lines in two
+columns, and the app and package that "Open app" and "View in Studio" open.
+A result without those keys keeps the simpler rows the cards drew before.
+
 Use `surface="plain"` for full-page chat workspaces where the surrounding app
 already provides navigation chrome. The default `surface="card"` remains a
 better fit for embedded dashboards, side panels, and floating chat windows.

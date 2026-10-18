@@ -36,6 +36,7 @@ import { ActionProvider } from '@object-ui/react';
 vi.mock('react-router-dom', () => ({
   useSearchParams: () => [new URLSearchParams(), vi.fn()],
   useNavigate: () => vi.fn(),
+  useParams: () => ({}),
 }));
 
 vi.mock('@object-ui/auth', async (importOriginal) => {

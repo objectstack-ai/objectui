@@ -16,9 +16,11 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import { I18nProvider } from '@object-ui/i18n';
 import { ComponentRegistry } from '@object-ui/core';
+import { SchemaRenderer, SchemaRendererContext } from '@object-ui/react';
+import { MemoryRouter } from 'react-router-dom';
 import { Button } from '@object-ui/components';
 import { RecordPickerDialog, getCellRenderer } from '@object-ui/fields';
-import type { DataSource, LookupColumnDef, QueryParams } from '@object-ui/types';
+import type { DataSource, DeclaredNode, LookupColumnDef, QueryParams } from '@object-ui/types';
 
 // Register the renderers the schema-driven previews rely on.
 import '@object-ui/plugin-grid';
@@ -317,6 +319,157 @@ function RecordPickerSpecimen({ autoOpen }: { autoOpen: boolean }) {
   );
 }
 
+/**
+ * objectui#12197 — the five product-page blocks (`hero`, `stat`, `usage-bar`,
+ * `checklist`, `tile-grid`), each drawn through the real `SchemaRenderer` from
+ * the node a product page authors. The last row binds the spec's API data
+ * source to an in-memory answer (the host fetch on `SchemaRendererContext`),
+ * so the bound path draws without a backend too.
+ *
+ * Isolate it with `?only=product_blocks`; add `&theme=dark` for dark mode.
+ */
+const PRODUCT_BLOCKS_KEY = 'product_blocks';
+
+const PRODUCT_BLOCK_SPECIMENS: ReadonlyArray<{ title: string; node: DeclaredNode }> = [
+  {
+    title: 'hero',
+    node: {
+      type: 'hero',
+      properties: {
+        title: { en: 'Acme workspace', 'zh-CN': 'Acme 工作区' },
+        subtitle: 'Production environment · Team plan',
+        meta: 'acme.objectos.app',
+        status: 'Active',
+        statusTone: 'success',
+        primary: { type: 'element:button', properties: { label: 'Open' } },
+        secondary: { type: 'element:button', properties: { label: 'Install app', variant: 'secondary' } },
+      },
+    },
+  },
+  {
+    title: 'stat',
+    node: {
+      type: 'flex',
+      direction: 'row',
+      gap: 4,
+      wrap: true,
+      children: [
+        { type: 'stat', className: 'min-w-44', properties: { label: 'Members', value: 3, hint: 'of 5 seats' } },
+        { type: 'stat', className: 'min-w-44', properties: { label: 'Open deals', value: 12500 } },
+        { type: 'stat', className: 'min-w-44', properties: { label: 'Plan', value: 'Team' } },
+      ],
+    },
+  },
+  {
+    title: 'usage-bar',
+    node: {
+      type: 'flex',
+      direction: 'col',
+      gap: 4,
+      children: [
+        { type: 'usage-bar', properties: { label: 'Storage', used: 256, limit: 1024, unit: 'MB' } },
+        { type: 'usage-bar', properties: { label: 'AI seats', used: 6, limit: 5 } },
+        { type: 'usage-bar', properties: { label: 'Records', used: 48210, limit: 0 } },
+      ],
+    },
+  },
+  {
+    title: 'checklist',
+    node: {
+      type: 'checklist',
+      properties: {
+        collapsedWhenDone: true,
+        items: [
+          { label: 'Create a production environment', done: true },
+          { label: 'Install your first app', done: false, action: { type: 'element:button', properties: { label: 'Browse apps', size: 'small' } } },
+          { label: 'Invite a teammate', done: false },
+        ],
+      },
+    },
+  },
+  {
+    title: 'tile-grid',
+    node: {
+      type: 'tile-grid',
+      properties: {
+        items: [
+          { label: 'CRM', href: '/apps/crm', icon: 'briefcase', caption: 'Sales' },
+          { label: 'Helpdesk', href: '/apps/helpdesk', icon: 'life-buoy' },
+          { label: 'Projects', href: '/apps/projects', icon: 'folder-kanban', caption: '2 hr. ago' },
+        ],
+        addTile: { label: 'Add app', href: '/marketplace' },
+      },
+    },
+  },
+  {
+    title: 'bound to an API data source',
+    node: {
+      type: 'flex',
+      direction: 'col',
+      gap: 4,
+      children: [
+        {
+          type: 'hero',
+          dataSource: { provider: 'api', read: { url: '/api/v1/cloud/home' }, path: 'data' },
+          properties: { title: 'Your workspace', meta: '${data.environments[0].hostname}', status: '${data.environments[0].status}', statusTone: 'success' },
+        },
+        {
+          type: 'usage-bar',
+          dataSource: { provider: 'api', read: { url: '/api/v1/cloud/home' }, path: 'data' },
+          properties: { label: 'Storage', used: '${data.storage.usedMb}', limit: '${data.storage.limitMb}', unit: 'MB' },
+        },
+        {
+          type: 'checklist',
+          dataSource: { provider: 'api', read: { url: '/api/v1/cloud/home' }, path: 'data' },
+          properties: {
+            items: [
+              { label: 'Environment', done: '${data.checklist.environment}' },
+              { label: 'First app', done: '${data.checklist.firstApp}' },
+              { label: 'Teammate', done: '${data.checklist.teammate}' },
+            ],
+          },
+        },
+      ],
+    },
+  },
+];
+
+/** The in-memory answer the bound row reads, in the control plane's envelope. */
+const PRODUCT_BLOCKS_HOME = {
+  success: true,
+  data: {
+    environments: [{ hostname: 'acme.objectos.app', status: 'active' }],
+    storage: { usedMb: 640, limitMb: 1024 },
+    checklist: { environment: true, firstApp: true, teammate: false },
+  },
+};
+
+const productBlocksFetch = async (): Promise<Response> =>
+  new Response(JSON.stringify(PRODUCT_BLOCKS_HOME), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+function ProductBlocksSpecimen() {
+  return (
+    <section className="scroll-mt-4 space-y-6" id="product-blocks" data-testid="product-blocks-specimen">
+      <h2 className="text-sm font-semibold tracking-tight text-foreground">product-page blocks</h2>
+      <MemoryRouter>
+        <SchemaRendererContext.Provider value={{ dataSource: null, apiFetch: productBlocksFetch }}>
+          {PRODUCT_BLOCK_SPECIMENS.map(({ title, node }) => (
+            <div key={title} className="space-y-2" data-testid={`product-block-${title.split(' ')[0]}`}>
+              <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">{title}</code>
+              <div className="rounded-md border bg-background p-4">
+                <SchemaRenderer schema={node} />
+              </div>
+            </div>
+          ))}
+        </SchemaRendererContext.Provider>
+      </MemoryRouter>
+    </section>
+  );
+}
+
 function Gallery() {
   const registered = new Set(useRegisteredMetadataPreviewTypes());
   const all = ORDER.filter((t) => registered.has(t));
@@ -329,7 +482,8 @@ function Gallery() {
     return q ?? h ?? null;
   }, []);
   const pickerOnly = only === RECORD_PICKER_KEY;
-  const types = pickerOnly ? [] : only && all.includes(only) ? [only] : all;
+  const blocksOnly = only === PRODUCT_BLOCKS_KEY;
+  const types = pickerOnly || blocksOnly ? [] : only && all.includes(only) ? [only] : all;
   const [active, setActive] = React.useState(types[0]);
 
   return (
@@ -361,6 +515,12 @@ function Gallery() {
               </a>
             ))}
             <a
+              href="#product-blocks"
+              className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/70"
+            >
+              product blocks
+            </a>
+            <a
               href="#record-picker"
               className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/70"
             >
@@ -373,6 +533,7 @@ function Gallery() {
         {types.map((t) => (
           <DesignerCard key={t} type={t} />
         ))}
+        {(!only || blocksOnly) && <ProductBlocksSpecimen />}
         {(!only || pickerOnly) && <RecordPickerSpecimen autoOpen={pickerOnly} />}
       </main>
     </div>
@@ -391,6 +552,11 @@ function GalleryOnceDesignersArrive() {
     return <p className="p-6 text-sm text-muted-foreground">Loading the built-in designers…</p>;
   }
   return <Gallery />;
+}
+
+// Dev-harness theme override — `?theme=dark` renders the gallery in dark mode.
+if (new URLSearchParams(window.location.search).get('theme') === 'dark') {
+  document.documentElement.classList.add('dark');
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

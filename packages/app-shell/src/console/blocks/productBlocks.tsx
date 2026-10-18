@@ -139,7 +139,7 @@ export function HeroBlock({ schema, className }: BlockRendererProps) {
     : 'neutral';
   const hasActions = isRecord(props.primary) || isRecord(props.secondary);
   return (
-    <Card className={cn('border-border/70', className)} data-testid="hero-block">
+    <Card className={cn('w-full border-border/70', className)} data-testid="hero-block">
       <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
@@ -227,7 +227,7 @@ export function UsageBarBlock({ schema, className }: BlockRendererProps) {
   const over = used !== undefined && limit !== undefined && limit > 0 && used > limit;
   const label = pickLocalized(props.label, language);
   return (
-    <div className={cn('space-y-1.5', className)} data-testid="usage-bar-block">
+    <div className={cn('w-full space-y-1.5', className)} data-testid="usage-bar-block">
       <div className="flex items-baseline justify-between gap-3 text-sm">
         <span className="font-medium">{label}</span>
         <span className={cn('tabular-nums text-muted-foreground', over && 'text-destructive')} data-testid="usage-bar-amount">
@@ -263,7 +263,7 @@ export function ChecklistBlock({ schema, className }: BlockRendererProps) {
   const allDone = items.length > 0 && items.every((item) => item.done === true);
   if (allDone && props.collapsedWhenDone === true) return null;
   return (
-    <ol className={cn('space-y-2', className)} data-testid="checklist-block">
+    <ol className={cn('w-full space-y-2', className)} data-testid="checklist-block">
       {items.map((item, index) => {
         const done = item.done === true;
         return (

@@ -147,10 +147,14 @@ the one `@object-ui/fields` publishes for this, called in your component:
 
 ```tsx
 import { useBooleanValueLabel } from '@object-ui/fields';
-import { deriveDetail } from '@object-ui/plugin-form';
+import { deriveDetail, type ChildObjectSchemaLike } from '@object-ui/plugin-form';
 
-const booleanLabel = useBooleanValueLabel(); // common.yes / common.no
-const detail = deriveDetail('invoice_line', childSchema, 'invoice', { booleanLabel });
+declare const childSchema: ChildObjectSchemaLike; // as your DataSource's getObjectSchema serves it
+
+export function useInvoiceLines() {
+  const booleanLabel = useBooleanValueLabel(); // common.yes / common.no
+  return deriveDetail('invoice_line', childSchema, 'invoice', { booleanLabel });
+}
 ```
 
 There is no default: an English one would label the options in English for a

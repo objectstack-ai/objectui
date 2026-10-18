@@ -20,6 +20,7 @@ import { useRecordContext, useActionEngine, useMetadataItem, useCondition, toPre
 import { usePermissions } from '@object-ui/permissions';
 import {
   Button,
+  type ButtonProps,
   cn,
   hasDeclaredVisibilityGate,
   resolveIcon,
@@ -39,6 +40,27 @@ import { recordBindingBlock } from './recordBinding';
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
   return { designer: { 'data-obj-id': id, 'data-obj-type': type, style }, rest };
+};
+
+type QuickActionButtonVariant = NonNullable<ButtonProps['variant']>;
+
+/**
+ * An action's spec `variant` (`ActionSchema.variant`: `primary | secondary |
+ * danger | ghost | link`, where "danger = destructive") mapped onto the
+ * `Button` primitive's vocabulary — the same reading the record header and
+ * the row menu give it (objectui#12986). Without it `danger` and `primary`
+ * reached `Button` raw, matched no cva variant, and drew unstyled. Kept
+ * local: no package this one depends on exports the mapping.
+ */
+const SPEC_ACTION_TO_BUTTON_VARIANT: Record<
+  NonNullable<ActionDef['variant']>,
+  QuickActionButtonVariant
+> = {
+  primary: 'default',
+  secondary: 'secondary',
+  danger: 'destructive',
+  ghost: 'ghost',
+  link: 'link',
 };
 
 /** A stable empty array, so an absent `actions` / `actionNames` does not mint one per render. */
@@ -338,7 +360,14 @@ const RecordQuickActionsBody: React.FC<RecordQuickActionsRendererProps> = ({
           key={action.name || `qa-${idx}`}
           action={action}
           record={ctx?.data}
-          variant={(action as any).variant || schema.variant || 'default'}
+          // A declared action variant is spec vocabulary and is mapped; the
+          // block's own `variant` (Button vocabulary) is the fallback only
+          // for an action that declares none.
+          variant={
+            action.variant
+              ? SPEC_ACTION_TO_BUTTON_VARIANT[action.variant]
+              : schema.variant || 'default'
+          }
           size={(action as any).size || schema.size || 'sm'}
           // Already resolved (with the confirm/success strings that ride the
           // same dispatch) in the `actions` memo above — objectui#4265.
@@ -364,7 +393,7 @@ function QuickActionButton({
 }: {
   action: ActionDef;
   record: Record<string, unknown> | undefined;
-  variant: any;
+  variant: QuickActionButtonVariant;
   size: any;
   label: string;
   onRun: () => Promise<void> | void;

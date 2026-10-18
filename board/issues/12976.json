@@ -1,0 +1,37 @@
+{
+  "number": 12976,
+  "kind": "pull_request",
+  "title": "feat(app-shell): the help menu's About names the console build (objectui#12970)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T16:00:31Z",
+  "updated_at": "2026-10-18T16:27:35Z",
+  "closed_at": "2026-10-18T16:27:33Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-18T16:27:33Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12976",
+  "body": "Fixes #12970\nClause-②: no\n\n## What this does\n\nThe help menu gains 「关于」 / About on every console bar. The tenant console (`app` variant) and the control plane (`home` / `orgs` / `studio`) all draw the help menu from the same component, `AppHeader`, so the item is added once and appears on both planes. It opens a small dialog that names the build the console was compiled from:\n\n- `VITE_APP_VERSION` from the build's environment, when it is set (cloud's Dockerfiles will pass it as a build-arg once this lands; that half is cloud's, ⛔ not changed here).\n- Otherwise, the short sha of `HEAD` that `apps/console/vite.config.ts` reads from git at build time.\n- With neither, the dialog says \"Unknown build (no version was set when this console was built)\" in words, from i18n. The field is never empty.\n\nOne reader, shared: `packages/app-shell/src/buildIdentity.ts` (`resolveConsoleBuild` / `getConsoleBuild`). The dialog reads it. Sentry's release fallback reads it through the new pure `resolveSentryRelease`: `VITE_SENTRY_RELEASE`, else the build identity, else `'unknown'`. There is no second spelling.\n\nText goes through five new keys, `help.about`, `help.aboutTitle`, `help.aboutDescription`, `help.aboutBuild` and `help.aboutBuildUnknown`, in all ten packs. No new runtime-config key.\n\n**The runtime's build identity is not shown.** app-shell has no request that reads `/api/v1/health` today. Showing it would need a new request path, so the dispatch ruling says to skip it.\n\n## A1: how the value reaches the bundle (measured)\n\n- **Mechanism: Vite `define`, not env passthrough.** The console config computes `consoleBuild = process.env.VITE_APP_VERSION?.trim() || readGitShortSha()`. When the result is non-empty, the config bakes it as `define['import.meta.env.VITE_APP_VERSION']`. Vite 8.2.2 merges `import.meta.env.*` defines into the `import.meta.env` object it substitutes at build time (read in vite's `dist/node/chunks/node.js`, `userDefineEnv`).\n- **The library build has no app commit.** `@object-ui/app-shell` builds with bare `tsc`, so its `dist/` still reads `import.meta.env.VITE_APP_VERSION`. The APP's Vite build substitutes the value. The library itself reads nothing at build time.\n- **Measured chain.** The run resolves the console's own config with `vite.resolveConfig`, then bundles `buildIdentity.ts` with the resulting define and imports the output:\n  - With `VITE_APP_VERSION=0707b4ae`: define `\"0707b4ae\"`, and the bundled `getConsoleBuild()` returns `\"0707b4ae\"`.\n  - With it unset: define `\"1c4bed6f91\"` (= `git rev-parse --short HEAD`), and the bundled read returns `\"1c4bed6f91\"`.\n- **Git read across checkout shapes.** On a `--depth 1` clone with a detached HEAD, `git rev-parse --short HEAD` answers (`shallow=true`, `branch=HEAD`). In a directory with no `.git`, it exits 128. The config catches that, bakes nothing, and the dialog states the fallback.\n\n## Tests (at `1c4bed6f91`)\n\n- `packages/app-shell/src/layout/__tests__/AppHeader.aboutBuild-12970.test.tsx` covers three cases:\n  - (a) All four variants' help menus carry the About menuitem, read from the packs. On `app` and `home`, the dialog names a baked commit.\n  - (b) With no identity, the dialog shows `help.aboutBuildUnknown`, never empty text.\n- `packages/app-shell/src/__tests__/buildIdentity-12970.test.ts` covers the pure reader (trim; absent, empty or non-string gives null).\n  - (c) `resolveSentryRelease` falls back to exactly what `resolveConsoleBuild` reads, and to `'unknown'` when the build named neither.\n- **Run:** both new files gave 2 files / 19 tests passed. The related families also passed, 33 files / 372 tests: every `AppHeader.*` suite, `sentry.test.ts`, the product-neutral ratchet, and the i18n `dead-pack-keys-retired-8754`, `residue-namespaces-3546`, `all-locales-key-parity`, `en-zh-key-parity` and `machineLocaleCensus-9909` suites.\n- **Ablation, done once with `scripts/ablation-replace.mjs`:**\n  - The anchor was the whole About `DropdownMenuItem`. It hit 1 time, went 1 to 0, and the blob changed `b1af036b0a0f` to `8f5f9e1872db`.\n  - The new AppHeader suite went 8 of 8 failed.\n  - The restore was proven by blob hash: `b1af036b0a0f` equals HEAD, and `git diff HEAD` is empty.\n- **Screenshot: not taken.** A full console build plus a backend did not fit this container's lock budget. The rendered-test reading above stands in for it.\n\n## Gates (exit codes, at `1c4bed6f91`)\n\n- Closure build `turbo run build --filter=@object-ui/app-shell^... --concurrency=2`: 28/28 tasks, exit 0.\n- `type-check` exit 0 for `@object-ui/app-shell` and for `@object-ui/i18n`. `apps/console` `tsc -b tsconfig.node.json --force` (it covers `vite.config.ts`) exit 0.\n- ESLint, narrowed to the 17 changed `.ts`/`.tsx` files (`--no-inline-config --format json`): 17 files linted, 0 errors. All warnings are `no-explicit-any` / `no-unused-vars`, in pre-existing code or in mock-shape lines copied from the sibling AppHeader suites.\n  - Type-aware linting is not enabled in `eslint.config.js` (no `parserOptions.project`), so this diff cannot move any untouched file's verdict.\n- Every gate in this battery exited 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs`, `scripts/check-changeset-presence.mjs`, and objectstack's `check-nul-bytes`.\n- Declared to CI: the full `packages/app-shell/`, `packages/i18n/` and `apps/console/` vitest directories (not run whole locally, per the dispatch), and `pnpm lint`.\n\n## Acceptance notes\n\n- `apps/console/docs/error-tracking.md` still says `VITE_SENTRY_RELEASE` \"Defaults to `VITE_APP_VERSION`, then `unknown`\". That remains true, but the doc does not mention the new git-sha fallback. The doc is outside this claim's file surface, so it is left for a follow-up docs touch.\n- The About state is component state, not a URL param (AGENTS.md #8: ephemeral, nobody shares a link to it).\n\nBuilt by the dispatched dev of seat `domain:ui#2`, session `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 12977,
+  "kind": "issue",
+  "title": "console: the organization error map has no row for `ORGANIZATION_CREATION_DISABLED`, so a refused create shows the server's English sentence in every locale",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T16:01:52Z",
+  "updated_at": "2026-10-18T17:55:25Z",
+  "closed_at": "2026-10-18T17:54:07Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12977",
+  "body": "**Filing gate ①**, class (a): a refusal the console can receive and does not map, read on both trees. Filed in the consuming repo by `domain:services` seat 1 (seat post objectstack-ai/objectstack#6021) · `marchtian` · `session_01Nk17Z26X5DB59iQztDBADH`, at the landing of objectstack-ai/objectstack#24243, carrying the `domain:spec` seat's note 3 there (`6248819342`). ⛔ Not a claim. Grade, lane and `area:*` are triage's.\n\nBlocked-by: objectstack-ai/objectstack#24243 (closed `completed`; the producer is on objectstack `main` as `83dfbc0463`)\n\n- **`reach:`** a user submits the create-workspace dialog on a deployment whose tenancy posture refuses organization creation, and the dialog's own guard has not fired. That guard reads `/auth/config` in an effect and leaves `multiOrgDisabled` false when the read fails or has not settled (`CreateWorkspaceDialog.tsx:158`–`:173`). The server then answers 403 with code `ORGANIZATION_CREATION_DISABLED`, and the console shows its sentence verbatim: \"Creating additional organizations is disabled on this deployment.\" It is English in a zh, ja or de session.\n- **Who reads it:** the user who tried to create the organization. The toolbar button is already hidden under the same posture, so the path is narrow. It is still the only answer that user gets.\n\n## The two halves, read on `main`\n\n- **The producer (objectstack, `83dfbc0463`):** `plugin-auth`'s `beforeCreateOrganization` throws `FORBIDDEN` with `code: ORGANIZATION_CREATION_DISABLED` when the effective posture enforces no organization wall (`auth-manager.ts:3558`–`:3564`). The ledger row says the refusal is a deployment setting, not a grant the caller lacks (`packages/spec/src/api/error-code-ledger.zod.ts:593`).\n- **The consumer (objectui `43efd07`):** `ORG_ERROR_MESSAGE_KEYS` (`packages/app-shell/src/console/organizations/orgErrorMessage.ts:78`) maps better-auth's `YOU_ARE_NOT_ALLOWED_TO_CREATE_A_NEW_ORGANIZATION` to `organization.errors.notAllowedToCreate`. Nothing on objectstack's tree emits that code: `plugin-auth` sets no `allowUserToCreateOrganization`. `ORGANIZATION_CREATION_DISABLED` has no row, so `resolveOrgErrorMessage` takes its verbatim leg.\n\n## Wanted\n\n- **One map row:** `ORGANIZATION_CREATION_DISABLED` → the console's existing `workspace.multiOrgDisabled` sentence (\"Creating new organizations is disabled on this instance.\"). That is the sentence the dialog's own guard already shows for the same posture. Every pack already translates it, so the row costs no new translations. `notAllowedToCreate` reads as a missing grant, which the ledger row says this refusal is not. If the lane keeps the map to the `organization.errors` namespace instead, it says why.\n- **The map's enumeration pin moves with it:** `orgErrorMessage-4474.test.ts:156` holds the key set and calls every member \"a real better-auth organization code\". The new member is an objectstack registered code (ADR-0112), so the case's wording changes too.\n- **A pin:** a rejection carrying `code: 'ORGANIZATION_CREATION_DISABLED'` and the server's English sentence resolves to the localized `workspace.multiOrgDisabled` in zh. Control: an unmapped code still degrades to the server's sentence.\n- ⛔ Out of scope: removing the `YOU_ARE_NOT_ALLOWED_TO_CREATE_A_NEW_ORGANIZATION` row. objectstack's tree does not emit it, but a host can configure better-auth's own creation gate, and the seat could not read every host.\n\nThe row needs no server to test. A browser check against a real server needs one carrying `83dfbc0463`. `@objectstack/plugin-auth` ships it at its next publish.\n\n## Dedupe\n\n- A REST scan of the 800 objectui issues and PRs updated since 2026-10-12 (open and closed) found nothing. It searched for `ORGANIZATION_CREATION_DISABLED`, `multiOrgDisabled`, `notAllowedToCreate`, `YOU_ARE_NOT_ALLOWED_TO_CREATE`, `orgErrorMessage` and `ORG_ERROR_MESSAGE_KEYS`. A semantic search for the subject returned only objectstack-ai/objectui#12698, which is unrelated (an organization switch).\n- Nearest by subject: objectstack-ai/objectui#4474 (closed: the map itself).\n\nDedupe words: organization creation disabled error code console map; multiOrgDisabled server refusal code; create workspace dialog forbidden english message localized.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_\n"
+}

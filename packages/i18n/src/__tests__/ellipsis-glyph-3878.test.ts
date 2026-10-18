@@ -333,7 +333,10 @@ describe('objectui#3878 — the ten packs spell the ellipsis U+2026 and only U+2
 const LOADING_GROUP_EN = 'Loading…';
 
 /**
- * The group as measured on `main` @ `22ba9271f`. Pinned by name so the
+ * The group as measured on `main` @ `22ba9271f`, plus `home.loading`, which
+ * joined when objectui#12956 dropped the cloud noun from its `en` value
+ * (`Loading environment…` became `Loading…`); every pack now renders it the
+ * way it renders the rest of the group. Pinned by name so the
  * uniformity rule below cannot go green by the group quietly emptying out —
  * a uniformity assertion over nothing passes, which is this pin's failure mode.
  */
@@ -346,6 +349,7 @@ const LOADING_GROUP = [
   'fields.recipient.loading',
   'grid.bulk.loading',
   'grid.import.historyLoading',
+  'home.loading',
   'lookup.loading',
   'report.loading',
 ] as const;
@@ -363,16 +367,16 @@ const LOADING_GROUP = [
 const LOADING_GROUP_FORKS: ReadonlyArray<{ lang: Lang; key: string; value: string }> = [];
 
 describe('objectui#5972 — each pack renders the merged `Loading…` group exactly one way', () => {
-  it('derives the group from en and finds exactly the ten keys pinned above', () => {
+  it('derives the group from en and finds exactly the keys pinned above', () => {
     // Membership first, uniformity second. If `en` drifts — a key renamed, a
     // value edited to `Loading more…`, a new `Loading…` key landing — the group
     // this file reasons about is no longer the group it names, and the rule
     // below would be silently measuring something else.
     const derived = PACKS.en.filter(([, value]) => value === LOADING_GROUP_EN).map(([key]) => key);
-    expect(derived.length, 'the group emptied or changed size — re-measure before editing the list').toBe(10);
+    expect(derived.length, 'the group emptied or changed size — re-measure before editing the list').toBe(11);
     expect([...derived].sort()).toEqual([...LOADING_GROUP].sort());
 
-    // And every pack must actually define all ten. An absent key is a key-set
+    // And every pack must actually define every member. An absent key is a key-set
     // fact owned by all-locales-key-parity, but if one went missing here the
     // uniformity rule would happily pass over the survivors.
     for (const lang of LANGS) {
@@ -390,7 +394,7 @@ describe('objectui#5972 — each pack renders the merged `Loading…` group exac
     for (const lang of LANGS) {
       const byKey = new Map(PACKS[lang]);
       const ruled = LOADING_GROUP.filter((key) => !forked.has(`${lang} ${key}`));
-      // Non-vacuity per language: 10 keys, minus this pack's exemptions. A
+      // Non-vacuity per language: every member, minus this pack's exemptions. A
       // count assertion here is what stops a collapsed pack or a typo'd key
       // name from turning the set check below into a check of nothing.
       const expectedCount = LOADING_GROUP.length - LOADING_GROUP_FORKS.filter((f) => f.lang === lang).length;

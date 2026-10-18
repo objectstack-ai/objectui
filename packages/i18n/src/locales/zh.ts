@@ -2779,7 +2779,7 @@ const zh = {
       marketplaceDisabled: '本运行时未配置应用市场，因此这里没有可安装的模板。',
     },
     open: '打开',
-    loading: '正在加载…',
+    loading: '加载中…',
     welcome: '用 AI 搭建你的业务系统',
     welcomeDescription: '用一句话描述你的业务，AI 帮你生成对象、界面、API 和 agent 工具。也可以手动从零开始。',
     welcomeAdminDescription: '用一句话描述你的业务，AI 会为你生成对象、界面、API 和智能体工具；也可以从左侧菜单自行搭建。',

@@ -512,23 +512,43 @@ const formatTabCount = (v: number | string): string => {
 };
 
 /**
- * Walk a tab's children (depth-first) and return the first
- * `record:related_list` schema node found. Used to auto-derive a count
- * for the tab badge when the spec author didn't supply one explicitly.
+ * One `record:related_list` the tab badge may count, with the gates in front
+ * of it: every node on its path (the list itself included) that declares a
+ * node-level `visibleWhen`. The walk only RECORDS the gates; it evaluates
+ * nothing, so its result depends on the tab's subtree alone. The verdicts are
+ * taken at render, against the viewer's scope (objectui#12987).
  */
+interface CollectedRelatedList {
+  node: any;
+  gates: any[];
+}
+
 /**
  * Walk a tab's children (depth-first) and collect every `record:related_list`
  * schema node. Used to auto-derive a count for the tab badge when the spec
  * author didn't supply one explicitly. Multiple lists are summed (Salesforce
  * "Related" tab convention).
+ *
+ * The gate is the node-level `visibleWhen`, the one key the spec declares for
+ * it: `PageComponentSchema` declares `visibleWhen` on the node, and the
+ * `record:related_list` props shape refuses a `properties.visibleWhen` by name.
+ * A gate that does not pass hides its whole subtree in the tab body, so a list
+ * below a hidden container carries that container's gate too.
  */
-const collectRelatedLists = (nodes: any, acc: any[] = []): any[] => {
+const collectRelatedLists = (
+  nodes: any,
+  acc: CollectedRelatedList[] = [],
+  gates: any[] = [],
+): CollectedRelatedList[] => {
   if (!nodes) return acc;
   const list = Array.isArray(nodes) ? nodes : [nodes];
   for (const n of list) {
     if (!n || typeof n !== 'object') continue;
+    // `!== undefined`, the test `SchemaRenderer`'s own `visibleWhen` leg uses,
+    // so a node it evaluates is a node this walk records as a gate.
+    const pathGates = n.visibleWhen !== undefined ? [...gates, n] : gates;
     if (n.type === 'record:related_list' || n.type === 'record_related_list') {
-      acc.push(n);
+      acc.push({ node: n, gates: pathGates });
       continue; // Don't descend into a related_list's own subtree.
     }
     // ⚠️ `body` STAYS, and an earlier pass of this change wrongly removed it.
@@ -550,7 +570,7 @@ const collectRelatedLists = (nodes: any, acc: any[] = []): any[] => {
       n.items,
     ];
     for (const c of candidates) {
-      if (c) collectRelatedLists(c, acc);
+      if (c) collectRelatedLists(c, acc, pathGates);
     }
   }
   return acc;
@@ -701,11 +721,71 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // need a count probe. Cached per items reference so we don't re-walk on
   // every render.
   const recordObject: string | undefined = ctx?.objectName;
+
+  // objectui#12987 — a related list the tab body does not draw is not counted.
+  // The body draws each block through `SchemaRenderer`, which decides a node's
+  // `visibleWhen` with `ExpressionEvaluator.evaluateCondition` against the
+  // ambient predicate scope, `current_user` aliased to `user`, the page's
+  // bound row as `record` (only when there is one) and page variables as
+  // `page`. The gates below are decided by that same evaluator over that same
+  // scope, read from the same three hooks — NOT the item-level scope of
+  // `isItemVisible` above, which also spreads the row flat and binds `data`.
+  //
+  // A predicate that cannot be evaluated yet (a root still loading, a
+  // malformed source) is treated as the body treats it: `evaluateCondition`
+  // is fail-open, so the block is drawn and its list is counted. The verdicts
+  // are re-taken every render, so a gate that closes once its scope arrives
+  // drops the list from the badge on that render. A fault is reported through
+  // the body's reporter, whose dedupe key is (node type, key, source), so one
+  // broken predicate is still one line.
+  //
+  // The walk runs per render (a tab's subtree is small) and its verdicts are
+  // folded into `listGateKey`, a string, so the probe memo below keys on the
+  // VALUE of the verdicts and never on a memo's identity (AGENTS.md #10).
+  const listsByItem = items.map((it) =>
+    it.count !== undefined && it.count !== null && it.count !== ''
+      ? []
+      : collectRelatedLists((it as any).children),
+  );
+  const gateVerdicts = new Map<any, boolean>();
+  let blockEvaluator: ExpressionEvaluator | undefined;
+  const isGateOpen = (gate: any): boolean => {
+    const known = gateVerdicts.get(gate);
+    if (known !== undefined) return known;
+    blockEvaluator ??= new ExpressionEvaluator({
+      ...predicateScope,
+      current_user: (predicateScope as any)?.user,
+      ...(recordData && typeof recordData === 'object' && !Array.isArray(recordData)
+        ? { record: recordData }
+        : null),
+      page: pageVariables,
+    });
+    const verdict = blockEvaluator.evaluateCondition(gate.visibleWhen, {
+      onFault: (reason) =>
+        reportUnresolvableVisibilityPredicate(
+          gate.type,
+          gate.id,
+          'visibleWhen',
+          gate.visibleWhen,
+          reason,
+          'page-component',
+        ),
+    });
+    gateVerdicts.set(gate, verdict);
+    return verdict;
+  };
+  const shownListsByItem = listsByItem.map((lists) =>
+    lists.filter((entry) => entry.gates.every(isGateOpen)),
+  );
+  const listGateKey = listsByItem
+    .map((lists, idx) => lists.map((entry) => (shownListsByItem[idx].includes(entry) ? '1' : '0')).join(''))
+    .join('|');
+
   const probeTargets = React.useMemo(() => {
     const out = new Map<number, Array<Probe>>();
     items.forEach((it, idx) => {
       if (it.count !== undefined && it.count !== null && it.count !== '') return;
-      const lists = collectRelatedLists((it as any).children);
+      const lists = shownListsByItem[idx].map((entry) => entry.node);
       const probes: Array<Probe> = [];
       for (const rl of lists) {
         const objectName: string | undefined = rl?.properties?.objectName || rl?.objectName;
@@ -736,7 +816,9 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       if (probes.length > 0) out.set(idx, probes);
     });
     return out;
-  }, [items, recordObject]);
+    // `shownListsByItem` is fresh each render; `listGateKey` is its value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, recordObject, listGateKey]);
   // objectui#6697 — the probe effect below keys on THIS string, not on the
   // `Map` above. `useMemo` is a pure optimisation, not a correctness
   // dependency: React may discard the cache and recompute even when

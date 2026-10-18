@@ -540,6 +540,8 @@ function liftPlanCard(raw: unknown): ProposedPlanCard | undefined {
 }
 
 const isLineStatus = (v: unknown): v is 'passed' | 'failed' => v === 'passed' || v === 'failed';
+const isLineKind = (v: unknown): v is BuildResultChecklist['lines'][number]['kind'] =>
+  v === 'object' || v === 'view' || v === 'sampleData';
 const isCount = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0;
 
 /**
@@ -556,8 +558,7 @@ export function detectBuildChecklist(result: unknown): BuildResultChecklist | un
   }
   const lines = raw.lines.flatMap((l) => {
     const r = recordOf(l);
-    if (!r || (r.kind !== 'object' && r.kind !== 'view' && r.kind !== 'sampleData')) return [];
-    if (!isLineStatus(r.status) || !isText(r.line)) return [];
+    if (!r || !isLineKind(r.kind) || !isLineStatus(r.status) || !isText(r.line)) return [];
     return [{ kind: r.kind, status: r.status, line: r.line }];
   });
   const app = recordOf(raw.app);

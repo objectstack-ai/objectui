@@ -37,7 +37,7 @@ describe('detectReplayOutcome (objectui#5695)', () => {
         'replay_t1_0',
         JSON.stringify({ status: 'drafted', drafted: [{ type: 'view', name: 'v' }], packageId: 'app.k9qk' }),
       ),
-    ).toEqual({ kind: 'drafted', packageId: 'app.k9qk' });
+    ).toEqual({ kind: 'drafted', packageId: 'app.k9qk', items: [{ type: 'view', name: 'v' }] });
   });
 
   it('lifts a failed publish with the machine verdict and the FIRST line of publishError', () => {

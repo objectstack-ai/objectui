@@ -27,6 +27,8 @@ const PKG: InstalledPackageRow = {
   manifest: { id: 'com.acme.crm', name: 'Acme CRM', version: '1.0.0', type: 'app' },
   enabled: true,
   status: 'installed',
+  source: 'authored',
+  writable: true,
 };
 
 /** The kind of React error this card is about: a DOM-nesting violation. */

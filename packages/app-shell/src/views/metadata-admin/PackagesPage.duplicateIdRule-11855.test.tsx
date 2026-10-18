@@ -30,6 +30,8 @@ const PKG: InstalledPackageRow = {
   manifest: { id: PKG_ID, name: 'Acme CRM', version: '1.0.0', type: 'app' },
   enabled: true,
   status: 'installed',
+  source: 'authored',
+  writable: true,
 };
 
 type Call = { url: string; method: string; body: unknown };

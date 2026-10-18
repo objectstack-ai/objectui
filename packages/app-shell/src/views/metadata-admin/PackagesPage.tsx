@@ -87,11 +87,12 @@ import { useWorkspaceAdminStatus } from '@object-ui/auth';
 import { getRuntimeConfig } from '../../runtime-config.js';
 import { readMarketplaceInstalls, type LocalInstallEntry } from '../../console/marketplace/marketplaceApi.js';
 import { MarketplaceNotLoaded, MarketplaceRowActions } from '../../console/marketplace/MarketplaceRowActions.js';
+import type { InstalledPackageAtEitherStage } from '@objectstack/spec/api-assembled';
 import {
   PACKAGES_SOURCE_PARAM,
   PackageSourceRefusal,
+  readServedSource,
   readSourceFilter,
-  resolvePackageSource,
   type PackageSource,
 } from './packageSource.js';
 
@@ -137,21 +138,39 @@ export interface PackageManifestRow {
  * `status` and `enabled`, types `manifest` as the full spec `PackageManifest`,
  * and adds `installedAt`, `updatedAt`, `installedVersion`, `previousVersion`,
  * `settings`, `upgradeHistory` and `registeredNamespaces`. This row is the
- * lenient projection of it that the list actually consumes.
+ * lenient projection of it that the list actually consumes — except for the
+ * two statements the list draws a column from, which are taken from the
+ * served row's own declaration rather than spelled again here.
+ *
+ * `source` and `writable` come from `InstalledPackageAtEitherStage`
+ * (`@objectstack/spec/api-assembled`, the element both read doors serve), both
+ * required there (objectstack#24010) and both separate statements:
+ *  - `source` — where the package came from: the Source column and the
+ *    `?source=` filter read it (`packageSource.ts`, objectui#12790);
+ *  - `writable` — what the server lets an org do to the package
+ *    (objectstack#14375): the Scope badge's writable / read-only half reads it
+ *    (objectui#12723). ⛔ Never a Source signal.
+ *
+ * The list reads both at load (`UncheckedPackageRow` below is the wire before
+ * that read) and refuses a row by name when either is missing.
  */
-export interface InstalledPackageRow {
+export interface InstalledPackageRow extends Pick<InstalledPackageAtEitherStage, 'source' | 'writable'> {
   manifest: PackageManifestRow;
   status?: string;
   enabled?: boolean;
   statusChangedAt?: string;
   errorMessage?: string;
-  /**
-   * The server's writability verdict, a top-level key every row carries
-   * (objectstack#14375). The Source column reads it — see `packageSource.ts` —
-   * and so does the Scope badge's writable / read-only half (objectui#12723).
-   */
-  writable?: boolean;
 }
+
+/**
+ * A `/api/v1/packages` row as the wire hands it, before the list has read its
+ * two declared statements: `source` and `writable` are whatever arrived, and
+ * only the list's load turns one into an {@link InstalledPackageRow}.
+ */
+type UncheckedPackageRow = Omit<InstalledPackageRow, 'source' | 'writable'> & {
+  source?: unknown;
+  writable?: unknown;
+};
 
 const API = '/api/v1/packages';
 
@@ -200,9 +219,11 @@ function ScopeBadge({ pkg }: { pkg: InstalledPackageRow }) {
   // scope-less and served `writable: false`. `scope` only names WHICH kind of
   // read-only package it is (system / cloud / project).
   //
-  // A row with no boolean verdict never reaches this badge: the list refuses it
-  // at load (`PACKAGE_SOURCE_UNKNOWN`, `packageSource.ts`). Should one get here
-  // anyway, it is drawn as an unknown dash — never as writable.
+  // A list row with no boolean verdict never reaches this badge: the list
+  // refuses it at load (`PACKAGE_WRITABLE_UNKNOWN`, below). The detail sheet
+  // can also be opened on a row fetched elsewhere (Studio's package switcher);
+  // should one without a verdict get here, it is drawn as an unknown dash —
+  // never as writable.
   const { writable } = pkg;
   if (typeof writable !== 'boolean') {
     return <span data-testid="pkg-scope-unknown">—</span>;
@@ -266,8 +287,6 @@ function sourceRefusalText(e: PackageSourceRefusal, locale: string): string {
   switch (e.code) {
     case 'PACKAGE_SOURCE_UNKNOWN':
       return tFormat('engine.packages.source.unknown', locale, { id: e.subject });
-    case 'PACKAGE_SOURCE_CONFLICT':
-      return tFormat('engine.packages.source.conflict', locale, { id: e.subject });
     case 'PACKAGE_SOURCE_FILTER_UNKNOWN':
       return tFormat('engine.packages.source.filterUnknown', locale, { value: e.subject });
     case 'PACKAGE_SOURCE_FILTER_REPEATED':
@@ -276,9 +295,33 @@ function sourceRefusalText(e: PackageSourceRefusal, locale: string): string {
 }
 
 /**
- * One line of the list: a registry package with its Source, or a marketplace
- * install the runtime did not load (it has no registry row, but it is
- * installed, and Uninstall acts on it — objectui#11645).
+ * A served row whose `writable` verdict is absent or not a boolean
+ * (`PACKAGE_WRITABLE_UNKNOWN`). The Scope badge draws its writable / read-only
+ * half from that verdict (objectui#12723) and the served row declares it
+ * required, so the list refuses the row by its id instead of drawing a badge
+ * it cannot decide. Its own refusal, separate from the Source one: `writable`
+ * never names a row's Source, and its absence is never read as one.
+ */
+class PackageWritableRefusal extends Error {
+  readonly code = 'PACKAGE_WRITABLE_UNKNOWN';
+  /** The package id. */
+  readonly subject: string;
+
+  constructor(subject: string) {
+    super(`PACKAGE_WRITABLE_UNKNOWN: ${subject}`);
+    this.name = 'PackageWritableRefusal';
+    this.subject = subject;
+  }
+}
+
+/**
+ * One line of the list: a registry package with its served Source, or a
+ * marketplace install the runtime did not load (it has no registry row, but it
+ * is installed, and Uninstall acts on it — objectui#11645).
+ *
+ * `install` is the marketplace slice's entry for the package, and only a row
+ * whose Source is `marketplace` carries one: it is what the row actions act on,
+ * never a signal that names the Source.
  */
 interface PackageListRow {
   id: string;
@@ -1100,7 +1143,9 @@ export function PackagesPage() {
   const [importMsg, setImportMsg] = React.useState<{ kind: 'ok' | 'err'; text: string } | null>(
     null,
   );
-  // objectui#12675 — every row's Source, and the marketplace slice's list.
+  // objectui#12675 — every row with its Source; objectui#12790 — that Source is
+  // the row's served `source`, and the marketplace slice's list only supplies
+  // the row actions and the installs the runtime did not load.
   const [rows, setRows] = React.useState<PackageListRow[]>([]);
   const [marketplaceList, setMarketplaceList] = React.useState<'cloud' | 'local'>('local');
   const [marketplaceMsg, setMarketplaceMsg] = React.useState<{ ok: boolean; message: string } | null>(null);
@@ -1127,10 +1172,22 @@ export function PackagesPage() {
     setError(null);
     try {
       const [data, marketplace] = await Promise.all([
-        apiJson<{ packages: InstalledPackageRow[] }>(API),
+        apiJson<{ packages: UncheckedPackageRow[] }>(API),
         marketplaceOn ? readMarketplaceInstalls() : Promise.resolve(null),
       ]);
-      const list = Array.isArray(data?.packages) ? data.packages : [];
+      const served = Array.isArray(data?.packages) ? data.packages : [];
+      // objectui#12790 — each row's Source is its served `source`, read as is
+      // and refused by name when absent or outside the closed set; ⛔ never
+      // derived from `writable` or from the marketplace list, and no fallback
+      // when it is missing. `writable` is read for the Scope badge and refused
+      // under its own name. One unreadable row refuses the list: no row is
+      // drawn beside a refusal.
+      const list: InstalledPackageRow[] = served.map((p) => {
+        const source = readServedSource(p);
+        const { writable } = p;
+        if (typeof writable !== 'boolean') throw new PackageWritableRefusal(p.manifest.id);
+        return { ...p, source, writable };
+      });
       list.sort((a, b) => {
         // User (project) packages first, then by name.
         const sa = a.manifest.scope === 'project' ? 0 : 1;
@@ -1139,13 +1196,18 @@ export function PackagesPage() {
         return (a.manifest.name || a.manifest.id).localeCompare(b.manifest.name || b.manifest.id);
       });
       const installs = new Map((marketplace?.items ?? []).map((i) => [i.manifestId, i]));
-      const ids = new Set(installs.keys());
+      // The marketplace entry rides a row the SERVER calls `marketplace`, for
+      // the row actions to act on; it never names a row's Source.
       const next: PackageListRow[] = list.map((p) => ({
         id: p.manifest.id,
         pkg: p,
-        source: resolvePackageSource(p, ids),
-        install: installs.get(p.manifest.id) ?? null,
+        source: p.source,
+        install: p.source === 'marketplace' ? (installs.get(p.manifest.id) ?? null) : null,
       }));
+      // An install the marketplace lists and the runtime did not load has no
+      // registry row, so nothing serves it a `source`. It is listed because it
+      // is installed (objectui#11645), and its Source is the statement of the
+      // marketplace's own installed list, the one door that holds it.
       const loaded = new Set(list.map((p) => p.manifest.id));
       for (const install of installs.values()) {
         if (!loaded.has(install.manifestId)) {
@@ -1159,7 +1221,9 @@ export function PackagesPage() {
       setError(
         e instanceof PackageSourceRefusal
           ? sourceRefusalText(e, locale)
-          : (e?.message ?? t('engine.packages.loadFailed', locale)),
+          : e instanceof PackageWritableRefusal
+            ? tFormat('engine.packages.scope.unknown', locale, { id: e.subject })
+            : (e?.message ?? t('engine.packages.loadFailed', locale)),
       );
     } finally {
       setLoading(false);

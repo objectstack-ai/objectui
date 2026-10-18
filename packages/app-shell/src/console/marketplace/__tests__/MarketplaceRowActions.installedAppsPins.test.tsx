@@ -70,7 +70,14 @@ const LOADED = {
   installedBy: 'admin@objectos.ai',
 };
 /** The loaded entry's registry row. A refused entry has none: the runtime holds none of it. */
-const LOADED_ROW = { manifest: { id: 'com.example.todo', name: 'Todo', version: '1.0.0' }, enabled: true, writable: false };
+const LOADED_ROW = {
+  manifest: { id: 'com.example.todo', name: 'Todo', version: '1.0.0' },
+  enabled: true,
+  // As objectstack serves it since objectstack#24010: install-local registers
+  // the package and states `source: 'marketplace'` (objectui#12790).
+  source: 'marketplace',
+  writable: false,
+};
 
 const UNINSTALL_PATH = (id: string) => `/api/v1/marketplace/install-local/${id}`;
 

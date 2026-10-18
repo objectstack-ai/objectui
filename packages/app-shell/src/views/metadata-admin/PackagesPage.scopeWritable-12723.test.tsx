@@ -9,7 +9,9 @@
  * scope-less and served `writable: false`; it used to be badged Writable
  * because every scope-less row was assumed to be an authored base. `scope`
  * still names which kind of read-only package a row is (system / cloud /
- * project). A row with no verdict is refused at load, so no badge is drawn.
+ * project). A row with no verdict is refused at load, so no badge is drawn —
+ * under its own name since objectui#12790, when the Source column stopped
+ * reading `writable` and started reading the row's served `source`.
  *
  * The wire is stubbed (`fetch`); the runtime config is the real module booted
  * over a served body, with the install-local marketplace on so the Source
@@ -27,28 +29,34 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 }));
 
 import { PackagesPage, type InstalledPackageRow } from './PackagesPage';
+import type { PackageSource } from './packageSource';
 import { t, tFormat } from './i18n';
 import { initRuntimeConfig, resetRuntimeConfigForTesting } from '../../runtime-config';
 
+// A row as objectstack serves it since objectstack#24010: `source` (the door
+// that registered it) beside `writable` (what an org may do to it).
 const row = (
   id: string,
-  writable: boolean | undefined,
+  writable: boolean,
+  source: PackageSource,
   scope?: 'system' | 'cloud' | 'project',
 ): InstalledPackageRow => ({
   manifest: { id, name: id, version: '1.0.0', ...(scope ? { scope } : {}) },
   enabled: true,
-  ...(writable === undefined ? {} : { writable }),
+  source,
+  writable,
 });
 
 // The marketplace-install row shape objectui#12675's tests pin: scope-less,
-// served `writable: false`, and listed by the install-local ledger.
-const MARKET = row('com.example.todo', false);
-const AUTHORED = row('app.b2r4', true);
-const SCOPELESS_CODE = row('com.acme.bare', false);
-const SYSTEM = row('com.objectstack.system', false, 'system');
-const CLOUD = row('com.objectstack.cloud', false, 'cloud');
-const PROJECT_CODE = row('com.acme.code', false, 'project');
-const PROJECT_BASE = row('com.acme.base', true, 'project');
+// served `writable: false` and `source: 'marketplace'`, and listed by the
+// install-local ledger.
+const MARKET = row('com.example.todo', false, 'marketplace');
+const AUTHORED = row('app.b2r4', true, 'authored');
+const SCOPELESS_CODE = row('com.acme.bare', false, 'code');
+const SYSTEM = row('com.objectstack.system', false, 'code', 'system');
+const CLOUD = row('com.objectstack.cloud', false, 'code', 'cloud');
+const PROJECT_CODE = row('com.acme.code', false, 'code', 'project');
+const PROJECT_BASE = row('com.acme.base', true, 'authored', 'project');
 
 const LEDGER_TODO = {
   packageId: 'com.example.todo',
@@ -142,12 +150,15 @@ describe('Packages Scope badge reads the served `writable` verdict (objectui#127
     });
   });
 
-  it('a row with no `writable` verdict is refused at load; no Scope badge is drawn for it', async () => {
-    await serve([row('com.acme.unknown', undefined)]);
+  it('a row with no `writable` verdict is refused at load under its own name; no Scope badge is drawn for it', async () => {
+    // Its `source` is served, so this refusal is the verdict's own, never a
+    // Source refusal (objectui#12790: `writable` is not a Source signal).
+    const { writable: _absent, ...noVerdict } = row('com.acme.unknown', false, 'code');
+    await serve([noVerdict]);
     renderPackages();
-    expect(await screen.findByTestId('packages-load-error')).toHaveTextContent(
-      tFormat('engine.packages.source.unknown', 'en', { id: 'com.acme.unknown' }),
-    );
+    const refusal = await screen.findByTestId('packages-load-error');
+    expect(refusal).toHaveTextContent(tFormat('engine.packages.scope.unknown', 'en', { id: 'com.acme.unknown' }));
+    expect(refusal).not.toHaveTextContent(tFormat('engine.packages.source.unknown', 'en', { id: 'com.acme.unknown' }));
     expect(screen.queryByTestId('pkg-scope')).toBeNull();
     expect(screen.queryByTestId('pkg-row-com.acme.unknown')).toBeNull();
   });

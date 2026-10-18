@@ -5,14 +5,19 @@
  * ruling B on objectstack#23892).
  *
  * - Every package carries a Source from the closed set code / marketplace /
- *   authored, read from the row's `writable` verdict joined with the
- *   marketplace slice's installed list (`packageSource.ts`).
+ *   authored: the row's served `source` (objectstack#24010), read as is
+ *   (`packageSource.ts`, objectui#12790). Neither the `writable` verdict nor
+ *   the marketplace slice's installed list names it any more — the two-read
+ *   join these pins used to hold retired, so its pins are flipped below, not
+ *   dropped: each one now asserts that the served key wins where the join
+ *   would have answered otherwise.
  * - With the marketplace capability (`features.installLocal`) present, the
- *   rows whose Source is marketplace carry the Installed Apps actions (Details,
- *   Uninstall); with it absent, no row does and nothing reads the marketplace.
+ *   rows whose served Source is marketplace carry the Installed Apps actions
+ *   (Details, Uninstall); with it absent, no row does and nothing reads the
+ *   marketplace.
  * - `?source=VALUE` filters the list; an unknown or repeated value, and a row
- *   whose origin the signals cannot place, are refused by name and nothing is
- *   drawn in their place.
+ *   whose served `source` is absent or outside the closed set, are refused by
+ *   name and nothing is drawn in their place.
  *
  * The wire is stubbed (`fetch`), the runtime config is the real module booted
  * over a served body, and `marketplaceApi` is not mocked.
@@ -31,22 +36,28 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 }));
 
 import { PackagesPage, type InstalledPackageRow } from './PackagesPage';
+import { PACKAGE_SOURCES } from './packageSource';
 import { t, tFormat } from './i18n';
 import { initRuntimeConfig, resetRuntimeConfigForTesting } from '../../runtime-config';
 
+// Each fixture is a row as objectstack serves it since objectstack#24010: the
+// door that registered the package states `source`, beside `writable`.
 const CODE: InstalledPackageRow = {
   manifest: { id: 'com.acme.code', name: 'Code App', version: '1.0.0', scope: 'project' },
   enabled: true,
+  source: 'code',
   writable: false,
 };
 const MARKET: InstalledPackageRow = {
   manifest: { id: 'com.example.todo', name: 'Todo', version: '1.0.0' },
   enabled: true,
+  source: 'marketplace',
   writable: false,
 };
 const AUTHORED: InstalledPackageRow = {
   manifest: { id: 'app.b2r4', name: 'My Base' },
   enabled: true,
+  source: 'authored',
   writable: true,
 };
 const LEDGER_TODO = {
@@ -163,6 +174,17 @@ describe('Packages — marketplace capability present (objectui#12675)', () => {
     expect(Object.keys(await drawnSources())).toHaveLength(3);
   });
 
+  it.each(PACKAGE_SOURCES)('`?source=%s` shows only the rows served that Source', async (source) => {
+    await serve(true, { packages: [CODE, MARKET, AUTHORED], ledger: [LEDGER_TODO] });
+    renderPackages(`?source=${source}`);
+
+    const expected = Object.fromEntries(
+      [CODE, MARKET, AUTHORED].filter((p) => p.source === source).map((p) => [p.manifest.id, source]),
+    );
+    expect(Object.keys(expected)).toHaveLength(1);
+    expect(await drawnSources()).toEqual(expected);
+  });
+
   it('Uninstall confirms in-app and removes the install through the install-local door', async () => {
     await serve(true, { packages: [CODE, MARKET], ledger: [LEDGER_TODO] });
     renderPackages();
@@ -202,14 +224,16 @@ describe('Packages — marketplace capability present (objectui#12675)', () => {
 });
 
 describe('Packages — marketplace capability absent (objectui#12675)', () => {
-  it('every package still carries its Source, no row carries a marketplace action, and the marketplace is not read', async () => {
+  it('every package still carries its served Source, no row carries a marketplace action, and the marketplace is not read', async () => {
     await serve(false, { packages: [CODE, MARKET, AUTHORED], ledger: [LEDGER_TODO] });
     renderPackages();
 
-    // Nothing is a marketplace install where the capability is absent.
+    // Flipped (objectui#12790): the join read every row as code or authored
+    // here, deriving "not a marketplace install" from the capability. The page
+    // derives nothing now — it draws what the server states.
     expect(await drawnSources()).toEqual({
       'com.acme.code': 'code',
-      'com.example.todo': 'code',
+      'com.example.todo': 'marketplace',
       'app.b2r4': 'authored',
     });
     expect(screen.queryByText(t('engine.packages.col.actions', 'en'))).toBeNull();
@@ -219,9 +243,15 @@ describe('Packages — marketplace capability absent (objectui#12675)', () => {
 });
 
 describe('Packages — an origin or filter the Source boundary cannot place is refused (objectui#12675)', () => {
-  it('a row with no `writable` verdict refuses the list by its id; no row is drawn', async () => {
-    const { writable: _absent, ...noVerdict } = CODE;
-    await serve(true, { packages: [noVerdict, AUTHORED], ledger: [] });
+  it.each([
+    ['absent', undefined],
+    ['null', null],
+    ['outside the closed set', 'plugin'],
+    ['a different spelling of a member', 'Marketplace'],
+  ])('a row whose served `source` is %s refuses the list by its id; no row is drawn', async (_label, source) => {
+    const { source: _served, ...rest } = CODE;
+    const row = source === undefined ? rest : { ...rest, source };
+    await serve(true, { packages: [row, AUTHORED], ledger: [] });
     renderPackages();
 
     expect(await screen.findByTestId('packages-load-error')).toHaveTextContent(
@@ -230,17 +260,18 @@ describe('Packages — an origin or filter the Source boundary cannot place is r
     expect(screen.queryAllByTestId('pkg-source')).toHaveLength(0);
   });
 
-  it('a writable row the marketplace also lists is a conflict, refused by its id', async () => {
-    await serve(true, { packages: [AUTHORED], ledger: [{ ...LEDGER_TODO, packageId: 'app.b2r4', manifestId: 'app.b2r4' }] });
+  it('a row with no `source` is refused even when the marketplace lists it: the list is not a fallback', async () => {
+    const { source: _served, ...rest } = MARKET;
+    await serve(true, { packages: [rest], ledger: [LEDGER_TODO] });
     renderPackages();
 
     expect(await screen.findByTestId('packages-load-error')).toHaveTextContent(
-      tFormat('engine.packages.source.conflict', 'en', { id: 'app.b2r4' }),
+      tFormat('engine.packages.source.unknown', 'en', { id: 'com.example.todo' }),
     );
     expect(screen.queryAllByTestId('pkg-source')).toHaveLength(0);
   });
 
-  it('a marketplace listing that cannot be read refuses the list instead of drawing its installs as code', async () => {
+  it('a marketplace listing that cannot be read refuses the list instead of dropping the installs only it lists', async () => {
     await serve(true, { packages: [CODE, MARKET], ledgerStatus: 500 });
     renderPackages();
 
@@ -261,5 +292,73 @@ describe('Packages — an origin or filter the Source boundary cannot place is r
     );
     await waitFor(() => expect(calls.some((c) => c.path === '/api/v1/packages')).toBe(true));
     expect(screen.queryAllByTestId('pkg-source')).toHaveLength(0);
+  });
+});
+
+/**
+ * The join's answers, flipped (objectui#12790). Each fixture below is a row the
+ * retired `writable` × installed-list join placed differently from what the
+ * server now states; the page draws the server's statement every time.
+ */
+describe('Packages — the served `source` wins where the retired join answered otherwise (objectui#12790)', () => {
+  it('CONTROL: a non-writable authored install with a `system` / `cloud` scope reads authored (the join called it code)', async () => {
+    const system: InstalledPackageRow = {
+      manifest: { id: 'com.acme.platform_base', name: 'Platform Base', version: '1.0.0', scope: 'system' },
+      enabled: true,
+      source: 'authored',
+      writable: false,
+    };
+    const cloud: InstalledPackageRow = {
+      manifest: { id: 'com.acme.cloud_base', name: 'Cloud Base', version: '1.0.0', scope: 'cloud' },
+      enabled: true,
+      source: 'authored',
+      writable: false,
+    };
+    await serve(true, { packages: [CODE, system, cloud], ledger: [] });
+    renderPackages();
+
+    // system / cloud rows sit behind the page's show-kernel switch.
+    await screen.findByTestId('pkg-row-com.acme.code');
+    fireEvent.click(document.getElementById('show-kernel')!);
+    expect(await drawnSources()).toEqual({
+      'com.acme.code': 'code',
+      'com.acme.platform_base': 'authored',
+      'com.acme.cloud_base': 'authored',
+    });
+  });
+
+  it('CONTROL: a non-writable authored install the marketplace lists reads authored, with no marketplace action (the join called it marketplace)', async () => {
+    const listed: InstalledPackageRow = { ...MARKET, source: 'authored' };
+    await serve(true, { packages: [listed], ledger: [LEDGER_TODO] });
+    renderPackages();
+
+    expect(await drawnSources()).toEqual({ 'com.example.todo': 'authored' });
+    expect(screen.queryByTestId(/^pkg-row-(uninstall|details)-/)).toBeNull();
+  });
+
+  it('a non-writable row the marketplace lists, served code, reads code with no marketplace action (the join called it marketplace)', async () => {
+    const listed: InstalledPackageRow = { ...MARKET, source: 'code' };
+    await serve(true, { packages: [listed], ledger: [LEDGER_TODO] });
+    renderPackages();
+
+    expect(await drawnSources()).toEqual({ 'com.example.todo': 'code' });
+    expect(screen.queryByTestId(/^pkg-row-(uninstall|details)-/)).toBeNull();
+  });
+
+  it('a writable authored row the marketplace also lists reads authored: no conflict is left to refuse (the join refused it)', async () => {
+    await serve(true, { packages: [AUTHORED], ledger: [{ ...LEDGER_TODO, packageId: 'app.b2r4', manifestId: 'app.b2r4' }] });
+    renderPackages();
+
+    expect(await drawnSources()).toEqual({ 'app.b2r4': 'authored' });
+    expect(screen.queryByTestId('packages-load-error')).toBeNull();
+    expect(screen.queryByTestId(/^pkg-row-(uninstall|details)-/)).toBeNull();
+  });
+
+  it('a marketplace row the marketplace list does not hold still reads marketplace, with no action to act on', async () => {
+    await serve(true, { packages: [MARKET], ledger: [] });
+    renderPackages();
+
+    expect(await drawnSources()).toEqual({ 'com.example.todo': 'marketplace' });
+    expect(screen.queryByTestId(/^pkg-row-(uninstall|details)-/)).toBeNull();
   });
 });

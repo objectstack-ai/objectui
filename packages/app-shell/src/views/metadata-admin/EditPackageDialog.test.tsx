@@ -15,6 +15,8 @@ const PKG: InstalledPackageRow = {
   manifest: { id: 'com.acme.crm', name: 'Acme CRM', version: '1.0.0', description: 'old', type: 'app' },
   enabled: true,
   status: 'installed',
+  source: 'authored',
+  writable: true,
 };
 
 let calls: Array<{ url: string; init: RequestInit }>;

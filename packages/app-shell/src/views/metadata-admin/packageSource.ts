@@ -2,49 +2,57 @@
 
 /**
  * Where an installed package came from — the Packages page's Source column
- * and its Source filter (objectui#12675, ruling B on objectstack#23892).
+ * and its Source filter (objectui#12675, objectui#12790; ruling B on
+ * objectstack#23892).
  *
  * Setup's Packages is the ONE list of what is installed, so each row says
  * which of three origins it has. The set is CLOSED: `code` / `marketplace` /
- * `authored`, and nothing else is ever drawn. A row whose origin cannot be
- * read from the signals below is refused at this boundary with a named code,
- * never rendered with an empty cell.
+ * `authored`, and nothing else is ever drawn.
  *
- * ## Each value traces to one named signal
+ * ## The origin is the server's statement: read, never derived
  *
- * `/api/v1/packages` serves no source key (`InstalledPackageSchema` in
- * `@objectstack/spec/kernel` declares none). Two reads the console already
- * makes answer it between them:
+ * Every `/api/v1/packages` row carries `source`, stamped by the door that
+ * registered the package (objectstack#24010). The spec declares the closed set
+ * as `InstalledPackageSourceSchema` in `@objectstack/spec/kernel`, and the
+ * served row, `InstalledPackageAtEitherStage` in
+ * `@objectstack/spec/api-assembled`, carries it as a required key. This module
+ * reads that key and nothing else. A row whose `source` is absent or outside
+ * the closed set is refused at this boundary by name
+ * (`PACKAGE_SOURCE_UNKNOWN`): never derived, never drawn as an empty cell.
  *
- *  - `writable`, the top-level verdict every `/api/v1/packages` row carries
- *    (objectstack#14375, ADR-0070 D2). The server computes it with
- *    `isWritablePackage`: `false` for a package registered from an artifact
- *    (`engine.manifests` — a booted code package, AND a marketplace install,
- *    which install-local registers through the same `registerApp`) or with a
- *    platform scope; `true` for a database-authored base. So `true` ⇒
- *    `authored`. `studio-design/packages-io` reads the same verdict for the
- *    Studio switcher; this module reads it strictly — an absent or non-boolean
- *    value is a refusal here, not the switcher's scope heuristic.
- *  - the marketplace slice's own installed list — the read the Installed Apps
- *    list made (`readMarketplaceInstalls`: the control plane's list when the
- *    environment is cloud-connected, the runtime's install-local ledger
- *    otherwise). A non-writable row whose id is in it ⇒ `marketplace`; one that
- *    is not ⇒ `code`.
+ * ⛔ No other key stands in for it, and there is no fallback when it is
+ * missing:
  *
- * A row that is BOTH writable and in the marketplace list contradicts the
- * server's own verdict (a marketplace install is never writable), so it is
- * refused too rather than resolved by picking a side.
+ *  - `writable` is a separate statement — what the server lets an org do to
+ *    the package, read by the Scope badge (objectui#12723). An authored
+ *    install with a `system` or `cloud` scope is `authored` AND not writable.
+ *  - The marketplace slice's installed list is not a Source signal either. The
+ *    page reads it for the marketplace row actions and for the installs the
+ *    runtime did not load, never to name a registry row's origin.
  *
- * ⚠️ `writable` is served and pinned by objectstack's dispatcher
- * (`packages-serializable-response.test.ts`) but is not declared on the spec's
- * response schema; the contract-first form of this read is a declared key on
- * the served row, which is the objectstack half named in this card's report.
+ * The two-read join this module used to run (`writable` × that list) retired
+ * with objectui#12790, and its `PACKAGE_SOURCE_CONFLICT` refusal with it: no
+ * second signal is left to disagree with the first.
  */
 
-/** The closed set of origins, in the order the filter and the column list them. */
-export const PACKAGE_SOURCES = ['code', 'marketplace', 'authored'] as const;
+import type { InstalledPackageAtEitherStage } from '@objectstack/spec/api-assembled';
 
-export type PackageSource = (typeof PACKAGE_SOURCES)[number];
+/** A package's origin: the type of the `source` key on the served row. */
+export type PackageSource = InstalledPackageAtEitherStage['source'];
+
+/**
+ * The closed set of origins, in the order the filter and the column list them.
+ *
+ * Written out here rather than read from the options of
+ * `InstalledPackageSourceSchema` at runtime, because that schema first ships in
+ * `@objectstack/spec` 18.0.0-next.3 while this package's declared floor is
+ * lower: a runtime import would put a symbol in the published `dist/` that the
+ * floor does not carry (`pnpm check:spec-floors`). The tuple is held to the
+ * spec instead. The `satisfies` clause refuses a member the served row does not
+ * declare, and `packageSource-12790.test.ts` pins the tuple equal to the
+ * schema's options, so a member added or removed upstream turns that pin red.
+ */
+export const PACKAGE_SOURCES = ['code', 'marketplace', 'authored'] as const satisfies readonly PackageSource[];
 
 /**
  * The Packages page's Source filter, spelled as ONE URL query param.
@@ -58,10 +66,8 @@ export type PackageSource = (typeof PACKAGE_SOURCES)[number];
 export const PACKAGES_SOURCE_PARAM = 'source';
 
 export type PackageSourceRefusalCode =
-  /** The row carries no boolean `writable` verdict, so its origin is unknown. */
+  /** The row's served `source` is absent, or outside {@link PACKAGE_SOURCES}. */
   | 'PACKAGE_SOURCE_UNKNOWN'
-  /** The row is writable AND listed by the marketplace: the signals disagree. */
-  | 'PACKAGE_SOURCE_CONFLICT'
   /** `?source=` names a value outside {@link PACKAGE_SOURCES}. */
   | 'PACKAGE_SOURCE_FILTER_UNKNOWN'
   /** `?source=` appears more than once. */
@@ -86,27 +92,19 @@ export function isPackageSource(value: unknown): value is PackageSource {
 }
 
 /**
- * The origin of one `/api/v1/packages` row. Throws {@link PackageSourceRefusal}
- * when the signals cannot name one.
- *
- * @param marketplaceIds manifest ids the marketplace slice lists as installed;
- *   empty when the marketplace capability is absent (nothing is a marketplace
- *   install there).
+ * The origin of one `/api/v1/packages` row: its served `source`, read as is.
+ * Throws {@link PackageSourceRefusal} (`PACKAGE_SOURCE_UNKNOWN`) when the key is
+ * absent or names a value outside the closed set. Nothing else on the row, and
+ * nothing outside it, is consulted.
  */
-export function resolvePackageSource(
-  row: { manifest: { id: string }; writable?: unknown },
-  marketplaceIds: ReadonlySet<string>,
-): PackageSource {
-  const id = row.manifest.id;
-  if (typeof row.writable !== 'boolean') {
-    throw new PackageSourceRefusal('PACKAGE_SOURCE_UNKNOWN', id);
+export function readServedSource(row: {
+  readonly manifest: { readonly id: string };
+  readonly source?: unknown;
+}): PackageSource {
+  if (!isPackageSource(row.source)) {
+    throw new PackageSourceRefusal('PACKAGE_SOURCE_UNKNOWN', row.manifest.id);
   }
-  const listed = marketplaceIds.has(id);
-  if (row.writable) {
-    if (listed) throw new PackageSourceRefusal('PACKAGE_SOURCE_CONFLICT', id);
-    return 'authored';
-  }
-  return listed ? 'marketplace' : 'code';
+  return row.source;
 }
 
 /**

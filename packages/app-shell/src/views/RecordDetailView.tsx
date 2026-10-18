@@ -955,7 +955,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // not read `overrideNotice` itself — it takes the envelope so the two
   // handlers on this seam cannot drift apart from each other, and so a reader
   // added here later has the key declared rather than reaching for a cast.
-  const paramCollectionHandler = useCallback((params: ActionParamDef[], action?: ConsoleActionDispatch) => {
+  const paramCollectionHandler = useCallback((params: ActionParamDef[], action?: ConsoleActionDispatch, interpolate?: (text: string) => string) => {
     return new Promise<Record<string, any> | null>((resolve) => {
       // Related-list row actions retarget a CHILD object (e.g. sys_member rows
       // on an org record page) and stash the clicked row under
@@ -990,6 +990,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           ? p.options.map((o: any) => ({ ...o, label: actionParamOptionLabel(objForI18n, action?.name, p.name, o.value, o.label) }))
           : p.options,
       }));
+      const declaredDescription = actionDescription(objForI18n, action?.name, action?.description);
       setParamState({
         open: true,
         params: localized,
@@ -1007,7 +1008,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         // handlers drift as a pair (objectui#5610). Reads exactly one key, like
         // `description` below.
         title: action?.label,
-        description: actionDescription(objForI18n, action?.name, action?.description),
+        // `${...}` holes in the description and each `helpText` are filled in
+        // the runner's template scope, as `confirmText` is (objectui#12967).
+        description: interpolate && declaredDescription ? interpolate(declaredDescription) : declaredDescription,
+        interpolate,
         resolve,
       });
     });

@@ -80,6 +80,15 @@ export interface ParamDialogState {
    *  so the dialog reads as the task, not a generic param prompt. */
   title?: string;
   description?: string;
+  /**
+   * Fills the `${...}` holes of each param's `helpText` — the runner's
+   * `ParamCollectionHandler` `interpolate` argument, passed through. It runs on
+   * the text the user reads (after an inline per-locale map is picked), in the
+   * template scope the runner reads `confirmText` in, so a `${record.*}` hole
+   * reads the same from a record header and from a list row (objectui#12967).
+   * Absent, `helpText` prints as authored.
+   */
+  interpolate?: (text: string) => string;
   resolve?: (value: Record<string, any> | null) => void;
 }
 
@@ -95,6 +104,11 @@ interface ActionParamDialogProps {
  * flow screen and an action's params lay out alike.
  */
 const NARROW_PARAM_MAX_COUNT = 8;
+
+/** Apply the dialog's `interpolate` to a picked string; anything else as-is. */
+function fillHoles<T>(text: T, interpolate: ParamDialogState['interpolate']): T | string {
+  return interpolate && typeof text === 'string' ? interpolate(text) : text;
+}
 
 /**
  * Filter action params by their optional `visible` predicate, evaluated on the
@@ -532,7 +546,9 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
             const param = {
               ...rawParam,
               label: pickLocalized(rawParam.label, language),
-              helpText: rawParam.helpText != null ? pickLocalized(rawParam.helpText, language) : rawParam.helpText,
+              helpText: rawParam.helpText != null
+                ? fillHoles(pickLocalized(rawParam.helpText, language), state.interpolate)
+                : rawParam.helpText,
               options: rawParam.options?.map((o) => ({ ...o, label: pickLocalized(o.label, language) })),
             };
             // The refusal comes FIRST — ahead of `paramToField()`, which would

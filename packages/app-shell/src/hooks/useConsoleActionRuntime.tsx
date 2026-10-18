@@ -237,7 +237,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   // whole function under the compiler — every other read below is a declared
   // `ActionDef` field, and the one that was not is the reason objectui#4282
   // backed the narrowing out.
-  const paramCollectionHandler = useCallback<ParamCollectionHandler>((params: ActionParamDef[], action?: ConsoleActionDispatch) => {
+  const paramCollectionHandler = useCallback<ParamCollectionHandler>((params: ActionParamDef[], action?: ConsoleActionDispatch, interpolate?: (text: string) => string) => {
     return new Promise<Record<string, any> | null>((resolve) => { void (async () => {
       // ⭐ Ask the store for the object type BEFORE resolving (`6cc910b6d`).
       // `ensureType` is idempotent and answers from cache in a microtask once
@@ -302,7 +302,14 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
       //
       // The notice arrives already localized (bar-authored chrome, resolved
       // through the normal locale bundle), so it is concatenated verbatim.
-      const declaredDescription = actionDescription(objForI18n, action?.name, action?.description);
+      // The declared description's `${...}` holes are filled here, in the
+      // runner's template scope (the row is `record` on a row dispatch —
+      // objectui#12967), and BEFORE the notice joins it: the notice carries
+      // approver names, which are data, never a template.
+      const localizedDescription = actionDescription(objForI18n, action?.name, action?.description);
+      const declaredDescription = interpolate && localizedDescription
+        ? interpolate(localizedDescription)
+        : localizedDescription;
       const overrideNotice = typeof action?.overrideNotice === 'string' && action.overrideNotice
         ? action.overrideNotice
         : undefined;
@@ -320,6 +327,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
         description: overrideNotice
           ? [overrideNotice, declaredDescription].filter(Boolean).join('\n\n')
           : declaredDescription,
+        interpolate,
         resolve,
       });
     })(); });

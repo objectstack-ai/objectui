@@ -632,10 +632,19 @@ export type NavigationHandler = (url: string, options?: {
  * Param collection handler — consumers provide to show a dialog
  * for collecting ActionParam values before action execution.
  * Returns collected values, or null if cancelled.
+ *
+ * `interpolate` fills the `${...}` holes of the dialog's authored copy (the
+ * action's `description`, each param's `helpText`) in the same template scope
+ * the runner reads `confirmText` in — for a row dispatch, the row is `record`
+ * (see `templateEvaluatorFor`). The runner cannot fill them itself before the
+ * call: the handler localizes that copy AFTER it receives it (a translation
+ * bundle entry or an inline per-locale map), so the hole has to be filled on
+ * the text the user will actually read (objectui#12967).
  */
 export type ParamCollectionHandler = (
   params: ActionParamDef[],
   action?: ActionDef,
+  interpolate?: (text: string) => string,
 ) => Promise<Record<string, any> | null>;
 
 /**
@@ -1340,9 +1349,15 @@ export class ActionRunner {
       // structured `confirm.message` read that used to OUTRANK it is retired
       // (objectui#4314): it had zero producers and no bundle key, so a dialog
       // authored that way silently lost localization.
+      //
+      // Read through `templateEvaluatorFor`, not the runner's own evaluator:
+      // a row dispatch binds no `record` in the runner's context, so a
+      // `${record.*}` hole the record header fills was shown raw from a list
+      // row (objectui#12967).
+      const templates = this.templateEvaluatorFor(action);
       if (action.confirmText) {
         const confirmed = await this.confirmHandler(
-          this.evaluator.evaluate(action.confirmText) as string,
+          templates.evaluate(action.confirmText) as string,
         );
         if (!confirmed) {
           return { success: false, error: 'Action cancelled by user' };
@@ -1360,7 +1375,11 @@ export class ActionRunner {
           : (Array.isArray(action.params) ? (action.params as unknown as ActionParamDef[]) : undefined);
       if (paramDefs && paramDefs.length > 0) {
         if (this.paramCollectionHandler) {
-          const collected = await this.paramCollectionHandler(paramDefs, action);
+          const collected = await this.paramCollectionHandler(
+            paramDefs,
+            action,
+            (text: string) => String(templates.evaluate(text) ?? ''),
+          );
           if (collected === null) {
             return { success: false, error: 'Action cancelled by user (params)' };
           }
@@ -2538,6 +2557,36 @@ export class ActionRunner {
       Object.assign(ctx, this.context.ctx);
     }
     return ctx;
+  }
+
+  /**
+   * The evaluator a dispatch's authored copy is read through: `confirmText`,
+   * and the param dialog's `description` / `helpText` via the handler's
+   * `interpolate` argument.
+   *
+   * One rule for every door (objectui#12967): the record the action runs
+   * against is `record`. The record header binds it in the runner's context
+   * (`RecordDetailView`'s `ActionProvider`). A row surface does not — it
+   * stashes the clicked row under `params._rowRecord` (ObjectGrid's row
+   * actions, a related list's row actions, `DeclaredActionsBar`, a page
+   * header, `action:button`'s update write) and fires through the shared
+   * runner, whose context names the page, not the row. So when the dispatch
+   * carries a row, the row is bound as `record` for this dispatch's templates,
+   * and it wins over a page-level `record` (a related-list row on a record page
+   * is the child, not the page's record). Nothing else in the scope changes,
+   * and the runner's own context is not touched.
+   *
+   * A hole naming a field the record does not carry degrades the way the
+   * header's always has: the evaluator reads `undefined` and the hole prints
+   * empty.
+   */
+  private templateEvaluatorFor(action: ActionDef): ExpressionEvaluator {
+    const params = action.params;
+    const row = params && typeof params === 'object' && !Array.isArray(params)
+      ? (params as Record<string, unknown>)._rowRecord
+      : undefined;
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return this.evaluator;
+    return new ExpressionEvaluator({ ...this.context, record: row });
   }
 
   updateContext(newContext: Partial<ActionContext>): void {

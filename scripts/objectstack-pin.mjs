@@ -487,6 +487,33 @@ export function hashTree(dir) {
 // ── running things ──────────────────────────────────────────────────────────
 
 /**
+ * Network settings an `npm_config_*` variable may carry from the machine itself
+ * (a proxy, a registry, a CA): kept, because the objectstack install needs them.
+ */
+const AMBIENT_NPM_CONFIG = /^npm_config_(https?_proxy|proxy|no_?proxy|registry|ca|cafile|strict_ssl|store_dir)$/i;
+
+/**
+ * The environment for every pnpm call made IN THE OBJECTSTACK TREE: this repo's
+ * `npm_config_*` settings removed, the machine's network ones kept.
+ *
+ * `pnpm run` exports the invoking workspace's `.npmrc` to the script as
+ * `npm_config_*`, and a nested pnpm reads them as its own config. Measured on
+ * objectui#12957: through `pnpm objectstack:build`, objectui's `engine-strict=true`
+ * reached the objectstack install and refused it (`ERR_PNPM_UNSUPPORTED_ENGINE`,
+ * a dev dependency of objectstack's asking a newer Node 22 patch), while the same
+ * command run as `node scripts/objectstack-pin.mjs build` installed. The
+ * objectstack tree is configured by its own `.npmrc`, not by this repository's.
+ *
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {NodeJS.ProcessEnv}
+ */
+export function objectstackEnv(env) {
+  return Object.fromEntries(
+    Object.entries(env).filter(([key]) => !/^npm_config_/i.test(key) || AMBIENT_NPM_CONFIG.test(key)),
+  );
+}
+
+/**
  * Run a command with inherited output; a non-zero exit is a refusal naming it.
  *
  * @param {string} cmd
@@ -541,10 +568,11 @@ function checkoutPin(dir, sha, url) {
  * @param {string} projectDir
  * @param {string} tarballs
  * @param {string} dest
+ * @param {NodeJS.ProcessEnv} env
  * @returns {{ name: string, version: string }}
  */
-function packInto(projectDir, tarballs, dest) {
-  const out = run('pnpm', ['pack', '--json', '--pack-destination', tarballs, '--config.ignore-scripts=true'], { cwd: projectDir, capture: true });
+function packInto(projectDir, tarballs, dest, env) {
+  const out = run('pnpm', ['pack', '--json', '--pack-destination', tarballs, '--config.ignore-scripts=true'], { cwd: projectDir, capture: true, env });
   const json = JSON.parse(out.slice(out.indexOf('{')));
   fs.mkdirSync(dest, { recursive: true });
   run('tar', ['-xzf', json.filename, '-C', dest, '--strip-components=1'], { cwd: projectDir });
@@ -609,8 +637,9 @@ export function build({ root = REPO_ROOT, env = process.env } = {}) {
       if (!rootName) throw new PinRefusal(`the objectstack root package.json at ${pin.slice(0, 12)} has no name to select it by.`);
       // The workspace root carries the build toolchain (tsup, tsx); the filters
       // carry the packages and their runtime closure.
-      step('install the build closure', () => run('pnpm', ['install', '--frozen-lockfile', '--filter', rootName, ...filters], { cwd: tree, env }));
-      step(`build ${names.join(', ')}`, () => run('pnpm', [...filters, 'run', 'build'], { cwd: tree, env }));
+      const treeEnv = objectstackEnv(env);
+      step('install the build closure', () => run('pnpm', ['install', '--frozen-lockfile', '--filter', rootName, ...filters], { cwd: tree, env: treeEnv }));
+      step(`build ${names.join(', ')}`, () => run('pnpm', [...filters, 'run', 'build'], { cwd: tree, env: treeEnv }));
     }
 
     const tarballs = path.join(scratch, 'tarballs');
@@ -619,7 +648,7 @@ export function build({ root = REPO_ROOT, env = process.env } = {}) {
     step(`pack ${names.length} package(s)`, () => {
       for (const name of names) {
         const dest = path.join(staging, overrides.get(name));
-        const packed = packInto(path.join(tree, byName.get(name).dir), tarballs, dest);
+        const packed = packInto(path.join(tree, byName.get(name).dir), tarballs, dest, objectstackEnv(env));
         if (packed.name !== name) throw new PinRefusal(`packing ${byName.get(name).dir} produced ${packed.name}, not ${name}.`);
         const missing = missingEntryTargets(dest);
         if (missing.length) {

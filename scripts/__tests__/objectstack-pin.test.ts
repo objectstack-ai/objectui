@@ -31,6 +31,7 @@ import {
   hashTree,
   judgeStamp,
   lockfileDependencyNames,
+  objectstackEnv,
   readOverrides,
   readPin,
   readWorkspace,
@@ -235,6 +236,21 @@ describe('the lockfile must record what the build declares (objectui#12957)', ()
       { name: '@objectstack/spec', missing: [], extra: ['zod'], absent: false },
       { name: '@objectstack/types', missing: ['@objectstack/spec'], extra: [], absent: true },
     ]);
+  });
+});
+
+describe('the objectstack tree is configured by its own .npmrc (objectui#12957)', () => {
+  it('drops this repository\'s npm_config_* settings and keeps the machine\'s network ones', () => {
+    const env = objectstackEnv({
+      PATH: '/bin',
+      npm_config_engine_strict: 'true',
+      npm_config_auto_install_peers: 'true',
+      npm_config_https_proxy: 'http://proxy',
+      npm_config_noproxy: 'localhost',
+      npm_config_registry: 'https://registry.npmjs.org/',
+      HTTPS_PROXY: 'http://proxy',
+    });
+    expect(Object.keys(env).sort()).toEqual(['HTTPS_PROXY', 'PATH', 'npm_config_https_proxy', 'npm_config_noproxy', 'npm_config_registry']);
   });
 });
 

@@ -1,0 +1,36 @@
+{
+  "number": 12921,
+  "kind": "pull_request",
+  "title": "fix(app-shell): a print record page draws the record's header actions beside Print",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T21:51:11Z",
+  "updated_at": "2026-10-17T22:19:38Z",
+  "closed_at": "2026-10-17T22:19:36Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T22:19:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12921",
+  "body": "Fixes #12906\nClause-②: yes (measured correction of the claim's `no`: `@object-ui/components` gains a new export, `PageHeaderActions` and its props type `PageHeaderActionsProps`. No spec key, registry key or printable component type changes.)\n\n## What changed\n\n- **`@object-ui/components`, `containers.tsx`.** `page:header`'s action row (declared-id resolution, the location / capability / `visible` / `hidden` gates, the merge with `RecordContext.headerSystemActions`, ordering, the inline / `⋯` split, localization and `dispatchHeaderAction`) is lifted, unchanged, out of `PageHeaderRenderer` into an exported `PageHeaderActions` component. `PageHeaderRenderer` now draws its tail through it, passing its own `actions` / `maxVisible` / `mobileMaxVisible` and the empty slot. One resolver, two callers; ⛔ no second resolver.\n- **`@object-ui/app-shell`, `RecordDetailView.tsx`.** On a page that declares `print`, the view draws a screen-only chrome row (`data-record-print-chrome`) at the top of the content column, inside the record's `RecordContextProvider` / `ActionProvider`: the shared chrome (presence, managed-by badge), `PageHeaderActions` fed the object's declared `record_header` / `record_more` actions (`synthParts.headerActions`; the system Edit / Share / Delete come from the context as on every record page), and the Print button. The row is outside the print page root, so the print stylesheet's existing hide rule (everything that neither is the print page, holds it, nor sits in it) hides it on paper exactly as it hid Print. The Print button moved from the absolute top-right overlay into this row so the new buttons are not drawn over the page's own top-right content.\n- A record page without `print` is unchanged: the absolute overlay keeps presence and the badge, and `page:header` draws the actions.\n\n## Mechanism readings (dispatch A1 to A3)\n\n- **A1.** The resolver is the action pipeline inside `PageHeaderRenderer` (`containers.tsx`), now the exported `PageHeaderActions`; the system set reaches it through `RecordContext.headerSystemActions` (`synthSystemActions` in `RecordDetailView`). The print chrome reaches it by rendering `PageHeaderActions` inside the same providers.\n- **A2.** Pins in `RecordDetailView.printPageHeaderActions-12906.test.tsx`: (a) Submit for Sign-off, Edit and the `⋯` (favorites / Share / Delete) in the chrome beside Print, Edit calling the host's `onEdit`; (b) Print, the toolbar and the chrome are neither inside nor around `[data-print-page]`, the page's stylesheet carries the hide rule verbatim, and toolbar and Print share one chrome container; (c) clicking the declared `type: 'api'` action sends `POST /api/v1/data/OBJECT/INV-1/submit` through the record page's api handler, and the request equals the one the same click sends on the default (non-print) record page; (d) CONTROL: without `print`, no chrome, no Print, one toolbar inside the `header`, each action drawn once. `page-header-actions-shared-12906.test.tsx` pins that `PageHeaderActions` draws byte-identical toolbar markup (React ids blanked) to `page:header` for the same context and keys, the system set alone, and the empty slot.\n- **Ablation** (`ablation-replace.mjs`, anchor the `PageHeaderActions` line in the print chrome, deleted): anchor 1 to 0, blob `c6680e738e59` to `a51ab974dbe1`; (a), (b), (c) red, (d) green; restore verified blob equals HEAD `c6680e738e59` and `git diff HEAD` empty. No dist in the path: the test resolves both packages from source through the vitest alias.\n- **A3.** NOT MEASURED: no browser print preview was taken (no backend booted for this round).\n- **\"Generate PDF\"** (objectstack-ai/objectstack#22270, PR objectstack-ai/objectstack#24194): pending, not exercised. It is a declared `record_header` action, so it rides the same route as Submit for Sign-off once it lands in the example.\n\n## Verification at 5741ebd0c1\n\n- Closure build `pnpm --workspace-concurrency=2 --filter '@object-ui/app-shell^...' run build`: exit 0.\n- `pnpm --filter @object-ui/components run type-check` and `pnpm --filter @object-ui/app-shell run type-check`: exit 0, both echoed `tsc --noEmit && tsc -p tsconfig.test.json`.\n- vitest `packages/components/`: 404 files passed, 1 skipped; 4047 tests passed. vitest `packages/app-shell/`: 1555 files passed, 1 skipped; 14635 tests passed.\n- eslint narrowed to the 5 changed source and test files (`--no-inline-config --format json`): 5 files, 0 errors. Population: the per-package `eslint .` the lint workflow runs; type-aware linting is not enabled in `eslint.config.js` (no `parserOptions.project` / `projectService`), so this diff cannot move a verdict on an untouched file.\n- Pre-tsc battery, each exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`, `check-changeset-presence.mjs`, `check:new-line-citations` (0 new).\n\n## Acceptance notes\n\n- File surface: `packages/components/src/index.ts` gains the one export line pair. It is outside the dispatched surface, and it is the only way `app-shell` can reach the shared resolver (the package exports only its root barrel). Declared here and in the report.\n- Docs (`content/docs/guide`, package README) are not updated in this round; the surface did not include them.\n- objectui#11958 is the print page this builds on; it is referenced, not addressed.\n\nThe session that wrote this: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

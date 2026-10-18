@@ -1,0 +1,39 @@
+{
+  "number": 12927,
+  "kind": "pull_request",
+  "title": "fix(plugins,react,i18n): data-bound blocks title their unresolvable-view panel in the page's language (objectui#12920)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: i18n",
+    "package: react",
+    "plugin",
+    "plugin: charts",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T00:43:50Z",
+  "updated_at": "2026-10-18T01:25:25Z",
+  "closed_at": "2026-10-18T01:25:23Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-18T01:25:23Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12927",
+  "body": "Fixes #12920\nClause-②: yes\n\nNew language-pack keys, in all ten packs: `element.KIND.sourceUnresolved` for `calendar`, `chart`, `pivotTable`, `detailView`, `relatedList`, `form`, `lineItems`, `gantt`, `grid`, `board`, `listView`, `map`, `timeline` and `component`, plus `element.component.noDataSource` and `element.relatedList.parentUnreadable`. No prop, input or export changes.\n\n## What changed\n\nEvery data-bound block now titles its \"data source could not be resolved\" panel in the page's language. The panel shows when `dataSource.view` names a view the object does not have. `record:related_list` also has a panel for a failed `parentDataSource` read, and that title is translated too. Each shell reads its key through `useObjectTranslation`, and the inline `defaultValue` is the `en` pack's value, so a page without an `I18nProvider` draws the English it drew before. `check:i18n-keys` keeps the two byte-identical.\n\n| Block | Key |\n|---|---|\n| `object-calendar` | `element.calendar.sourceUnresolved` |\n| `object-chart` | `element.chart.sourceUnresolved` |\n| `object-metric` | `element.number.sourceUnresolved` (reused: same sentence as `element:number`) |\n| `object-pivot` | `element.pivotTable.sourceUnresolved` |\n| `detail-view` | `element.detailView.sourceUnresolved` |\n| `record:related_list` | `element.relatedList.sourceUnresolved` |\n| `record:related_list`, parent read failed | `element.relatedList.parentUnreadable` |\n| `object-form`, `embeddable-form`, `object-master-detail-form` | `element.form.sourceUnresolved` |\n| `record:line_items` | `element.lineItems.sourceUnresolved` |\n| `object-gantt` | `element.gantt.sourceUnresolved` |\n| `object-grid` | `element.grid.sourceUnresolved` |\n| `object-kanban` | `element.board.sourceUnresolved` |\n| `list-view` | `element.listView.sourceUnresolved` |\n| `object-map` | `element.map.sourceUnresolved` |\n| `object-timeline` | `element.timeline.sourceUnresolved` |\n\n- **`@object-ui/react` panel defaults.** `ElementDataSourceErrorPanel` with no `title` reads `element.component.sourceUnresolved`. `NoDataSourcePanel` with no `title` reads `element.component.noDataSource`. Only an absent `title` takes the default, as the parameter default did: a passed title wins, an empty string included. Props and markup are unchanged, and no panel component is added. The file already imported `useObjectTranslation`, so there is no new import and no cycle.\n- **`plugin-map`** reads `useObjectTranslation` through `@object-ui/react`'s existing re-export, the way `useGanttTranslation` does. No `package.json` or lockfile change.\n- No interpolated noun: each block kind has its own sentence, because the possessive and the noun's grammar differ by language.\n\n## Pins\n\n- One zh-CN pin per block kind, appended to each family's `*.elementDataSource.test.tsx`. Each renders through the real `SchemaRenderer` under a mounted zh-CN `I18nProvider` and reads the panel's heading.\n- `detail-view` had no data-source pin to sit beside, so it gets `plugin-detail/src/__tests__/DetailView.sourceUnresolvedTitle-12920.test.tsx` (zh-CN plus an en control).\n- The parent-read title is pinned in `plugin-detail/src/renderers/__tests__/record-related-list.parentDataSource-12294.test.tsx`, beside the existing parent-read error pins, which already drive a failing parent read. It checks the zh-CN heading, and that the thrown message is still shown beneath it.\n- `react/src/element-data-source/__tests__/ElementDataSourcePanels.titleDefault-12920.test.tsx`: both defaults under zh-CN, an authored title and an empty title still winning, and provider-less en controls.\n- Edited deliberately: `plugin-list`'s `ListView.sharedGate.test.tsx` now asserts the `en` pack value (`en.element.listView.sourceUnresolved`) instead of the English literal.\n\n**Ablations** ran on committed HEAD through `ablation-replace.mjs`. Each printed \"ok mutation landed\" and \"ok restored: blob == HEAD, git diff HEAD empty\", and all four went red:\n- `plugin-map`'s English literal put back (`f93cba5`): 1 failed (Expected 无法解析此地图的数据源);\n- the React panel's English default put back (`f93cba5`): 1 failed (Expected 无法解析此组件的数据源);\n- `title === undefined` weakened to `!title` (`f93cba5`): the empty-title pin failed;\n- the related list's parent-read English literal put back (`36bfc88`): 1 failed (Expected 无法读取此相关列表的父记录).\n\n## Verification (head 36bfc88)\n\n- Closure build of react, i18n and the 11 plugins (`--filter 'PKG^...'`): exit 0. `type-check` of all 13: exit 0.\n- Full suites of `packages/i18n`, `packages/react` and the 11 plugins, sharded where large: all passed (calendar 62 files, charts 92, dashboard 183, detail 289, form 190, gantt 100, grid 225, kanban 77, list 150, map 39, timeline 46, i18n+react 198). `plugin-detail` and `packages/i18n` were re-run at `36bfc88`.\n- Controls from PR #12919 (`element-i18n-defaults-12910`, `element-english-defaults-census-12910`) and every `components` file naming the panel: 8 files, 94 tests passed.\n- `check:i18n-keys`, `i18n-drift`, `i18n-dead-keys`, `i18n-designer-parity`, `changeset-claims`, `changeset:check`, `test-path-roots`, `new-line-citations`, `phantom-deps`, `control-bytes`, `pending-changeset-literals`, `unreferenced-sources`, `check-changeset-presence`: all exit 0. eslint on the changed files: 0 errors, and the same warning count as `main` per file.\n- Done state: `git grep -n -E 'errorTitle=\"[^\"]+\"' -- 'packages/*/src/*'` prints nothing outside tests. The two `ElementDataSourceGate.tsx` defaults read the bundle.\n\n## Acceptance notes\n\n- `plugin-map`'s popup buttons \"Edit\" and \"Delete\" are English. They are outside the claim's surface, and no producer passes `onEdit` / `onDelete` to `ObjectMap` today.\n- The eager `en` pack source grows by about 1.9 KB raw. The CI Bundle Analysis reading is pending.\n\nProvenance: built by the cloud session `session_01HwefRK2gGztnzbVdVaTLZi` (claim `6242902213`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's provenance and footer lines with this paragraph and changed nothing else. At the seat's request the dev folded the related list's parent-read title into this PR (`36bfc88`); the body was refreshed from that round's report (2026-10-18T01:05Z).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01HwefRK2gGztnzbVdVaTLZi)_\n"
+}

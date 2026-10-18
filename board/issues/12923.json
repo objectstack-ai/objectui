@@ -1,0 +1,35 @@
+{
+  "number": 12923,
+  "kind": "pull_request",
+  "title": "fix(fields): the read-only GridField table reads every non-lookup cell through displayText (objectui#12915)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: fields",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T22:42:25Z",
+  "updated_at": "2026-10-17T23:09:41Z",
+  "closed_at": "2026-10-17T23:09:38Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T23:09:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12923",
+  "body": "Fixes #12915\nClause-②: no\n\n## What changed\n\n- The read-only `GridField` table cell (`packages/fields/src/widgets/GridField.tsx`) sent only `file` and date / datetime / time cells through `displayText` and printed every other cell with `String(value)`. Every cell except a lookup now goes through `displayText(c, row[c.name], displayLocale, currency)`. That is the same call, with the same locale and currency, that the list-mode and computed cells already use, so the read-only and editable views of one row read alike. Lookup cells still render through `LookupField`. No second formatter, and no prop, export or language-pack key.\n- One stale comment in `GridField.displayLocale-9909.test.tsx` (it said the read-only number cells print the stored value) is updated. No assertion changed.\n- Changeset `.changeset/12915-gridfield-readonly-display.md` (`@object-ui/fields` patch).\n\n## Print path\n\nThe showcase invoice's default record page `showcase_invoice_document` is also its print page (it declares `print`), and its `record:line_items` block declares `readonly: true`. `LineItemsPanel` renders `LineItemsField` (= `GridField`) with `readonly={schema.readonly}`. Screen and print are the same component, so this one change covers both.\n\n## Pin\n\nNew `packages/fields/src/widgets/GridField.readonlyCells-12915.test.tsx`, a read-only table in a de-DE session with EUR:\n\n- a select cell reads `Open` (stored `open`);\n- a number cell reads `1.234,5`;\n- a currency cell reads `98.765,25 €`;\n- CONTROL: the lookup cell equals a standalone read-only `LookupField` with the same props, the file cell reads `spec.pdf`, and the date cell reads `17. Juni 2024`.\n\nAblation, after the fix was committed (`bdcf364`): main's exact three-way block was restored with `ablation-replace.mjs` (anchor 1 to 0, blob `46a85c34211a` to `8e7d43f95c17`, which is main's blob). The select, number and currency tests went red (received `open`, `1234.5`, `98765.25`) and the control stayed green. After the restore the blob equals HEAD and `git diff HEAD` is empty.\n\n## Live evidence (never-merged branch `claude/issue-12915-evidence`, `cdea0aeb09e3`)\n\nPublished backend 18.0.0-next.3 with the showcase app, the console dev server and Chromium. Invoice INV-1001, en session:\n\n| leg | Qty | Unit Price | Amount |\n|---|---|---|---|\n| main, screen and print | 10 | 150 | 1500 |\n| branch, screen and print | 10 | 150 | 1,500 |\n\n- https://github.com/objectstack-ai/objectui/blob/cdea0aeb09e312ca4bcf09e0f9663f5b40f41816/evidence/12915/README.md\n- https://github.com/objectstack-ai/objectui/blob/cdea0aeb09e312ca4bcf09e0f9663f5b40f41816/evidence/12915/branch-screen-table.png\n- https://github.com/objectstack-ai/objectui/blob/cdea0aeb09e312ca4bcf09e0f9663f5b40f41816/evidence/12915/branch-print-preview.png\n- https://github.com/objectstack-ai/objectui/blob/cdea0aeb09e312ca4bcf09e0f9663f5b40f41816/evidence/12915/main-print-preview.png\n\nThe showcase has no select column on an invoice line, so the select label is measured by the pin only.\n\n## Local gates (head 0b6f62a)\n\n- fields build closure and `type-check`: pass\n- 136 GridField / LineItemsPanel / MasterDetailForm / line_items test files: pass\n- `@object-ui/fields` test: pass\n- changeset-claims, changeset:check, test-path-roots, new-line-citations, changeset-presence: pass\n- eslint: 0 errors\n\n## Acceptance notes\n\n- A number with more than three decimals now shows rounded to three (`toLocaleString`), as list mode already does.\n- The live session resolves no currency, so currency cells show no symbol and no fixed two decimals on either leg. That is a configuration reading, not this change.\n- `displayText`'s English `N files` / `File` text, and the English Yes / No options that hydration gives boolean columns, are pre-existing and out of scope.\n\nProvenance: built by the cloud session `session_01PCbjcf64suhTeaS7T684ss` (claim `6241887889`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's footer line with this paragraph and changed nothing else.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01PCbjcf64suhTeaS7T684ss)_\n"
+}

@@ -70,12 +70,18 @@ vi.mock('../../views/ActionParamDialog', () => ({ ActionParamDialog: () => null 
 vi.mock('../../views/ActionResultDialog', () => ({ ActionResultDialog: () => null }));
 vi.mock('../../views/FlowRunner', () => ({ FlowRunner: () => null }));
 // The runtime's `script` dispatch stands in for the platform action route:
-// it writes the params it is sent, as the route does.
+// it writes the action's declared `patch` UNDER the params it is sent, as the
+// route does (`declarativeUpdateWrite`). The patch is read off the action the
+// stub is handed, standing in for the declaration the route resolves by name:
+// the request never carries it (objectui#12941).
 const routeWrites: Array<Record<string, unknown>> = [];
 vi.mock('../../utils/consoleServerAction', () => ({
-  createConsoleServerActionHandler: () => vi.fn(async (action: { params?: Record<string, unknown> }) => {
+  createConsoleServerActionHandler: () => vi.fn(async (action: {
+    params?: Record<string, unknown>;
+    patch?: Record<string, unknown>;
+  }) => {
     const { _rowRecord: _row, recordId: _id, ...fields } = action.params ?? {};
-    routeWrites.push(fields);
+    routeWrites.push({ ...(action.patch ?? {}), ...fields });
     return { success: true };
   }),
 }));

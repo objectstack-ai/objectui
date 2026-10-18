@@ -3485,9 +3485,13 @@ const zh = {
   //                   against). `humanizeToolName` looks each up as
   //                   `chatbot.tool.<tool_name>` and falls back to its English
   //                   title-caser for a custom / third-party tool, so a name
-  //                   missing here is degraded, never broken. The `en` values
-  //                   are deliberately EQUAL to what that title-caser produces:
-  //                   adding the key must not silently reword the English UI.
+  //                   missing here is degraded, never broken. Every value, `en`
+  //                   included, is a short sentence in the pack's language
+  //                   saying what the step does (cloud#2927 Target 3, ruled
+  //                   「同意」; objectui#12724): never the tool id, and never
+  //                   the title-caser's output for it, which is how the step
+  //                   reads for a tool the pack has no entry for.
+  //                   `toolLabels-locale-parity-7481` holds both.
   //   `toolState.*` — the card-header badge + activity-chip vocabulary. ONE
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
@@ -3506,41 +3510,41 @@ const zh = {
   // against the registry instead of against its own hand-held list.
   chatbot: {
     tool: {
-      aggregate_data: '汇总数据',
-      get_record: '读取记录',
-      query_data: '查询数据',
-      query_records: '查询记录',
-      search_knowledge: '搜索知识库',
-      visualize_data: '生成图表',
-      add_field: '添加字段',
-      apply_blueprint: '搭建应用',
-      apply_edit: '应用修改',
-      create_metadata: '新建元数据',
-      create_object: '新建对象',
-      create_package: '新建应用包',
-      create_seed: '生成示例数据',
-      delete_field: '删除字段',
-      describe_metadata: '查看元数据',
-      describe_object: '查看对象结构',
-      get_active_package: '读取当前应用包',
-      get_authoring_rules: '读取编写规范',
-      get_metadata_schema: '读取元数据结构',
-      get_package: '读取应用包',
-      list_metadata: '列出元数据',
-      list_objects: '列出对象',
-      list_packages: '列出应用包',
-      load_tools: '加载工具',
-      modify_field: '修改字段',
-      open_record: '打开记录',
-      propose_blueprint: '设计应用方案',
-      set_active_package: '切换当前应用包',
-      suggest_builder: '推荐搭建方式',
-      test_flow: '测试流程',
-      todo_write: '记录待办',
-      toggle_flow: '启停流程',
-      update_metadata: '更新元数据',
-      validate_expression: '校验表达式',
-      verify_build: '校验搭建结果',
+      aggregate_data: '汇总相关数据',
+      get_record: '读取这条记录',
+      query_data: '查询所需数据',
+      query_records: '查找相关记录',
+      search_knowledge: '在知识库中查找',
+      visualize_data: '把数据画成图表',
+      add_field: '给对象添加字段',
+      apply_blueprint: '按方案搭建应用',
+      apply_edit: '应用这次修改',
+      create_metadata: '新建一项元数据',
+      create_object: '新建一个对象',
+      create_package: '新建一个应用包',
+      create_seed: '为对象生成示例数据',
+      delete_field: '删除一个字段',
+      describe_metadata: '查看元数据的内容',
+      describe_object: '查看对象的结构',
+      get_active_package: '确认当前应用包',
+      get_authoring_rules: '查阅编写规范',
+      get_metadata_schema: '查阅元数据的格式',
+      get_package: '查看应用包信息',
+      list_metadata: '列出已有元数据',
+      list_objects: '列出已有对象',
+      list_packages: '列出已有应用包',
+      load_tools: '加载更多工具',
+      modify_field: '修改一个字段',
+      open_record: '打开这条记录',
+      propose_blueprint: '拟定应用方案',
+      set_active_package: '切换到目标应用包',
+      suggest_builder: '建议改用 AI 搭建',
+      test_flow: '试运行流程',
+      todo_write: '记下后续检查项',
+      toggle_flow: '启用或停用流程',
+      update_metadata: '更新一项元数据',
+      validate_expression: '检查表达式是否有效',
+      verify_build: '核对搭建结果',
     },
     toolState: {
       agentActivity: '智能体活动',
@@ -3577,6 +3581,8 @@ const zh = {
       awaitingConfirm: '等待确认',
       objectsAndFields: '对象与字段',
       views: '视图',
+      suggestedField: '补充',
+      nameField: '名称：{{field}}',
     },
     build: {
       building: '正在构建{{app}}…',
@@ -3599,6 +3605,7 @@ const zh = {
       nextStepsLead: '接下来可以说：{{steps}}',
       nextStepQuote: '「{{step}}」',
       draftPosture: '之后的修改先存草稿，由你在 Studio 发布。',
+      checksPassed: '核对通过 {{passed}}/{{total}}',
     },
   },
   chatbotError: {

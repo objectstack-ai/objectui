@@ -86,9 +86,12 @@ import {
   parseResultEnvelope,
   detectAuthoringVerdict,
   detectBuiltAppPackage,
+  detectBuildChecklist,
   buildProgressFromDraftReview,
+  type BuildResultChecklist,
   type DraftReview,
   type ProposedPlan,
+  type ProposedPlanCard,
 } from './mapMessages';
 
 /**
@@ -2780,7 +2783,13 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                   ) : null}
                 </div>
                 {(() => {
-                  const bits = countBitsOf(tool.proposedPlan!.counts);
+                  // objectui#12724 — the producer's sample-data line
+                  // (`planCard.sampleData.line`, 「示例数据 12 条/对象」) takes
+                  // the place of the bare "sample data" count bit.
+                  const plan = tool.proposedPlan!;
+                  const sampleLine = plan.planCard?.sampleData?.line;
+                  const bits = countBitsOf(sampleLine ? { ...plan.counts, seedData: 0 } : plan.counts);
+                  if (sampleLine) bits.push(sampleLine);
                   return bits.length ? (
                     <span className="text-[11px] text-muted-foreground" data-testid="proposed-plan-counts">{bits.join(' · ')}</span>
                   ) : null;
@@ -2797,7 +2806,13 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                 {tool.proposedPlan.summary ? (
                   <p className="text-xs text-muted-foreground">{tool.proposedPlan.summary}</p>
                 ) : null}
-                {tool.proposedPlan.objects.some((o) => o.fields) ? (
+                {tool.proposedPlan.planCard ? (
+                  // objectui#12724 — the plan card v2 rows, from `planCard`.
+                  <PlanCardObjectRows
+                    objects={tool.proposedPlan.planCard.objects}
+                    heading={planObjectsLabel}
+                  />
+                ) : tool.proposedPlan.objects.some((o) => o.fields) ? (
                   // objectui#12724 — one row per object with a chip per
                   // declared field (`blueprint.objects[].fields`).
                   <div className="flex flex-col" data-testid="proposed-plan-objects">
@@ -2852,25 +2867,60 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                     ))}
                   </div>
                 ) : null}
-                {tool.proposedPlan.views && tool.proposedPlan.views.length > 0 ? (
-                  // objectui#12724 — the views the build creates (`blueprint.views`).
-                  <div className="flex flex-col gap-0.5" data-testid="proposed-plan-views">
-                    <span className="text-[11px] font-medium text-foreground/70">
-                      {planViewsLabel}
-                    </span>
-                    {tool.proposedPlan.views.map((v) => (
-                      <div
-                        key={v.name}
-                        className="flex items-start gap-1.5 text-[11px] text-foreground/80"
-                        title={v.name}
-                        data-testid="proposed-plan-view"
-                      >
-                        <span className="mt-px shrink-0 text-foreground/40">·</span>
-                        <span>{v.label || v.name}</span>
+                {(() => {
+                  // objectui#12724 — each view with its intent line: from
+                  // `planCard.views`, or from the envelope's `viewIntents` when
+                  // a producer that predates `planCard` sends only those.
+                  const plan = tool.proposedPlan!;
+                  const intentRows = plan.planCard ? plan.planCard.views : plan.viewIntents;
+                  if (intentRows && intentRows.length > 0) {
+                    return (
+                      <div className="flex flex-col" data-testid="proposed-plan-views">
+                        <span className="text-[11px] font-medium text-foreground/70">
+                          {planViewsLabel}
+                        </span>
+                        {intentRows.map((v) => (
+                          <div
+                            key={`${v.object}.${v.view}`}
+                            className="flex items-start gap-2 border-t border-border/60 py-1.5 first-of-type:border-t-0"
+                            title={v.view}
+                            data-testid="proposed-plan-view"
+                          >
+                            <span className="inline-flex h-5 w-24 shrink-0 items-center justify-center truncate rounded-md bg-muted px-1.5 text-[11px] text-foreground/80">
+                              {v.label ?? v.view}
+                            </span>
+                            <span
+                              className="min-w-0 pt-0.5 text-[11px] text-foreground/80"
+                              data-testid="proposed-plan-view-line"
+                            >
+                              {v.line}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                ) : null}
+                    );
+                  }
+                  // objectui#12724 phase 1 — the views the build creates
+                  // (`blueprint.views`), by name, when no intent line is sent.
+                  return plan.views && plan.views.length > 0 ? (
+                    <div className="flex flex-col gap-0.5" data-testid="proposed-plan-views">
+                      <span className="text-[11px] font-medium text-foreground/70">
+                        {planViewsLabel}
+                      </span>
+                      {plan.views.map((v) => (
+                        <div
+                          key={v.name}
+                          className="flex items-start gap-1.5 text-[11px] text-foreground/80"
+                          title={v.name}
+                          data-testid="proposed-plan-view"
+                        >
+                          <span className="mt-px shrink-0 text-foreground/40">·</span>
+                          <span>{v.label || v.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
                 {/* Assumptions split into ordinary design notes vs. business
                     rules the build is explicitly DEFERRING ("待补 / Not yet
                     built"). The deferred set gets its own labelled, tinted
@@ -2883,19 +2933,17 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                   return (
                     <>
                       {designNotes.length > 0 ? (
+                        // objectui#12724 — a list, one item per assumption
+                        // (`planCard.assumptions`, else `blueprint.assumptions`).
                         <div className="flex flex-col gap-0.5" data-testid="proposed-plan-assumptions">
                           <span className="text-[11px] font-medium text-foreground/70">
                             {planAssumptionsLabel}
                           </span>
-                          {designNotes.map((a, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-start gap-1.5 text-[11px] text-muted-foreground"
-                            >
-                              <span className="mt-px shrink-0 text-foreground/40">·</span>
-                              <span>{a}</span>
-                            </div>
-                          ))}
+                          <ul className="flex list-disc flex-col gap-0.5 pl-4 text-[11px] text-muted-foreground marker:text-foreground/40">
+                            {designNotes.map((a, idx) => (
+                              <li key={idx}>{a}</li>
+                            ))}
+                          </ul>
                         </div>
                       ) : null}
                       {deferred.length > 0 ? (
@@ -3454,6 +3502,15 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                 const builtPackageId =
                   builtAppDraft?.draftReview?.packageId ??
                   (publishedBuild ? detectBuiltAppPackage(publishedBuild.result) : undefined);
+                // objectui#12724 — the result card's checklist: the LAST one
+                // the turn produced, so a `verify_build` that re-measured the
+                // build after a repair supersedes `apply_blueprint`'s.
+                let buildChecklist: BuildResultChecklist | undefined;
+                if (buildProgress?.phase === 'done') {
+                  for (let i = tools.length - 1; i >= 0 && !buildChecklist; i--) {
+                    buildChecklist = detectBuildChecklist(tools[i].result);
+                  }
+                }
                 const buildIsLive =
                   publishedBuild !== undefined ||
                   (builtAppDraft !== undefined &&
@@ -3523,6 +3580,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                           appSegment={builtPackageId}
                           live={buildIsLive}
                           nextSteps={builtAppDraft?.draftReview?.nextSteps}
+                          checklist={buildChecklist}
                           onOpenBuiltApp={onOpenBuiltApp}
                           openBuiltAppLabel={openBuiltAppLabel}
                           onDesignBuiltApp={onDesignBuiltApp}
@@ -4418,6 +4476,117 @@ function BlueprintProgressPanel({
 }
 
 /**
+ * objectui#12724 — the plan card's object rows from `planCard.objects` (the
+ * AiBuild artboard): the object's label, one chip per field with the format its
+ * sample data is held to in mono type (`format.label`), a dashed 「补充」 chip for
+ * a field the user's words did not name (`suggested`), and 「名称：FIELD」 under
+ * the chips when the object declares its name field (`nameField`). Each of
+ * those three is drawn only when its key is present.
+ */
+function PlanCardObjectRows({
+  objects,
+  heading,
+}: {
+  objects: ProposedPlanCard['objects'];
+  heading: string;
+}) {
+  const { t } = useObjectTranslation();
+  const suggestedMark = t('chatbot.plan.suggestedField', { defaultValue: 'suggested' });
+  return (
+    <div className="flex flex-col" data-testid="proposed-plan-objects">
+      <span className="text-[11px] font-medium text-foreground/70">{heading}</span>
+      {objects.map((o) => (
+        <div
+          key={o.name}
+          className="flex items-start gap-2 border-t border-border/60 py-1.5 first-of-type:border-t-0"
+          data-testid={`proposed-plan-object-${o.name}`}
+        >
+          <span
+            className="inline-flex h-5 w-20 shrink-0 items-center justify-center truncate rounded-md bg-primary/10 px-1.5 text-[11px] font-medium text-primary"
+            title={o.name}
+          >
+            {o.label}
+          </span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="flex flex-wrap gap-1">
+              {o.fields.map((f) => (
+                <span
+                  key={f.name}
+                  className={cn(
+                    'inline-flex h-5 items-center gap-1 rounded-md px-1.5 text-[11px]',
+                    f.suggested
+                      ? 'border border-dashed border-border text-muted-foreground'
+                      : 'bg-muted text-foreground/80',
+                  )}
+                  title={f.name}
+                  data-testid="proposed-plan-field"
+                  {...(f.suggested ? { 'data-suggested': 'true' } : {})}
+                >
+                  {f.label}
+                  {f.format ? (
+                    <span
+                      className="font-mono text-[10.5px] text-muted-foreground"
+                      data-testid="proposed-plan-field-format"
+                    >
+                      {f.format.label}
+                    </span>
+                  ) : null}
+                  {f.suggested ? <span>· {suggestedMark}</span> : null}
+                </span>
+              ))}
+            </div>
+            {o.nameField ? (
+              <span className="text-[11px] text-muted-foreground" data-testid="proposed-plan-name-field">
+                {t('chatbot.plan.nameField', { field: o.nameField.label, defaultValue: 'Name: {{field}}' })}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * objectui#12724 — the result card's checklist (the AiBuild artboard's 核对
+ * rows): every line the producer measured on the build, objects in one column
+ * and views and the sample data in the other, each with its own pass mark.
+ * The lines are the producer's words, read verbatim from `checklist.lines`.
+ */
+function BuildChecklistRows({ checklist }: { checklist: BuildResultChecklist }) {
+  const objectLines = checklist.lines.filter((l) => l.kind === 'object');
+  const otherLines = checklist.lines.filter((l) => l.kind !== 'object');
+  const column = (lines: BuildResultChecklist['lines'], testId: string) =>
+    lines.length > 0 ? (
+      <ul className="flex flex-col" data-testid={testId}>
+        {lines.map((l, idx) => (
+          <li
+            key={idx}
+            className="flex items-start gap-2 py-1 text-xs text-foreground/90"
+            data-testid="build-checklist-line"
+            data-status={l.status}
+          >
+            {l.status === 'passed' ? (
+              <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
+            ) : (
+              <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-amber-600" />
+            )}
+            <span className="min-w-0">{l.line}</span>
+          </li>
+        ))}
+      </ul>
+    ) : null;
+  return (
+    <div className="@container" data-testid="build-checklist">
+      <div className="grid grid-cols-1 gap-x-6 @md:grid-cols-2">
+        {column(objectLines, 'build-checklist-objects')}
+        {column(otherLines, 'build-checklist-checks')}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Live "build tree" for an in-flight app build (apply_blueprint). Renders the
  * artifacts as they stream in (via the message's `buildProgress`), so the user
  * watches objects → views → dashboard → app → sample data appear instead of a
@@ -4435,6 +4604,7 @@ function BuildProgressPanel({
   previewDraftLabel = 'Preview',
   live = false,
   nextSteps,
+  checklist,
   waitingLabel = 'Waiting for server…',
   stalledLabel = 'Still working…',
   offlineLabel = 'Connection lost — reconnecting…',
@@ -4442,6 +4612,13 @@ function BuildProgressPanel({
   progress: ChatBuildProgress;
   /** The build's owning package id (from its draft envelope), for deep links. */
   appSegment?: string;
+  /**
+   * objectui#12724 — the turn's latest `checklist` (`apply_blueprint`, then
+   * `verify_build` after a repair). When present, the finished card shows its
+   * 核对通过 chip and lines in place of the artifact list, and its `app` and
+   * `packageId` feed 打开应用 and 在 Studio 中查看.
+   */
+  checklist?: BuildResultChecklist;
   /**
    * objectui#12724 — the build is published (its envelope says so, or this
    * chat's publish signal does), so the finished card says 「已搭建并上线」.
@@ -4478,7 +4655,10 @@ function BuildProgressPanel({
   // The unnamed-build stand-in is itself a translated noun phrase, so it can be
   // interpolated into the two header frames the same way a real app label is —
   // one hole per frame, which is what `check-i18n-call-site-keys` checks.
-  const appName = appLabel ?? t('chatbot.build.appFallback', { defaultValue: 'your app' });
+  // objectui#12724 — the checklist's `app.label` names the app the build
+  // landed in, so a finished card prefers it to the stream's label.
+  const appName =
+    checklist?.app?.label ?? appLabel ?? t('chatbot.build.appFallback', { defaultValue: 'your app' });
   // Real activity key: bumps whenever the server streams another build-progress
   // part. Prefer the server's monotonic `seq` (it also advances on the keep-alive
   // heartbeats during long, quiet seed-generation awaits, where the content
@@ -4487,7 +4667,14 @@ function BuildProgressPanel({
   // healthy build reads as "receiving" and a genuine stall as amber.
   const activityKey = seq ?? `${phase}:${done}:${items.length}`;
   // The created `app` artifact (navigation shell) — the natural "open it" target.
-  const builtApp = items.find((it) => it.type === 'app');
+  // objectui#12724 — the checklist's `app` says which app 打开应用 opens (the
+  // new one, or the existing app an extend build landed in) and its
+  // `packageId` which package 在 Studio 中查看 opens; without them the doors
+  // read the staged artifacts and the draft envelope, as before.
+  const stagedApp = items.find((it) => it.type === 'app');
+  const builtApp = checklist?.app ?? stagedApp;
+  const studioSegment = checklist?.packageId ?? appSegment;
+  const showChecklist = isDone && checklist !== undefined;
   const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : isDone ? 100 : 6;
   const groups = new Map<string, Array<{ name: string; display: string }>>();
   for (const it of items) {
@@ -4534,6 +4721,25 @@ function BuildProgressPanel({
             />
           </span>
         ) : null}
+        {showChecklist ? (
+          // objectui#12724 — 核对通过 passed/total, as the checklist counts it.
+          <span
+            className={cn(
+              'ml-auto inline-flex h-5 shrink-0 items-center rounded-md px-1.5 text-[11px] font-medium',
+              checklist.status === 'passed'
+                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
+                : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300',
+            )}
+            data-testid="build-checklist-chip"
+            data-status={checklist.status}
+          >
+            {t('chatbot.build.checksPassed', {
+              passed: checklist.passed,
+              total: checklist.total,
+              defaultValue: 'Checks passed {{passed}}/{{total}}',
+            })}
+          </span>
+        ) : null}
       </div>
       {/* objectui#12724 — a finished build is a result card, not a progress bar. */}
       {!isDone ? (
@@ -4544,6 +4750,11 @@ function BuildProgressPanel({
           />
         </div>
       ) : null}
+      {showChecklist ? (
+        // objectui#12724 — a finished build with a checklist shows what was
+        // verified on it, not the list of staged artifacts.
+        <BuildChecklistRows checklist={checklist} />
+      ) : (
       <ul className="space-y-1">
         {orderedTypes.map((type) => {
           const entries = groups.get(type)!;
@@ -4589,6 +4800,7 @@ function BuildProgressPanel({
           );
         })}
       </ul>
+      )}
       {verify ? (
         // The verification line advances per hop and closes on `done`.
         <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground" data-testid="build-verify" title={verify.tool}>
@@ -4631,7 +4843,7 @@ function BuildProgressPanel({
           {onDesignBuiltApp ? (
             <button
               type="button"
-              onClick={() => onDesignBuiltApp(builtApp.name, appSegment)}
+              onClick={() => onDesignBuiltApp(builtApp.name, studioSegment)}
               className={cn(
                 'inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-medium',
                 onOpenBuiltApp
@@ -4644,10 +4856,10 @@ function BuildProgressPanel({
             </button>
           ) : null}
           {/* ADR-0037: see the drafted app as-if-published, before Publish. */}
-          {onPreviewDraftApp ? (
+          {onPreviewDraftApp && stagedApp ? (
             <button
               type="button"
-              onClick={() => onPreviewDraftApp(builtApp.name)}
+              onClick={() => onPreviewDraftApp(stagedApp.name)}
               className="inline-flex h-7 items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted"
               data-testid="build-progress-preview-app"
             >

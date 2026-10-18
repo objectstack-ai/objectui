@@ -343,7 +343,7 @@ describe.each(BLOCKS)('%s — keys the runner acts on, forwarded by the block', 
     expect(await bodyFor({})).toEqual({ name: 'Acme', source: 'web' });
   });
 
-  it('`operation: update` sends `patch` to the write route, merged UNDER the supplied values', async () => {
+  it('`operation: update` reaches the write route with its `patch`, which never rides in the supplied values', async () => {
     const script = vi.fn(async () => ({ success: true }));
     mount(
       node(type, {
@@ -356,10 +356,12 @@ describe.each(BLOCKS)('%s — keys the runner acts on, forwarded by the block', 
     );
     press();
     await waitFor(() => expect(script).toHaveBeenCalledTimes(1));
-    // `stage` comes from `patch`; `status` is supplied too, and the supplied value wins.
-    expect((script.mock.calls[0] as unknown[])[0]).toMatchObject({
-      params: { recordId: 'R1', status: 'user-chosen', stage: 'done' },
-    });
+    // The block forwarded `operation` and `patch`, so the update path ran. The
+    // route applies `patch` from the action's declaration, so the values the
+    // dispatch posts are the supplied ones alone (objectui#12941): no `stage`.
+    const dispatched = (script.mock.calls[0] as unknown as [ActionDef])[0];
+    expect(dispatched).toMatchObject({ operation: 'update', patch: { status: 'closed', stage: 'done' } });
+    expect(dispatched.params).toEqual({ recordId: 'R1', status: 'user-chosen' });
     cleanup();
     script.mockClear();
     // Control: the same `patch` without `operation` is not a write — nothing merges it.

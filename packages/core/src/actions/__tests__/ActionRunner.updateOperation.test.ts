@@ -5,21 +5,26 @@
  * `operation: 'update'` — the declarative single-record field write
  * (objectui#7551, consuming `@objectstack/spec` 17.3.0; objectstack#14092).
  *
- * Three facts are pinned here, and each one has a measured failure behind it:
+ * Four facts are pinned here, and each one has a measured failure behind it:
  *
  *  1. **The runner dispatches on `operation` BEFORE `type`.** The spec
  *     materializes `type: 'script'` on an update action and `ActionType` gained
  *     no member, so `type` cannot tell an update action from any other script
- *     action. Dispatched on `type`, the action reaches the registered `script`
- *     handler with `patch` never merged — the route is POSTed a write with no
- *     field values and answers success for having written nothing.
- *  2. **The write is performed by the platform action route, never client-side.**
+ *     action. A row rehydrated UNPARSED carries no `type` at all, and resolved
+ *     by `type` it would end in `executeActionSchema`, reported on and never run.
+ *  2. **The request carries the collected params, never `patch`
+ *     (objectui#12941).** The route applies the declared `patch` itself, from
+ *     the declaration it resolves by name. Posting the patch keys as `params`
+ *     made every declarative-update button a request with undeclared params,
+ *     which the runtime's ADR-0104 D2 refusal (objectstack#24268) answers with
+ *     a 400. The pin runs every button against a route that refuses them.
+ *  3. **The write is performed by the platform action route, never client-side.**
  *     `POST /api/v1/actions/{object}/{action}` runs it as the caller, so the
  *     permission floor, the object's hooks and its validations all fire. A
  *     `dataSource.update()` reaches the data plane having consulted none of
  *     them, which is why these tests assert the route was posted AND that no
  *     data source was touched.
- *  3. **A route refusal surfaces.** Swallowing one into a green success toast
+ *  4. **A route refusal surfaces.** Swallowing one into a green success toast
  *     is the objectui#2960 class; the refusal's own message must reach the user
  *     and the success toast must not fire.
  *
@@ -29,12 +34,18 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+import { validateActionParams } from '@objectstack/spec/ui';
 import { ActionRunner, type ActionDef } from '../ActionRunner';
 import { createServerActionHandler, type ServerActionFetch } from '../serverActionHandler';
 
 /** A fetch stub answering the route's success envelope. */
 function okFetch(body: unknown = { success: true, data: { ok: true } }) {
   return vi.fn(async () => ({ ok: true, status: 200, json: async () => body }));
+}
+
+/** The parsed JSON body of the `call`-th request a fetch stub was sent. */
+function sentBody(fetch: { mock: { calls: unknown[][] } }, call = 0): { recordId?: unknown; params?: unknown } {
+  return JSON.parse((fetch.mock.calls[call][1] as { body: string }).body);
 }
 
 /** A fetch stub answering the route's REFUSAL envelope — a real code + status. */
@@ -81,7 +92,7 @@ function updateAction(overrides: Partial<ActionDef> = {}): ActionDef {
 }
 
 describe("operation: 'update' — dispatch reaches the platform action route", () => {
-  it('POSTs /api/v1/actions/{object}/{action} with the record id and the patch as params', async () => {
+  it('POSTs /api/v1/actions/{object}/{action} with the record id, and no `patch` key in params', async () => {
     const fetch = okFetch();
     const { runner } = wireRunner(fetch);
 
@@ -94,12 +105,11 @@ describe("operation: 'update' — dispatch reaches the platform action route", (
     const [url, init] = (fetch as any).mock.calls[0];
     expect(url).toBe('/api/v1/actions/tasks/mark_done');
     expect(init.method).toBe('POST');
-    // THE pin: the declared field values are in the request. Dispatched on
-    // `type` instead of `operation`, `params` here is `{ recordId }` alone and
-    // the route is asked to write nothing.
+    // objectui#12941: the declared `patch` (`status`) is the route's, applied
+    // from the declaration; the request carries only what was collected.
     expect(JSON.parse(init.body)).toEqual({
       recordId: 'rec_1',
-      params: { recordId: 'rec_1', status: 'done' },
+      params: { recordId: 'rec_1' },
     });
   });
 
@@ -119,12 +129,15 @@ describe("operation: 'update' — dispatch reaches the platform action route", (
     expect(result.success).toBe(true);
     expect(fetch).toHaveBeenCalledTimes(1);
     expect((fetch as any).mock.calls[0][0]).toBe('/api/v1/actions/tasks/mark_done');
-    expect(JSON.parse((fetch as any).mock.calls[0][1].body).params).toMatchObject({ status: 'done' });
+    expect(JSON.parse((fetch as any).mock.calls[0][1].body).params).toEqual({ recordId: 'rec_9' });
   });
 
-  it('merges `patch` UNDER the collected params — a collected value wins', async () => {
-    // The spec's words: static values "merged UNDER the user-supplied `params`
-    // so a fixed value can be declared without exposing it in the dialog".
+  it('sends a collected value as-is and no `patch` member, even one of the same name', async () => {
+    // The spec's words for the merge the ROUTE performs: static values "merged
+    // UNDER the user-supplied `params` so a fixed value can be declared without
+    // exposing it in the dialog". The collected `note` is what the user typed,
+    // and the route writes it over the patch's; the patch's `status` never
+    // travels (objectui#12941).
     const fetch = okFetch();
     const { runner } = wireRunner(fetch);
 
@@ -135,7 +148,6 @@ describe("operation: 'update' — dispatch reaches the platform action route", (
 
     expect(JSON.parse((fetch as any).mock.calls[0][1].body).params).toEqual({
       recordId: 'rec_2',
-      status: 'done',
       note: 'typed by the user',
     });
   });
@@ -222,6 +234,10 @@ describe("operation: 'update' — undoable captures exactly the written fields",
     // would revert an edit this action did not make.
     expect(result.undo!.undoData).toEqual({ status: 'open', note: 'was' });
     expect(result.undo!.redoData).toEqual({ status: 'done', note: 'typed' });
+    // `status` is written by the route from its declaration and never sent
+    // (objectui#12941), so the snapshot is read off the route's merge, not off
+    // the request: the request carries `note` alone.
+    expect(sentBody(fetch).params).toEqual({ note: 'typed' });
   });
 
   it('offers no Undo affordance when `undoable` is not declared', async () => {
@@ -234,6 +250,135 @@ describe("operation: 'update' — undoable captures exactly the written fields",
 
     expect(result.success).toBe(true);
     expect(result.undo).toBeUndefined();
+  });
+});
+
+/** A route declaration: the authored action the server resolves by name. */
+interface RouteDeclaration {
+  params?: Array<{ name: string; type?: string; required?: boolean }>;
+  patch?: Record<string, unknown>;
+}
+
+/**
+ * The platform action route as the runtime's ADR-0104 D2 refusal makes it
+ * (objectstack#24268), over the real request the real `createServerActionHandler`
+ * sends. It resolves the action's DECLARATION by the name in the URL, judges
+ * the request's `params` with `@objectstack/spec`'s own `validateActionParams`
+ * (an undeclared key that is not a built-in is refused, whether or not the
+ * action declares any params), and otherwise writes the declared `patch`
+ * UNDER the params it was sent — `declarativeUpdateWrite`'s merge. The patch
+ * comes from the declaration, never from the request.
+ */
+function refusingRoute(declarations: Record<string, RouteDeclaration>) {
+  const writes: Array<{ action: string; recordId: unknown; data: Record<string, unknown> }> = [];
+  const refusals: Array<{ action: string; status: number; code: string; params: string[] }> = [];
+  const fetch = vi.fn(async (url: string, init: { body: string }) => {
+    const action = decodeURIComponent(url.slice(url.lastIndexOf('/') + 1));
+    const declaration = declarations[action] ?? {};
+    const body = JSON.parse(init.body) as { recordId?: unknown; params?: Record<string, unknown> };
+    const params = body.params ?? {};
+    const issues = validateActionParams(declaration.params ?? [], params);
+    if (issues.length > 0) {
+      refusals.push({ action, status: 400, code: 'VALIDATION_ERROR', params: issues.map((i) => i.param) });
+      return {
+        ok: false,
+        status: 400,
+        json: async () => ({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: `Invalid action params: ${issues.map((i) => i.message).join('; ')}`,
+          },
+        }),
+      };
+    }
+    writes.push({ action, recordId: body.recordId, data: { ...(declaration.patch ?? {}), ...params } });
+    return { ok: true, status: 200, json: async () => ({ success: true, data: { ok: true } }) };
+  });
+  return { fetch, writes, refusals };
+}
+
+/**
+ * The shape a grid row hands the runner (`ObjectGrid`'s row-action dispatch):
+ * the authored def, its param definitions moved to `actionParams`, and the row
+ * stashed under `params._rowRecord`.
+ */
+function gridRowDispatch(def: Record<string, unknown>, row: Record<string, unknown>): ActionDef {
+  const { params, ...rest } = def;
+  return {
+    ...rest,
+    ...(Array.isArray(params) && params.length > 0 ? { actionParams: params } : {}),
+    params: { _rowRecord: row },
+  } as ActionDef;
+}
+
+describe("operation: 'update' — against a route that refuses undeclared params (objectui#12941)", () => {
+  const ROW = { id: 'rec_10', status: 'open', note: 'was' };
+  const MARK_DONE = { name: 'mark_done', objectName: 'tasks', operation: 'update', patch: { status: 'done' } };
+  const ADD_NOTE = {
+    name: 'add_note',
+    objectName: 'tasks',
+    operation: 'update',
+    patch: { status: 'done' },
+    params: [{ name: 'note', type: 'text', label: 'Note' }],
+  };
+
+  function wireAgainst(route: ReturnType<typeof refusingRoute>) {
+    const { runner, toasts } = wireRunner(route.fetch as unknown as ReturnType<typeof okFetch>);
+    runner.setParamCollectionHandler(async () => ({ note: 'typed by the user' }));
+    return { runner, toasts };
+  }
+
+  it('a patch-only button writes its patch: the request carries no undeclared param', async () => {
+    const route = refusingRoute({ mark_done: { patch: { status: 'done' } } });
+    const { runner, toasts } = wireAgainst(route);
+
+    const result = await runner.execute(gridRowDispatch({ type: 'script', ...MARK_DONE }, ROW));
+
+    expect(route.refusals).toEqual([]);
+    expect(result.success).toBe(true);
+    expect(toasts.map((t) => t.type)).not.toContain('error');
+    expect(route.writes).toEqual([{ action: 'mark_done', recordId: 'rec_10', data: { status: 'done' } }]);
+  });
+
+  it('control: a button that declares a param sends that param, and the route writes it over the patch', async () => {
+    const route = refusingRoute({
+      add_note: { params: [{ name: 'note', type: 'text' }], patch: { status: 'done' } },
+    });
+    const { runner } = wireAgainst(route);
+
+    const result = await runner.execute(gridRowDispatch({ type: 'script', ...ADD_NOTE }, ROW));
+
+    expect(route.refusals).toEqual([]);
+    expect(result.success).toBe(true);
+    // The declared param travels; the patch does not, and the route still writes both.
+    expect(sentBody(route.fetch)).toEqual({
+      recordId: 'rec_10',
+      params: { note: 'typed by the user' },
+    });
+    expect(route.writes).toEqual([
+      { action: 'add_note', recordId: 'rec_10', data: { status: 'done', note: 'typed by the user' } },
+    ]);
+  });
+
+  it('control: the route does refuse an undeclared param, so the two greens above are earned', async () => {
+    // The same route, sent the patch key as a param by a plain script action:
+    // the request this runner used to send for `mark_done`.
+    const route = refusingRoute({ mark_done: { patch: { status: 'done' } } });
+    const { runner, toasts } = wireAgainst(route);
+
+    const result = await runner.execute({
+      type: 'script',
+      name: 'mark_done',
+      objectName: 'tasks',
+      params: { _rowRecord: ROW, status: 'done' },
+    } as ActionDef);
+
+    expect(result.success).toBe(false);
+    expect(route.refusals).toEqual([{ action: 'mark_done', status: 400, code: 'VALIDATION_ERROR', params: ['status'] }]);
+    expect(result.error).toContain('Unknown action param "status"');
+    expect(toasts.map((t) => t.type)).toEqual(['error']);
+    expect(route.writes).toEqual([]);
   });
 });
 

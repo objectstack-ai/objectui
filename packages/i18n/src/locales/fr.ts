@@ -3408,9 +3408,13 @@ const fr = {
   //                   against). `humanizeToolName` looks each up as
   //                   `chatbot.tool.<tool_name>` and falls back to its English
   //                   title-caser for a custom / third-party tool, so a name
-  //                   missing here is degraded, never broken. The `en` values
-  //                   are deliberately EQUAL to what that title-caser produces:
-  //                   adding the key must not silently reword the English UI.
+  //                   missing here is degraded, never broken. Every value, `en`
+  //                   included, is a short sentence in the pack's language
+  //                   saying what the step does (cloud#2927 Target 3, ruled
+  //                   「同意」; objectui#12724): never the tool id, and never
+  //                   the title-caser's output for it, which is how the step
+  //                   reads for a tool the pack has no entry for.
+  //                   `toolLabels-locale-parity-7481` holds both.
   //   `toolState.*` — the card-header badge + activity-chip vocabulary. ONE
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
@@ -3429,41 +3433,41 @@ const fr = {
   // against the registry instead of against its own hand-held list.
   chatbot: {
     tool: {
-      aggregate_data: "Agréger les données",
-      get_record: "Lire un enregistrement",
-      query_data: "Interroger les données",
-      query_records: "Interroger les enregistrements",
-      search_knowledge: "Rechercher dans la base de connaissances",
-      visualize_data: "Créer un graphique",
-      add_field: "Ajouter un champ",
-      apply_blueprint: "Construire l’application",
-      apply_edit: "Appliquer les modifications",
-      create_metadata: "Créer des métadonnées",
-      create_object: "Créer un objet",
-      create_package: "Créer un paquet",
-      create_seed: "Générer des données d’exemple",
-      delete_field: "Supprimer un champ",
-      describe_metadata: "Consulter les métadonnées",
-      describe_object: "Consulter la structure de l’objet",
-      get_active_package: "Lire le paquet actif",
-      get_authoring_rules: "Lire les règles d'écriture",
-      get_metadata_schema: "Lire le schéma des métadonnées",
-      get_package: "Lire le paquet",
-      list_metadata: "Lister les métadonnées",
-      list_objects: "Lister les objets",
-      list_packages: "Lister les paquets",
-      load_tools: "Charger les outils",
-      modify_field: "Modifier un champ",
-      open_record: "Ouvrir la fiche",
-      propose_blueprint: "Concevoir le plan de l’application",
-      set_active_package: "Changer le paquet actif",
-      suggest_builder: "Proposer une méthode de construction",
-      test_flow: "Tester le flux",
-      todo_write: "Noter les tâches",
-      toggle_flow: "Activer ou désactiver le flux",
-      update_metadata: "Mettre à jour les métadonnées",
-      validate_expression: "Valider l’expression",
-      verify_build: "Vérifier la construction",
+      aggregate_data: "Synthétiser les données",
+      get_record: "Lire l’enregistrement",
+      query_data: "Interroger les données nécessaires",
+      query_records: "Rechercher les enregistrements",
+      search_knowledge: "Consulter la base de connaissances",
+      visualize_data: "Représenter les données en graphique",
+      add_field: "Ajouter un champ à l’objet",
+      apply_blueprint: "Construire l’application selon le plan",
+      apply_edit: "Appliquer la modification",
+      create_metadata: "Créer un élément de métadonnées",
+      create_object: "Créer un nouvel objet",
+      create_package: "Créer un nouveau paquet",
+      create_seed: "Générer des données d’exemple pour les objets",
+      delete_field: "Supprimer le champ",
+      describe_metadata: "Examiner les métadonnées",
+      describe_object: "Examiner la structure de l’objet",
+      get_active_package: "Vérifier le paquet actif",
+      get_authoring_rules: "Consulter les règles d’écriture",
+      get_metadata_schema: "Consulter le format des métadonnées",
+      get_package: "Examiner le paquet",
+      list_metadata: "Lister les métadonnées existantes",
+      list_objects: "Lister les objets existants",
+      list_packages: "Lister les paquets existants",
+      load_tools: "Charger d’autres outils",
+      modify_field: "Modifier le champ",
+      open_record: "Ouvrir cette fiche",
+      propose_blueprint: "Rédiger le plan de l’application",
+      set_active_package: "Passer au paquet cible",
+      suggest_builder: "Proposer de construire avec l’IA",
+      test_flow: "Faire un essai du flux",
+      todo_write: "Noter les vérifications à faire",
+      toggle_flow: "Activer ou désactiver ce flux",
+      update_metadata: "Mettre à jour un élément de métadonnées",
+      validate_expression: "Vérifier l’expression",
+      verify_build: "Vérifier le résultat de la construction",
     },
     toolState: {
       agentActivity: "Activité de l’agent",
@@ -3504,6 +3508,8 @@ const fr = {
       awaitingConfirm: "En attente de confirmation",
       objectsAndFields: "Objets et champs",
       views: "Vues",
+      suggestedField: "suggéré",
+      nameField: "Nom : {{field}}",
     },
     build: {
       building: "Création de {{app}}…",
@@ -3526,6 +3532,7 @@ const fr = {
       nextStepsLead: "Ensuite, vous pouvez dire : {{steps}}",
       nextStepQuote: "« {{step}} »",
       draftPosture: "Les modifications suivantes sont enregistrées comme brouillons, et vous les publiez dans Studio.",
+      checksPassed: "Vérifications réussies {{passed}}/{{total}}",
     },
   },
   chatbotError: {

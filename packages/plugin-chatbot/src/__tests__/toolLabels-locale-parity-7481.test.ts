@@ -32,11 +32,12 @@
  * {@link GRADUATED} keeps this file's guards honest while the list is empty —
  * see its note.
  *
- * The English pin is the other half. The packs' own comment states the rule —
- * "the `en` values are deliberately EQUAL to what that title-caser produces:
- * adding the key must not silently reword the English UI" — and nothing
- * checked it until now, so an `en` entry could quietly change what an English
- * console has always said.
+ * The English pin that used to stand here — every `en` value byte-equal to the
+ * title-caser's output — is retired with the rule it held (objectui#12724,
+ * cloud#2927 Target 3, ruled 「同意」): every value, `en` included, is now a
+ * sentence in its language, and `toolLabels-sentences-12724.test.ts` beside
+ * this file holds the opposite assertion — no value equals the tool id or the
+ * title-caser's output for it.
  */
 import { describe, it, expect } from 'vitest';
 import * as specSystem from '@objectstack/spec/system';
@@ -115,13 +116,6 @@ describe('chatbot.tool.* covers every tool the runtime can show (objectui#7481)'
     expect(missing, `${lang} is missing chatbot.tool entries`).toEqual([]);
   });
 
-  it('the en labels are byte-equal to the English title-caser', () => {
-    const en = toolsOf('en')!;
-    for (const name of COVERED) {
-      expect(en[name], `en.chatbot.tool.${name}`).toBe(humanizeToolName(name));
-    }
-  });
-
   it('AHEAD_OF_PIN carries only names the pinned registry still lacks', () => {
     // The moment the pin advances past a tool's registry entry, the hand-held
     // list must lose it — otherwise this file becomes a second registry that
@@ -141,7 +135,7 @@ describe('chatbot.tool.* covers every tool the runtime can show (objectui#7481)'
 
 describe('humanizeToolName resolves the newer tools through the pack (objectui#7481)', () => {
   it('zh: the card`s own step reads Chinese, not `Get authoring rules`', () => {
-    expect(humanizeToolName('get_authoring_rules', ttFrom('zh'))).toBe('读取编写规范');
+    expect(humanizeToolName('get_authoring_rules', ttFrom('zh'))).toBe('查阅编写规范');
     expect(humanizeToolName('get_authoring_rules', ttFrom('zh'))).not.toBe('Get authoring rules');
   });
 

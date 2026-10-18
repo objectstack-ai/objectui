@@ -166,8 +166,11 @@ describe('action:button `undoable` — an update of the record in scope offers U
       undoData: { status: 'open' },
       redoData: { status: 'done' },
     });
-    // The write addressed that record, and the stash stayed on the client.
-    expect(sentBody()).toEqual({ recordId: 't1', params: { status: 'done' } });
+    // The write addressed that record, and the stash stayed on the client. The
+    // `patch` is the route's, applied from the declaration, so the request
+    // carries no field value at all (objectui#12941) while Undo still covers
+    // `status`, the field the route wrote.
+    expect(sentBody()).toEqual({ recordId: 't1', params: {} });
   });
 
   it('on a row the host binds, from the row', async () => {

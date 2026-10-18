@@ -3613,9 +3613,13 @@ const ar = {
   //                   against). `humanizeToolName` looks each up as
   //                   `chatbot.tool.<tool_name>` and falls back to its English
   //                   title-caser for a custom / third-party tool, so a name
-  //                   missing here is degraded, never broken. The `en` values
-  //                   are deliberately EQUAL to what that title-caser produces:
-  //                   adding the key must not silently reword the English UI.
+  //                   missing here is degraded, never broken. Every value, `en`
+  //                   included, is a short sentence in the pack's language
+  //                   saying what the step does (cloud#2927 Target 3, ruled
+  //                   「同意」; objectui#12724): never the tool id, and never
+  //                   the title-caser's output for it, which is how the step
+  //                   reads for a tool the pack has no entry for.
+  //                   `toolLabels-locale-parity-7481` holds both.
   //   `toolState.*` — the card-header badge + activity-chip vocabulary. ONE
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
@@ -3634,41 +3638,41 @@ const ar = {
   // against the registry instead of against its own hand-held list.
   chatbot: {
     tool: {
-      aggregate_data: "تجميع البيانات",
-      get_record: "جلب السجل",
-      query_data: "الاستعلام عن البيانات",
-      query_records: "الاستعلام عن السجلات",
-      search_knowledge: "البحث في قاعدة المعرفة",
-      visualize_data: "إنشاء رسم بياني",
-      add_field: "إضافة حقل",
-      apply_blueprint: "بناء التطبيق",
-      apply_edit: "تطبيق التغييرات",
-      create_metadata: "إنشاء بيانات وصفية",
-      create_object: "إنشاء كائن",
-      create_package: "إنشاء حزمة",
-      create_seed: "توليد بيانات تجريبية",
-      delete_field: "حذف حقل",
-      describe_metadata: "عرض البيانات الوصفية",
-      describe_object: "عرض بنية الكائن",
-      get_active_package: "جلب الحزمة النشطة",
-      get_authoring_rules: "قراءة قواعد التأليف",
-      get_metadata_schema: "جلب مخطط البيانات الوصفية",
-      get_package: "جلب الحزمة",
-      list_metadata: "سرد البيانات الوصفية",
-      list_objects: "سرد الكائنات",
-      list_packages: "سرد الحزم",
-      load_tools: "تحميل الأدوات",
-      modify_field: "تعديل حقل",
-      open_record: "فتح السجل",
-      propose_blueprint: "تصميم خطة التطبيق",
-      set_active_package: "تبديل الحزمة النشطة",
-      suggest_builder: "اقتراح طريقة البناء",
-      test_flow: "اختبار التدفق",
-      todo_write: "تدوين المهام",
-      toggle_flow: "تفعيل أو تعطيل التدفق",
-      update_metadata: "تحديث البيانات الوصفية",
-      validate_expression: "التحقق من التعبير",
-      verify_build: "التحقق من البناء",
+      aggregate_data: "تجميع البيانات ذات الصلة",
+      get_record: "قراءة هذا السجل",
+      query_data: "الاستعلام عن البيانات المطلوبة",
+      query_records: "البحث عن السجلات المطابقة",
+      search_knowledge: "البحث في قاعدة المعرفة عن معلومات",
+      visualize_data: "عرض البيانات في رسم بياني",
+      add_field: "إضافة حقل إلى الكائن",
+      apply_blueprint: "بناء التطبيق وفق الخطة",
+      apply_edit: "تطبيق هذا التغيير",
+      create_metadata: "إنشاء عنصر بيانات وصفية",
+      create_object: "إنشاء كائن جديد",
+      create_package: "إنشاء حزمة جديدة",
+      create_seed: "توليد بيانات تجريبية للكائنات",
+      delete_field: "حذف أحد الحقول",
+      describe_metadata: "مراجعة البيانات الوصفية",
+      describe_object: "مراجعة بنية الكائن",
+      get_active_package: "التحقق من الحزمة النشطة",
+      get_authoring_rules: "الاطلاع على قواعد التأليف",
+      get_metadata_schema: "الاطلاع على تنسيق البيانات الوصفية",
+      get_package: "مراجعة معلومات الحزمة",
+      list_metadata: "سرد البيانات الوصفية الموجودة",
+      list_objects: "سرد الكائنات الموجودة",
+      list_packages: "سرد الحزم الموجودة",
+      load_tools: "تحميل أدوات إضافية",
+      modify_field: "تعديل أحد الحقول",
+      open_record: "فتح هذا السجل",
+      propose_blueprint: "صياغة خطة التطبيق",
+      set_active_package: "الانتقال إلى الحزمة المطلوبة",
+      suggest_builder: "اقتراح البناء بالذكاء الاصطناعي",
+      test_flow: "تشغيل تجريبي للتدفق",
+      todo_write: "تدوين ما يجب التحقق منه لاحقًا",
+      toggle_flow: "تشغيل التدفق أو إيقافه",
+      update_metadata: "تحديث عنصر بيانات وصفية",
+      validate_expression: "التحقق من صحة التعبير",
+      verify_build: "مطابقة نتيجة البناء",
     },
     toolState: {
       agentActivity: "نشاط الوكيل",
@@ -3721,6 +3725,8 @@ const ar = {
       awaitingConfirm: "بانتظار التأكيد",
       objectsAndFields: "الكائنات والحقول",
       views: "طرق العرض",
+      suggestedField: "مقترح",
+      nameField: "الاسم: {{field}}",
     },
     build: {
       building: "جارٍ إنشاء {{app}}…",
@@ -3743,6 +3749,7 @@ const ar = {
       nextStepsLead: "بعد ذلك يمكنك أن تقول: {{steps}}",
       nextStepQuote: "«{{step}}»",
       draftPosture: "تُحفظ التغييرات اللاحقة كمسودات، وأنت من ينشرها في Studio.",
+      checksPassed: "اجتازت الفحوصات {{passed}}/{{total}}",
     },
   },
   chatbotError: {

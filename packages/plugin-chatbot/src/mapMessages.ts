@@ -305,10 +305,78 @@ export interface ProposedPlan {
    * plain text (type-to-answer). Each set has ≥2 options, recommended first.
    */
   questionChoices?: Array<{ text: string; options: string[] }>;
-  /** Assumptions the agent made from an underspecified goal (may be empty). */
+  /**
+   * Assumptions the agent made from an underspecified goal (may be empty).
+   * objectui#12724 — read from `planCard.assumptions` when the envelope
+   * carries a plan card, else from `blueprint.assumptions` as before.
+   */
   assumptions: string[];
   /** Extend mode: the existing app the new objects would be added into. */
   targetApp?: string;
+  /**
+   * objectui#12724 — the plan card's v2 rows, from the envelope's `planCard`.
+   * Absent on a producer that predates it, and the card then draws the rows
+   * above as before.
+   */
+  planCard?: ProposedPlanCard;
+  /**
+   * objectui#12724 — one line per view (the envelope's `viewIntents`). The card
+   * reads it only when there is no `planCard`, whose views carry the same line.
+   */
+  viewIntents?: ProposedPlanViewLine[];
+}
+
+/** One view's intent line: `viewIntents[]` and `planCard.views[]` both carry it. */
+export interface ProposedPlanViewLine {
+  view: string;
+  object: string;
+  label?: string;
+  line: string;
+}
+
+/**
+ * objectui#12724 — the keys of `propose_blueprint`'s `planCard` that the plan
+ * card draws. The producer's contract is objectstack-ai/cloud's
+ * `ProposeBlueprintCardPayload` (`packages/service-ai-studio/schema/build-cards.schema.json`,
+ * vendored beside this package's tests); keys this card does not draw are not
+ * lifted.
+ */
+export interface ProposedPlanCard {
+  objects: Array<{
+    name: string;
+    label: string;
+    fields: Array<{
+      name: string;
+      label: string;
+      /** The format the sample data is held to, as the chip's words (`format.label`). */
+      format?: { label: string };
+      /** The model added this field; the user's words did not name it. */
+      suggested?: true;
+    }>;
+    /** The record's name field, when the plan declares one. */
+    nameField?: { name: string; label: string };
+  }>;
+  views: ProposedPlanViewLine[];
+  assumptions: string[];
+  /** The sample data the build stages, as one line. Absent when it stages none. */
+  sampleData?: { line: string };
+}
+
+/**
+ * objectui#12724 — the keys of the result card's `checklist` that the card
+ * draws, from `apply_blueprint`'s and `verify_build`'s envelopes
+ * (objectstack-ai/cloud's `BuildResultCardPayload`).
+ */
+export interface BuildResultChecklist {
+  status: 'passed' | 'failed';
+  passed: number;
+  total: number;
+  /** Objects, then views, then the sample data, each measured on the build. */
+  lines: Array<{ kind: 'object' | 'view' | 'sampleData'; status: 'passed' | 'failed'; line: string }>;
+  /** The app 打开应用 opens. */
+  app?: { name: string; label?: string };
+  /** The package 在 Studio 中查看 opens. */
+  packageId?: string;
 }
 
 /** Defensive: keep only non-empty strings from an unknown array. */
@@ -392,6 +460,9 @@ export function detectProposedPlan(result: unknown): ProposedPlan | undefined {
   const rawApp = bp.app && typeof bp.app === 'object' ? (bp.app as { label?: unknown }) : undefined;
   const appLabel = typeof rawApp?.label === 'string' && rawApp.label ? rawApp.label : undefined;
   const views = namedEntries(bp.views);
+  const planCard = liftPlanCard((obj as { planCard?: unknown }).planCard);
+  const rawIntents = (obj as { viewIntents?: unknown }).viewIntents;
+  const viewIntents = Array.isArray(rawIntents) ? viewLines(rawIntents) : [];
 
   return {
     ...(summary ? { summary } : {}),
@@ -401,8 +472,103 @@ export function detectProposedPlan(result: unknown): ProposedPlan | undefined {
     counts,
     questions: questions.length ? questions : nonEmptyStrings(bp.questions),
     ...(questionChoices.length ? { questionChoices } : {}),
-    assumptions: nonEmptyStrings(bp.assumptions),
+    assumptions: planCard ? planCard.assumptions : nonEmptyStrings(bp.assumptions),
     ...(typeof targetApp === 'string' && targetApp ? { targetApp } : {}),
+    ...(planCard ? { planCard } : {}),
+    ...(viewIntents.length ? { viewIntents } : {}),
+  };
+}
+
+const isText = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
+const recordOf = (v: unknown): Record<string, unknown> | undefined =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
+
+/** `{ view, object, label?, line }` rows, as `viewIntents[]` and `planCard.views[]` spell them. */
+function viewLines(v: unknown[]): ProposedPlanViewLine[] {
+  return v.flatMap((e) => {
+    const r = recordOf(e);
+    if (!r || !isText(r.view) || !isText(r.object) || !isText(r.line)) return [];
+    return [{ view: r.view, object: r.object, ...(isText(r.label) ? { label: r.label } : {}), line: r.line }];
+  });
+}
+
+/**
+ * objectui#12724 — lift the plan card's drawn keys off `planCard`. The schema
+ * requires `objects`, `views` and `assumptions`; a value without all three is
+ * not a plan card, and the card keeps its earlier rows.
+ */
+function liftPlanCard(raw: unknown): ProposedPlanCard | undefined {
+  const card = recordOf(raw);
+  if (!card || !Array.isArray(card.objects) || !Array.isArray(card.views) || !Array.isArray(card.assumptions)) {
+    return undefined;
+  }
+  const objects = card.objects.flatMap((o) => {
+    const r = recordOf(o);
+    if (!r || !isText(r.name) || !isText(r.label) || !Array.isArray(r.fields)) return [];
+    const fields = r.fields.flatMap((f) => {
+      const fr = recordOf(f);
+      if (!fr || !isText(fr.name) || !isText(fr.label)) return [];
+      const format = recordOf(fr.format);
+      return [
+        {
+          name: fr.name,
+          label: fr.label,
+          ...(format && isText(format.label) ? { format: { label: format.label } } : {}),
+          ...(fr.suggested === true ? { suggested: true as const } : {}),
+        },
+      ];
+    });
+    const nameField = recordOf(r.nameField);
+    return [
+      {
+        name: r.name,
+        label: r.label,
+        fields,
+        ...(nameField && isText(nameField.name) && isText(nameField.label)
+          ? { nameField: { name: nameField.name, label: nameField.label } }
+          : {}),
+      },
+    ];
+  });
+  const sampleData = recordOf(card.sampleData);
+  return {
+    objects,
+    views: viewLines(card.views),
+    assumptions: nonEmptyStrings(card.assumptions),
+    ...(sampleData && isText(sampleData.line) ? { sampleData: { line: sampleData.line } } : {}),
+  };
+}
+
+const isLineStatus = (v: unknown): v is 'passed' | 'failed' => v === 'passed' || v === 'failed';
+const isLineKind = (v: unknown): v is BuildResultChecklist['lines'][number]['kind'] =>
+  v === 'object' || v === 'view' || v === 'sampleData';
+const isCount = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0;
+
+/**
+ * objectui#12724 — the result card's `checklist`, on `apply_blueprint`'s
+ * envelope (drafted, or published in-turn) and on `verify_build`'s, which
+ * re-measures it after a repair. The schema requires `status`, `passed`,
+ * `total` and `lines`; without all four there is no checklist, and the card
+ * keeps its earlier rows.
+ */
+export function detectBuildChecklist(result: unknown): BuildResultChecklist | undefined {
+  const raw = recordOf(parseResultEnvelope(result)?.checklist);
+  if (!raw || !isLineStatus(raw.status) || !isCount(raw.passed) || !isCount(raw.total) || !Array.isArray(raw.lines)) {
+    return undefined;
+  }
+  const lines = raw.lines.flatMap((l) => {
+    const r = recordOf(l);
+    if (!r || !isLineKind(r.kind) || !isLineStatus(r.status) || !isText(r.line)) return [];
+    return [{ kind: r.kind, status: r.status, line: r.line }];
+  });
+  const app = recordOf(raw.app);
+  return {
+    status: raw.status,
+    passed: raw.passed,
+    total: raw.total,
+    lines,
+    ...(app && isText(app.name) ? { app: { name: app.name, ...(isText(app.label) ? { label: app.label } : {}) } } : {}),
+    ...(isText(raw.packageId) ? { packageId: raw.packageId } : {}),
   };
 }
 

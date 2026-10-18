@@ -3411,9 +3411,13 @@ const es = {
   //                   against). `humanizeToolName` looks each up as
   //                   `chatbot.tool.<tool_name>` and falls back to its English
   //                   title-caser for a custom / third-party tool, so a name
-  //                   missing here is degraded, never broken. The `en` values
-  //                   are deliberately EQUAL to what that title-caser produces:
-  //                   adding the key must not silently reword the English UI.
+  //                   missing here is degraded, never broken. Every value, `en`
+  //                   included, is a short sentence in the pack's language
+  //                   saying what the step does (cloud#2927 Target 3, ruled
+  //                   「同意」; objectui#12724): never the tool id, and never
+  //                   the title-caser's output for it, which is how the step
+  //                   reads for a tool the pack has no entry for.
+  //                   `toolLabels-locale-parity-7481` holds both.
   //   `toolState.*` — the card-header badge + activity-chip vocabulary. ONE
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
@@ -3432,41 +3436,41 @@ const es = {
   // against the registry instead of against its own hand-held list.
   chatbot: {
     tool: {
-      aggregate_data: "Resumir datos",
-      get_record: "Obtener registro",
-      query_data: "Consultar datos",
-      query_records: "Consultar registros",
-      search_knowledge: "Buscar en la base de conocimiento",
-      visualize_data: "Crear gráfico",
-      add_field: "Añadir campo",
-      apply_blueprint: "Construir la aplicación",
-      apply_edit: "Aplicar cambios",
-      create_metadata: "Crear metadatos",
-      create_object: "Crear objeto",
-      create_package: "Crear paquete",
-      create_seed: "Generar datos de ejemplo",
-      delete_field: "Eliminar campo",
-      describe_metadata: "Consultar metadatos",
-      describe_object: "Consultar la estructura del objeto",
-      get_active_package: "Obtener el paquete activo",
-      get_authoring_rules: "Leer las reglas de autoría",
-      get_metadata_schema: "Obtener el esquema de metadatos",
-      get_package: "Obtener paquete",
-      list_metadata: "Listar metadatos",
-      list_objects: "Listar objetos",
-      list_packages: "Listar paquetes",
-      load_tools: "Cargar herramientas",
-      modify_field: "Modificar campo",
-      open_record: "Abrir registro",
-      propose_blueprint: "Diseñar el plan de la aplicación",
-      set_active_package: "Cambiar el paquete activo",
-      suggest_builder: "Sugerir cómo construirlo",
-      test_flow: "Probar el flujo",
-      todo_write: "Anotar tareas",
-      toggle_flow: "Activar o desactivar el flujo",
-      update_metadata: "Actualizar metadatos",
-      validate_expression: "Validar expresión",
-      verify_build: "Verificar la construcción",
+      aggregate_data: "Resumir los datos",
+      get_record: "Leer el registro",
+      query_data: "Consultar los datos necesarios",
+      query_records: "Buscar los registros",
+      search_knowledge: "Consultar la base de conocimiento",
+      visualize_data: "Representar los datos en un gráfico",
+      add_field: "Añadir un campo",
+      apply_blueprint: "Construir la aplicación según el plan",
+      apply_edit: "Aplicar el cambio",
+      create_metadata: "Crear un elemento de metadatos",
+      create_object: "Crear un objeto",
+      create_package: "Crear un paquete",
+      create_seed: "Generar datos de ejemplo para los objetos",
+      delete_field: "Eliminar un campo",
+      describe_metadata: "Revisar los metadatos",
+      describe_object: "Revisar la estructura del objeto",
+      get_active_package: "Comprobar el paquete activo",
+      get_authoring_rules: "Consultar las reglas de autoría",
+      get_metadata_schema: "Consultar el formato de los metadatos",
+      get_package: "Revisar el paquete",
+      list_metadata: "Listar los metadatos existentes",
+      list_objects: "Listar los objetos existentes",
+      list_packages: "Listar los paquetes existentes",
+      load_tools: "Cargar más herramientas",
+      modify_field: "Modificar un campo",
+      open_record: "Abrir el registro",
+      propose_blueprint: "Redactar el plan de la aplicación",
+      set_active_package: "Cambiar al paquete de destino",
+      suggest_builder: "Sugerir construirlo con IA",
+      test_flow: "Hacer una prueba del flujo",
+      todo_write: "Anotar comprobaciones pendientes",
+      toggle_flow: "Encender o apagar el flujo",
+      update_metadata: "Actualizar un elemento de metadatos",
+      validate_expression: "Comprobar la expresión",
+      verify_build: "Comprobar el resultado de la construcción",
     },
     toolState: {
       agentActivity: "Actividad del agente",
@@ -3507,6 +3511,8 @@ const es = {
       awaitingConfirm: "Pendiente de confirmación",
       objectsAndFields: "Objetos y campos",
       views: "Vistas",
+      suggestedField: "sugerido",
+      nameField: "Nombre: {{field}}",
     },
     build: {
       building: "Creando {{app}}…",
@@ -3529,6 +3535,7 @@ const es = {
       nextStepsLead: "A continuación puede decir: {{steps}}",
       nextStepQuote: "«{{step}}»",
       draftPosture: "Los cambios posteriores se guardan como borrador y usted los publica en Studio.",
+      checksPassed: "Comprobaciones superadas {{passed}}/{{total}}",
     },
   },
   chatbotError: {

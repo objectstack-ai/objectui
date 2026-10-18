@@ -3345,9 +3345,13 @@ const ko = {
   //                   against). `humanizeToolName` looks each up as
   //                   `chatbot.tool.<tool_name>` and falls back to its English
   //                   title-caser for a custom / third-party tool, so a name
-  //                   missing here is degraded, never broken. The `en` values
-  //                   are deliberately EQUAL to what that title-caser produces:
-  //                   adding the key must not silently reword the English UI.
+  //                   missing here is degraded, never broken. Every value, `en`
+  //                   included, is a short sentence in the pack's language
+  //                   saying what the step does (cloud#2927 Target 3, ruled
+  //                   「同意」; objectui#12724): never the tool id, and never
+  //                   the title-caser's output for it, which is how the step
+  //                   reads for a tool the pack has no entry for.
+  //                   `toolLabels-locale-parity-7481` holds both.
   //   `toolState.*` — the card-header badge + activity-chip vocabulary. ONE
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
@@ -3366,41 +3370,41 @@ const ko = {
   // against the registry instead of against its own hand-held list.
   chatbot: {
     tool: {
-      aggregate_data: "데이터 집계",
-      get_record: "레코드 가져오기",
-      query_data: "데이터 조회",
-      query_records: "레코드 조회",
-      search_knowledge: "지식 검색",
-      visualize_data: "차트 생성",
-      add_field: "필드 추가",
-      apply_blueprint: "앱 생성",
-      apply_edit: "변경 사항 적용",
-      create_metadata: "메타데이터 생성",
-      create_object: "오브젝트 생성",
-      create_package: "패키지 생성",
-      create_seed: "샘플 데이터 생성",
-      delete_field: "필드 삭제",
-      describe_metadata: "메타데이터 확인",
-      describe_object: "오브젝트 구조 확인",
-      get_active_package: "현재 패키지 가져오기",
-      get_authoring_rules: "작성 규칙 가져오기",
-      get_metadata_schema: "메타데이터 구조 가져오기",
-      get_package: "패키지 가져오기",
-      list_metadata: "메타데이터 목록",
-      list_objects: "오브젝트 목록",
-      list_packages: "패키지 목록",
-      load_tools: "도구 불러오기",
-      modify_field: "필드 수정",
-      open_record: "레코드 열기",
-      propose_blueprint: "앱 설계안 작성",
-      set_active_package: "현재 패키지 전환",
-      suggest_builder: "구축 방법 제안",
-      test_flow: "플로우 테스트",
-      todo_write: "할 일 기록",
-      toggle_flow: "플로우 켜기·끄기",
-      update_metadata: "메타데이터 업데이트",
-      validate_expression: "표현식 검증",
-      verify_build: "빌드 검증",
+      aggregate_data: "관련 데이터 집계하기",
+      get_record: "이 레코드 읽기",
+      query_data: "필요한 데이터 조회하기",
+      query_records: "해당 레코드 찾기",
+      search_knowledge: "지식 베이스에서 찾아보기",
+      visualize_data: "데이터를 차트로 그리기",
+      add_field: "오브젝트에 필드 추가하기",
+      apply_blueprint: "설계안대로 앱 만들기",
+      apply_edit: "이번 변경 적용하기",
+      create_metadata: "메타데이터 새로 만들기",
+      create_object: "오브젝트 새로 만들기",
+      create_package: "패키지 새로 만들기",
+      create_seed: "오브젝트 샘플 데이터 만들기",
+      delete_field: "필드 삭제하기",
+      describe_metadata: "메타데이터 내용 확인하기",
+      describe_object: "오브젝트 구조 살펴보기",
+      get_active_package: "현재 패키지 확인하기",
+      get_authoring_rules: "작성 규칙 읽기",
+      get_metadata_schema: "메타데이터 형식 살펴보기",
+      get_package: "패키지 정보 확인하기",
+      list_metadata: "기존 메타데이터 나열하기",
+      list_objects: "기존 오브젝트 나열하기",
+      list_packages: "기존 패키지 나열하기",
+      load_tools: "다른 도구 불러오기",
+      modify_field: "필드 수정하기",
+      open_record: "이 레코드 열기",
+      propose_blueprint: "앱 설계안 정리하기",
+      set_active_package: "대상 패키지로 전환하기",
+      suggest_builder: "AI로 만들기 제안하기",
+      test_flow: "플로우 시험 실행하기",
+      todo_write: "나중에 확인할 항목 적어 두기",
+      toggle_flow: "플로우 켜거나 끄기",
+      update_metadata: "메타데이터 업데이트하기",
+      validate_expression: "표현식이 맞는지 확인하기",
+      verify_build: "빌드 결과 대조하기",
     },
     toolState: {
       agentActivity: "에이전트 활동",
@@ -3437,6 +3441,8 @@ const ko = {
       awaitingConfirm: "확인 대기 중",
       objectsAndFields: "개체 및 필드",
       views: "뷰",
+      suggestedField: "추가 제안",
+      nameField: "이름: {{field}}",
     },
     build: {
       building: "{{app}} 빌드 중…",
@@ -3459,6 +3465,7 @@ const ko = {
       nextStepsLead: "다음으로 이렇게 말할 수 있습니다: {{steps}}",
       nextStepQuote: "“{{step}}”",
       draftPosture: "이후 변경 사항은 초안으로 저장되며, Studio에서 직접 게시합니다.",
+      checksPassed: "검증 통과 {{passed}}/{{total}}",
     },
   },
   chatbotError: {

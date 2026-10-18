@@ -21,7 +21,8 @@
  * Everything here is real except the network: the `ObjectGrid`, its kebab, the
  * `ActionRunner` behind `ActionProvider`, and the Undo itself, which runs through
  * the real `useGlobalUndo` executor. The `script` dispatch stands in for the
- * platform action route and writes the params it is sent, and the data source
+ * platform action route and writes the declared `patch` under the params it is
+ * sent, and the data source
  * honours `$select` the way a real backend does (an unselected key is absent,
  * not `undefined`-valued).
  *
@@ -108,10 +109,14 @@ function makeWorld() {
     }),
     getObjectSchema: vi.fn(async () => ({ name: OBJECT, fields: OBJECT_FIELDS })),
   };
-  // Stands in for the platform action route: writes what it is sent.
-  const script = vi.fn(async (action: { params?: Record<string, unknown> }) => {
+  // Stands in for the platform action route: writes the action's declared
+  // `patch` UNDER the params it is sent, as the route does
+  // (`declarativeUpdateWrite`). The patch is read off the action the stub is
+  // handed, standing in for the declaration the route resolves by name: the
+  // request never carries it (objectui#12941).
+  const script = vi.fn(async (action: { params?: Record<string, unknown>; patch?: Record<string, unknown> }) => {
     const { _rowRecord: _row, recordId: _id, ...fields } = action.params ?? {};
-    Object.assign(stored, fields);
+    Object.assign(stored, { ...(action.patch ?? {}), ...fields });
     return { success: true };
   });
   return { stored, dataSource, script };

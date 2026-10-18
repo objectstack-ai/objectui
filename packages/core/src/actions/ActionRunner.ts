@@ -428,7 +428,8 @@ export interface ActionDef {
    * caller's permissions, the object's hooks and its validations all fire as
    * for a user edit. That is why {@link execute} reads this key BEFORE `type`:
    * by the time `type` is consulted an update action is indistinguishable from
-   * any other script action, and its `patch` would never reach the request.
+   * any other script action, and it would run without the update path's Undo
+   * capture and its no-route refusal.
    */
   operation?: SpecActionInput['operation'];
   /**
@@ -436,6 +437,10 @@ export interface ActionDef {
    * record, merged UNDER the collected `params` so a fixed value can be
    * declared without exposing it in the dialog. The spec refuses it on an
    * action without `operation: 'update'`, where it would be silently dropped.
+   *
+   * The ROUTE applies it, from the declaration it resolves by name; this
+   * runner never sends it (objectui#12941) and reads it only to know which
+   * fields an Undo must restore.
    */
   patch?: SpecActionInput['patch'];
   /** Execution mode of the action. */
@@ -1382,14 +1387,17 @@ export class ActionRunner {
       // The cost of that design is paid here: by the time `actionType` is
       // consulted, an update action is indistinguishable from every other
       // script action. Dispatched on `type` it would reach the registered
-      // `script` handler with its `patch` never merged into the request — the
-      // route would be POSTed a payload with no field values in it and answer a
-      // green success for having written nothing (objectui#2960). Worse, a row
-      // rehydrated from `sys_metadata` UNPARSED (objectui#3903) carries no
-      // materialized `type` at all, so `actionType` falls back to the action's
-      // NAME, matches no executor, and the action lands in
-      // `executeActionSchema`. Reading `operation` first is what makes both of
-      // those impossible.
+      // `script` handler as a plain script action: the route still writes the
+      // declared `patch` (it applies it from the declaration, never from the
+      // request — objectui#12941), but no Undo snapshot of the written fields
+      // would be taken, and with no `script` handler registered the action
+      // would end at `executeScript`'s "No script provided" instead of the
+      // update path's refusal naming the remedy. Worse, a row rehydrated from
+      // `sys_metadata` UNPARSED (objectui#3903) carries no materialized `type`
+      // at all, so `actionType` falls back to the action's NAME, matches no
+      // executor, and the action lands in `executeActionSchema`, reported on
+      // and never run. Reading `operation` first is what makes all of those
+      // impossible.
       if (isUpdateOperationAction(action)) {
         const result = await this.executeUpdateOperation(action);
         await this.handlePostExecution(action, result);
@@ -1750,12 +1758,26 @@ export class ActionRunner {
    * sent hunting for a field they were right not to write), and falling through
    * to `executeActionSchema` reports on an action that never ran.
    *
-   * ## `patch` rides UNDER the collected params
+   * ## `patch` is the route's: it never rides on the wire (objectui#12941)
    *
-   * The spec's words: static field values "merged UNDER the user-supplied
-   * `params` so a fixed value can be declared without exposing it in the
-   * dialog". So a collected param of the same name WINS — the author declared a
-   * default, and the user answered it.
+   * The request carries the values collected for the action's declared
+   * `params`, plus the transport keys the dispatch reads (`recordId`, and the
+   * `_rowRecord` stash it strips before POSTing) — and NOTHING from `patch`.
+   * The route applies the declared `patch` itself, from the declaration it
+   * resolves by the action's name (`@objectstack/runtime`'s
+   * `declarativeUpdateWrite`, which writes `{ ...patch, ...params }`). The
+   * patch keys are not params the action declares, so posting them makes every
+   * declarative-update button a request carrying undeclared params — the very
+   * request the ADR-0104 D2 param contract refuses (objectstack#24268). A
+   * client copy of `patch` on the wire also adds nothing: the server never
+   * reads it.
+   *
+   * The spec's words for the merge the route performs: static field values
+   * "merged UNDER the user-supplied `params` so a fixed value can be declared
+   * without exposing it in the dialog". So a collected param of the same name
+   * WINS — the author declared a default, and the user answered it. This
+   * runner still computes that same merge, but only to know what the route
+   * WROTE, which is what an Undo snapshot must cover; it is never sent.
    */
   private async executeUpdateOperation(action: ActionDef): Promise<ActionResult> {
     const dispatch = this.handlers.get('script');
@@ -1779,8 +1801,10 @@ export class ActionRunner {
       (action.patch && typeof action.patch === 'object' && !Array.isArray(action.patch))
         ? { ...(action.patch as Record<string, unknown>) }
         : {};
-    // `patch` UNDER the collected params — see the doc above.
-    const params = { ...patch, ...collected };
+    // What the route WRITES: `patch` UNDER the collected params, the route's
+    // own merge (see the doc above). Read for the Undo snapshot only — ⛔ never
+    // the request: the route applies `patch` from its declaration.
+    const written = { ...patch, ...collected };
 
     // The row stash and the record selector are transport mechanics, not
     // written fields: the dispatch strips `_rowRecord` before POSTing and reads
@@ -1788,9 +1812,12 @@ export class ActionRunner {
     const rowRecord = (collected._rowRecord && typeof collected._rowRecord === 'object')
       ? (collected._rowRecord as Record<string, unknown>)
       : undefined;
-    const writtenFields = Object.keys(params).filter((k) => k !== '_rowRecord' && k !== 'recordId');
+    const writtenFields = Object.keys(written).filter((k) => k !== '_rowRecord' && k !== 'recordId');
 
-    const result = await dispatch({ ...action, params }, this.context);
+    // What the request CARRIES: the collected values alone, as a copy of its
+    // own so a dispatch that edits its bag cannot reach the reads below.
+    const wire = { ...collected };
+    const result = await dispatch({ ...action, params: wire }, this.context);
 
     // A refusal is returned exactly as the dispatch reported it. The route's
     // envelope rule (`interpretActionResponse`) has already turned a 4xx/5xx
@@ -1828,7 +1855,7 @@ export class ActionRunner {
             // action that declared no label is named by the object it acted on.
             description: action.label || objectName,
             undoData,
-            redoData: Object.fromEntries(writtenFields.map((k) => [k, params[k]])),
+            redoData: Object.fromEntries(writtenFields.map((k) => [k, written[k]])),
           };
         } else {
           // The success toast then carries no Undo button, which is how the

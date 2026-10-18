@@ -75,13 +75,13 @@ function inLanguage(language: string, node: React.ReactNode) {
 const fileCells = (container: HTMLElement): string[] =>
   Array.from(container.querySelectorAll('tbody tr')).map((tr) => tr.querySelectorAll('td')[1]?.textContent ?? '');
 
-const listGrid = (language: string, value: unknown[] = rows) =>
+const listGrid = (language: string, value: Array<Record<string, unknown>> = rows) =>
   inLanguage(
     language,
     <GridField value={value} onChange={() => {}} field={{ columns } as never} displayMode="list" onAdd={() => {}} />,
   );
 
-const readonlyGrid = (language: string, value: unknown[] = rows) =>
+const readonlyGrid = (language: string, value: Array<Record<string, unknown>> = rows) =>
   inLanguage(language, <GridField value={value} onChange={() => {}} field={{ columns } as never} readonly />);
 
 describe("GridField's file cell text reads the packs (objectui#12924)", () => {

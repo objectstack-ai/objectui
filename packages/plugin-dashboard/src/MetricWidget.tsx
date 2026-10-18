@@ -19,7 +19,7 @@ import type { I18nLabel } from '@object-ui/types';
 import { ArrowDownIcon, ArrowUpIcon, MinusIcon, AlertCircle, Loader2 } from 'lucide-react';
 import { VARIANT_ICON_CLASSES, VARIANT_TEXT_CLASSES, type MetricColorVariant } from './colorVariants';
 import { hostDomProps, type SchemaHostProps } from './schemaHostProps';
-import { METRIC_TILE_CONTAINER_CLASS, METRIC_TILE_TITLE_CLASS, METRIC_TILE_VALUE_CLASS } from './metricTile';
+import { METRIC_TILE_CONTAINER_CLASS, METRIC_TILE_TITLE_CLASS, metricTileValueClass, metricTileValueTitle } from './metricTile';
 import { formatMetricDeltaPercent, type MetricDelta } from './utils';
 
 const TREND_LABEL_DEFAULTS: Record<string, string> = {
@@ -480,7 +480,7 @@ export const MetricWidget = ({
           </div>
         ) : (
           <>
-            <div className={cn('font-bold tracking-tight', METRIC_TILE_VALUE_CLASS)}>{displayValue}</div>
+            <div className={cn('font-bold tracking-tight', metricTileValueClass(displayValue))} title={metricTileValueTitle(displayValue)}>{displayValue}</div>
             {(shownTrend || description) && (
               <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
                 {shownTrend && (

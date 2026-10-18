@@ -836,6 +836,33 @@ export interface ReplayOutcome {
   draftState?: ChangeDraftState;
   existingRows?: ExistingRowsLine[];
   appliedCard?: AppliedCard;
+  /**
+   * objectui#12968 — on a `drafted` outcome only, the items THIS replay
+   * drafted (the envelope's `drafted[]`, lifted as {@link detectDraftResult}
+   * lifts it), so the applied card can preview them. Not `draftState.items`,
+   * which lists every pending draft of the package. Absent when the envelope
+   * names none.
+   */
+  items?: Array<{ type: string; name: string }>;
+}
+
+/**
+ * The drafted `{ type, name }` items of an authoring envelope: its `drafted[]`,
+ * or the single `type` / `name` pair a one-item stage reports.
+ */
+function draftedItemsOf(obj: Record<string, unknown>): Array<{ type: string; name: string }> {
+  const items: Array<{ type: string; name: string }> = [];
+  if (Array.isArray(obj.drafted)) {
+    for (const d of obj.drafted) {
+      if (d && typeof d === 'object') {
+        const { type, name } = d as Record<string, unknown>;
+        if (typeof type === 'string' && typeof name === 'string') items.push({ type, name });
+      }
+    }
+  } else if (typeof obj.type === 'string' && typeof obj.name === 'string') {
+    items.push({ type: obj.type, name: obj.name });
+  }
+  return items;
 }
 
 export function detectReplayOutcome(
@@ -873,9 +900,11 @@ export function detectReplayOutcome(
   const draftState = draftStateOf(obj.draftState);
   const existingRows = existingRowsOf(obj.existingRows);
   const appliedCard = appliedCardOf(obj.appliedCard);
+  const items = draftedItemsOf(obj);
   return {
     kind: 'drafted',
     ...packageId,
+    ...(items.length > 0 ? { items } : {}),
     ...(draftState ? { draftState } : {}),
     ...(existingRows ? { existingRows } : {}),
     ...(appliedCard ? { appliedCard } : {}),
@@ -935,17 +964,7 @@ export function detectBuiltAppPackage(result: unknown): string | undefined {
 export function detectDraftResult(result: unknown): DraftReview | undefined {
   const obj = parseResultEnvelope(result);
   if (!obj || obj.status !== 'drafted') return undefined;
-  const items: Array<{ type: string; name: string }> = [];
-  if (Array.isArray(obj.drafted)) {
-    for (const d of obj.drafted) {
-      if (d && typeof d === 'object') {
-        const { type, name } = d as Record<string, unknown>;
-        if (typeof type === 'string' && typeof name === 'string') items.push({ type, name });
-      }
-    }
-  } else if (typeof obj.type === 'string' && typeof obj.name === 'string') {
-    items.push({ type: obj.type, name: obj.name });
-  }
+  const items = draftedItemsOf(obj);
   if (items.length === 0) return undefined;
   // The owning package (when the staging tool reported it) lets the chat offer
   // a one-click "publish" — POST /packages/:packageId/publish-drafts — so the

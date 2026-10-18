@@ -704,7 +704,9 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
    * route segment (ADR-0048). The host resolves the affected surface (a page,
    * the object's list on a view, the object's default list) and opens it in
    * draft preview (`?preview=draft`). A draft set that includes an app keeps
-   * {@link ChatbotEnhancedProps.onPreviewDraftApp}, unchanged. Preview never
+   * {@link ChatbotEnhancedProps.onPreviewDraftApp}, unchanged. The applied
+   * card of a confirmed change saved as a draft (a `drafted` replay outcome)
+   * draws the same Preview over the items that change drafted. Preview never
    * publishes: publish stays the human gate (ADR-0033).
    */
   onPreviewDraft?: (
@@ -1410,6 +1412,31 @@ function ChangePlanBody({
 }
 
 /**
+ * objectui#12968 (objectstack#24324 ruling A) — the one rule for what a
+ * drafted set's Preview opens, shared by the drafted result and the
+ * confirm-gated applied card. A set that includes an app previews the app
+ * (`onPreviewDraftApp`, the Live Canvas's whole-app preview); any other set
+ * previews its items through `onPreviewDraft`, which needs the owning package
+ * id as the app's route segment (ADR-0048). `undefined` when the host wired
+ * neither door the set needs, or the set is empty.
+ */
+function draftPreviewAction(
+  items: ReadonlyArray<{ type: string; name: string }>,
+  packageId: string | undefined,
+  materialized: boolean,
+  doors: Pick<ChatbotEnhancedProps, 'onPreviewDraftApp' | 'onPreviewDraft'>,
+): { run: () => void; app: boolean } | undefined {
+  if (items.length === 0) return undefined;
+  const app = items.find((i) => i.type === 'app');
+  if (app) {
+    const open = doors.onPreviewDraftApp;
+    return open ? { run: () => open(app.name, { materialized, appSegment: packageId }), app: true } : undefined;
+  }
+  const open = doors.onPreviewDraft;
+  return open && packageId ? { run: () => open([...items], { appSegment: packageId }), app: false } : undefined;
+}
+
+/**
  * objectui#12894 — the applied card of a change the copilot saved as a draft
  * (cloud#2924, the StudioRailCopilot artboard): `appliedCard.title` beside a
  * tick, its `lines`, then 查看变更并发布 (the host's review of the package's
@@ -1424,6 +1451,8 @@ function AppliedDraftCard({
   card,
   others,
   discard,
+  onPreview,
+  previewLabel,
   onReview,
   onPublish,
   publishLabel,
@@ -1434,6 +1463,9 @@ function AppliedDraftCard({
   card: NonNullable<ReplayOutcome['appliedCard']>;
   others?: number;
   discard?: DraftDiscardState;
+  /** objectui#12968 — preview what the change drafted (the host's `onPreviewDraft`). */
+  onPreview?: () => void;
+  previewLabel: string;
   onReview?: () => void;
   onPublish?: () => void;
   publishLabel: string;
@@ -1517,7 +1549,7 @@ function AppliedDraftCard({
         </div>
       ) : (
         <>
-          {onReview || onPublish || onDiscard ? (
+          {onReview || onPublish || onPreview || onDiscard ? (
             <div className="flex flex-wrap items-center gap-1.5 pt-0.5" data-testid="proposed-changes-actions">
               {onReview ? (
                 <button
@@ -1540,6 +1572,18 @@ function AppliedDraftCard({
                 >
                   <Rocket className="size-3.5" />
                   {publishLabel}
+                </button>
+              ) : null}
+              {onPreview ? (
+                <button
+                  type="button"
+                  onClick={onPreview}
+                  disabled={running}
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  data-testid="applied-card-preview"
+                >
+                  <Eye className="size-3.5" />
+                  {previewLabel}
                 </button>
               ) : null}
               {onDiscard ? (
@@ -3055,27 +3099,16 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                   {!draftIsPublished
                     ? (() => {
                         const review = tool.draftReview!;
-                        const app = review.items.find((i) => i.type === 'app');
-                        if (app) {
-                          return onPreviewDraftApp ? (
-                            <button
-                              type="button"
-                              onClick={() => onPreviewDraftApp(app.name, { materialized: review.materialized === true, appSegment: review.packageId })}
-                              className="inline-flex h-7 items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted"
-                              data-testid="draft-preview-app"
-                            >
-                              <Eye className="size-3.5" />
-                              {previewDraftLabel}
-                            </button>
-                          ) : null;
-                        }
-                        const appSegment = review.packageId;
-                        return onPreviewDraft && appSegment ? (
+                        const preview = draftPreviewAction(review.items, review.packageId, review.materialized === true, {
+                          onPreviewDraftApp,
+                          onPreviewDraft,
+                        });
+                        return preview ? (
                           <button
                             type="button"
-                            onClick={() => onPreviewDraft(review.items, { appSegment })}
+                            onClick={preview.run}
                             className="inline-flex h-7 items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted"
-                            data-testid="draft-preview"
+                            data-testid={preview.app ? 'draft-preview-app' : 'draft-preview'}
                           >
                             <Eye className="size-3.5" />
                             {previewDraftLabel}
@@ -3737,11 +3770,19 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                     // wrote them, 查看变更并发布 and 撤销.
                     const packageId = outcome.packageId;
                     const discard = discardByToolCall.get(tool.toolCallId);
+                    // objectui#12968 — the items this replay drafted preview
+                    // through the same door the drafted result's Preview uses.
+                    const preview = draftPreviewAction(outcome.items ?? [], packageId, false, {
+                      onPreviewDraftApp,
+                      onPreviewDraft,
+                    });
                     return (
                       <AppliedDraftCard
                         card={outcome.appliedCard}
                         others={outcome.draftState?.others}
                         discard={discard}
+                        onPreview={preview?.run}
+                        previewLabel={previewDraftLabel}
                         onReview={onReviewDrafts && packageId ? () => onReviewDrafts(packageId) : undefined}
                         onPublish={
                           !onReviewDrafts && onPublishDrafts && packageId
@@ -3764,6 +3805,10 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                     );
                   }
                   if (outcome?.kind === 'drafted') {
+                    const preview = draftPreviewAction(outcome.items ?? [], outcome.packageId, false, {
+                      onPreviewDraftApp,
+                      onPreviewDraft,
+                    });
                     return (
                       <div className="flex flex-wrap items-center gap-1.5 pt-0.5" data-testid="proposed-changes-actions">
                         <span
@@ -3782,6 +3827,17 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                           >
                             <Rocket className="size-3.5" />
                             {publishDraftsLabel}
+                          </button>
+                        ) : null}
+                        {preview ? (
+                          <button
+                            type="button"
+                            onClick={preview.run}
+                            className="inline-flex h-7 items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted"
+                            data-testid="proposed-changes-preview"
+                          >
+                            <Eye className="size-3.5" />
+                            {previewDraftLabel}
                           </button>
                         ) : null}
                       </div>

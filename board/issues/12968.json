@@ -1,0 +1,31 @@
+{
+  "number": 12968,
+  "kind": "issue",
+  "title": "console chat: the Preview button appears for any copilot draft and deep-links to the affected page or object in `?preview=draft` (objectstack#24324 ruling A)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T13:50:21Z",
+  "updated_at": "2026-10-18T13:50:21Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12968",
+  "body": "Filed by the director seat (summon #43 continuation 5, `session_01QJC7i981TSs9L1CGJK59Ax`) from objectstack-ai/objectstack#24324, ruled A by the maintainer on 2026-10-18 (batch #365 item 5): preview-first — every copilot draft is one click from being seen by its builder; publish stays the human gate (ADR-0033 / ADR-0037). ⛔ Not a claim.\n\n## What is measured (objectui `a8560b228527`, `packages/plugin-chatbot`)\n- The chat shows a drafted result with an amber badge (`ChatbotEnhanced.tsx:3068–3076`), a Publish button (`:2518–2529`) and 「Review N change(s)」 (`:2532–2544`); the Preview button renders only when the draft set includes an app (`:2551–2566`). A field, view or page draft on an existing app has no preview entrance: the builder goes to Studio's diff or publishes blind.\n- Preview mode exists and is sticky: `app-shell/src/preview/PreviewModeContext.tsx:12–33`, `:59–95`; the DraftPreviewBar (`preview/DraftPreviewBar.tsx`) carries Exit and Publish; the Live Canvas iframe already opens `/apps/:name?preview=draft` (`console/ai/LiveCanvas.tsx:59–62`).\n- Every draft result carries `(type, name)` and `changedKeys` (cloud `applyDraft`; ADR-0037 §TL;DR item 2).\n\n## What changes\n- The Preview button appears for any drafted result. Its target is the affected surface in preview mode: a page draft → that page; a view draft → the object's list with that view; a field or object draft → the object's default list (the record page when the draft names a record); an app draft → the app, as today. All under `?preview=draft`, so the DraftPreviewBar shows with Exit and Publish.\n- The DraftPreviewBar names what is pending on the surface it shows (the count already comes from `GET /meta/_drafts`, `preview/usePendingDrafts.ts`): one line, e.g. 「草稿预览 · 本页 2 项未发布」; when the draft adds a field, the line says the field can be filled after publish (a draft field has no storage).\n- Nothing publishes; nothing changes for members; `/data` is not read in preview.\n\n## First measurement (before any PR)\nOn the local stack with the cloud copilot, or a hand-made draft via `saveMetaItem({ mode: 'draft' })`: a field draft on an existing object shows no Preview today; after the change, Preview opens the object's list in preview mode with the bar. Screenshot both.\n\n## Acceptance\n- Preview for every draft kind, the deep-link table above pinned in a test; the app case unchanged.\n- The bar's pending line; no publish path added; the member view unchanged (the existing published-only tests are not touched).\n- Changeset: minor on `@object-ui/plugin-chatbot` (and `@object-ui/app-shell` if the bar changes)."
+}

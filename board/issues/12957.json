@@ -1,0 +1,33 @@
+{
+  "number": 12957,
+  "kind": "issue",
+  "title": "tooling: objectui consumes `@objectstack/*` by commit — `.objectstack-sha`, a bump script, and dev and CI built from that commit's source, cached by the pin (ruling B on objectui#12955, step 1)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "sunhaolin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T10:41:19Z",
+  "updated_at": "2026-10-18T14:05:16Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12957",
+  "body": "**Filing gate: execution of a ruling.** This is ruling B on objectui#12955 (comment `6248859734`), from the maintainer's 「12955 同意」 and 「12955 B」. The maintainer then ordered: 「你负责派发处理相关的issue，包括 objectstack 和 objectui 并测试确认。」\n- **Filed by:** `domain:ui` seat 1 (`session_0188TsgPV8kQXfuRuKmkj2ks`), which dispatches this card on that order. ⛔ Not a claim.\n- **Tier H:** the change touches `.github/workflows/**`, so the PR stays a draft until a `GOVERNED_APPROVERS` member approves it.\n\n## Why\n\nobjectui takes `@objectstack/*` from npm `next.N`, and npm releases are human acts (the 2026-08-07 ruling). So a front-end half waits for a release after its back-end half has merged. objectui#12932, #12929 and #12484 wait on next.4 today, although their back-end commits `586705d85d`, `1e001c7df` and `e15897c0f1` merged into objectstack `main` this morning.\n\nThe reverse direction already works by commit: objectstack's `.objectui-sha`, `scripts/bump-objectui.sh` and `scripts/build-console.sh`, and cloud's `.objectstack-sha`. This card makes objectui → objectstack the same.\n\n## Done when\n\n1. **The pin.** `.objectstack-sha`, at the repository root, holds one full sha of a commit on objectstack `main`.\n   - `scripts/bump-objectstack.sh` moves it, mirroring objectstack's `scripts/bump-objectui.sh`. It refuses a commit it cannot read, before writing anything, so the file stays byte-identical. It warns when the commit is not on `origin/main`.\n2. **The pinned build.** One documented command builds, at the pin, the six packages objectui resolves:\n   - `@objectstack/spec`, `core`, `client`, `formula`, `sdui-parser` and `lint`. objectui's manifests name spec, client, formula and lint; client needs core, and lint needs sdui-parser and formula.\n   - The output goes into a cache keyed by the pin. The workspace's `@objectstack/*` then resolve to that build, and no `@objectstack/*` resolves from npm.\n   - A clean checkout reaches a green `pnpm install --frozen-lockfile`, type check and test run by the documented setup.\n3. **An external tree can stand in.** The mechanism lets a caller substitute an existing objectstack checkout for the pinned build, without changing `pnpm-lock.yaml`, so that a frozen install stays valid.\n   - Name the input (for example an `OBJECTSTACK_ROOT` path).\n   - Measure the frozen install with and without it.\n   - This is the contract objectstack's `scripts/build-console.sh` consumes in objectstack-ai/objectstack#24306. Choose the resolution form (`link:`, `file:` tarballs or another) against this requirement, and report the measurement.\n4. **CI.** Every job that installs restores the pinned build from a cache keyed by `.objectstack-sha`. A run whose pin is unchanged does not rebuild.\n   - This is two-speed rule 1 (objectstack-ai/objectstack#22998). Ruling B on objectstack-ai/objectstack#23238 refused a 13-minute job on the PR path.\n   - Report the cold build time and the warm restore time, measured on a runner.\n5. **The lockfile and pin gates** read the new resolution truly. `check:lockfile-integrity`, `check:lockfile-dedupe`, `check:installed-pin-claims`, and any other gate that reads where `@objectstack/*` resolves, are each adapted or retired, with the reason stated.\n   - ⛔ No new gate (the 「新增门禁默认否」 rule).\n6. **The first pin is an objectstack `main` commit that contains `586705d85d`, `1e001c7df` and `e15897c0f1`.** Prove it with `git merge-base --is-ancestor` for each.\n   - The type check then reads the spec keys those commits add: `emptyState` on the bound record blocks, and the backfill option of `publishPackageDrafts`.\n7. **AGENTS.md** names the pin, the bump and the local setup in its dependency and lockfile rules and in its local dev runbook. `pnpm setup` builds the pinned packages.\n\n## Out of scope (other cards)\n\n- **The published ranges.** No `@objectstack/*` range in a manifest moves here. objectui's publish computes them from the pin in the step 2 card, objectui#12958.\n- **objectstack's `build-console.sh`.** Using item 3's input is objectstack-ai/objectstack#24306. objectstack's `.objectui-sha` must not move past this card's merge until that card lands, because its frozen install of objectui would meet a lockfile it cannot satisfy.\n\n## Prior rulings and precedents\n\n- objectstack-ai/objectstack#8134, and objectui#4854 / PR #4927 (+799/−14): the console bundle already injects the framework's spec through `OBJECTSTACK_SPEC_DIST`.\n- objectstack-ai/objectstack#9659 (`not_planned`): bundle injection was not extended to four more packages.\n- objectstack's `scripts/bump-objectui.sh` (741 lines): the mirror of the bump.\n- Ruling B on objectstack-ai/objectstack#23238: the shape gate moved off objectui's PR path.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_\n"
+}

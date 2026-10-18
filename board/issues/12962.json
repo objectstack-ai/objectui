@@ -1,0 +1,34 @@
+{
+  "number": 12962,
+  "kind": "pull_request",
+  "title": "fix(app-shell): metadata designer copy says \"this system\", not the cloud noun (objectui#12960)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell"
+  ],
+  "assignees": [
+    "sunhaolin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T12:40:26Z",
+  "updated_at": "2026-10-18T13:07:53Z",
+  "closed_at": "2026-10-18T13:07:52Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-18T13:07:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12962",
+  "body": "Fixes #12960\n\nClause-②: no\n\nCopy only: the metadata designer's own string table says \"this system\" where it said \"this environment\". No key is added, removed or renamed, and no export, prop or exported type changes.\n\n## What this does\n\n`packages/app-shell/src/views/metadata-admin/i18n.ts` is the Studio designer's module-local string table. objectstack-ai/cloud#3002 ruling A (the maintainer, 2026-10-18): inside the running system a user-facing string never names the system by the cloud noun \"this environment\"; it says \"this system\" (zh 「本系统」) or drops the noun. objectui#12956 applied that to the locale packs and, by its Scope, left this table. This PR applies the triage seat's per-string reading (comment 6249658907 on the card) to it: 15 lines, en and zh together.\n\n| key | en | zh |\n|:--|:--|:--|\n| `engine.packages.description` | installed in this system | 本系统中安装的软件包 |\n| `engine.packages.noCapability` | manage packages in this system | 在本系统管理软件包的权限 |\n| `engine.packages.detail.adoptConfirm` | metadata in this system INTO \"{name}\" | 把本系统中所有无软件包（散落）的元数据 |\n| `perm.badge.custom` | unchanged, already `'Custom'` | 「本环境自定义」 改为 「自定义」 |\n| `perm.readOnly.artifact.hint`, `perm.clone.hint`, `perm.clone.guidance`, `perm.save.locked` | authored in this system | 本系统中创作的普通权限集 |\n\n## The wording call for the mechanism\n\nTriage left one choice: where an en string names the mechanism, keep \"environment-scope\" as the platform term or say \"an edit here would overlay a packaged item\", and use one wording in all four permission-set strings. This PR keeps \"environment-scope\" (zh 「环境作用域」) and leaves that clause as it was. Why: the same sentence goes on to cite `allowEnvironmentOverlay` and \"an environment overlay\" (ADR-0131 D6), and the Studio landing strings use \"environment overlay\" / 「环境覆盖」 for the same layer, so rewording only the lead-in would leave the term two clauses later in the same sentence. Only one of the four en strings (`perm.readOnly.artifact.hint`) names the mechanism at all; the other three do not, so \"one wording in all four\" holds with nothing to reconcile.\n\n## Every environment-noun hit in the file, changed or left\n\n- Changed: the 15 lines above. `grep -nP 'this environment|此环境|本环境|该环境|当前环境'` on the file found 15 at the base (7 en, 8 zh) and finds none now.\n- Left, overlay-layer sense (not \"the system you are in\"; not in triage's table): `engine.studio.landing.description`, `.readonlyHint` and `.overlayTitle` in en and zh (\"environment overlay\" / 「环境覆盖」), and the `LAYER_SCOPE_ZH` entry `env: '环境'`, the zh label of the overlay-scope enum value.\n- Left, identifiers: `allowEnvironmentOverlay` in `perm.readOnly.hint` (en and zh) and in the clause kept above.\n- Left, source comments, not user-facing: the hits from `grep -nPi 'environment|环境'` that sit on a comment line.\n- Not touched, per the claim: `packages/i18n/src/locales/*`, `marketplace.*`, `cloudWorkspaceTimezoneNotice.*`.\n\n## Verification (head 473ac84)\n\n| check | result |\n|:--|:--|\n| `pnpm check:i18n-designer-parity` | exit 0 before and after. It judges that every `en` key has a `zh` row and that shared keys carry the same `{placeholders}`; it does not judge wording. |\n| `pnpm check:i18n-drift` | exit 0: 7 designer `en` values changed, 7 `zh` rows followed. |\n| app-shell tests | exit 0: 9 files, 120 passed, single worker. NARROWED, not under the shared verify lock (two 9-minute waits, 99 both times, holder alive and working): `PackageFormDialog.test.tsx`, `PackageFormDialog.envelopeUserMessage.test.tsx`, `PackagesPage.confirmFlows-11784.test.tsx`, `PermissionMatrixEditor.badge.test.tsx`, `PermissionMatrixEditor.cloneToCustomize.test.tsx`, `PermissionMatrixEditor.provenanceBadge-7611.test.tsx`, `PermissionMatrixEditor.readonlyHeaderBadge.test.tsx`, `walledCatalogReadOnly-12183.test.tsx`, `studio-locale.i18n.test.tsx`. The wider app-shell run is CI's. No test asserts the old wording: they read these strings through `t(key)`. |\n| `node scripts/check-changeset-presence.mjs`, `pnpm changeset:check` | exit 0, exit 0 |\n| `pnpm check:changeset-claims` | exit 0. A first run before the commit read zero changesets and said so (\"NOT a clean verdict\"), so it was rerun after the commit and reads this one. |\n| `node scripts/check-governed-queue-guard.mjs --test` on the two files | exit 0, NOT GOVERNED |\n| `pnpm check:new-line-citations` | exit 0, 0 new citations |\n| `pnpm --filter @object-ui/app-shell type-check` | NOT MEASURED locally: the workspace dependencies have no `dist` in this worktree, so a real run needs the upstream closure built under the verify lock, which stayed occupied. The edit cannot move a type (the tables are plain string-to-string records with no `as const`), and a transpile of the file reports 0 syntax diagnostics. The CI `Type Check` job is the measurement. |\n\nNo ablation: copy only, and no test pins the behaviour.\n\n## Acceptance notes (observations, not filed here)\n\n- The server's clone door answers with a `notice` whose text still says \"authored in this environment\" (`PERMISSION_SET_CLONE_NOTICE` in the objectstack runtime's `permission-set-clone.ts`, sent as `notice` in the door's success response). The editor shows it verbatim after a clone, so once this PR lands a user reads \"authored in this system\" in the hint and \"authored in this environment\" in the notice, in the same flow. Source-read only, not run against a live door. That string is objectstack's and outside this card's file surface; the objectui test `PermissionMatrixEditor.cloneToCustomize.test.tsx` carries a copy of it as its fixture, which will need to follow.\n- Comments and test names that say \"authored in this environment\" stay as written: a comment in `PermissionMatrixEditor.tsx`, a doc comment in `permission-set-clone.ts`, and test names in the badge and provenance-badge tests. They describe a code path, not copy the user reads.\n\nDraft per the dispatch contract; flipping to ready and queueing are the PM seat's.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_0188TsgPV8kQXfuRuKmkj2ks)_\n"
+}

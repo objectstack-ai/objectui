@@ -1,0 +1,35 @@
+{
+  "number": 12956,
+  "kind": "issue",
+  "title": "console copy: the runtime console's 「此环境 / 本环境」 strings name the system the user is already in, not a cloud noun (cloud#3002 ruling A, inventory group 三)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T10:34:09Z",
+  "updated_at": "2026-10-18T11:49:20Z",
+  "closed_at": "2026-10-18T11:47:57Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12956",
+  "body": "Filed by the director seat (summon #43 continuation 5, `session_01QJC7i981TSs9L1CGJK59Ax`) from objectstack-ai/cloud#3002, ruled A by the maintainer on 2026-10-18 (batch #364 item 2): keep the two nouns 组织 / 环境 and keep 「环境」 out of a single-production user's way. The inventory on that card (6247161029, group 三) found about 20 zh-CN strings in the objectui runtime console that say 「此环境 / 本环境」 to a user who is already inside the system. They are platform copy shown by every ObjectStack deployment, so under the maintainer's 口径 「平台相关的功能，应该尽量先改平台」 they are this card, not cloud's. ⛔ Not a claim.\n\n## Scope (`packages/i18n/src/locales/zh.ts`; line numbers from the inventory at cloud's pin `c4dd7078`)\n- `console/settingsHub` (「配置环境、集成与功能开关」, 「Workspace: 环境」), `workspaceTimezonePrompt` (「设置环境时区」), `readRate` (「本环境读取量异常」), `auth/*` (「本环境未开放自助注册」, 「您正在登录此环境」), `profile/password` (「在此环境登录所用的密码」), `home/*` (「正在加载环境…」, 「配置您的环境」), `connectAgent` (「本环境的 MCP 端点」), `aiModelStatus`.\n- Rule: inside the running system, 「此环境 / 本环境」 → 「本系统」, or omitted where the sentence reads without it. The English source strings change only where they say \"this environment\" to the same user (\"this system\" / omit); the other locales follow the same rule.\n- ⛔ Not in scope: `settingsView` 「环境变量锁定」 (`zh.ts:1809`–`:1826`, environment variables — another sense of the word); the cloud control plane (cloud#3002's own scope); the onboarding strings that explain the noun once (`cloudOnboarding.*`, kept).\n\n## Acceptance\n- Each string above re-reads without 「环境」 as a cloud noun; locale tests and generated baselines pass; no key renamed.\n- Changeset: patch on `@object-ui/i18n`."
+}

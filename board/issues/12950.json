@@ -1,0 +1,35 @@
+{
+  "number": 12950,
+  "kind": "pull_request",
+  "title": "fix(plugin-dashboard): a metric tile's value scales before it would clip (objectui#12942)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T08:30:56Z",
+  "updated_at": "2026-10-18T08:56:08Z",
+  "closed_at": "2026-10-18T08:56:07Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-18T08:56:07Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12950",
+  "body": "Fixes #12942\nClause-②: no\n\n## What changed\n\nA metric tile's value now scales before it would clip. `packages/plugin-dashboard/src/metricTile.ts` gains a size ladder, `METRIC_TILE_VALUE_LADDER`, and `metricTileValueClass(value)` picks a rung by how wide the value draws (`metricTileValueEm`, an upper bound read off Inter's bold tabular figures). `MetricWidget` (and through it `ObjectMetricWidget` and every `object-metric` page block) and `MetricCard` read it. The tile's span is unchanged: `page-block-span.ts` is not touched.\n\n- **Short value** (up to 4.5 em, e.g. `4,210`): today's face, unchanged. 20 px below a 160 px container, 24 px from 160 px up, no tooltip.\n- **Longer value**: 14 px base, with container-query steps up to 24 px. Each `@[N px]:` step starts at `ceil(48 + maxEm * px)`, where 48 px is the Card's value inset (CardContent's 24 px side padding; the container query reads the Card's content box, inside its 1 px border). The new test re-derives every step from that formula.\n- **Past the last rung** (over 12.5 em): 14 px at every width.\n- **A1, the steps and where each starts.** The container is the Card root (`@container`, unchanged). Widths are the container's content box. The rung a seven-digit money value with cents takes (6.75 em) is `text-sm @[156px]:text-base @[170px]:text-lg @[183px]:text-xl @[210px]:text-2xl`. Other rungs: 5.5 em at 136 / 147 / 158 / 180; 8 em at 176 / 192 / 208 / 240; 10 em at 208 / 228 / 248 / 288; 12.5 em at 248 / 273 / 298 / 348.\n- **A2, the final face.** A value wider than its tile even at 14 px keeps the ellipsis, and the value node carries the full figure as its `title` tooltip. The figure is never cut silently. The threshold is a value wider than (container − 48) / 14 em. At the narrowest measured tile (156 px, container 154) that is about 7.5 em of real width (106 px at 14 px). An eleven-digit money value (`12,345,678,901.00`) ellipsizes below a 200 px tile; `$1,290,000.00` still fits at 156 px. The 6.75 em rung's 14 px base also clips in a tile narrower than about 145 px.\n\n## Browser reading (A4)\n\nChromium (`/opt/pw-browsers/chromium`), Inter installed, Tailwind 4.3.3 compiling the real class strings from `origin/main` (before) and this branch (after). Markup: `@container` + 1 px border tile of the given width, a 24 px side-padded content box, and the value with `MetricWidget`'s `font-bold tracking-tight`. Read as value `scrollWidth` / `clientWidth`.\n\n| value | tile | before | after |\n|---|---|---|---|\n| `1,290,000.00` | 156 px | 20 px · 126 / 106 · clipped | 14 px · 106 / 106 · fits |\n| `1,290,000.00` | 174 px | 24 px · 152 / 124 · clipped | 18 px · 124 / 124 · fits |\n| `2,017,500.00` | 156 px | 20 px · 126 / 106 · clipped | 14 px · 106 / 106 · fits |\n| `2,017,500.00` | 174 px | 24 px · 152 / 124 · clipped | 18 px · 124 / 124 · fits |\n| `4,210` (control) | 156 / 174 px | 20 / 24 px · fits | 20 / 24 px · fits, unchanged |\n| `12,345,678,901.00` | 156 px | 20 px · 181 / 106 · clipped | 14 px · 127 / 106 · ellipsis + tooltip |\n\nThe \"before\" figures match the card's measurement exactly (126 / 106 at 1024 px, 152 / 124 at 1440 px). `MetricCard` (`font-bold` without tracking) reads the same at 156 and 174 px. No screenshots are attached; these numbers are the reading.\n\n## Tests\n\nOn `0f9795def1`:\n\n- `metricTileValueScale-12942.test.tsx` (new, 8 tests). (a) An `object-metric` block with `fallbackValue: 1290000, format: '0,0.00'` draws `1,290,000.00` on the scaled rung, not the clipping `@[160px]:text-2xl` face: 14 px at the 156 px tile, 18 px at the 174 px tile, with the full figure in `title`. (b) CONTROL: `4,210` keeps `text-xl @[160px]:text-2xl` with no tooltip. The test also re-derives every ladder step and checks `MetricWidget` and `MetricCard` both read the ladder.\n- Reverse check, run once and not kept: with `MetricWidget` reverted to `METRIC_TILE_VALUE_CLASS` on the committed tree, 2 failed / 6 passed (the object-metric and the MetricWidget-and-MetricCard tests), and the control stayed green. Restored with `git checkout HEAD --`, `git diff HEAD` empty, blob hash equal to HEAD.\n- The 36 plugin-dashboard test files that name `METRIC_TILE_VALUE_CLASS`, `metricTile`, `MetricWidget`, `MetricCard` or `object-metric`: 36 files / 378 tests passed. That includes `metricTileLayout-12623`, whose short-value pins hold unchanged.\n- `pnpm --filter @object-ui/plugin-dashboard type-check` exit 0, after the closure build. `tsconfig.test.json` lists the new test file.\n- Lint on the four changed source files (the package's `eslint` form): 0 errors, 1 existing warning (`react-refresh/only-export-components` on `metricPatternDecimals`).\n- The pre-tsc battery all exit 0, plus `check-hand-rolled-comment-mask`, `check-changeset-fixed`, `check-changeset-presence` and `check:new-line-citations`.\n- Declared to CI: the full `packages/plugin-dashboard/` directory run.\n\n## Acceptance notes\n\n- The dataset-bound tile (`DatasetWidget`, with a heading) stays on `METRIC_TILE_VALUE_CLASS`. It has no Card inset: its value gets the container's whole width, so a Card-measured ladder would shrink it earlier than needed. The constant's doc comment says why. It is not measured as clipping here.\n- Tiles narrower than the measured 156 px can still ellipsize a long value at the 14 px final face, now with the full figure as its tooltip.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

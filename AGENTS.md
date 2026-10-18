@@ -605,7 +605,7 @@ sha pin **退休**之后这条**更重、不是更轻**(维护者 2026-09-04 裁
    # CRM:  cd ../objectstack/examples/app-crm && pnpm exec objectstack dev --seed-admin --fresh -p <port>
    # 要持久库(跨重启保留):去掉 --fresh,改用 --database "file:/tmp/agent-<port>.db"(或 OS_DATABASE_URL)
    ```
-   干净 checkout 首次需先 `pnpm setup`(build `@objectstack/spec`);已装过的直接可跑。
+   干净 checkout 首次需先 `pnpm run setup`(build `@objectstack/spec`;⛔ 不是 `pnpm setup`,那是 pnpm 的内建命令,只改 shell rc、不跑这个脚本);已装过的直接可跑。
 
 2. **Console(你的 objectui worktree)—— 自选端口 + 指向你的后端**:
    ```bash

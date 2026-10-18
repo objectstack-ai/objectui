@@ -13,7 +13,7 @@ import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { I18nLabel } from '@object-ui/types';
 import { ArrowDownIcon, ArrowUpIcon, MinusIcon, AlertCircle, Loader2 } from 'lucide-react';
 import { hostDomProps, type SchemaHostProps } from './schemaHostProps';
-import { METRIC_TILE_CONTAINER_CLASS, METRIC_TILE_TITLE_CLASS, METRIC_TILE_VALUE_CLASS } from './metricTile';
+import { METRIC_TILE_CONTAINER_CLASS, METRIC_TILE_TITLE_CLASS, metricTileValueClass, metricTileValueTitle } from './metricTile';
 
 /**
  * DOM PASS-THROUGH (objectui#4426) — see `MetricWidget.tsx`'s interface header
@@ -120,7 +120,7 @@ export const MetricCard: React.FC<MetricCardProps & SchemaHostProps> = ({
           </div>
         ) : (
           <>
-            <div className={cn('font-bold', METRIC_TILE_VALUE_CLASS)}>{value}</div>
+            <div className={cn('font-bold', metricTileValueClass(value))} title={metricTileValueTitle(value)}>{value}</div>
             {(trend || trendValue || description) && (
               <p className="text-xs text-muted-foreground flex items-center mt-1">
                 {trend && trendValue && (

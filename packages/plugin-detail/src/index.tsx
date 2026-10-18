@@ -625,7 +625,7 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
   inputs: [
     { name: 'objectName', type: 'string', required: true, description: 'Related object name (e.g. "task")' },
     { name: 'relationshipField', type: 'string', required: true, description: 'Field on the related object pointing back to this record' },
-    { name: 'relationshipValueField', type: 'string', description: 'Which field OF THIS PARENT record `relationshipField` stores. Defaults to "id"; set it to the field a name-keyed junction points at (e.g. "name" when the junction column holds the parent record's machine name). The resolved value drives three things at once — the list filter, the Add-picker link value, and the pre-filled create form — so they cannot drift apart. While the parent record is still loading, a non-"id" field resolves to null and the list holds its fetch rather than querying on an empty value.' },
+    { name: 'relationshipValueField', type: 'string', description: 'Which field OF THIS PARENT record `relationshipField` stores. Defaults to "id"; set it to the field a name-keyed junction points at (e.g. "name" when the junction column holds the machine name of the parent record). The resolved value drives three things at once — the list filter, the Add-picker link value, and the pre-filled create form — so they cannot drift apart. While the parent record is still loading, a non-"id" field resolves to null and the list holds its fetch rather than querying on an empty value.' },
     // `parentDataSource` — the spec row's PARENT binding (objectui#12294, ruling
     // B on objectui#12296), read by `ParentRecordBinding` in
     // `renderers/recordBinding.tsx`. Hand-declared here, unlike the node-level

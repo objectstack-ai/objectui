@@ -224,6 +224,34 @@ function MyViewTabs() {
 />
 ```
 
+### Host prop: `viewDefaults`
+
+A host that stores the user's own hidden fields or density and lays that
+preference over `hiddenFields` / `rowHeight` in `schema` passes the view's own
+values in `viewDefaults`. The Display control's trigger count and its "Reset to
+view default" then compare these two settings against the view, not against
+`schema`, and the reset writes the view's values back through the doors the
+controls write through (`onHiddenFieldsChange`, `schema.onDensityChange`), so
+the stored preference follows. This is a React prop for the host app, not a
+schema key: list metadata cannot set it.
+
+When it is passed, its members are the whole baseline: an absent `hiddenFields`
+means the view hides nothing, and an absent `rowHeight` means the default
+density. Without it nothing changes: `schema` is taken as the view's own. The
+console passes it on the object list page, where it persists both settings per
+user.
+
+```tsx
+import { ListView } from '@object-ui/plugin-list';
+
+// The view hides `amount`; the user has since hidden `stage` as well.
+<ListView
+  schema={{ type: 'list-view', objectName: 'deals', hiddenFields: ['amount', 'stage'] }}
+  viewDefaults={{ hiddenFields: ['amount'] }}
+  onHiddenFieldsChange={(hidden) => console.log('Hidden:', hidden)}
+/>
+```
+
 ## Schema
 
 The ListView component accepts a `ListViewSchema`, exported from

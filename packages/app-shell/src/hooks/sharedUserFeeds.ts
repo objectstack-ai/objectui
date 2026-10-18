@@ -1123,7 +1123,12 @@ export function useSharedActivityFeed(options: { enabled?: boolean } = {}): Acti
   const enabled = options.enabled !== false;
   const dataSource = useAdapter();
   const { user } = useAuth();
-  const activity = useObjectPresence(ACTIVITY_OBJECT);
+  // Not asked for ⇒ not even its presence is asked (objectui#12980): inside an
+  // app the presence answer is its own by-name read (`meta/object/NAME`
+  // through the app's object scope), which went out in the chrome's render on
+  // every open. An empty name asks the scope nothing; the verdict it yields is
+  // never read, because the key below is withheld while `enabled` is false.
+  const activity = useObjectPresence(enabled ? ACTIVITY_OBJECT : '');
   const perms = usePermissions();
   // Unknown (not loaded) reads: a wrong refusal would cost a caller who CAN
   // read their feed, with no error anywhere — the one-sided risk #7476 named.

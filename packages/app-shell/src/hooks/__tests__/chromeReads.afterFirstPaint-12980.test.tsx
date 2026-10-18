@@ -8,6 +8,10 @@
  *   - `NavigationSyncEffect` reads the `pages` / `dashboards` lists (lazy
  *     getters: reading one starts its `/meta/:type` read) only once the splash
  *     is gone and a frame has painted;
+ *   - the bell's Activity feed, until the bell asks for it, does not even ask
+ *     whether `sys_activity` exists: inside an app that answer is its own
+ *     by-name read through the app's object scope, which used to go out in
+ *     the chrome's render on every open;
  *   - `useSignedInUserLocale` reads the user's `sys_user` row at the same
  *     moment, not beside the page's own reads. It is kept (not folded into
  *     `GET /auth/me/localization`): that answer merges the column with the
@@ -20,7 +24,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, renderHook, screen, waitFor, act } from '@testing-library/react';
 import { I18nProvider, useObjectTranslation } from '@object-ui/i18n';
 import { MetadataCtx, AdapterCtx, type MetadataContextValue } from '@object-ui/react';
 
@@ -37,7 +41,8 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { NavigationSyncEffect } from '../useNavigationSync';
 import { useSignedInUserLocale } from '../useUserLocale';
-import { __resetFirstPaint } from '../sharedUserFeeds';
+import { __resetFirstPaint, useSharedActivityFeed } from '../sharedUserFeeds';
+import { ExpressionProvider } from '../../providers/ExpressionProvider';
 
 let splash: HTMLElement | null = null;
 function raiseSplash() {
@@ -138,5 +143,44 @@ describe('useSignedInUserLocale reads the user row after the first paint (object
     dropSplash();
     await waitFor(() => expect(findOne).toHaveBeenCalledWith('sys_user', 'usr_1'));
     await waitFor(() => expect(screen.getByTestId('language')).toHaveTextContent('ja'));
+  });
+});
+
+describe('the Activity feed asks nothing, not even presence, until it is asked for (objectui#12980)', () => {
+  it('asks the app scope for no name while not asked for, and for sys_activity once it is', () => {
+    const askedNames: string[] = [];
+    const ctx = {
+      apps: [],
+      objects: [],
+      dashboards: [],
+      reports: [],
+      pages: [],
+      loading: false,
+      error: null,
+      refresh: async () => {},
+      invalidate: () => {},
+      ensureType: async () => [],
+      getItem: async () => null,
+      getItemsByType: () => [],
+      // Nothing has asked for the whole registry: presence goes through the scope.
+      getTypeStatus: (type: string) => (type === 'object' ? 'idle' : 'ready'),
+      readObjectScope: (scope: { packageId?: string; names?: readonly string[] }) => {
+        askedNames.push(...(scope.names ?? []).filter(Boolean));
+        return { objects: [], served: [], missing: [], settled: false };
+      },
+    } as unknown as MetadataContextValue;
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <ExpressionProvider app={{ name: 'crm', _packageId: 'com.acme.crm' }}>
+        <MetadataCtx.Provider value={ctx}>{children}</MetadataCtx.Provider>
+      </ExpressionProvider>
+    );
+    const { rerender } = renderHook(({ enabled }) => useSharedActivityFeed({ enabled }), {
+      wrapper,
+      initialProps: { enabled: false },
+    });
+    expect(askedNames).toEqual([]);
+
+    rerender({ enabled: true });
+    expect(askedNames).toContain('sys_activity');
   });
 });

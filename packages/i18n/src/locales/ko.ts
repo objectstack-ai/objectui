@@ -33,30 +33,6 @@ const ko = {
       other: '기타',
     },
   },
-  // objectui#3546 slice six — PermissionFacetLink 의 권한 파셋 요약.
-  // 수량 라벨은 appDesigner.objectManager.fieldCount 와 같은 "{{count}}개 + 단위" 형식.
-  // 한국어에는 단수/복수 구분이 없어 `_one` 은 기본 키와 같은 값(의도적).
-  perm: {
-    facet: {
-      none: "없음",
-      more: "+{{count}} 더보기",
-      objects: "{{count}}개 오브젝트",
-      objects_one: "{{count}}개 오브젝트",
-      objects_other: "{{count}}개 오브젝트",
-      fields: "{{count}}개 필드 규칙",
-      fields_one: "{{count}}개 필드 규칙",
-      fields_other: "{{count}}개 필드 규칙",
-      rls: "{{count}}개 RLS 정책",
-      rls_one: "{{count}}개 RLS 정책",
-      rls_other: "{{count}}개 RLS 정책",
-      tabs: "{{count}}개 탭 규칙",
-      tabs_one: "{{count}}개 탭 규칙",
-      tabs_other: "{{count}}개 탭 규칙",
-      adminScope: "위임 관리가 구성됨",
-      designInStudio: "Studio에서 디자인 →",
-      designInStudioHint: "Studio에서 디자인",
-    },
-  },
   lookup: {
     recentlyUsed: '최근 사용',
     allResults: '모든 결과',
@@ -2921,8 +2897,6 @@ const ko = {
     updateFailed: "탐색을 업데이트할 수 없습니다",
   },
   objectActions: {
-    resetPackageSetConfirm: "이 권한 세트는 설치된 패키지에 포함되어 있어 제거할 수 없습니다. 삭제하면 패키지 기본 상태로 초기화되며 이 환경의 커스터마이징은 폐기됩니다. 계속할까요?",
-    resetPackageSetSuccess: "권한 세트를 패키지 기본 상태로 초기화했습니다",
     deleteSuccess: "{{label}} 삭제 성공",
     deleteFailed: "{{label}} 삭제 실패",
     noRecordId: "레코드 ID가 없습니다",

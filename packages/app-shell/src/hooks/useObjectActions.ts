@@ -50,9 +50,8 @@ interface ObjectActions {
   /** Create new record — opens the create dialog */
   create: () => void;
   /**
-   * Delete a record by id. Pass the row (`record`) when available so a
-   * package-owned permission set can be recognised as a RESET rather than a
-   * delete (ADR-0094) without an extra fetch.
+   * Delete a record by id. Pass the row (`record`) when available so the
+   * confirmation names the record (objectui#11695) without an extra fetch.
    */
   deleteRecord: (recordId: string, record?: Record<string, unknown>) => Promise<ActionResult>;
   /** Delete several records, confirmed once for the batch. */
@@ -107,8 +106,7 @@ export function useObjectActions({
     //   { params: { records: [...] } } — bulk delete (multi-row)
     //   { recordId } (legacy)          — pre-params shape
     // It owns the toasts and returns without `error` (and `silent` on
-    // success), so the runner's post-execution hook adds no second toast; the
-    // ADR-0094 package-owned permission-set reset copy lives there too.
+    // success), so the runner's post-execution hook adds no second toast.
     runner.registerHandler('delete', (action: any) =>
       recordDelete.run(
         { objectName, label: objectLabel || objectName, dataSource, t, toast, onRefresh },
@@ -157,11 +155,9 @@ export function useObjectActions({
 
   const deleteRecord = useCallback(
     async (recordId: string, record?: Record<string, unknown>): Promise<ActionResult> => {
-      // The copy comes from the shared record-delete core (objectui#10383): for
-      // a package-owned permission set the body is the honest RESET question
-      // (ADR-0094), not a promise of an irreversible delete the user can see
-      // doesn't happen (the row stays). With only an id in hand the title
-      // names the record by the resolver's `Record #id` floor.
+      // The copy comes from the shared record-delete core (objectui#10383).
+      // With only an id in hand the title names the record by the resolver's
+      // `Record #id` floor.
       const copy = recordDelete.confirmCopy(
         { objectName, t, label, objectDef },
         { record: record ?? { id: recordId } },

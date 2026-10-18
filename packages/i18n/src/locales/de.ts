@@ -33,30 +33,6 @@ const de = {
       other: 'Andere',
     },
   },
-  // objectui#3546 slice six — die schreibgeschützte Facetten-Zusammenfassung von
-  // PermissionFacetLink. "Registerkarte" (nicht "Tab") für In-App-Reiter, wie in
-  // console.objectView.ufTabs; "Tab" bleibt dem Browser-Tab vorbehalten.
-  perm: {
-    facet: {
-      none: "Keine",
-      more: "+{{count}} weitere",
-      objects: "{{count}} Objekte",
-      objects_one: "{{count}} Objekt",
-      objects_other: "{{count}} Objekte",
-      fields: "{{count}} Feldregeln",
-      fields_one: "{{count}} Feldregel",
-      fields_other: "{{count}} Feldregeln",
-      rls: "{{count}} RLS-Richtlinien",
-      rls_one: "{{count}} RLS-Richtlinie",
-      rls_other: "{{count}} RLS-Richtlinien",
-      tabs: "{{count}} Registerkarten-Regeln",
-      tabs_one: "{{count}} Registerkarten-Regel",
-      tabs_other: "{{count}} Registerkarten-Regeln",
-      adminScope: "Delegierte Administration konfiguriert",
-      designInStudio: "Im Studio gestalten →",
-      designInStudioHint: "Im Studio gestalten",
-    },
-  },
   lookup: {
     recentlyUsed: 'Zuletzt verwendet',
     allResults: 'Alle Ergebnisse',
@@ -2922,8 +2898,6 @@ const de = {
     updateFailed: "Navigation konnte nicht aktualisiert werden",
   },
   objectActions: {
-    resetPackageSetConfirm: "Dieses Berechtigungsset gehört zu einem installierten Paket und kann nicht entfernt werden. Beim Löschen wird es auf den ausgelieferten Ausgangszustand zurückgesetzt und Ihre Anpassungen in dieser Umgebung gehen verloren. Fortfahren?",
-    resetPackageSetSuccess: "Berechtigungsset auf den ausgelieferten Ausgangszustand zurückgesetzt",
     deleteSuccess: "{{label}} erfolgreich gelöscht",
     deleteFailed: "{{label}} konnte nicht gelöscht werden",
     noRecordId: "Keine Datensatz-ID angegeben",

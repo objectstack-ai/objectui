@@ -707,7 +707,6 @@ describe('objectui itself', () => {
     // The inverse pin. A declaration whose imports have gone is dead weight in
     // every consumer's install, and this gate does not check that direction.
     for (const file of [
-      'packages/plugin-detail/src/renderers/PermissionFacetLink.tsx',
       'packages/plugin-detail/src/renderers/record-reference-rail.tsx',
     ]) {
       expect(fs.readFileSync(path.join(repoRoot, file), 'utf8')).toContain("from 'react-router-dom'");

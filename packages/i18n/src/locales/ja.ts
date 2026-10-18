@@ -33,30 +33,6 @@ const ja = {
       other: 'その他',
     },
   },
-  // objectui#3546 slice six — PermissionFacetLink の授権ファセット要約。
-  // 数量ラベルは appDesigner.objectManager.fieldCount と同じ「{{count}} + 単位」形。
-  // 日本語に単複はないため `_one` は基底キーと同値(意図的)。
-  perm: {
-    facet: {
-      none: "なし",
-      more: "+{{count}} 件",
-      objects: "{{count}} オブジェクト",
-      objects_one: "{{count}} オブジェクト",
-      objects_other: "{{count}} オブジェクト",
-      fields: "{{count}} フィールドルール",
-      fields_one: "{{count}} フィールドルール",
-      fields_other: "{{count}} フィールドルール",
-      rls: "{{count}} RLS ポリシー",
-      rls_one: "{{count}} RLS ポリシー",
-      rls_other: "{{count}} RLS ポリシー",
-      tabs: "{{count}} タブルール",
-      tabs_one: "{{count}} タブルール",
-      tabs_other: "{{count}} タブルール",
-      adminScope: "委任管理を設定済み",
-      designInStudio: "Studio でデザイン →",
-      designInStudioHint: "Studio でデザイン",
-    },
-  },
   lookup: {
     recentlyUsed: '最近使用したもの',
     allResults: 'すべての結果',
@@ -2924,8 +2900,6 @@ const ja = {
     updateFailed: "ナビゲーションの更新に失敗しました",
   },
   objectActions: {
-    resetPackageSetConfirm: "この権限セットはインストール済みパッケージに含まれているため削除できません。削除を実行すると、パッケージ同梱の初期状態に戻り、この環境でのカスタマイズは破棄されます。続行しますか？",
-    resetPackageSetSuccess: "権限セットをパッケージ同梱の初期状態に戻しました",
     deleteSuccess: "{{label}} を削除しました",
     deleteFailed: "{{label}} の削除に失敗しました",
     noRecordId: "レコードIDが指定されていません",

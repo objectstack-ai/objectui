@@ -60,7 +60,6 @@ import {
 // the type must resolve wherever this view renders, not only under hosts
 // that import the app-shell barrel.
 import './record-approvals-renderer.js';
-import { RecordPermissionAssignmentsRenderer } from './metadata-admin/RecordPermissionAssignmentsRenderer.js';
 import { getRecordDisplayName } from '../utils/index.js';
 import { parseAuditValue, collectAuditChanges, collectLookupIds, formatAuditValue } from '../utils/auditHistoryDisplay.js';
 import { useFavorites } from '../hooks/useFavorites.js';
@@ -3261,8 +3260,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           // (`recordDelete.confirmCopy`): the title names this record by the
           // ADR-0079 resolver over the READABLE row the header title reads
           // (a denied name field reads as absent here too) plus the object
-          // label, the body is the list's question — ADR-0094's reset question
-          // for a package-owned permission set — and the confirm button is
+          // label, the body is the list's question, and the confirm button is
           // "Delete", painted destructive.
           const copy = recordDelete.confirmCopy(
             {
@@ -3613,16 +3611,6 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                   approvals={approvals}
                   currentUserId={user?.id}
                 />
-              )}
-              {/* ADR-0056 P1b — user assignment lives in Setup (the pure
-                  model): the permission set's facets render read-only as
-                  summary + Studio deep-link, and admins add/remove users
-                  here. Rendered directly (mirrors RecordAttachmentsPanel)
-                  inside RecordContextProvider so it reads the set's name. */}
-              {objectName === 'sys_permission_set' && pureRecordId && (
-                <div className="mt-6">
-                  <RecordPermissionAssignmentsRenderer />
-                </div>
               )}
               {/* Generic Attachments panel (objectstack-ai/objectstack#2727) — opt-in via
                   `enable.files: true`; the server rejects attachments

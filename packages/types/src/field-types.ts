@@ -928,9 +928,9 @@ export interface LookupFieldMetadata extends BaseFieldMetadata {
 
   /*
    * There is deliberately no `idField` here (objectui#12242, ruling A). The
-   * record field a picker commits as the lookup's VALUE (default `id`; an
-   * approval `position` approver stores `sys_position.name`,
-   * objectstack-ai/objectstack#3508) is picker configuration a HOST writes,
+   * record field a picker commits as the lookup's VALUE (default `id`; a
+   * reference stored by machine name commits `name`) is picker configuration
+   * a HOST writes,
    * not object metadata: `@objectstack/spec`'s `FieldSchema` refuses
    * `idField` by name, so no published object carries it. Its producers are
    * a form entry (`FormField.idField`), an action parameter, a flow binding

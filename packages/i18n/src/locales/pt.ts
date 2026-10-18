@@ -33,33 +33,6 @@ const pt = {
       other: 'Outro',
     },
   },
-  // objectui#3546 slice six — o resumo somente leitura das facetas de
-  // autorização de PermissionFacetLink. "aba" como em list.tabs.
-  perm: {
-    facet: {
-      none: "Nenhum",
-      more: "+{{count}} mais",
-      objects: "{{count}} objetos",
-      objects_one: "{{count}} objeto",
-      objects_many: "{{count}} de objetos",
-      objects_other: "{{count}} objetos",
-      fields: "{{count}} regras de campo",
-      fields_one: "{{count}} regra de campo",
-      fields_many: "{{count}} de regras de campo",
-      fields_other: "{{count}} regras de campo",
-      rls: "{{count}} políticas RLS",
-      rls_one: "{{count}} política RLS",
-      rls_many: "{{count}} de políticas RLS",
-      rls_other: "{{count}} políticas RLS",
-      tabs: "{{count}} regras de aba",
-      tabs_one: "{{count}} regra de aba",
-      tabs_many: "{{count}} de regras de aba",
-      tabs_other: "{{count}} regras de aba",
-      adminScope: "Administração delegada configurada",
-      designInStudio: "Projetar no Studio →",
-      designInStudioHint: "Projetar no Studio",
-    },
-  },
   lookup: {
     recentlyUsed: 'Usados recentemente',
     allResults: 'Todos os resultados',
@@ -2973,8 +2946,6 @@ const pt = {
     updateFailed: "Não foi possível atualizar a navegação",
   },
   objectActions: {
-    resetPackageSetConfirm: "Este conjunto de permissões acompanha um pacote instalado e não pode ser removido. Excluí-lo o redefine para a versão original do pacote e descarta suas personalizações neste ambiente. Continuar?",
-    resetPackageSetSuccess: "Conjunto de permissões redefinido para a versão original do pacote",
     deleteSuccess: "{{label}} excluído com sucesso",
     deleteFailed: "Não foi possível excluir {{label}}",
     noRecordId: "Nenhum ID de registro fornecido",

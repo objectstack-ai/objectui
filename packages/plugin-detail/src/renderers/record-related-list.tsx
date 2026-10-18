@@ -241,7 +241,7 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
   // a newly-created child is pre-linked to the current parent.
   // [ADR-0090 SDUI panels] Which PARENT field the junction's relationshipField
   // stores (spec `relationshipValueField`, default 'id'). Name-keyed junctions
-  // (e.g. sys_user_position.position stores sys_position.name) set 'name' —
+  // (the junction column stores the parent's machine name) set 'name' —
   // the resolved value drives the list filter, the Add-picker link value, AND
   // the pre-filled create form, so all three stay consistent. While the parent
   // record is still loading a non-id value resolves to null, which RelatedList

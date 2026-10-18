@@ -1458,8 +1458,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   const capabilitiesEl = (
     <>
       {/* System Capabilities (ADR-0056 P2) — set-level platform/org
-          capabilities (e.g. studio.access, manage_users). Designed here in
-          Studio; Setup renders them read-only (PermissionFacetLink). Stored
+          capabilities (e.g. studio.access, manage_users). Stored
           as PermissionSetDraft.systemPermissions (string[]); the picker
           round-trips via a JSON string, so parse back into the array the
           draft model uses. Persisted by the whole-record Save at env scope. */}

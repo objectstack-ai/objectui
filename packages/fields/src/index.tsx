@@ -5014,10 +5014,8 @@ export function registerAllFields(): void {
 // was that function's sole caller, the key never existed on the live path, so a
 // field authored with `widget: 'capability-multiselect'` resolved to nothing in
 // every real app while a comment here advertised it as usable from a record form.
-// Nothing stamped the hint either: ADR-0056 P1 stamps `permission-facet-link` on
-// all six `sys_permission_set` facets (`data-objectstack/src/index.ts`
-// applyFieldWidgetOverrides) and P2 put the capability editor in Studio. The
-// widget NAME stays retired — do not add it to `fieldWidgetMap`.
+// Nothing stamped the hint either, and ADR-0056 P2 put the capability editor in
+// Studio. The widget NAME stays retired — do not add it to `fieldWidgetMap`.
 // `CapabilityMultiSelectField` itself lives on as a plain component, imported and
 // rendered directly by Studio's `PermissionMatrixEditor` (ADR-0056 P2's design).
 //

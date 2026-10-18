@@ -151,7 +151,6 @@ export const KNOWN_SCHEMA_TYPES: readonly string[] = [
   'field:object-ref',
   'field:password',
   'field:percent',
-  'field:permission-facet-link',
   'field:permission-ref',
   'field:phone',
   'field:position-ref',

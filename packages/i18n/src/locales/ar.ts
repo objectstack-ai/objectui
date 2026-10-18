@@ -33,52 +33,6 @@ const ar = {
       other: 'أخرى',
     },
   },
-  // objectui#3546 slice six — the read-only summary of PermissionFacetLink's six
-  // authorization facets, plus the Studio link.
-  //
-  // The four count labels carry one slot per ar CLDR category (objectui#11432):
-  // `_zero` and `_other` (100-102…) singular, `_one`, `_two` the dual with the
-  // numeral in parentheses, `_few` (3-10) plural, `_many` (11-99) accusative
-  // singular. The base key keeps the «{{count}} مفرد(جمع)» marker for a call made
-  // without a count. The action-link arrow is not mirrored: it stays as in en,
-  // like marketplace.browseLink.
-  perm: {
-    facet: {
-      none: "لا شيء",
-      more: "+{{count}} المزيد",
-      objects: "{{count}} كائن(كائنات)",
-      objects_zero: "{{count}} كائن",
-      objects_one: "{{count}} كائن",
-      objects_two: "كائنان ({{count}})",
-      objects_few: "{{count}} كائنات",
-      objects_many: "{{count}} كائنًا",
-      objects_other: "{{count}} كائن",
-      fields: "{{count}} قاعدة(قواعد) حقول",
-      fields_zero: "{{count}} قاعدة حقول",
-      fields_one: "{{count}} قاعدة حقول",
-      fields_two: "قاعدتا حقول ({{count}})",
-      fields_few: "{{count}} قواعد حقول",
-      fields_many: "{{count}} قاعدة حقول",
-      fields_other: "{{count}} قاعدة حقول",
-      rls: "{{count}} سياسة(سياسات) RLS",
-      rls_zero: "{{count}} سياسة RLS",
-      rls_one: "{{count}} سياسة RLS",
-      rls_two: "سياستا RLS ({{count}})",
-      rls_few: "{{count}} سياسات RLS",
-      rls_many: "{{count}} سياسة RLS",
-      rls_other: "{{count}} سياسة RLS",
-      tabs: "{{count}} قاعدة(قواعد) تبويب",
-      tabs_zero: "{{count}} قاعدة تبويب",
-      tabs_one: "{{count}} قاعدة تبويب",
-      tabs_two: "قاعدتا تبويب ({{count}})",
-      tabs_few: "{{count}} قواعد تبويب",
-      tabs_many: "{{count}} قاعدة تبويب",
-      tabs_other: "{{count}} قاعدة تبويب",
-      adminScope: "تم تكوين الإدارة المفوَّضة",
-      designInStudio: "التصميم في Studio →",
-      designInStudioHint: "التصميم في Studio",
-    },
-  },
   lookup: {
     recentlyUsed: 'المستخدمة مؤخرًا',
     allResults: 'كل النتائج',
@@ -3153,8 +3107,6 @@ const ar = {
     updateFailed: "تعذر تحديث التنقل",
   },
   objectActions: {
-    resetPackageSetConfirm: "مجموعة الأذونات هذه تأتي ضمن حزمة مثبَّتة ولا يمكن إزالتها. الحذف يعيدها إلى الحالة الأصلية المرفقة بالحزمة ويتجاهل تخصيصاتك في هذه البيئة. هل تريد المتابعة؟",
-    resetPackageSetSuccess: "تمت إعادة مجموعة الأذونات إلى حالتها الأصلية المرفقة بالحزمة",
     deleteSuccess: "تم حذف {{label}} بنجاح",
     deleteFailed: "تعذر حذف {{label}}",
     noRecordId: "لم يتم توفير معرف سجل",

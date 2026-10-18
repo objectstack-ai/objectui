@@ -15,9 +15,7 @@
  * never had it, because `fieldWidgetMap` never listed it — so a field authored
  * with `widget: 'capability-multiselect'` resolved to nothing in every real app
  * while a code comment advertised it as usable from a record form. Nothing
- * stamped the hint either: ADR-0056 P1 stamps `permission-facet-link` on all six
- * `sys_permission_set` facets (including `system_permissions`), and P2 put the
- * capability editor in Studio.
+ * stamped the hint either, and ADR-0056 P2 put the capability editor in Studio.
  *
  * `registerFields()` itself is gone as of objectui#3910 (ruling B of
  * objectui#3798): the docs catalog's field examples are form-hosted now, so the

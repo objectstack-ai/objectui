@@ -14,7 +14,6 @@ import {
   useResolvedDataSource,
 } from '@object-ui/react';
 import { useObjectTranslation } from '@object-ui/i18n';
-import { withFieldCarrier } from '@object-ui/fields';
 import { DetailView } from './DetailView';
 import { DetailSection } from './DetailSection';
 import { DetailSectionNode } from './DetailSectionNode';
@@ -31,7 +30,6 @@ import { RecordQuickActionsRenderer } from './renderers/record-quick-actions';
 import { RecordHistoryRenderer } from './renderers/record-history';
 import { RecordReferenceRailRenderer } from './renderers/record-reference-rail';
 import { RecordAlertRenderer } from './renderers/record-alert';
-import { PermissionFacetLink } from './renderers/PermissionFacetLink';
 import type { DataSource, DetailViewSchema } from '@object-ui/types';
 import { ACTION_LOCATIONS } from '@object-ui/types';
 
@@ -627,7 +625,7 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
   inputs: [
     { name: 'objectName', type: 'string', required: true, description: 'Related object name (e.g. "task")' },
     { name: 'relationshipField', type: 'string', required: true, description: 'Field on the related object pointing back to this record' },
-    { name: 'relationshipValueField', type: 'string', description: 'Which field OF THIS PARENT record `relationshipField` stores. Defaults to "id"; set it to the field a name-keyed junction points at (e.g. "name" when sys_user_position.position holds sys_position.name). The resolved value drives three things at once — the list filter, the Add-picker link value, and the pre-filled create form — so they cannot drift apart. While the parent record is still loading, a non-"id" field resolves to null and the list holds its fetch rather than querying on an empty value.' },
+    { name: 'relationshipValueField', type: 'string', description: 'Which field OF THIS PARENT record `relationshipField` stores. Defaults to "id"; set it to the field a name-keyed junction points at (e.g. "name" when the junction column holds the parent record's machine name). The resolved value drives three things at once — the list filter, the Add-picker link value, and the pre-filled create form — so they cannot drift apart. While the parent record is still loading, a non-"id" field resolves to null and the list holds its fetch rather than querying on an empty value.' },
     // `parentDataSource` — the spec row's PARENT binding (objectui#12294, ruling
     // B on objectui#12296), read by `ParentRecordBinding` in
     // `renderers/recordBinding.tsx`. Hand-declared here, unlike the node-level
@@ -1001,19 +999,3 @@ ComponentRegistry.register('alert', RecordAlertRenderer, {
   ],
 });
 
-// ADR-0056 P1 — the `permission-facet-link` field widget renders a
-// `sys_permission_set` authorization facet (object/field/system/RLS/tab/
-// admin_scope) read-only as a summary + Studio deep-link. Registered here so
-// the record form and inline edit resolve `field:permission-facet-link`; the
-// detail read path special-cases it in DetailSection. Setup never edits these
-// facets — they are designed in Studio's structured editors.
-//
-// `withFieldCarrier` is MANDATORY on every `field:` registration (objectui#3233
-// / #3307): `SchemaRenderer` hands the authored node over as `schema`, and the
-// adapter converges it onto `field` — the field-widget contract's only
-// metadata carrier. Registered raw, the widget reads `field === undefined`
-// under the SDUI path and silently renders an anonymous summary.
-ComponentRegistry.register('permission-facet-link', withFieldCarrier(PermissionFacetLink), {
-  namespace: 'field',
-  skipFallback: true,
-});

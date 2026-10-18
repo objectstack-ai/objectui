@@ -1064,9 +1064,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
           group: field.group,
           // Important: Pass the original field metadata so widgets can access properties like precision, currency, etc.
           field: field,
-          // A per-field widget override (e.g. permission-facet-link stamped onto
-          // the six sys_permission_set facets by `ObjectStackAdapter.getObjectSchema`,
-          // ADR-0056 P1). `form.tsx` resolves `widget || type`, so this makes the
+          // A per-field widget override. `form.tsx` resolves `widget || type`, so this makes the
           // auto-generated (no-form-view) form honor the override just like the
           // authored-section path already does (sectionFields.ts).
           widget: (field as any).widget,

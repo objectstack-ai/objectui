@@ -868,7 +868,7 @@ function toFieldsMap(
 }
 
 export interface MetadataFieldsPageProps {
-  /** Object name to edit fields for (e.g. `account`, `sys_permission_set`). */
+  /** Object name to edit fields for (e.g. `account`, `sys_user`). */
   objectName: string;
   /** Pre-built metadata client (preferred for auth-decorated instances). */
   client?: MetadataClient;

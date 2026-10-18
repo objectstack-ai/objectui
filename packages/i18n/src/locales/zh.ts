@@ -38,32 +38,6 @@ const zh = {
       view_all_audit_log: '查看全部审计日志',
     },
   },
-  // objectui#3546 切片六 —— 权限集记录上六个授权面的只读摘要与 Studio 深链
-  // (ADR-0056 P1,plugin-detail 的 PermissionFacetLink)。
-  // 用词取自本仓权限集设计器(metadata-admin i18n 表):个对象 / 行级策略 /
-  // 标签页 / 委派管理范围 —— 与点进去的那个界面一致。
-  // 中文无单复数,四个计数 key 的 `_one` 与基础 key 同值(设计如此,不是漏改)。
-  perm: {
-    facet: {
-      none: '无',
-      more: '+{{count}} 更多',
-      objects: '{{count}} 个对象',
-      objects_one: '{{count}} 个对象',
-      objects_other: '{{count}} 个对象',
-      fields: '{{count}} 条字段规则',
-      fields_one: '{{count}} 条字段规则',
-      fields_other: '{{count}} 条字段规则',
-      rls: '{{count}} 条 RLS 策略',
-      rls_one: '{{count}} 条 RLS 策略',
-      rls_other: '{{count}} 条 RLS 策略',
-      tabs: '{{count}} 条标签页规则',
-      tabs_one: '{{count}} 条标签页规则',
-      tabs_other: '{{count}} 条标签页规则',
-      adminScope: '已配置委派管理范围',
-      designInStudio: '在 Studio 中设计 →',
-      designInStudioHint: '在 Studio 中设计',
-    },
-  },
   lookup: {
     recentlyUsed: '最近使用',
     allResults: '全部结果',
@@ -3099,9 +3073,6 @@ const zh = {
     bulkDeleteConfirmTitle_one: '删除 {{count}} 条 {{label}} 记录？',
     bulkDeleteConfirmTitle_other: '删除 {{count}} 条 {{label}} 记录？',
     deleteConfirmButton: '删除',
-    resetPackageSetConfirm:
-      '该权限集随已安装的软件包发布，无法删除。删除操作将丢弃环境定制并把它重置为发布基线。是否继续？',
-    resetPackageSetSuccess: '权限集已重置为发布基线',
     bulkDeleteSuccess: '已删除 {{count}} 条 {{label}} 记录',
     bulkDeleteSuccess_one: '已删除 {{count}} 条 {{label}} 记录',
     bulkDeleteSuccess_other: '已删除 {{count}} 条 {{label}} 记录',

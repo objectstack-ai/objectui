@@ -33,34 +33,6 @@ const fr = {
       other: 'Autre',
     },
   },
-  // objectui#3546 slice six — le résumé en lecture seule des facettes
-  // d'autorisation de PermissionFacetLink. Apostrophe droite U+0027 comme dans
-  // le reste du paquet, et espace avant les deux-points.
-  perm: {
-    facet: {
-      none: "Aucun",
-      more: "+{{count}} de plus",
-      objects: "{{count}} objets",
-      objects_one: "{{count}} objet",
-      objects_many: "{{count}} d'objets",
-      objects_other: "{{count}} objets",
-      fields: "{{count}} règles de champ",
-      fields_one: "{{count}} règle de champ",
-      fields_many: "{{count}} de règles de champ",
-      fields_other: "{{count}} règles de champ",
-      rls: "{{count}} politiques RLS",
-      rls_one: "{{count}} politique RLS",
-      rls_many: "{{count}} de politiques RLS",
-      rls_other: "{{count}} politiques RLS",
-      tabs: "{{count}} règles d'onglet",
-      tabs_one: "{{count}} règle d'onglet",
-      tabs_many: "{{count}} de règles d'onglet",
-      tabs_other: "{{count}} règles d'onglet",
-      adminScope: "Administration déléguée configurée",
-      designInStudio: "Concevoir dans Studio →",
-      designInStudioHint: "Concevoir dans Studio",
-    },
-  },
   lookup: {
     recentlyUsed: 'Récemment utilisés',
     allResults: 'Tous les résultats',
@@ -2975,8 +2947,6 @@ const fr = {
     updateFailed: "Impossible de mettre à jour la navigation",
   },
   objectActions: {
-    resetPackageSetConfirm: "Ce jeu d'autorisations est fourni avec un package installé et ne peut pas être supprimé. La suppression le réinitialise à la version livrée et abandonne vos personnalisations dans cet environnement. Continuer ?",
-    resetPackageSetSuccess: "Jeu d'autorisations réinitialisé à la version livrée",
     deleteSuccess: "{{label}} supprimé avec succès",
     deleteFailed: "Impossible de supprimer {{label}}",
     noRecordId: "Aucun ID d'enregistrement fourni",

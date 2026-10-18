@@ -484,17 +484,6 @@ describe('controls — the routed families are untouched by the delegation', () 
     );
     expect(plainInput()).toBeNull();
   });
-
-  it('a `permission-facet-link` widget hint still short-circuits to the read-only facet', () => {
-    render(
-      <InlineFieldInput
-        field={{ name: 'facet', type: 'object', widget: 'permission-facet-link' }}
-        value={{ a: 1 }}
-        onChange={vi.fn()}
-      />,
-    );
-    expect(plainInput()).toBeNull();
-  });
 });
 
 // ---------------------------------------------------------------------------

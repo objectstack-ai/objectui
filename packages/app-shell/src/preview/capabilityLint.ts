@@ -63,10 +63,10 @@ async function loadRule(): Promise<CapabilityRule | null> {
  * human-readable warning strings (empty = clean or lint unavailable).
  *
  * The author-time "known capability" set the rule resolves against is the
- * union of built-in platform capabilities, every `systemPermissions` grant on
- * the environment's permission sets (published ∪ pending permission drafts),
- * and `sys_capability` seed rows — so the assembled pseudo-stack includes the
- * PUBLISHED permission sets, not just drafts.
+ * union of built-in platform capabilities and every `systemPermissions` grant on
+ * the environment's permission sets (published ∪ pending permission drafts) —
+ * so the assembled pseudo-stack includes the PUBLISHED permission sets, not
+ * just drafts.
  *
  * @param ruleOverride test seam — inject the rule instead of feature-detecting.
  */

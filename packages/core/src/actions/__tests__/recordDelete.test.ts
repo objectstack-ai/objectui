@@ -7,9 +7,9 @@
  */
 
 /**
- * The shared record-delete core (objectui#10383, ADR-0094), pinned at the unit
- * level: the question, the single delete, the bulk delete, the partial failure
- * and the package-owned permission-set reset — with the runner-facing result
+ * The shared record-delete core (objectui#10383), pinned at the unit
+ * level: the question, the single delete, the bulk delete and the partial
+ * failure — with the runner-facing result
  * shape each path returns, because the console registers `run` as its action
  * runner's `delete` handler and those shapes are what keep the runner from
  * toasting a second time.
@@ -31,7 +31,6 @@ const t = (key: string, options?: Record<string, unknown>) => {
 function harness(opts: {
   objectName?: string;
   failIds?: string[];
-  findOne?: (resource: string, id: string) => Promise<unknown>;
 } = {}) {
   const failIds = opts.failIds ?? [];
   const dataSource = {
@@ -39,7 +38,6 @@ function harness(opts: {
       if (failIds.includes(id)) throw new Error(`refused ${id}`);
       return true;
     }),
-    findOne: vi.fn(opts.findOne ?? (async () => null)),
   };
   const toast = { success: vi.fn(), error: vi.fn() };
   const onRefresh = vi.fn();
@@ -55,28 +53,8 @@ function harness(opts: {
 }
 
 describe('recordDelete.confirmText', () => {
-  it('asks the plain delete question for an ordinary record', () => {
-    expect(recordDelete.confirmText({ objectName: 'crm_lead', t }, { id: 'l1' })).toBe(
-      'objectActions.deleteConfirm',
-    );
-  });
-
-  it('asks the RESET question for a package-owned permission set (ADR-0094)', () => {
-    expect(
-      recordDelete.confirmText(
-        { objectName: 'sys_permission_set', t },
-        { id: 'ps1', managed_by: 'package' },
-      ),
-    ).toBe('objectActions.resetPackageSetConfirm');
-  });
-
-  it('keeps the plain question for an environment-owned permission set, or with no row', () => {
-    expect(
-      recordDelete.confirmText({ objectName: 'sys_permission_set', t }, { id: 'ps1', managed_by: 'user' }),
-    ).toBe('objectActions.deleteConfirm');
-    expect(recordDelete.confirmText({ objectName: 'sys_permission_set', t })).toBe(
-      'objectActions.deleteConfirm',
-    );
+  it('asks the plain delete question', () => {
+    expect(recordDelete.confirmText({ t })).toBe('objectActions.deleteConfirm');
   });
 });
 
@@ -85,8 +63,7 @@ describe('recordDelete.confirmText', () => {
  * names ONE record by the ADR-0079 resolver (reading the object's declared
  * `nameField` when the host hands the definition) plus the object label, or
  * counts a batch; the confirm button is the delete verb, never the generic
- * "Continue"; the body is `confirmText`'s question (the reset question for a
- * package-owned permission set).
+ * "Continue"; the body is `confirmText`'s question.
  */
 describe('recordDelete.confirmCopy (objectui#11695)', () => {
   const PRODUCT = {
@@ -122,15 +99,6 @@ describe('recordDelete.confirmCopy (objectui#11695)', () => {
       { record: { id: 'p9' } },
     );
     expect(copy.title).toBe('objectActions.deleteConfirmTitle {"label":"Product","name":"Record #p9"}');
-  });
-
-  it('keeps the ADR-0094 reset question as the body for a package-owned permission set', () => {
-    const copy = recordDelete.confirmCopy(
-      { objectName: 'sys_permission_set', t, label: 'Permission Set' },
-      { record: { id: 'ps1', name: 'Sales Rep', managed_by: 'package' } },
-    );
-    expect(copy.message).toBe('objectActions.resetPackageSetConfirm');
-    expect(copy.title).toBe('objectActions.deleteConfirmTitle {"label":"Permission Set","name":"Sales Rep"}');
   });
 
   it('counts a batch in the title and asks the batch question', () => {
@@ -226,51 +194,3 @@ describe('recordDelete.run — several records', () => {
   });
 });
 
-describe('recordDelete.run — ADR-0094 package-owned permission set', () => {
-  it('toasts the RESET when the row passed in is package-owned, without a lookup', async () => {
-    const { deps, dataSource, toast } = harness({ objectName: 'sys_permission_set' });
-    await recordDelete.run(deps, {
-      params: { recordId: 'ps1', record: { id: 'ps1', managed_by: 'package' } },
-    });
-
-    expect(dataSource.delete).toHaveBeenCalledWith('sys_permission_set', 'ps1');
-    expect(dataSource.findOne).not.toHaveBeenCalled();
-    expect(toast.success).toHaveBeenCalledWith('objectActions.resetPackageSetSuccess');
-  });
-
-  it('looks the row up with findOne when only the id is known, and toasts the reset', async () => {
-    const { deps, dataSource, toast } = harness({
-      objectName: 'sys_permission_set',
-      findOne: async () => ({ id: 'ps1', managed_by: 'package' }),
-    });
-    await recordDelete.run(deps, { params: { recordId: 'ps1' } });
-
-    expect(dataSource.findOne).toHaveBeenCalledWith('sys_permission_set', 'ps1');
-    expect(toast.success).toHaveBeenCalledWith('objectActions.resetPackageSetSuccess');
-  });
-
-  it('an environment-owned set, or a failed lookup, keeps the plain delete copy (control)', async () => {
-    const env = harness({ objectName: 'sys_permission_set' });
-    await recordDelete.run(env.deps, {
-      params: { recordId: 'ps1', record: { id: 'ps1', managed_by: 'user' } },
-    });
-    expect(env.toast.success).toHaveBeenCalledWith('objectActions.deleteSuccess {"label":"Lead"}');
-
-    const lost = harness({
-      objectName: 'sys_permission_set',
-      findOne: async () => {
-        throw new Error('lookup failed');
-      },
-    });
-    await recordDelete.run(lost.deps, { params: { recordId: 'ps1' } });
-    // Best-effort: the lookup failing does not block the delete.
-    expect(lost.dataSource.delete).toHaveBeenCalledWith('sys_permission_set', 'ps1');
-    expect(lost.toast.success).toHaveBeenCalledWith('objectActions.deleteSuccess {"label":"Lead"}');
-  });
-
-  it('an ordinary object is never looked up', async () => {
-    const { deps, dataSource } = harness();
-    await recordDelete.run(deps, { params: { recordId: 'l1' } });
-    expect(dataSource.findOne).not.toHaveBeenCalled();
-  });
-});

@@ -12,9 +12,8 @@
  *
  * `InlineFieldInput` used to special-case `field.widget ===
  * 'capability-multiselect'` and render `CapabilityMultiSelectField`. It was the
- * hint's ONLY surviving consumer: no producer stamps it (ADR-0056 P1 stamps
- * `permission-facet-link` on all six `sys_permission_set` facets, including
- * `system_permissions`), and `field:capability-multiselect` was registered only
+ * hint's ONLY surviving consumer: no producer stamps it, and
+ * `field:capability-multiselect` was registered only
  * on the docs-site-only `registerFields()` path, so the form path never resolved
  * it. Keeping one honoring surface for a name nothing emits and no form resolves
  * is the declared-vs-enforced split #3308 was filed about, inverted.
@@ -53,19 +52,5 @@ describe('InlineFieldInput — retired capability-multiselect hint (objectui#330
 
     // The value round-trips through the plain type renderer instead.
     expect(screen.getByDisplayValue(STORED)).toBeInTheDocument();
-  });
-
-  it('still honors permission-facet-link, the hint ADR-0056 P1 actually stamps', () => {
-    // Guards the removal from over-reaching: the sibling branch above the
-    // deleted one is the live one and must keep working.
-    render(
-      <InlineFieldInput
-        field={{ name: 'system_permissions', type: 'textarea', widget: 'permission-facet-link' } as any}
-        value={STORED}
-        onChange={vi.fn()}
-      />,
-    );
-    // The facet link is read-only — it must NOT hand back an editable input.
-    expect(screen.queryByDisplayValue(STORED)).toBeNull();
   });
 });

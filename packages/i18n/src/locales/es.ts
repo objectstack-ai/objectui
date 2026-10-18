@@ -33,33 +33,6 @@ const es = {
       other: 'Otro',
     },
   },
-  // objectui#3546 slice six — el resumen de solo lectura de las facetas de
-  // autorización de PermissionFacetLink. "pestaña" como en list.tabs.
-  perm: {
-    facet: {
-      none: "Ninguno",
-      more: "+{{count}} más",
-      objects: "{{count}} objetos",
-      objects_one: "{{count}} objeto",
-      objects_many: "{{count}} de objetos",
-      objects_other: "{{count}} objetos",
-      fields: "{{count}} reglas de campo",
-      fields_one: "{{count}} regla de campo",
-      fields_many: "{{count}} de reglas de campo",
-      fields_other: "{{count}} reglas de campo",
-      rls: "{{count}} políticas RLS",
-      rls_one: "{{count}} política RLS",
-      rls_many: "{{count}} de políticas RLS",
-      rls_other: "{{count}} políticas RLS",
-      tabs: "{{count}} reglas de pestaña",
-      tabs_one: "{{count}} regla de pestaña",
-      tabs_many: "{{count}} de reglas de pestaña",
-      tabs_other: "{{count}} reglas de pestaña",
-      adminScope: "Administración delegada configurada",
-      designInStudio: "Diseñar en Studio →",
-      designInStudioHint: "Diseñar en Studio",
-    },
-  },
   lookup: {
     recentlyUsed: 'Usados recientemente',
     allResults: 'Todos los resultados',
@@ -2978,8 +2951,6 @@ const es = {
     updateFailed: "No se pudo actualizar la navegación",
   },
   objectActions: {
-    resetPackageSetConfirm: "Este conjunto de permisos viene con un paquete instalado y no se puede eliminar. Al eliminarlo se restablece a la versión original del paquete y se descartan sus personalizaciones en este entorno. ¿Continuar?",
-    resetPackageSetSuccess: "Conjunto de permisos restablecido a la versión original del paquete",
     deleteSuccess: "{{label}} eliminado correctamente",
     deleteFailed: "No se pudo eliminar {{label}}",
     noRecordId: "No se proporcionó ID de registro",

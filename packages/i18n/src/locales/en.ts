@@ -39,39 +39,6 @@ const en = {
       view_all_audit_log: 'View All Audit Log',
     },
   },
-  // objectui#3546 slice six — the read-only facet summary + Studio deep-link a
-  // `sys_permission_set` record shows for its six authorization facets
-  // (ADR-0056 P1, plugin-detail's PermissionFacetLink).
-  //
-  // The four count labels are plural families. i18next looks up the ONE suffix
-  // a language's rules ask for, so every pack spells out every CLDR category its
-  // language selects (`en`: `_one`/`_other`; `ru` adds `_few`/`_many`, `ar`
-  // `_zero`/`_two`/`_few`/`_many` — objectui#11432); the BASE key (no suffix)
-  // answers a call made without a count. `all-locales-key-parity.test.ts`
-  // derives the required slots from `Intl.PluralRules`, and
-  // `perm-home-namespace-3546.test.tsx` renders every language at counts
-  // 1/2/3/5/11/21/100.
-  perm: {
-    facet: {
-      none: 'None',
-      more: '+{{count}} more',
-      objects: '{{count}} objects',
-      objects_one: '{{count}} object',
-      objects_other: '{{count}} objects',
-      fields: '{{count}} field rules',
-      fields_one: '{{count}} field rule',
-      fields_other: '{{count}} field rules',
-      rls: '{{count}} RLS policies',
-      rls_one: '{{count}} RLS policy',
-      rls_other: '{{count}} RLS policies',
-      tabs: '{{count}} tab rules',
-      tabs_one: '{{count}} tab rule',
-      tabs_other: '{{count}} tab rules',
-      adminScope: 'Delegated admin configured',
-      designInStudio: 'Design in Studio →',
-      designInStudioHint: 'Design in Studio',
-    },
-  },
   lookup: {
     recentlyUsed: 'Recently used',
     allResults: 'All results',
@@ -3591,10 +3558,6 @@ const en = {
     bulkDeleteConfirmTitle_one: 'Delete {{count}} {{label}} record?',
     bulkDeleteConfirmTitle_other: 'Delete {{count}} {{label}} records?',
     deleteConfirmButton: 'Delete',
-    resetPackageSetConfirm:
-      'This permission set ships with an installed package and cannot be removed. ' +
-      'Deleting resets it to the shipped baseline and discards your environment customization. Continue?',
-    resetPackageSetSuccess: 'Permission set reset to its shipped baseline',
     bulkDeleteSuccess: 'Deleted {{count}} {{label}} records',
     bulkDeleteSuccess_one: 'Deleted {{count}} {{label}} record',
     bulkDeleteSuccess_other: 'Deleted {{count}} {{label}} records',

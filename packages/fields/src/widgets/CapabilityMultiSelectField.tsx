@@ -8,11 +8,10 @@ import { useFieldTranslation } from './useFieldTranslation.js';
  * CapabilityMultiSelectField — structured picker for a permission set's
  * `system_permissions` (ADR-0056 / epic #2398, phase P2).
  *
- * `sys_permission_set.system_permissions` is framework-declared as a
- * `Field.textarea` that stores a **JSON-serialized array of capability names**
- * (e.g. `["setup.access","studio.access"]`; `security-plugin.ts` writes
- * `JSON.stringify(...)` and reads `parseJson(...)`). Editing that as raw JSON is
- * the anti-pattern ADR-0056 removes. This widget renders the same value as a
+ * The value is a **JSON-serialized array of capability names** (e.g.
+ * `["setup.access","studio.access"]`) — the matrix editor hands the set's
+ * `systemPermissions` over in that shape. Editing that as raw JSON is the
+ * anti-pattern ADR-0056 removes. This widget renders the same value as a
  * multi-select over the capability registry — grouped by scope, labelled, with
  * the capability description on hover — while round-tripping the stored value
  * **byte-for-byte** as a JSON string of names.
@@ -42,8 +41,7 @@ import { useFieldTranslation } from './useFieldTranslation.js';
  * put the capability editor. It is deliberately NOT reachable through the field
  * registry, and `widget: 'capability-multiselect'` is a **retired** hint: the
  * key only ever existed on the docs-site-only `registerFields()` path, nothing
- * ever stamped the hint (ADR-0056 P1 stamps `permission-facet-link` on all six
- * `sys_permission_set` facets), and it was removed under ADR-0049
+ * ever stamped the hint, and it was removed under ADR-0049
  * enforce-or-remove. Do not re-register it without re-deciding ADR-0056 P2 —
  * a field carrying that hint now degrades to its declared `type` renderer,
  * which is the defined behavior for an unregistered widget.

@@ -31,7 +31,6 @@ import {
   RETIRED_FIELD_TYPES,
   RetiredFieldTombstone,
 } from '@object-ui/fields';
-import { PermissionFacetLink } from './renderers/PermissionFacetLink';
 import { TEXTUAL_REF_FALLBACK_TYPES } from './fieldEnrichment';
 
 /**
@@ -259,7 +258,7 @@ export interface InlineFieldInputProps {
  * `DetailSection` so any record-level surface — the details body AND the
  * highlights strip (objectui#2407) — renders an identical editor. Covers every
  * widget the detail body handles: `SelectField`, `BooleanField`, `LookupField`,
- * `UserField`, the `permission-facet-link` read-only facet (#2403), the numeric
+ * `UserField`, the numeric
  * widgets (`NumberField` / `CurrencyField` / `PercentField`, objectui#2572), the
  * structured composites (`AddressField` / `LocationField` / `GeolocationField`,
  * objectui#4216 — their value is an OBJECT, so the text fallback both displayed
@@ -316,20 +315,12 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
   // matching the form path.
   //
   // TOMBSTONE (objectui#3308): a `capability-multiselect` branch used to sit
-  // below, rendering `CapabilityMultiSelectField` for that hint. The hint was
-  // retired under ADR-0049 enforce-or-remove — nothing ever stamped it (P1
-  // stamps `permission-facet-link` on all six `sys_permission_set` facets,
-  // including `system_permissions`) and its registry key only existed on the
-  // docs-site-only `registerFields()` path, so the form path never honored it.
-  // Keeping the branch would have left one surviving special case for a name no
-  // producer emits and no form resolves. The component itself is unaffected —
+  // here, rendering `CapabilityMultiSelectField` for that hint. The hint was
+  // retired under ADR-0049 enforce-or-remove — nothing ever stamped it and its
+  // registry key only existed on the docs-site-only `registerFields()` path, so
+  // the form path never honored it. The component itself is unaffected —
   // Studio's `PermissionMatrixEditor` renders it directly (P2).
-  const editWidget = (field as any).widget;
-  // Permission facets are designed in Studio, never edited in Setup — even in
-  // section edit mode they stay a read-only summary + deep-link.
-  if (editWidget === 'permission-facet-link') {
-    return <PermissionFacetLink value={value} field={field as any} />;
-  }
+  //
   // A RETIRED field-type spelling meets the SAME loud refusal here that the
   // record form gives it (objectui#4914, fast-follow to #4814's ruling A′).
   //

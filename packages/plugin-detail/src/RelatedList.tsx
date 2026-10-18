@@ -302,8 +302,8 @@ function resolveIconComponent(name: string | undefined): LucideIcon {
  *
  * Goes through the unified ADR-0079 resolver when the target object's schema
  * is available, so an object that declares its display name (e.g.
- * `sys_permission_set` with `nameField: 'label'`, whose `name` is the API
- * name) resolves to the same string the cell's own `useLookupName` fetch
+ * `nameField: 'label'`, whose `name` is the API name) resolves to the same
+ * string the cell's own `useLookupName` fetch
  * shows — the two used to disagree, making the column flash from the display
  * name to the API name once this batch map landed (objectui#3330). Falls back
  * to the legacy hard-coded chain when no schema reached us or the resolver
@@ -961,7 +961,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   // auto-derived multi-column layout, and type-aware cell rendering — without
   // it the dialog fell back to a single title-cased NAME column showing
   // machine names even though the page metadata declared `labelField: 'label'`
-  // (#3365: sys_position / sys_permission_set Add pickers).
+  // (#3365).
   const pickerObject = add?.picker?.object;
   const [pickerSchema, setPickerSchema] = React.useState<any>(null);
   React.useEffect(() => {

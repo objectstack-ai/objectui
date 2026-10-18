@@ -44,7 +44,7 @@ import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLoc
 // (objectui#5134).
 import { resolveI18nLabel as resolveInlineI18nLabel, normalizeFilterOperator, PaginationConfigSchema } from '@objectstack/spec/ui';
 import type { GroupingConfig, ListView as SpecListView } from '@objectstack/spec/ui';
-import { resolveInjectedSystemColumns } from '@objectstack/spec/data';
+import { resolveInjectedSystemColumns, resolveSearchFieldResolution, type SearchFieldMeta } from '@objectstack/spec/data';
 import { SystemFieldName } from '@objectstack/spec/system';
 import { usePermissions } from '@object-ui/permissions';
 
@@ -1238,6 +1238,52 @@ function kanbanCardFieldsFromView(columns: readonly unknown[], skip: ReadonlyArr
  * `SystemFieldName.OWNER_ID` names the field the platform injects for it. The
  * object definition has to declare that field too, or there is nothing to read.
  */
+/**
+ * Does a `search` on this object resolve to at least one field? (objectui#12966)
+ *
+ * The platform refuses a non-blank `search` over an object whose resolved
+ * search set is empty with `400 INVALID_FIELD` (`param: 'search'`) — a
+ * junction object of two lookups and a composed formula title is the common
+ * shape — so the toolbar does not offer a quick-search box there.
+ *
+ * The answer is the spec's `resolveSearchFieldResolution`, run over the inputs
+ * the engine gives it: the object's field map with every `internal: true`
+ * field left out (the engine never scans one) and the OBJECT's declared
+ * `searchableFields`. ⛔ No second list of searchable types lives here.
+ * `displayField` is not passed: it orders the auto-default set and never
+ * changes its membership. The record pickers ask the same question through
+ * `@object-ui/fields`' `objectResolvesSearch`, which is this function's twin.
+ *
+ * The VIEW's `searchableFields` is not an input: the toolbar sends it as the
+ * `$searchFields` override, which the server intersects with the set resolved
+ * here and refuses outside it, so it narrows a non-empty set and can never make
+ * an empty one searchable.
+ *
+ * `undefined` = the schema is not known (none, or no field map): the toolbar
+ * keeps the box, as it did before.
+ */
+function objectResolvesSearch(objectDef: unknown): boolean | undefined {
+  if (!objectDef || typeof objectDef !== 'object') return undefined;
+  const def = objectDef as { fields?: unknown; searchableFields?: unknown };
+  const raw = def.fields;
+  if (!raw || typeof raw !== 'object') return undefined;
+  // Keyed by name or an array of named definitions — the two shapes this file
+  // already reads `objectDef.fields` in.
+  const entries: Array<[unknown, unknown]> = Array.isArray(raw)
+    ? raw.map((f) => [(f as { name?: unknown } | null)?.name, f])
+    : Object.entries(raw as Record<string, unknown>);
+  const fields: Record<string, SearchFieldMeta> = {};
+  for (const [name, meta] of entries) {
+    if (typeof name !== 'string' || !meta || typeof meta !== 'object') continue;
+    if ((meta as { internal?: unknown }).internal === true) continue;
+    fields[name] = meta as SearchFieldMeta;
+  }
+  const searchableFields = Array.isArray(def.searchableFields)
+    ? def.searchableFields.filter((f): f is string => typeof f === 'string')
+    : undefined;
+  return resolveSearchFieldResolution({ fields, searchableFields }).allowed.length > 0;
+}
+
 function kanbanOwnerFieldOf(objectDef: any): string | undefined {
   if (!objectDef || typeof objectDef !== 'object') return undefined;
   if (!resolveInjectedSystemColumns(objectDef).owner) return undefined;
@@ -1593,6 +1639,28 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    */
   const searchlessViewOnScreen = currentView === 'tree' || currentView === 'chart';
 
+  // The object definition, read from the data source below ("Fetch object
+  // definition"). Declared here because the toolbar's search decision reads it.
+  const [objectDef, setObjectDef] = React.useState<any>(null);
+  const [objectDefLoaded, setObjectDefLoaded] = React.useState(false);
+
+  /**
+   * objectui#12966 — the object's `search` resolves to no field, so the server
+   * refuses any term with `400 INVALID_FIELD`: no quick-search box, and a term
+   * restored at mount or carried across a view switch is not applied, for the
+   * same two-readers reason as `searchlessViewOnScreen` above. Decided only
+   * from the definition (`objectResolvesSearch`); a definition the data source
+   * cannot serve keeps the box, as before.
+   *
+   * Until the definition is read the box is drawn, as before the card. On a
+   * searchless object it is withdrawn when the read lands; the list is in its
+   * loading state for that read anyway, since the data fetch waits on it.
+   */
+  const searchlessObject = React.useMemo(
+    () => objectResolvesSearch(objectDef) === false,
+    [objectDef],
+  );
+
   // Resolve toolbar visibility flags: userActions overrides showX flags
   const toolbarFlags = React.useMemo(() => {
     // Every toolbar toggle reads from `userActions` (#2890). The legacy bare
@@ -1621,7 +1689,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     const addRecordPlacement = resolveAddRecordPlacement(schema.addRecord?.position);
     return {
       // Not offered on `tree` or `chart`: see `searchlessViewOnScreen`.
-      showSearch: ua?.search !== false && !searchlessViewOnScreen,
+      // Nor on an object whose search resolves to no field: see `searchlessObject`.
+      showSearch: ua?.search !== false && !searchlessViewOnScreen && !searchlessObject,
       showSort: ua?.sort !== false,
       // Not offered on a dataset-bound chart: see `datasetChartOnScreen`.
       showFilters: ua?.filter !== false && !datasetChartOnScreen,
@@ -1642,7 +1711,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       showAddRecordTop: addRecordEnabled && addRecordPlacement.top,
       showAddRecordBottom: addRecordEnabled && addRecordPlacement.bottom,
     };
-  }, [schema.userActions, schema.compactToolbar, schema.addRecord, datasetChartOnScreen, searchlessViewOnScreen]);
+  }, [schema.userActions, schema.compactToolbar, schema.addRecord, datasetChartOnScreen, searchlessViewOnScreen, searchlessObject]);
 
   // What the user typed, or what the host restored at mount.
   const [searchInput, setSearchInput] = React.useState(() => initialSearchTerm ?? '');
@@ -1650,7 +1719,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // trigger. Empty on a view whose own query carries no term
   // (`searchlessViewOnScreen`, objectui#10326). A primitive, so each list that
   // names it re-runs on a switch into or out of such a view and on nothing else.
-  const searchTerm = searchlessViewOnScreen ? '' : searchInput;
+  const searchTerm = searchlessViewOnScreen || searchlessObject ? '' : searchInput;
   const [showSearchPopover, setShowSearchPopover] = React.useState(false);
   
   // Sort State
@@ -1726,6 +1795,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // objectui#4693 — lifted from this file so `RecordAttachmentsPanel` can
   // reuse the same "api-disabled is retry-invariant" verdict).
   const [loadErrorKind, setLoadErrorKind] = React.useState<LoadErrorKind>('network');
+  // objectui#12966 — the failure is the server refusing this request's search
+  // term (`INVALID_FIELD` on a request that carried `$search`). The panel then
+  // shows the server's own sentence, which names the object and the remedies,
+  // instead of the generic "query was rejected" copy.
+  const [loadErrorIsSearchRefusal, setLoadErrorIsSearchRefusal] = React.useState(false);
   // Start in loading state when we will fetch from a dataSource so the empty
   // state doesn't flash before the first effect runs. Inline data (schema.data
   // as an array or a `value` provider) starts as not-loading.
@@ -1741,8 +1815,6 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     }
     return true;
   });
-  const [objectDef, setObjectDef] = React.useState<any>(null);
-  const [objectDefLoaded, setObjectDefLoaded] = React.useState(false);
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [dataLimitReached, setDataLimitReached] = React.useState(false);
 
@@ -2818,6 +2890,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       
       setLoading(true);
       setLoadError(null);
+      setLoadErrorIsSearchRefusal(false);
       // [objectui#10384] Set when this result clamps the pager (see below).
       // The window it moves to is already being fetched, so loading stays on:
       // settling it here would paint the empty window — and with it the
@@ -3334,6 +3407,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           setData([]);
           setLoadError((err as any)?.message ? String((err as any).message) : String(err ?? 'Unknown error'));
           setLoadErrorKind(classifyLoadError(err));
+          setLoadErrorIsSearchRefusal(
+            // `searchTerm` is what put `$search` on this request's params.
+            !!searchTerm && (err as { code?: unknown } | null)?.code === 'INVALID_FIELD',
+          );
         }
       } finally {
         if (isMounted && requestId === fetchRequestIdRef.current && clampedToPage === null) {
@@ -6045,7 +6122,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                     : loadErrorKind === 'rejected' ? 'list.loadErrorRejectedTitle'
                       : 'list.loadErrorTitle',
             )}
-            message={t(
+            // A refused search term shows the server's sentence: it names the
+            // object and the two remedies, and clearing the term (the toolbar
+            // box stays) is the reader's way out (objectui#12966).
+            message={loadErrorIsSearchRefusal ? loadError : t(
               loadErrorKind === 'api-disabled' ? 'list.loadErrorApiDisabledMessage'
                 : loadErrorKind === 'forbidden' ? 'list.loadErrorForbiddenMessage'
                   : loadErrorKind === 'unauthorized' ? 'list.loadErrorUnauthorizedMessage'

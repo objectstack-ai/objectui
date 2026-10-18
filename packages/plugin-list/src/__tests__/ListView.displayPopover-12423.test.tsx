@@ -33,7 +33,12 @@ function makeDataSource() {
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
-    getObjectSchema: vi.fn().mockResolvedValue({ name: 'account', fields: {} }),
+    // `name` is declared so the object has a searchable field: an object with
+    // none draws no Search (objectui#12966), and this fixture offers every control.
+    getObjectSchema: vi.fn().mockResolvedValue({
+      name: 'account',
+      fields: { name: { name: 'name', type: 'text', label: 'Name' } },
+    }),
   };
 }
 

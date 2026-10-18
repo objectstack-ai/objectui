@@ -2115,6 +2115,15 @@ export function ChatPane({
     () => deriveBoundPackageId(runtimeMessages, editPackageId),
     [runtimeMessages, editPackageId],
   );
+  // objectui#12965 — is this pane on one of its bound package's own Studio
+  // pillars, i.e. hosted by that package's Studio copilot? The same reading the
+  // applied card's review door makes (`reviewDrafts` above): the target
+  // replaces the entry exactly when the location is already on that package's
+  // Studio pillar. The full-page chat (`/ai/...`) and the console dock
+  // (`/apps/...`) are never on one.
+  const onBoundPackageStudio = boundPackageId
+    ? studioChangesReviewTarget(boundPackageId, location).replace
+    : false;
   const boundPackageLabel = useMemo(() => {
     if (!boundPackageId) return undefined;
     const app = (metadataApps ?? []).find(
@@ -2494,8 +2503,14 @@ export function ChatPane({
           the composer while the bound package has pending drafts, so the
           publish entry point survives scrolling (the inline card button does
           not). Same float idiom as ExcelImportBar above; renders nothing when
-          the count is 0 or the conversation is unbound. */}
-      {isBuildSurface ? (
+          the count is 0 or the conversation is unbound.
+          objectui#12965 — not drawn in the package's own Studio. In the
+          copilot's right slot it floated over the composer's input line and
+          hid the placeholder, and there the Studio top bar's 变更 and 发布 and
+          the applied card's 查看变更并发布 are the ways to review and publish
+          (objectui#12725's ruled artboard draws no bar). The full-page chat
+          and the console dock keep it as it is. */}
+      {isBuildSurface && !onBoundPackageStudio ? (
         <div className="pointer-events-none absolute bottom-20 left-0 right-0 z-20 flex justify-center px-4">
           <PendingDraftsBar packageId={boundPackageId} idle={!isLoading} />
         </div>

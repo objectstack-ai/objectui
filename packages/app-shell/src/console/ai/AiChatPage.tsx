@@ -78,6 +78,7 @@ import {
   detectRecordHandoff,
   detectProposedChanges,
   detectReplayOutcome,
+  detectAuthoringVerdict,
   detectBuiltAppPackage,
   detectPendingApproval,
   buildProgressFromDraftReview,
@@ -132,6 +133,7 @@ import { chatConversationScope, chatProductOfAgent } from '../../hooks/chatScope
 import { ConversationsSidebar } from './ConversationsSidebar.js';
 import { LiveCanvas } from './LiveCanvas.js';
 import { artifactStudioPath } from './artifactStudioPath.js';
+import { studioChangesReviewTarget } from '../../views/studio-design/studioChangesLink.js';
 import { BuildDebugDrawer } from './BuildDebugDrawer.js';
 import { isConversationZh } from './conversationLanguage.js';
 import { resolveOutboundAgentText, type OutboundAgentTextKey } from './outboundAgentText.js';
@@ -1726,6 +1728,21 @@ export function ChatPane({
     [navigate],
   );
 
+  // objectui#12894 — 查看变更并发布 on the applied card of a change the copilot
+  // saved as a draft (cloud#2924): open Studio's 变更 drawer for the package
+  // through its one declared way in, `?changes=review` (`studioChangesLink.ts`).
+  // Inside that package's Studio (the copilot) the param goes onto the current
+  // location, so the surface stays mounted; anywhere else (this full page, the
+  // console dock) the link opens the package's Studio with the drawer open.
+  const location = useLocation();
+  const reviewDrafts = useCallback(
+    (packageId: string) => {
+      const target = studioChangesReviewTarget(packageId, location);
+      navigate(target.to, { replace: target.replace });
+    },
+    [navigate, location],
+  );
+
   // ── ADR-0037 Live Canvas ────────────────────────────────────────────────
   // When a build session drafts an `app`, open the split-view canvas: the
   // drafted app rendered as-if-published (`?preview=draft`) beside the chat.
@@ -1749,6 +1766,32 @@ export function ChatPane({
   // from (into a built object) via ExcelImportBar. Set when a sheet is sent,
   // cleared on import/dismiss. `dataSource` drives the wizard's schema + import.
   const dataSource = useAdapter();
+  // objectui#12894 — 撤销 on the same applied card: `POST
+  // /packages/:id/discard-drafts`, which drops EVERY pending draft of the
+  // package (the card asks first when others are pending). Through the SDK
+  // client the console's adapter holds — `packages.discardDrafts`, typed by the
+  // spec's `DiscardPackageDraftsResponse` — rather than a second bare fetch of
+  // the route. A draft the server could not drop is a failure the card shows,
+  // with the server's reason. Either way every pending-drafts surface re-reads
+  // on the assistant bus's pulse, Studio's 变更 badge among them.
+  const discardDrafts = useCallback(
+    async (packageId: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!dataSource) return { ok: false };
+      try {
+        const result = await dataSource.getClient().packages.discardDrafts(packageId);
+        if (!result.success || result.failedCount > 0) {
+          const reasons = result.failed.map((f) => `${f.type}/${f.name}: ${f.error}`).join('\n');
+          return { ok: false, ...(reasons ? { error: reasons } : {}) };
+        }
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, ...(e instanceof Error && e.message ? { error: e.message } : {}) };
+      } finally {
+        emitMetadataRefresh();
+      }
+    },
+    [dataSource],
+  );
   const [pendingSheet, setPendingSheet] = useState<File | null>(null);
   const canvasTimerRef = useRef<number | null>(null);
   useEffect(() => () => {
@@ -2188,12 +2231,22 @@ export function ChatPane({
   // message: a streamed message is re-mapped on every chunk, and a tool part
   // without a `toolCallId` is given a fresh random one each time. The results
   // already in the thread when this pane mounts are history, not a landing.
+  //
+  // A `status: 'published'` result that is not a confirm-replay carries
+  // neither: the chat lifts `draftReview` for `drafted` only and
+  // `replayOutcome` for `replay_` ids only. Cloud's `maybeAutoPublish`
+  // publishes in the turn and rewrites the tool's envelope to it, promoting
+  // EVERY pending draft of the package, so the badge must re-read on it too
+  // (objectui#12725). `detectAuthoringVerdict` is the chat package's one
+  // reader of the authoring envelope, whatever its posture.
   const announcedAuthoringRef = useRef<Set<string> | null>(null);
   useEffect(() => {
     const authored: string[] = [];
     for (const message of messages) {
       (message.toolInvocations ?? []).forEach((tool, index) => {
-        if (tool.draftReview || tool.replayOutcome) authored.push(`${message.id}#${index}`);
+        if (tool.draftReview || tool.replayOutcome || detectAuthoringVerdict(tool.result)) {
+          authored.push(`${message.id}#${index}`);
+        }
       });
     }
     const announced = announcedAuthoringRef.current;
@@ -2447,12 +2500,20 @@ export function ChatPane({
           <PendingDraftsBar packageId={boundPackageId} idle={!isLoading} />
         </div>
       ) : null}
+      {/* objectui#12725 — `min-w-0`: the column is a flex item, and a flex
+          item's automatic minimum width is its content's min-content width.
+          A tool card's one-line summary (`truncate`, nowrap) contributes its
+          whole text to that, so the column outgrew the Studio copilot's
+          300 px slot at a 1010 px window and the share button, the bubbles'
+          ends and the send button were cut (a one-off reading, on
+          objectui#12725). Bounded by its parent, the column follows the slot
+          and the summary truncates as it was written to. */}
       <div
         data-chat-column
         className={
           desktopSplit
             ? 'flex min-h-0 shrink-0 justify-center'
-            : 'flex min-h-0 flex-1 justify-center'
+            : 'flex min-h-0 min-w-0 flex-1 justify-center'
         }
         style={desktopSplit ? { width: split.width } : undefined}
       >
@@ -2688,6 +2749,11 @@ export function ChatPane({
             return false;
           }
         }}
+        // objectui#12894 — the applied card's two doors (handlers above). With
+        // the review door wired, the card offers 查看变更并发布 in place of its
+        // inline Publish; 撤销 is drawn only while the adapter is up.
+        onReviewDrafts={reviewDrafts}
+        onDiscardDrafts={dataSource ? discardDrafts : undefined}
         publishDraftsLabel={t('console.ai.publishDrafts', { defaultValue: 'Publish' })}
         publishedLabel={t('console.ai.published', { defaultValue: 'Published' })}
         nextStepsLabel={t('console.ai.nextSteps', { defaultValue: "What's next" })}

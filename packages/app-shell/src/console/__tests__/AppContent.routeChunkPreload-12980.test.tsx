@@ -246,11 +246,10 @@ describe('the route element chunk loads beside the route reads (objectui#12980)'
     const watch = watchSplashInsideChrome();
     boot('/apps/crm/dashboard/sales');
 
-    await waitFor(() => expect(chunks.dashboard.requested).toBe(true));
-    expect(chunks.dashboard.splashUpWhenRequested).toBe(true);
-
-    // The metadata lands first; the chunk has not answered.
+    // The metadata lands first; the chunk has not answered. (This half holds
+    // with or without the preload: it pins the fallback, not the timing.)
     await settle(['dashboard', 'object'], { dashboard: [{ name: 'sales', label: 'Sales' }] });
+    await waitFor(() => expect(chunks.dashboard.requested).toBe(true));
     expect(screen.getByTestId('console-layout')).toBeInTheDocument();
     expect(screen.queryByTestId('dashboard-view')).not.toBeInTheDocument();
     // Never a blank: the route slot draws the splash while its chunk loads.

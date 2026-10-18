@@ -447,6 +447,22 @@ export interface ListViewProps {
    */
   defaultRowNumbers?: boolean;
   /**
+   * The VIEW'S OWN hidden fields and row height, for a host that lays the
+   * user's own preference over them in `schema` (objectui#12949). The Display
+   * control's trigger count and its "Reset to view default" compare these two
+   * settings against this value rather than against `schema`, and the reset
+   * hands it back through the same doors the controls write through
+   * (`onHiddenFieldsChange`, `schema.onDensityChange`), so the user's
+   * preference follows.
+   *
+   * When it is passed, its members are the whole baseline: an absent
+   * `hiddenFields` means the view hides nothing, an absent `rowHeight` means
+   * the view's default density. Absent ⇒ `schema` is the view's own, exactly
+   * as before. A HOST prop, never a schema key: it is the host's split of one
+   * composed value into its two sources, nothing an author writes.
+   */
+  viewDefaults?: Pick<ListViewSchema, 'hiddenFields' | 'rowHeight'>;
+  /**
    * Draw the COMPACT posture (objectui#12703): a header with the list's title
    * and record count over two-line rows (the view's first visible column, its
    * second muted below), and none of the toolbar, view tabs, row-number column,
@@ -1451,6 +1467,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   toolbarLeading,
   defaultRowNumbers = true,
   compact = false,
+  viewDefaults,
   ...props
 }: ListViewProps & { [key: string]: any }, ref) => {
   // The switcher can be enabled either by the host component (prop) or by
@@ -5018,23 +5035,35 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   /**
    * objectui#12423 — what the Display control counts on its trigger and what
    * its "Reset to view default" hands back: each setting it offers whose value
-   * differs from the one this list was handed in `schema` (the view's own, as
-   * the host composed it). A setting the host persists back into the view
-   * (density and hidden fields in the console) stops counting once the write
-   * comes back, because the view's own value has moved with it. Plain
-   * per-render values, never memo identities (AGENTS.md #10).
+   * differs from the VIEW'S OWN. For most settings that is the value this list
+   * was handed in `schema`.
+   *
+   * objectui#12949 — hidden fields and density are the exception wherever a
+   * host persists them as the USER'S preference (the console, since
+   * objectui#12474): it lays that preference over the view's value in
+   * `schema`, so `schema` there is the user's own choice, and a comparison
+   * against it reads "nothing to reset" straight after a reload. Such a host
+   * hands the view's own value in `viewDefaults`, and these two settings
+   * compare against that; the reset writes it through the controls' doors, so
+   * the user's preference follows. Without `viewDefaults`, `schema` is the
+   * view's own. Plain per-render values, never memo identities (AGENTS.md #10).
    */
   const authoredGalleryCardSize: GalleryCardSize = (schema.gallery?.cardSize as GalleryCardSize | undefined) ?? 'medium';
+  const viewDefaultHiddenFields = viewDefaults ? viewDefaults.hiddenFields : schema.hiddenFields;
+  // The same resolution `resolvedDensity` applies to `schema.rowHeight`.
+  const viewDefaultDensity = viewDefaults
+    ? rowHeightToDensityMode(viewDefaults.rowHeight) ?? 'compact'
+    : resolvedDensity;
   const sortedNames = (names: Iterable<string> | undefined) => JSON.stringify([...(names ?? [])].sort());
   const displayDeviation = {
     layout: viewSwitcherOffered && !!schema.viewType && currentView !== schema.viewType,
     group: toolbarFlags.showGroup
       && JSON.stringify(groupingConfig?.fields ?? []) !== JSON.stringify(initialGroupingConfig?.fields ?? []),
     color: toolbarFlags.showColor && (rowColorConfig?.field ?? '') !== (schema.rowColor?.field ?? ''),
-    hiddenFields: toolbarFlags.showHideFields && sortedNames(hiddenFields) !== sortedNames(schema.hiddenFields),
+    hiddenFields: toolbarFlags.showHideFields && sortedNames(hiddenFields) !== sortedNames(viewDefaultHiddenFields),
     density: toolbarFlags.showDensity && (currentView === 'gallery'
       ? galleryCardSize !== authoredGalleryCardSize
-      : density.mode !== resolvedDensity),
+      : density.mode !== viewDefaultDensity),
     rowNumbers: currentView === 'grid' && rowNumbers !== defaultRowNumbers,
     inlineEdit: currentView === 'grid' && inlineEditOffered && inlineEdit !== !!schema.inlineEdit,
   };
@@ -5044,13 +5073,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     if (displayDeviation.layout) handleViewChange(schema.viewType as ListViewVisualization);
     if (displayDeviation.group) changeGrouping(initialGroupingConfig);
     if (displayDeviation.color) setRowColorConfig(schema.rowColor);
-    if (displayDeviation.hiddenFields) updateHiddenFields(new Set(schema.hiddenFields || []));
+    if (displayDeviation.hiddenFields) updateHiddenFields(new Set(viewDefaultHiddenFields || []));
     if (displayDeviation.density) {
       if (currentView === 'gallery') {
         setGalleryCardSize(authoredGalleryCardSize);
         try { window.localStorage.setItem(galleryDensityKey, authoredGalleryCardSize); } catch { /* private mode */ }
       } else {
-        density.setMode(resolvedDensity);
+        density.setMode(viewDefaultDensity);
       }
     }
     if (displayDeviation.rowNumbers) setRowNumbers(defaultRowNumbers);

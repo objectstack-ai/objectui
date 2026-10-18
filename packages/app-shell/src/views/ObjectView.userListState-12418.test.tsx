@@ -42,6 +42,10 @@
  *   6b. objectui#12505 — on a SAVED view that declares no `columns`, a Hide
  *      Fields change is stored the same way and applied over the drawn
  *      defaults; another user sees the defaults; "Reset view" drops it.
+ *   6c. objectui#12949 — the list is handed the view's own density and
+ *      hidden fields in `viewDefaults`, beside the user's in `schema`, so
+ *      its Display reset compares against the view; on an unprojected saved
+ *      view the view hides nothing.
  *   7. CONTROL — no provider (a host without the console shell): the state is
  *      this browser's, as the tab order and filters were before; a sort still
  *      writes no view; the older `viewOrder:<object>` key is still honoured.
@@ -674,6 +678,71 @@ describe('on a saved view that declares no `columns`, the hidden fields are the 
     expect(viewWrites(ds)).toBe(0);
     expect(family.save).toHaveBeenCalledWith(LIST_KEY, { perView: { [SAVED_ID]: { hiddenFields: ['name'] } } });
     expect(listProps.schema.hiddenFields).toEqual(['name']);
+  });
+});
+
+describe('the list is handed the view\'s own density and hidden fields beside the user\'s (objectui#12949)', () => {
+  /** A stored choice that differs from the view's on both settings. */
+  const STORED = {
+    [LIST_KEY]: { perView: { [SYSTEM_ID]: { rowHeight: 'compact', hiddenFields: ['name'] } } },
+  };
+
+  it('after a reload, `schema` carries the user\'s choice and `viewDefaults` the view\'s own', async () => {
+    const ds = makeDataSource();
+    const { family, release } = makeFamily(structuredClone(STORED), { held: true });
+    mountWithFamily(ds, family);
+    await screen.findByTestId('object-view-list-preferences-pending');
+    await act(async () => release());
+    await listReady();
+
+    expect(listProps.schema.rowHeight).toBe('compact');
+    expect(listProps.schema.hiddenFields).toEqual(['name']);
+    expect(listProps.viewDefaults).toEqual({ hiddenFields: AUTHORED_HIDDEN, rowHeight: AUTHORED_ROW_HEIGHT });
+  });
+
+  it('the list\'s reset writes the view\'s own through the controls\' doors, and it lands as the user\'s choice', async () => {
+    const ds = makeDataSource();
+    const { family } = makeFamily(structuredClone(STORED));
+    mountWithFamily(ds, family);
+    await listReady();
+
+    act(() => {
+      listProps.onHiddenFieldsChange(listProps.viewDefaults.hiddenFields);
+      listProps.schema.onDensityChange('spacious');
+    });
+    await wait(700);
+
+    expect(viewWrites(ds)).toBe(0);
+    expect(family.save).toHaveBeenCalledTimes(1);
+    expect(family.save).toHaveBeenCalledWith(LIST_KEY, {
+      perView: { [SYSTEM_ID]: { rowHeight: AUTHORED_ROW_HEIGHT, hiddenFields: AUTHORED_HIDDEN } },
+    });
+    expect(listProps.schema.rowHeight).toBe(AUTHORED_ROW_HEIGHT);
+    expect(listProps.schema.hiddenFields).toEqual(AUTHORED_HIDDEN);
+    expect(listProps.viewDefaults).toEqual({ hiddenFields: AUTHORED_HIDDEN, rowHeight: AUTHORED_ROW_HEIGHT });
+  });
+
+  it('CONTROL: another user, with no state of their own, is handed the same value twice', async () => {
+    session.userId = 'u2';
+    const ds = makeDataSource();
+    const { family } = makeFamily({});
+    mountWithFamily(ds, family);
+    await listReady();
+
+    expect(listProps.schema.hiddenFields).toEqual(AUTHORED_HIDDEN);
+    expect(listProps.schema.rowHeight).toBe(AUTHORED_ROW_HEIGHT);
+    expect(listProps.viewDefaults).toEqual({ hiddenFields: listProps.schema.hiddenFields, rowHeight: listProps.schema.rowHeight });
+  });
+
+  it('on a saved view that declares no `columns`, the view hides nothing: its authored key stays unapplied (objectui#12505)', async () => {
+    const UNPROJECTED_SAVED_ROW = { name: SAVED_ID, object: OBJECT_NAME, label: 'Pipeline', type: 'grid', hiddenFields: ['name'] };
+    const ds = makeDataSource(UNPROJECTED_SAVED_ROW);
+    const { family } = makeFamily({ [LIST_KEY]: { perView: { [SAVED_ID]: { hiddenFields: ['amount'] } } } });
+    mountWithFamily(ds, family, SAVED_ID);
+    await listReady();
+
+    expect(listProps.schema.hiddenFields).toEqual(['amount']);
+    expect(listProps.viewDefaults.hiddenFields).toBeUndefined();
   });
 });
 

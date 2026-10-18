@@ -3162,6 +3162,23 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             listPrefs.patchView(viewDef.id, { hiddenFields: hidden });
         };
 
+        /**
+         * objectui#12949 — the VIEW'S OWN density and hidden fields, before
+         * this user's preference (objectui#12474) is laid over them by the
+         * `rowHeight` and `hiddenFields` rungs below. `ListView` reads these
+         * through its `viewDefaults` prop: the Display control's count and its
+         * "Reset to view default" compare the user's list against the view's,
+         * not against the user's own stored choice. On a view that declares no
+         * `columns` the view's authored `hiddenFields` is never applied
+         * (objectui#10694, objectui#12505), so the view hides nothing there.
+         */
+        const viewRowHeight: ListViewSchema['rowHeight'] =
+            (normalizeListViewSchema(viewDef ?? {}) as Pick<ListViewSchema, 'rowHeight'>).rowHeight
+            ?? listSchema.rowHeight;
+        const viewHiddenFields: ListViewSchema['hiddenFields'] = activeViewDeclaresColumns
+            ? ((viewDef as any).hiddenFields ?? listSchema.hiddenFields)
+            : undefined;
+
 
         /**
          * ⚠️ THE RELAY. Every key below is a rung carrying the ACTIVE VIEW's
@@ -3221,10 +3238,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             // here as `rowHeight`, and this relay never names the retired key.
             // objectui#12474 — the density this user chose is laid over it:
             // the view's own is the default for a user who has not chosen.
-            rowHeight:
-                viewPref?.rowHeight
-                ?? (normalizeListViewSchema(viewDef ?? {}) as Pick<ListViewSchema, 'rowHeight'>).rowHeight
-                ?? listSchema.rowHeight,
+            rowHeight: viewPref?.rowHeight ?? viewRowHeight,
             // Hydrate the persisted settings so they survive reload. The sort
             // and the column layout (objectui#12418), the density and the
             // hidden fields (objectui#12474) are the USER's: they are read
@@ -3280,7 +3294,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             hiddenFields: activeViewDeclaresColumns
                 // objectui#12474 — this user's own hidden fields over the
                 // view's (a subtraction from the same `columns`).
-                ? (viewPref?.hiddenFields ?? (viewDef as any).hiddenFields ?? listSchema.hiddenFields)
+                ? (viewPref?.hiddenFields ?? viewHiddenFields)
                 // objectui#12505 — on an unprojected SAVED view, this user's
                 // own list alone, subtracted from the drawn defaults; the
                 // view's authored key stays unapplied, as above. See
@@ -3617,6 +3631,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             <ListView
                 key={identityKey}
                 schema={fullSchema}
+                // objectui#12949 — the view's own values under the user's
+                // preference, for the Display control's reset and count.
+                viewDefaults={{ hiddenFields: viewHiddenFields, rowHeight: viewRowHeight }}
                 className={className}
                 onEdit={editHandler}
                 onDelete={(record: any) => {

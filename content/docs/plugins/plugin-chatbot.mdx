@@ -416,6 +416,24 @@ turn) reads `checklist`: a passed/total chip, the verified lines in two
 columns, and the app and package that "Open app" and "View in Studio" open.
 A result without those keys keeps the simpler rows the cards drew before.
 
+The change card (a `changes_proposed` result) draws what the copilot's tools
+say about how a change will land. When the result carries a `posture`, the
+card is headed "Change plan · N changes" and draws one row per change: a
+symbol for add, change or remove, the kind (field, view, object), the
+`object · field` it touches, and its type and parameters in small type. A
+change to an app that is live and holds records (`posture.mode: 'draft'`) is
+saved as a Studio draft: the card's note says so in amber, and the primary
+button reads "Save as draft" when `primaryAction` is `save_draft` (the message
+it sends is still `changesConfirmMessage`). Once applied, the card shows the
+result's `appliedCard` title and lines, "Review changes and publish" through
+`onReviewDrafts(packageId)`, and "Undo" through `onDiscardDrafts(packageId)`.
+Undo is meant for `POST /api/v1/packages/:id/discard-drafts`, which discards
+every pending draft of the package, so the card asks first whenever other
+drafts are pending: it reads `draftState.others` from the result, and the live
+count from `fetchPendingDraftCount` when the host provides one. A host without
+`onReviewDrafts` keeps the inline Publish button; a result without these keys
+draws the card as before.
+
 Use `surface="plain"` for full-page chat workspaces where the surrounding app
 already provides navigation chrome. The default `surface="card"` remains a
 better fit for embedded dashboards, side panels, and floating chat windows.

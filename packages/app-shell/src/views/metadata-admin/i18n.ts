@@ -2909,6 +2909,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.held.publish': 'Not published: {clause}, so that change is not saved yet. Finish it, then publish.',
   'engine.studio.held.inputHint': 'Required. Changes are saved once this has a value.',
   'engine.studio.unpublishedDraft': 'Unpublished draft',
+  // objectui#12725 — the item header's draft line: this item has a pending
+  // draft, and {count} is the package's pending count (the Changes badge's).
+  'engine.studio.itemDraftPending': 'Draft · {count} unpublished',
+  'engine.studio.itemDraftPendingTitle':
+    'This item has an unpublished draft. The package has {count} unpublished change(s); Publish puts them live together.',
   'engine.studio.unpublished': 'Unpublished',
   'engine.studio.new': 'New',
   'engine.studio.edit': 'Edit',
@@ -6267,6 +6272,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.held.publish': '未发布：{clause}，该更改尚未保存。请先补全，再发布。',
   'engine.studio.held.inputHint': '必填。填写后才会保存更改。',
   'engine.studio.unpublishedDraft': '未发布草稿',
+  'engine.studio.itemDraftPending': '草稿 · {count} 项未发布',
+  'engine.studio.itemDraftPendingTitle': '此项有未发布的草稿。本包共有 {count} 项未发布的更改，发布时一起生效。',
   'engine.studio.unpublished': '未发布',
   'engine.studio.new': '新建',
   'engine.studio.edit': '编辑',

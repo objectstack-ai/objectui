@@ -63,6 +63,11 @@ import {
   useStudioTabRowFold,
   type StudioItemStatus,
 } from './StudioItemHeader.js';
+import {
+  StudioPendingDraftsContext,
+  useStudioItemDraftStatus,
+  type StudioPendingDrafts,
+} from './studioItemDraftStatus.js';
 import { overlayPath, packagedAutomationPath } from './BuilderLanding.js';
 import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
 import { StudioRail, StudioRailGroup, StudioRailRow } from './StudioRail.js';
@@ -1507,6 +1512,17 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   }, []);
   const shownPendingCount = behindSave ? Math.max(pendingCount ?? 0, 1) : pendingCount;
   const hasPending = (shownPendingCount ?? 0) > 0;
+  // objectui#12725 — the same ledger and number, for the pillars' item headers
+  // (「草稿 · N 项未发布」): the rows the count above counts, so the package-less
+  // scope offers its org-scope flow drafts only.
+  const pillarPendingDrafts = React.useMemo<StudioPendingDrafts>(
+    () => ({
+      count: shownPendingCount,
+      entries: packageId !== null ? pendingEntries : pendingEntries.filter(isOrgScopeDraft),
+      behindSave,
+    }),
+    [shownPendingCount, packageId, pendingEntries, behindSave],
+  );
   const publishNoneReasonId = React.useId();
   const publishReadOnlyReasonId = React.useId();
 
@@ -2005,6 +2021,9 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
           )}
 
           <div className="min-h-0 flex-1">
+            {/* objectui#12725 — the pillars' item headers read the ledger the
+                badge counts (`studioItemDraftStatus.ts`). */}
+            <StudioPendingDraftsContext.Provider value={pillarPendingDrafts}>
             {/* objectui#11272 — Data and Automations are keyed by package too,
                 for the reason written at `InterfacesPillar` below. Unkeyed,
                 each list effect kept the open item (it keeps the current one
@@ -2088,6 +2107,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 />
               </DraftTargetLabels.Provider>
             )}
+            </StudioPendingDraftsContext.Provider>
           </div>
         </div>
 
@@ -3873,6 +3893,12 @@ export function InterfacesPillar({
   // Only the open leaf's own buffer is held (objectui#11272).
   const leafHeld = draftLoaded ? leafIncomplete : null;
   useHeldEditReport(onHeldEditChange, leafHeld?.clause ?? null);
+  // objectui#12725 — the header's draft line reads the badge's ledger.
+  const leafDraftStatus = useStudioItemDraftStatus(
+    current ? { type: current.type, name: current.name } : null,
+    hasDraft && draftLoaded,
+    locale,
+  );
 
   // objectui#11823 — an `object` leaf's list view: the third buffer, edited in
   // the Properties panel and shown on the canvas, autosaved to the package
@@ -4463,7 +4489,7 @@ export function InterfacesPillar({
       }
       // objectui#12524 — the draft status sits after the kind chip, as in
       // every pillar; the right slot holds actions only.
-      status={hasDraft && draftLoaded ? { label: t('engine.studio.unpublishedDraft', locale) } : undefined}
+      status={leafDraftStatus}
       actions={
         <>
           {/* objectui#5813 — drafts auto-save; the spinner is the affordance. */}
@@ -5903,6 +5929,12 @@ export function DataPillar({
   // Only the open object's own buffer is held (objectui#11272).
   const objHeld = objLoaded ? objIncomplete : null;
   useHeldEditReport(onHeldEditChange, objHeld?.clause ?? null);
+  // objectui#12725 — the header's draft line reads the badge's ledger.
+  const objDraftStatus = useStudioItemDraftStatus(
+    current ? { type: 'object', name: current.name } : null,
+    hasDraft && objLoaded,
+    locale,
+  );
 
   // "+ add field": append a field with the label and type the Add field
   // popover asked for (objectui#12516) and select it for editing in the panel.
@@ -6195,7 +6227,7 @@ export function DataPillar({
             titleProps={current ? undefined : { className: 'text-[13px] font-normal text-muted-foreground' }}
             apiName={current?.name}
             meta={current && objLoaded ? tFormat('engine.studio.data.fieldCount', locale, { count: fieldCount }) : undefined}
-            status={hasDraft && objLoaded ? { label: t('engine.studio.unpublishedDraft', locale) } : undefined}
+            status={objDraftStatus}
             actions={
               <>
                 {/* objectui#5813 — drafts auto-save (see useDraftAutoSave above); the
@@ -7404,6 +7436,12 @@ export function AutomationsPillar({
   // Only the open flow's own buffer is held (objectui#11272).
   const flowHeld = flowLoaded ? flowIncomplete : null;
   useHeldEditReport(onHeldEditChange, flowHeld?.clause ?? null);
+  // objectui#12725 — the header's draft line reads the badge's ledger.
+  const flowDraftStatus = useStudioItemDraftStatus(
+    current ? { type: 'flow', name: current.name } : null,
+    hasDraft && flowLoaded,
+    locale,
+  );
 
   // Enable/disable persists via the flow's deployment `status` (active = on,
   // obsolete = off) — the engine honors it on the next publish. The switch flips
@@ -7870,7 +7908,7 @@ export function AutomationsPillar({
                 <span className="hidden 2xl:inline">{t('engine.studio.auto.designersMissing', locale)}</span>
               )
             }
-            status={hasDraft && flowLoaded ? { label: t('engine.studio.unpublishedDraft', locale) } : undefined}
+            status={flowDraftStatus}
             actions={
               <>
                 {/* objectui#5813 — drafts auto-save; the spinner is the affordance. */}

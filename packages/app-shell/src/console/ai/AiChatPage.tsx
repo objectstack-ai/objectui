@@ -2170,25 +2170,45 @@ export function ChatPane({
     onPackageBound?.(builtPackageId);
   }, [isBuildSurface, isLoading, canBind, builtPackageId, onPackageBound]);
 
-  // objectui#5801 — when a turn that STAGED or PUBLISHED something finishes,
-  // announce it on the bus so every pending-drafts surface (Studio topbar,
-  // home banner, the bar above this pane) converges immediately — previously
-  // an agent-staged draft lit only the chat bar (its own idle refetch) while
-  // the Studio topbar count stayed dark until a manual draft save. Precise on
-  // purpose: only turns whose tools carried an authoring envelope emit, so an
-  // ordinary Q&A turn does not trigger an env-wide registry refetch.
-  const lastAuthoringEmitRef = useRef<string | undefined>(undefined);
+  // objectui#5801 — when a tool STAGES or PUBLISHES something, announce it on
+  // the bus so every pending-drafts surface (Studio topbar, home banner, the
+  // bar above this pane) converges immediately — previously an agent-staged
+  // draft lit only the chat bar (its own idle refetch) while the Studio topbar
+  // count stayed dark until a manual draft save. Precise on purpose: only tool
+  // results that carry an authoring envelope emit (a drafted result's
+  // `draftReview`, or a confirm-replay's `replayOutcome`), so an ordinary Q&A
+  // turn does not trigger an env-wide registry refetch.
+  //
+  // objectui#12725 — announced the moment each result LANDS, not when its turn
+  // ends. The draft is written before the tool answers (the envelope's own
+  // `draftState` is read after that write), so the Studio 变更 badge can
+  // count it while the agent is still narrating; waiting for the stream to
+  // finish left the badge behind the chat card by the whole narration. Each
+  // result is announced once, keyed by its message and its position in that
+  // message: a streamed message is re-mapped on every chunk, and a tool part
+  // without a `toolCallId` is given a fresh random one each time. The results
+  // already in the thread when this pane mounts are history, not a landing.
+  const announcedAuthoringRef = useRef<Set<string> | null>(null);
   useEffect(() => {
-    if (isLoading) return;
-    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
-    if (!lastAssistant || lastAssistant.id === lastAuthoringEmitRef.current) return;
-    const authored = (lastAssistant.toolInvocations ?? []).some(
-      (tool) => tool.draftReview || tool.replayOutcome,
-    );
-    if (!authored) return;
-    lastAuthoringEmitRef.current = lastAssistant.id;
-    emitMetadataRefresh();
-  }, [isLoading, messages]);
+    const authored: string[] = [];
+    for (const message of messages) {
+      (message.toolInvocations ?? []).forEach((tool, index) => {
+        if (tool.draftReview || tool.replayOutcome) authored.push(`${message.id}#${index}`);
+      });
+    }
+    const announced = announcedAuthoringRef.current;
+    if (announced === null) {
+      announcedAuthoringRef.current = new Set(authored);
+      return;
+    }
+    let landed = false;
+    for (const key of authored) {
+      if (announced.has(key)) continue;
+      announced.add(key);
+      landed = true;
+    }
+    if (landed) emitMetadataRefresh();
+  }, [messages]);
 
   // objectui#11666 — the launchers (console FAB, ChatDock edge launcher) show
   // a marker while a proposed plan awaits the user's approval, and they are on

@@ -314,7 +314,6 @@ export function TileGridBlock({ schema, className }: BlockRendererProps) {
                 launcherIconGradient(href || label),
               )}
             >
-              {/* eslint-disable-next-line react-hooks/static-components -- getIcon returns a stable icon component from a static registry, not one created during render */}
               <Icon className="size-[26px]" />
             </span>
             <span className="w-full truncate text-[13px] font-medium">{label}</span>

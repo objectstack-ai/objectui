@@ -11,7 +11,9 @@
  *
  * The arm for `@object-ui/app-shell`'s armed `cloud:` SDUI widget:
  * `cloud:workspace-timezone-notice`, for the Cloud welcome page
- * (`console/home/CloudWorkspaceTimezoneNotice.tsx`, objectui#11930).
+ * (`console/home/CloudWorkspaceTimezoneNotice.tsx`, objectui#11930) — and
+ * the refusal arm of the retired `cloud:plan-status` (objectui#12954), which
+ * {@link RetiredCloudPlanStatusNodeSchema} explains.
  *
  * ## Why the arm lands with the registration
  *
@@ -47,7 +49,34 @@
 
 import { z } from 'zod';
 import { BaseSchema } from './base.zod.js';
-import { retirementTombstone } from './tombstone.zod.js';
+import { retiredNodeType, retirementTombstone } from './tombstone.zod.js';
+
+/**
+ * ⛔ `cloud:plan-status` is RETIRED (objectui#12954) — this is its NAMED
+ * REFUSAL, the half a deletion would not have given.
+ *
+ * The widget, its registration and its member-by-member arm went: the Cloud
+ * pricing page stopped placing the node (objectstack-ai/cloud#3010). The
+ * literal was declared on this face (an arm of `AnyComponentSchema`), so it is
+ * the case `retiredNodeType()` exists for, in the shape of
+ * `complex.zod.ts#RetiredKanbanNodeSchema` (objectui#8802, maintainer ruling
+ * 2026-09-09): deleting the arm would already refuse, but with the union's
+ * remedy-free `Invalid input`. What stays is an arm claiming the literal, so a
+ * stale `{ "type": "cloud:plan-status" }` document is refused BY NAME, at
+ * `type`, with the remedy the retirement's changeset states.
+ *
+ * Deliberately NOT exported from `index.zod.ts`: nothing outside this package
+ * parses against a refusal arm. No TypeScript twin either — the TS half of the
+ * retirement is the ABSENCE of a `cloud:plan-status` member in `AnySchema`.
+ *
+ * Pinned in `../__tests__/cloud-plan-status-retired-12954.test.ts`.
+ */
+export const RetiredCloudPlanStatusNodeSchema = retiredNodeType(
+  'cloud:plan-status',
+  'Its widget retired with it (objectui#12954). Compose the page from generic blocks, as ' +
+    'objectstack-ai/cloud#3010 did: mark the current plan with a `visibleWhen` on the same ' +
+    'summary the page\'s blocks read (`GET /api/v1/cloud/home`), in place of `cloud:plan-status`.',
+);
 
 /** One refusal string for both content channels of `CloudWorkspaceTimezoneNoticeSchema`. */
 const CLOUD_WORKSPACE_TIMEZONE_NOTICE_NEITHER_CHANNEL =

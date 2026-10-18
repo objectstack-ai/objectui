@@ -610,11 +610,22 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
     expect(BARE_KEYS).not.toContain('line_items');
   });
 
-  it('refuses `cloud:plan-status` at `type` — its registration and its arm retired together (objectui#12954)', () => {
+  it('refuses `cloud:plan-status` BY NAME at `type` — its registration left and its arm became a refusal (objectui#12954)', () => {
     // It was one registry key, armed, so the pair leaving in one change moves
-    // neither count. A page still authoring the type is refused, not passed.
+    // neither count. The arm stays as `retiredNodeType()`'s refusal (the
+    // objectui#8802 shape), so the strict face answers with a `custom` issue
+    // naming the remedy — not the generic `invalid_union` `refusedAtType` reads.
     expect(NAMESPACED_KEYS).not.toContain('cloud:plan-status');
-    expect(refusedAtType('cloud:plan-status')).toBe(true);
+    const result = validateAuthoredDocument({ type: 'cloud:plan-status', properties: { plan: 'free' } });
+    expect(result.success).toBe(false);
+    const named = (result.success ? [] : result.error.issues).filter(
+      (issue) => issue.code === 'custom' && issue.path.length === 1 && issue.path[0] === 'type',
+    );
+    expect(named).toHaveLength(1);
+    expect(named[0]?.message).toContain('visibleWhen');
+    expect(refusedAtType('cloud:plan-status')).toBe(false);
+    // Control: an unknown `cloud:` literal still takes the generic path.
+    expect(refusedAtType('cloud:no-such-widget-12954')).toBe(true);
   });
 
   it('counts `cloud:workspace-timezone-notice` armed — it registered WITH its arm (objectui#11930)', () => {

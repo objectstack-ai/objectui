@@ -328,6 +328,8 @@ The last six arrived with `@objectstack/spec` 17.5.0, whose rows for them were m
 `@object-ui/app-shell`'s `cloud:` SDUI widgets. `@objectstack/spec` has no `ComponentPropsMap` row for them, so each arm is declared here from the keys its widget reads.
 - `CloudWorkspaceTimezoneNoticeSchema` — `cloud:workspace-timezone-notice`, the welcome page's line naming the workspace's seeded timezone: the widget reads no prop, so `properties` may only be `{}`. The zone comes from the organization's entitlements summary.
 
+`cloud:plan-status` is RETIRED (objectui#12954). Its arm stays in `AnyComponentSchema` as a refusal, not exported: a node naming it is refused by name at `type`, with the remedy of a `visibleWhen` on the page's summary.
+
 ## Schema Structure
 
 All component schemas follow the @objectstack/spec UI specification format:

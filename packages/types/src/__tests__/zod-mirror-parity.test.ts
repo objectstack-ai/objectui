@@ -4834,6 +4834,11 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // `./bare-kanban-node-key-retired-8802.test.ts`.
   'complex.zod.ts#RetiredKanbanNodeSchema':
     'a RETIRED node type refusal arm (objectui#8802), not a mirror — its only member is the `type` literal it refuses on, and the TS half of that retirement is the ABSENCE of an arm in `ComplexSchema`',
+  // objectui#12954 — the same kind of arm for the retired `cloud:plan-status`
+  // literal, pinned in `./cloud-plan-status-retired-12954.test.ts`. Its
+  // former pair `cloud.zod.ts#CloudPlanStatusSchema` left `MIRRORS` with it.
+  'cloud.zod.ts#RetiredCloudPlanStatusNodeSchema':
+    'a RETIRED node type refusal arm (objectui#12954), not a mirror — its only member is the `type` literal it refuses on, and the TS half of that retirement is the ABSENCE of a `cloud:plan-status` member in `AnySchema`',
   'ai.zod.ts#AIComponentSchema':
     "a union OVER the mirrors, not an object of its own — its members are checked individually above",
   'product-blocks.zod.ts#ProductBlockComponentSchema':

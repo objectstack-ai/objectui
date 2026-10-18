@@ -1193,6 +1193,17 @@ unresolved reference id, a field declared `hidden: true` and a field the
 reader may not read take no row. Without the target object's definition, the
 summary is not drawn.
 
+Two more parts come from the same request row. A request no person submitted
+(its `submitter_id` absent or null, as the approvals get serves a request a
+flow run opened with no user context) is marked "Flow-initiated", above the
+summary; a request a person submitted carries no marker. Below the summary,
+when the owning flow has more than one approval step (`flow_steps`), the
+block draws the flow's vertical step line, done / current / upcoming, at any
+status: a decided request and a node with no progress tally draw it too. The
+line is the same stepper the record approvals panel draws, and it never
+scrolls sideways. The marker and the line's accessible name are the
+Approval Center's `approvalsInbox.*` rows.
+
 ## User-scoped state (favorites, recent items)
 
 `<ConsoleShell>` includes `FavoritesProvider` and `RecentItemsProvider` —

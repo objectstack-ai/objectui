@@ -1,0 +1,5 @@
+---
+'@object-ui/app-shell': minor
+---
+
+The approval decision panel (`record:approval_decision`) shows where a request came from and where its flow stands (objectui#12491). A request no person submitted, its `submitter_id` absent or null as the approvals get serves a request a flow run opened with no user context, is marked "Flow-initiated"; a request a person submitted carries no marker. When the owning flow has more than one approval step, the panel draws the flow's vertical step line from the request's `flow_steps`, at any status, so a decided request and a node with no progress tally show it too. The line is the same stepper the record page's approvals panel draws, which now renders it through one shared component with no change to its output. So the request page objectstack serves shows the origin and the step line the approvals inbox's sheet shows, with no page, prop, locale key or spec change. The flow's display name in the page's highlights is a separate served-page edit in objectstack.

@@ -1,0 +1,539 @@
+{
+    "label": "fixed-1280",
+    "width": 1280,
+    "surface": "object:showcase_task",
+    "mode": "probe",
+    "scenario": "drafted",
+    "agent": "build",
+    "url": "http://localhost:5735/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_tasks",
+    "empty": {
+        "slotWidth": 360,
+        "slotRight": 1280,
+        "panelWidth": 359,
+        "columnWidth": 359,
+        "sendRight": 1267,
+        "sendWhole": true,
+        "overflowCount": 0,
+        "overflow": [],
+        "leaves": []
+    },
+    "placeholder": "问问数据，或让我改改这个应用…",
+    "chip": "正在讨论：任务",
+    "withThread": {
+        "slotWidth": 360,
+        "slotRight": 1280,
+        "panelWidth": 359,
+        "columnWidth": 359,
+        "sendRight": 1267,
+        "sendWhole": true,
+        "overflowCount": 0,
+        "overflow": [],
+        "leaves": []
+    },
+    "culprit": {
+        "slotWidth": 360,
+        "columnMinContent": 342,
+        "hits": 95,
+        "deepest": [
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "truncate text-xs font-medium text-foreground/85",
+                "whiteSpace": "nowrap",
+                "overflow": "hidden",
+                "minWidth": "auto",
+                "ownMinContent": 24,
+                "text": "构建"
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 9,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 0,
+                "text": ""
+            },
+            {
+                "tag": "polyline",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 9,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 5,
+                "text": ""
+            },
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "max-w-[10rem] truncate",
+                "whiteSpace": "nowrap",
+                "overflow": "hidden",
+                "minWidth": "auto",
+                "ownMinContent": 47,
+                "text": "功能展示"
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 6,
+                "text": ""
+            },
+            {
+                "tag": "circle",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 4,
+                "text": ""
+            },
+            {
+                "tag": "circle",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 4,
+                "text": ""
+            },
+            {
+                "tag": "circle",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 4,
+                "text": ""
+            },
+            {
+                "tag": "line",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 5,
+                "text": ""
+            },
+            {
+                "tag": "line",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 5,
+                "text": ""
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "whitespace-pre-wrap break-words",
+                "whiteSpace": "pre-wrap",
+                "overflow": "visible",
+                "minWidth": "auto",
+                "ownMinContent": 40,
+                "text": "Add a renew count field to Task"
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 13,
+                "text": ""
+            },
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "auto",
+                "ownMinContent": 14,
+                "text": "应用这次修改"
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 13,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 9,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 8,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 3,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 3,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 8,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 4,
+                "text": ""
+            },
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+                "whiteSpace": "nowrap",
+                "overflow": "hidden",
+                "minWidth": "0px",
+                "ownMinContent": 296,
+                "text": "Add a renew count field to Task and show it on the list"
+            },
+            {
+                "tag": "P",
+                "testid": null,
+                "cls": "",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 58,
+                "text": "OK — adding the field. Saved as a draft: the app is live with 12 records, so not"
+            },
+            {
+                "tag": "rect",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 0,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 9,
+                "text": ""
+            },
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "sr-only",
+                "whiteSpace": "nowrap",
+                "overflow": "hidden",
+                "minWidth": "0px",
+                "ownMinContent": 28,
+                "text": "复制"
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 12,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 3,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 12,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 3,
+                "text": ""
+            },
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "sr-only",
+                "whiteSpace": "nowrap",
+                "overflow": "hidden",
+                "minWidth": "0px",
+                "ownMinContent": 55,
+                "text": "重新生成"
+            },
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "auto",
+                "ownMinContent": 40,
+                "text": "正在讨论：任务"
+            },
+            {
+                "tag": "TEXTAREA",
+                "testid": null,
+                "cls": "flex w-full border-input px-3 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ri",
+                "whiteSpace": "pre-wrap",
+                "overflow": "auto",
+                "minWidth": "auto",
+                "ownMinContent": 52,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 8,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 3,
+                "text": ""
+            },
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "opacity-70",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "auto",
+                "ownMinContent": 10,
+                "text": "发送"
+            },
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "opacity-40",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "auto",
+                "ownMinContent": 3,
+                "text": "·"
+            },
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "opacity-70",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "auto",
+                "ownMinContent": 27,
+                "text": "Shift+"
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 8,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 3,
+                "text": ""
+            },
+            {
+                "tag": "SPAN",
+                "testid": "composer-newline-hint",
+                "cls": "opacity-70",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "auto",
+                "ownMinContent": 10,
+                "text": "换行"
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 11,
+                "text": ""
+            },
+            {
+                "tag": "path",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "whiteSpace": "nowrap",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 3,
+                "text": ""
+            }
+        ],
+        "chainToColumn": [
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "truncate text-xs font-medium text-foreground/85",
+                "whiteSpace": "nowrap",
+                "overflow": "hidden",
+                "minWidth": "auto",
+                "ownMinContent": 24,
+                "text": "构建"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "flex min-w-0 flex-1 items-center gap-2",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 129,
+                "text": "构建功能展示"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "flex flex-wrap items-center justify-between gap-2 border-b border-border/50 px-4 pb-2 pt-3 sm:px-6",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 177,
+                "text": "构建功能展示"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "shrink-0",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "auto",
+                "ownMinContent": 177,
+                "text": "构建功能展示"
+            },
+            {
+                "tag": "DIV",
+                "testid": "ai-chat-panel",
+                "cls": "flex flex-col overflow-hidden min-h-0 flex-1 bg-background md:max-w-5xl",
+                "whiteSpace": "normal",
+                "overflow": "hidden",
+                "minWidth": "auto",
+                "ownMinContent": 342,
+                "text": "构建功能展示Add a renew count field to Task应用这次修改已完成发布 (1)Add a renew count field to T"
+            }
+        ]
+    },
+    "aiCalls": [
+        "GET /api/v1/ai/agents",
+        "GET /api/v1/ai/usage",
+        "GET /api/v1/ai/models",
+        "POST /api/v1/ai/conversations",
+        "POST /api/v1/ai/agents/build/chat"
+    ]
+}

@@ -1,0 +1,77 @@
+{
+    "label": "doors-1010",
+    "width": 1010,
+    "surface": "object:showcase_task",
+    "mode": "shots",
+    "scenario": "proposal",
+    "agent": "build",
+    "url": "http://localhost:5735/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_tasks",
+    "empty": {
+        "slotWidth": 300,
+        "slotRight": 1010,
+        "panelWidth": 299,
+        "columnWidth": 299,
+        "sendRight": 997,
+        "sendWhole": true,
+        "overflowCount": 0,
+        "overflow": [],
+        "leaves": []
+    },
+    "placeholder": "问问数据，或让我改改这个应用…",
+    "chip": "正在讨论：任务",
+    "withThread": {
+        "slotWidth": 300,
+        "slotRight": 1010,
+        "panelWidth": 299,
+        "columnWidth": 299,
+        "sendRight": 997,
+        "sendWhole": true,
+        "overflowCount": 0,
+        "overflow": [],
+        "leaves": []
+    },
+    "applied": {
+        "slotWidth": 300,
+        "slotRight": 1010,
+        "panelWidth": 299,
+        "columnWidth": 299,
+        "sendRight": 997,
+        "sendWhole": true,
+        "overflowCount": 0,
+        "overflow": [],
+        "leaves": []
+    },
+    "badgeAfterDraft": "1",
+    "appliedButtons": [
+        "查看变更并发布",
+        "撤销"
+    ],
+    "review": {
+        "before": {
+            "href": "http://localhost:5735/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_tasks",
+            "nav": 1
+        },
+        "after": {
+            "href": "http://localhost:5735/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_tasks",
+            "nav": 1
+        },
+        "drawerOpen": true,
+        "drawerText": "待发布的变更\n\n发布将带来以下变更。“新增”为全新内容，“更新”将覆盖线上版本。\n\nOBJECT · 1\nTask\nshowcase_task\n更新\n\n发布将一次性（原子地）发布此包全部 1 个待发布草稿。\n\n全部发布\n关闭"
+    },
+    "discard": {
+        "calls": [
+            "com.example.showcase"
+        ],
+        "discardedShown": true,
+        "badgeAfter": null
+    },
+    "draftReads": 15,
+    "aiCalls": [
+        "GET /api/v1/ai/agents",
+        "GET /api/v1/ai/usage",
+        "GET /api/v1/ai/models",
+        "POST /api/v1/ai/conversations",
+        "POST /api/v1/ai/agents/build/chat",
+        "POST /api/v1/packages/com.example.showcase/discard-drafts"
+    ]
+}

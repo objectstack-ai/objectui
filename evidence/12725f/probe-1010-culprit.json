@@ -1,0 +1,469 @@
+{
+    "label": "probe-1010-culprit",
+    "width": 1010,
+    "surface": "object:showcase_task",
+    "mode": "probe",
+    "scenario": "drafted",
+    "agent": "build",
+    "url": "http://localhost:5735/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_tasks",
+    "empty": {
+        "slotWidth": 300,
+        "slotRight": 1010,
+        "panelWidth": 299,
+        "columnWidth": 299,
+        "sendRight": 997,
+        "sendWhole": true,
+        "overflowCount": 0,
+        "overflow": [],
+        "leaves": []
+    },
+    "placeholder": "问问数据，或让我改改这个应用…",
+    "chip": "正在讨论：任务",
+    "withThread": {
+        "slotWidth": 300,
+        "slotRight": 1010,
+        "panelWidth": 342,
+        "columnWidth": 342,
+        "sendRight": 1040,
+        "sendWhole": false,
+        "overflowCount": 43,
+        "overflow": [
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "flex min-h-0 flex-1 justify-center",
+                "w": 342,
+                "right": 1053,
+                "minWidth": "auto",
+                "width": "342.438px",
+                "flex": "1 1 0%",
+                "whiteSpace": "normal",
+                "text": "构建功能展示Add a renew count field to Task应用这次修改已完成发布 ("
+            },
+            {
+                "tag": "DIV",
+                "testid": "ai-chat-panel",
+                "cls": "flex flex-col overflow-hidden min-h-0 flex-1 bg-background md:max-w-5xl",
+                "w": 342,
+                "right": 1053,
+                "minWidth": "auto",
+                "width": "342.438px",
+                "flex": "1 1 0%",
+                "whiteSpace": "normal",
+                "text": "构建功能展示Add a renew count field to Task应用这次修改已完成发布 ("
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "shrink-0",
+                "w": 342,
+                "right": 1053,
+                "minWidth": "auto",
+                "width": "342.438px",
+                "flex": "0 0 auto",
+                "whiteSpace": "normal",
+                "text": "构建功能展示"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "flex flex-wrap items-center justify-between gap-2 border-b border-border/50 px-4 pb-2 pt-3 sm:px-6",
+                "w": 342,
+                "right": 1053,
+                "minWidth": "0px",
+                "width": "342.438px",
+                "flex": "0 1 auto",
+                "whiteSpace": "normal",
+                "text": "构建功能展示"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "flex shrink-0 items-center gap-1",
+                "w": 28,
+                "right": 1029,
+                "minWidth": "auto",
+                "width": "28px",
+                "flex": "0 0 auto",
+                "whiteSpace": "normal",
+                "text": ""
+            },
+            {
+                "tag": "BUTTON",
+                "testid": "ai-chat-share-button",
+                "cls": "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background tr",
+                "w": 28,
+                "right": 1029,
+                "minWidth": "auto",
+                "width": "28px",
+                "flex": "0 1 auto",
+                "whiteSpace": "nowrap",
+                "text": ""
+            },
+            {
+                "tag": "svg",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "w": 16,
+                "right": 1023,
+                "minWidth": "auto",
+                "width": "16px",
+                "flex": "0 0 auto",
+                "whiteSpace": "nowrap",
+                "text": ""
+            },
+            {
+                "tag": "circle",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "w": 4,
+                "right": 1021,
+                "minWidth": "0px",
+                "width": "auto",
+                "flex": "0 1 auto",
+                "whiteSpace": "nowrap",
+                "text": ""
+            },
+            {
+                "tag": "circle",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "w": 4,
+                "right": 1013,
+                "minWidth": "0px",
+                "width": "auto",
+                "flex": "0 1 auto",
+                "whiteSpace": "nowrap",
+                "text": ""
+            },
+            {
+                "tag": "circle",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "w": 4,
+                "right": 1021,
+                "minWidth": "0px",
+                "width": "auto",
+                "flex": "0 1 auto",
+                "whiteSpace": "nowrap",
+                "text": ""
+            },
+            {
+                "tag": "line",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "w": 5,
+                "right": 1018,
+                "minWidth": "0px",
+                "width": "auto",
+                "flex": "0 1 auto",
+                "whiteSpace": "nowrap",
+                "text": ""
+            },
+            {
+                "tag": "line",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "w": 5,
+                "right": 1018,
+                "minWidth": "0px",
+                "width": "auto",
+                "flex": "0 1 auto",
+                "whiteSpace": "nowrap",
+                "text": ""
+            }
+        ],
+        "leaves": [
+            {
+                "tag": "circle",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "w": 4,
+                "right": 1021,
+                "minWidth": "0px",
+                "width": "auto",
+                "flex": "0 1 auto",
+                "whiteSpace": "nowrap",
+                "text": ""
+            },
+            {
+                "tag": "circle",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "w": 4,
+                "right": 1013,
+                "minWidth": "0px",
+                "width": "auto",
+                "flex": "0 1 auto",
+                "whiteSpace": "nowrap",
+                "text": ""
+            },
+            {
+                "tag": "circle",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "w": 4,
+                "right": 1021,
+                "minWidth": "0px",
+                "width": "auto",
+                "flex": "0 1 auto",
+                "whiteSpace": "nowrap",
+                "text": ""
+            },
+            {
+                "tag": "line",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "w": 5,
+                "right": 1018,
+                "minWidth": "0px",
+                "width": "auto",
+                "flex": "0 1 auto",
+                "whiteSpace": "nowrap",
+                "text": ""
+            },
+            {
+                "tag": "line",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "w": 5,
+                "right": 1018,
+                "minWidth": "0px",
+                "width": "auto",
+                "flex": "0 1 auto",
+                "whiteSpace": "nowrap",
+                "text": ""
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "whitespace-pre-wrap break-words",
+                "w": 204,
+                "right": 1027,
+                "minWidth": "auto",
+                "width": "203.688px",
+                "flex": "0 1 auto",
+                "whiteSpace": "pre-wrap",
+                "text": "Add a renew count field to Task"
+            },
+            {
+                "tag": "svg",
+                "testid": null,
+                "cls": "[object SVGAnimatedString]",
+                "w": 16,
+                "right": 1014,
+                "minWidth": "auto",
+                "width": "16px",
+                "flex": "0 1 auto",
+                "whiteSpace": "normal",
+                "text": ""
+            },
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+                "w": 188,
+                "right": 1014,
+                "minWidth": "0px",
+                "width": "188.25px",
+                "flex": "1 1 0%",
+                "whiteSpace": "nowrap",
+                "text": "Add a renew count field to Task and show it on the"
+            },
+            {
+                "tag": "P",
+                "testid": null,
+                "cls": "",
+                "w": 306,
+                "right": 1027,
+                "minWidth": "0px",
+                "width": "306.312px",
+                "flex": "0 1 auto",
+                "whiteSpace": "normal",
+                "text": "OK — adding the field. Saved as a draft: the app i"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "flex items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100",
+                "w": 306,
+                "right": 1027,
+                "minWidth": "auto",
+                "width": "306.312px",
+                "flex": "0 1 auto",
+                "whiteSpace": "normal",
+                "text": "复制重新生成"
+            },
+            {
+                "tag": "DIV",
+                "testid": "surface-context-chip",
+                "cls": "mb-1 flex",
+                "w": 342,
+                "right": 1053,
+                "minWidth": "0px",
+                "width": "342.438px",
+                "flex": "0 1 auto",
+                "whiteSpace": "normal",
+                "text": "正在讨论：任务"
+            },
+            {
+                "tag": "TEXTAREA",
+                "testid": null,
+                "cls": "flex w-full border-input px-3 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-n",
+                "w": 340,
+                "right": 1052,
+                "minWidth": "auto",
+                "width": "340.438px",
+                "flex": "1 1 0%",
+                "whiteSpace": "pre-wrap",
+                "text": ""
+            }
+        ]
+    },
+    "culprit": {
+        "slotWidth": 300,
+        "columnMinContent": 342,
+        "hits": 12,
+        "deepest": [
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+                "whiteSpace": "nowrap",
+                "overflow": "hidden",
+                "minWidth": "0px",
+                "ownMinContent": 296,
+                "text": "Add a renew count field to Task and show it on the list"
+            }
+        ],
+        "chainToColumn": [
+            {
+                "tag": "SPAN",
+                "testid": null,
+                "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+                "whiteSpace": "nowrap",
+                "overflow": "hidden",
+                "minWidth": "0px",
+                "ownMinContent": 296,
+                "text": "Add a renew count field to Task and show it on the list"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "flex flex-wrap items-center gap-2 p-3 border-t bg-muted/30",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 320,
+                "text": "发布 (1)Add a renew count field to Task and show it on the list"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-popover-foreground outline-",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 320,
+                "text": "发布 (1)Add a renew count field to Task and show it on the list"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "not-prose mb-4 w-full rounded-md border",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "auto",
+                "ownMinContent": 322,
+                "text": "应用这次修改已完成发布 (1)Add a renew count field to Task and show it on the list"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "is-user:dark flex w-fit max-w-full min-w-0 flex-col gap-2 overflow-hidden text-sm group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group",
+                "whiteSpace": "normal",
+                "overflow": "hidden",
+                "minWidth": "0px",
+                "ownMinContent": 306,
+                "text": "应用这次修改已完成发布 (1)Add a renew count field to Task and show it on the listOK — addin"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "flex min-w-0 flex-col gap-2",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 322,
+                "text": "应用这次修改已完成发布 (1)Add a renew count field to Task and show it on the listOK — addin"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "flex w-full gap-2.5 flex-col",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "auto",
+                "ownMinContent": 322,
+                "text": "应用这次修改已完成发布 (1)Add a renew count field to Task and show it on the listOK — addin"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "group flex w-full max-w-[95%] flex-col gap-2 is-assistant",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "auto",
+                "ownMinContent": 306,
+                "text": "应用这次修改已完成发布 (1)Add a renew count field to Task and show it on the listOK — addin"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "flex flex-col gap-8 p-4 space-y-4 mx-auto w-full max-w-2xl px-4 py-8 sm:px-0",
+                "whiteSpace": "normal",
+                "overflow": "visible",
+                "minWidth": "0px",
+                "ownMinContent": 322,
+                "text": "Add a renew count field to Task应用这次修改已完成发布 (1)Add a renew count field to Task an"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "",
+                "whiteSpace": "normal",
+                "overflow": "auto",
+                "minWidth": "0px",
+                "ownMinContent": 342,
+                "text": "Add a renew count field to Task应用这次修改已完成发布 (1)Add a renew count field to Task an"
+            },
+            {
+                "tag": "DIV",
+                "testid": null,
+                "cls": "relative overflow-y-hidden flex-1 min-h-0",
+                "whiteSpace": "normal",
+                "overflow": "auto hidden",
+                "minWidth": "auto",
+                "ownMinContent": 342,
+                "text": "Add a renew count field to Task应用这次修改已完成发布 (1)Add a renew count field to Task an"
+            },
+            {
+                "tag": "DIV",
+                "testid": "ai-chat-panel",
+                "cls": "flex flex-col overflow-hidden min-h-0 flex-1 bg-background md:max-w-5xl",
+                "whiteSpace": "normal",
+                "overflow": "hidden",
+                "minWidth": "auto",
+                "ownMinContent": 342,
+                "text": "构建功能展示Add a renew count field to Task应用这次修改已完成发布 (1)Add a renew count field to T"
+            }
+        ]
+    },
+    "aiCalls": [
+        "GET /api/v1/ai/agents",
+        "GET /api/v1/ai/usage",
+        "GET /api/v1/ai/models",
+        "POST /api/v1/ai/conversations",
+        "POST /api/v1/ai/agents/build/chat"
+    ]
+}

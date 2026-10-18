@@ -363,7 +363,7 @@ describe('the 变更 badge counts the copilot\'s drafts the moment they land (ob
     }
   });
 
-  it('CONTROL: a drafted result already in the thread when the copilot mounts is history, not a landing', async () => {
+  it('a drafted result already in the thread when the copilot mounts is history, not a landing', async () => {
     chat.set({
       messages: uiMessagesToChatMessages(
         [USER_TURN, { id: 'm-asst-old', role: 'assistant', parts: [toolPart('apply_edit', 'call_old', APPLY_EDIT_DRAFTED)] }] as never,

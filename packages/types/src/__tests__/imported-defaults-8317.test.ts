@@ -132,6 +132,8 @@ import {
   // objectui#10872 batch 2 — `element:number`'s row, and the node's `dataSource`.
   ElementNumberPropsSchema as SpecElementNumberPropsSchema,
   ElementDataSourceSchema as SpecElementDataSourceSchema,
+  // objectui#12197 — the product-page blocks' API binding, their `dataSource`.
+  ElementApiDataSourceSchema as SpecElementApiDataSourceSchema,
   // objectui#10872 batch 8 — the node-level `responsiveStyles` every public-block arm declares.
   ResponsiveStylesSchema as SpecResponsiveStylesSchema,
   objectNavTargetExclusivity,
@@ -384,6 +386,9 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // like every other one.
   ['ElementNumberPropsSchema', SpecElementNumberPropsSchema],
   ['ElementDataSourceSchema', SpecElementDataSourceSchema],
+  // objectui#12197: every product-page block arm declares its `dataSource` as
+  // the spec's API binding, `ElementApiDataSourceSchema`.
+  ['ElementApiDataSourceSchema', SpecElementApiDataSourceSchema],
   // objectui#10872 batch 8: every public-block arm declares the node-level
   // `responsiveStyles` as the spec's `ResponsiveStylesSchema` (one shared
   // `NODE_ENVELOPE`, which batch 9 also spread into `flex`, `object-grid` and

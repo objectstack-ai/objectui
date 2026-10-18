@@ -53,6 +53,7 @@
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { ElementApiDataSourceSchema, type ElementApiDataSource } from '@objectstack/spec/ui';
 import { SchemaRendererContext, type ApiFetch } from '../context/SchemaRendererContext.js';
+import { isConfigBag } from '../utils/configBag.js';
 
 /**
  * Where an API binding stands.
@@ -75,9 +76,6 @@ export interface UseElementApiDataSourceResult {
   error?: string;
 }
 
-const isPlainObject = (v: unknown): v is Record<string, unknown> =>
-  !!v && typeof v === 'object' && !Array.isArray(v);
-
 /**
  * Is this `dataSource` value the API binding — whatever it says beyond
  * `provider`? `provider: 'api'` is the spec's discriminator between the two
@@ -85,7 +83,7 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> =>
  * `provider`.
  */
 export function isElementApiDataSourceShape(value: unknown): boolean {
-  return isPlainObject(value) && value.provider === 'api';
+  return isConfigBag(value) && value.provider === 'api';
 }
 
 /**
@@ -129,7 +127,7 @@ export function selectElementApiPath(
       current = current[index];
       continue;
     }
-    if (!isPlainObject(current) || !Object.prototype.hasOwnProperty.call(current, segment)) {
+    if (!isConfigBag(current) || !Object.prototype.hasOwnProperty.call(current, segment)) {
       return { found: false, segment };
     }
     current = current[segment];
@@ -177,7 +175,7 @@ export function readElementApi(url: string, doFetch: ApiFetch): Promise<unknown>
 export function useElementApiDataSource(schema: unknown): UseElementApiDataSourceResult {
   const context = useContext(SchemaRendererContext);
   const doFetch: ApiFetch = context?.apiFetch ?? fetch;
-  const raw = isPlainObject(schema) ? schema.dataSource : undefined;
+  const raw = isConfigBag(schema) ? schema.dataSource : undefined;
   // Keyed on the binding's CONTENT, never on its identity (AGENTS.md #10): a
   // re-render that hands over an equal binding is the same read.
   const bindingKey = isElementApiDataSourceShape(raw) ? JSON.stringify(raw) : '';

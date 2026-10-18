@@ -91,8 +91,9 @@ const apiBinding = () =>
 /** One refusal string for both content channels of a product block. */
 const neitherChannel = (type: string, reads: string) =>
   `REFUSED (objectui#12197) — \`${type}\` reads NEITHER content channel: it draws ${reads} from its `
-  + '`properties` bag, and `SchemaRenderer` strips both channels out of the props bag it spreads, so an '
-  + 'authored value would render nothing.';
+  + '`properties` bag, and `SchemaRenderer` strips both channels out of the props bag it spreads. An authored '
+  + 'value would render NOTHING — no render-time error or warning and no element; only the parser tier\'s '
+  + '`not-a-container` warning (objectui#9910) noticed it, because the registration declares no `children` input.';
 
 /** `hero` — the page-top card of a product page. Pinned by `../__tests__/product-block-arms-12197.test.ts`. */
 export const HeroBlockSchema = BaseSchema.extend({

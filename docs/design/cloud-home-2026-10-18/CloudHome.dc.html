@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>云控制面首页 · 只用通用区块</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#ffffff}
+:root{--bg:#ffffff;--fg:#0f172a;--muted:#f1f5f9;--muted-fg:#64748b;--border:#e2e8f0;--sidebar:#fafafa;--primary-soft:#eef2ff;--primary-fg:#ffffff;--amber:#b45309;--amber-soft:#fef3c7;--green:#15803d;--green-soft:#dcfce7;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+a{color:var(--primary);text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+.btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:8px;background:var(--primary);color:var(--primary-fg);font-size:13px;font-weight:500}
+.btn-outline{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:13px;font-weight:500;color:var(--fg)}
+.btn-outline:hover{background:var(--muted)}
+.iconbtn{display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;border-radius:6px;color:var(--muted-fg)}
+.chip{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border-radius:5px;background:var(--muted);color:var(--fg);font-size:11.5px}
+.chip.ok{background:var(--green-soft);color:var(--green)}
+.chip.soft{background:var(--primary-soft);color:var(--primary)}
+.k{font-family:var(--mono);font-size:12px}
+.sect{font-size:15px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;margin:0 0 10px}
+.card{background:var(--bg);border:1px solid var(--border);border-radius:10px}
+.nav{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;color:var(--fg)}
+.nav.on{background:var(--primary-soft);color:var(--primary);font-weight:500}
+.tile{display:flex;flex-direction:column;align-items:center;gap:6px;width:96px;padding:8px 4px;border-radius:10px}
+.tile:hover{background:var(--muted)}
+.tile .ic{display:inline-flex;width:56px;height:56px;align-items:center;justify-content:center;border-radius:14px;color:#fff}
+.tile .l{font-size:12.5px;font-weight:500}
+.tile .c{font-size:11px;color:var(--muted-fg)}
+.bar{height:6px;border-radius:3px;background:var(--muted);overflow:hidden}
+.bar > span{display:block;height:100%;border-radius:3px;background:var(--primary)}
+.stat .v{font-size:22px;font-weight:600;line-height:1.1}
+.stat .l{font-size:12px;color:var(--muted-fg)}
+.ck{display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-top:1px solid var(--border);font-size:13px}
+.ck .dot{display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:10px;border:1.5px solid var(--border);color:var(--green);flex:none}
+.ck .dot.on{background:var(--green-soft);border-color:transparent}
+.blk{position:absolute;top:-9px;left:12px;padding:1px 6px;border-radius:4px;background:#0f172a;color:#fff;font-size:10px;font-family:var(--mono);letter-spacing:.02em}
+</style>
+</helmet>
+<div style="width:100%;min-height:900px;display:grid;grid-template-rows:48px 1fr;background:var(--bg);color:var(--fg);font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:13px;line-height:1.45;--primary:{{accent}}">
+
+  <!-- control-plane top bar: organisation switcher · product · preview chip · search · bell · help · avatar -->
+  <header style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--border);background:var(--bg)">
+    <div style="display:flex;align-items:center;gap:8px">
+      <button type="button" class="iconbtn" aria-label="切换侧边栏"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></button>
+      <button type="button" aria-label="组织：test1016" style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px 0 6px;border-radius:8px;border:1px solid var(--border)"><span style="display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:5px;background:var(--muted);font-size:11px;font-weight:600">T</span><span style="font-weight:600">test1016</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg></button>
+      <span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600"><span style="display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:6px;background:var(--primary);color:#fff"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span>ObjectOS Cloud<span style="font-size:10px;font-weight:600;letter-spacing:.04em;padding:2px 6px;border-radius:4px;background:var(--muted);color:var(--muted-fg)">预览版</span></span>
+    </div>
+    <button type="button" style="display:inline-flex;align-items:center;gap:8px;width:360px;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--sidebar);color:var(--muted-fg);font-size:13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span style="flex:1;text-align:left">搜索…</span><kbd style="font-family:var(--mono);font-size:11px;padding:1px 5px;border:1px solid var(--border);border-radius:4px;background:var(--bg)">⌘K</kbd></button>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px">
+      <button type="button" aria-label="通知" class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
+      <button type="button" aria-label="帮助" class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
+      <button type="button" aria-label="账户 · JIANGUO Zhuang" style="display:inline-flex;width:28px;height:28px;margin-left:6px;align-items:center;justify-content:center;border-radius:14px;background:var(--primary);color:#fff;font-size:11px;font-weight:600">JZ</button>
+    </div>
+  </header>
+
+  <div style="display:grid;grid-template-columns:200px 1fr;min-height:0">
+    <aside style="border-right:1px solid var(--border);background:var(--sidebar);padding:12px 8px;display:flex;flex-direction:column;gap:2px">
+      <div class="nav on"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>首页</div>
+      <div class="nav"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>环境</div>
+      <div class="nav"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>成员</div>
+      <div class="nav"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg>计费</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 10px 4px;font-size:11.5px;color:var(--muted-fg)">高级<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></div>
+    </aside>
+
+    <main style="padding:24px 32px 40px;display:flex;flex-direction:column;gap:28px;max-width:1120px">
+      <h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em">首页</h1>
+
+      <!-- ① hero block: the organisation's production environment, bound to GET /cloud/home → environments[0] -->
+      <section class="card" style="position:relative;display:flex;align-items:center;gap:24px;padding:20px 24px">
+        <span class="blk">hero</span>
+        <div style="display:flex;flex-direction:column;gap:6px;flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:10px"><span style="font-size:18px;font-weight:600">test1016</span><span class="chip">生产环境</span><span class="chip ok">运行中</span></div>
+          <div style="display:flex;align-items:center;gap:8px;color:var(--muted-fg)"><span class="k" style="color:var(--fg)">os-4e4qa4.objectos.app</span><button type="button" class="iconbtn" aria-label="复制主机名" style="width:22px;height:22px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button><span>· 最近发布 10月16日 · 免费版 · 1 / 1 个生产环境</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px"><button type="button" class="btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v7H3V3h7"/></svg>打开</button><button type="button" class="btn-outline">安装应用</button><button type="button" class="btn-outline" style="border-color:transparent;color:var(--muted-fg)">管理环境</button></div>
+      </section>
+
+      <!-- ② tile-grid block: installed apps + the two ways to add one -->
+      <section style="position:relative">
+        <h2 class="sect">应用 <span class="chip">1</span><span style="margin-left:auto;font-weight:400;font-size:12.5px"><a href="#">浏览应用市场</a></span></h2>
+        <div style="position:relative;display:flex;gap:8px;flex-wrap:wrap"><span class="blk" style="top:-9px">tile-grid</span>
+          <a href="#" class="tile"><span class="ic" style="background:#e11d48"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span><span class="l">HotCRM</span><span class="c">4.0.1 · 10月16日</span></a>
+          <a href="#" class="tile"><span class="ic" style="background:var(--primary)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.9 5.8L4 10l6.1 1.2L12 17l1.9-5.8L20 10l-6.1-1.2z"/></svg></span><span class="l">用 AI 搭建</span><span class="c">描述一句话</span></a>
+          <a href="#" class="tile"><span class="ic" style="background:var(--muted);color:var(--muted-fg);border:1px dashed var(--border)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span><span class="l" style="color:var(--muted-fg)">添加应用</span><span class="c">市场或模板</span></a>
+        </div>
+      </section>
+
+      <!-- ③ two columns: plan & usage (stat + usage-bar) · members (stat + list) -->
+      <section style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="card" style="position:relative;padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+          <span class="blk">stat · usage-bar</span>
+          <div style="display:flex;align-items:center;justify-content:space-between"><h2 class="sect" style="margin:0">套餐与用量</h2><a href="#" style="font-size:12.5px">查看套餐</a></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="stat"><div class="v">免费版</div><div class="l">当前套餐 · 1 个席位</div></div>
+            <div class="stat"><div class="v">1 / 1</div><div class="l">生产环境 · 开发环境团队版起</div></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:12.5px"><span>存储</span><span style="color:var(--muted-fg)">0 / 1024 MB</span></div><div class="bar"><span style="width:1%"></span></div></div>
+          <div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:12.5px"><span>本周 AI 额度</span><span style="color:var(--muted-fg)">已用 23%</span></div><div class="bar"><span style="width:23%"></span></div></div>
+          <div style="font-size:12px;color:var(--muted-fg)">开发环境、自有域名、AI 代理接入（MCP）：团队版起 · <a href="#">联系销售</a></div>
+        </div>
+        <div class="card" style="position:relative;padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+          <span class="blk">stat · element:repeater</span>
+          <div style="display:flex;align-items:center;justify-content:space-between"><h2 class="sect" style="margin:0">成员 <span class="chip">1</span></h2><a href="#" style="font-size:12.5px">管理成员</a></div>
+          <div style="display:flex;align-items:center;gap:10px;height:40px"><span style="display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;border-radius:14px;background:var(--primary);color:#fff;font-size:11px;font-weight:600">JZ</span><div style="flex:1;min-width:0"><div style="font-weight:500">JIANGUO Zhuang</div><div style="font-size:12px;color:var(--muted-fg)">jack@objectstack.ai</div></div><span class="chip soft">所有者</span></div>
+          <div style="flex:1"></div>
+          <button type="button" class="btn-primary" style="align-self:flex-start"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>邀请成员</button>
+        </div>
+      </section>
+
+      <!-- ④ checklist block: the new-user checklist, bound to /cloud/home → checklist -->
+      <section class="card" style="position:relative;padding:14px 0 0">
+        <span class="blk">checklist</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 12px 10px"><h2 class="sect" style="margin:0">新手清单 <span style="font-weight:400;font-size:12.5px;color:var(--muted-fg)">1 / 3</span></h2><span style="font-size:12px;color:var(--muted-fg)">全部完成后这一块自动消失</span></div>
+        <div class="ck"><span class="dot on"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span style="color:var(--muted-fg);text-decoration:line-through">创建环境</span><span style="margin-left:auto;font-size:12px;color:var(--muted-fg)">test1016 · 10月16日</span></div>
+        <div class="ck"><span class="dot"></span><span>放入第一个应用</span><span style="margin-left:auto;display:inline-flex;gap:6px"><button type="button" class="btn-outline" style="height:28px">安装 HotCRM</button><button type="button" class="btn-outline" style="height:28px">用 AI 搭建</button></span></div>
+        <div class="ck"><span class="dot"></span><span>邀请一位同事</span><span style="margin-left:auto"><button type="button" class="btn-outline" style="height:28px">邀请成员</button></span></div>
+      </section>
+
+      <div style="font-size:12px;color:var(--muted-fg);padding-top:4px;border-top:1px solid var(--border)">公开预览：数据持久可靠，接口可能调整，暂无正式 SLA；破坏性变更会提前通知。</div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2563eb","options":["#2563eb","#4f46e5","#0f766e","#0f172a"]},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#2563eb' };
+  }
+}
+</script>
+</body>
+</html>

@@ -31,12 +31,6 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider, ActiveOrganizationStorage } from '@object-ui/auth';
 import type { AuthClient, AuthOrganization } from '@object-ui/auth';
 
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((r) => { resolve = r; });
-  return { promise, resolve };
-}
-
 /** The view chunks: each mocked module answers only when the test releases it. */
 const chunks = vi.hoisted(() => {
   const gate = () => {

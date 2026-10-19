@@ -111,7 +111,12 @@ export function useDatasetDimensionMeta(
 ): DatasetDimensionMeta | null {
   // The host's AUTHENTICATED fetch (objectui#4121) — see property 1 in the
   // file header for why it is read off the context directly.
-  const apiFetch = useContext(SchemaRendererContext)?.apiFetch;
+  const context = useContext(SchemaRendererContext);
+  const apiFetch = context?.apiFetch;
+  // The host data source, when it can answer `getObjectSchema` (objectui#13039):
+  // the data layer's shared request-key cache, so N dataset widgets over one
+  // object make ONE `meta/object/NAME` request instead of one each.
+  const dataSource = context?.dataSource;
   const enabled = options?.enabled ?? true;
 
   // LOCALE-FREE state (objectui#4030) — see property 2 in the file header.
@@ -140,14 +145,22 @@ export function useDatasetDimensionMeta(
     (async () => {
       try {
         const doFetch = apiFetch ?? fetch;
-        const loadObjectSchema = async (name: string) => {
-          const r = await doFetch(`/api/v1/meta/object/${encodeURIComponent(name)}`, {
-            headers: { accept: 'application/json' },
-            credentials: 'include',
-          });
-          const doc = await r.json().catch(() => null);
-          return doc?.item ?? doc?.data ?? doc;
-        };
+        // objectui#13039 — through the data source's `getObjectSchema` when one
+        // that answers it is in scope: the read the dashboard's chart, metric
+        // and table widgets make, which the adapter's metadata cache joins while
+        // it is in flight. It answers the bare object document, which is what
+        // the raw leg's unwrap yields, so core gets one shape from either leg.
+        // The raw read stays as the fallback for a surface with no such source.
+        const loadObjectSchema = typeof dataSource?.getObjectSchema === 'function'
+          ? (name: string): Promise<unknown> => dataSource.getObjectSchema(name)
+          : async (name: string) => {
+            const r = await doFetch(`/api/v1/meta/object/${encodeURIComponent(name)}`, {
+              headers: { accept: 'application/json' },
+              credentials: 'include',
+            });
+            const doc = await r.json().catch(() => null);
+            return doc?.item ?? doc?.data ?? doc;
+          };
         // ONE walk for every dimension, memoized per call inside core — sibling
         // dimensions sharing a relationship prefix read that object once, and
         // the base object is seeded so it is never re-read.
@@ -168,8 +181,10 @@ export function useDatasetDimensionMeta(
     // (objectui#4030 / PR #4324). `apiFetch` comes from the provider's
     // memoized context value, and this hook's own `setState` cannot re-render
     // the provider, so its identity is stable across the effect's own updates.
+    // `dataSource` joins for the same reason and from the same value
+    // (objectui#13039): it decides which leg the read takes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature, apiFetch]);
+  }, [signature, apiFetch, dataSource]);
 
   return meta;
 }

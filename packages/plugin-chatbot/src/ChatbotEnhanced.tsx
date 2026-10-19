@@ -5537,7 +5537,7 @@ interface ToolPhaseStep {
  * objectui#13038 — tools that are the agent's own plumbing, not a step the user
  * asked for: the phase line neither shows nor counts them. `load_tools` attaches
  * a deferred tool family to the build agent's call; on build every data question
- * pays one, so it read as 「加载更多工具」 and inflated the count.
+ * pays one, so it read as "Load more tools" among the steps and inflated the count.
  *
  * A client list because nothing declares the role: the tool definition carries
  * only name, label, description and parameters, and the stream's tool part
@@ -5670,7 +5670,7 @@ function ToolPhaseSummary({
   // The host draws this line only when the summary strip has a row; with the
   // plumbing gone that gate is re-read here. A phase that so far called only
   // plumbing (or plumbing beside tools with their own card) draws no line,
-  // rather than 「0 步」 over an empty step list or a lone card named twice.
+  // rather than "0 steps" over an empty step list or a lone card named twice.
   // Hooks above still ran, so the phase clock started with the turn.
   if (groups.length === 0) return null;
   return (

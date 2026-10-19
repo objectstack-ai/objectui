@@ -219,6 +219,24 @@ function describeRefusedRowLimit(authored: unknown, objectName: unknown): string
   );
 }
 
+/**
+ * [objectui#13010] Claim, in the related-count store, the rows each entry of a
+ * claim signature will list — `[objectName, relationshipField, rowCap]`
+ * triples, keyed by CONTENT so a re-render with the same entries claims the
+ * same thing. Released by `releaseRailRows` with the same signature.
+ */
+function claimRailRows(sig: string, parentId: string): void {
+  for (const [objectName, relationshipField, limit] of JSON.parse(sig) as Array<[string, string, number]>) {
+    RelatedCountStore.claimRows(objectName, relationshipField, parentId, limit);
+  }
+}
+
+function releaseRailRows(sig: string, parentId: string): void {
+  for (const [objectName, relationshipField] of JSON.parse(sig) as Array<[string, string, number]>) {
+    RelatedCountStore.releaseRows(objectName, relationshipField, parentId);
+  }
+}
+
 const humanize = (s: string) =>
   s
     .replace(/[_-]+/g, ' ')
@@ -400,22 +418,12 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
         ]),
       )
     : '[]';
-  const claimEntries = (sig: string, owner: string) => {
-    for (const [objectName, relationshipField, limit] of JSON.parse(sig) as Array<[string, string, number]>) {
-      RelatedCountStore.claimRows(objectName, relationshipField, owner, limit);
-    }
-  };
-  if (claimable) claimEntries(claimSig, String(parentId));
+  if (claimable) claimRailRows(claimSig, String(parentId));
   React.useEffect(() => {
     if (!parentId) return;
     const owner = String(parentId);
-    claimEntries(claimSig, owner);
-    return () => {
-      for (const [objectName, relationshipField] of JSON.parse(claimSig) as Array<[string, string, number]>) {
-        RelatedCountStore.releaseRows(objectName, relationshipField, owner);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `claimEntries` reads only its arguments; the claim is keyed by CONTENT (`claimSig`).
+    claimRailRows(claimSig, owner);
+    return () => releaseRailRows(claimSig, owner);
   }, [claimSig, parentId]);
   React.useEffect(() => {
     for (const entry of entries) {
@@ -495,7 +503,7 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
       const limit = resolveRowLimit(entry.limit, DEFAULT_REFERENCE_RAIL_LIMIT);
       try {
         let total: number;
-        let items: any[];
+        let items: unknown[];
         if (refreshing) {
           // A refresh (objectui#12110 item 4) reads again, always: the rows a
           // badge's read holds for this card, or a read already in flight,
@@ -525,14 +533,14 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
           // it with a `page:tabs` badge counting the same unfiltered list:
           // whichever of the two asks first makes the one read.
           const res = await RelatedCountStore.fetchRows(
-            (object: string, query: any) => dataSource.find(object, query),
+            (object, query) => dataSource.find(object, query),
             entry.objectName,
             entry.relationshipField,
             String(parentId),
             limit,
             fields,
           );
-          items = res.rows as any[];
+          items = res.rows;
           total = res.total;
         }
         if (!isCurrent()) return;

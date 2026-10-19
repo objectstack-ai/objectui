@@ -1650,16 +1650,14 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
    * header, a key the renderer does not honour, so publishing it would
    * advertise configuration the platform drops. Each reason names what the
    * renderer does instead, and each leaves this map the day a reader lands
-   * and the key is published.
+   * and the key is published. objectui#13074 struck two of the five:
+   * `requiredPermissions` and `addRecord`, which `ListViewBlock` now honours
+   * on a page node (`ListViewBlock.inertKeys-13074.test.tsx`).
    */
   'list-view.name':
     'Unpublished by measurement (objectui#13047): read by nothing on a page `list-view` node. The node draws, queries and hands its view the same thing with and without it — the view\'s own `name` is its identity in metadata, which an embedded list has no use for.',
-  'list-view.requiredPermissions':
-    'Unpublished by measurement (objectui#13047): no audience gate on this block. A capability nobody holds still draws and queries the list, where the record blocks put an insufficient-permissions notice in place of the block. The server enforces the key on a served list view; nothing enforces it on an embedded one. A renderer gap the seat cards (objectui#13047\'s report).',
   'list-view.sharing':
     'Unpublished by measurement (objectui#13047): `sharing.type` draws a Share button with no click handler, and the sharing config is enforced nowhere in the renderer. Publishing it would advertise a dead control (objectui#13047\'s report).',
-  'list-view.addRecord':
-    'Unpublished by measurement (objectui#13047): `addRecord.enabled` draws an Add button that calls the host\'s `onAddRecord`, and a page node has no host to pass one, so the button does nothing there. A renderer gap the seat cards (objectui#13047\'s report).',
   'list-view.filterableFields':
     'Unpublished by measurement (objectui#13047): the row declares it as the legacy shorthand of `userFilters.fields` (end-user quick filters), and the list reads it as something else — the field list of the Filter panel — while it draws no quick-filter bar. Publishing it would advertise the row\'s meaning, which nothing honours; which meaning stands is a contract question for the seat (objectui#13047\'s report).',
 };
@@ -2837,6 +2835,7 @@ const actionLeafMemberPins = (type: 'action:button' | 'action:icon'): Record<str
  * pins the members of every structured one but `dataSource`.
  */
 const LIST_VIEW_PIN_FILE = 'packages/plugin-list/src/__tests__/ListViewBlock.specInputs-13047.test.tsx';
+const LIST_VIEW_13074_PIN_FILE = 'packages/plugin-list/src/__tests__/ListViewBlock.inertKeys-13074.test.tsx';
 
 const MEMBER_PINS: Record<string, MemberPin> = {
   ...actionLeafMemberPins('action:button'),
@@ -2931,6 +2930,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   // in one file (`LIST_VIEW_PIN_FILE`); `dataSource` in the binding's own file.
   // The six the objectstack `main` pin bump booked (`data`, `columns`, `filter`,
   // `sort`, `options`, `dataSource`) are among them.
+  'list-view.addRecord': {
+    file: LIST_VIEW_13074_PIN_FILE,
+    pins: 'The `enabled` member, on a page node: under a host that publishes the page\'s create path (`RelatedRecordActionsValue.resolve`), clicking the Add button calls that object\'s `onCreate`, the record-form overlay the object list opens; a host `onAddRecord` prop outranks it; with no `onCreate` (no create grant, no host) or a greyed one the button is withheld rather than drawn dead; and a node with no `addRecord` draws no button and asks the host nothing. `position` is `resolveAddRecordPlacement`\'s own pin. `mode` and `formView` are not read, which the registration\'s description says (objectui#13074).',
+  },
   'list-view.appearance': {
     file: LIST_VIEW_PIN_FILE,
     pins: 'Two members, measured apart. `showDescription: false` hides the description the same node declares (the info control is gone). `allowedVisualizations` narrows the kinds a view SWITCHER offers, and a page node draws no switcher (`showViewSwitcher` is a host prop, not a key of the row), so a node whitelisting `[\'grid\']` still draws its authored kanban: the member is inert on a page node, which the registration\'s description says rather than hides (objectui#13047).',
@@ -3026,6 +3029,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'list-view.pagination': {
     file: LIST_VIEW_PIN_FILE,
     pins: 'The `pageSize` member caps the query (`$top`), and the same node with no `pagination` sends the default page (objectui#13047).',
+  },
+  'list-view.requiredPermissions': {
+    file: LIST_VIEW_13074_PIN_FILE,
+    pins: 'Members are CAPABILITY names, ALL required, read through `hasCapabilities` under a real stock `MePermissionsProvider`: an unheld capability puts the insufficient-permissions notice in place of the list and no `find` is sent; a held one draws and queries the list; a PARTIAL grant on a two-entry array is gated (the `.every` row, with the full grant as its control); an empty array and an absent key are no gate; and a provider that reports no `systemPermissions` fails open (objectui#13074).',
   },
   'list-view.rowActions': {
     file: LIST_VIEW_PIN_FILE,

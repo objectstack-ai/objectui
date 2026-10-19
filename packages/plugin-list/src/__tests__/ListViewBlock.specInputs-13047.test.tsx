@@ -35,12 +35,14 @@
  * Every fixture is first parsed by the spec's own `list-view` row, so a key
  * measured here is measured in a shape the platform accepts.
  *
- * The last describe block is the five keys measured NOT honoured on a page
- * node, each held out of `inputs` with its reason in the console's repo-wide
- * parity gate: `name` and `requiredPermissions` (read by nothing here),
- * `sharing` and `addRecord` (each draws a button that does nothing on a page
- * node), and `filterableFields` (read, but as the Filter panel's field list,
- * not as the quick-filter shorthand the row declares it to be). One MEMBER is
+ * The last describe block is the keys measured NOT honoured on a page node,
+ * each held out of `inputs` with its reason in the console's repo-wide parity
+ * gate: `name` (read by nothing here), `sharing` (draws a button that does
+ * nothing on a page node), and `filterableFields` (read, but as the Filter
+ * panel's field list, not as the quick-filter shorthand the row declares it to
+ * be). `requiredPermissions` and `addRecord` were measured here too, until
+ * objectui#13074 honoured both on a page node; their pins now live in
+ * `ListViewBlock.inertKeys-13074.test.tsx`. One MEMBER is
  * recorded the same way beside the key that carries it:
  * `appearance.allowedVisualizations` narrows a view switcher a page node does
  * not draw, while `appearance.showDescription` acts.
@@ -760,12 +762,6 @@ describe('objectui#13047 — measured NOT honoured on a page `list-view` node (h
     expect(container.textContent ?? '').not.toContain('open_tasks');
   });
 
-  it('`requiredPermissions`: a capability nobody holds still draws and queries the list', async () => {
-    const { dataSource } = mount({ requiredPermissions: ['capability_nobody_holds'] });
-    await firstQuery(dataSource);
-    await handedTo('object-grid');
-  });
-
   it('`sharing`: draws a Share button that carries no click handler — the sharing config is enforced nowhere here', async () => {
     const { dataSource } = mount({ sharing: { type: 'personal' } });
     await loaded(dataSource);
@@ -807,17 +803,5 @@ describe('objectui#13047 — measured NOT honoured on a page `list-view` node (h
     const { dataSource } = mount({ filterableFields: ['amount', 'owner'] });
     await loaded(dataSource);
     expect(await firstFilterField()).toBe('Amount');
-  });
-  it('`addRecord.enabled`: draws an Add button that does nothing on a page node, which has no host `onAddRecord`', async () => {
-    const { dataSource } = mount({ addRecord: { enabled: true } });
-    await loaded(dataSource);
-    const add = screen.getByTestId('add-record-button');
-    const before = document.body.innerHTML;
-    fireEvent.click(add);
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    });
-    expect(document.body.innerHTML).toBe(before);
-    expect(dataSource.create).not.toHaveBeenCalled();
   });
 });

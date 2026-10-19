@@ -61,13 +61,15 @@ describe('parseDeclaredLazyViews', () => {
     // vacuously. Eight single-file route views (objectui#6535), the
     // metadata-admin directory barrel that six declarations share, and the two
     // marketplace pages (objectui#6681 measured three; objectui#12733 retired the
-    // Installed Apps one) = eleven distinct files.
-    expect(declared).toHaveLength(11);
+    // Installed Apps one), and the app's report index (objectui#13020) = twelve
+    // distinct files.
+    expect(declared).toHaveLength(12);
     for (const view of declared) {
       expect(fs.existsSync(path.join(REPO_ROOT, view)), view).toBe(true);
     }
     expect(declared).toContain('packages/app-shell/src/views/ObjectDataPage.tsx');
     expect(declared).toContain('packages/app-shell/src/views/ComponentNavView.tsx');
+    expect(declared).toContain('packages/app-shell/src/views/AppReportIndexView.tsx');
     // The three surfaces objectui#6535 deliberately looked away from and
     // objectui#6681 measured. Named individually: a bare length assertion goes
     // on passing if the widened matcher swaps one surface for another.

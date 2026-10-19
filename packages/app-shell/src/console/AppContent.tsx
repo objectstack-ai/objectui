@@ -27,6 +27,7 @@ import {
   createExpressionEvaluator,
   isObjectFieldVisible,
   useExpressionPermissions,
+  useExpressionSystemPermissions,
 } from '../providers/ExpressionProvider.js';
 import { buildExpressionUser } from '../providers/expressionUser.js';
 import { useTrackRouteAsRecent } from '../hooks/useTrackRouteAsRecent.js';
@@ -937,7 +938,11 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // objectui#4421 — the same `permissions` input the provider below reads, so
   // `current_user.can(...)` in a field's `visibleWhen` answers here exactly as
   // it does under the provider (one bag, objectui#6493).
+  // objectui#13083 — and the `systemPermissions` list beside it, so
+  // `current_user.hasCapability(name)` answers here as it does under the
+  // provider (objectui#13006) instead of faulting on an unbound list.
   const expressionPermissions = useExpressionPermissions();
+  const expressionSystemPermissions = useExpressionSystemPermissions();
   const expressionEvaluator = useMemo(
     // ⛔ No `app`: objectui#8155 removed it from the predicate scope, because
     // neither ADR-0068 nor the engine's `SCOPE_ROOTS` declares such a root.
@@ -956,8 +961,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
       user: buildExpressionUser(user),
       features,
       permissions: expressionPermissions,
+      systemPermissions: expressionSystemPermissions,
     }),
-    [user, features, expressionPermissions],
+    [user, features, expressionPermissions, expressionSystemPermissions],
   );
 
   // objectui#5619 — `isWorkspaceAdminResolved` belongs in this readiness gate

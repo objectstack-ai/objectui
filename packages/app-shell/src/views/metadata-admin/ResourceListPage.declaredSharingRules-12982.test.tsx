@@ -465,6 +465,9 @@ describe("the row's controls stay in reach on a narrow screen (objectui#13091)",
     const headers = Array.from(scroller.querySelectorAll('thead th'));
     expect(headers[headers.length - 1]).toHaveClass('sticky', 'right-0');
     expect(headers[headers.length - 2]).toHaveClass('sticky', 'right-28');
+    // Separated borders: in a collapsed-border table Chrome lets the text
+    // scrolling beneath a sticky cell show through its edge (measured live).
+    expect(scroller.querySelector('table')).toHaveClass('border-separate', 'border-spacing-0');
   });
 
   it('the first pinned cell draws the seam shadow, and the box leaves the shadow to it', async () => {

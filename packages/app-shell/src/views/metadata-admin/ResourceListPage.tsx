@@ -720,7 +720,10 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
             outerClassName="border rounded-lg overflow-hidden"
             data-testid="metadata-list-scroller"
           >
-            <table className="w-full text-sm">
+            {/* Separated borders: Chrome paints a sticky cell of a collapsed-border
+                table without covering the text scrolling beneath its edge
+                (objectui#13091), so the row dividers are drawn on the cells. */}
+            <table className="w-full text-sm border-separate border-spacing-0">
               {/* Under Setup the table reads as the console's record list
                   (objectui#12606): sentence-case headers, the grid's 36px
                   rows, middle-aligned cells. */}
@@ -754,7 +757,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="[&>tr+tr>td]:border-t">
                 {filtered.map((row, i) => {
                   const pk = config.primaryKey ?? 'name';
                   const name = String(row.item[pk] ?? `(unnamed-${i})`);

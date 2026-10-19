@@ -4,10 +4,14 @@
 # Usage:
 #   scripts/bump-objectstack.sh                 # pin the HEAD of ../objectstack
 #   scripts/bump-objectstack.sh <sha|ref>       # pin an explicit commit, e.g. origin/main
-#   scripts/bump-objectstack.sh --no-commit     # write .objectstack-sha only, do not commit
+#   scripts/bump-objectstack.sh --no-commit     # write the pin and its manifests, do not commit
+#
+# The bump BUILDS the new pin (`objectstack-pin.mjs build --write-manifests`, which
+# fetches the commit and needs the network) and commits `.objectstack-sha` together
+# with the packed manifests in `.objectstack-pin/` -- what Dependabot resolves the
+# lockfile from (objectui#13008). A build that fails restores the old pin.
 #
 # After the bump -- the second half, printed on the way out:
-#   pnpm objectstack:build   # builds @objectstack/* at the NEW pin into node_modules/.cache/objectstack
 #   pnpm install             # links that build; rewrites pnpm-lock.yaml only when the pinned
 #                            # packages' dependencies, peers or engines moved -- commit it then,
 #                            # or every frozen install (CI's) refuses the lockfile
@@ -230,8 +234,7 @@ if [[ -f "$PIN_FILE" ]]; then OLD_SHA="$(tr -d '[:space:]' < "$PIN_FILE")"; fi
 
 print_next_step() {
   echo
-  echo "→ NEXT STEP -- build the new pin and let pnpm link it:"
-  echo "      pnpm objectstack:build   # node_modules/.cache/objectstack at ${SHORT}"
+  echo "→ NEXT STEP -- let pnpm link the build of ${SHORT}:"
   echo "      pnpm install             # commit pnpm-lock.yaml if this changes it"
   echo "  Then type-check and test against it. OBJECTSTACK_ROOT=<tree> pnpm objectstack:build"
   echo "  stands an existing objectstack tree in instead of the pin."
@@ -242,23 +245,36 @@ if [[ "$OLD_SHA" == "$NEW_SHA" ]]; then
   exit 0
 fi
 
-# THE INVARIANT THAT MUST HOLD HERE: no read of objectstack happens below this
-# point. Everything that can fail on such a read already ran, and refused, above.
+# THE INVARIANT THAT MUST HOLD HERE: no read of the objectstack CHECKOUT happens
+# below this point. Everything that can fail on such a read already ran, and
+# refused, above. The build below fetches the commit by sha; when it fails, the
+# old pin is put back byte for byte.
+PIN_BACKUP="$(mktemp)"
+trap 'rm -f "$PIN_BACKUP"' EXIT
+if [[ -f "$PIN_FILE" ]]; then cp "$PIN_FILE" "$PIN_BACKUP"; fi
 echo "$NEW_SHA" > "$PIN_FILE"
 echo "→ objectstack pin: ${OLD_SHA:0:12} → ${SHORT}${REACH_TAG}"
 echo "  ${SUBJECT_LINE}"
 
+# `env -u`: OBJECTSTACK_ROOT names the checkout read above; reaching the build it
+# would stand that tree in for the pin.
+if ! (cd "$ROOT" && env -u OBJECTSTACK_ROOT node scripts/objectstack-pin.mjs build --write-manifests); then
+  if [[ "$OLD_SHA" == '(none)' ]]; then rm -f "$PIN_FILE"; else cp "$PIN_BACKUP" "$PIN_FILE"; fi
+  echo "✗ REFUSING to bump: the build of ${SHORT} failed (above). .objectstack-sha is restored; nothing was committed." >&2
+  exit 1
+fi
+
 if [[ "$NO_COMMIT" -eq 1 ]]; then
-  echo "→ --no-commit: leaving .objectstack-sha unstaged${REACH_RECALL}."
+  echo "→ --no-commit: leaving .objectstack-sha and .objectstack-pin unstaged${REACH_RECALL}."
   print_next_step
   exit 0
 fi
 
-git -C "$ROOT" add .objectstack-sha
+git -C "$ROOT" add .objectstack-sha .objectstack-pin
 git -C "$ROOT" commit -m "chore: bump objectstack to ${SHORT}
 
 ${SUBJECT_LINE}
 
-objectstack@${NEW_SHA}" -- .objectstack-sha
+objectstack@${NEW_SHA}" -- .objectstack-sha .objectstack-pin
 echo "✓ Committed${REACH_RECALL}. Push with: git push"
 print_next_step

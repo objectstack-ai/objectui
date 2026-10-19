@@ -1815,7 +1815,7 @@ const readEnvKey = (key: string): string | null =>
  * spellings collapse to one comparable number.
  *
  * Since objectui#12957 the lockfile resolves the spec to a DIRECTORY of the pinned
- * build (`'@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@…)'`) and
+ * build (`'@objectstack/spec@file:.objectstack-pin/spec(ai@…)'`) and
  * records no version for it; that resolution is followed to the version the
  * directory's manifest declares. A directory that is not built answers a value no
  * `OBJECTSTACK_VERSION` can equal, naming the missing build.

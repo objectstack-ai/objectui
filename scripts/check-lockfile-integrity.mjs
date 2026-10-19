@@ -41,9 +41,9 @@
  * ⛔ RULE 1 IS RETIRED (objectui#12957). It judged cause 1 by comparing
  * `@objectstack/*` VERSIONS in the snapshot keys, base against head. Since ruling B
  * on objectui#12955 no `@objectstack/*` package resolves to a registry version:
- * each resolves to the pinned build, a `file:node_modules/.cache/objectstack/<name>`
+ * each resolves to the pinned build, a `file:.objectstack-pin/<name>`
  * directory, and the lockfile records it with no version at all
- * (`'@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@…)'`). So the
+ * (`'@objectstack/spec@file:.objectstack-pin/spec(ai@…)'`). So the
  * rule had nothing left to order and could never fire again. The identity it
  * guarded is now `.objectstack-sha` -- a one-line text file that merges, conflicts
  * and reviews as text, and that no re-lock can carry backward across a rebase,
@@ -476,7 +476,7 @@ export function selfTest() {
   t('the peer suffix survives', parsed.peers === '(ai@7.0.65(zod@4.4.3))');
   t('unscoped key splits', parseSnapshotKey('zod@4.4.3').name === 'zod');
   t('a non-numeric version is not ordered', parseSnapshotKey('pkg@github:o/r#abc').version === null);
-  const pinned = parseSnapshotKey('@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))');
+  const pinned = parseSnapshotKey('@objectstack/spec@file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))');
   t('the pinned build key keeps its name and has no version (objectui#12957)', pinned.name === '@objectstack/spec' && pinned.version === null);
   t('sub-keys are not read as snapshots', readSnapshotKeys("snapshots:\n  zod@4.4.3:\n    dependencies:\n      foo: 1.0.0\n").join() === 'zod@4.4.3');
   t('the section ends at the next top-level key', readSnapshotKeys("snapshots:\n  zod@4.4.3: {}\nother:\n  nope@1.0.0: {}\n").join() === 'zod@4.4.3');
@@ -488,7 +488,7 @@ export function selfTest() {
   );
   t('cause 1 — the duplication the downgrade left is named', a.duplicated.some((f) => f.name === '@objectstack/spec' && f.headCount === 2));
   t('cause 1 — a version moving alone is no longer judged (rule 1 retired)', !a.duplicated.some((f) => f.name === '@objectstack/client'));
-  const PIN = '@objectstack/spec@file:node_modules/.cache/objectstack/spec';
+  const PIN = '@objectstack/spec@file:.objectstack-pin/spec';
   const p = run([PIN], [PIN, '@objectstack/spec@18.0.0-next.3']);
   t('pin — a registry copy beside the pinned build is a duplication (objectui#12957)', p.duplicated.some((f) => f.name === '@objectstack/spec' && f.added.includes('@objectstack/spec@18.0.0-next.3')));
   t('pin — moving from a registry version onto the pinned build is clean', run(['@objectstack/spec@18.0.0-next.3'], [PIN]).findings.length === 0);

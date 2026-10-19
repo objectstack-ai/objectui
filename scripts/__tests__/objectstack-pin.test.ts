@@ -12,6 +12,7 @@
  */
 import { afterAll, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -20,10 +21,12 @@ import { fileURLToPath } from 'node:url';
 import {
   CACHE_DIR,
   OVERRIDE_PREFIX,
+  PIN_DIR,
   PinRefusal,
   RECIPE,
   STAMP_FILE,
   build,
+  check,
   checkOverrideSet,
   checkoutPin,
   declaredObjectstackNames,
@@ -32,6 +35,7 @@ import {
   hashTree,
   judgeStamp,
   lockfileDependencyNames,
+  materialize,
   objectstackEnv,
   annotation,
   tailLines,
@@ -78,7 +82,7 @@ describe('the contract readers (objectui#12957)', () => {
   it('readOverrides accepts only the pinned-build form for @objectstack/* and ignores other overrides', () => {
     const ok = readOverrides({ pnpm: { overrides: { react: '19.2.8', '@objectstack/spec': override('spec') } } });
     expect([...ok]).toEqual([['@objectstack/spec', 'spec']]);
-    expect(() => readOverrides({ pnpm: { overrides: { '@objectstack/spec': '^18.0.0-next.3' } } })).toThrow(/must be "file:node_modules\/\.cache\/objectstack\/spec"/);
+    expect(() => readOverrides({ pnpm: { overrides: { '@objectstack/spec': '^18.0.0-next.3' } } })).toThrow(/must be "file:\.objectstack-pin\/spec"/);
     expect(() => readOverrides({ pnpm: { overrides: { '@objectstack/spec': override('core') } } })).toThrow(PinRefusal);
     expect(() => readOverrides({ pnpm: { overrides: { '@objectstack/spec@<18': override('spec') } } })).toThrow(/no version selector/);
     expect(() => readOverrides({ pnpm: { overrides: { react: '19.2.8' } } })).toThrow(/no @objectstack\/\* override/);
@@ -192,20 +196,20 @@ describe('the lockfile must record what the build declares (objectui#12957)', ()
     '',
     'snapshots:',
     '',
-    "  '@objectstack/core@file:node_modules/.cache/objectstack/core(ai@7.0.65(zod@4.6.7))':",
+    "  '@objectstack/core@file:.objectstack-pin/core(ai@7.0.65(zod@4.6.7))':",
     '    dependencies:',
-    "      '@objectstack/spec': file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))",
+    "      '@objectstack/spec': file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))",
     '      zod: 4.6.7',
     '    transitivePeerDependencies:',
     '      - ai',
     '',
-    "  '@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))':",
+    "  '@objectstack/spec@file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))':",
     '    dependencies:',
     '      zod: 4.6.7',
     '    optionalDependencies:',
     '      ai: 7.0.65(zod@4.6.7)',
     '',
-    "  '@objectstack/sdui-parser@file:node_modules/.cache/objectstack/sdui-parser': {}",
+    "  '@objectstack/sdui-parser@file:.objectstack-pin/sdui-parser': {}",
     '',
     '  zod@4.6.7: {}',
     '',
@@ -239,6 +243,68 @@ describe('the lockfile must record what the build declares (objectui#12957)', ()
       { name: '@objectstack/spec', missing: [], extra: ['zod'], absent: false },
       { name: '@objectstack/types', missing: ['@objectstack/spec'], extra: [], absent: true },
     ]);
+  });
+});
+
+describe('the committed manifests, and the build beside them (objectui#13008)', () => {
+  const sha256 = (text: string) => `sha256-${crypto.createHash('sha256').update(text).digest('hex')}`;
+  const PACKED = '{\n  "name": "@objectstack/spec",\n  "version": "1.0.0",\n  "exports": { ".": "./dist/index.mjs" }\n}\n';
+  const overrides = new Map([['@objectstack/spec', 'spec']]);
+  /** A packed build to link from, and a root whose committed manifest is `committed` (absent when null). */
+  function layout(name: string, committed: string | null, packed = PACKED) {
+    const base = fs.mkdtempSync(path.join(scratch, `${name}-`));
+    const from = path.join(base, 'build');
+    fs.mkdirSync(path.join(from, 'spec/dist'), { recursive: true });
+    fs.writeFileSync(path.join(from, 'spec/package.json'), packed);
+    fs.writeFileSync(path.join(from, 'spec/dist/index.mjs'), 'export {};\n');
+    const root = path.join(base, 'objectui');
+    writeJson(path.join(root, 'package.json'), { name: 'fake-objectui', pnpm: { overrides: { '@objectstack/spec': override('spec') } } });
+    if (committed !== null) {
+      fs.mkdirSync(path.join(root, PIN_DIR, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(root, PIN_DIR, 'spec/package.json'), committed);
+    }
+    return { from, root, target: path.join(root, PIN_DIR, 'spec') };
+  }
+
+  it('links the build beside a manifest that is the pin\'s, and the install check passes only then', () => {
+    const { from, root, target } = layout('equal', PACKED);
+    expect(() => check({ root })).toThrow(PinRefusal);
+    expect(() => check({ root }), 'the refusal names the hollow package').toThrow(/@objectstack\/spec/);
+    fs.mkdirSync(path.join(target, 'stale'));
+    expect(materialize(root, overrides, { from, mode: 'pin' })).toEqual({ '@objectstack/spec': sha256(PACKED) });
+    // A hard link: pnpm links these same files at install time.
+    expect(fs.statSync(path.join(target, 'dist/index.mjs')).ino).toBe(fs.statSync(path.join(from, 'spec/dist/index.mjs')).ino);
+    expect(fs.readdirSync(target).sort(), 'what an older build left is gone').toEqual(['dist', 'package.json']);
+    expect(() => check({ root })).not.toThrow();
+  });
+
+  it('REFUSES at the pin a committed manifest that differs or is missing, and writes nothing', () => {
+    const { from, root, target } = layout('differs', PACKED.replace('1.0.0', '0.9.0'));
+    expect(() => materialize(root, overrides, { from, mode: 'pin' })).toThrow(PinRefusal);
+    expect(() => materialize(root, overrides, { from, mode: 'pin' }), 'the refusal names the manifest').toThrow(/\.objectstack-pin\/spec\/package\.json/);
+    expect(fs.readdirSync(target)).toEqual(['package.json']);
+    expect(fs.readFileSync(path.join(target, 'package.json'), 'utf8')).toContain('0.9.0');
+    const missing = layout('missing', null);
+    expect(() => materialize(missing.root, overrides, { from: missing.from, mode: 'pin' })).toThrow(PinRefusal);
+    expect(fs.existsSync(missing.target)).toBe(false);
+  });
+
+  it('writes the packed manifest with --write-manifests and for a stand-in, and the pin restores exactly what a stand-in replaced', () => {
+    const { from, root, target } = layout('write', PACKED.replace('1.0.0', '0.9.0'));
+    materialize(root, overrides, { from, mode: 'write' });
+    expect(fs.readFileSync(path.join(target, 'package.json'), 'utf8')).toBe(PACKED);
+    // A stand-in replaces the committed manifest with its own and reports what was there.
+    const standIn = layout('stand-in', PACKED, PACKED.replace('1.0.0', '2.0.0-dev'));
+    const replaced = materialize(standIn.root, overrides, { from: standIn.from, mode: 'stand-in' });
+    expect(fs.readFileSync(path.join(standIn.target, 'package.json'), 'utf8')).toContain('2.0.0-dev');
+    // Back at the pin: the stand-in's manifest differs from the pin's, and the pin's is the one it replaced.
+    const pin = layout('pin-again', null);
+    expect(() => materialize(standIn.root, overrides, { from: pin.from, mode: 'pin' }), 'without the record it is drift').toThrow(PinRefusal);
+    materialize(standIn.root, overrides, { from: pin.from, mode: 'pin', replaced });
+    expect(fs.readFileSync(path.join(standIn.target, 'package.json'), 'utf8')).toBe(PACKED);
+    // ...and nothing else: a record of other bytes does not let a different manifest through.
+    const other = layout('other', PACKED.replace('1.0.0', '0.9.0'));
+    expect(() => materialize(other.root, overrides, { from: other.from, mode: 'pin', replaced: { '@objectstack/spec': sha256('{}') } })).toThrow(PinRefusal);
   });
 });
 
@@ -309,6 +375,13 @@ describe('the real tree (objectui#12957)', () => {
   it('pins one full objectstack sha', () => {
     expect(readPin(repoRoot)).toMatch(/^[0-9a-f]{40}$/);
   });
+
+  it('commits a manifest for every override, under the name it overrides (objectui#13008)', () => {
+    const overrides = readOverrides(JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')));
+    for (const [name, dir] of overrides) {
+      expect(JSON.parse(fs.readFileSync(path.join(repoRoot, PIN_DIR, dir, 'package.json'), 'utf8')).name, dir).toBe(name);
+    }
+  });
 });
 
 describe('OBJECTSTACK_ROOT stands an existing tree in (objectui#12957, objectstack#24306)', () => {
@@ -361,10 +434,10 @@ describe('OBJECTSTACK_ROOT stands an existing tree in (objectui#12957, objectsta
       path.join(root, 'pnpm-lock.yaml'),
       [
         'snapshots:',
-        "  '@objectstack/core@file:node_modules/.cache/objectstack/core':",
+        "  '@objectstack/core@file:.objectstack-pin/core':",
         '    dependencies:',
-        "      '@objectstack/spec': file:node_modules/.cache/objectstack/spec",
-        "  '@objectstack/spec@file:node_modules/.cache/objectstack/spec':",
+        "      '@objectstack/spec': file:.objectstack-pin/spec",
+        "  '@objectstack/spec@file:.objectstack-pin/spec':",
         '    dependencies:',
         '      zod: 4.6.7',
         '',
@@ -385,6 +458,10 @@ describe('OBJECTSTACK_ROOT stands an existing tree in (objectui#12957, objectsta
     const stamp = JSON.parse(fs.readFileSync(path.join(cache, STAMP_FILE), 'utf8'));
     expect(stamp).toMatchObject({ recipe: RECIPE, source: 'external', root: tree, packages: { '@objectstack/core': '9.9.9-test.1', '@objectstack/spec': '9.9.9-test.1' } });
     expect(stamp.contentHash).toMatch(/^sha256-[0-9a-f]{64}$/);
+    // Linked beside its own manifests, where the overrides point; nothing was committed there before.
+    expect(JSON.parse(fs.readFileSync(path.join(root, PIN_DIR, 'core/package.json'), 'utf8'))).toEqual(core);
+    expect(fs.readFileSync(path.join(root, PIN_DIR, 'spec/dist/index.mjs'), 'utf8')).toContain("'spec'");
+    expect(stamp.replaced).toEqual({});
     // Nothing was written into the stand-in tree.
     expect(fs.readdirSync(path.join(tree, 'packages/spec')).sort()).toEqual(['dist', 'package.json']);
     expect(fs.readdirSync(path.join(tree, 'packages/core')).sort()).toEqual(['dist', 'node_modules', 'package.json']);

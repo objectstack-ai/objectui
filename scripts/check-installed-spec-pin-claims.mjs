@@ -312,7 +312,7 @@ export function recogniseLine(line, bareMajors = DEFAULT_BARE_MAJORS) {
  *
  * ⭐ Since objectui#12957 the lockfile names no `@objectstack/*` VERSION: every
  * one resolves to a directory of the build `.objectstack-sha` pins
- * (`'@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@…)'`), and the
+ * (`'@objectstack/spec@file:.objectstack-pin/spec(ai@…)'`), and the
  * lockfile records that directory with no version. So this face FOLLOWS the
  * resolution: the version is the one the directory's manifest declares — the
  * packed `package.json` of the pinned commit. A directory that is not there (the

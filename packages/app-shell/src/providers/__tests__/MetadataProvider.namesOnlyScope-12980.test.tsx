@@ -66,7 +66,7 @@ function makeAdapter(server: Server) {
           server.calls.push(`${type}/${name}`);
           const item = (type === 'object' ? OBJECTS : []).find((o) => o.name === name);
           const answer = () =>
-            item ? Promise.resolve({ type, name, item: structuredClone(item) }) : Promise.reject(Object.assign(new Error('not found'), { status: 404 }));
+            item ? Promise.resolve({ type, name, item: structuredClone(item) }) : Promise.reject(Object.assign(new Error('not found'), { httpStatus: 404, code: 'RESOURCE_NOT_FOUND' }));
           if (!server.holdByName) return answer();
           return new Promise((resolve, reject) => held.push(() => answer().then(resolve, reject)));
         },

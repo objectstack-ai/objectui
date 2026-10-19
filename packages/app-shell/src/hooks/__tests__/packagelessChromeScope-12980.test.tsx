@@ -48,7 +48,7 @@ function makeAdapter(calls: string[]) {
         getItem: (type: string, name: string) => {
           calls.push(`${type}/${name}`);
           const item = (type === 'object' ? OBJECTS : []).find((o) => o.name === name);
-          return item ? Promise.resolve({ item: structuredClone(item) }) : Promise.reject(new Error('404'));
+          return item ? Promise.resolve({ item: structuredClone(item) }) : Promise.reject(Object.assign(new Error('not found'), { httpStatus: 404, code: 'RESOURCE_NOT_FOUND' }));
         },
       },
     }),

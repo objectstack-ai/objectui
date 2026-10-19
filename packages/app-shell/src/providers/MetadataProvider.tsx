@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { expandViewContainer } from '@objectstack/spec/ui';
 import { ActiveOrganizationStorage, TokenStorage, useAuth } from '@object-ui/auth';
-import { type ObjectStackAdapter } from '@object-ui/data-objectstack';
+import { isMetaItemAbsentError, type ObjectStackAdapter } from '@object-ui/data-objectstack';
 import { normalizeSchemaReferenceKeys } from '@object-ui/core';
 import { resolveInlineMode } from '@object-ui/plugin-form';
 import { MetadataCtx, useMetadata, type MetadataContextValue, type MetadataCacheState, type MetadataTypeStatus } from '@object-ui/react';
@@ -37,7 +37,21 @@ interface TypeCacheEntry {
   promise: Promise<any[]> | null;
 }
 
-type ItemPromiseMap = Map<string, Promise<any | null>>;
+/**
+ * One by-name read's outcome (objectui#13009). `item` is the definition, or
+ * `null` when none came back; `failed` tells WHICH `null` it is: `false` when
+ * the server answered without one (the item-less envelope, or a thrown
+ * `RESOURCE_NOT_FOUND`), `true` when no answer was obtained at all (a 5xx, a
+ * network drop, a 404 carrying no declared code; see `isMetaItemAbsentError`).
+ * `getItem` hands its callers `item` alone, as it always has; the object scope
+ * needs the difference, because only an answer may record a name as missing.
+ */
+interface ItemRead {
+  item: any | null;
+  failed: boolean;
+}
+
+type ItemPromiseMap = Map<string, Promise<ItemRead>>;
 
 /**
  * One package's object definitions, plus the objects outside it that a reader
@@ -853,13 +867,13 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     [bump, getEntry, ttlMs],
   );
 
-  const getItem = useCallback(
-    (type: string, name: string): Promise<any | null> => {
+  const readItem = useCallback(
+    (type: string, name: string): Promise<ItemRead> => {
       const entry = getEntry(type);
 
       if (entry.byName.has(name)) {
         debug(`item cache hit type=${type} name=${name}`);
-        return Promise.resolve(entry.byName.get(name) ?? null);
+        return Promise.resolve({ item: entry.byName.get(name) ?? null, failed: false });
       }
 
       let pending = itemPromisesRef.current.get(type);
@@ -898,18 +912,25 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
           if (item) entry.byName.set(name, item);
           debug(`fetched item type=${type} name=${name} in ${Date.now() - started}ms`);
           pending!.delete(name);
-          return item;
+          return { item, failed: false };
         })
         .catch((err: unknown) => {
           pending!.delete(name);
           debug(`fetch item failed type=${type} name=${name}`, err);
-          return null;
+          // A thrown absence is an answer; anything else is not (objectui#13009).
+          return { item: null, failed: !isMetaItemAbsentError(err) };
         });
 
       pending.set(name, promise);
       return promise;
     },
     [getEntry],
+  );
+
+  // The published read: `null` for "none came back", whichever way.
+  const getItem = useCallback(
+    (type: string, name: string): Promise<any | null> => readItem(type, name).then((read) => read.item),
+    [readItem],
   );
 
   // ── objectui#12811 — package-scoped object reads ─────────────────────────
@@ -955,8 +976,18 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
   const fetchScopeName = useCallback(
     (packageId: string, entry: ObjectScopeEntry, name: string): Promise<void> => {
       entry.names.set(name, 'pending');
-      return getItem('object', name).then((item: any) => {
+      return readItem('object', name).then(({ item, failed }) => {
         if (scopesRef.current.get(packageId) !== entry) return;
+        // objectui#13009 — a read that obtained no answer records nothing: the
+        // name is not answered (so the scope stays unsettled and
+        // `useObjectPresence` reads `unknown`, never `absent`), and the next
+        // `readObjectScope` asks it again. No bump: nothing a reader sees has
+        // changed, and a bump would re-render straight into another request,
+        // a retry loop paced by the failures themselves.
+        if (failed) {
+          entry.names.delete(name);
+          return;
+        }
         entry.names.set(name, 'answered');
         const rest = entry.items.filter((it: any) => it?.name !== name);
         if (item) {
@@ -969,7 +1000,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
         bump();
       });
     },
-    [bump, getItem],
+    [bump, readItem],
   );
 
   /** Refetch every scope in place: the items stay until the answers replace them. */

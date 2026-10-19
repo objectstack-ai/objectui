@@ -195,6 +195,78 @@ describe('referencing the spec NavigationItemSchema would reject metadata object
 
 
 // ─────────────────────────────────────────────────────────────────────────────
+// `visible`: the spec's expression input, both ways (objectui#13075)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The spec types every nav branch's `visible` as `EvaluatedExpressionInputSchema`:
+ * a non-blank predicate string, or the `{ dialect, source }` envelope its own
+ * parse produces. The mirror's slot was `boolean | string`, so it refused the
+ * envelope and accepted a blank string — a divergence both ways that no row
+ * above recorded. The mirror now takes the spec's schema by reference beside
+ * its boolean arm, so the boolean (the `visible: boolean` row above) is the one
+ * divergence left on this key.
+ *
+ * Each verdict is read off BOTH schemas, on an ordinary entry and on a `doc`
+ * entry (which the spec's `doc` arm judges), so an agreement cannot pass
+ * because one side refuses everything.
+ */
+describe('objectui#13075 — `visible` takes the spec\'s expression input', () => {
+  const ENTRIES: Array<[string, Record<string, unknown>]> = [
+    ['a url entry', { id: 'nav_ai', type: 'url', label: 'AI', url: '/ai' }],
+    ['a doc entry', { id: 'nav_help', type: 'doc', book: 'crm_manual' }],
+  ];
+  /** An envelope that reads no `data`, so the spec's data-source rule does not apply. */
+  const ENVELOPE = { dialect: 'cel', source: "'org_admin' in current_user.positions" };
+
+  it.each(ENTRIES)('the `{ dialect, source }` envelope parses on both (%s), and the mirror keeps it as written', (_name, entry) => {
+    const input = { ...entry, visible: ENVELOPE };
+    expect(SpecNavigationItemSchema.safeParse(input).success).toBe(true);
+    expect(keep(input)).toEqual(input);
+  });
+
+  it.each(ENTRIES.flatMap(([name, entry]) => [
+    [name, '\'\'', { ...entry, visible: '' }],
+    [name, 'whitespace', { ...entry, visible: '   ' }],
+  ] as Array<[string, string, Record<string, unknown>]>))(
+    'a blank string is refused by both (%s, %s), with the spec\'s code and sentence',
+    (_name, _blank, input) => {
+      const spec = SpecNavigationItemSchema.safeParse(input);
+      const mirror = NavigationItemSchema.safeParse(input);
+      expect(refusal(spec)).toEqual(['invalid_union @ visible']);
+      expect(refusal(mirror)).toEqual(['invalid_union @ visible']);
+      expect(!mirror.success && mirror.error.issues[0].message).toBe(!spec.success && spec.error.issues[0].message);
+    },
+  );
+
+  it('a blank `source` inside the envelope is refused by both, once, at `source`', () => {
+    const input = { id: 'nav_ai', type: 'url', label: 'AI', url: '/ai', visible: { dialect: 'cel', source: ' ' } };
+    expect(refusal(SpecNavigationItemSchema.safeParse(input))).toEqual(['custom @ visible.source']);
+    expect(refusal(NavigationItemSchema.safeParse(input))).toEqual(['custom @ visible.source']);
+  });
+
+  it('CONTROL — a bare non-blank string parses on both, and the mirror does not rewrite it into an envelope', () => {
+    const input = { id: 'nav_ai', type: 'url', label: 'AI', url: '/ai', visible: "'org_admin' in current_user.positions" };
+    expect(SpecNavigationItemSchema.safeParse(input).success).toBe(true);
+    expect(keep(input)).toEqual(input);
+  });
+
+  it('CONTROL — a boolean still parses on the mirror and stays the one divergence (the `visible: boolean` row)', () => {
+    for (const visible of [true, false]) {
+      const input = { id: 'nav_ai', type: 'url', label: 'AI', url: '/ai', visible };
+      expect(keep(input)).toEqual(input);
+      expect(SpecNavigationItemSchema.safeParse(input).success).toBe(false);
+    }
+  });
+
+  it('the TypeScript face admits the envelope (compile-time)', () => {
+    const entry: NavigationItem = { id: 'nav_ai', type: 'url', label: 'AI', url: '/ai', visible: { dialect: 'cel', source: 'true' } };
+    expect(keep(entry)).toEqual(entry);
+  });
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 // The type vocabulary and the `doc` entry (objectui#11197)
 // ─────────────────────────────────────────────────────────────────────────────
 

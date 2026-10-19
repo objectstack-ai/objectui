@@ -178,9 +178,27 @@ export type { KanbanCard, KanbanColumn } from './types'
  */
 export type KanbanCardActivationEvent = React.MouseEvent | React.KeyboardEvent
 
+/**
+ * What a cross-column move's write answered, as the board's mover reports it
+ * (objectui#13054): the card moved; the write was refused, with the sentence
+ * the mover showed the user for it; or no write ran yet because the mover
+ * asked for more input first. Package-private: the board reads it to speak
+ * the outcome, and nothing outside this package sets it.
+ */
+type KanbanCardMoveOutcome =
+  | { kind: 'moved' }
+  | { kind: 'refused'; message: string }
+  | { kind: 'deferred' }
+
 export interface KanbanBoardProps {
   columns: KanbanColumn[]
-  onCardMove?: (cardId: string, fromColumnId: string, toColumnId: string, newIndex: number) => void
+  /**
+   * A mover that writes may return a promise of the write's
+   * {@link KanbanCardMoveOutcome}; the board announces the move once it
+   * settles (objectui#13054). A mover that returns anything else is taken as
+   * having moved the card, and the board announces the move at once.
+   */
+  onCardMove?: (cardId: string, fromColumnId: string, toColumnId: string, newIndex: number) => void | Promise<KanbanCardMoveOutcome | void>
   onCardClick?: (card: KanbanCard, event?: KanbanCardActivationEvent) => void
   className?: string
   quickAdd?: boolean
@@ -842,6 +860,25 @@ function DndBridge({ children }: { children: (dnd: ReturnType<typeof useDnd>) =>
   return <>{children(dnd)}</>
 }
 
+const titledOr = (text: string | undefined, fallback: string): string =>
+  typeof text === 'string' && text.trim() !== '' ? text : fallback
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return typeof (value as PromiseLike<unknown> | null)?.then === 'function'
+}
+
+/**
+ * The sentence a settled move speaks (objectui#13054): the refusal the mover
+ * showed the user, word for word; nothing for a move waiting on more input
+ * (its dialog speaks for it); otherwise the move.
+ */
+function moveOutcomeSentence(outcome: unknown, movedSentence: string): string | null {
+  const o = outcome as Partial<{ kind: string; message: unknown }> | null | undefined
+  if (o?.kind === 'refused') return typeof o.message === 'string' && o.message.trim() !== '' ? o.message : null
+  if (o?.kind === 'deferred') return null
+  return movedSentence
+}
+
 export default function KanbanBoard({ columns, onCardMove, onCardClick, className, quickAdd, onQuickAdd, coverImageField, conditionalFormatting, objectFields, swimlaneField, countsAreWindowed, cardsMovable = true }: KanbanBoardProps) {
   const hasDnd = useHasDndProvider()
 
@@ -1043,6 +1080,36 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
     }
   }
 
+  /**
+   * The board's own move status region (objectui#13054). dnd-kit's live region
+   * takes a sentence only from its own drag events, so nothing can write it
+   * once the drop is over; the outcome of a move's write lands here instead,
+   * as assertively as dnd-kit's region speaks.
+   *
+   * Each drop clears it and only the latest drop's answer may fill it, so a
+   * slow answer to an earlier drop never speaks over a later one, and the same
+   * sentence twice in a row is still a change a screen reader reads.
+   */
+  const [moveStatus, setMoveStatus] = React.useState('')
+  const moveSeq = React.useRef(0)
+  const moveStatusId = `KanbanMoveStatus-${React.useId()}`
+  const announceMoveOutcome = (outcome: unknown, movedSentence: string) => {
+    const seq = ++moveSeq.current
+    setMoveStatus('')
+    const speak = (settled: unknown) => {
+      if (seq !== moveSeq.current) return
+      const sentence = moveOutcomeSentence(settled, movedSentence)
+      if (sentence !== null) setMoveStatus(sentence)
+    }
+    if (isThenable(outcome)) {
+      // A mover that throws reports nothing it can stand behind: say nothing
+      // rather than claim the move.
+      outcome.then(speak, () => undefined)
+    } else {
+      speak(outcome)
+    }
+  }
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     setActiveCard(null)
@@ -1125,9 +1192,14 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
         })
       )
 
-      if (onCardMove) {
-        onCardMove(activeId, activeColumn.id, overColumn.id, overIndex)
-      }
+      // The move is announced when its write answers, never at the drop
+      // (objectui#13054): `kanbanDndAnnouncements` says nothing for this drop.
+      const movedSentence = t('kanban.dnd.moved', {
+        card: titledOr(movedCard?.title, t('kanban.dnd.untitledCard')),
+        column: titledOr(overColumn.title, t('kanban.dnd.unnamedColumn')),
+      })
+      const outcome = onCardMove ? onCardMove(activeId, activeColumn.id, overColumn.id, overIndex) : undefined
+      announceMoveOutcome(outcome, movedSentence)
     }
 
     // Bridge to ObjectUI spec DnD system
@@ -1569,6 +1641,10 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
       </>
         );
       })()}
+      </div>
+
+      <div id={moveStatusId} role="status" aria-live="assertive" aria-atomic="true" className="sr-only">
+        {moveStatus}
       </div>
 
       <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>

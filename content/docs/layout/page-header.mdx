@@ -177,6 +177,7 @@ declaration gates both places.
 - `requiredPermissions` is a different gate: it names system capabilities, which the
   platform action route enforces as well as the UI. `current_user.can` asks about
   object permissions and does nothing on the server.
+- `current_user.hasCapability('manage_org_users')` asks the capability question itself, from the same payload's `systemPermissions` list (so a page node and an action gated on one name agree); like `can`, it faults until that payload has loaded, and an empty list answers `false`.
 
 **Client-side UI gating only.** This first phase is client-side: `current_user.can` decides
 whether the button is shown, nothing more. It is not an authorization boundary — the

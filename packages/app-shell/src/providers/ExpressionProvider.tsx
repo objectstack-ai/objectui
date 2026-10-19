@@ -15,10 +15,10 @@
  */
 
 import React, { createContext, useContext, useMemo } from 'react';
-import { ExpressionEvaluator, bindSubjectPermissions } from '@object-ui/core';
+import { ExpressionEvaluator, bindSubjectCapabilities, bindSubjectPermissions } from '@object-ui/core';
 import { PredicateScopeProvider, reportUnresolvableVisibilityPredicate, usePredicateScope } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
-import { toEvalPermissions, type EvalPermissions } from '@objectstack/formula';
+import { toEvalPermissions, type EvalPermissions, type EvalSystemPermissions } from '@objectstack/formula';
 
 export interface ExpressionContextValue {
   /** Current authenticated user */
@@ -71,6 +71,15 @@ export interface ExpressionScopeInput {
    * payload cannot pass for one.
    */
   permissions?: EvalPermissions;
+  /**
+   * The caller's held system capabilities — the `systemPermissions` list of
+   * the same `/auth/me/permissions` answer, the data
+   * `current_user.hasCapability(name)` is answered from (objectui#13006) — or
+   * `undefined` while there is no loaded answer. Take it from
+   * {@link useExpressionSystemPermissions}; ⛔ never pass `[]` for "not
+   * loaded": an empty list is a real answer ("holds no capability").
+   */
+  systemPermissions?: EvalSystemPermissions;
 }
 
 /**
@@ -192,11 +201,15 @@ export function buildExpressionScope({
   user = {},
   features = {},
   permissions,
+  systemPermissions,
 }: ExpressionScopeInput = {}): Record<string, any> {
   // ONE subject object under all four spellings, and it is the one carrying the
-  // permissions: the engine answers `can` only for a receiver IDENTICAL to the
-  // bound `current_user`, so a second copy under any alias would be refused.
-  const subject = bindSubjectPermissions(user, permissions);
+  // permissions and the capability list: the engine answers `can` and
+  // `hasCapability` only for a receiver IDENTICAL to the bound `current_user`,
+  // so a second copy under any alias would be refused. Both ride under symbols
+  // (`@object-ui/core` `subjectPermissions.ts`), so neither is a CEL root nor a
+  // readable member of `current_user`.
+  const subject = bindSubjectCapabilities(bindSubjectPermissions(user, permissions), systemPermissions);
   return { current_user: subject, user: subject, ctx: { user: subject }, os: { user: subject }, features };
 }
 
@@ -269,6 +282,34 @@ export function useExpressionPermissions(): EvalPermissions | undefined {
 }
 
 /**
+ * The caller's held system capabilities the predicate scope binds for
+ * `current_user.hasCapability(name)` (objectui#13006), or `undefined` when
+ * there is no loaded answer to read them from.
+ *
+ * The list is the `systemPermissions` of the SAME `/auth/me/permissions`
+ * answer `usePermissions()` holds — the one the action gate checks
+ * `requiredPermissions` against — so there is no second fetch. It is handed on
+ * on exactly the terms {@link useExpressionPermissions} hands on the object
+ * map, and only when that map is bound too:
+ *
+ *  - not loaded, no provider, or a backend that never reported
+ *    `systemPermissions` (a deployment predating ADR-0066): `undefined`, and
+ *    the engine REFUSES `hasCapability` loudly. ⛔ Never `[]`: an empty list is
+ *    a real answer and would read as a quiet denial.
+ *  - a loaded answer whose object map the formula adapter refused: `undefined`
+ *    as well. One answer binds both halves or neither, so the subject's
+ *    capability list can never change while its permissions map stays the
+ *    same object — the pair `packages/react` re-binds the runner's
+ *    `current_user` on (`JSON.stringify` cannot see a symbol-keyed list).
+ *    `providers/__tests__/hasCapability-13006.render.test.tsx` pins it.
+ */
+export function useExpressionSystemPermissions(): EvalSystemPermissions | undefined {
+  const { systemPermissions } = usePermissions();
+  const permissions = useExpressionPermissions();
+  return permissions !== undefined ? systemPermissions : undefined;
+}
+
+/**
  * An `ExpressionEvaluator` over {@link buildExpressionScope}.
  *
  * Every app-shell site that needs an evaluator imperatively (i.e. one it cannot
@@ -293,13 +334,16 @@ export function ExpressionProvider({ children, user = {}, app = {}, data = {}, f
   // surface under it) binds `current_user.can(...)` from the same payload with
   // no prop to thread and no per-surface copy of the hand-off.
   const permissions = useExpressionPermissions();
+  // objectui#13006 — the capability list `current_user.hasCapability(name)`
+  // reads, from the same answer, bound with the map or not at all.
+  const systemPermissions = useExpressionSystemPermissions();
   const value = useMemo(() => {
-    const evaluator = createExpressionEvaluator({ user, features, permissions });
+    const evaluator = createExpressionEvaluator({ user, features, permissions, systemPermissions });
     // `app` and `data` are still published on the context value — `DashboardView`
     // reads `app` as a plain value. Neither is handed to the evaluator:
     // objectui#8155 (`app`), objectui#8166 (`data`).
     return { user, app, data, features, evaluator };
-  }, [user, app, data, features, permissions]);
+  }, [user, app, data, features, permissions, systemPermissions]);
 
   // Also feed the predicate scope used by useCondition/useExpression in
   // @object-ui/react so action visibility predicates (e.g. on toolbar
@@ -307,8 +351,8 @@ export function ExpressionProvider({ children, user = {}, app = {}, data = {}, f
   // The SAME bag the evaluator above got — one builder, so the imperative and
   // the hook-driven halves of this provider cannot drift apart either.
   const scope = useMemo(
-    () => buildExpressionScope({ user, features, permissions }),
-    [user, features, permissions],
+    () => buildExpressionScope({ user, features, permissions, systemPermissions }),
+    [user, features, permissions, systemPermissions],
   );
 
   return (

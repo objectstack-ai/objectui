@@ -109,8 +109,13 @@ describe('objectui#11293 — PageView publishes the record navigator its blocks 
     seen!.openRecord!('not_an_object', 'r1');
     expect(navigate).not.toHaveBeenCalled();
     expect(seen!.recordHref!('not_an_object', 'r1')).toBeNull();
-    // A page has no parent record: the related-list half stays read-only.
-    expect(seen!.resolve({ objectName: 'account' })).toEqual({});
+    // A page has no parent record: a related list (it names its
+    // relationship) with no parent bound stays read-only.
+    expect(seen!.resolve({ objectName: 'account', relationshipField: 'owner_id', parentId: null })).toEqual({});
+    // objectui#13089 — an object-scoped list (no relationship, no parent: a
+    // page `list-view` node) is served the create pair alone, for its Add
+    // button; no Edit, Delete or row click.
+    expect(Object.keys(seen!.resolve({ objectName: 'account' }))).toEqual(['onCreate']);
   });
 });
 

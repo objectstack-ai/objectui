@@ -81,7 +81,7 @@ const OUTSIDER = { id: 'u_outsider', name: 'Otto', email: 'otto@example.com', po
 function NavUnderProvider({ items, enablePinning }: { items: NavigationItem[]; enablePinning?: boolean }) {
   const { evaluator } = useExpressionContext();
   const evalVis = React.useCallback(
-    (expr: string | boolean | undefined) => evaluateVisibility(expr, evaluator),
+    (expr: NavigationItem['visible']) => evaluateVisibility(expr, evaluator),
     [evaluator],
   );
   return (
@@ -276,7 +276,7 @@ describe('nav item `visible` is evaluated per item by the shell (objectui#10119)
         children: [{ id: 'nav_secret', type: 'object', objectName: 'demo_thing', label: 'Secret', visible: false }],
       },
     ];
-    const literal = (expr: string | boolean | undefined) => expr !== false && expr !== 'false';
+    const literal = (expr: NavigationItem['visible']) => expr !== false && expr !== 'false';
 
     expect(hasVisibleNavigationItems(hiddenAncestor, { evaluateVisibility: literal })).toBe(false);
     expect(hasVisibleNavigationItems(allChildrenHidden, { evaluateVisibility: literal })).toBe(false);

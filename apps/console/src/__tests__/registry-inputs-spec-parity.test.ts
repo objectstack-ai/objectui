@@ -784,6 +784,17 @@ function isRetiredUpstream(type: string): boolean {
  *     so the card owns no entry now and the four GA blocks carry no OWED entry
  *     again (see THE FOUR GA BLOCKS below).
  *
+ * A sixth owner, under the objectstack `main` pin bump (objectui#12971, past
+ * `@objectstack/spec` 18.0.0-next.3): the seat decision D1 = A on that card
+ * (record 6267645900) applies decision 3 = B to the bump's one group with no
+ * owner, `list-view`, which that pin gives a `ComponentPropsMap` row
+ * (objectstack#22444), so this file judges it:
+ *
+ *   - objectui#13047 — every entry on `list-view`: the 38 keys its spec row
+ *     declares that `inputs` does not publish, and the 6 member pins its
+ *     array/object-armed inputs owe. Expires 2026-11-18, thirty days from the
+ *     decision, or when that card lands.
+ *
  * Each owner card decides every key by its own measurement: declare what the
  * renderer honours, refuse or retire what it does not. ⛔ Batch-declaring an
  * input a renderer does not honour is the failure decision 3 = B exists to
@@ -818,8 +829,9 @@ const OBJECTUI_11438_EXPIRES = '2026-11-02';
 /**
  * The owner cards, and nothing else may own an entry: the three decision 3 = B
  * names, objectui#11536, which objectui#11438 ruling A′ filed for the 17.6.0
- * bump's one group with no owner, and objectui#11068, whose row ruling A″
- * booked to it.
+ * bump's one group with no owner, objectui#11068, whose row ruling A″
+ * booked to it, and objectui#13047, which the seat decision on objectui#12971
+ * filed for the objectstack `main` pin bump's `list-view` row.
  */
 const OBJECTUI_11111_OWNERS = [
   'objectui#11168',
@@ -827,11 +839,19 @@ const OBJECTUI_11111_OWNERS = [
   'objectui#8649',
   'objectui#11536',
   'objectui#11068',
+  'objectui#13047',
 ] as const;
 type Objectui11111Owner = (typeof OBJECTUI_11111_OWNERS)[number];
 
 /** The ruling every entry cites, whichever bump booked it. */
 const DECISION_3_B = 'objectui#11111 decision 3 = B (record 5902351047)';
+
+/**
+ * The objectstack `main` pin bump's bookings' date (objectui#12971): the seat
+ * decision that applied decision 3 = B to it (record 6267645900, 2026-10-19),
+ * plus thirty days, the distance every earlier booking kept from its ruling.
+ */
+const OBJECTUI_12971_EXPIRES = '2026-11-18';
 
 /**
  * Where each owner's entries were booked: the bump that surfaced them, the
@@ -856,6 +876,11 @@ const OBJECTUI_11111_BOOKINGS: Record<
     bookedBy: `objectui#11438 ruling A″ (record 5968177777), which books row 1 of the 17.6.0 bump in the shape of ${DECISION_3_B}`,
     expires: OBJECTUI_11438_EXPIRES,
   },
+  'objectui#13047': {
+    bump: 'objectstack `main` pin (objectui#12971)',
+    bookedBy: `the seat decision D1 = A on objectui#12971 (record 6267645900), which applies ${DECISION_3_B} to the objectstack \`main\` pin bump`,
+    expires: OBJECTUI_12971_EXPIRES,
+  },
 };
 
 /** The security triple 17.5.0 declares on exactly the three record blocks (objectui#8649's). */
@@ -864,16 +889,36 @@ const FIELD_SECURITY_TRIPLE = ['enforceFieldSecurity', 'redactFields', 'required
 /** Every entry the ruling books starts with this, so the caps can count them. */
 const OWED_PREFIX = 'OWED TO ';
 
-// The two helpers that wrote a booked entry — `OWED_TO` (the reason: owner,
+// The two helpers that write a booked entry: `OWED_TO` (the reason: owner,
 // what is owed, the booking record and the expiry) and `owedEntries` (one
-// entry per key of a block) — left with the last entry they wrote:
-// `action:button.undoable`, struck by objectui#11168's last slice. Every ledger
-// is empty and every cap below is 0. The cap test still reads each ledger for
-// the `OWED TO ` prefix, so anything booked again is counted against a cap of 0
-// and goes red until a ruling books it with an owner and an expiry.
+// entry per key of a block). They left with `action:button.undoable`, struck by
+// objectui#11168's last slice, and came back with the objectstack `main` pin
+// bump (objectui#12971), whose `list-view` differences the seat booked to
+// objectui#13047 under decision 3 = B (record 6267645900).
+
+/** The reason a booked entry carries: owner, what is owed, the booking record and the expiry. */
+const OWED_TO = (owner: Objectui11111Owner, what: string): string => {
+  const { bump, bookedBy, expires } = OBJECTUI_11111_BOOKINGS[owner];
+  return (
+    `${OWED_PREFIX}${owner}. ${what} Booked by ${bookedBy}: ` +
+    `the ${bump} bump re-pins and declares nothing; ${owner} decides it by its own measurement. ` +
+    `Expires ${expires}, or when ${owner} lands, whichever is first.`
+  );
+};
+
+/** `BLOCK.KEY` entries for every listed key of one block, all with the same owner and reason. */
+const owedEntries = (
+  type: string,
+  keys: readonly string[],
+  owner: Objectui11111Owner,
+  what: string,
+): Record<string, string> =>
+  Object.fromEntries(keys.map((key) => [`${type}.${key}`, OWED_TO(owner, what)]));
 
 /** Which owner the ruling routes an entry id to — asserted against every entry's reason. */
 function objectui11111OwnerOf(id: string): Objectui11111Owner {
+  // The seat decision on objectui#12971 (record 6267645900) routes by BLOCK: every entry on `list-view` is objectui#13047's.
+  if (id.slice(0, id.indexOf('.')) === 'list-view') return 'objectui#13047';
   // objectui#11438 ruling A′ routes by BLOCK: every entry on `record:line_items` is objectui#11536's.
   if (id.slice(0, id.indexOf('.')) === 'record:line_items') return 'objectui#11536';
   // Ruling A″ routes by exact ID: row 1 is this one key, and objectui#11068 owns nothing else.
@@ -899,9 +944,9 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
 const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 0, // objectui#11168 loaded and judged all four: slice 3 object-map and object-tree, slice 4 object-gantt, slice 5 object-timeline
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
-  unpublishedKeys: 0, // objectui#11168: 0 (its last slice declared action:button undoable, ruling B on objectui#11754; the two `endpoint` entries had left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0, objectui#8649: 0, objectui#11536: 0 and objectui#11068: 0 (each struck by its landing; objectui#11536 declared all ten record:line_items keys, objectui#11068's build published object-grid keyboardNavigation)
+  unpublishedKeys: 38, // objectui#13047: 38 (list-view, booked by the seat decision D1 = A on objectui#12971, record 6267645900); objectui#11168: 0 (its last slice declared action:button undoable, ruling B on objectui#11754; the two `endpoint` entries had left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0, objectui#8649: 0, objectui#11536: 0 and objectui#11068: 0 (each struck by its landing; objectui#11536 declared all ten record:line_items keys, objectui#11068's build published object-grid keyboardNavigation)
   refusedArms: 0, // objectui#11168: slice 2 narrowed element:definition-list.columns, slice 3 object-form.layout
-  memberPins: 0, // objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3; objectui#11536 pinned record:line_items columns and dataSource
+  memberPins: 6, // objectui#13047: 6 (list-view data, columns, filter, sort, options and dataSource, booked by the same decision); objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3; objectui#11536 pinned record:line_items columns and dataSource
 } as const;
 
 /**
@@ -1602,6 +1647,45 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // (objectui#12030): every one of the six is a tombstone now, so each entry
   // went dangling and stale and was deleted. The repeater reads none of its
   // four either (objectui#12345), and nothing here publishes the keys.
+
+  /*
+   * ⚠️ THE OBJECTSTACK `main` PIN BOOKINGS — the seat decision D1 = A on
+   * objectui#12971 (record 6267645900), which applies objectui#11111 decision
+   * 3 = B to the pin bump.
+   *
+   * The spec keys the `list-view` row declares from that pin on (objectstack#22444)
+   * that the registration's `inputs` do not publish. The bump declares nothing:
+   * objectui#13047 measures each key against `ListViewBlock` / `ListView`,
+   * declares what is honoured and leaves the rest out. Capped at
+   * `OBJECTUI_11111_LEDGER_CAPS.unpublishedKeys`.
+   */
+  ...owedEntries(
+    'list-view',
+    [
+      'name', 'label', 'description', 'searchableFields', 'filterableFields', 'userFilters', 'resizable',
+      'compactToolbar', 'selection', 'navigation', 'pagination', 'kanban', 'calendar', 'gantt', 'gallery',
+      'timeline', 'chart', 'map', 'tree', 'sharing', 'requiredPermissions', 'rowHeight', 'grouping',
+      'rowColor', 'hiddenFields', 'fieldOrder', 'rowActions', 'bulkActions', 'bulkActionDefs',
+      'conditionalFormatting', 'inlineEdit', 'exportOptions', 'userActions', 'appearance', 'addRecord',
+      'showRecordCount', 'allowPrinting', 'emptyState',
+    ],
+    'objectui#13047',
+    'A SPEC KEY NOT PUBLISHED: `list-view` entered `covered` with the objectstack `main` pin and its `inputs` omit this key its spec row declares.',
+  ),
+
+  // The seat decision D2 = A on objectui#12971 (record 6267645900), the
+  // objectui#12370 precedent (`record:related_list.parentDataSource`, owner
+  // objectui#12294): `emptyState` on the three bound record blocks
+  // (objectstack#24270) is declared by the spec and drawn by no renderer here
+  // yet, so publishing it would advertise configuration the platform drops.
+  // objectui#12932 owns the renderer and declares the input with it, striking
+  // these three.
+  'record:details.emptyState':
+    'Declared by the spec from the objectstack `main` pin (objectstack#24270): the empty state a bound record block draws when its `dataSource` answers no row. No renderer here draws it yet; objectui#12932 draws it and declares it on the registration.',
+  'record:highlights.emptyState':
+    'Declared by the spec from the objectstack `main` pin (objectstack#24270): the empty state a bound record block draws when its `dataSource` answers no row. No renderer here draws it yet; objectui#12932 draws it and declares it on the registration.',
+  'record:quick_actions.emptyState':
+    'Declared by the spec from the objectstack `main` pin (objectstack#24270): the empty state a bound record block draws when its `dataSource` answers no row. No renderer here draws it yet; objectui#12932 draws it and declares it on the registration.',
 };
 
 /**
@@ -3599,6 +3683,19 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // both, and the two array keys it declared (`filter`, `sort`) with them,
   // each registered in `MEMBER_PINS`, so no booking is left. Header kept as a
   // landmark for a future grep.
+
+  // ⚠️ OBJECTSTACK `main` PIN BOOKINGS — the seat decision D1 = A on
+  // objectui#12971 (record 6267645900), which applies objectui#11111 decision
+  // 3 = B to the pin bump. The array/object-armed inputs of `list-view`, the
+  // block that pin newly judges, owed a member pin by objectui#13047. Counted
+  // into `MEMBER_PIN_EXEMPTION_CEILING` (0 -> 6) and capped at these six; that
+  // card's pins strike them.
+  ...owedEntries(
+    'list-view',
+    ['data', 'columns', 'filter', 'sort', 'options', 'dataSource'],
+    'objectui#13047',
+    'A MEMBER PIN OWED: this `list-view` input is array/object-armed on a block the objectstack `main` pin newly judges, and no pin states its members.',
+  ),
 };
 
 /**
@@ -4432,8 +4529,19 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * deleted their two booked entries. The two array keys it declared beside them
  * (`filter`, `sort`) entered the population already pinned, so nothing stands
  * in the list and the ceiling follows it back to 0.
+ *
+ * ## 0 -> 6 (objectui#12971, the objectstack `main` pin bump) — a RULING, not
+ * room, the rise the 17.5.0 and 17.6.0 bumps took
+ *
+ * The pin newly judges `list-view`, which brings six array/object-armed inputs
+ * with no pin: `data`, `columns`, `filter`, `sort`, `options` and `dataSource`.
+ * The seat decision D1 = A on objectui#12971 (record 6267645900) applies
+ * objectui#11111 decision 3 = B to the bump, so all six are booked OWED to
+ * objectui#13047. 0 + 6 booked = 6, and `the objectui#11111 ledger is capped
+ * at exactly the entries it lists` caps the six and routes each to
+ * objectui#13047, whose pins take this back to 0.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 0;
+const MEMBER_PIN_EXEMPTION_CEILING = 6;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.
@@ -6117,6 +6225,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       'objectui#8649': 0,
       'objectui#11536': 0,
       'objectui#11068': 0,
+      'objectui#13047': 44,
     });
   });
 });

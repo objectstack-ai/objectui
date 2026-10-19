@@ -54,6 +54,15 @@ function makeAdapter(server: Server) {
   server.release = () => held.splice(0).forEach((go) => go());
   return {
     clearCache: vi.fn(),
+    invalidateCache: vi.fn(),
+    // objectui#13044 — the provider's by-name OBJECT read goes through the
+    // adapter's `getObjectSchema`. This double answers it from the same
+    // by-name door, unwrapped the way the adapter unwraps it.
+    getObjectSchema(this: { getClient(): any }, name: string) {
+      return this.getClient()
+        .meta.getItem('object', name)
+        .then((res: any) => (res && typeof res === 'object' && 'item' in res ? res.item : res));
+    },
     getClient: () => ({
       meta: {
         getItems: (type: string, options?: { packageId?: string }) => {

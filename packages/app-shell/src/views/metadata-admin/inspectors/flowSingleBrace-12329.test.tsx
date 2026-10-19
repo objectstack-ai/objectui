@@ -6,7 +6,7 @@
  *
  * objectstack#19939 S7 deleted the engine's single-brace resolver: a value slot
  * refuses a `{…}` token, a text slot reads `{{ }}` holes, and every other flow
- * string is a literal. The installed spec (`18.0.0-next.3`) publishes no
+ * string is a literal. The installed spec (`18.0.0-next.5`) publishes no
  * `xExpression: 'template'` mark. So the picker has two spellings left — the
  * bare reference and the `{{ }}` hole — and a literal position has no picker.
  *

@@ -6,7 +6,7 @@
  *
  * The table below is what `@objectstack/service-automation`'s
  * `AutomationEngine` and the trigger packages read, at objectstack
- * `18.0.0-next.3` (the installed `@objectstack/spec` line):
+ * `18.0.0-next.5` (the installed `@objectstack/spec` line):
  *
  * - `secret`: the API trigger arms from `config.secret` (`trigger-api`).
  * - `objectName`: lifted into the `record_change` binding, which the

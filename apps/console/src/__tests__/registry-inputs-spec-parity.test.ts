@@ -662,6 +662,22 @@ const MINOR_17_6_BLOCKS = ['record:line_items'];
 /** Does the spec this tree resolves carry the 17.6.0 set? `every`, for the reason `specCarriesGaBlocks` gives. */
 const specCarries176Blocks = MINOR_17_6_BLOCKS.every((type) => type in ComponentPropsMap);
 
+/**
+ * The one block the objectstack `main` pin after 18.0.0-next.3 newly carries
+ * (objectui#12971): the map went from 60 entries to 61 when `list-view` gained
+ * its row (objectstack#22444, landed as `194a42d1f7`), the list view's own
+ * schema. `@object-ui/plugin-list` registers it eagerly with `inputs`, so this
+ * file JUDGES it from that pin on.
+ *
+ * Same shape as `MINOR_17_6_BLOCKS`: this repo registered the block with
+ * `inputs` before the spec described it, so what moved at the bump is the
+ * SPEC's side. It enters `covered` the moment the installed spec carries it.
+ */
+const MINOR_18_MAIN_BLOCKS = ['list-view'];
+
+/** Does the spec this tree resolves carry the post-next.3 set? `every`, for the reason `specCarriesGaBlocks` gives. */
+const specCarries18MainBlocks = MINOR_18_MAIN_BLOCKS.every((type) => type in ComponentPropsMap);
+
 const EXPECTED_COVERED = [
   ...PINNED_EXPECTED_COVERED,
   ...LAZY_REGISTERED_BLOCKS,
@@ -670,6 +686,7 @@ const EXPECTED_COVERED = [
   ...(specCarries175Blocks ? MINOR_17_5_BLOCKS : []),
   ...(specCarries175LoadedBlocks ? MINOR_17_5_LOADED_BLOCKS : []),
   ...(specCarries176Blocks ? MINOR_17_6_BLOCKS : []),
+  ...(specCarries18MainBlocks ? MINOR_18_MAIN_BLOCKS : []),
 ].sort();
 
 /**
@@ -767,6 +784,17 @@ function isRetiredUpstream(type: string): boolean {
  *     so the card owns no entry now and the four GA blocks carry no OWED entry
  *     again (see THE FOUR GA BLOCKS below).
  *
+ * A sixth owner, under the objectstack `main` pin bump (objectui#12971, past
+ * `@objectstack/spec` 18.0.0-next.3): the seat decision D1 = A on that card
+ * (record 6267645900) applies decision 3 = B to the bump's one group with no
+ * owner, `list-view`, which that pin gives a `ComponentPropsMap` row
+ * (objectstack#22444), so this file judges it:
+ *
+ *   - objectui#13047 — every entry on `list-view`: the 38 keys its spec row
+ *     declares that `inputs` does not publish, and the 6 member pins its
+ *     array/object-armed inputs owe. Expires 2026-11-18, thirty days from the
+ *     decision, or when that card lands.
+ *
  * Each owner card decides every key by its own measurement: declare what the
  * renderer honours, refuse or retire what it does not. ⛔ Batch-declaring an
  * input a renderer does not honour is the failure decision 3 = B exists to
@@ -801,8 +829,9 @@ const OBJECTUI_11438_EXPIRES = '2026-11-02';
 /**
  * The owner cards, and nothing else may own an entry: the three decision 3 = B
  * names, objectui#11536, which objectui#11438 ruling A′ filed for the 17.6.0
- * bump's one group with no owner, and objectui#11068, whose row ruling A″
- * booked to it.
+ * bump's one group with no owner, objectui#11068, whose row ruling A″
+ * booked to it, and objectui#13047, which the seat decision on objectui#12971
+ * filed for the objectstack `main` pin bump's `list-view` row.
  */
 const OBJECTUI_11111_OWNERS = [
   'objectui#11168',
@@ -810,11 +839,19 @@ const OBJECTUI_11111_OWNERS = [
   'objectui#8649',
   'objectui#11536',
   'objectui#11068',
+  'objectui#13047',
 ] as const;
 type Objectui11111Owner = (typeof OBJECTUI_11111_OWNERS)[number];
 
 /** The ruling every entry cites, whichever bump booked it. */
 const DECISION_3_B = 'objectui#11111 decision 3 = B (record 5902351047)';
+
+/**
+ * The objectstack `main` pin bump's bookings' date (objectui#12971): the seat
+ * decision that applied decision 3 = B to it (record 6267645900, 2026-10-19),
+ * plus thirty days, the distance every earlier booking kept from its ruling.
+ */
+const OBJECTUI_12971_EXPIRES = '2026-11-18';
 
 /**
  * Where each owner's entries were booked: the bump that surfaced them, the
@@ -839,6 +876,11 @@ const OBJECTUI_11111_BOOKINGS: Record<
     bookedBy: `objectui#11438 ruling A″ (record 5968177777), which books row 1 of the 17.6.0 bump in the shape of ${DECISION_3_B}`,
     expires: OBJECTUI_11438_EXPIRES,
   },
+  'objectui#13047': {
+    bump: 'objectstack `main` pin (objectui#12971)',
+    bookedBy: `the seat decision D1 = A on objectui#12971 (record 6267645900), which applies ${DECISION_3_B} to the objectstack \`main\` pin bump`,
+    expires: OBJECTUI_12971_EXPIRES,
+  },
 };
 
 /** The security triple 17.5.0 declares on exactly the three record blocks (objectui#8649's). */
@@ -847,16 +889,36 @@ const FIELD_SECURITY_TRIPLE = ['enforceFieldSecurity', 'redactFields', 'required
 /** Every entry the ruling books starts with this, so the caps can count them. */
 const OWED_PREFIX = 'OWED TO ';
 
-// The two helpers that wrote a booked entry — `OWED_TO` (the reason: owner,
+// The two helpers that write a booked entry: `OWED_TO` (the reason: owner,
 // what is owed, the booking record and the expiry) and `owedEntries` (one
-// entry per key of a block) — left with the last entry they wrote:
-// `action:button.undoable`, struck by objectui#11168's last slice. Every ledger
-// is empty and every cap below is 0. The cap test still reads each ledger for
-// the `OWED TO ` prefix, so anything booked again is counted against a cap of 0
-// and goes red until a ruling books it with an owner and an expiry.
+// entry per key of a block). They left with `action:button.undoable`, struck by
+// objectui#11168's last slice, and came back with the objectstack `main` pin
+// bump (objectui#12971), whose `list-view` differences the seat booked to
+// objectui#13047 under decision 3 = B (record 6267645900).
+
+/** The reason a booked entry carries: owner, what is owed, the booking record and the expiry. */
+const OWED_TO = (owner: Objectui11111Owner, what: string): string => {
+  const { bump, bookedBy, expires } = OBJECTUI_11111_BOOKINGS[owner];
+  return (
+    `${OWED_PREFIX}${owner}. ${what} Booked by ${bookedBy}: ` +
+    `the ${bump} bump re-pins and declares nothing; ${owner} decides it by its own measurement. ` +
+    `Expires ${expires}, or when ${owner} lands, whichever is first.`
+  );
+};
+
+/** `BLOCK.KEY` entries for every listed key of one block, all with the same owner and reason. */
+const owedEntries = (
+  type: string,
+  keys: readonly string[],
+  owner: Objectui11111Owner,
+  what: string,
+): Record<string, string> =>
+  Object.fromEntries(keys.map((key) => [`${type}.${key}`, OWED_TO(owner, what)]));
 
 /** Which owner the ruling routes an entry id to — asserted against every entry's reason. */
 function objectui11111OwnerOf(id: string): Objectui11111Owner {
+  // The seat decision on objectui#12971 (record 6267645900) routes by BLOCK: every entry on `list-view` is objectui#13047's.
+  if (id.slice(0, id.indexOf('.')) === 'list-view') return 'objectui#13047';
   // objectui#11438 ruling A′ routes by BLOCK: every entry on `record:line_items` is objectui#11536's.
   if (id.slice(0, id.indexOf('.')) === 'record:line_items') return 'objectui#11536';
   // Ruling A″ routes by exact ID: row 1 is this one key, and objectui#11068 owns nothing else.
@@ -882,9 +944,9 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
 const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 0, // objectui#11168 loaded and judged all four: slice 3 object-map and object-tree, slice 4 object-gantt, slice 5 object-timeline
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
-  unpublishedKeys: 0, // objectui#11168: 0 (its last slice declared action:button undoable, ruling B on objectui#11754; the two `endpoint` entries had left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0, objectui#8649: 0, objectui#11536: 0 and objectui#11068: 0 (each struck by its landing; objectui#11536 declared all ten record:line_items keys, objectui#11068's build published object-grid keyboardNavigation)
+  unpublishedKeys: 38, // objectui#13047: 38 (list-view, booked by the seat decision D1 = A on objectui#12971, record 6267645900); objectui#11168: 0 (its last slice declared action:button undoable, ruling B on objectui#11754; the two `endpoint` entries had left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0, objectui#8649: 0, objectui#11536: 0 and objectui#11068: 0 (each struck by its landing; objectui#11536 declared all ten record:line_items keys, objectui#11068's build published object-grid keyboardNavigation)
   refusedArms: 0, // objectui#11168: slice 2 narrowed element:definition-list.columns, slice 3 object-form.layout
-  memberPins: 0, // objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3; objectui#11536 pinned record:line_items columns and dataSource
+  memberPins: 6, // objectui#13047: 6 (list-view data, columns, filter, sort, options and dataSource, booked by the same decision); objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3; objectui#11536 pinned record:line_items columns and dataSource
 } as const;
 
 /**
@@ -974,7 +1036,7 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'global:notifications':
     'EMPTY SPEC SHAPE. Same shape and same reasoning as `app:launcher` above: `app-shell/src/views/global-notifications-renderer.tsx` registers it propless because the spec shape is empty, and that registration is not in this file\'s import graph. objectui#8176.',
   'marketplace:installed-list':
-    'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Not registered here since objectui#12733: objectstack#23933 stopped serving the one page that rendered it, and the list that page led to is Setup → Packages filtered to Marketplace, whose rows carry its actions (`MarketplaceRowActions.installedAppsPins.test.tsx`). The empty shape is the load-bearing half either way; the spec retiring the type makes this entry RETIRED UPSTREAM. objectui#7122, objectui#12733, ledger objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` retired it by name after 18.0.0-next.3 (objectstack#24255, landed as `14a8bd2693`): out of `PageComponentType`, named in `RETIRED_PAGE_COMPONENT_TYPES`, and its row `retiredComponentProps` — a `never` that refuses every props bag, `{}` included, with a message that names the Packages view that replaces it — so there is no authoring surface for either direction to judge. Before that it stood here as EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declared it with no top-level key at all; not registered here since objectui#12733, whose Setup → Packages list filtered to Marketplace carries its actions (`MarketplaceRowActions.installedAppsPins.test.tsx`). objectui#7122, objectui#12733, objectui#12971, ledger objectui#8176.',
   'mcp:connect-agent':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/connect/ConnectAgentWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
   'record:approval_decision':
@@ -984,7 +1046,7 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'record:attachments':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 18 (objectui#12030), which declares it with no top-level key at all. Registered by `@object-ui/app-shell` (`src/views/record-attachments-renderer.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way, exactly as for `app:launcher` above. objectui#12030, ledger objectui#8176.',
   'record:json':
-    'NOT REGISTERED, DELIBERATELY. New in `@objectstack/spec` 18.0.0-next.3 (objectstack#23745, landed as `97b8e7a51d`) for the approval request page\'s raw-payload panel, which objectui#12490 was to render. The maintainer then dropped that face (pointer 6232139151 on objectui#12490: no business need for an approver to read JSON), so no renderer is built, the served-page edit closed unmerged, and the type is filed for retirement upstream (objectstack#24162). Registering it forces this entry out; the spec retiring it makes this entry RETIRED UPSTREAM. objectui#12873, ledger objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` retired it by name after 18.0.0-next.3 (objectstack#24162, landed as `030a7b83e8`), the only release that declared it: out of `PageComponentType`, named in `RETIRED_PAGE_COMPONENT_TYPES`, and its row `retiredComponentProps` — a `never` that refuses every props bag, `{}` included — so there is no authoring surface for either direction to judge. Before that it stood here as NOT REGISTERED, DELIBERATELY: the maintainer dropped the approval request page\'s raw-payload panel it was declared for (pointer 6232139151 on objectui#12490). objectui#12873, objectui#12971, ledger objectui#8176.',
   // The fourth class, and the only one that is not mechanically "unjudgeable":
   // OWED. The 17.5.0 bump booked four blocks here — new in that spec, registered
   // with `registerLazy` by the console (`register-plugins.ts`) and not loaded by
@@ -1585,6 +1647,45 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // (objectui#12030): every one of the six is a tombstone now, so each entry
   // went dangling and stale and was deleted. The repeater reads none of its
   // four either (objectui#12345), and nothing here publishes the keys.
+
+  /*
+   * ⚠️ THE OBJECTSTACK `main` PIN BOOKINGS — the seat decision D1 = A on
+   * objectui#12971 (record 6267645900), which applies objectui#11111 decision
+   * 3 = B to the pin bump.
+   *
+   * The spec keys the `list-view` row declares from that pin on (objectstack#22444)
+   * that the registration's `inputs` do not publish. The bump declares nothing:
+   * objectui#13047 measures each key against `ListViewBlock` / `ListView`,
+   * declares what is honoured and leaves the rest out. Capped at
+   * `OBJECTUI_11111_LEDGER_CAPS.unpublishedKeys`.
+   */
+  ...owedEntries(
+    'list-view',
+    [
+      'name', 'label', 'description', 'searchableFields', 'filterableFields', 'userFilters', 'resizable',
+      'compactToolbar', 'selection', 'navigation', 'pagination', 'kanban', 'calendar', 'gantt', 'gallery',
+      'timeline', 'chart', 'map', 'tree', 'sharing', 'requiredPermissions', 'rowHeight', 'grouping',
+      'rowColor', 'hiddenFields', 'fieldOrder', 'rowActions', 'bulkActions', 'bulkActionDefs',
+      'conditionalFormatting', 'inlineEdit', 'exportOptions', 'userActions', 'appearance', 'addRecord',
+      'showRecordCount', 'allowPrinting', 'emptyState',
+    ],
+    'objectui#13047',
+    'A SPEC KEY NOT PUBLISHED: `list-view` entered `covered` with the objectstack `main` pin and its `inputs` omit this key its spec row declares.',
+  ),
+
+  // The seat decision D2 = A on objectui#12971 (record 6267645900), the
+  // objectui#12370 precedent (`record:related_list.parentDataSource`, owner
+  // objectui#12294): `emptyState` on the three bound record blocks
+  // (objectstack#24270) is declared by the spec and drawn by no renderer here
+  // yet, so publishing it would advertise configuration the platform drops.
+  // objectui#12932 owns the renderer and declares the input with it, striking
+  // these three.
+  'record:details.emptyState':
+    'Declared by the spec from the objectstack `main` pin (objectstack#24270): the empty state a bound record block draws when its `dataSource` answers no row. No renderer here draws it yet; objectui#12932 draws it and declares it on the registration.',
+  'record:highlights.emptyState':
+    'Declared by the spec from the objectstack `main` pin (objectstack#24270): the empty state a bound record block draws when its `dataSource` answers no row. No renderer here draws it yet; objectui#12932 draws it and declares it on the registration.',
+  'record:quick_actions.emptyState':
+    'Declared by the spec from the objectstack `main` pin (objectstack#24270): the empty state a bound record block draws when its `dataSource` answers no row. No renderer here draws it yet; objectui#12932 draws it and declares it on the registration.',
 };
 
 /**
@@ -2701,7 +2802,8 @@ interface MemberPin {
 
 /**
  * The member pins objectui#11168 slice 1 registered for the array/object-armed
- * keys `action:button` and `action:icon` publish. ONE file drives both blocks
+ * keys `action:button` and `action:icon` publish (`patch` left with the input,
+ * which the spec retired on a row, objectui#12971). ONE file drives both blocks
  * through the same rows (`describe.each`), so each key's claim is identical on
  * the two and is written once here; `actionLeafMemberPins` spells it out per
  * block, so every id below still names its block and its key.
@@ -2719,8 +2821,6 @@ const ACTION_LEAF_MEMBER_CLAIMS: Record<string, string> = {
     'Members are request-body fields, merged into the body the runner\'s built-in `api` executor sends, LAST: a member overrides a static `properties.params` value of the same name while the other static values survive; without the key the body is the static values alone (objectui#11168 slice 1).',
   bodyShape:
     'The `object` arm\'s one member is `wrap`: `{ wrap: \'data\' }` nests the static values under `data` with `bodyExtra` riding flat beside it, while `flat` and an absent key send the same flat body — asserted on the body the runner\'s built-in `api` executor sends (objectui#11168 slice 1).',
-  patch:
-    'Members are field values for `operation: update`, merged UNDER the supplied values on the way to the write route (the `script` dispatch the runner hands an update to): a member the user also supplies loses, a member only `patch` carries is written, and the same `patch` without `operation` is merged by nothing (objectui#11168 slice 1).',
   locations:
     'Members are placement names, read at dispatch by `@object-ui/core`\'s `createServerActionHandler` (the console\'s `script` handler is built on it): a list carrying a record-scoped member (`record_header`) refuses to run with no record or selection in scope — an error toast and no request — while an object-level list (`list_toolbar`) runs (objectui#11168 slice 1).',
   toast:
@@ -2950,11 +3050,11 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-grid.data': {
     file: 'packages/plugin-grid/src/__tests__/gridDataInputContract.test.ts',
-    pins: 'The `object` arm is `ViewDataSchema` discriminated on `provider`: each of the three providers parses and the retired `api` one is refused (spec 18.0.0-next.3, objectui#12370), none of them is an array, the declaration is one shape across both registered tags so the alias cannot drift, and it is pinned at compile time too (objectui#5090).',
+    pins: 'The `object` arm is `ViewDataSchema` discriminated on `provider`: each of the three providers parses and the retired `api` one is refused (spec 18.0.0-next.5, objectui#12370, objectui#12971), none of them is an array, the declaration is one shape across both registered tags so the alias cannot drift, and it is pinned at compile time too (objectui#5090).',
   },
   'object-grid.conditionalFormatting': {
     file: 'packages/plugin-grid/src/__tests__/gridRowDecorationMembers-8071.test.tsx',
-    pins: 'The members read inside ONE formatting rule, asserted on the `style` attribute of the `<tr>` the grid paints. THREE alternative predicate members with a PRECEDENCE between them — one rule carrying `condition`, `expression` and the native `field`/`operator`/`value` triple, each naming a DIFFERENT row, is decided by `condition`; drop it and `expression` decides; drop that and the triple does — so a renderer reading any two of them as equivalent is red in a specific direction rather than merely unpinned. FOUR style members, and the sharp one is a RENAME: `backgroundColor` and `borderColor` keep their authored names on the way to the DOM while `textColor` is read as the CSS `color`, so keeping the authored spelling hands React a key it silently drops — same rules, same background, the text colour gone with nothing thrown. `style` is pinned as the BASE the three colour members override rather than replace (a non-colour member of it survives alongside the override). Two rule-list facts complete it: FIRST-MATCH-WINS with no merge (the second matching rule\'s own `textColor` never lands) and a rule carrying NO predicate member is SKIPPED rather than read as always-true, with the rule after it still deciding. ⚠️ Since objectui#11533 the AUTHORED member is ONE dialect, `{ condition, style }`: `expression`, the native triple and the three top-level colour members are refused by name on `ObjectGridSchema` and the list view (`packages/types/src/__tests__/grid-list-view-conditional-formatting-11533.test.ts`), so the rows that write them pin STORED-rule reads, which the resolver keeps as compatibility arms; a last block pins the two facts side by side — the stored native rule refused at authoring and painted at render, with its respelling painting the same row. The registration is an `array` arm; the installed spec row (18.0.0-next.3, re-measured by objectui#12030, objectui#12370, objectui#12626, objectui#12873) takes the list view\'s own `{ condition, style }` rule and refuses the native members and any other key, so the spec fixes the AUTHORED shape and the read site is the rest of the member contract, the stored-rule compatibility arms included (objectui#8071 slice 12).',
+    pins: 'The members read inside ONE formatting rule, asserted on the `style` attribute of the `<tr>` the grid paints. THREE alternative predicate members with a PRECEDENCE between them — one rule carrying `condition`, `expression` and the native `field`/`operator`/`value` triple, each naming a DIFFERENT row, is decided by `condition`; drop it and `expression` decides; drop that and the triple does — so a renderer reading any two of them as equivalent is red in a specific direction rather than merely unpinned. FOUR style members, and the sharp one is a RENAME: `backgroundColor` and `borderColor` keep their authored names on the way to the DOM while `textColor` is read as the CSS `color`, so keeping the authored spelling hands React a key it silently drops — same rules, same background, the text colour gone with nothing thrown. `style` is pinned as the BASE the three colour members override rather than replace (a non-colour member of it survives alongside the override). Two rule-list facts complete it: FIRST-MATCH-WINS with no merge (the second matching rule\'s own `textColor` never lands) and a rule carrying NO predicate member is SKIPPED rather than read as always-true, with the rule after it still deciding. ⚠️ Since objectui#11533 the AUTHORED member is ONE dialect, `{ condition, style }`: `expression`, the native triple and the three top-level colour members are refused by name on `ObjectGridSchema` and the list view (`packages/types/src/__tests__/grid-list-view-conditional-formatting-11533.test.ts`), so the rows that write them pin STORED-rule reads, which the resolver keeps as compatibility arms; a last block pins the two facts side by side — the stored native rule refused at authoring and painted at render, with its respelling painting the same row. The registration is an `array` arm; the installed spec row (18.0.0-next.5, re-measured by objectui#12030, objectui#12370, objectui#12626, objectui#12873, objectui#12971) takes the list view\'s own `{ condition, style }` rule and refuses the native members and any other key, so the spec fixes the AUTHORED shape and the read site is the rest of the member contract, the stored-rule compatibility arms included (objectui#8071 slice 12).',
   },
   'object-grid.operations': {
     file: 'packages/plugin-grid/src/__tests__/gridOperationsMembers-8071.test.tsx',
@@ -3030,7 +3130,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-kanban.conditionalFormatting': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
-    pins: 'Members are card STYLE RULES in ONE dialect since objectui#11522, the spec list view\'s `{ condition, style }`, and it reaches the sink: a rule colours the matching card and only it, a second rule aimed at the other card does the same, and the whole `style` map arrives, with the sibling card in the same render as the live non-matching control so a green cannot come from two unstyled cards agreeing. The retired native `{ field, operator, value }` and flat-colour dialects are refused by name on the types side (`packages/types/src/__tests__/kanban-conditional-formatting.test.ts`); these rows are their respellings, painting the same cards. ⛔ NOT an identity pin and not a wire pin: `ObjectKanban.tsx` never names this key at all (measured zero, against nine for `cardFields` in the same file) — it rides the `{ ...schema }` spread into `KanbanRenderer`, which forwards it to `KanbanImpl`\'s `getCardStyles`. That makes the pin load-bearing in a way the others are not: an edit replacing that spread with an explicit key list drops the key silently and nothing else in the repo would notice. The installed spec row (18.0.0-next.3, re-measured by objectui#12030, objectui#12370, objectui#12626, objectui#12873) takes the list view\'s own `{ condition, style }` rule, so the spec fixes the authored shape and the read site is the rest of the member contract (objectui#8313).',
+    pins: 'Members are card STYLE RULES in ONE dialect since objectui#11522, the spec list view\'s `{ condition, style }`, and it reaches the sink: a rule colours the matching card and only it, a second rule aimed at the other card does the same, and the whole `style` map arrives, with the sibling card in the same render as the live non-matching control so a green cannot come from two unstyled cards agreeing. The retired native `{ field, operator, value }` and flat-colour dialects are refused by name on the types side (`packages/types/src/__tests__/kanban-conditional-formatting.test.ts`); these rows are their respellings, painting the same cards. ⛔ NOT an identity pin and not a wire pin: `ObjectKanban.tsx` never names this key at all (measured zero, against nine for `cardFields` in the same file) — it rides the `{ ...schema }` spread into `KanbanRenderer`, which forwards it to `KanbanImpl`\'s `getCardStyles`. That makes the pin load-bearing in a way the others are not: an edit replacing that spread with an explicit key list drops the key silently and nothing else in the repo would notice. The installed spec row (18.0.0-next.5, re-measured by objectui#12030, objectui#12370, objectui#12626, objectui#12873, objectui#12971) takes the list view\'s own `{ condition, style }` rule, so the spec fixes the authored shape and the read site is the rest of the member contract (objectui#8313).',
   },
   'object-kanban.data': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
@@ -3583,6 +3683,19 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // both, and the two array keys it declared (`filter`, `sort`) with them,
   // each registered in `MEMBER_PINS`, so no booking is left. Header kept as a
   // landmark for a future grep.
+
+  // ⚠️ OBJECTSTACK `main` PIN BOOKINGS — the seat decision D1 = A on
+  // objectui#12971 (record 6267645900), which applies objectui#11111 decision
+  // 3 = B to the pin bump. The array/object-armed inputs of `list-view`, the
+  // block that pin newly judges, owed a member pin by objectui#13047. Counted
+  // into `MEMBER_PIN_EXEMPTION_CEILING` (0 -> 6) and capped at these six; that
+  // card's pins strike them.
+  ...owedEntries(
+    'list-view',
+    ['data', 'columns', 'filter', 'sort', 'options', 'dataSource'],
+    'objectui#13047',
+    'A MEMBER PIN OWED: this `list-view` input is array/object-armed on a block the objectstack `main` pin newly judges, and no pin states its members.',
+  ),
 };
 
 /**
@@ -4416,8 +4529,19 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * deleted their two booked entries. The two array keys it declared beside them
  * (`filter`, `sort`) entered the population already pinned, so nothing stands
  * in the list and the ceiling follows it back to 0.
+ *
+ * ## 0 -> 6 (objectui#12971, the objectstack `main` pin bump) — a RULING, not
+ * room, the rise the 17.5.0 and 17.6.0 bumps took
+ *
+ * The pin newly judges `list-view`, which brings six array/object-armed inputs
+ * with no pin: `data`, `columns`, `filter`, `sort`, `options` and `dataSource`.
+ * The seat decision D1 = A on objectui#12971 (record 6267645900) applies
+ * objectui#11111 decision 3 = B to the bump, so all six are booked OWED to
+ * objectui#13047. 0 + 6 booked = 6, and `the objectui#11111 ledger is capped
+ * at exactly the entries it lists` caps the six and routes each to
+ * objectui#13047, whose pins take this back to 0.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 0;
+const MEMBER_PIN_EXEMPTION_CEILING = 6;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.
@@ -4602,8 +4726,15 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       // one new block, `record:json`, which this repo deliberately does not
       // register (its ledger entry says why), so it is ledgered (12 -> 13).
       // `judged` and `registeredPropless` do not move. 40 + 7 + 13 = 60.
-      specCarried: 60,
-      judged: 40,
+      //
+      // 60 -> 61 on the objectstack `main` pin after 18.0.0-next.3
+      // (objectui#12971): one new row, `list-view`, registered eagerly with
+      // `inputs`, so it is judged (`MINOR_18_MAIN_BLOCKS`, 40 -> 41). The same
+      // pin retires `record:json` and `marketplace:installed-list`, whose rows
+      // stay as refusal doors and whose ledger entries now read RETIRED
+      // UPSTREAM, so `ledgeredUnjudgeable` does not move. 41 + 7 + 13 = 61.
+      specCarried: 61,
+      judged: 41,
       registeredPropless: 7,
       ledgeredUnjudgeable: 13,
     });
@@ -5285,6 +5416,14 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       ['element:record_picker', 'filter'],
       ['element:record_picker', 'sort'],
       ['element:record_picker', 'limit'],
+      // Two more, harvested at the objectstack `main` pin after 18.0.0-next.3
+      // (objectui#12971): objectstack#24394 retired a page action row's own
+      // `patch` (the row runs the declared action its `name` names, whose
+      // `patch` the route writes). These two were PUBLISHED, not exempted, so
+      // the forward direction is what turned red, and the registry stopped
+      // publishing them in the same change.
+      ['action:button', 'patch'],
+      ['action:icon', 'patch'],
     ];
 
     for (const [type, key] of HARVESTED) {
@@ -6086,6 +6225,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       'objectui#8649': 0,
       'objectui#11536': 0,
       'objectui#11068': 0,
+      'objectui#13047': 44,
     });
   });
 });

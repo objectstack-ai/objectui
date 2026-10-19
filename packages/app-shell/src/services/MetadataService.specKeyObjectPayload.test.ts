@@ -163,8 +163,12 @@ describe('the instrument', () => {
     // 45 at `@objectstack/spec` 18.0.0-next.0, which adopted `attachedOnRead`
     // (measured against a 17.7.0 control: gained set exactly `['attachedOnRead']`,
     // lost set empty; objectui#12030). Re-pointed the same way.
+    // 46 on the objectstack `main` pin after 18.0.0-next.3, which adopted
+    // `defaultRowScope` (objectstack#24398; measured against the next.3 pin: the
+    // one top-level key `ObjectSchema` gains between the two commits, none lost;
+    // objectui#12971). Re-pointed the same way.
     const accept = new Set(Object.keys(ObjectSchema.shape as Record<string, unknown>));
-    expect(accept.size).toBe(45);
+    expect(accept.size).toBe(46);
     // `fieldGroups` is the only grouping key on the object, and it groups the
     // FIELDS INSIDE one object — it is not a category for objects themselves,
     // so `group` has no mapping target here.

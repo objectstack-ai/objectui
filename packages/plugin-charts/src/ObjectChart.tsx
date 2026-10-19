@@ -640,11 +640,24 @@ export const ObjectChart = (props: ObjectChartProps) => {
           fieldName = dim?.field ?? dim0;
         }
         if (!objectName || !fieldName) { if (!cancelled) setOptionMeta(null); return; }
-        const loadObjectSchema = async (name: string) => {
-          const r = await doFetch(`/api/v1/meta/object/${encodeURIComponent(name)}`, reqOpts);
-          const doc = await r.json().catch(() => null);
-          return doc?.item ?? doc?.data ?? doc;
-        };
+        // objectui#13039 — the object read goes through the data source's
+        // `getObjectSchema` whenever one is in scope, the same read this
+        // component's own groupBy label leg (`fetchData`) and the dashboard's
+        // metric widget make. That read is the data layer's shared request-key
+        // cache, so N widgets over one object make ONE `meta/object/NAME`
+        // request; a raw `fetch` per chart made one each (the measured ×N on a
+        // dashboard). The data source answers the bare object document, which
+        // is what the raw leg's unwrap below yields, so both legs hand
+        // `loadDimensionFieldMeta` the same shape. The raw leg stays as the
+        // fallback for a chart rendered with no data source, or with one that
+        // cannot answer `getObjectSchema` (a host stub, a standalone embed).
+        const loadObjectSchema = typeof dataSource?.getObjectSchema === 'function'
+          ? (name: string): Promise<unknown> => dataSource.getObjectSchema(name)
+          : async (name: string) => {
+            const r = await doFetch(`/api/v1/meta/object/${encodeURIComponent(name)}`, reqOpts);
+            const doc = await r.json().catch(() => null);
+            return doc?.item ?? doc?.data ?? doc;
+          };
         // Each dimension's underlying field, which for a dataset dimension may be
         // a DOTTED relationship path (`crm_account.industry`) — objectui#4053.
         const fieldByDim: Record<string, string> = {};
@@ -680,7 +693,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.dataset, datasetKey, aggregateKey, schema.xAxisKey, apiFetch]);
+  }, [schema.objectName, schema.dataset, datasetKey, aggregateKey, schema.xAxisKey, apiFetch, dataSource]);
 
   // ── The label net's OUTPUT, with the locale bundle applied (objectui#4030) ─
   // The net above RESOLVES a select dimension's option label; before this it

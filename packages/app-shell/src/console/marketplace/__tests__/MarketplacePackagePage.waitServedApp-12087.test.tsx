@@ -133,6 +133,13 @@ const server = { installed: false, staleReads: 0, readsSinceInstall: 0 };
 function makeAdapter() {
   return {
     clearCache: vi.fn(),
+    // objectui#13044 — the real MetadataProvider reads an object by name through
+    // the adapter's `getObjectSchema`; this double answers it from its own by-name door.
+    getObjectSchema(this: { getClient(): any }, name: string) {
+      return this.getClient()
+        .meta.getItem('object', name)
+        .then((res: any) => (res && typeof res === 'object' && 'item' in res ? res.item : res));
+    },
     getClient: () => ({
       meta: {
         getItems: async (type: string) => {

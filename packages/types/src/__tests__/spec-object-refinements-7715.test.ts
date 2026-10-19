@@ -235,6 +235,72 @@ describe('objectui#12626 — the Page `isDefault` placement refusal reaches the 
   });
 });
 
+describe('objectui#12971 — the Page `main` region width refusal reaches objectui on both page nodes', () => {
+  const region = (name: string, width?: string) => ({ name, ...(width === undefined ? {} : { width }), components: [] });
+
+  it.each([
+    ['`large` on `main`', { regions: [region('main', 'large')] }, 'regions.0.width'],
+    ['`small` on a `Main` region (names match case-insensitively)', { regions: [region('header'), region('Main', 'small')] }, 'regions.1.width'],
+    ['`medium` on `main` of a `dashboard` page', { template: 'dashboard', regions: [region('main', 'medium')] }, 'regions.0.width'],
+  ])('%s: the spec refuses it, and objectui refuses with the spec\'s own issue on both page nodes', (_label, extra, at) => {
+    const spec = SpecPageSchema.safeParse(specPage(extra));
+    expect(spec.success).toBe(false);
+    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === at);
+    expect(specIssue?.code).toBe('custom');
+
+    const kindNode = { ...extra, type: 'home' };
+    for (const r of [PageNodeSchema.safeParse(pageNode(extra)), safeValidateSchema(pageNode(extra)), safeValidateSchema(kindNode)]) {
+      expect(r.success).toBe(false);
+      const issues = r.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message }));
+      expect(issues).toContainEqual({ code: 'custom', path: at, message: specIssue!.message });
+    }
+  });
+
+  it('controls: `full` on `main`, no `width` on `main`, and `large` on another region pass on the spec and both page nodes', () => {
+    for (const extra of [
+      { regions: [region('main', 'full')] },
+      { regions: [region('main')] },
+      { regions: [region('main'), region('aside', 'large')] },
+    ]) {
+      expect(SpecPageSchema.safeParse(specPage(extra)).success).toBe(true);
+      expect(PageNodeSchema.safeParse(pageNode(extra)).success).toBe(true);
+      expect(safeValidateSchema(pageNode(extra)).success).toBe(true);
+      expect(safeValidateSchema({ ...extra, type: 'home' }).success).toBe(true);
+    }
+  });
+});
+
+describe('objectui#12971 — the Page `record` binding placement refusal reaches the page-kind node, and only there', () => {
+  const record = { object: 'account' };
+
+  it.each([
+    ['a `home` page', { type: 'home', record }],
+    ['a `utility` page', { type: 'utility', record }],
+    ['a `record` page bound to an object', { type: 'record', object: 'account', record }],
+  ])('%s with a `record` binding: the spec refuses at `record`, and the kind node refuses with the spec\'s own issue', (_label, extra) => {
+    const spec = SpecPageSchema.safeParse(specPage(extra));
+    expect(spec.success).toBe(false);
+    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === 'record');
+    expect(specIssue?.code).toBe('custom');
+
+    const r = safeValidateSchema(extra);
+    expect(r.success).toBe(false);
+    expect(r.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message })))
+      .toContainEqual({ code: 'custom', path: 'record', message: specIssue!.message });
+  });
+
+  it('controls: an `app` page with a `record` binding passes the spec, a kind page without one passes the kind node, and the `page` node does not judge it', () => {
+    expect(SpecPageSchema.safeParse(specPage({ type: 'app', record })).success).toBe(true);
+    expect(safeValidateSchema({ type: 'home' }).success).toBe(true);
+    // The `page` node's `type` is the discriminator and the kind lives on `pageType`,
+    // so the check is not attached there: a `record` binding on it is not refused at `record`.
+    for (const extra of [{ pageType: 'app', record }, { record }]) {
+      const r = PageNodeSchema.safeParse(pageNode(extra));
+      expect(r.success, JSON.stringify(r.error?.issues)).toBe(true);
+    }
+  });
+});
+
 // ── The census: every object-level check the spec runs is accounted for ─────
 
 /**
@@ -279,15 +345,19 @@ const SITES = [
     // objectui#12370's view-data check left this list with objectui#12666: objectstack#23784
     // removed it from the spec, and 18.0.0-next.3 is the first release without it (objectstack
     // `a35f7a6`). The census below accounts for it by what it judges, not by name
-    // (`specChecksRemovedOnMain`), which on the installed 18.0.0-next.3 finds nothing.
+    // (`specChecksRemovedOnMain`), which on the installed 18.0.0-next.5 finds nothing.
     // `checkPageRegionPlacement` joined at 18.0.0-next.2 and was attached by objectui#12626: it
     // reads `kind` and `template` (by reference) and each region's `name`, which objectui's own
     // region carries with the meaning `page.tsx` places it by; measured in its describe block above.
+    // `checkPageMainRegionWidth` joined after 18.0.0-next.3 (objectstack#24326) and was attached
+    // by objectui#12971: it reads each region's `name` and `width`, which objectui's own region
+    // carries with the meaning `page.tsx` reads them by; measured in its describe block above.
     attached: [
       'checkPageSourceCompleteness',
       'checkPageRequiresKind',
       'checkPageSlotPair',
       'checkPageRegionPlacement',
+      'checkPageMainRegionWidth',
     ],
     // `checkPagePrintComposition` joined at 18 (the `print` page, ruling B′ on objectstack#8346).
     // It reads `type` and `regions`, and this node carries NEITHER by reference: both are in
@@ -298,7 +368,11 @@ const SITES = [
     // `type`, which on this node is the component discriminator `'page'`, so attached it would
     // refuse every `isDefault`; `PageKindNodeSchema`, whose `type` is the page kind, attaches it
     // (objectui#12626, measured in its describe block above).
-    notAttachable: ['checkPagePrintComposition', 'checkPageDefaultPlacement'],
+    // `checkPageRecordBindingPlacement` joined after 18.0.0-next.3 (objectstack#24275). It judges
+    // `record` by the page's `type` the same way, so attached here it would refuse every `record`,
+    // a `pageType: 'app'` page's included; `PageKindNodeSchema` attaches it (objectui#12971,
+    // measured in its describe block above).
+    notAttachable: ['checkPagePrintComposition', 'checkPageDefaultPlacement', 'checkPageRecordBindingPlacement'],
   },
   {
     site: 'ListViewSchema (objectql.zod.ts)',
@@ -376,7 +450,7 @@ const PAGE_SITE = 'SpecPageFields → PageNodeSchema (layout.zod.ts)';
  * against its own spec tree, so no file here may name that export. Through
  * 18.0.0-next.2 the spec exported it and attached it to `PageSchema`, where
  * the census would miscount by one; 18.0.0-next.3 dropped it (objectstack
- * `a35f7a6`), and on the installed 18.0.0-next.3 this answers empty. This reads every
+ * `a35f7a6`), and on the installed 18.0.0-next.5 this answers empty. This reads every
  * exported check no site names and keeps the ones that refuse a slotted
  * `object-grid` naming `api` at its `properties.data.provider`: on next.2 that
  * is exactly the removed judge, and on a spec without it the list is empty, so

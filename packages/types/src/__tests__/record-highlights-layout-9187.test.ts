@@ -142,9 +142,12 @@ describe('objectui#9187 — record:highlights `layout` against the installed spe
     // `@objectstack/spec` 17.5.0 added the record-block security members
     // (`requiredPermissions`, `redactFields`, `enforceFieldSecurity`) beside
     // `layout` (objectui#11073). `layout`'s closed set above did not move, so
-    // every pin in this file still describes the contract as it stands.
+    // every pin in this file still describes the contract as it stands. The
+    // spec after 18.0.0-next.3 added `emptyState` to the bound record blocks
+    // (objectstack#24270), beside `layout` again (objectui#12971).
     expect(Object.keys(RecordHighlightsProps.def.shape).sort()).toEqual([
       'aria',
+      'emptyState',
       'enforceFieldSecurity',
       'fields',
       'layout',

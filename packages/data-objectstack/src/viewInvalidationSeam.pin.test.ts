@@ -40,6 +40,11 @@ import { ObjectStackAdapter } from './index';
  * | `` `view:${…}:${…}` ``     | the `getView` READ + the seam               |
  * | `` `view-overrides:${…}` ``| the `listViewOverrides` READ + the seam     |
  *
+ * The published view list both of those readers derive from has one key too,
+ * `VIEW_LIST_KEY` (objectui#13044). It is a constant rather than a template,
+ * so it is pinned by its invalidation instead: the seam, and the wrap over this
+ * adapter's client's `view` writes, are the only lines that drop it.
+ *
  * Two, not one: a reader must spell the key it caches under — that is where the
  * key is *defined*. What must not recur is a THIRD spelling, because the only
  * thing a third spelling can be is a writer restating what the seam already
@@ -110,6 +115,16 @@ describe('the view cache key set has exactly one owner (objectui#4373)', () => {
       'this.metadataCache.invalidate?.(`view-overrides:${objectName}`);',
     ]);
   });
+
+  it('drops the shared view list in exactly two places: the client write wrap and the seam (objectui#13044)', () => {
+    const listLines = adapterSrc
+      .split('\n')
+      .filter((l: string) => l.includes('metadataCache.invalidate') && l.includes('VIEW_LIST_KEY'));
+    expect(listLines.map((l: string) => l.trim())).toEqual([
+      'return bound(...args).finally(() => this.metadataCache.invalidate?.(VIEW_LIST_KEY));',
+      'this.metadataCache.invalidate?.(VIEW_LIST_KEY);',
+    ]);
+  });
 });
 
 describe('invalidateViewKeys — the seam itself', () => {
@@ -128,12 +143,12 @@ describe('invalidateViewKeys — the seam itself', () => {
     return { ds: ds as ObjectStackAdapter, invalidated };
   }
 
-  it('drops the per-view key then the object override map, in that order', () => {
+  it('drops the per-view key, the object override map, then the list it derives from, in that order', () => {
     const { ds, invalidated } = makeAdapter();
 
     ds.invalidateViewKeys('account', 'account.mine');
 
-    expect(invalidated).toEqual(['view:account:account.mine', 'view-overrides:account']);
+    expect(invalidated).toEqual(['view:account:account.mine', 'view-overrides:account', 'list:view']);
   });
 
   it('takes a qualified `<object>.<key>` name as-is — it is a row key, not a path', () => {
@@ -157,6 +172,6 @@ describe('invalidateViewKeys — the seam itself', () => {
 
     seam.invalidateViewKeys('lead', 'lead.hot');
 
-    expect(invalidated).toEqual(['view:lead:lead.hot', 'view-overrides:lead']);
+    expect(invalidated).toEqual(['view:lead:lead.hot', 'view-overrides:lead', 'list:view']);
   });
 });

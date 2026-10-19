@@ -20,6 +20,7 @@ import { z } from 'zod';
 import {
   AppSchema as SpecAppSchema,
   AppContextSelectorSchema as SpecAppContextSelectorSchema,
+  ElementApiDataSourceSchema as SpecElementApiDataSourceSchema,
   I18nLabelSchema as SpecI18nLabelSchema,
   NavigationAreaSchema as SpecNavigationAreaSchema,
   // ⚠️ NOT a crossing, so it stays RAW — see THE IMPORT BOUNDARY below. This is
@@ -253,6 +254,13 @@ const NavigationItemObject = z.object({
 
   // Visibility & Permissions
   visible: z.union([z.boolean(), z.string()]).optional().describe('Visibility expression'),
+  // objectui#12971: the spec's shared nav-item base declares one API data source
+  // (objectstack#24332, `ElementApiDataSourceSchema` by reference), whose bound
+  // value an entry's `visible` reads as `data`. Taken by reference for the
+  // reason `runAction` is declared above: this schema strips unknown keys, so an
+  // authored binding would have validated clean and been thrown away. The spec
+  // describes it as planned and not yet rendered; the console does not read it.
+  dataSource: stripImportedDefaults(SpecElementApiDataSourceSchema).optional().describe("One API data source whose bound value the entry's `visible` reads as `data` (`@objectstack/spec` `ElementApiDataSourceSchema`). Planned in the spec; the console does not read it yet"),
   requiredPermissions: z.array(z.string()).optional().describe('Required permissions'),
   // Runtime capability gates. `NavigationRenderer` has always honoured these
   // and `NavigationItem` has always declared them — only this schema lagged,

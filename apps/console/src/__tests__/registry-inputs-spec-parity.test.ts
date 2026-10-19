@@ -1672,20 +1672,6 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
     'objectui#13047',
     'A SPEC KEY NOT PUBLISHED: `list-view` entered `covered` with the objectstack `main` pin and its `inputs` omit this key its spec row declares.',
   ),
-
-  // The seat decision D2 = A on objectui#12971 (record 6267645900), the
-  // objectui#12370 precedent (`record:related_list.parentDataSource`, owner
-  // objectui#12294): `emptyState` on the three bound record blocks
-  // (objectstack#24270) is declared by the spec and drawn by no renderer here
-  // yet, so publishing it would advertise configuration the platform drops.
-  // objectui#12932 owns the renderer and declares the input with it, striking
-  // these three.
-  'record:details.emptyState':
-    'Declared by the spec from the objectstack `main` pin (objectstack#24270): the empty state a bound record block draws when its `dataSource` answers no row. No renderer here draws it yet; objectui#12932 draws it and declares it on the registration.',
-  'record:highlights.emptyState':
-    'Declared by the spec from the objectstack `main` pin (objectstack#24270): the empty state a bound record block draws when its `dataSource` answers no row. No renderer here draws it yet; objectui#12932 draws it and declares it on the registration.',
-  'record:quick_actions.emptyState':
-    'Declared by the spec from the objectstack `main` pin (objectstack#24270): the empty state a bound record block draws when its `dataSource` answers no row. No renderer here draws it yet; objectui#12932 draws it and declares it on the registration.',
 };
 
 /**
@@ -3414,6 +3400,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-detail/src/renderers/__tests__/recordBinding.appPage-12294.test.tsx',
     pins: 'The per-element binding\'s members as a ONE-RECORD block reads them (objectui#12294), through the REAL registration and `SchemaRenderer` on an `app` page with no record context, asserted at the bound row\'s field value and option label it draws. `object` names the object read; `filter` reaches the read (lowered by `ElementDataSourceGate`, matched by content); `sort` picks the FIRST row and reaches the read as `$orderby`, with a two-row set stored out of order as its control; `limit` is NOT the read\'s cap: one row is always asked for (`$top: 1`), because the first row of the authored cap and of a one-row read are the same row; `view` is resolved by the gate, and an unresolvable one draws the configuration panel and reads no row. Zero rows and a refused read draw the block\'s no-record state; a failed read is reported in the block\'s place. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block, so the declaration lists the five members generically and this pin carries which of them THIS block reads. The record-page half (unbound = the page record; bound on a record page = the bound row, kept out of the page\'s inline-edit session and highlight registry) and the data-invalidation bus are pinned in `recordBinding.recordPageAndBus-12294.test.tsx`.',
   },
+  'record:details.emptyState': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/recordBinding.emptyState-12932.test.tsx',
+    pins: 'The members of the spec\'s `EmptyStateSchema` (by reference on this block\'s row, objectstack#24266) as a BOUND record block draws them (objectui#12932), through the REAL registration and `SchemaRenderer` on an `app` page, with the key in the `properties` bag: with a `dataSource` binding whose read answers no row, `title` and `message` are drawn in the block\'s place, and a read refused as forbidden draws them too. Its controls: with no `emptyState` the block keeps its own default ("Record not found"); a bound row draws the row; a failed read draws the error panel; an unbound block on a record page draws the page\'s record and, with no record, its own default. On `record:details` the same file pins a `title` left out (the heading reads "Record not found"), a `title` as an inline locale map (its `en` entry under the display locale) and `link` (drawn through the shared `EmptyStateLink`); `icon` reaches `resolveIcon`, the grid\'s own resolver.',
+  },
   'record:details.fields': {
     file: 'packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts',
     pins: 'Members are BARE NAMES: the spec rejects the entry-object spelling on its value, the description is asserted non-empty first and then required to teach no entry shape, and the renderer\'s more tolerant read is recorded as unexercised drift rather than a second contract.',
@@ -3441,6 +3431,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'record:highlights.dataSource': {
     file: 'packages/plugin-detail/src/renderers/__tests__/recordBinding.appPage-12294.test.tsx',
     pins: 'The per-element binding\'s members as a ONE-RECORD block reads them (objectui#12294), through the REAL registration and `SchemaRenderer` on an `app` page with no record context, asserted at the bound row\'s field value it draws. `object` names the object read; `filter` reaches the read (lowered by `ElementDataSourceGate`, matched by content); `sort` picks the FIRST row and reaches the read as `$orderby`, with a two-row set stored out of order as its control; `limit` is NOT the read\'s cap: one row is always asked for (`$top: 1`), because the first row of the authored cap and of a one-row read are the same row; `view` is resolved by the gate, and an unresolvable one draws the configuration panel and reads no row. Zero rows and a refused read draw the block\'s no-record state; a failed read is reported in the block\'s place. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block, so the declaration lists the five members generically and this pin carries which of them THIS block reads. The record-page half (unbound = the page record; bound on a record page = the bound row, kept out of the page\'s inline-edit session and highlight registry) and the data-invalidation bus are pinned in `recordBinding.recordPageAndBus-12294.test.tsx`.',
+  },
+  'record:highlights.emptyState': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/recordBinding.emptyState-12932.test.tsx',
+    pins: 'The members of the spec\'s `EmptyStateSchema` (by reference on this block\'s row, objectstack#24266) as a BOUND record block draws them (objectui#12932), through the REAL registration and `SchemaRenderer` on an `app` page, with the key in the `properties` bag: with a `dataSource` binding whose read answers no row, `title` and `message` are drawn in the block\'s place, and a read refused as forbidden draws them too. Its controls: with no `emptyState` the block keeps its own default (nothing); a bound row draws the row; a failed read draws the error panel; an unbound block on a record page draws the page\'s record and, with no record, its own default. On `record:details` the same file pins a `title` left out (the heading reads "Record not found"), a `title` as an inline locale map (its `en` entry under the display locale) and `link` (drawn through the shared `EmptyStateLink`); `icon` reaches `resolveIcon`, the grid\'s own resolver.',
   },
   'record:highlights.fields': {
     file: 'packages/plugin-detail/src/__tests__/recordHighlightsInputs.spec-parity.test.ts',
@@ -3477,6 +3471,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'record:quick_actions.dataSource': {
     file: 'packages/plugin-detail/src/renderers/__tests__/recordBinding.appPage-12294.test.tsx',
     pins: 'The per-element binding\'s members as a ONE-RECORD block reads them (objectui#12294), through the REAL registration and `SchemaRenderer` on an `app` page with no record context, asserted at the record id a declared action runs against. `object` names the object read; `filter` reaches the read (lowered by `ElementDataSourceGate`, matched by content); `sort` picks the FIRST row and reaches the read as `$orderby`, with a two-row set stored out of order as its control; `limit` is NOT the read\'s cap: one row is always asked for (`$top: 1`), because the first row of the authored cap and of a one-row read are the same row; `view` is resolved by the gate, and an unresolvable one draws the configuration panel and reads no row. Zero rows and a refused read draw the block\'s no-record state; a failed read is reported in the block\'s place. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block, so the declaration lists the five members generically and this pin carries which of them THIS block reads. The record-page half (unbound = the page record; bound on a record page = the bound row, kept out of the page\'s inline-edit session and highlight registry) and the data-invalidation bus are pinned in `recordBinding.recordPageAndBus-12294.test.tsx`.',
+  },
+  'record:quick_actions.emptyState': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/recordBinding.emptyState-12932.test.tsx',
+    pins: 'The members of the spec\'s `EmptyStateSchema` (by reference on this block\'s row, objectstack#24266) as a BOUND record block draws them (objectui#12932), through the REAL registration and `SchemaRenderer` on an `app` page, with the key in the `properties` bag: with a `dataSource` binding whose read answers no row, `title` and `message` are drawn in the block\'s place, and a read refused as forbidden draws them too. Its controls: with no `emptyState` the block keeps its own default (no button on a runtime view); a bound row draws the row; a failed read draws the error panel; an unbound block on a record page draws the page\'s record and, with no record, its own default. On `record:details` the same file pins a `title` left out (the heading reads "Record not found"), a `title` as an inline locale map (its `en` entry under the display locale) and `link` (drawn through the shared `EmptyStateLink`); `icon` reaches `resolveIcon`, the grid\'s own resolver.',
   },
   'record:quick_actions.actionNames': {
     file: 'packages/plugin-detail/src/__tests__/recordQuickActionsInputs.actionNamesFallback.test.tsx',

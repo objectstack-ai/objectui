@@ -38,10 +38,15 @@
 
 import { describe, expect, it } from 'vitest';
 import * as entry from '../index';
+import { optionListDefault, type OptionListFieldLike } from '../index';
 import * as schemaDefaults from '../schemaDefaults';
 
-/** Published by the entry as of #6059 — the pair, and only the pair. */
-const PUBLISHED = ['omitServerResolvedDefaults', 'isRequiredInForm'] as const;
+/**
+ * Published by the entry: the #6059 pair, plus `optionListDefault` for the
+ * console's public form page (objectui#13049) — the one reading of an option's
+ * `default: true` both form renderers seed from.
+ */
+const PUBLISHED = ['omitServerResolvedDefaults', 'isRequiredInForm', 'optionListDefault'] as const;
 
 /**
  * Present in `schemaDefaults.ts` and deliberately NOT on the entry. `SeedContext`
@@ -57,7 +62,7 @@ const WITHHELD = [
 ] as const;
 
 describe('@object-ui/plugin-form entry — the #6059 surface addition', () => {
-  it('publishes the pair, as the very functions `schemaDefaults` defines', () => {
+  it('publishes the pair and the option-list reading, as the very functions `schemaDefaults` defines', () => {
     for (const name of PUBLISHED) {
       expect(typeof (entry as Record<string, unknown>)[name]).toBe('function');
       // Identity, not just presence: a re-export cannot quietly become a
@@ -78,10 +83,34 @@ describe('@object-ui/plugin-form entry — the #6059 surface addition', () => {
     }
   });
 
-  it('adds exactly two names to the entry and no others from this module', () => {
+  it('adds exactly those three names to the entry and no others from this module', () => {
     const fromSchemaDefaults = Object.keys(entry).filter((k) =>
       Object.prototype.hasOwnProperty.call(schemaDefaults, k),
     );
     expect(fromSchemaDefaults.sort()).toEqual([...PUBLISHED].sort());
+  });
+});
+
+describe('@object-ui/plugin-form entry — `optionListDefault` and its parameter type (objectui#13049)', () => {
+  it('a field held under the published type flows through the published function', () => {
+    // Annotated with the published name: `tsc` (the package's type-check) is
+    // what judges that the type is importable from the entry.
+    const single: OptionListFieldLike = {
+      type: 'select',
+      options: [{ value: 'low', default: true }, { value: 'high' }],
+    };
+    const multi: OptionListFieldLike = {
+      type: 'select',
+      multiple: true,
+      options: [{ value: 'a', default: true }, { value: 'b' }, { value: 'c', default: true }],
+    };
+    expect(optionListDefault(single)).toBe('low');
+    expect(optionListDefault(multi)).toEqual(['a', 'c']);
+    expect(optionListDefault({ options: [{ value: 'x' }] })).toBeUndefined();
+    expect(optionListDefault(undefined)).toBeUndefined();
+  });
+
+  it('adds no RUNTIME name for the type', () => {
+    expect(Object.keys(entry)).not.toContain('OptionListFieldLike');
   });
 });

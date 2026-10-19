@@ -130,7 +130,11 @@ import {
   type FieldRuleFaults,
   type FieldRulePredicate,
 } from '@object-ui/core';
-import { omitServerResolvedDefaults, resolveSectionGroupReferences } from '@object-ui/plugin-form';
+import {
+  omitServerResolvedDefaults,
+  optionListDefault,
+  resolveSectionGroupReferences,
+} from '@object-ui/plugin-form';
 // ADR-0059's published door for a host that renders field widgets OUTSIDE the
 // form renderer: `resolveFormWidgetType` + `getLazyFieldWidget` hand back the
 // very component `@object-ui/fields` registers for the form, so a host built on
@@ -1250,6 +1254,29 @@ export function readLoadedRecord(
  * The two later sources are untouched: a stored value and an explicit
  * `prefill_` param are real values a producer supplied, not declarations the
  * server is waiting to resolve, so both still fill a runtime-default field.
+ *
+ * ## An option marked `default: true` is source 1 too (objectui#13049)
+ *
+ * A field that declares no `defaultValue` may still have one: its option list
+ * can mark an option `default: true`, and `ObjectQL.applyFieldDefaults` stores
+ * that option when the field arrives absent. Leaving the control empty here
+ * made a required select refuse the submit on the client that the server would
+ * have accepted and defaulted.
+ *
+ * The reading is `@object-ui/plugin-form`'s {@link optionListDefault}, the very
+ * function the create form's `schemaDefaultValues` calls (objectui#11914) —
+ * imported, not re-derived, so the two renderers cannot disagree about which
+ * option is the default or about a multi-valued field's array. It reads the
+ * served object field ({@link RenderableField.meta}), whose options still carry
+ * the flag; the row's own `options` are normalized to `{ value, label }` and
+ * have dropped it. The create form's precedence carries over whole:
+ *
+ *   - only when `defaultValue == null`, the engine's own presence test, so a
+ *     literal `defaultValue` wins and a RUNTIME one is never replaced by a flag
+ *     the server does not apply to that field;
+ *   - only with no `record`: the create form never seeds an edit form, and a
+ *     column the stored row leaves unset is not this form's to fill;
+ *   - a `prefill_` param still outranks it, as it outranks every default.
  */
 export function readPrefill(
   fields: RenderableField[],
@@ -1260,7 +1287,11 @@ export function readPrefill(
   for (const f of fields) {
     // Runtime defaults are the server's to resolve, so the key is left ABSENT
     // rather than seeded — see the docblock's #5727 section.
-    if (f.defaultValue !== undefined && !isRuntimeDefault(f.defaultValue)) {
+    const fromOptions =
+      !record && f.defaultValue == null ? optionListDefault(f.meta) : undefined;
+    if (fromOptions !== undefined) {
+      out[f.name] = fromOptions;
+    } else if (f.defaultValue !== undefined && !isRuntimeDefault(f.defaultValue)) {
       out[f.name] = f.defaultValue;
     }
     // `hasOwnProperty` rather than a truthiness/undefined test: a stored null

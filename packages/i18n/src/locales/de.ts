@@ -2052,6 +2052,11 @@ const de = {
       toggleChatsList: "Chatliste umschalten",
       goHome: "Zurück zur Startseite",
     },
+    reportIndex: {
+      title: "Berichte",
+      emptyTitle: "Keine Berichte",
+      emptyDescription: "Diese App hat keine Berichte, die Sie öffnen können.",
+    },
     commandPalette: {
       title: "Befehlspalette",
       placeholder: "Befehl eingeben oder suchen…",
@@ -2613,6 +2618,7 @@ const de = {
     recent: "Zuletzt",
     starred: "Markiert",
     removeFromFavorites: "{{name}} aus Favoriten entfernen",
+    allReports: "Alle Berichte",
   },
   topbar: {
     openAssistant: "Assistent {{name}} öffnen",

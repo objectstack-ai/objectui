@@ -2094,6 +2094,11 @@ const fr = {
       toggleChatsList: "Basculer la liste des discussions",
       goHome: "Retour à l'accueil",
     },
+    reportIndex: {
+      title: "Rapports",
+      emptyTitle: "Aucun rapport",
+      emptyDescription: "Cette application n’a aucun rapport que vous pouvez ouvrir.",
+    },
     commandPalette: {
       title: "Palette de commandes",
       placeholder: "Tapez une commande ou recherchez…",
@@ -2658,6 +2663,7 @@ const fr = {
     recent: "Récent",
     starred: "Étoilés",
     removeFromFavorites: "Retirer {{name}} des favoris",
+    allReports: "Tous les rapports",
   },
   topbar: {
     openAssistant: "Ouvrir l'assistant {{name}}",

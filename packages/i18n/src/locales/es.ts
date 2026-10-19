@@ -2098,6 +2098,11 @@ const es = {
       toggleChatsList: "Alternar lista de chats",
       goHome: "Volver al inicio",
     },
+    reportIndex: {
+      title: "Informes",
+      emptyTitle: "No hay informes",
+      emptyDescription: "Esta aplicación no tiene informes que puedas abrir.",
+    },
     commandPalette: {
       title: "Paleta de comandos",
       placeholder: "Escriba un comando o busque…",
@@ -2662,6 +2667,7 @@ const es = {
     recent: "Reciente",
     starred: "Destacados",
     removeFromFavorites: "Quitar {{name}} de favoritos",
+    allReports: "Todos los informes",
   },
   topbar: {
     openAssistant: "Abrir el asistente {{name}}",

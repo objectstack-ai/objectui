@@ -2186,6 +2186,11 @@ const en = {
       toggleChatsList: 'Toggle conversations list',
       goHome: 'Back to home',
     },
+    reportIndex: {
+      title: 'Reports',
+      emptyTitle: 'No reports',
+      emptyDescription: 'This app has no reports you can open.',
+    },
     commandPalette: {
       title: 'Command palette',
       placeholder: 'Type a command or search…',
@@ -3135,6 +3140,7 @@ const en = {
     recent: 'Recent',
     starred: 'Starred',
     removeFromFavorites: 'Remove {{name}} from favorites',
+    allReports: 'All reports',
   },
   topbar: {
     aiAssistant: 'AI Assistant',

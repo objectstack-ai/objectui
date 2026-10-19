@@ -2054,6 +2054,11 @@ const ja = {
       toggleChatsList: "チャット一覧を切り替え",
       goHome: "ホームに戻る",
     },
+    reportIndex: {
+      title: "レポート",
+      emptyTitle: "レポートはありません",
+      emptyDescription: "このアプリには開けるレポートがありません。",
+    },
     commandPalette: {
       title: "コマンドパレット",
       placeholder: "コマンドを入力または検索…",
@@ -2615,6 +2620,7 @@ const ja = {
     recent: "最近",
     starred: "スター付き",
     removeFromFavorites: "お気に入りから {{name}} を削除",
+    allReports: "すべてのレポート",
   },
   topbar: {
     openAssistant: "{{name}} アシスタントを開く",

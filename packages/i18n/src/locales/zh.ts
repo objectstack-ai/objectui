@@ -1840,6 +1840,11 @@ const zh = {
       toggleChatsList: '切换对话列表',
       goHome: '返回首页',
     },
+    reportIndex: {
+      title: '报表',
+      emptyTitle: '暂无报表',
+      emptyDescription: '此应用没有你可以打开的报表。',
+    },
     commandPalette: {
       title: '命令面板',
       placeholder: '输入命令或搜索…',
@@ -2690,6 +2695,7 @@ const zh = {
     recent: '最近使用',
     starred: '已收藏',
     removeFromFavorites: '从收藏中移除 {{name}}',
+    allReports: '全部报表',
   },
   topbar: {
     aiAssistant: 'AI 助手',

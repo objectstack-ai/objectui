@@ -2227,6 +2227,11 @@ const ar = {
       toggleChatsList: "تبديل قائمة المحادثات",
       goHome: "العودة إلى الرئيسية",
     },
+    reportIndex: {
+      title: "التقارير",
+      emptyTitle: "لا توجد تقارير",
+      emptyDescription: "لا يحتوي هذا التطبيق على تقارير يمكنك فتحها.",
+    },
     commandPalette: {
       title: "لوحة الأوامر",
       placeholder: "اكتب أمراً أو ابحث…",
@@ -2803,6 +2808,7 @@ const ar = {
     recent: "الأخيرة",
     starred: "المميزة",
     removeFromFavorites: "إزالة {{name}} من المفضلة",
+    allReports: "كل التقارير",
   },
   topbar: {
     openAssistant: "فتح مساعد {{name}}",

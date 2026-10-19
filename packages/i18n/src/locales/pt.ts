@@ -2093,6 +2093,11 @@ const pt = {
       toggleChatsList: "Alternar lista de conversas",
       goHome: "Voltar ao início",
     },
+    reportIndex: {
+      title: "Relatórios",
+      emptyTitle: "Nenhum relatório",
+      emptyDescription: "Este aplicativo não tem relatórios que você possa abrir.",
+    },
     commandPalette: {
       title: "Paleta de comandos",
       placeholder: "Digite um comando ou pesquise…",
@@ -2657,6 +2662,7 @@ const pt = {
     recent: "Recente",
     starred: "Favoritos",
     removeFromFavorites: "Remover {{name}} dos favoritos",
+    allReports: "Todos os relatórios",
   },
   topbar: {
     openAssistant: "Abrir o assistente {{name}}",

@@ -2052,6 +2052,11 @@ const ko = {
       toggleChatsList: "채팅 목록 전환",
       goHome: "홈으로 돌아가기",
     },
+    reportIndex: {
+      title: "보고서",
+      emptyTitle: "보고서 없음",
+      emptyDescription: "이 앱에는 열 수 있는 보고서가 없습니다.",
+    },
     commandPalette: {
       title: "명령 팔레트",
       placeholder: "명령어를 입력하거나 검색…",
@@ -2613,6 +2618,7 @@ const ko = {
     recent: "최근",
     starred: "즐겨찾기",
     removeFromFavorites: "즐겨찾기에서 {{name}} 제거",
+    allReports: "모든 보고서",
   },
   topbar: {
     openAssistant: "{{name}} 어시스턴트 열기",

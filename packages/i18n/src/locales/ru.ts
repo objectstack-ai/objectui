@@ -2146,6 +2146,11 @@ const ru = {
       toggleChatsList: "Переключить список чатов",
       goHome: "Вернуться на главную",
     },
+    reportIndex: {
+      title: "Отчёты",
+      emptyTitle: "Нет отчётов",
+      emptyDescription: "В этом приложении нет отчётов, которые вы можете открыть.",
+    },
     commandPalette: {
       title: "Палитра команд",
       placeholder: "Введите команду или поиск…",
@@ -2716,6 +2721,7 @@ const ru = {
     recent: "Недавние",
     starred: "Отмеченные",
     removeFromFavorites: "Убрать {{name}} из избранного",
+    allReports: "Все отчёты",
   },
   topbar: {
     openAssistant: "Открыть ассистента {{name}}",

@@ -117,6 +117,7 @@ const RecordDetailView = routeChunk.lazy(() => import('../views/RecordDetailView
 const DashboardView = routeChunk.lazy(() => import('../views/DashboardView.js').then(m => m.DashboardView));
 const PageView = routeChunk.lazy(() => import('../views/PageView.js').then(m => m.PageView));
 const ReportView = routeChunk.lazy(() => import('../views/ReportView.js').then(m => m.ReportView));
+const AppReportIndexView = routeChunk.lazy(() => import('../views/AppReportIndexView.js').then(m => m.AppReportIndexView));
 const SearchResultsPage = routeChunk.lazy(() => import('../views/SearchResultsPage.js').then(m => m.SearchResultsPage));
 const RecordFormPage = routeChunk.lazy(() => import('../views/RecordFormPage.js').then(m => m.RecordFormPage));
 const ComponentNavView = routeChunk.lazy(() => import('../views/ComponentNavView.js').then(m => m.ComponentNavView));
@@ -162,6 +163,7 @@ const APP_ROUTE_CHUNKS: ReadonlyArray<{ path: string; chunk: { preload: () => Pr
   { path: ':objectName/record/:recordId/page/:pageName', chunk: RecordDetailView },
   { path: 'dashboard/:dashboardName', chunk: DashboardView },
   { path: 'report/:reportName', chunk: ReportView },
+  { path: 'reports', chunk: AppReportIndexView },
   { path: 'page/:pageName', chunk: PageView },
   { path: 'component/:ns/:name/*', chunk: ComponentNavView },
   { path: 'design/dashboard/:dashboardName', chunk: DashboardDesignPage },
@@ -1362,6 +1364,8 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                 } />
                 <Route path="dashboard/:dashboardName" element={<DashboardView dataSource={dataSource} />} />
                 <Route path="report/:reportName" element={<ReportView dataSource={dataSource} />} />
+                {/* objectui#13020: the app's report index, linked from the sidebar. */}
+                <Route path="reports" element={<AppReportIndexView />} />
                 <Route path="page/:pageName" element={<PageView />} />
                 <Route path="component/:ns/:name/*" element={<ComponentNavView />} />
                 {/* Legacy: old metadata routes built before the REST-style nesting

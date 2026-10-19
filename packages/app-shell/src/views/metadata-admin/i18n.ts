@@ -262,6 +262,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.catalog.active.anchor':
     'An audience anchor: it carries the baseline every principal of the deployment holds, so it cannot be switched off. Change what it grants through the permission sets bound to it.',
   'engine.catalog.active.unknown': 'Activation state could not be read.',
+  'engine.catalog.active.notVisible': 'Not visible to you',
   'engine.catalog.active.failed': 'The switch was not saved: {message}',
   'engine.catalog.readOnly.single':
     'Read-only for your account. {type} items are defined by the platform administrator (the `manage_metadata` capability); your organization assigns them.',
@@ -3896,6 +3897,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.catalog.active.anchor':
     '受众锚点：它承载此部署中每个主体都持有的基线，因此不能停用。请通过绑定到它的权限集来调整它授予的内容。',
   'engine.catalog.active.unknown': '无法读取启用状态。',
+  'engine.catalog.active.notVisible': '对你不可见',
   'engine.catalog.active.failed': '开关未保存：{message}',
   'engine.catalog.readOnly.single':
     '您的账号只能查看。{type}由平台管理员定义（需要 `manage_metadata` 能力）；您的组织负责分配。',

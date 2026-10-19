@@ -26,7 +26,13 @@
  *    declared rule off, which goes through the door; a rule switched off (no
  *    projection served) continues in the pre-filled New form;
  *  - the control: the permission-set catalog keeps its create affordance and
- *    shows no Clone column.
+ *    shows no Clone column;
+ *  - objectui#13091: the row's controls (the Active switch, Clone) are pinned
+ *    to the right edge of the table's overflow box, which draws the seam
+ *    shadow, so a 1440 or 1024 screen reaches them (the measured reach is
+ *    `e2e/live/declared-sharing-rules-reach-13091.spec.ts`); and a principal
+ *    the ledger read refuses reads a plain-language state, with the server's
+ *    own sentence for why, never a bare "?".
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, cleanup, screen, waitFor, fireEvent, within } from '@testing-library/react';
@@ -156,6 +162,8 @@ vi.mock('@object-ui/permissions', async (importOriginal) => {
 });
 
 let ledgerRows: Record<string, unknown>[] = [];
+/** The ledger read's answer when it is refused; `null` answers `ledgerRows`. */
+let ledgerRefusal: { status: number; body: unknown } | null = null;
 let doorAnswer: { status: number; body: unknown } = { status: 200, body: {} };
 /** `GET /sharing/rules/:name` per name; a missing name answers the recorded 404. */
 let projections: Record<string, unknown> = {};
@@ -172,6 +180,7 @@ beforeEach(() => {
   canAuthor = true;
   canCreateRule = true;
   ledgerRows = [];
+  ledgerRefusal = null;
   doorAnswer = { status: 200, body: { success: true, data: { type: 'sharing_rule', enabled: false } } };
   projections = { share_key_account_qualified_contacts_with_managers: KEY_ACCOUNT_PROJECTION };
   createAnswer = (record) => ({ id: 'rec_1', ...record });
@@ -186,6 +195,7 @@ beforeEach(() => {
       const json = (status: number, body: unknown) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
       if (method === 'GET' && u.startsWith('/api/v1/data/sys_metadata_activation')) {
+        if (ledgerRefusal) return json(ledgerRefusal.status, ledgerRefusal.body);
         return json(200, { object: 'sys_metadata_activation', records: ledgerRows, total: ledgerRows.length, hasMore: false });
       }
       if (method === 'POST' && u.startsWith('/api/v1/security/_activation/')) {
@@ -397,5 +407,84 @@ describe('Clone: a new-named organization rule pre-filled from the declaration',
       access_level: 'read',
     });
     expect(created).toEqual([]);
+  });
+});
+
+/** The data door's refusal of a ledger read to a principal without read on it. */
+const LEDGER_READ_REFUSAL = "Permission denied: you cannot read 'sys_metadata_activation'.";
+
+describe('a principal the ledger read refuses (objectui#13091)', () => {
+  it("reads a plain-language state per rule, with the server's sentence for why — never a bare '?'", async () => {
+    ledgerRefusal = { status: 403, body: { success: false, error: { code: 'PERMISSION_DENIED', message: LEDGER_READ_REFUSAL } } };
+    mount();
+    const cell = await screen.findByTestId(`catalog-active-unreadable-${KEY}`);
+    expect(cell).toHaveTextContent(t('engine.catalog.active.notVisible', ADMIN_LOCALE));
+    expect(cell.getAttribute('title')).toContain(LEDGER_READ_REFUSAL);
+    expect(cell.getAttribute('title')).toContain(t('engine.catalog.active.unknown', ADMIN_LOCALE));
+    expect(screen.getByTestId(`catalog-active-unreadable-${INQ}`)).toHaveTextContent(
+      t('engine.catalog.active.notVisible', ADMIN_LOCALE),
+    );
+    expect(screen.queryByText('?')).toBeNull();
+    // No switch is drawn on a state nobody read.
+    expect(screen.queryByTestId(`catalog-active-${KEY}`)).toBeNull();
+  });
+
+  it('a refusal without a sentence still reads in words, with the status for why', async () => {
+    ledgerRefusal = { status: 403, body: {} };
+    mount();
+    const cell = await screen.findByTestId(`catalog-active-unreadable-${KEY}`);
+    expect(cell).toHaveTextContent(t('engine.catalog.active.notVisible', ADMIN_LOCALE));
+    expect(cell.getAttribute('title')).toContain('HTTP 403');
+  });
+
+  it('control: a readable ledger draws the switch, and no unreadable state', async () => {
+    mount();
+    await screen.findByTestId(`catalog-active-${KEY}`);
+    expect(screen.queryByTestId(`catalog-active-unreadable-${KEY}`)).toBeNull();
+  });
+});
+
+describe("the row's controls stay in reach on a narrow screen (objectui#13091)", () => {
+  /** The cell (`td` / `th`) holding `el`. */
+  const cellOf = (el: Element) => el.closest('td, th') as HTMLElement;
+
+  it('Clone and the Active switch sit in cells pinned to the right edge of the overflow box', async () => {
+    mount();
+    const clone = cellOf(await screen.findByTestId(`catalog-clone-${KEY}`));
+    const active = cellOf(await screen.findByTestId(`catalog-active-${KEY}`));
+    const scroller = screen.getByTestId('metadata-list-scroller');
+    expect(scroller).toContainElement(clone);
+    // Clone holds the right edge at its fixed width; Active sits just left of it.
+    expect(clone).toHaveClass('sticky', 'right-0', 'w-28');
+    expect(active).toHaveClass('sticky', 'right-28');
+    // The pinned pair is the row's trailing pair, Active then Clone.
+    const row = clone.parentElement!;
+    expect(row.lastElementChild).toBe(clone);
+    expect(clone.previousElementSibling).toBe(active);
+    // Their header cells are pinned the same way, so the column heads stay with them.
+    const headers = Array.from(scroller.querySelectorAll('thead th'));
+    expect(headers[headers.length - 1]).toHaveClass('sticky', 'right-0');
+    expect(headers[headers.length - 2]).toHaveClass('sticky', 'right-28');
+  });
+
+  it('the first pinned cell draws the seam shadow, and the box leaves the shadow to it', async () => {
+    mount();
+    const active = cellOf(await screen.findByTestId(`catalog-active-${KEY}`));
+    const clone = cellOf(screen.getByTestId(`catalog-clone-${KEY}`));
+    expect(active.className).toContain('group-data-[overflow-right=true]/hscroll:before:opacity-100');
+    expect(clone.className).not.toContain('group-data-[overflow-right=true]/hscroll:before:opacity-100');
+    // `seam="pinned"`: no edge overlay competes with the seam.
+    expect(screen.getByTestId('metadata-list-scroller')).toHaveClass('group/hscroll');
+    expect(screen.queryByTestId('horizontal-overflow-shadow')).toBeNull();
+  });
+
+  it('without Clone, the Active column alone holds the right edge and draws the seam', async () => {
+    canCreateRule = false;
+    mount();
+    const active = cellOf(await screen.findByTestId(`catalog-active-${KEY}`));
+    expect(active).toHaveClass('sticky', 'right-0');
+    expect(active).not.toHaveClass('right-28');
+    expect(active.className).toContain('group-data-[overflow-right=true]/hscroll:before:opacity-100');
+    expect(active.parentElement!.lastElementChild).toBe(active);
   });
 });

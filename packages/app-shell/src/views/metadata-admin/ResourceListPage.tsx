@@ -15,7 +15,16 @@
 import * as React from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Plus, Search, RefreshCw, AlertTriangle, Lock, Copy } from 'lucide-react';
-import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@object-ui/components';
+import {
+  Button,
+  HorizontalOverflowBox,
+  PINNED_RIGHT_SEAM_SHADOW_CLASSES,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  cn,
+} from '@object-ui/components';
 import { Input } from '@object-ui/components';
 import { Badge } from '@object-ui/components';
 import { Switch } from '@object-ui/components';
@@ -171,8 +180,10 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'active' | 'inactive'>('all');
   // The activation ledger's answer for the switch column, with the names the
   // door refuses to switch (`catalog-activation.ts`). `null` while unread,
-  // `'error'` when the read was refused or failed.
+  // `'error'` when the read was refused or failed, with the server's words for
+  // why (objectui#13091) beside it.
   const [ledger, setLedger] = React.useState<CatalogLedger | 'error' | null>(null);
+  const [ledgerRefusal, setLedgerRefusal] = React.useState<string | null>(null);
   const [switching, setSwitching] = React.useState<string | null>(null);
   const [switchError, setSwitchError] = React.useState<string | null>(null);
   // objectui#12982 — a declaration-only catalog (declared sharing rules): the
@@ -335,15 +346,20 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   React.useEffect(() => {
     if (!activation) {
       setLedger(null);
+      setLedgerRefusal(null);
       return;
     }
     const controller = new AbortController();
     Promise.all([readCatalogActivation(type, controller.signal), audienceAnchorsOf(type)])
       .then(([states, anchors]) => {
-        if (!controller.signal.aborted) setLedger({ states, anchors });
+        if (controller.signal.aborted) return;
+        setLedger({ states, anchors });
+        setLedgerRefusal(null);
       })
-      .catch(() => {
-        if (!controller.signal.aborted) setLedger('error');
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        setLedger('error');
+        setLedgerRefusal(err instanceof Error ? err.message : String(err));
       });
     return () => controller.abort();
   }, [activation, type, refreshKey]);
@@ -535,6 +551,17 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
     </>
   );
 
+  // objectui#13091 — the row's controls pinned to the table's right edge: the
+  // Clone column at `right-0`, at its fixed width, and the Active column just
+  // left of it. The first pinned column draws the seam shadow.
+  const pinned = activation || !!CloneDialog;
+  const cloneCellPin = CloneDialog
+    ? cn(PINNED_CELL_CLASSES, 'right-0 w-28 min-w-28', !activation && PINNED_SEAM_CLASSES)
+    : undefined;
+  const activeCellPin = activation
+    ? cn(PINNED_CELL_CLASSES, CloneDialog ? 'right-28' : 'right-0', PINNED_SEAM_CLASSES)
+    : undefined;
+
   const body = (
       <div className="p-6 space-y-4">
         <CreatePackageDialog
@@ -684,7 +711,15 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
           </Empty>
         )}
         {!loading && filtered.length > 0 && (
-          <div className="border rounded-lg overflow-x-auto">
+          // objectui#13091 — a table wider than its box says so (the shared
+          // overflow affordance, objectui#12708), and the row's controls (the
+          // Active switch, Clone) stay pinned at its right edge, the seam
+          // shadow on the first of them (objectui#12463).
+          <HorizontalOverflowBox
+            seam={pinned ? 'pinned' : 'edge'}
+            outerClassName="border rounded-lg overflow-hidden"
+            data-testid="metadata-list-scroller"
+          >
             <table className="w-full text-sm">
               {/* Under Setup the table reads as the console's record list
                   (objectui#12606): sentence-case headers, the grid's 36px
@@ -696,7 +731,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                     : 'bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground'
                 }
               >
-                <tr>
+                <tr className={HEAD_ROW_TINT}>
                   {columns.map((c) => (
                     <th
                       key={c.key}
@@ -706,12 +741,14 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                       {localizeColumnLabel(c)}
                     </th>
                   ))}
-                  {activation && (
-                    <th className={cn('px-3 text-left font-medium w-[90px]', inSetup ? 'h-9 py-0' : 'py-2')}>{t('engine.catalog.col.active', locale)}</th>
-                  )}
                   <th className={cn('px-3 text-right font-medium w-[80px]', inSetup ? 'h-9 py-0' : 'py-2')}>{t('engine.list.col.source', locale)}</th>
+                  {activation && (
+                    <th className={cn('px-3 text-left font-medium w-[90px]', inSetup ? 'h-9 py-0' : 'py-2', activeCellPin)}>
+                      {t('engine.catalog.col.active', locale)}
+                    </th>
+                  )}
                   {CloneDialog && (
-                    <th className={cn('px-3 w-[80px]', inSetup ? 'h-9 py-0' : 'py-2')}>
+                    <th className={cn('px-3', inSetup ? 'h-9 py-0' : 'py-2', cloneCellPin)}>
                       <span className="sr-only">{t('engine.list.col.actions', locale)}</span>
                     </th>
                   )}
@@ -760,14 +797,14 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                   return (
                     <tr
                       key={name + i}
-                      className={
-                        'hover:bg-accent/50 ' +
-                        (invalid
-                          ? 'bg-destructive/[0.04]'
-                          : warnOnly
-                            ? 'bg-amber-500/[0.05]'
-                            : '')
-                      }
+                      className={cn(
+                        'hover:bg-accent/50',
+                        invalid ? 'bg-destructive/[0.04]' : warnOnly ? 'bg-amber-500/[0.05]' : '',
+                        // The same fills, for the pinned cells to layer over
+                        // their opaque background.
+                        invalid ? INVALID_ROW_TINT : warnOnly ? WARN_ROW_TINT : '',
+                        HOVER_ROW_TINT,
+                      )}
                     >
                       {columns.map((c, ci) => {
                         const value = row.item[c.key];
@@ -807,18 +844,6 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                           </td>
                         );
                       })}
-                      {activation && (
-                        <td className={cellClass}>
-                          <CatalogActiveCell
-                            itemName={name}
-                            ledger={ledger}
-                            canSwitch={canAuthor && !walled}
-                            busy={switching === name}
-                            locale={locale}
-                            onToggle={toggleActive}
-                          />
-                        </td>
-                      )}
                       <td className={cn(cellClass, 'text-right')}>
                         {(row.item._lock as string | undefined) && row.item._lock !== 'none' && (
                           <span
@@ -865,17 +890,31 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                           </Badge>
                         )}
                       </td>
+                      {activation && (
+                        <td className={cn(cellClass, activeCellPin)}>
+                          <CatalogActiveCell
+                            itemName={name}
+                            ledger={ledger}
+                            refusal={ledgerRefusal}
+                            canSwitch={canAuthor && !walled}
+                            busy={switching === name}
+                            locale={locale}
+                            onToggle={toggleActive}
+                          />
+                        </td>
+                      )}
                       {CloneDialog && (
-                        <td className={cn(cellClass, 'text-right')}>
+                        <td className={cn(cellClass, 'text-right', cloneCellPin)}>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 px-2 text-xs"
+                            className="h-7 max-w-[88px] px-2 text-xs"
                             onClick={() => setCloning(row.item)}
+                            title={t('engine.sharingRule.clone.action', locale)}
                             data-testid={`catalog-clone-${name}`}
                           >
                             <Copy className="h-3.5 w-3.5 mr-1" />
-                            {t('engine.sharingRule.clone.action', locale)}
+                            <span className="truncate">{t('engine.sharingRule.clone.action', locale)}</span>
                           </Button>
                         </td>
                       )}
@@ -884,7 +923,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                 })}
               </tbody>
             </table>
-          </div>
+          </HorizontalOverflowBox>
         )}
       </div>
   );
@@ -982,6 +1021,24 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   );
 }
 
+/**
+ * objectui#13091 — a cell pinned to the right edge of the list's overflow box.
+ * It paints an opaque background, because the other columns scroll beneath
+ * it, and layers its row's fill (`--os-row-tint`, the convention `data-table`
+ * keeps for its sticky cells) over it, so a pinned cell reads as part of its
+ * row. The Clone column is the fixed `w-28` the Active column's `right-28`
+ * offset counts on; its button truncates its label to stay inside it.
+ *
+ * Complete literals: Tailwind v4 builds only from scanned source text.
+ */
+const PINNED_CELL_CLASSES =
+  'sticky z-10 bg-background bg-[image:linear-gradient(var(--os-row-tint,transparent),var(--os-row-tint,transparent))]';
+const PINNED_SEAM_CLASSES = `border-l border-border ${PINNED_RIGHT_SEAM_SHADOW_CLASSES}`;
+const HEAD_ROW_TINT = '[--os-row-tint:color-mix(in_oklab,var(--color-muted)_30%,transparent)]';
+const INVALID_ROW_TINT = '[--os-row-tint:color-mix(in_oklab,var(--color-destructive)_4%,transparent)]';
+const WARN_ROW_TINT = '[--os-row-tint:color-mix(in_oklab,var(--color-amber-500)_5%,transparent)]';
+const HOVER_ROW_TINT = 'hover:[--os-row-tint:color-mix(in_oklab,var(--color-accent)_50%,transparent)]';
+
 /** The activation ledger's states for a type, and the names its door refuses. */
 interface CatalogLedger {
   states: CatalogActivation;
@@ -992,12 +1049,13 @@ interface CatalogLedger {
  * objectui#7611 — one item's active switch in the environment scope, showing
  * the activation ledger's state (see `catalog-activation.ts`). Its non-switch
  * states are each said, never rendered as a guessed "on": the state is still
- * loading, or the read failed. An audience anchor shows its state on a
+ * loading, or the read failed (said in words, with the server's reason). An audience anchor shows its state on a
  * disabled switch with the reason, because the door refuses to switch it.
  */
 function CatalogActiveCell({
   itemName,
   ledger,
+  refusal,
   canSwitch,
   busy,
   locale,
@@ -1005,6 +1063,8 @@ function CatalogActiveCell({
 }: {
   itemName: string;
   ledger: CatalogLedger | 'error' | null;
+  /** Why the read failed: the server's refusal, as `actionErrorDetail` read it. */
+  refusal: string | null;
   canSwitch: boolean;
   busy: boolean;
   locale: string;
@@ -1012,9 +1072,16 @@ function CatalogActiveCell({
 }) {
   if (ledger === null) return <span className="text-xs text-muted-foreground">…</span>;
   if (ledger === 'error') {
+    // objectui#13091 — said in plain words, never a bare "?"; the server's
+    // own sentence for why rides in the title.
+    const why = [t('engine.catalog.active.unknown', locale), refusal].filter(Boolean).join(' ');
     return (
-      <span className="text-xs text-muted-foreground" title={t('engine.catalog.active.unknown', locale)}>
-        ?
+      <span
+        className="text-xs text-muted-foreground whitespace-nowrap"
+        title={why}
+        data-testid={`catalog-active-unreadable-${itemName}`}
+      >
+        {t('engine.catalog.active.notVisible', locale)}
       </span>
     );
   }

@@ -3021,7 +3021,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'list-view.options': {
     file: LIST_VIEW_PIN_FILE,
-    pins: 'The per-kind bag: `options.kanban.groupByField` lanes the board the same way the top-level kanban block does, read off the `object-kanban` node `ListView` builds (objectui#13047).',
+    pins: 'The per-kind bag: `options.kanban.groupByField: \'owner\'` lanes the board on `owner` and its `columns` become the card fields, read off the `object-kanban` node `ListView` builds, against a CONTROL bare kanban node that lanes on a field the list derives itself (not `owner`), so the row reads the bag and not the default (objectui#13047).',
   },
   'list-view.pagination': {
     file: LIST_VIEW_PIN_FILE,

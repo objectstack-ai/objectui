@@ -170,13 +170,13 @@ const LIST_VIEW_INPUTS: ComponentInput[] = [
     name: 'label',
     type: ['string', 'object'],
     description:
-      'The list\'s label: the export file name, the record-detail overlay heading, and the title of the compact list in a narrow page region. A plain string, or an inline per-locale map (`{ en: "Open tasks", "zh-CN": "未完成任务" }`) resolved against the display locale.',
+      'The list\'s label: it names the exported file and heads the record-detail overlay. A plain string, or an inline per-locale map (`{ en: "Open tasks", "zh-CN": "未完成任务" }`) resolved against the display locale.',
   },
   {
     name: 'description',
     type: ['string', 'object'],
     description:
-      'One line about the list, drawn as the toolbar\'s info control (its tooltip and accessible name). A plain string, or an inline per-locale map resolved against the display locale; a map with no usable entry draws nothing. `appearance.showDescription: false` hides it.',
+      'One line about the list, drawn as the toolbar\'s info control (its tooltip and accessible name). A plain string, or an inline per-locale map resolved against the display locale. `appearance.showDescription: false` hides it.',
   },
   // ── the toolbar ───────────────────────────────────────────────────────────
   {
@@ -189,7 +189,7 @@ const LIST_VIEW_INPUTS: ComponentInput[] = [
     name: 'userActions',
     type: 'object',
     description:
-      'Which toolbar controls the user gets, `{ search, sort, filter, rowHeight, group, refresh, hideFields, rowColor, editInline, … }`. `false` takes that control off the toolbar; `hideFields` and `rowColor` are off unless `true`.',
+      'Which toolbar controls the user gets, the spec\'s `UserActionsConfig` of per-control toggles: a control set to `false` (for example `sort: false`) is taken off the toolbar, and the controls it does not name stay.',
   },
   {
     name: 'compactToolbar',

@@ -63,6 +63,7 @@ import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { ViewConfigPanel } from './ViewConfigPanel.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
+import { dropPublishedViewList } from './metadata-admin/viewListDrop.js';
 import { persistRuntimeMetadata, createRuntimeMetadata, viewEnvelope, type ViewEnvelope } from './runtime-metadata-persistence.js';
 import { buildNewViewSpec } from './newViewSpec.js';
 import { ListViewSchema as SpecListViewSchema, normalizeFilterOperator, VIEW_CONSOLE_ROUND_TRIP_KEYS } from '@objectstack/spec/ui';
@@ -1694,11 +1695,17 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
      * View CRUD (rename, pin, reorder, config save) keeps bumping the counter
      * alone: it changes the view's metadata, not the object's data, and the new
      * view config reaches every renderer as props.
+     *
+     * objectui#13057 — a refresh also re-reads the saved views from the server.
+     * The adapter answers `listViews` from the published view list it stored
+     * for this open, so the refresh drops that list first; the counter bump
+     * then re-runs the saved-views read below, which asks the server again.
      */
     const refreshData = useCallback(() => {
+        dropPublishedViewList(dataSource);
         setRefreshKey((k) => k + 1);
         if (objectDef.name) notifyDataChanged({ objectName: objectDef.name });
-    }, [objectDef.name]);
+    }, [dataSource, objectDef.name]);
 
     // Shared console action runtime: confirm/param/result dialogs, the
     // authenticated api/flow/server-action handlers, SPA navigation, and the

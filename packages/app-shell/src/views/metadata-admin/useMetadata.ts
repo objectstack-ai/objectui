@@ -18,9 +18,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type MetadataClient, type MetadataDiagnosticsSummary, type MetadataDiagnosticsEntry, type MetadataSaveAdvisoryEvent } from '@object-ui/data-objectstack';
 import { useObjectTranslation } from '@object-ui/i18n';
+import { useAdapter } from '@object-ui/react';
 import { toast } from 'sonner';
 import { usePreviewDrafts } from '../../preview/PreviewModeContext.js';
 import { createConsoleMetadataClient } from './metadataClientFactory.js';
+import { dropPublishedViewList, installViewListDrop } from './viewListDrop.js';
 import { emitSaveAdvisories, type TranslateFn } from '../../providers/saveAdvisoryToast.js';
 import type { FormViewSpec } from './form-spec.js';
 
@@ -157,8 +159,26 @@ export function useMetadataClient(environmentId?: string): MetadataClient {
     emitSaveAdvisories(ev, tRef.current as TranslateFn, toast);
   }, []);
 
+  // objectui#13057 — the adapter answers its view-list readers from the list
+  // it stored, and this client writes views over a transport the adapter never
+  // sees. Each write of this client that can change a published view drops
+  // that list (see `viewListDrop.ts`), here for the same reason the advisory
+  // sink is here: every app-shell write path takes its client from this hook.
+  // The adapter is read through a ref, as `t` is, so an adapter swap does not
+  // re-mint the client and a write always drops from the current adapter.
+  const adapter = useAdapter();
+  const adapterRef = useRef(adapter);
+  adapterRef.current = adapter;
+
   return useMemo(
-    () => createConsoleMetadataClient({ previewDrafts, environmentId, onSaveAdvisory }),
+    () =>
+      installViewListDrop(createConsoleMetadataClient({ previewDrafts, environmentId, onSaveAdvisory }), () => {
+        try {
+          dropPublishedViewList(adapterRef.current);
+        } catch {
+          /* a drop must never turn a settled write into a thrown error */
+        }
+      }),
     [environmentId, previewDrafts, onSaveAdvisory],
   );
 }

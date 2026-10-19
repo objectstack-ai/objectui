@@ -19,12 +19,16 @@
  *   (a) the provider's by-name object read and `getObjectSchema` ask
  *       `/meta/object/NAME` once, in either order;
  *   (b) the eager view read, `listViews` and `listViewOverrides` share a
- *       `/meta/view` request that is in flight, and nothing is stored: the
- *       console order costs two requests where it cost three (ruling
- *       6268839381 kept the list uncached);
- *   (c) the controls: an invalidation still refetches, a later list read and
- *       a view write still ask again, the preview path still goes to the
- *       preview client, and each side's readers see the shape they saw before.
+ *       `/meta/view` request that is in flight, and (objectui#13057) the
+ *       adapter's two readers read the list the eager read stored: the console
+ *       order costs ONE request where it cost three, then two;
+ *   (c) the controls: an invalidation still refetches, a provider re-read and
+ *       a view write still ask again, the stored list is dropped by every
+ *       write and refresh path (the console's own drops are pinned in
+ *       `viewListDrop-13057.test.tsx` and
+ *       `ObjectView.refreshRereadsViews-13057.test.tsx`), the preview path
+ *       still goes to the preview client and never fills the stored list, and
+ *       each side's readers see the shape they saw before.
  */
 
 import { act, cleanup, render, waitFor } from '@testing-library/react';
@@ -81,6 +85,7 @@ function makeServer(): { server: Server; adapter: ObjectStackAdapter } {
   const answer = (path: string): Response => {
     if (path.endsWith('/api/v1/discovery')) return json(200, { success: true, data: {} });
     if (path === '/api/v1/meta/view') return json(200, { success: true, data: { type: 'view', items: structuredClone(VIEWS) } });
+    if (path === '/api/v1/meta/view?preview=draft') return json(200, { success: true, data: { type: 'view', items: [] } });
     if (path.startsWith('/api/v1/meta/view/')) return json(200, { success: true });
     const byName = /^\/api\/v1\/meta\/object\/([^/?]+)$/.exec(path);
     if (byName) {
@@ -199,7 +204,7 @@ describe('one request per object document across both caches (objectui#13044)', 
   });
 });
 
-describe('the published view list: one request in flight, nothing stored (objectui#13044)', () => {
+describe('the published view list: one request per open (objectui#13044, objectui#13057)', () => {
   it('console order: the eager read lands, then the object page reads the list and the overrides together', async () => {
     const { server, adapter } = makeServer();
     const ctx = mount(adapter);
@@ -211,9 +216,10 @@ describe('the published view list: one request in flight, nothing stored (object
     await adapter.listViewOverrides('account');
     expect(views.map((v: any) => v.name).sort()).toEqual(['account.all', 'account.mine']);
     expect(Object.keys(overrides).sort()).toEqual(['account.all', 'account.mine']);
-    // Was 3 (one per reader). The eager read is answered before the page asks,
-    // and no answer is stored, so the page's two readers share one more.
-    expect(count(server.calls, VIEW_URL)).toBe(2);
+    // Was 3 (one per reader), then 2 (objectui#13044: the page's two readers
+    // shared one more request in flight). objectui#13057: the eager read
+    // stored its answer, and both readers read it, so the open costs one.
+    expect(count(server.calls, VIEW_URL)).toBe(1);
   });
 
   it('a reader that asks while the eager read is on the wire joins it', async () => {
@@ -260,46 +266,102 @@ describe('controls (objectui#13044)', () => {
     expect(count(server.calls, OBJECT_URL)).toBe(3);
   });
 
-  it('every list read after a landing asks again: a refresh (refreshKey) re-reads the views', async () => {
+  it('the list is settled within an open, and a provider re-read asks again and is what the next list read sees (objectui#13057)', async () => {
     const { server, adapter } = makeServer();
     const ctx = mount(adapter);
     await waitFor(() => expect(ctx().getTypeStatus!('view')).toBe('ready'));
     await adapter.listViews('account');
     await adapter.listViews('account');
-    expect(count(server.calls, VIEW_URL)).toBe(3);
+    // Answered from the list the eager read stored.
+    expect(count(server.calls, VIEW_URL)).toBe(1);
+    // The provider's re-read is a client read: it never reads the stored list.
     await act(async () => {
       await ctx().refresh('view');
     });
-    expect(count(server.calls, VIEW_URL)).toBe(4);
+    expect(count(server.calls, VIEW_URL)).toBe(2);
+    // ...and what it was answered is what the adapter's readers read next.
+    VIEWS.push({ name: 'account.new', object: 'account', viewKind: 'list', label: 'New', config: { type: 'grid', columns: ['name'] } });
+    try {
+      expect((await adapter.listViews('account')).map((v: any) => v.name).sort()).toEqual(['account.all', 'account.mine']);
+      expect(count(server.calls, VIEW_URL)).toBe(2);
+      await act(async () => {
+        await ctx().refresh('view');
+      });
+      expect((await adapter.listViews('account')).map((v: any) => v.name).sort()).toEqual([
+        'account.all',
+        'account.mine',
+        'account.new',
+      ]);
+      expect(count(server.calls, VIEW_URL)).toBe(3);
+    } finally {
+      VIEWS.pop();
+    }
+  });
+
+  it('a view write drops the stored list: the next list read asks again (objectui#13057)', async () => {
+    for (const write of [
+      (adapter: ObjectStackAdapter) => adapter.invalidateViewKeys('account', 'account.mine'),
+      (adapter: ObjectStackAdapter) =>
+        adapter.getClient().meta.saveItem('view', 'account.mine', { name: 'account.mine', object: 'account' }),
+    ]) {
+      const { server, adapter } = makeServer();
+      const ctx = mount(adapter);
+      await waitFor(() => expect(ctx().getTypeStatus!('view')).toBe('ready'));
+      await adapter.listViews('account');
+      expect(count(server.calls, VIEW_URL)).toBe(1);
+      await write(adapter);
+      await adapter.listViews('account');
+      // An object whose override map was never read: derived from the stored list.
+      await adapter.listViewOverrides('contact');
+      // The read after the write asked; the one after it reads what it stored.
+      expect(count(server.calls, VIEW_URL)).toBe(2);
+      cleanup();
+    }
   });
 
   it('a view write detaches the list request in flight: a read after it asks again', async () => {
     const { server, adapter } = makeServer();
-    const ctx = mount(adapter);
-    await waitFor(() => expect(ctx().getTypeStatus!('view')).toBe('ready'));
     server.hold.add(VIEW_URL);
+    const ctx = mount(adapter);
+    await waitFor(() => expect(count(server.calls, VIEW_URL)).toBe(1));
+    // Joins the eager read on the wire (after its own discovery read).
     const before = adapter.listViews('account');
-    await waitFor(() => expect(count(server.calls, VIEW_URL)).toBe(2));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     adapter.invalidateViewKeys('account', 'account.mine');
     const after = adapter.listViews('account');
-    await waitFor(() => expect(count(server.calls, VIEW_URL)).toBe(3));
+    await waitFor(() => expect(count(server.calls, VIEW_URL)).toBe(2));
     server.release();
     await Promise.all([before, after]);
+    await waitFor(() => expect(ctx().getTypeStatus!('view')).toBe('ready'));
   });
 
   it('a view saved straight through the client detaches the list request in flight too', async () => {
     const { server, adapter } = makeServer();
-    const ctx = mount(adapter);
-    await waitFor(() => expect(ctx().getTypeStatus!('view')).toBe('ready'));
     server.hold.add(VIEW_URL);
+    const ctx = mount(adapter);
+    await waitFor(() => expect(count(server.calls, VIEW_URL)).toBe(1));
     const before = adapter.listViews('account');
-    await waitFor(() => expect(count(server.calls, VIEW_URL)).toBe(2));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     // The shape a page uses when it writes a view without the adapter's seam.
     await adapter.getClient().meta.saveItem('view', 'account.mine', { name: 'account.mine', object: 'account' });
     const after = adapter.listViews('account');
-    await waitFor(() => expect(count(server.calls, VIEW_URL)).toBe(3));
+    await waitFor(() => expect(count(server.calls, VIEW_URL)).toBe(2));
     server.release();
     await Promise.all([before, after]);
+    await waitFor(() => expect(ctx().getTypeStatus!('view')).toBe('ready'));
+  });
+
+  it('a draft-preview list read never fills the stored list (objectui#13057)', async () => {
+    const { server, adapter } = makeServer();
+    // The adapter's draft-overlaid read is its own request, on its preview client...
+    await adapter.listViews('account', { previewDrafts: true });
+    expect(count(server.calls, `${VIEW_URL}?preview=draft`)).toBe(1);
+    expect(count(server.calls, VIEW_URL)).toBe(0);
+    // ...and stores nothing a published read could be answered from.
+    expect(adapter.getCached('list:view')).toBeUndefined();
+    const published = await adapter.listViews('account');
+    expect(published.map((v: any) => v.name).sort()).toEqual(['account.all', 'account.mine']);
+    expect(count(server.calls, VIEW_URL)).toBe(1);
   });
 
   it('the preview path still reads through the preview client, never the adapter', async () => {

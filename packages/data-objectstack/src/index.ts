@@ -908,13 +908,25 @@ export function serializeOrderBy(orderby: QueryParams['$orderby']): string | und
  * `MetadataProvider`'s eager `view` read (through {@link ObjectStackAdapter.getClient}),
  * {@link ObjectStackAdapter.listViews} and
  * {@link ObjectStackAdapter.listViewOverrides}. They share the request IN
- * FLIGHT under this key: whoever asks while one is on the wire joins it. No
- * answer is stored under it, so a reader that asks after a request landed
- * asks the server again, exactly as before (objectui#13044 ruling 6268839381:
- * a settled list would have needed every refresh, view write and organization
- * switch in the console to drop it, and several of those paths write through
- * a client this adapter never sees). The draft-overlaid list (`listViews`
- * with `previewDrafts`) is a different request on a different client.
+ * FLIGHT under this key: whoever asks while one is on the wire joins it.
+ *
+ * The answer is also stored under it (objectui#13057, completing objectui#13044
+ * ruling 6268839381 (a)-(c)). The client read still always asks the server; the
+ * adapter's own two readers are answered from what it stored, so the console's
+ * order (the eager read lands, then the object page reads the list and the
+ * overrides) costs one request. The settled entry is dropped by every path that
+ * should see a fresh list:
+ *
+ * - every view write: {@link ObjectStackAdapter.invalidateViewKeys}, the client
+ *   write wrap in `installViewListShare`, and app-shell's console
+ *   `MetadataClient` (`useMetadataClient`), which drops it after each of its
+ *   view-capable write doors;
+ * - a user refresh (app-shell `ObjectView`'s `refreshData`);
+ * - an organization or session switch, and the publish pulse, which clear the
+ *   whole cache (app-shell `MetadataProvider`).
+ *
+ * The draft-overlaid list (`listViews` with `previewDrafts`) is a different
+ * request on a different client, and never fills this key.
  */
 const VIEW_LIST_KEY = 'list:view';
 
@@ -4204,12 +4216,13 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * read the same `GET /api/v1/meta/view`. Each used to put its own request on
    * the wire, so one list-page open asked the server three times for one URL.
    *
-   * A caller of the client keeps its contract, "ask the server": nothing is
-   * answered from, or written to, a settled entry. What changes is only that
-   * it joins a request already in flight for the same URL instead of sending
-   * a second one (see {@link MetadataCache.share}). Only the bare call is
-   * routed: any argument after the type changes the URL, so such a call goes
-   * straight to the SDK.
+   * A caller of the client keeps its contract, "ask the server": it is never
+   * answered from a settled entry. It joins a request already in flight for
+   * the same URL instead of sending a second one, and its answer is stored
+   * under {@link VIEW_LIST_KEY} (see {@link MetadataCache.share}), which is
+   * what {@link readViewList} answers this adapter's own readers from
+   * (objectui#13057). Only the bare call is routed: any argument after the
+   * type changes the URL, so such a call goes straight to the SDK.
    *
    * Every caller gets its own copy of the answer. Before this, every reader
    * got its own parsed response, so a reader that changed what it was handed
@@ -4230,9 +4243,9 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
     // A write to a `view` row through this client, from any caller (a page
     // that saves a view with `getClient().meta.saveItem` directly, not only
-    // through {@link invalidateViewKeys}), detaches the list request in
-    // flight once it settles, so a read asked after the write never joins a
-    // request sent before it.
+    // through {@link invalidateViewKeys}), drops the stored list and detaches
+    // the list request in flight once it settles, so a read asked after the
+    // write is never answered by a list read before it.
     for (const door of ['saveItem', 'deleteItem', 'publishItem', 'rollbackItem'] as const) {
       const write = meta[door] as ((...args: any[]) => Promise<unknown>) | undefined;
       if (typeof write !== 'function') continue;
@@ -4245,14 +4258,17 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   }
 
   /**
-   * The published view list for this adapter's own readers: the client's
-   * read, which joins the request in flight for {@link VIEW_LIST_KEY} or
-   * starts one (objectui#13044). Never a stored answer; always a copy the
-   * caller may keep. A write to a view row detaches the request in flight
-   * through {@link invalidateViewKeys}, so a read asked after the write never
-   * joins one sent before it.
+   * The published view list for this adapter's own readers
+   * ({@link listViews}, {@link listViewOverrides}): the answer stored under
+   * {@link VIEW_LIST_KEY} while it holds one (objectui#13057), else the
+   * client's read, which joins the request in flight for that key or starts
+   * one, and stores its answer (objectui#13044). Always a copy the caller may
+   * keep. Every path that should see a fresh list drops the key first; the
+   * list is in {@link VIEW_LIST_KEY}'s doc.
    */
   private readViewList(): Promise<any> {
+    const settled = this.metadataCache.getCachedSync(VIEW_LIST_KEY);
+    if (settled !== undefined) return Promise.resolve(structuredClone(settled));
     return this.client.meta.getItems('view');
   }
 
@@ -5544,8 +5560,9 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     // suite records, so a reordering is a visible decision rather than drift.
     this.metadataCache.invalidate?.(`view:${objectName}:${viewName}`);
     this.metadataCache.invalidate?.(`view-overrides:${objectName}`);
-    // The list both readers derive from (objectui#13044): a read asked after
-    // this write must not join a list request sent before it.
+    // The list both readers derive from (objectui#13044, objectui#13057): a
+    // read asked after this write is answered neither by the stored list nor
+    // by a list request sent before it.
     this.metadataCache.invalidate?.(VIEW_LIST_KEY);
   }
 

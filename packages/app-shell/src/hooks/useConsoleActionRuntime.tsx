@@ -788,6 +788,10 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
       // Undo capture reads them to tell a relation, captured as its stored id,
       // from a field whose value merely has an object's shape.
       ...(objectName && objectDef?.fields ? { objectFields: objectDef.fields } : {}),
+      // Its declared actions, beside them (objectui#13022): the Undo capture
+      // of an `operation: 'update'` reads the `patch` of the declaration the
+      // action's `name` names, the one the platform action route writes.
+      ...(objectName && Array.isArray(objectDef?.actions) ? { objectActions: objectDef.actions } : {}),
       user: currentUser,
       // Backend origin — lets `type: 'url'` actions issue full-page
       // navigations to API endpoints across origins in dev.

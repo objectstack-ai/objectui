@@ -183,12 +183,12 @@ const ActionIconRenderer = forwardRef<
           bodyExtra: schema.bodyExtra,
           // See action-button.tsx — the body-WRAPPING key (objectstack#6938).
           bodyShape: schema.bodyShape,
-          // The declarative single-record field write — forwarded as a PAIR, for
-          // the reason spelled out at `action:button`'s forward: the runner
-          // dispatches on `operation` ahead of `type`, and `patch` carries the
-          // field values, so dropping either POSTs an empty write.
+          // The declarative single-record field write: `operation` alone, for the
+          // reasons spelled out at `action:button`'s forward. The runner
+          // dispatches on `operation` ahead of `type`; the route writes the
+          // named declaration's `patch`, never this node's, so ⛔ no `patch`
+          // (objectui#13022).
           operation: schema.operation,
-          patch: schema.patch,
           confirmText: schema.confirmText,
           successMessage: schema.successMessage,
           // See action-button.tsx — success copy per handler outcome, the

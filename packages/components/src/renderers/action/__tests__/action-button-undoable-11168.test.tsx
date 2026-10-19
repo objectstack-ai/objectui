@@ -52,6 +52,18 @@ import '../action-bar';
 /** The record the action runs on, as the page or the row carries it. */
 const RECORD = { id: 't1', status: 'open', title: 'Write the report' };
 
+/**
+ * The object's declared actions, which the host publishes beside its object
+ * (`objectActions`, objectui#13022). The route writes the `patch` of the one a
+ * node's `name` names, so that is what the Undo snapshot covers; a node
+ * carries no `patch` of its own (`@objectstack/spec` 18 retires the row key).
+ */
+const DECLARATIONS = [
+  { name: 'close_task', label: 'Close', operation: 'update', patch: { status: 'done' }, undoable: true },
+  // A declaration with no `patch`: it writes the collected params alone.
+  { name: 'set_status', label: 'Set status', operation: 'update', undoable: true },
+];
+
 type Props = NonNullable<PublicBlockNodeOf<'action:button'>['properties']>;
 
 /** One `action:button` node, its props in the `properties` bag as the spec places them. */
@@ -61,7 +73,6 @@ const button = (extra: Partial<Props> = {}): PublicBlockNodeOf<'action:button'> 
     name: 'close_task',
     label: 'Close',
     operation: 'update',
-    patch: { status: 'done' },
     undoable: true,
     ...extra,
   },
@@ -95,12 +106,16 @@ afterEach(() => {
   globalUndoManager.clear();
 });
 
-/** The host's runner, publishing its object the way every console host does (`context.objectName`). */
+/**
+ * The host's runner, publishing its object the way every console host does
+ * (`context.objectName`), and that object's declarations beside it
+ * (`context.objectActions`).
+ */
 function Runner({ children }: { children: React.ReactNode }) {
   return (
     <ActionProvider
       handlers={{ script }}
-      context={{ objectName: 'task' } as never}
+      context={{ objectName: 'task', objectActions: DECLARATIONS } as never}
       onToast={toast as never}
       onParamCollection={(async () => ({ status: 'blocked' })) as never}
     >
@@ -167,9 +182,9 @@ describe('action:button `undoable` — an update of the record in scope offers U
       redoData: { status: 'done' },
     });
     // The write addressed that record, and the stash stayed on the client. The
-    // `patch` is the route's, applied from the declaration, so the request
-    // carries no field value at all (objectui#12941) while Undo still covers
-    // `status`, the field the route wrote.
+    // `patch` is the route's, applied from the declaration `close_task` names,
+    // so the request carries no field value at all (objectui#12941) while Undo
+    // covers `status`, the field the route wrote (objectui#13022).
     expect(sentBody()).toEqual({ recordId: 't1', params: {} });
   });
 
@@ -207,8 +222,9 @@ describe('action:button `undoable` — an update of the record in scope offers U
 
   it('a value the user supplies is restored too, from the same record', async () => {
     // The input list collects `status`; the collected value is written, so its
-    // prior value is what Undo restores.
-    onRecordPage(button({ patch: undefined, params: [{ name: 'status', type: 'text', label: 'Status' }] }));
+    // prior value is what Undo restores. `set_status` declares no `patch`, so
+    // the collected value is the whole write.
+    onRecordPage(button({ name: 'set_status', params: [{ name: 'status', type: 'text', label: 'Status' }] }));
     await press();
     expect(globalUndoManager.peekUndo()).toMatchObject({
       undoData: { status: 'open' },
@@ -270,7 +286,7 @@ describe('action:button `undoable` — only an `undoable` update is handed the r
   });
 
   it('an `undoable` action that is not an update carries no record', async () => {
-    onRecordPage(button({ operation: undefined, patch: undefined, actionType: 'script' }));
+    onRecordPage(button({ operation: undefined, actionType: 'script' }));
     await press();
     expect(dispatched).toHaveLength(1);
     expect(carriedStash()).toBe(false);

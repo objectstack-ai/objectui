@@ -1,6 +1,6 @@
 ---
-'@object-ui/app-shell': patch
-'@object-ui/plugin-list': patch
+'@object-ui/app-shell': minor
+'@object-ui/plugin-list': minor
 '@object-ui/react': patch
 ---
 

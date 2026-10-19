@@ -32,8 +32,11 @@ with its keys in `properties`. `requiredPermissions` gates what the node draws:
 missing one sees "Insufficient permissions to view list." in place of the list,
 as the record blocks show, and no records are queried.
 
-`addRecord` draws an Add button: `enabled: true` turns it on, and `position`
-places it (`"top"`, the default here, `"bottom"` or `"both"`). A click opens the
+`addRecord` draws an Add button, and `position` places it (`"top"`, `"bottom"`
+or `"both"`). The spec row declares `enabled` default `true` and `position`
+default `"bottom"`, but the renderer does not apply those defaults: it draws the
+button only for an explicit `enabled: true`, and places an absent `position` at
+the top. objectui#13099 owns that gap; until it lands, write both keys. A click opens the
 create form the object list's New opens: the record-form overlay, or the
 full-page create for an object whose `editMode` is `page`. The button is not
 drawn for a viewer who may not create, or under a host that serves no create.

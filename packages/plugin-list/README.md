@@ -445,9 +445,13 @@ provider that reports no capabilities at all leaves the list shown; the server
 stays the authority. Only the page node reads this key: the object list page
 draws `ListView` itself, and the server gates the views it serves.
 
-`addRecord` draws an Add button. `enabled: true` turns it on, and `position`
-places it: `"top"` (the toolbar, also when absent), `"bottom"` or `"both"`.
-`mode` and `formView` are not read.
+`addRecord` draws an Add button. `position` places it: `"top"` (the toolbar),
+`"bottom"` or `"both"`. `mode` and `formView` are not read.
+
+The spec row declares `enabled` default `true` and `position` default
+`"bottom"`. The renderer does not apply those defaults: it draws the button only
+for an explicit `enabled: true`, and places an absent `position` at the top.
+objectui#13099 owns that gap; until it lands, write both keys.
 
 ```json
 {

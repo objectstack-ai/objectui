@@ -206,7 +206,7 @@ const LIST_VIEW_INPUTS: ComponentInput[] = [
     name: 'addRecord',
     type: 'object',
     description:
-      'The Add button, the spec\'s `AddRecordConfig`. `enabled: true` draws it and `position` places it: `"top"` (the toolbar, also when absent), `"bottom"` (under the list) or `"both"`. A click opens the create form for the listed object, the one the object list\'s New opens: the record-form overlay, or the full-page create for an object whose `editMode` is `page`. The button is withheld for a viewer who may not create, or whose create the object greys, and on a host that serves no create. `mode` and `formView` are not read. `userActions.addRecordForm: false` also takes the button off.',
+      'The Add button, the spec\'s `AddRecordConfig`. The spec row declares `enabled` default `true` and `position` default `"bottom"`; the renderer does not apply those defaults: it draws the button only for an explicit `enabled: true`, and places an absent `position` at the top (objectui#13099 owns that gap). `position` places it: `"top"` (the toolbar), `"bottom"` (under the list) or `"both"`. A click opens the create form for the listed object, the one the object list\'s New opens: the record-form overlay, or the full-page create for an object whose `editMode` is `page`. The button is withheld for a viewer who may not create, or whose create the object greys, and on a host that serves no create. `mode` and `formView` are not read. `userActions.addRecordForm: false` also takes the button off.',
   },
   {
     name: 'compactToolbar',

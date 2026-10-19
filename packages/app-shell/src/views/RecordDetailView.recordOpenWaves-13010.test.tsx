@@ -25,7 +25,7 @@
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, cleanup, act } from '@testing-library/react';
+import { render, cleanup, act, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
@@ -50,6 +50,8 @@ import { ObjectStackAdapter } from '@object-ui/data-objectstack';
 import { __clearRecordEditableCache } from '@object-ui/plugin-detail';
 import { __resetRecordApprovalsStore } from '../hooks/useRecordApprovals';
 import { RecordDetailView } from './RecordDetailView';
+// Registers `record:attachments`, which the package entry registers in the console.
+import './record-attachments-renderer';
 
 const BASE = 'http://test.local';
 const OBJECT = 'os_13010_deal';
@@ -82,7 +84,6 @@ const child = (name: string, label: string, fk: string) => ({
 const quoteDef = child(QUOTE, 'Quote', 'deal');
 const lineDef = child(LINE, 'Line', 'deal');
 const taskDef = child(TASK, 'Task', 'related_deal');
-const ALL_OBJECTS = [objectDef, quoteDef, lineDef, taskDef];
 
 const RECORD = { id: REC, name: 'Lattice renewal', stage: 'prospecting' };
 
@@ -169,6 +170,20 @@ function json(body: unknown): Response {
 const childRows = (object: string, n: number) =>
   Array.from({ length: n }, (_, i) => ({ id: `${object}-${i}`, name: `${object} row ${i}`, status: 'open' }));
 
+/** The rows the four panel reads answer (objectui#13010 part 2). */
+const FEED_ROWS: Record<string, Array<Record<string, unknown>>> = {
+  sys_activity: [
+    { id: 'act-1', object_name: OBJECT, record_id: REC, type: 'updated', summary: 'Stage moved to proposal', actor_name: 'Ada', timestamp: '2026-01-02T00:00:00Z' },
+  ],
+  sys_comment: [
+    { id: 'cmt-1', thread_id: `${OBJECT}:${REC}`, body: 'Ping the buyer on Friday', author_name: 'Ada', author_id: 'u1', created_at: '2026-01-03T00:00:00Z' },
+  ],
+  sys_user: [{ id: 'u2', name: 'Grace', email: 'grace@test.local', image: null }],
+  sys_attachment: [
+    { id: 'att-1', file_id: 'file-1', file_name: 'signed-contract.pdf', size: 2048, created_at: '2026-01-04T00:00:00Z' },
+  ],
+};
+
 /** The `top` a data read asked for, or undefined. */
 const topOf = (h: Held): number | undefined => {
   const q = new URLSearchParams(h.path.slice(h.path.indexOf('?') + 1));
@@ -188,6 +203,10 @@ function answerFor(h: Held): unknown {
     const total = TOTALS[object];
     const top = topOf(h) ?? total;
     return { success: true, data: { records: childRows(object, Math.min(top, total)), total } };
+  }
+  if (object && object in FEED_ROWS) {
+    const rows = FEED_ROWS[object];
+    return { success: true, data: { records: rows, total: rows.length } };
   }
   if (h.path.startsWith('/api/v1/data/')) return { success: true, data: { records: [], total: 0 } };
   return { success: true, data: [] };
@@ -268,17 +287,29 @@ class VisibleObserver {
   disconnect() {}
 }
 
-async function openRecordPage() {
+interface OpenOptions {
+  /** The record page; HotCRM's shape above by default. */
+  page?: unknown;
+  /** The record's object definition; `objectDef` above by default. */
+  object?: Record<string, unknown>;
+  /** The route's query string, e.g. `?tab=activity`. */
+  search?: string;
+  /** The IntersectionObserver the page sees; every element on screen by default. */
+  observer?: unknown;
+}
+
+async function openRecordPage(options: OpenOptions = {}) {
   const { fetch, held, state } = heldTransport();
   vi.stubGlobal('fetch', fetch);
-  vi.stubGlobal('IntersectionObserver', VisibleObserver);
+  vi.stubGlobal('IntersectionObserver', options.observer ?? VisibleObserver);
   const ds = new ObjectStackAdapter({ baseUrl: BASE, fetch, autoReconnect: false });
   await ds.connect();
+  const allObjects = [options.object ?? objectDef, quoteDef, lineDef, taskDef];
   (ds as unknown as { getObjectSchema: (n: string) => Promise<unknown> }).getObjectSchema = async (n: string) =>
-    ALL_OBJECTS.find((o) => o.name === n) ?? null;
+    allObjects.find((o) => o.name === n) ?? null;
 
-  const objects: unknown[] = ALL_OBJECTS;
-  const pages = [RECORD_PAGE];
+  const objects: unknown[] = allObjects;
+  const pages = [options.page ?? RECORD_PAGE];
   const metadata = {
     objects, pages, loading: false, error: null,
     refresh: async () => {}, invalidate: () => {},
@@ -287,7 +318,7 @@ async function openRecordPage() {
   } as never;
   render(
     <React.StrictMode>
-      <MemoryRouter initialEntries={[`/apps/demo/${OBJECT}/record/${REC}`]}>
+      <MemoryRouter initialEntries={[`/apps/demo/${OBJECT}/record/${REC}${options.search ?? ''}`]}>
         <MetadataCtx.Provider value={metadata}>
           <RecordDetailView
             dataSource={ds as never}
@@ -301,7 +332,7 @@ async function openRecordPage() {
     </React.StrictMode>,
   );
   await runWaves(held, state);
-  return { held };
+  return { held, state };
 }
 
 beforeEach(() => {
@@ -356,5 +387,194 @@ describe('the record page open waves (objectui#13010)', () => {
   it('two explain questions on a record open, two different bodies', async () => {
     const { held } = await openRecordPage();
     expect(held.filter(isExplain).map((h) => JSON.parse(h.body).operation).sort(), waveTable(held)).toEqual(['delete', 'update']);
+  });
+});
+
+// ── objectui#13010 part 2: the panel reads wait for their panel ────────────
+
+/** HotCRM's opportunity page with its Activity tab, and an Attachments tab. */
+const tabsPage = (items: unknown[]) => ({
+  ...RECORD_PAGE,
+  regions: [
+    {
+      name: 'main',
+      width: 'large',
+      components: [{ type: 'page:tabs', id: 'deal_tabs', properties: { items } }],
+    },
+    RECORD_PAGE.regions[1],
+  ],
+});
+const [DETAILS_TAB, RELATED_TAB] = (RECORD_PAGE.regions[0].components[0] as { properties: { items: unknown[] } }).properties.items;
+const ACTIVITY_TAB = { value: 'activity', label: 'Activity', children: [{ type: 'record:activity', id: 'deal_activity' }] };
+const ATTACHMENTS_TAB = { value: 'attachments', label: 'Attachments', children: [{ type: 'record:attachments', id: 'deal_files' }] };
+/** HotCRM's own shape: Details first, the timeline in the Activity tab, and no Attachments node. */
+const ACTIVITY_PAGE = tabsPage([DETAILS_TAB, RELATED_TAB, ACTIVITY_TAB]);
+const FILES_TAB_PAGE = tabsPage([DETAILS_TAB, RELATED_TAB, ATTACHMENTS_TAB, ACTIVITY_TAB]);
+/** HotCRM's opportunity declares `enable.files`, so a page without the node gets the host's own panel. */
+const filesObject = { ...objectDef, enable: { files: true } };
+
+const isPanelRead = (object: string) => (h: Held) => h.method === 'GET' && objectOf(h) === object;
+const isActivityRead = isPanelRead('sys_activity');
+const isCommentRead = isPanelRead('sys_comment');
+const isUserListRead = (h: Held) => isPanelRead('sys_user')(h) && topOf(h) === 50;
+const isAttachmentListRead = (h: Held) => isPanelRead('sys_attachment')(h) && topOf(h) === 100;
+/** The `record:activity` block's node, as `SchemaRenderer` marks it in the DOM. */
+const ACTIVITY_MOUNT = '[data-obj-id="deal_activity"]';
+const FOUR_READS = [isActivityRead, isCommentRead, isUserListRead, isAttachmentListRead];
+
+/**
+ * Every element is on screen except the host's foot-of-page Attachments panel,
+ * which is below the record's content until `scrollFallbackIntoView` says it
+ * scrolled in.
+ */
+const offscreen: Array<{ cb: (entries: Array<{ isIntersecting: boolean }>) => void; live: boolean }> = [];
+class FoldObserver {
+  private readonly entries: Array<{ cb: FoldObserver['cb']; live: boolean }> = [];
+  constructor(private readonly cb: (entries: Array<{ isIntersecting: boolean }>) => void) {}
+  observe(el: Element) {
+    if (el.hasAttribute('data-record-attachments-fallback')) {
+      const entry = { cb: this.cb, live: true };
+      this.entries.push(entry);
+      offscreen.push(entry);
+      return;
+    }
+    queueMicrotask(() => this.cb([{ isIntersecting: true }]));
+  }
+  unobserve() {}
+  disconnect() {
+    for (const entry of this.entries) entry.live = false;
+  }
+}
+async function scrollFallbackIntoView() {
+  await act(async () => {
+    for (const entry of offscreen) if (entry.live) entry.cb([{ isIntersecting: true }]);
+  });
+}
+
+/** Open a tab the way a user does: Radix activates a trigger on mouse down. */
+async function openTab(name: string) {
+  const trigger = screen.getByRole('tab', { name: new RegExp(`^${name}`) });
+  await act(async () => {
+    fireEvent.mouseDown(trigger, { button: 0, ctrlKey: false });
+  });
+}
+
+describe('the timeline, comments, attachments and user list wait for their panel (objectui#13010 part 2)', () => {
+  beforeEach(() => {
+    offscreen.length = 0;
+  });
+
+  // Wave table measured on this file, ACTIVITY_PAGE over `filesObject`. Before
+  // this part: `sys_user top=50`, `sys_comment`, `sys_activity top=200` and the
+  // foot panel's `sys_attachment top=100` all in wave 1 beside the record read.
+  // After it: none of the four until the tab opens or the panel scrolls in.
+  it('a record whose default tab draws none of them issues none of the four reads at open', async () => {
+    const { held } = await openRecordPage({ page: ACTIVITY_PAGE, object: filesObject, observer: FoldObserver });
+    const table = waveTable(held);
+    expect(held.filter(isRecordRead).map((h) => h.wave), table).toEqual([1]);
+    for (const isRead of FOUR_READS) expect(held.filter(isRead), table).toEqual([]);
+    // The foot panel is mounted and shows its loading state, not "no attachments".
+    const fallback = document.querySelector('[data-record-attachments-fallback]');
+    expect(fallback, table).not.toBeNull();
+    expect(fallback?.textContent ?? '', table).not.toContain('signed-contract.pdf');
+  });
+
+  it('opening the Activity tab reads the timeline, the comments and the user list once each, and draws their rows', async () => {
+    const { held, state } = await openRecordPage({ page: ACTIVITY_PAGE, object: filesObject, observer: FoldObserver });
+    // Everything the open asked for is answered; the tab's reads come after.
+    const openedWith = held.length;
+    await openTab('Activity');
+    await runWaves(held, state);
+    const table = waveTable(held);
+    for (const isRead of [isActivityRead, isCommentRead, isUserListRead]) {
+      const reads = held.filter(isRead);
+      expect(reads, table).toHaveLength(1);
+      expect(reads[0].seq, table).toBeGreaterThanOrEqual(openedWith);
+    }
+    expect(held.filter(isActivityRead)[0].path, table).toContain('top=200');
+    expect(screen.getByText('Stage moved to proposal')).toBeTruthy();
+    expect(screen.getByText('Ping the buyer on Friday')).toBeTruthy();
+    // The attachments list is not the Activity tab's: still unread.
+    expect(held.filter(isAttachmentListRead), table).toEqual([]);
+  });
+
+  // Drift pin: "not read" holds only because the block is not MOUNTED. A tab
+  // strip that began mounting a non-first tab unprompted would draw the block
+  // over a feed nobody reads; this turns red on that, not just on a read.
+  it('a page whose feed tab is not first, opened with no ?tab=, neither reads the feed nor mounts its block', async () => {
+    const { held } = await openRecordPage({ page: ACTIVITY_PAGE, object: filesObject, observer: FoldObserver });
+    const table = waveTable(held);
+    for (const isRead of [isActivityRead, isCommentRead, isUserListRead]) expect(held.filter(isRead), table).toEqual([]);
+    expect(document.querySelector(ACTIVITY_MOUNT), table).toBeNull();
+    // Nor any feed panel at all: a mounted one over an unread feed shows its loading state.
+    expect(screen.queryByTestId('activity-loading'), table).toBeNull();
+  });
+
+  // An authored `properties.defaultTab` beats `?tab=` in the renderer (the
+  // `properties` hoist runs after `withPageTabsUrlSync` writes `?tab=`), so the
+  // view may not judge such a strip by `?tab=`: it reads the feed at open.
+  it('a strip whose properties.defaultTab names the Activity tab still reads the feed when ?tab= names another tab', async () => {
+    const page = {
+      ...ACTIVITY_PAGE,
+      regions: [
+        { name: 'main', width: 'large', components: [{ type: 'page:tabs', id: 'deal_tabs', properties: { items: [DETAILS_TAB, ACTIVITY_TAB], defaultTab: 'activity' } }] },
+        RECORD_PAGE.regions[1],
+      ],
+    };
+    const { held } = await openRecordPage({ page, object: filesObject, observer: FoldObserver, search: '?tab=details' });
+    const table = waveTable(held);
+    for (const isRead of [isActivityRead, isCommentRead, isUserListRead]) expect(held.filter(isRead), table).toHaveLength(1);
+    expect(document.querySelector(ACTIVITY_MOUNT), table).not.toBeNull();
+    expect(screen.getByText('Stage moved to proposal')).toBeTruthy();
+    expect(screen.getByText('Ping the buyer on Friday')).toBeTruthy();
+  });
+
+  it('the foot-of-page Attachments panel reads once it scrolls into view, and draws its rows', async () => {
+    const { held, state } = await openRecordPage({ page: ACTIVITY_PAGE, object: filesObject, observer: FoldObserver });
+    expect(held.filter(isAttachmentListRead), waveTable(held)).toEqual([]);
+    await scrollFallbackIntoView();
+    await runWaves(held, state);
+    const table = waveTable(held);
+    expect(held.filter(isAttachmentListRead), table).toHaveLength(1);
+    expect(screen.getByText('signed-contract.pdf')).toBeTruthy();
+  });
+
+  it('CONTROL: a record opened on its Activity tab reads all three at open, and draws the same rows', async () => {
+    const { held } = await openRecordPage({ page: ACTIVITY_PAGE, object: filesObject, observer: FoldObserver, search: '?tab=activity' });
+    const table = waveTable(held);
+    // The mount marker the drift pin below reads is real: present when the tab is.
+    expect(document.querySelector(ACTIVITY_MOUNT), table).not.toBeNull();
+    for (const isRead of [isActivityRead, isCommentRead, isUserListRead]) {
+      expect(held.filter(isRead).map((h) => h.wave), table).toEqual([1]);
+    }
+    expect(screen.getByText('Stage moved to proposal')).toBeTruthy();
+    expect(screen.getByText('Ping the buyer on Friday')).toBeTruthy();
+  });
+
+  it('CONTROL: a record opened on its Attachments tab reads the list at open; the tab badge probe goes out either way', async () => {
+    const closed = await openRecordPage({ page: FILES_TAB_PAGE, object: filesObject, observer: FoldObserver });
+    const closedTable = waveTable(closed.held);
+    expect(closed.held.filter(isAttachmentListRead), closedTable).toEqual([]);
+    const closedProbes = closed.held.filter((h) => isPanelRead('sys_attachment')(h) && topOf(h) === 1);
+    expect(closedProbes.map((h) => h.wave), closedTable).toEqual([1]);
+
+    cleanup();
+    RelatedCountStore._reset();
+    __clearRecordEditableCache();
+    __resetRecordApprovalsStore();
+
+    const open = await openRecordPage({ page: FILES_TAB_PAGE, object: filesObject, observer: FoldObserver, search: '?tab=attachments' });
+    const openTable = waveTable(open.held);
+    expect(open.held.filter(isAttachmentListRead).map((h) => h.wave), openTable).toEqual([1]);
+    expect(open.held.filter((h) => isPanelRead('sys_attachment')(h) && topOf(h) === 1).map((h) => h.wave), openTable).toEqual([1]);
+    expect(screen.getByText('signed-contract.pdf')).toBeTruthy();
+  });
+
+  it('CONTROL: the synthesized page draws its discussion footer at open, so it still reads the feed and the user list at open', async () => {
+    const { held } = await openRecordPage({ page: { ...RECORD_PAGE, isDefault: false, object: 'os_13010_other' }, observer: FoldObserver });
+    const table = waveTable(held);
+    for (const isRead of [isActivityRead, isCommentRead, isUserListRead]) {
+      expect(held.filter(isRead).map((h) => h.wave), table).toEqual([1]);
+    }
   });
 });

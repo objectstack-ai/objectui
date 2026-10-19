@@ -269,7 +269,7 @@ afterEach(() => {
 });
 
 describe('a record open sends one approvals read and one record read (objectui#12701)', () => {
-  it('counts the requests by URL: approvals 1, record 1, the activity read unchanged', async () => {
+  it('counts the requests by URL: approvals 1, record 1, no activity read on a page that draws none', async () => {
     const { held } = await openRecordPage();
     await waitFor(() => expect(screen.getAllByText(RECORD.stage).length).toBeGreaterThan(0));
 
@@ -282,8 +282,11 @@ describe('a record open sends one approvals read and one record read (objectui#1
     // The one read carries every relation the page's sections draw, and more.
     expect(expansionOf(recordReads[0])).toEqual(['account', 'created_by', 'owner']);
 
-    // Out of the card's scope, and not duplicated: the record's activity read.
-    expect(held.filter(isActivityRead), 'activity reads').toHaveLength(1);
+    // Out of the card's scope: the record's activity read. This page places no
+    // block that draws the feed, so it is not read at all (objectui#13010 part
+    // 2); that a page which does draw it reads it once is pinned beside the
+    // record-open waves (`RecordDetailView.recordOpenWaves-13010.test.tsx`).
+    expect(held.filter(isActivityRead), 'activity reads').toHaveLength(0);
   });
 
   it('CONTROL: every approvals consumer still shows its state', async () => {

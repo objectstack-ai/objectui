@@ -1,7 +1,7 @@
 ---
 '@object-ui/data-objectstack': minor
 '@object-ui/app-shell': minor
-'@object-ui/i18n': patch
+'@object-ui/i18n': minor
 ---
 
 Studio's Changes drawer can now fill a new field's default into the records an object already holds, when you publish (objectui#12929).

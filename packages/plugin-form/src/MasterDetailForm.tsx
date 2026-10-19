@@ -710,7 +710,10 @@ function observeHeaderReads(
  * else its `fields` — or null when it declares none and the header draws the
  * object's own field set. The same precedence <ObjectForm> draws by.
  */
-function declaredHeaderFields(schema: { sections?: any[]; fields?: any[] }): string[] | null {
+function declaredHeaderFields(schema: {
+  sections?: ReadonlyArray<{ fields?: unknown[] } | null | undefined>;
+  fields?: unknown[];
+}): string[] | null {
   const names = (entries: unknown[] | undefined) =>
     (entries ?? []).map(sectionEntryName).filter((n): n is string => typeof n === 'string');
   if (schema.sections?.length) return schema.sections.flatMap((section) => names(section?.fields));

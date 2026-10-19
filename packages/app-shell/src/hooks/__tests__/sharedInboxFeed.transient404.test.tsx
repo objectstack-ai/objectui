@@ -121,7 +121,7 @@ import {
   UNAVAILABLE_PROBE_LIMIT,
   UNAVAILABLE_PROBE_MS,
   useSharedInboxFeed,
-  __resetSharedUserFeeds,
+  __resetSharedUserFeeds, __markFirstPainted,
 } from '../sharedUserFeeds';
 import { useHomeInbox } from '../useHomeInbox';
 
@@ -140,6 +140,8 @@ beforeEach(() => {
   // Module-scoped stores outlive any one render tree, so cases would otherwise
   // inherit each other's rows, status and retirement.
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
   // Approvals degrade to 0 (404) so nothing here depends on the REST feed.
   vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 404 }))));
 });

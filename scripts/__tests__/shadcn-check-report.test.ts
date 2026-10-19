@@ -358,7 +358,16 @@ describe('shadcn-check.yml — the gaps, read off the workflow itself', () => {
 
   it('gap ③: the analyze step no longer hides its exit code behind continue-on-error', () => {
     expect(workflowCode).toContain('pnpm shadcn:analyze');
-    expect(workflowCode).not.toContain('continue-on-error');
+    // Read per STEP: the one cache save this job carries (the pinned @objectstack
+    // build, objectui#12957) must be non-fatal by objectui#7048's rule, so the
+    // key may exist in the file -- never on the analyze step, never on a command.
+    const steps = workflowCode.split(/\n(?=\s+- (?:name|uses|run):)/);
+    const analyze = steps.filter((s) => s.includes('pnpm shadcn:analyze'));
+    expect(analyze).toHaveLength(1);
+    expect(analyze[0]).not.toContain('continue-on-error');
+    for (const s of steps.filter((x) => x.includes('continue-on-error'))) {
+      expect(s, 'only a cache save may be non-fatal here').toMatch(/uses: actions\/cache\/save@/);
+    }
     // Captured explicitly, the way #3497 captured the check step's.
     expect(workflowCode).toMatch(/pnpm shadcn:analyze 2>&1 \| tee/);
   });

@@ -68,7 +68,7 @@ const fakeAdapter = {
 };
 vi.mock('../../providers/AdapterProvider', () => ({ useAdapter: () => fakeAdapter }));
 
-const { useSharedActivityFeed, __resetSharedUserFeeds } = await import('../sharedUserFeeds');
+const { useSharedActivityFeed, __resetSharedUserFeeds, __markFirstPainted } = await import('../sharedUserFeeds');
 
 const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(0); });
 
@@ -108,6 +108,8 @@ async function mountFeed(perms: MePermissionsResponse | null) {
 beforeEach(() => {
   vi.useFakeTimers();
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
   reads.length = 0;
   readError = null;
   currentUser = { id: 'u1' };

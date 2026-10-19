@@ -272,7 +272,7 @@ AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩�
 - 失败现场会直接指认根因:dump 里若仍是 Suspense fallback(如 `Loading report renderer…`),就是本条;**hook 超时表现为「失败的*文件* + 0 个失败*测试*」**(其余全部 skipped),别误读成断言失败。
 - 顺手体检:别把 `keysOf(x)` 这类整体计算写在 `.filter()` 谓词里(每个元素重算一遍)。`all-locales-key-parity` 曾因此 7.51s,提升出谓词后 **25ms**。
 - **i18n 取证纪律:凡按「排版/字符记法」做普查或断言的正则,一律 `u` flag + `\p{L}` 之类的 Unicode 属性类,禁止 ASCII `\w`/`[a-z]`。** JS 的 `\w` 不论加不加 `u` 都等于 `[A-Za-z0-9_]`,匹配不到西里尔/阿拉伯/CJK 字母 —— 本仓十个包里 **五个是非拉丁文字**,所以这类正则的结论对它们**恒为「零命中」**,而且失败方向是最坏的那种:普查报告「该包不用这种记法」,断言绿着但**从不检查任何东西**。两种形态都实际发生过(objectui#3866):PR #3847 用 `/\(\w{1,4}\)/` 普查括号复数记法,给 ru 判了「全包 0 处」,实测 `\p{L}` 是 12 处、其中就有和被查 key 同构的 `{{count}} поле(й)`;同一写法写进断言后,对 zh/ja/ko/ru/ar 五包永假空转。**改法**:`/\([\p{L}]{1,4}\)/u`,并把反例连同旧写法一起钉住(`expect(RE.test('поле(й)')).toBe(true)` + `expect(/\(\w{1,4}\)/.test('поле(й)')).toBe(false)`),否则下一个人看不出两种写法不等价。**顺带记住属性类自己的边界**:`\p{L}` 只有字母(数字括号如 `(Pos1)` 不在内),`\(` 只有 ASCII 括号(全角 U+FF08/U+FF09 不在内,zh/ja 用得不少)—— 按你要查的记法选类,查不到的那半要在 PR 里写明是界外,别默认为零。
-- **本地一片 parity/schema 测试失败,先怀疑 stale install**(`node_modules` 里的 `@objectstack/spec` 版本落后于 lockfile),不是回归 —— CI 每次全新安装,永远不会命中这个。
+- **本地一片 parity/schema 测试失败,先怀疑 stale install**(`node_modules` 里的 `@objectstack/*` 不是 `.objectstack-sha` 钉的那份构建),不是回归 —— CI 每次按 pin 恢复或构建再全新安装,永远不会命中这个。`pnpm objectstack:status` 答「缓存里是不是 pin」,不是就 `pnpm run setup`(见下方「依赖与锁文件」)。
 - **别用 `prettier` 给改动做收尾检查 —— 它对未改动内容就是红的。** 本仓没有格式化门禁:没有 `.prettierrc` / `prettier.config.*` / `.prettierignore` / `.editorconfig`,没有 workflow 跑它,`eslint.config.js` 里也没有任何格式规则(全是正确性/ratchet 规则);那条从未接线的 devDependency 已随 objectui#3657 / PR #3681 删掉,仓内(排除 `pnpm-lock.yaml`)已 grep 不到 prettier。**但命令仍然跑得通** —— 容器镜像在 `/opt/node22/lib/node_modules/` 预装了一份全局 prettier(实测 3.8.1),仓内解析不到时 `pnpm exec` 会沿 PATH 兜底,任何装有全局 prettier 的机器同理。没有配置就按 prettier **默认值**(双引号、`printWidth: 80`)判定,而本仓是单引号、行宽更宽,于是**逐字节等于 `origin/main` 的文件照样报 `exit=1`**:根因是「默认配置 ≠ 本仓约定」,**不是**「`main` 没格式化」,也不是你改坏了。**禁止**据此 `--write` —— 未改动的 `scripts/check-doc-links.mjs` 单个文件就是 389 行重排(它的测试文件 1646 行),内容是 `'x'` → `"x"` 与 80 列回绕这类与你无关的 diff,会一起混进你的 PR。正确动作:忽略这份输出;本仓真接了线的检查是 `pnpm lint` / `pnpm test` 与根 `package.json` 里的 `check:*` 那几条。前情 objectui#3657、#3682。
 
 前情:objectui#3010(一次修掉五个文件,含一个已被「超时调到 15s」糊过、满负载下依然 15021ms 超时的例子)。
@@ -285,12 +285,20 @@ AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩�
 - **这一条现在由 CI 机械强制** —— `scripts/check-changeset-no-major.mjs` 在任一 changeset 声明 `major` 时退出非零,由 `.github/workflows/changeset-guard.yml` 跑(它是唯一以 `.changeset/**` 为**触发**路径的 workflow。这里曾写「`ci.yml`/`lint.yml` 都把 `**/*.md` 和 `.changeset/**` 列进 `paths-ignore`,只加 changeset 的 PR 不会启动任何 workflow」——**已不成立,别照它做判断**:objectui#3523 step 2 把 `paths-ignore` 从这两个 workflow 的 `pull_request` 上删掉了,今天它**只**留在 `push` 触发上;PR 的路径判断改在 job 内做 —— `ci.yml` 的 `Decide whether this change needs a full run` 步骤,`lint.yml` 有同名的一份。所以 md-only / changeset-only 的 PR **照常启动**这两个 workflow 并产出 required context —— 实测 PR #3856(只改一个 `.md`)起了 16 个 check、PR #4339(只给 AGENTS.md 加一行)起了 17 个。真正被跳过的是重活:那个 job 内开关的排除表逐条**等于** `push` 的 `paths-ignore`(仍含 `**/*.md` 与 `.changeset/**`),changeset-only 的 PR 里这两个 workflow 每一步都 skip。这才是 changeset-guard.yml 今天仍必须独立、且以 `.changeset/**` **反向**触发的理由:它跑在那个 job 内开关之外,免安装免构建,是唯一判得到 changeset-only PR 的东西。见 objectui#3523 step 2 / objectui#3857),`pnpm test` 里另有一条仓库状态断言兜底。跟随 objectstack 跨 major 的那一次同步升级由脚本按 manifest 自行判定放行,不靠开关:只有 fixed 组成员上的 `major`、且该组当前 major + 1 正好等于组内 manifest 在 `dependencies`/`peerDependencies`/`optionalDependencies` 里声明的 `@objectstack/spec` 范围的 major 时才放行,其余照旧拦(维护者裁决,objectui#12030 评论 6149296149;判据的权威表述是该脚本的文件头);Changesets pre 模式下已被 `changeset version` 消费、挪进 `.changeset/pre/` 的 changeset 不再读。前情:objectui#3161/#3159/#3160/#3225 四个 changeset 在 17.x 期间标了 `major`(17 个包条目),足以把 39 个包发成 `18.0.0`。
 - 这是约定优先于 semver 纯粹性的取舍(为可维护/好记),因此 objectui 的 major 不代表「它自身 API 的破坏性变更次数」。`@object-ui/site` 与 `@object-ui/example-*` 在 `ignore` 列表,不随组联动。
 
+### 依赖与锁文件:`@objectstack/*` 按提交钉(objectui#12955 裁决 B,objectui#12957)
+
+- **pin**:仓根 `.objectstack-sha` 钉一个 objectstack `main` 提交。根 `package.json` 的 `pnpm.overrides` 把**每一个** `@objectstack/*` 指向 `file:node_modules/.cache/objectstack/<名>` —— 那是该提交源码构建后、按 `pnpm pack` 的发布形状解包的目录。没有任何 `@objectstack/*` 从 npm 解析;各清单里的 `@objectstack/*` 范围只在 objectui 自己发版时起作用(objectui#12958),⛔ 别为「对齐 pin」去改它们。机制、为什么是 `file:` 目录而不是 tarball 或 `link:`、以及它拒绝什么,全在 `scripts/objectstack-pin.mjs` 文件头,本节不复述。
+- **本地 setup**:干净 checkout(含每个新 worktree)跑 **`pnpm run setup`** = `pnpm objectstack:build`(构建 pin 的 `@objectstack/*` 进上面那个目录;已是 pin 就跳过)再 `pnpm install --frozen-lockfile`。⛔ 不是 `pnpm setup`:那是 pnpm 的内建命令,会去改你 shell 的 rc 文件,根本不跑这个脚本。冷构建是重活,按下面「重验证先经那把锁」的规矩跑。⚠️ 删 `node_modules` 也就删了这份构建,之后的 `pnpm install` 以 `ENOENT`/`ERR_PNPM_LINKED_PKG_DIR_NOT_FOUND` 指着 `node_modules/.cache/objectstack/<名>` 失败 —— 重跑 `pnpm run setup`。
+- **换 pin**:`scripts/bump-objectstack.sh [<sha|ref>]`(读 `../objectstack`,`OBJECTSTACK_ROOT` 可改;`--help` 是它的说明)→ `pnpm objectstack:build` → `pnpm install`,`pnpm-lock.yaml` 变了就一起提交。它对解析不了、读不出的提交**拒绝且什么都不写**,对不在 `origin/main` 上的提交**只警告**。
+- **用一棵现成的 objectstack 树代替 pin**:`OBJECTSTACK_ROOT=<树> pnpm objectstack:build && pnpm install --frozen-lockfile` —— 那棵树须已 install 且已 build;锁文件不变,冻结安装照样成立(objectstack#24306 的 `build-console.sh` 用的就是这个输入)。用完跑一次 `pnpm objectstack:build` 回到 pin。
+- **锁文件规则**:`pnpm-lock.yaml` 里 `@objectstack/*` 只有 `file:` 目录解析、没有版本号。⚠️ 冻结安装**不核对**目录清单的依赖 —— 构建声明了锁文件没记录的依赖,`pnpm install --frozen-lockfile` 照样退出 0、就是不装它;所以 `pnpm objectstack:build` 在两者的依赖名不一致时拒绝,让你跑一次 `pnpm install` 改写锁文件。⛔ 别删 override 让某个 `@objectstack/*` 回到 npm:构建脚本拒绝 override 集合与依赖闭包不相等的任何情形。
+
 ### 多 agent 协作纪律(并行修改本仓库,务必遵守)
 
 本仓库有**多个 agent 并行**修改 —— 分支会被切换、共享文件会在你工作时被改动(正常现象,不是 bug):
 
 - **只改你任务需要的文件**;别去"修"无关的 diff、回退或别人的在途编辑,也别管整棵工作树。
-- **必须一个任务一个 git worktree**(`git fetch origin main && git worktree add --no-track ../objectui-<task> -b <branch> origin/main`,新树里跑 `pnpm install`)做物理隔离 —— 这是强制而非「首选」。共享的 `main` checkout **不是**可用退路:HEAD 会被别的 agent 切换、你刚写的文件会在操作中途被 reset 掉。一个 **PreToolUse 钩子**(`.claude/hooks/guard-main-checkout.sh`)**强制**此规则:除非被编辑文件位于专属 **worktree** 否则拦截 `Edit`/`Write`/`NotebookEdit`——在共享 checkout 上开 feature 分支**也不行**(仍会被切走),且按**被编辑文件所属的仓库**判断(sibling 仓 `framework`/`cloud` 一并守住)(确属非任务的临时改动用 `OS_ALLOW_MAIN_EDITS=1` 放行)。即便在自己的 worktree 里,下面这些防御性条款仍然适用。
+- **必须一个任务一个 git worktree**(`git fetch origin main && git worktree add --no-track ../objectui-<task> -b <branch> origin/main`,新树里跑 `pnpm run setup` —— 见上方「依赖与锁文件」,裸 `pnpm install` 在没有 pin 构建的新树里会失败)做物理隔离 —— 这是强制而非「首选」。共享的 `main` checkout **不是**可用退路:HEAD 会被别的 agent 切换、你刚写的文件会在操作中途被 reset 掉。一个 **PreToolUse 钩子**(`.claude/hooks/guard-main-checkout.sh`)**强制**此规则:除非被编辑文件位于专属 **worktree** 否则拦截 `Edit`/`Write`/`NotebookEdit`——在共享 checkout 上开 feature 分支**也不行**(仍会被切走),且按**被编辑文件所属的仓库**判断(sibling 仓 `framework`/`cloud` 一并守住)(确属非任务的临时改动用 `OS_ALLOW_MAIN_EDITS=1` 放行)。即便在自己的 worktree 里,下面这些防御性条款仍然适用。
 - **绝不 `git stash` —— stash 栈不在上一条的 worktree 隔离范围内。** `git stash` 把栈存在**共享 `.git` 目录**里的 `refs/stash`,**每个 worktree 共用同一个 LIFO 栈**:上一条的物理隔离**不覆盖它**。两个 agent 各自在自己的 worktree 里 stash,push/pop 的是同一个栈 —— 你的 `pop` 取回的是对方刚压进去的改动,你自己的改动留在栈上等着被对方取走;而 `pop` **报成功**,唯一的症状是别人的文件出现在你的 `git status` 里,随后一次 `git add -A` 就把对方的在途工作合进了你的 PR。不是假想:objectui#3430 两个并行 agent 在反向验证中间踩实,双方在途改动都丢了(只能作为 unreachable commit 捞回)。替代做法只有下面这些 —— 都不碰共享状态,都在你自己的 worktree 内,且**首选先 commit 再还原**(上面反向验证那条已把它定为标准写法):
 
   ```bash
@@ -573,6 +581,7 @@ sha pin **退休**之后这条**更重、不是更轻**(维护者 2026-09-04 裁
 
 ### Local dev — console UI ↔ backend (read before debugging UI)
 
+- **首次 / 换 pin 之后**:仓根 `pnpm run setup`(构建 `.objectstack-sha` 钉的 `@objectstack/*`,再冻结安装;见 §9「依赖与锁文件」)。console 编进去的 `@objectstack/spec`/`client` 就是这份构建,不是 npm 上的发布版。
 - **启动前端**:仓根 `pnpm --filter @object-ui/console dev`(Vite,固定 **:5180**,见 `apps/console/vite.config.ts`)。
 - **后端默认连 `:3000`**:vite `/api` proxy → `DEV_PROXY_TARGET || http://localhost:3000`。**要测哪个后端就把它跑在 :3000**(framework 仓:`PORT=3000 pnpm dev:crm`,或 `PORT=3000 pnpm dev` = showcase)。经 `pnpm --filter @object-ui/console dev` 传 `DEV_PROXY_TARGET` env **不**可靠(不一定透传到 vite 子进程);要把 console 指向别的后端端口,`cd apps/console` 后内联设 env 才灵(已实测——见下「每个 agent 独立测试栈」)。
 - `framework` 的 `:3001/_console` 服务的是**已发布的** console(`packages/console/dist`),**不是本仓 src**;改 src 必须用上面的 :5180 dev 服务验证(或在 framework 跑 `pnpm objectui:refresh` 重新拉构建——慢)。
@@ -596,7 +605,7 @@ sha pin **退休**之后这条**更重、不是更轻**(维护者 2026-09-04 裁
    # CRM:  cd ../objectstack/examples/app-crm && pnpm exec objectstack dev --seed-admin --fresh -p <port>
    # 要持久库(跨重启保留):去掉 --fresh,改用 --database "file:/tmp/agent-<port>.db"(或 OS_DATABASE_URL)
    ```
-   干净 checkout 首次需先 `pnpm setup`(build `@objectstack/spec`);已装过的直接可跑。
+   干净 checkout 首次需先 `pnpm run setup`(build `@objectstack/spec`;⛔ 不是 `pnpm setup`,那是 pnpm 的内建命令,只改 shell rc、不跑这个脚本);已装过的直接可跑。
 
 2. **Console(你的 objectui worktree)—— 自选端口 + 指向你的后端**:
    ```bash

@@ -173,7 +173,7 @@ const fakeAdapter = {
 
 vi.mock('../../providers/AdapterProvider', () => ({ useAdapter: () => fakeAdapter }));
 
-import { useSharedInboxFeed, __resetSharedUserFeeds } from '../sharedUserFeeds';
+import { useSharedInboxFeed, __resetSharedUserFeeds, __markFirstPainted } from '../sharedUserFeeds';
 import { groupNotifications } from '../../layout/inboxGrouping';
 
 const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(0); });
@@ -190,6 +190,8 @@ beforeEach(() => {
   receiptReads.length = 0;
   inboxRows = WINDOW_ROWS;
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
   // Approvals degrade to 0 (404): the inbox is this suite's only subject.
   vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 404 }))));
 });
@@ -306,6 +308,8 @@ describe('objectui#7392 — the receipt read is scoped to the listed messages', 
     expect(receiptReads).toHaveLength(0);
 
     __resetSharedUserFeeds();
+    // objectui#12980 — these cases start past the console's first paint.
+    __markFirstPainted();
     inboxRows = [
       { id: 'ibx_legacy', user_id: 'u1', topic: 'legacy', title: 'No event id', created_at: '2026-09-20T09:00:00Z' },
     ];

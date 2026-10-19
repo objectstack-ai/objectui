@@ -50,7 +50,7 @@ vi.mock('../hiddenTabPollStop', async (importOriginal) => {
 import {
   useSharedInboxFeed,
   useSharedPendingApprovalsCount,
-  __resetSharedUserFeeds,
+  __resetSharedUserFeeds, __markFirstPainted,
 } from '../sharedUserFeeds';
 import { HIDDEN_POLL_STOP_MS } from '../hiddenTabPollStop';
 
@@ -100,6 +100,8 @@ beforeEach(() => {
   setHidden(false);
   // Resets the shared hidden-tab clock too.
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
   vi.stubGlobal(
     'fetch',
     vi.fn(() => Promise.resolve(new Response('{"data":[]}', { status: 200 }))),

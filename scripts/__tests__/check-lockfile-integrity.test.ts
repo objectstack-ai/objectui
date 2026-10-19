@@ -2,13 +2,15 @@
  * objectui#8326 — the lockfile-integrity gate, pinned against the two causes it
  * was built for and against the three ways it could be worthless.
  *
- * The gate's own logic is exercised by `--self-test` inside the script (29
- * cases, synthetic lockfiles, no git). This file adds the three things a
- * synthetic corpus cannot say:
+ * The gate's own logic is exercised by `--self-test` inside the script
+ * (synthetic lockfiles, no git; it prints its own case count). This file adds the
+ * three things a synthetic corpus cannot say:
  *
  *   1. it is GREEN on this repository's real `pnpm-lock.yaml`;
  *   2. it is RED on the two real incident samples, built from that same real
- *      lockfile by a transformation this file asserts actually landed;
+ *      lockfile by a transformation this file asserts actually landed (the
+ *      first, since objectui#12957 retired the version rule, in its pinned-build
+ *      form);
  *   3. it is wired — the workflow runs it, and the Dependabot merge gate
  *      classifies the check it produces.
  *
@@ -85,29 +87,21 @@ describe('green on main — the negative control', () => {
 });
 
 /**
- * Sample (a) — objectui#8326's own scenario.
- *
- * ⛔ It cannot be produced by running the resolver, and that impossibility is
- * the card's central claim: every workspace range on `@objectstack/*` is a
- * floating range that a fresh resolve satisfies with the newest release — `^18.0.0-next.1`
- * resolving 18.0.0-next.3 today (objectui#12030, objectui#12370, objectui#12626, objectui#12873; `^17.x` and 17.4.0 when this sample was
- * written), so no fresh resolve can pick 17.2.0. The sample is therefore a transformation of the real lockfile
- * reproducing the identity facts measured on PRs #7053 / #7058 — the family
- * down to 17.2.0, and `@objectstack/spec` resolved at BOTH versions.
+ * Sample (a) — what is left of objectui#8326 once `@objectstack/*` resolves by
+ * commit (objectui#12957). The downgrade on #7058 split the workspace across two
+ * physical spec copies; the version half of that card (rule 1) is retired,
+ * because the pinned build carries no version for anything to move backward.
+ * The duplication half is what a partial fall-back off the pin looks like now: one
+ * importer resolving the REGISTRY spec beside the pinned build is two snapshot
+ * keys under one name. Built from the real lockfile by a transformation this file
+ * asserts landed.
  */
+const PINNED_SPEC = "  '@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))':";
 function sampleA(): string {
-  let out = realLock;
-  for (const pkg of ['client', 'core', 'formula', 'lint', 'sdui-parser']) {
-    out = out.replace(new RegExp(`(@objectstack/${pkg}@)18\\.0\\.0-next\\.3`, 'g'), '$117.2.0');
-  }
-  const specKey = "  '@objectstack/spec@18.0.0-next.3(ai@7.0.65(zod@4.6.7))':";
-  expect(out, 'the spec snapshot key moved — rebuild this sample before trusting it').toContain(
-    specKey,
-  );
-  return out.replace(
-    specKey,
-    "  '@objectstack/spec@17.2.0(ai@7.0.65(zod@4.6.7))':\n    dependencies:\n      zod: 4.6.7\n" +
-      specKey,
+  expect(realLock, 'the pinned spec snapshot key moved — rebuild this sample before trusting it').toContain(PINNED_SPEC);
+  return realLock.replace(
+    PINNED_SPEC,
+    "  '@objectstack/spec@18.0.0-next.3(ai@7.0.65(zod@4.6.7))':\n    dependencies:\n      zod: 4.6.7\n" + PINNED_SPEC,
   );
 }
 
@@ -124,8 +118,8 @@ function sampleA(): string {
 function sampleB(): string {
   let out = realLock;
   const forked = [
-    "  '@objectstack/spec@18.0.0-next.3(ai@7.0.65(zod@4.6.7))':",
-    "  '@objectstack/formula@18.0.0-next.3(ai@7.0.65(zod@4.6.7))':",
+    PINNED_SPEC,
+    "  '@objectstack/formula@file:node_modules/.cache/objectstack/formula(ai@7.0.65(zod@4.6.7))':",
     "  ai@7.0.65(zod@4.6.7):",
   ];
   for (const key of forked) {
@@ -137,29 +131,22 @@ function sampleB(): string {
   return out.replace(zodKey, `${zodKey}\n  zod@4.5.4: {}`);
 }
 
-describe('cause 1 — an @objectstack/* identity moves backward (objectui#8326)', () => {
+describe('cause 1 — a registry @objectstack/* copy beside the pinned build (objectui#8326, objectui#12957)', () => {
   const reading = compareLockfiles(indexLockfile(realLock, 'base'), indexLockfile(sampleA(), 'a'));
 
   it('the sample really differs from the base (the mutation landed)', () => {
     expect(sampleA()).not.toEqual(realLock);
-    expect(sampleA()).toContain('@objectstack/client@17.2.0');
+    expect(sampleA()).toContain("'@objectstack/spec@18.0.0-next.3(ai@7.0.65(zod@4.6.7))':");
   });
 
-  it('goes red, naming every family member that moved', () => {
-    const names = reading.backward.map((f) => f.name);
-    expect(names).toEqual(
-      expect.arrayContaining([
-        '@objectstack/client',
-        '@objectstack/core',
-        '@objectstack/formula',
-        '@objectstack/lint',
-        '@objectstack/sdui-parser',
-      ]),
-    );
+  it('goes red, naming the second physical spec', () => {
+    const spec = reading.duplicated.find((f) => f.name === '@objectstack/spec');
+    expect(spec?.headCount).toBe(2);
+    expect(spec?.added).toEqual(['@objectstack/spec@18.0.0-next.3(ai@7.0.65(zod@4.6.7))']);
   });
 
-  it('also names the duplication the downgrade created', () => {
-    expect(reading.duplicated.map((f) => f.name)).toContain('@objectstack/spec');
+  it('⛔ no longer orders versions: the retired rule 1 reports nothing of its own', () => {
+    expect(Object.keys(reading)).toEqual(['findings', 'duplicated']);
   });
 });
 
@@ -169,10 +156,6 @@ describe('cause 2 — a declared dependency forks with no version moving (object
   it('the sample really differs from the base (the mutation landed)', () => {
     expect(sampleB()).not.toEqual(realLock);
     expect(sampleB()).toContain('zod@4.5.4');
-  });
-
-  it('⭐ moves no @objectstack/* identity at all — so rule 1 is blind to it', () => {
-    expect(reading.backward).toEqual([]);
   });
 
   it('⭐ still goes red: zod gained a copy, though it was never single-copy', () => {
@@ -190,8 +173,9 @@ describe('cause 2 — a declared dependency forks with no version moving (object
     const spec = reading.duplicated.find((f) => f.name === '@objectstack/spec');
     expect(spec?.headCount).toBe(2);
     // This is #8326's exact bundling mechanism — two real paths, nothing
-    // dedupes them — arriving with no version change anywhere.
-    expect(spec?.head.every((k) => k.includes('@18.0.0-next.3'))).toBe(true);
+    // dedupes them — arriving with no version change anywhere: both are the
+    // pinned build, under two peer contexts.
+    expect(spec?.head.every((k) => k.startsWith('@objectstack/spec@file:node_modules/.cache/objectstack/spec('))).toBe(true);
   });
 });
 

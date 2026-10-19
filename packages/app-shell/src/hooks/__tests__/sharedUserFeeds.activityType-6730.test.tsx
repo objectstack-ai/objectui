@@ -66,7 +66,7 @@ const fakeAdapter = {
 };
 vi.mock('../../providers/AdapterProvider', () => ({ useAdapter: () => fakeAdapter }));
 
-import { useSharedActivityFeed, __resetSharedUserFeeds } from '../sharedUserFeeds';
+import { useSharedActivityFeed, __resetSharedUserFeeds, __markFirstPainted } from '../sharedUserFeeds';
 import { resetUnmappedActivityTypeWarnings } from '../../layout/activityItemType';
 // The feed reads only the objects an app lists (objectui#12530); these rows'
 // objects are on the default roster, so the mapping is all this file sees.
@@ -81,6 +81,8 @@ const warnings: string[] = [];
 beforeEach(() => {
   vi.useFakeTimers();
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
   resetUnmappedActivityTypeWarnings();
   warnings.length = 0;
   vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {

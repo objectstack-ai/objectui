@@ -257,7 +257,64 @@ function fetchAgentsCached(
 }
 
 /**
+ * Whether a frame has painted since the first catalog consumer mounted
+ * (objectui#12980). One-way and module-wide, like the cache above: a surface
+ * that remounts on navigation reads at once.
+ */
+let catalogFramePainted = false;
+
+/**
+ * Run `fn` once the frame after this mount has painted — at once when one
+ * already has. Returns a cancel.
+ *
+ * The catalog decides whether the AI entry points DRAW (`useAiSurfaceEnabled`:
+ * no agent, no button), so it is read on every console open — but nothing
+ * draws until after the page's first paint, because every entry point stays
+ * hidden while the catalog loads. So the read waits for that paint instead of
+ * starting in the mount effects beside the page's own reads. It waits ONE
+ * frame and never for the boot splash: the `/ai` route guard asks for the
+ * catalog under the splash, and waiting the splash out there would wait
+ * forever. A tab opened in the background paints no frame, so its read waits
+ * until the tab is first shown.
+ */
+function afterCatalogFrame(fn: () => void): () => void {
+  if (catalogFramePainted) {
+    fn();
+    return () => {};
+  }
+  let live = true;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const run = () => {
+    if (!live) return;
+    catalogFramePainted = true;
+    fn();
+  };
+  const frame =
+    typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame(() => {
+          timer = setTimeout(run, 0);
+        })
+      : undefined;
+  if (frame === undefined) timer = setTimeout(run, 0);
+  return () => {
+    live = false;
+    if (frame !== undefined && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame);
+    if (timer !== undefined) clearTimeout(timer);
+  };
+}
+
+/** Test seam: forget the painted frame and the cached catalog. Not public. */
+export function __resetAgentsCatalog(): void {
+  catalogFramePainted = false;
+  agentsCache.clear();
+  agentsInFlight.clear();
+}
+
+/**
  * Fetches the active agent catalog from the backend.
+ *
+ * The request leaves after the first frame has painted (objectui#12980), not
+ * in the mounting commit — see {@link afterCatalogFrame}.
  *
  * @example
  * const { agents } = useAgents({ apiBase: '/api/v1/ai' });
@@ -279,24 +336,30 @@ export function useAgents(options: UseAgentsOptions = {}): UseAgentsReturn {
     if (!enabled || !apiBase) return;
 
     let cancelled = false;
-    setIsLoading(true);
-    setError(undefined);
+    const cancelFrame = afterCatalogFrame(() => {
+      if (cancelled) return;
+      setIsLoading(true);
+      setError(undefined);
 
-    fetchAgentsCached(apiBase, headersRef.current, reloadToken > 0)
-      .then((normalized) => {
-        if (cancelled) return;
-        setAgents(normalized.length > 0 ? normalized : fallback);
-      })
-      .catch((err: Error) => {
-        if (cancelled) return;
-        setError(err);
-        setAgents(fallback);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+      fetchAgentsCached(apiBase, headersRef.current, reloadToken > 0)
+        .then((normalized) => {
+          if (cancelled) return;
+          setAgents(normalized.length > 0 ? normalized : fallback);
+        })
+        .catch((err: Error) => {
+          if (cancelled) return;
+          setError(err);
+          setAgents(fallback);
+        })
+        .finally(() => {
+          if (!cancelled) setIsLoading(false);
+        });
+    });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      cancelFrame();
+    };
     // `fallback` is intentionally excluded — callers usually pass a fresh array.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiBase, enabled, reloadToken]);

@@ -123,17 +123,6 @@ describe('EnvironmentListToolbar — plan-locked: a locked mark, no paywall dial
     expect(mark.getAttribute('rel')).toBe('noopener noreferrer');
   });
 
-  it('no upgradeUrl → the mark is drawn unlinked; no URL is composed (objectui#10437)', () => {
-    renderToolbar(
-      <EnvironmentListToolbar actions={[CREATE]} entitlements={st({ canCreateDevelopmentEnv: false, upgradeUrl: undefined })} />,
-    );
-    const mark = screen.getByTestId(LOCKED_MARK);
-    expect(mark.tagName).toBe('SPAN');
-    expect(mark.textContent).toBe('Development environments · Team plan and up');
-    expect(screen.queryByRole('link')).toBeNull();
-    expect(screen.queryByRole('button')).toBeNull();
-  });
-
   it('zh: the mark reads the ruled tier label', async () => {
     render(
       <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false }}>
@@ -141,6 +130,98 @@ describe('EnvironmentListToolbar — plan-locked: a locked mark, no paywall dial
       </I18nProvider>,
     );
     await waitFor(() => expect(screen.getByTestId(LOCKED_MARK).textContent).toBe('开发环境 · 团队版起'));
+  });
+});
+
+/**
+ * objectui#12983 — ruling B on objectstack-ai/cloud#2917: the development
+ * upsell reaches only whoever can upgrade. The control plane trims the summary
+ * by role: `plan`, `seatCount`, `upgradeUrl` and `contactSalesUrl` are sent
+ * only to a viewer who manages the organization. A summary without
+ * `upgradeUrl` is therefore a plain member's, and that viewer cannot upgrade,
+ * so the locked mark is not drawn for them. Nothing else on the toolbar
+ * changes for anyone.
+ */
+describe('EnvironmentListToolbar — the locked mark reaches only a viewer who can upgrade (objectui#12983)', () => {
+  const REFRESH = { name: 'refresh_all', label: 'Refresh', type: 'api', locations: ['list_toolbar'] };
+
+  /** A manager's summary: the role-gated fields are present. */
+  const manager = (o: Partial<EnvironmentEntitlementsState>) =>
+    st({ plan: 'free', upgradeUrl: '/settings/billing', contactSalesUrl: 'mailto:sales@example.com', ...o });
+  /** The same organization as a plain member reads it: capacity only. */
+  const member = (o: Partial<EnvironmentEntitlementsState>) =>
+    st({ ...o, plan: undefined, upgradeUrl: undefined, contactSalesUrl: undefined });
+
+  /** Renders one toolbar, reads what it drew, and unmounts it. */
+  const drawn = (actions: object[], entitlements: EnvironmentEntitlementsState) => {
+    const { container, unmount } = renderToolbar(<EnvironmentListToolbar actions={actions} entitlements={entitlements} />);
+    const bar = screen.queryByTestId('action-bar');
+    const mark = screen.queryByTestId(LOCKED_MARK);
+    const out = {
+      bar: bar ? bar.outerHTML : null,
+      mark: mark ? { tag: mark.tagName, href: mark.getAttribute('href'), text: mark.textContent } : null,
+      text: container.textContent,
+    };
+    unmount();
+    return out;
+  };
+
+  const FREE = { canCreateDevelopmentEnv: false } as const;
+
+  it('free plan: a manager sees the mark, linked; a member sees no mark', () => {
+    expect(drawn([CREATE], manager(FREE)).mark).toEqual({
+      tag: 'A',
+      href: '/settings/billing',
+      text: 'Development environments · Team plan and up',
+    });
+
+    const asMember = drawn([CREATE], member(FREE));
+    expect(asMember.mark).toBeNull();
+    // Nothing else stands in for the create action either: no bar, no
+    // metadata label, no text of any kind.
+    expect(asMember.bar).toBeNull();
+    expect(asMember.text).toBe('');
+  });
+
+  it('free plan, member: no link and no button of any kind is drawn', () => {
+    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={member(FREE)} />);
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByText('Create Environment')).toBeNull();
+  });
+
+  it('free plan: the other toolbar actions render the same for a manager and a member', () => {
+    const asManager = drawn([CREATE, REFRESH], manager(FREE));
+    const asMember = drawn([CREATE, REFRESH], member(FREE));
+    expect(asManager.bar).not.toBeNull();
+    expect(asMember.bar).toBe(asManager.bar);
+    expect(asMember.bar).toContain('Refresh');
+    expect(asMember.bar).not.toContain('Create Environment');
+    expect(asManager.mark).not.toBeNull();
+    expect(asMember.mark).toBeNull();
+  });
+
+  it.each([
+    ['paid plan, development allowed', { canCreateDevelopmentEnv: true, plan: 'team' }, 'Add development environment'],
+    ['development capacity unknown', { canCreateDevelopmentEnv: undefined }, 'Add development environment'],
+    ['no production environment yet', { hasProductionEnv: false }, 'Set up your production environment'],
+  ] as const)('%s: the create action renders the same for a member as for a manager', (_state, o, label) => {
+    const asManager = drawn([CREATE, REFRESH], manager(o));
+    const asMember = drawn([CREATE, REFRESH], member(o));
+    expect(asManager.bar).toContain(label);
+    expect(asMember.bar).toBe(asManager.bar);
+    expect(asMember.mark).toBeNull();
+    expect(asManager.mark).toBeNull();
+  });
+
+  it('zh, paid plan: a member still gets the add-development create action', async () => {
+    render(
+      <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false }}>
+        <EnvironmentListToolbar actions={[CREATE]} entitlements={member({ canCreateDevelopmentEnv: true })} />
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByText('新建开发环境')).toBeTruthy());
+    expect(screen.queryByTestId(LOCKED_MARK)).toBeNull();
   });
 });
 
@@ -242,6 +323,26 @@ describe('EnvironmentListToolbar — ?runAction=create_environment deep link (#8
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(screen.getByTestId(LOCKED_MARK)).toBeTruthy();
     // Nothing is auto-triggered either: no bar, so no autoTrigger action.
+    expect(screen.queryByTestId('action-bar')).toBeNull();
+  });
+
+  it('upgrade state, plain member: the deep link is consumed as before, and nothing is drawn (objectui#12983)', async () => {
+    // Arming is unchanged by objectui#12983: it keys on the create action and
+    // the resolved state, never on `upgradeUrl`. The member's answer to
+    // "create" is that no development environment can be made here, and no
+    // upsell is drawn for a viewer who cannot upgrade.
+    withRunActionParam();
+    renderToolbar(
+      <EnvironmentListToolbar
+        actions={[CREATE]}
+        entitlements={st({ canCreateDevelopmentEnv: false, plan: undefined, upgradeUrl: undefined })}
+      />,
+    );
+    await vi.waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('runAction')).toBeNull();
+    });
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.queryByTestId(LOCKED_MARK)).toBeNull();
     expect(screen.queryByTestId('action-bar')).toBeNull();
   });
 });

@@ -114,7 +114,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { DEDUPE_SENTINEL } from '../check-lockfile-dedupe.mjs';
+import { DEDUPE_SENTINEL, pinnedBuildMissing } from '../check-lockfile-dedupe.mjs';
+import { CACHE_DIR, STAMP_FILE } from '../objectstack-pin.mjs';
 import { FLOORS, TEST_FILE } from '../check-test-path-roots.mjs';
 import { NOT_A_GATE, OPTIONAL_CONTEXTS, REQUIRED_CONTEXTS } from '../dependabot-merge-gate.mjs';
 import { maskComments } from '../js-comment-mask.mjs';
@@ -326,6 +327,31 @@ function runChecker(stub: { stdout?: string; stderr?: string; exit: number }, ar
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }
+
+describe('the pinned @objectstack/* build is the checker\'s precondition (objectui#12957)', () => {
+  // `pnpm dedupe --check` re-reads the `file:` directories every `@objectstack/*`
+  // package resolves to; without them pnpm stops before judging anything. The
+  // checker reads the build's stamp first and names that cause.
+  it('reads a root with no build as missing, and the same root with a stamp as present', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lockfile-dedupe-pin-'));
+    try {
+      expect(pinnedBuildMissing(root)).toBe(true);
+      fs.mkdirSync(path.join(root, CACHE_DIR), { recursive: true });
+      fs.writeFileSync(path.join(root, CACHE_DIR, STAMP_FILE), '{}');
+      expect(pinnedBuildMissing(root)).toBe(false);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('checks before it spawns pnpm, and says so in a could-not-run verdict', () => {
+    const source = fs.readFileSync(path.join(repoRoot, SCRIPT), 'utf8');
+    const guard = source.indexOf('if (pinnedBuildMissing())');
+    expect(guard, 'the precondition is gone from main()').toBeGreaterThan(0);
+    expect(guard).toBeLessThan(source.indexOf("spawnSync('pnpm', ['dedupe', '--check']"));
+    expect(source.slice(guard, source.indexOf("spawnSync('pnpm', ['dedupe', '--check']"))).toContain("outcome: 'cannot-run'");
+  });
+});
 
 describe('the lockfile-dedupe checker', () => {
   it('ships its own self-test, and it passes as shipped', () => {

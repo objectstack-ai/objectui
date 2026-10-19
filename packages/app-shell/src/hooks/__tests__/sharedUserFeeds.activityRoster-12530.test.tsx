@@ -94,7 +94,7 @@ const fakeAdapter = {
 };
 vi.mock('../../providers/AdapterProvider', () => ({ useAdapter: () => fakeAdapter }));
 
-const { useSharedActivityFeed, activityObjectRoster, isLoginStampRow, __resetSharedUserFeeds } = await import(
+const { useSharedActivityFeed, activityObjectRoster, isLoginStampRow, __resetSharedUserFeeds, __markFirstPainted } = await import(
   '../sharedUserFeeds'
 );
 
@@ -114,6 +114,8 @@ const ids = (items: Array<{ id: string }>) => items.map((a) => a.id);
 beforeEach(() => {
   vi.useFakeTimers();
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
   reads.length = 0;
 });
 

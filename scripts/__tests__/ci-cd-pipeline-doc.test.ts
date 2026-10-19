@@ -1801,7 +1801,7 @@ const startBackend = fs.readFileSync(startBackendPath, 'utf8');
 
 /** The page's statement of the rule, whitespace-normalised because the source wraps it. */
 const PIN_RULE_SENTENCE =
-  /Backend pins live in `e2e\/live\/ci\/backend\.env` and must match the `@objectstack\/spec` version in `pnpm-lock\.yaml`/;
+  /Backend pins live in `e2e\/live\/ci\/backend\.env` and must match the `@objectstack\/spec` version the pinned build in `pnpm-lock\.yaml` declares/;
 
 const readEnvKey = (key: string): string | null =>
   backendEnv.match(new RegExp('^' + key + '=(.+)$', 'm'))?.[1].trim() ?? null;
@@ -1813,10 +1813,24 @@ const readEnvKey = (key: string): string | null =>
  * `snapshots:` and the bare one under `packages:`; the importer entries carry the same
  * value on their `version:` line. Each is truncated at the first `(` so the three
  * spellings collapse to one comparable number.
+ *
+ * Since objectui#12957 the lockfile resolves the spec to a DIRECTORY of the pinned
+ * build (`'@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@…)'`) and
+ * records no version for it; that resolution is followed to the version the
+ * directory's manifest declares. A directory that is not built answers a value no
+ * `OBJECTSTACK_VERSION` can equal, naming the missing build.
  */
 function resolvedSpecVersions(): string[] {
   const lock = fs.readFileSync(lockfilePath, 'utf8');
   const found = new Set<string>();
+
+  for (const m of lock.matchAll(/^\s{0,4}'?@objectstack\/spec@file:([^'(\s:]+)/gm)) {
+    try {
+      found.add(JSON.parse(fs.readFileSync(path.join(repoRoot, m[1], 'package.json'), 'utf8')).version);
+    } catch {
+      found.add(`(pinned build absent: ${m[1]} — run \`pnpm objectstack:build\`)`);
+    }
+  }
 
   for (const m of lock.matchAll(/^\s{0,4}'?@objectstack\/spec@([0-9][^'(\s:]*)/gm)) {
     found.add(m[1]);

@@ -61,6 +61,18 @@
  * definition of "hidden for too long" rather than one per poller. The cost is
  * the inbox's desktop notification — see `useInboxArrivalNotifier`.
  *
+ * ## Nothing here is read before the console's first paint (objectui#12980)
+ *
+ * None of these feeds is what a page draws first: the badge is chrome, and the
+ * popover tabs open on a click. They used to start in the chrome's mount
+ * effects, beside the page's own reads, on every console open. Each feed now
+ * attaches only once {@link useAfterFirstPaint} answers `true` — the boot splash
+ * is gone and a frame has painted — and the Activity feed, which no badge
+ * reads, only once its consumer asks for it (the bell's open intent). Until
+ * then a consumer is handed the `idle` snapshot, the honest "not asked yet":
+ * the badge draws nothing, exactly as it does while a read is in flight, and
+ * never a `0` it did not read.
+ *
  * @module
  */
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
@@ -524,16 +536,130 @@ class SharedFeed<T> {
   }
 }
 
+// ── After the console's first paint (objectui#12980) ─────────────────────────
+
+/**
+ * The console's boot splash: `LoadingScreen`'s language-independent marker,
+ * and the pre-JS splash `apps/console/index.html` draws until React commits.
+ */
+const BOOT_SPLASH_SELECTOR = '[data-boot-splash], #boot-splash';
+
+let firstPainted = false;
+let firstPaintWatched = false;
+/** Bumped by the test seam, so a frame armed before a reset settles nothing. */
+let firstPaintGeneration = 0;
+let splashObserver: MutationObserver | null = null;
+const firstPaintListeners = new Set<() => void>();
+
+function bootSplashShown(): boolean {
+  return typeof document !== 'undefined' && document.querySelector(BOOT_SPLASH_SELECTOR) !== null;
+}
+
+/** Run `fn` once the next frame has painted: a frame, then a task after it. */
+function afterNextPaint(fn: () => void): void {
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => setTimeout(fn, 0));
+  } else {
+    setTimeout(fn, 0);
+  }
+}
+
+/**
+ * Start watching for the first paint past the boot splash. Idempotent: the
+ * first consumer to mount starts it, and the answer is module-wide and
+ * one-way, so a header that remounts on a layout switch reads `true` at once
+ * instead of hiding its badge for a frame.
+ *
+ * A splash still up when the frame lands is waited out (a `MutationObserver`
+ * on the document), then one more frame is: so a consumer that mounts under
+ * the splash — the shell's own hooks do — reads after the PAGE paints, not
+ * after the splash does. A tab opened in the background paints no frame, so
+ * its reads wait until it is first shown.
+ */
+function watchFirstPaint(): void {
+  if (firstPainted || firstPaintWatched) return;
+  firstPaintWatched = true;
+  const generation = firstPaintGeneration;
+  const settle = (): void => {
+    if (generation !== firstPaintGeneration || firstPainted) return;
+    if (bootSplashShown() && typeof MutationObserver === 'function') {
+      const observer = new MutationObserver(() => {
+        if (bootSplashShown()) return;
+        observer.disconnect();
+        if (splashObserver === observer) splashObserver = null;
+        afterNextPaint(settle);
+      });
+      splashObserver = observer;
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+      return;
+    }
+    firstPainted = true;
+    for (const listener of [...firstPaintListeners]) listener();
+  };
+  afterNextPaint(settle);
+}
+
+function subscribeFirstPaint(listener: () => void): () => void {
+  firstPaintListeners.add(listener);
+  return () => {
+    firstPaintListeners.delete(listener);
+  };
+}
+
+function readFirstPaint(): boolean {
+  return firstPainted;
+}
+
+/**
+ * `true` once the console has painted past its boot splash — the moment a read
+ * that no first-paint surface needs may start (objectui#12980). `false` before
+ * it, and on the server.
+ *
+ * Package-internal: not exported from `./index.ts` or the package entry.
+ */
+export function useAfterFirstPaint(): boolean {
+  const painted = useSyncExternalStore(subscribeFirstPaint, readFirstPaint, readFirstPaint);
+  useEffect(() => {
+    watchFirstPaint();
+  }, []);
+  return painted;
+}
+
+/**
+ * Test seam: start a case past the first paint — for a case about something
+ * else, which would otherwise have to wait out a frame its fake clock never
+ * paints.
+ */
+export function __markFirstPainted(): void {
+  firstPaintGeneration += 1;
+  firstPaintWatched = true;
+  firstPainted = true;
+  for (const listener of [...firstPaintListeners]) listener();
+}
+
+/** Test seam: forget the first paint, so a case can watch for it again. */
+export function __resetFirstPaint(): void {
+  firstPaintGeneration += 1;
+  firstPainted = false;
+  firstPaintWatched = false;
+  splashObserver?.disconnect();
+  splashObserver = null;
+}
+
 /**
  * Subscribe to a shared feed. A `null` key means "nothing to fetch yet" (no
  * signed-in user, no adapter) — the consumer still reads the snapshot, it just
- * does not drive a fetch.
+ * does not drive a fetch. No feed attaches before the console's first paint
+ * (objectui#12980): until then the key is withheld, so the consumer is handed
+ * the `idle` snapshot.
  */
 function useSharedFeed<T>(
   feed: SharedFeed<T>,
-  key: string | null,
+  ownKey: string | null,
   runner: FeedRunner<T>,
 ): SharedFeedSnapshot<T> {
+  const painted = useAfterFirstPaint();
+  const key = painted ? ownKey : null;
   const value = useSyncExternalStore(feed.subscribe, feed.getSnapshot, feed.getSnapshot);
   // Latest-ref: the runner closes over values that change every render, but
   // only `key` may re-drive the attach effect. Declared first so it lands
@@ -984,11 +1110,25 @@ const ACTIVITY_OBJECT = 'sys_activity';
  *     answered without a request — never an unfiltered one;
  *   - the roster is part of the key, so a roster that changes (an app
  *     installed, a grant loaded) re-reads under the new filter.
+ *
+ * ## Asked for, not read on open (objectui#12980)
+ *
+ * No badge reads this feed: the bell's Activity tab is drawn only once the
+ * popover opens. So the bell passes `enabled: false` until its open intent
+ * (a pointer over it, focus, a click), and the read starts then, not on every
+ * console open. `readable` is answered either way — it is the caller's grant,
+ * not the read — so the tab strip is the same before and after.
  */
-export function useSharedActivityFeed(): ActivityFeedReading {
+export function useSharedActivityFeed(options: { enabled?: boolean } = {}): ActivityFeedReading {
+  const enabled = options.enabled !== false;
   const dataSource = useAdapter();
   const { user } = useAuth();
-  const activity = useObjectPresence(ACTIVITY_OBJECT);
+  // Not asked for ⇒ not even its presence is asked (objectui#12980): inside an
+  // app the presence answer is its own by-name read (`meta/object/NAME`
+  // through the app's object scope), which went out in the chrome's render on
+  // every open. An empty name asks the scope nothing; the verdict it yields is
+  // never read, because the key below is withheld while `enabled` is false.
+  const activity = useObjectPresence(enabled ? ACTIVITY_OBJECT : '');
   const perms = usePermissions();
   // Unknown (not loaded) reads: a wrong refusal would cost a caller who CAN
   // read their feed, with no error anywhere — the one-sided risk #7476 named.
@@ -1019,7 +1159,8 @@ export function useSharedActivityFeed(): ActivityFeedReading {
     // A refused grant keeps it `null` for good: nothing is asked, and the
     // consumer is handed the `idle` snapshot under `readable: false`. The app
     // list gates it the same way, and the roster it yields is part of it.
-    activity.settled && appsSettled && readable && adapter
+    // Not asked for yet (objectui#12980) withholds it the same way.
+    enabled && activity.settled && appsSettled && readable && adapter
       ? `${adapter}:${user?.id ?? ''}:${rosterKey}`
       : null,
     async ({ markUnavailable, markFailed, markRefused }) => {
@@ -1266,6 +1407,9 @@ export function useSharedInboxFeed(): SharedFeedSnapshot<InboxNotification[]> {
  * cases do not inherit each other's reads. Not part of the public surface.
  */
 export function __resetSharedUserFeeds(): void {
+  // The first paint is deliberately NOT forgotten here: it is a page-load fact,
+  // not a feed's state. A case that needs to watch for it again calls
+  // `__resetFirstPaint`.
   __resetHiddenTabClock();
   approvalsFeed.reset();
   activityFeed.reset();

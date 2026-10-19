@@ -71,7 +71,11 @@ function typeCheckJob(): Job {
 }
 
 const saveStep = (job: Job): Step => {
-  const found = job.steps.filter((s) => (s.uses ?? '').startsWith('actions/cache/save@'));
+  // By PATH: the job also saves the pinned @objectstack build (objectui#12957),
+  // a second cache this file is not about.
+  const found = job.steps.filter(
+    (s) => (s.uses ?? '').startsWith('actions/cache/save@') && s.with?.path === '.turbo/cache',
+  );
   expect(
     found.length,
     'the `type-check` job must save `.turbo/cache` through exactly one `actions/cache/save` ' +
@@ -164,7 +168,9 @@ describe('ci.yml — the type-check cache save is bounded and non-fatal (objectu
     // action itself decided to skip a save after an exact primary-key hit.
     const job = typeCheckJob();
     const save = saveStep(job);
-    const restores = job.steps.filter((s) => (s.uses ?? '').startsWith('actions/cache/restore@'));
+    const restores = job.steps.filter(
+      (s) => (s.uses ?? '').startsWith('actions/cache/restore@') && s.with?.path === '.turbo/cache',
+    );
 
     expect(restores.length, 'the `type-check` job must restore `.turbo/cache`').toBe(1);
     const restore = restores[0];

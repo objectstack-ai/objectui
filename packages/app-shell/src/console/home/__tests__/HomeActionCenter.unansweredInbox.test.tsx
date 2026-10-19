@@ -110,7 +110,7 @@ vi.mock('../../../hooks/sharedUserFeeds', async (importOriginal) => ({
 }));
 
 import { useHomeInbox } from '../../../hooks/useHomeInbox';
-import { __resetSharedUserFeeds } from '../../../hooks/sharedUserFeeds';
+import { __markFirstPainted, __resetSharedUserFeeds } from '../../../hooks/sharedUserFeeds';
 import { HomeActionCenter } from '../HomeRail';
 
 /** Exactly `HomePage`'s wiring of the two — the seam the card indicts. */
@@ -197,6 +197,8 @@ beforeEach(() => {
   // The inbox feed is a module-scoped store that deliberately outlives any one
   // render tree, so cases would otherwise inherit each other's rows and status.
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
 });
 
 describe('Home action centre — the affirmative empty state needs an ANSWER (#4235)', () => {

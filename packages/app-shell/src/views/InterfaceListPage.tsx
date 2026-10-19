@@ -25,7 +25,7 @@
  */
 
 import * as React from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { ListView } from '@object-ui/plugin-list';
 import { useAdapter, SchemaRenderer, useNavigationOverlay } from '@object-ui/react';
 import { Empty, EmptyTitle, EmptyDescription, NavigationOverlay } from '@object-ui/components';
@@ -36,6 +36,8 @@ import { leadWithNameField } from '@object-ui/core';
 import type { ActionBarSchema, ListViewSchema } from '@object-ui/types';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
+import { useNavigationContext } from '../context/NavigationContext.js';
+import { matchAppBySegment } from '../utils/index.js';
 import { parseUserFilterParams, applyUserFilterParams } from './userFilterUrlState.js';
 import { RecordDetailView } from './RecordDetailView.js';
 
@@ -269,7 +271,15 @@ export function defaultMapFromObject(objectDef: any): { locationField: string } 
 
 export function InterfaceListPage({ page, className, onConfigChange, reserveEditAffordance }: InterfaceListPageProps) {
   const { t } = useObjectTranslation();
-  const { objects } = useMetadata();
+  // objectui#12980 — the source object, read by name, not the whole registry:
+  // reading `objects` would load every object to find one. Inside an app that
+  // names a package it rides the app's scope, as `nav:menu`'s capability gate
+  // does, so the page route's scope read (which holds the source already) is
+  // reused rather than asked again; outside one it is the names-only scope. A
+  // hand-rolled metadata context has no scope, and is read as it is.
+  const metadata = useMetadata();
+  const { appName } = useParams();
+  const { currentAppName } = useNavigationContext();
   const dataSource = useAdapter();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -290,10 +300,20 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
   );
 
   const cfg = page?.interfaceConfig || {};
-  const objectDef = React.useMemo(
-    () => (objects || []).find((o: any) => o.name === cfg.source),
-    [objects, cfg.source],
-  );
+  const activeApp = matchAppBySegment(
+    ((metadata.apps as any[]) || []).filter((a: any) => a?.active !== false),
+    appName ?? currentAppName ?? null,
+  ) as Record<string, unknown> | undefined;
+  const appPackageId =
+    typeof activeApp?._packageId === 'string' && activeApp._packageId ? activeApp._packageId : undefined;
+  const sourceObjects: any[] = !cfg.source
+    ? []
+    : metadata.readObjectScope
+      ? metadata.readObjectScope(appPackageId ? { packageId: appPackageId, names: [cfg.source] } : { names: [cfg.source] })
+          .objects
+      : metadata.objects || [];
+  // Not memoised: the scope's list is read afresh each render, as `objects` was.
+  const objectDef = sourceObjects.find((o: any) => o?.name === cfg.source);
   const resolvedView = React.useMemo(
     () => resolveSourceView(objectDef, cfg.sourceView),
     [objectDef, cfg.sourceView],
@@ -660,7 +680,10 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
               recordIdOverride={String(record?.id ?? record?._id ?? drawerRecordId ?? '')}
               embedded
               dataSource={dataSource}
-              objects={objects}
+              // A record overlay reads the whole registry: its related lists
+              // come from every object that points at the record. Read only
+              // once a record is opened (objectui#12980).
+              objects={metadata.objects}
               onEdit={() => {}}
             />
           )}

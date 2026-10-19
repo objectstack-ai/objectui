@@ -8,8 +8,8 @@
  * /organizations) is provided by `createConsole` from @object-ui/app-shell.
  */
 
-import { Routes, Route, Navigate, useNavigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
-import { useState, useEffect, useCallback, useRef, lazy, Suspense, useMemo, type ReactNode } from 'react';
+import { Routes, Route, Navigate, matchRoutes, useNavigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense, useMemo, createElement, type ComponentType, type ReactNode } from 'react';
 import { useAssistant } from '../assistant/assistantBus.js';
 import { ModalForm } from '@object-ui/plugin-form';
 import { Empty, EmptyTitle, EmptyDescription, Button } from '@object-ui/components';
@@ -54,40 +54,144 @@ import { AppNoAccessEmptyState } from './AppNoAccessEmptyState.js';
 import { appServesNoNavigation } from './appServesNoNavigation.js';
 import { useNavMemberGates, navEntriesShownToMember } from '../hooks/useNavMemberGates.js';
 import { resolveSetupAppPath } from './ConsoleShell.js';
-import { collectRoutePaths, metadataReadsForAppRoute, type LazyMetadataType } from './appRouteMetadataReads.js';
+import { APP_ROUTE_METADATA_READS, collectRoutePaths, metadataReadsForAppRoute, type LazyMetadataType } from './appRouteMetadataReads.js';
 import { readAppObjectScope } from './appObjectScope.js';
+import { preferLocal } from '../utils/preferLocal.js';
 import { SkeletonDashboard, SkeletonDetail, SkeletonGrid } from '../skeletons/index.js';
 
-// Route-based code splitting — lazy-load less-frequently-used routes
-const RecordDetailView = lazy(() => import('../views/RecordDetailView.js').then(m => ({ default: m.RecordDetailView })));
-const DashboardView = lazy(() => import('../views/DashboardView.js').then(m => ({ default: m.DashboardView })));
-const PageView = lazy(() => import('../views/PageView.js').then(m => ({ default: m.PageView })));
-const ReportView = lazy(() => import('../views/ReportView.js').then(m => ({ default: m.ReportView })));
-const SearchResultsPage = lazy(() => import('../views/SearchResultsPage.js').then(m => ({ default: m.SearchResultsPage })));
-const RecordFormPage = lazy(() => import('../views/RecordFormPage.js').then(m => ({ default: m.RecordFormPage })));
-const ComponentNavView = lazy(() => import('../views/ComponentNavView.js').then(m => ({ default: m.ComponentNavView })));
-const ObjectDataPage = lazy(() => import('../views/ObjectDataPage.js').then(m => ({ default: m.ObjectDataPage })));
+// Route-based code splitting — lazy-load less-frequently-used routes.
+//
+// objectui#12980 — every route element below is a `preloadableLazy`: its chunk
+// import starts as soon as `AppContent` knows the route (`preloadAppRouteChunk`,
+// in parallel with the route's metadata reads), not when the route element
+// first renders. A plain `React.lazy` element first renders when the console
+// chrome commits, so it suspends there even with the chunk cached, and its
+// fallback is the boot splash: react-dom then holds that fallback for its
+// reveal throttle (`FALLBACK_THROTTLE_MS`, 300 ms in react-dom 19.2) after the
+// route's data was already in, about 0.28 s of splash on every console open,
+// measured. A route element whose chunk has resolved by its first render
+// renders the component itself and never suspends; one still in flight falls
+// back to the lazy wrapper and its Suspense fallback, as before.
+type RouteElementModule<P> = { default: ComponentType<P> };
+
+interface PreloadableRouteElement<P> {
+  (props: P): ReactNode;
+  /** Starts the chunk import (once); a failed import may be started again. */
+  preload: () => Promise<RouteElementModule<P>>;
+}
+
+function preloadableLazy<P extends object>(load: () => Promise<ComponentType<P>>): PreloadableRouteElement<P> {
+  let resolved: ComponentType<P> | null = null;
+  let pending: Promise<RouteElementModule<P>> | null = null;
+  const preload = () => {
+    if (!pending) {
+      pending = load().then(
+        (component) => {
+          resolved = component;
+          return { default: component };
+        },
+        (err: unknown) => {
+          pending = null;
+          throw err;
+        },
+      );
+    }
+    return pending;
+  };
+  const Lazy = lazy(preload);
+  function RouteElement(props: P): ReactNode {
+    // Chosen once per mount: switching an instance from the lazy wrapper to
+    // the component would remount the route's whole subtree.
+    const [Component] = useState<ComponentType<P>>(() => resolved ?? Lazy);
+    return createElement(Component, props);
+  }
+  return Object.assign(RouteElement, { preload });
+}
+
+// Spelled `routeChunk.lazy(() => import('…'))` at every declaration below:
+// `scripts/vite-declared-lazy-views.ts` reads AppContent's lazy route views by
+// that text, and these are still exactly that (a dynamic import per view).
+const routeChunk = { lazy: preloadableLazy };
+
+const RecordDetailView = routeChunk.lazy(() => import('../views/RecordDetailView.js').then(m => m.RecordDetailView));
+const DashboardView = routeChunk.lazy(() => import('../views/DashboardView.js').then(m => m.DashboardView));
+const PageView = routeChunk.lazy(() => import('../views/PageView.js').then(m => m.PageView));
+const ReportView = routeChunk.lazy(() => import('../views/ReportView.js').then(m => m.ReportView));
+const SearchResultsPage = routeChunk.lazy(() => import('../views/SearchResultsPage.js').then(m => m.SearchResultsPage));
+const RecordFormPage = routeChunk.lazy(() => import('../views/RecordFormPage.js').then(m => m.RecordFormPage));
+const ComponentNavView = routeChunk.lazy(() => import('../views/ComponentNavView.js').then(m => m.ComponentNavView));
+const ObjectDataPage = routeChunk.lazy(() => import('../views/ObjectDataPage.js').then(m => m.ObjectDataPage));
 
 // Metadata admin — mounted under /apps/:app/metadata. Lives at the top
 // level so URLs read like a normal nested resource (RFC-style) instead of
 // piggy-backing on the legacy ComponentRegistry fan-out.
-const MetadataDirectoryPage = lazy(() => import('../views/metadata-admin/index.js').then(m => ({ default: m.MetadataDirectoryPage })));
-const MetadataResourceListPage = lazy(() => import('../views/metadata-admin/index.js').then(m => ({ default: m.MetadataResourceListPage })));
-const MetadataResourceEditPage = lazy(() => import('../views/metadata-admin/index.js').then(m => ({ default: m.MetadataResourceEditPage })));
-const MetadataResourceHistoryPage = lazy(() => import('../views/metadata-admin/index.js').then(m => ({ default: m.MetadataResourceHistoryPage })));
-const MetadataDiagnosticsPage = lazy(() => import('../views/metadata-admin/index.js').then(m => ({ default: m.MetadataDiagnosticsPage })));
+const MetadataDirectoryPage = routeChunk.lazy(() => import('../views/metadata-admin/index.js').then(m => m.MetadataDirectoryPage));
+const MetadataResourceListPage = routeChunk.lazy(() => import('../views/metadata-admin/index.js').then(m => m.MetadataResourceListPage));
+const MetadataResourceEditPage = routeChunk.lazy(() => import('../views/metadata-admin/index.js').then(m => m.MetadataResourceEditPage));
+const MetadataResourceHistoryPage = routeChunk.lazy(() => import('../views/metadata-admin/index.js').then(m => m.MetadataResourceHistoryPage));
+const MetadataDiagnosticsPage = routeChunk.lazy(() => import('../views/metadata-admin/index.js').then(m => m.MetadataDiagnosticsPage));
 
 // App authoring + dashboard editor pages — sourced from
 // @object-ui/plugin-designer so third-party hosts can opt out by not
 // registering these routes.
-const CreateAppPage = lazy(() => import('@object-ui/plugin-designer').then(m => ({ default: m.CreateAppPage })));
-const EditAppPage = lazy(() => import('@object-ui/plugin-designer').then(m => ({ default: m.EditAppPage })));
-const DashboardDesignPage = lazy(() => import('@object-ui/plugin-designer').then(m => ({ default: m.DashboardDesignPage })));
+const CreateAppPage = routeChunk.lazy(() => import('@object-ui/plugin-designer').then(m => m.CreateAppPage));
+const EditAppPage = routeChunk.lazy(() => import('@object-ui/plugin-designer').then(m => m.EditAppPage));
+const DashboardDesignPage = routeChunk.lazy(() => import('@object-ui/plugin-designer').then(m => m.DashboardDesignPage));
 
 // Marketplace pages — first-class platform feature; mounted at `system/marketplace`
 // under any active app so admins can browse + install from inside the runtime.
-const MarketplacePage = lazy(() => import('./marketplace/MarketplacePage.js').then(m => ({ default: m.MarketplacePage })));
-const MarketplacePackagePage = lazy(() => import('./marketplace/MarketplacePackagePage.js').then(m => ({ default: m.MarketplacePackagePage })));
+const MarketplacePage = routeChunk.lazy(() => import('./marketplace/MarketplacePage.js').then(m => m.MarketplacePage));
+const MarketplacePackagePage = routeChunk.lazy(() => import('./marketplace/MarketplacePackagePage.js').then(m => m.MarketplacePackagePage));
+
+/**
+ * objectui#12980 — the lazy element each `AppContent` route path renders
+ * (paths relative to `/apps/:appName`, as `appRouteMetadataReads.ts` spells
+ * them). A path not listed renders an eagerly bundled element.
+ */
+const APP_ROUTE_CHUNKS: ReadonlyArray<{ path: string; chunk: { preload: () => Promise<unknown> } }> = [
+  { path: 'metadata', chunk: MetadataDirectoryPage },
+  { path: 'metadata/_diagnostics', chunk: MetadataDiagnosticsPage },
+  { path: 'metadata/:type', chunk: MetadataResourceListPage },
+  { path: 'metadata/:type/new', chunk: MetadataResourceEditPage },
+  { path: 'metadata/:type/:name', chunk: MetadataResourceEditPage },
+  { path: 'metadata/:type/:name/history', chunk: MetadataResourceHistoryPage },
+  { path: ':objectName/new', chunk: RecordFormPage },
+  { path: ':objectName/data', chunk: ObjectDataPage },
+  { path: ':objectName/record/:recordId', chunk: RecordDetailView },
+  { path: ':objectName/record/:recordId/edit', chunk: RecordFormPage },
+  { path: ':objectName/record/:recordId/page/:pageName', chunk: RecordDetailView },
+  { path: 'dashboard/:dashboardName', chunk: DashboardView },
+  { path: 'report/:reportName', chunk: ReportView },
+  { path: 'page/:pageName', chunk: PageView },
+  { path: 'component/:ns/:name/*', chunk: ComponentNavView },
+  { path: 'design/dashboard/:dashboardName', chunk: DashboardDesignPage },
+  { path: 'search', chunk: SearchResultsPage },
+  { path: 'create-app', chunk: CreateAppPage },
+  { path: 'edit-app/:editAppName', chunk: EditAppPage },
+  { path: 'system/marketplace', chunk: MarketplacePage },
+  { path: 'system/marketplace/:packageId', chunk: MarketplacePackagePage },
+];
+
+/**
+ * Starts the chunk import of the lazy element the route at `subPath` renders.
+ * Matched the way `<Routes>` ranks paths, beside every eagerly rendered path
+ * `AppContent` and the host declare, so a path that resolves to an eager
+ * element (or to a host route) starts nothing.
+ */
+function preloadAppRouteChunk(subPath: string, hostPaths: readonly string[] = []): void {
+  const routes = [
+    ...APP_ROUTE_METADATA_READS.map(({ path }) => ({
+      path,
+      chunk: APP_ROUTE_CHUNKS.find((row) => row.path === path)?.chunk,
+    })),
+    ...hostPaths.map((path) => ({ path, chunk: undefined })),
+  ];
+  const matches = matchRoutes(routes, `/${subPath.replace(/^\/+/, '')}`);
+  const chunk = matches?.[matches.length - 1].route.chunk;
+  // A failed import rejects here as well as in the route's own render; the
+  // render's error boundary is the one that reports it.
+  if (chunk) void chunk.preload().catch(() => {});
+}
 
 interface AppContentProps {
   /**
@@ -281,17 +385,30 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   );
   const appSubPath = location.pathname.split('/').filter(Boolean).slice(2).join('/');
   const routeReads = metadataReadsForAppRoute(appSubPath, hostRoutePaths);
+  // objectui#12980 — the route's element chunk loads beside its metadata reads,
+  // so it is in hand when the splash gate below passes (see `preloadableLazy`).
+  useEffect(() => {
+    preloadAppRouteChunk(appSubPath, hostRoutePaths);
+  }, [appSubPath, hostRoutePaths]);
 
   // objectui#12811 — which objects this route and the chrome around it read:
   // the app's object scope on the routes `appObjectScope.ts` names, inside an
   // app whose served item carries its package; the whole registry everywhere
-  // else, as before (that module says why).
+  // else, as before (that module says why). A page route reads the objects
+  // its page binds (objectui#12980), resolved as `PageView` resolves the page.
   const { candidate: scopeCandidate, scope: objectScope, ready: objectScopeReady } = readAppObjectScope(
     readObjectScope,
     activeApp,
     appSubPath,
     location.search,
     hostRoutePaths,
+    (pageName) => {
+      const status = getTypeStatus?.('page');
+      return {
+        page: preferLocal(metadata.pages as any[], pageName, (activeApp as any)?._packageId),
+        settled: status === undefined || status === 'ready' || status === 'error',
+      };
+    },
   );
   // Until the app list has loaded, a scope candidate does not know its package
   // yet, and reads nothing (the splash is up).

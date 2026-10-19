@@ -61,6 +61,7 @@
 
 import { useMetadata } from '@object-ui/react';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
+import { navigationNames } from '../console/appObjectScope.js';
 
 /** One identity for "nothing was served", so a dependency list on it holds. */
 const NONE_SERVED: readonly unknown[] = Object.freeze([]);
@@ -119,13 +120,39 @@ export function useServedViewItems(): ServedViewReads {
   // documents are the app's object scope's, as served (the route's object is
   // in it: `AppContent` names it). Reading `getItemsByType('object')` here
   // loaded the whole registry on every open of an object list.
+  //
+  // objectui#12980 — inside an app whose served item names NO package, on the
+  // same condition, the served object documents are the names-only scope's:
+  // the objects the app's route asked for by name (`AppContent` names the
+  // objects the app's entries require, and a page route the objects its page
+  // binds). Its handle is the app's `requiresObject` names, which `AppContent`
+  // asks on every scoped route, so this read asks nothing new. An app that
+  // names none reads nothing, as `readPageObjectScope` reads nothing for a
+  // page that binds no object. Such an app reads the whole registry on an
+  // object route anyway (`appObjectScope.ts`), so the condition is false
+  // there and the label sites keep the whole list.
   const { app } = useExpressionContext();
   const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
-  const objects =
-    packageId && metadata.readObjectScope && metadata.getTypeStatus?.('object') === 'idle'
-      ? metadata.readObjectScope({ packageId }).served
-      : metadata.getItemsByType('object');
+  const scoped = !!metadata.readObjectScope && metadata.getTypeStatus?.('object') === 'idle';
+  let objects: unknown;
+  if (scoped && packageId) {
+    objects = metadata.readObjectScope!({ packageId }).served;
+  } else if (scoped && isPackagelessApp(app)) {
+    const names = navigationNames(app.navigation, (item) => item.requiresObject);
+    objects = names.length > 0 ? metadata.readObjectScope!({ names }).served : NONE_SERVED;
+  } else {
+    objects = metadata.getItemsByType('object');
+  }
   return servedViewReads(payloadOf(metadata.getItemsByType('view')), payloadOf(objects));
+}
+
+/**
+ * An app item the console renders that names no package (an app created in
+ * the console is stored bound to none, and served without `_packageId`).
+ * Outside an app the expression context's `app` is empty: no name.
+ */
+function isPackagelessApp(app: Record<string, unknown> | undefined): app is Record<string, unknown> {
+  return typeof app?.name === 'string' && app.name !== '' && !(typeof app._packageId === 'string' && app._packageId);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

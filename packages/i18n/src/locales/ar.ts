@@ -4361,6 +4361,16 @@ const ar = {
       summaryItems_many: '{{count}} عنصرًا',
       summaryItems_other: '{{count}} عنصر',
       summaryType: '{{type}} {{n}}',
+      // objectui#12929 — the unchecked choice under an added object field whose
+      // literal default the batch publish can write into the existing records.
+      backfillOption: 'تعبئة القيمة الافتراضية — {{count}} سجل موجود',
+      backfillOption_zero: 'تعبئة القيمة الافتراضية — {{count}} سجل موجود',
+      backfillOption_one: 'تعبئة القيمة الافتراضية — سجل واحد موجود ({{count}})',
+      backfillOption_two: 'تعبئة القيمة الافتراضية — سجلان موجودان ({{count}})',
+      backfillOption_few: 'تعبئة القيمة الافتراضية — {{count}} سجلات موجودة',
+      backfillOption_many: 'تعبئة القيمة الافتراضية — {{count}} سجلًا موجودًا',
+      backfillOption_other: 'تعبئة القيمة الافتراضية — {{count}} سجل موجود',
+      backfillOptionNoCount: 'تعبئة القيمة الافتراضية',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

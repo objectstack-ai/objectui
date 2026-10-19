@@ -47,6 +47,9 @@ import type {
   PublishPackageDraftsResponse,
   RuntimeAuthoringIssue,
 } from '@objectstack/spec/api';
+// objectui#12929 — the batch publish door's request options are picked off the
+// client's declared `packages.publishDrafts` signature (type-only, erased).
+import type { ObjectStackClient } from '@objectstack/client';
 
 /**
  * One advisory finding the framework's runtime authoring gate produced for a
@@ -342,6 +345,30 @@ type ListDraftsRow = ListDraftsResponse['drafts'][number];
  */
 export type MetadataPublishPackageDraftsResult = Partial<PublishPackageDraftsResponse> &
   Record<string, unknown>;
+
+/**
+ * What {@link MetadataClient.publishPackageDrafts} may ask of the batch door
+ * beyond the package id (objectui#12929): today the protocol's opt-in
+ * `backfill` (objectstack#24253), and nothing else.
+ *
+ * Picked off `@objectstack/client`'s own `packages.publishDrafts` signature
+ * rather than re-spelled, so the element shape (`{ object, field }`) is the
+ * client's declaration. The request has no spec schema of its own; the
+ * client's signature is where the protocol declares it. `actor` is not
+ * picked: the door writes as the signed-in caller, and no console surface
+ * names another.
+ *
+ * `backfill` names fields this publish ADDS whose literal `defaultValue` the
+ * server writes into the object's existing rows, as the caller, after the
+ * batch goes live; the receipt comes back as `backfillApplied`. A field that
+ * is not new, or declares no literal default, refuses the WHOLE request with a
+ * 400 before anything is published, so a caller offers only fields it has
+ * judged by the same rule.
+ */
+export type MetadataPublishPackageDraftsOptions = Pick<
+  NonNullable<Parameters<ObjectStackClient['packages']['publishDrafts']>[1]>,
+  'backfill'
+>;
 
 /**
  * Options for {@link MetadataClient.save} — a WRITE OVER HTTP to
@@ -1523,8 +1550,21 @@ export class MetadataClient {
    * says to read `outcome`, not the boolean), and the two callers have their
    * own, different rules for the refusal and rolled-back cases. Deciding that
    * here would change behaviour this card is not about.
+   *
+   * ## The opt-in backfill (objectui#12929)
+   *
+   * `options.backfill` is sent as the body's `backfill` key, as given, and only
+   * when the caller passes one ({@link MetadataPublishPackageDraftsOptions}).
+   * Without it the body is `{}`, byte for byte what every caller sent before,
+   * so a caller that names nothing writes nothing into existing rows. The
+   * receipt is `backfillApplied` on the returned body, unexamined like the rest
+   * of a 2xx: one element per named field with the rows written, and `error`
+   * on a field that stopped short (the publish itself stands).
    */
-  async publishPackageDrafts(packageId: string): Promise<MetadataPublishPackageDraftsResult> {
+  async publishPackageDrafts(
+    packageId: string,
+    options: MetadataPublishPackageDraftsOptions = {},
+  ): Promise<MetadataPublishPackageDraftsResult> {
     if (!packageId || !String(packageId).trim()) {
       throw new Error(
         'MetadataClient.publishPackageDrafts: packageId must be non-empty.' +
@@ -1539,7 +1579,7 @@ export class MetadataClient {
       // superset of what the bare doors carried, never less.
       credentials: 'include',
       headers: { ...this.headers, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: '{}',
+      body: JSON.stringify(options.backfill !== undefined ? { backfill: options.backfill } : {}),
     });
     if (!res.ok) throw await parseError(res);
     const body = unwrapDispatcherEnvelope(await res.json().catch(() => ({})));

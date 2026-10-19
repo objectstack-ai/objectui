@@ -331,8 +331,36 @@ import { ObjectHooksPanel } from './ObjectHooksPanel.js';
 import { ObjectActionsPanel } from './ObjectActionsPanel.js';
 import { getIcon } from '../../utils/getIcon.js';
 import { fetchPackages, prefixObjectName, type PkgEntry } from './packages-io.js';
-import { DraftChangesPanel, type DraftChangesPosture } from '../../preview/DraftChangesPanel.js';
+import {
+  DraftChangesPanel,
+  type DraftChangesPosture,
+  type DraftPublishOptions,
+} from '../../preview/DraftChangesPanel.js';
 import { toast } from 'sonner';
+
+/** The batch door's `backfillApplied` receipt, by reference to what the client returns (objectui#12929). */
+type PublishBackfillReceipt = NonNullable<
+  Awaited<ReturnType<MetadataClient['publishPackageDrafts']>>['backfillApplied']
+>;
+
+/**
+ * objectui#12929 — the batch door's backfill receipt as the author reads it:
+ * one clause per field, in the order the publish named them, carrying the rows
+ * the server says it wrote (`updated`) and, for a field that stopped short, the
+ * server's reason. Nothing is derived or estimated here — not a total, and not
+ * the record count the sheet showed before the publish.
+ */
+function formatBackfillReceipt(receipt: PublishBackfillReceipt, locale: string): string {
+  return receipt.fields
+    .map((f) =>
+      tFormat(f.error ? 'engine.studio.backfillStopped' : 'engine.studio.backfillWritten', locale, {
+        field: `${f.object}.${f.field}`,
+        count: f.updated,
+        error: f.error ?? '',
+      }),
+    )
+    .join(' · ');
+}
 
 /**
  * The create dialog's OWD options reuse the SETTINGS tab's own label and gloss
@@ -1386,7 +1414,10 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // refused while one is held rather than going around it silently.
   const [heldEdit, setHeldEdit] = React.useState<string | null>(null);
 
-  const doPublish = React.useCallback(async () => {
+  // `options` is the review sheet's (objectui#12929): its checked backfill
+  // choices, or nothing. Only the package batch door below carries it; the
+  // sheet offers no choice in the package-less scope.
+  const doPublish = React.useCallback(async (options?: DraftPublishOptions) => {
     if (heldEdit !== null) {
       toast.error(tFormat('engine.studio.held.publish', locale, { clause: heldEdit }));
       return;
@@ -1445,12 +1476,17 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       // same sink, renderer and wording every other write door on this surface
       // uses. A bare fetch had nothing to report THROUGH. Same move
       // PR objectui#10038 made for the two sibling call sites.
-      const payload = (await shellClient.publishPackageDrafts(packageId)) as {
+      // objectui#12929 — the sheet's options ride only when it gave some, so an
+      // unchecked publish is the very call it was before.
+      const payload = (await (options
+        ? shellClient.publishPackageDrafts(packageId, options)
+        : shellClient.publishPackageDrafts(packageId))) as {
         success?: boolean;
         outcome?: string;
         error?: { message?: string; details?: { issues?: unknown } };
         failed?: PublishFailure[];
         published?: unknown[];
+        backfillApplied?: PublishBackfillReceipt;
       };
       // A non-2xx now throws inside the client, already carrying the server's
       // message AND the field-anchored `error.details.issues` on
@@ -1502,15 +1538,25 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
         // nothing included). A runtime that answers without it gets the
         // sentence that names no number.
         const published = payload?.published;
-        toast.success(
-          Array.isArray(published)
-            ? tFormat(
-                published.length === 1 ? 'engine.studio.publishedAllCountOne' : 'engine.studio.publishedAllCount',
-                locale,
-                { count: published.length },
-              )
-            : t('engine.studio.publishedAll', locale),
-        );
+        const title = Array.isArray(published)
+          ? tFormat(
+              published.length === 1 ? 'engine.studio.publishedAllCountOne' : 'engine.studio.publishedAllCount',
+              locale,
+              { count: published.length },
+            )
+          : t('engine.studio.publishedAll', locale);
+        // objectui#12929 — the backfill receipt, present only when the sheet
+        // named fields and the batch published: per field, the rows the server
+        // wrote. A field that stopped short leaves the publish standing, so the
+        // toast still says what went live, as a warning that carries why.
+        const receipt = payload?.backfillApplied;
+        if (receipt) {
+          const description = formatBackfillReceipt(receipt, locale);
+          if (receipt.success === false) toast.warning(title, { description });
+          else toast.success(title, { description });
+        } else {
+          toast.success(title);
+        }
         setChangesOpen(false);
       }
       setPublishNonce((n) => n + 1);

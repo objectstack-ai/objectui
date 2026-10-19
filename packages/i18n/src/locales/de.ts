@@ -4008,6 +4008,12 @@ const de = {
       summaryItems_one: '{{count}} Element',
       summaryItems_other: '{{count}} Elemente',
       summaryType: '{{n}} {{type}}',
+      // objectui#12929 — the unchecked choice under an added object field whose
+      // literal default the batch publish can write into the existing records.
+      backfillOption: 'Standardwert nachtragen ({{count}} vorhandene Datensätze)',
+      backfillOption_one: 'Standardwert nachtragen ({{count}} vorhandener Datensatz)',
+      backfillOption_other: 'Standardwert nachtragen ({{count}} vorhandene Datensätze)',
+      backfillOptionNoCount: 'Standardwert nachtragen',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

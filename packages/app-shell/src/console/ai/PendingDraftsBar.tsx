@@ -142,7 +142,12 @@ export function PendingDraftsBar({ packageId, idle }: PendingDraftsBarProps) {
       data-testid="pending-drafts-bar"
       className="pointer-events-auto flex w-full max-w-3xl items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm shadow-sm backdrop-blur"
     >
-      <span className="min-w-0 truncate">
+      {/* objectui#13088 — the sentence wraps: it takes the row's free width
+          and breaks onto more lines, never cut to one with an ellipsis. On a
+          phone the row is narrower than the sentence, and the cut half is
+          the part that says users cannot see the change yet. The button is
+          `shrink-0`, so the publish action keeps its width on the bar. */}
+      <span data-testid="pending-drafts-bar-sentence" className="min-w-0 flex-1">
         {t('console.ai.pendingDrafts.count', {
           defaultValue: '{{count}} change(s) are not published yet — users cannot see them.',
           count,

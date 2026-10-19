@@ -681,16 +681,21 @@ The rest of the action is authored on the same node. `action:button` and `action
 evaluate `visible` and `disabled` themselves (a boolean, a CEL string, or a
 `{ dialect, source }` envelope), and forward the action-definition keys to the runner:
 `params`, `confirmText`, `successMessage`, `errorMessage`, `toast`, `bodyExtra`,
-`bodyShape`, `operation` / `patch`, `onSuccess`, `objectName` and the others each
+`bodyShape`, `operation`, `onSuccess`, `objectName` and the others each
 registration's `inputs` lists, with a `description` per key. For an `api` action, write
 the request URL in `target`: `endpoint` is not published, because the console's `api`
 handler never reads it.
 
+An `operation: update` node runs the declared action its `name` names: the platform
+action route writes that declaration's `patch` under the collected params. A `patch`
+written on the node itself is not forwarded and writes nothing.
+
 `undoable: true` on an `operation: update` makes the success toast offer Undo, which
-writes back the prior values of the fields the update wrote. `action:button` reads those
-values off the record in scope: the record page's record, or the row the host binds
-through `data`. A button with no record in scope offers no Undo, because there is no row
-to restore; neither does one whose `recordId` names a record other than the one in scope.
+writes back the prior values of the fields the update wrote: the named declaration's
+`patch` fields and the collected params. `action:button` reads those values off the
+record in scope: the record page's record, or the row the host binds through `data`. A
+button with no record in scope offers no Undo, because there is no row to restore;
+neither does one whose `recordId` names a record other than the one in scope.
 
 ## Responsive Behavior
 

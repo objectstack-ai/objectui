@@ -422,6 +422,14 @@ export const DetailView: React.FC<DetailViewProps> = ({
    * and this view must not grow a second definition of it (objectui#4419,
    * pinned in `DetailView.userActionPredicates.test.tsx`). With no provider
    * mounted the grant and the operation set read open.
+   *
+   * [objectui#13045] Each verdict feeds only its own button (`showEdit` /
+   * `showDelete` in the `schema` memo below), so it is asked only when the
+   * host shows that button. The console record page's `record:details` body
+   * sets neither (its header owns Edit and Delete and asks for itself), and
+   * its two questions were a second asker that merely joined the header's
+   * in-flight request, or went out alone once the header had no reason to
+   * ask.
    */
   const objectAllowsUpdate = React.useMemo(
     () => resolveAffordance('recordEdit', { objectSchema: null, objectName: rawSchema.objectName, perms }).allowed,
@@ -437,13 +445,13 @@ export const DetailView: React.FC<DetailViewProps> = ({
     rawSchema.objectName,
     recordId,
     'update',
-    objectAllowsUpdate,
+    objectAllowsUpdate && !!gatedSchema.showEdit,
   );
   const canDeleteRecord = useRecordEditable(
     rawSchema.objectName,
     recordId,
     'delete',
-    objectAllowsDelete,
+    objectAllowsDelete && !!gatedSchema.showDelete,
   );
 
   /**

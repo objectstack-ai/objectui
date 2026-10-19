@@ -751,6 +751,9 @@ describe('DetailView', () => {
       objectName: 'contact',
       resourceId: 'c1',
       fields: [{ name: 'name', label: 'Name' }],
+      // Each verdict is asked only for a button the host shows (objectui#13045).
+      showEdit: true,
+      showDelete: true,
     };
 
     render(<DetailView schema={schema} dataSource={mockDataSource} />);

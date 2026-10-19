@@ -246,14 +246,18 @@ const PRE_REPAIR_PRE_12883: Record<(typeof IDS)[number], Reading> = {
 };
 
 /**
- * The AUTHORED (`cards`) spelling as it reads TODAY, after objectui#12883 made
- * each card a `button` inside its own `listitem` wrapper: one more `<div>` per
- * card, and nothing else — no text moved. Written as its own literal, not
- * derived from `PRE_REPAIR_PRE_12883`, so the delta case below compares two
- * independently written readings. The `items` readings do not move: that
- * board draws no card.
+ * The AUTHORED (`cards`) spelling after objectui#12883 made each card a
+ * `button` inside its own `listitem` wrapper: one more `<div>` per card, and
+ * nothing else — no text moved. Written as its own literal, not derived from
+ * `PRE_REPAIR_PRE_12883`, so the delta case below compares two independently
+ * written readings. The `items` readings do not move: that board draws no
+ * card.
+ *
+ * ⚠️ SUPERSEDED as the expected reading by objectui#13054 (see `PRE_REPAIR`
+ * below), and kept: the objectui#12883 delta case ends on it, and the
+ * objectui#13054 delta case starts from it.
  */
-const PRE_REPAIR: Record<(typeof IDS)[number], Reading> = {
+const PRE_REPAIR_PRE_13054: Record<(typeof IDS)[number], Reading> = {
   'plugin-kanban/basic-kanban-board': {
     elements: 68,
     tags: { DIV: 56, SPAN: 6, H3: 3, STYLE: 3 },
@@ -269,11 +273,15 @@ const PRE_REPAIR: Record<(typeof IDS)[number], Reading> = {
 };
 
 /**
- * The `items` spelling as it reads TODAY, after objectui#12837. objectui#6939's
- * result is unchanged: the board is still empty, says "No cards", and reads
- * zero on every column.
+ * The `items` spelling after objectui#12837. objectui#6939's result is
+ * unchanged: the board is still empty, says "No cards", and reads zero on
+ * every column.
+ *
+ * ⚠️ SUPERSEDED as the expected reading by objectui#13054 (see
+ * `ITEMS_SPELLING` below), and kept: the objectui#12837 delta case ends on it,
+ * and the objectui#13054 delta case starts from it.
  */
-const ITEMS_SPELLING: Record<(typeof IDS)[number], Reading> = {
+const ITEMS_SPELLING_PRE_13054: Record<(typeof IDS)[number], Reading> = {
   'plugin-kanban/basic-kanban-board': {
     elements: 44,
     tags: { DIV: 31, SPAN: 6, H3: 4, STYLE: 3 },
@@ -288,8 +296,59 @@ const ITEMS_SPELLING: Record<(typeof IDS)[number], Reading> = {
   },
 };
 
+/**
+ * The id prefix of the board's move status region (objectui#13054): one
+ * visually hidden `role="status"` `<div>` every board renders, empty until a
+ * cross-column move's write settles and the board announces its outcome there.
+ */
+const MOVE_STATUS_REGION = '[id^="KanbanMoveStatus"]';
+
+/**
+ * The AUTHORED (`cards`) spelling as it reads TODAY, after objectui#13054 gave
+ * the board its own move status region: one more `<div>`, holding no text
+ * until a move settles, and nothing else. Written as its own literal, not
+ * derived from `PRE_REPAIR_PRE_13054`, so the delta case below compares two
+ * independently written readings.
+ */
+const PRE_REPAIR: Record<(typeof IDS)[number], Reading> = {
+  'plugin-kanban/basic-kanban-board': {
+    elements: 69,
+    tags: { DIV: 57, SPAN: 6, H3: 3, STYLE: 3 },
+    sha256: 'fe90e1cc6d10ddd0ba415df89ecdf6be451a9ba1831ce4adfdacbbb77702d263',
+    visibleText: "To Do2Design new featureCreate mockups and wireframesWrite documentationUpdate API docsIn Progress1Implement featureCode the new componentHigh PriorityDone1Setup projectInitialize repositoryTo move this card to another column, drag it with a pointer or by touch.",
+  },
+  'plugin-kanban/advanced-kanban-with-badges-and-limits': {
+    elements: 91,
+    tags: { DIV: 73, SPAN: 10, H3: 4, STYLE: 4 },
+    sha256: 'f80e461758a7005a05d13bd53afe4604cc9b465cbb9d6e70961108b69fdec303',
+    visibleText: "Backlog2User AuthenticationImplement OAuth2.0BackendHighDark ModeAdd theme switcherUIWork In Progress1 / 3API IntegrationConnect to backend servicesIn ProgressCode Review0No cardsCompleted1Project SetupRepository initializedTo move this card to another column, drag it with a pointer or by touch.",
+  },
+};
+
+/**
+ * The `items` spelling as it reads TODAY, after objectui#13054: the same one
+ * empty move status `<div>` as the authored board, and objectui#6939's result
+ * unchanged — still empty, still "No cards", still zero on every column.
+ */
+const ITEMS_SPELLING: Record<(typeof IDS)[number], Reading> = {
+  'plugin-kanban/basic-kanban-board': {
+    elements: 45,
+    tags: { DIV: 32, SPAN: 6, H3: 4, STYLE: 3 },
+    sha256: 'd863684901a946ea155c8cd2e118e01e808c8428d3715011fd0d2df1e880f7e5',
+    visibleText: "No cardsTo Do0In Progress0Done0To move this card to another column, drag it with a pointer or by touch.",
+  },
+  'plugin-kanban/advanced-kanban-with-badges-and-limits': {
+    elements: 58,
+    tags: { DIV: 40, SPAN: 9, H3: 5, STYLE: 4 },
+    sha256: '21e8e94cce3ad4ee15b0eb5d19c0363091b7b5f10d910e0f0cb925ccbe43be33',
+    visibleText: "No cardsBacklog0Work In Progress0 / 3Code Review0Completed0To move this card to another column, drag it with a pointer or by touch.",
+  },
+};
+
 /** Render one entry through the provider-wrapped bare renderer and measure it. */
-async function measure(schema: unknown): Promise<Reading & { text: string }> {
+async function measure(
+  schema: unknown,
+): Promise<Reading & { text: string; moveStatus: Array<{ tag: string; text: string; childCount: number }> }> {
   const { container, unmount } = render(
     <SchemaRendererProvider dataSource={undefined}>
       <SchemaRenderer schema={toRenderableSchema(schema as never) as never} />
@@ -308,6 +367,11 @@ async function measure(schema: unknown): Promise<Reading & { text: string }> {
     sha256: createHash('sha256').update(text).digest('hex'),
     visibleText: text.split(SCROLL_AREA_STYLE).join(''),
     text,
+    moveStatus: Array.from(container.querySelectorAll(MOVE_STATUS_REGION)).map((el) => ({
+      tag: el.tagName,
+      text: el.textContent ?? '',
+      childCount: el.querySelectorAll('*').length,
+    })),
   };
   unmount();
   return out;
@@ -508,7 +572,7 @@ describe('objectui#6939 — and the repair moved the validator, not the renderer
     // only its text changes from dnd-kit's default to the bundle sentence.
     const pairs = [
       ['authored (`cards`)', PRE_REPAIR_PRE_12837[id], PRE_REPAIR_PRE_12883[id]],
-      ['`items`', ITEMS_SPELLING_PRE_12837[id], ITEMS_SPELLING[id]],
+      ['`items`', ITEMS_SPELLING_PRE_12837[id], ITEMS_SPELLING_PRE_13054[id]],
     ] as const;
     for (const [spelling, before, after] of pairs) {
       // (1) the node stays: no element and no tag moved.
@@ -535,7 +599,7 @@ describe('objectui#6939 — and the repair moved the validator, not the renderer
     // the DOCUMENT, so a fixture that gains a card cannot satisfy this with
     // the other entry's number.
     const before = PRE_REPAIR_PRE_12883[id];
-    const after = PRE_REPAIR[id];
+    const after = PRE_REPAIR_PRE_13054[id];
     const cardCount = (getExample(id).schema as { columns: Array<{ cards: unknown[] }> }).columns.reduce(
       (n, c) => n + c.cards.length,
       0,
@@ -552,5 +616,36 @@ describe('objectui#6939 — and the repair moved the validator, not the renderer
     // (2) ⛔ no text moved: the wrapper draws nothing.
     expect(after.visibleText, 'the visible text moved').toBe(before.visibleText);
     expect(after.sha256, 'the text hash moved').toBe(before.sha256);
+  });
+
+  it.each(IDS)('%s: both censuses moved by exactly the empty move status region (objectui#13054)', async (id) => {
+    // The same discipline again. objectui#13054 moved a cross-column move's
+    // announcement from the drop to the moment its write settles, into one
+    // board-owned, visually hidden `role="status"` `<div>`. Every board renders
+    // it, empty until a move settles. That adds one `<div>` to each census and
+    // nothing else; the RENDERER's output for these fixtures is otherwise
+    // unchanged, which is the 6939 property this file holds.
+    const pairs = [
+      ['authored (`cards`)', PRE_REPAIR_PRE_13054[id], PRE_REPAIR[id], getExample(id).schema],
+      ['`items`', ITEMS_SPELLING_PRE_13054[id], ITEMS_SPELLING[id], toItemsSpelling(getExample(id).schema)],
+    ] as const;
+    for (const [spelling, before, after, schema] of pairs) {
+      // (1) exactly one element more, and it is a <div>.
+      expect(after.elements, `${spelling}: not exactly one element more`).toBe(before.elements + 1);
+      const { DIV: divBefore, ...otherBefore } = before.tags;
+      const { DIV: divAfter, ...otherAfter } = after.tags;
+      expect(divAfter, `${spelling}: the new element is not one <div>`).toBe(divBefore + 1);
+      expect(otherAfter, `${spelling}: a tag other than <div> moved`).toEqual(otherBefore);
+      // (2) ⛔ no text moved: the region holds nothing until a move settles.
+      expect(after.visibleText, `${spelling}: the visible text moved`).toBe(before.visibleText);
+      expect(after.sha256, `${spelling}: the text hash moved`).toBe(before.sha256);
+
+      // (3) MEASURED, not inferred: the one extra node on today's render IS the
+      // move status region — a single empty, childless <div> — and with it set
+      // aside the render is the pre-13054 census exactly.
+      const m = await measure(schema);
+      expect(m.moveStatus, `${spelling}: the move status region`).toEqual([{ tag: 'DIV', text: '', childCount: 0 }]);
+      expect(m.elements - 1, `${spelling}: without the region the census is not the pre-13054 one`).toBe(before.elements);
+    }
   });
 });

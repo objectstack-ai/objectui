@@ -309,18 +309,19 @@ const ActionButtonRenderer = forwardRef<
           // (objectstack#6938). Sibling of `bodyExtra` above, same whitelist,
           // same failure mode.
           bodyShape: schema.bodyShape,
-          // The declarative single-record field write, forwarded as a PAIR.
-          // `operation` is authored BESIDE `type`, not inside it — the spec
-          // materializes `type: 'script'` here and `ActionType` gained no member —
-          // so a forward that carries `type` alone tells the runner nothing about
-          // this action, and `patch` (which holds the field values) would be
-          // dropped one hop before the runner. The result is the route POSTed an
-          // empty write and a green toast for having written nothing: the
-          // objectstack#6837 / objectui#2960 shape, on the key whose whole payload
-          // is the thing dropped. `@object-ui/core`'s runner dispatches on
-          // `operation` ahead of `type`; both keys must reach it.
+          // The declarative single-record field write. `operation` is authored
+          // BESIDE `type`, not inside it — the spec materializes `type: 'script'`
+          // here and `ActionType` gained no member — so a forward that carries
+          // `type` alone tells the runner nothing about this action.
+          // `@object-ui/core`'s runner dispatches on `operation` ahead of `type`.
+          //
+          // ⛔ No `patch` (objectui#13022). The route writes the `patch` of the
+          // DECLARATION this node's `name` names, never a row's own:
+          // `@objectstack/spec` 18 retires the row key. The runner reads that
+          // declaration by name from what its host publishes, for the Undo
+          // snapshot only; the request has carried no `patch` since
+          // objectui#12941.
           operation: schema.operation,
-          patch: schema.patch,
           confirmText: schema.confirmText,
           successMessage: schema.successMessage,
           // Success copy per handler outcome (spec 17.6.0, objectui#11344): the

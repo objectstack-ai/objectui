@@ -305,6 +305,25 @@ export const JUSTIFIED = {
     ])
   ),
 
+  // ── Read off the declaration, never off the node ───────────────────────────
+  ...Object.fromEntries(
+    ["action:button", "action:icon", "action:group", "action:menu"].map((surface) => [
+      `${surface}:patch`,
+      {
+        reason:
+          "Correctly omitted (objectui#13022). The platform action route writes the `patch` of the " +
+          "DECLARATION the action's `name` names, never a node's own, and @objectstack/spec 18 " +
+          "retires a page action row's `patch` on these four surfaces. The runner reads that " +
+          "declaration by name from the `objectActions` its host publishes " +
+          "(`declaredUpdatePatch` in ActionRunner.ts), which also covers a declaration `action:bar` " +
+          "draws through these renderers; it reads `action.patch` only off a def that IS the " +
+          "declaration, which the spread-based hosts dispatch whole. The request carries no " +
+          "`patch` since objectui#12941, so the omission moves no request byte.",
+        issue: 13022,
+      },
+    ])
+  ),
+
   // ── Read only to improve a diagnostic ──────────────────────────────────────
   ...Object.fromEntries(
     ["action:button", "action:icon", "action:group", "action:menu"].map((surface) => [

@@ -441,6 +441,12 @@ export interface ActionDef {
    * The ROUTE applies it, from the declaration it resolves by name; this
    * runner never sends it (objectui#12941) and reads it only to know which
    * fields an Undo must restore.
+   *
+   * It is a DECLARATION's key here: a host that dispatches an object's action
+   * whole hands it along. No action renderer forwards a page row's own `patch`
+   * (objectui#13022, following `@objectstack/spec` 18's retirement of the row
+   * key), and the runner reads the host-published declaration ahead of this
+   * one (`declaredUpdatePatch`).
    */
   patch?: SpecActionInput['patch'];
   /** Execution mode of the action. */
@@ -935,6 +941,73 @@ function readContextObjectFields(context: ActionContext, objectName: string): Fi
   if (readContextObjectName(context) !== objectName) return undefined;
   const fields: unknown = context.objectFields;
   return fields && typeof fields === 'object' ? (fields as FieldContainerLike) : undefined;
+}
+
+/**
+ * The declared actions the host published for `objectName`, or `undefined`
+ * (objectui#13022).
+ *
+ * A host publishes `objectActions` (the object's `actions` list, the
+ * declarations the platform action route resolves an action's `name` against)
+ * beside `objectName` and `objectFields`; `useConsoleActionRuntime` and
+ * `RecordDetailView` both do. Answered only for THAT object, for the reason
+ * {@link readContextObjectFields} gives: a dispatch that retargets another
+ * object names a declaration this list does not hold.
+ */
+function readContextObjectActions(
+  context: ActionContext,
+  objectName: string | undefined,
+): readonly unknown[] | undefined {
+  if (!objectName || readContextObjectName(context) !== objectName) return undefined;
+  const actions: unknown = context.objectActions;
+  return Array.isArray(actions) ? actions : undefined;
+}
+
+/** A `patch` as the route reads one: a plain object's own members, else none. */
+function patchMembers(patch: unknown): Record<string, unknown> {
+  return patch && typeof patch === 'object' && !Array.isArray(patch)
+    ? { ...(patch as Record<string, unknown>) }
+    : {};
+}
+
+/**
+ * The static values the platform action route writes for an
+ * `operation: 'update'` dispatch: the `patch` of the DECLARATION the action's
+ * `name` names (objectui#13022).
+ *
+ * The route resolves that declaration by the dispatch's object and the
+ * action's `name`, and writes its `patch` under the params it is sent
+ * (`declarativeUpdateWrite`). A page action row's own `patch` is never that
+ * write: `@objectstack/spec` 18 retires the key on `action:button`,
+ * `action:icon` and the `action:group` / `action:menu` member, and none of
+ * those renderers forwards it. So the declaration is read from one of two
+ * places, and no third:
+ *
+ *  1. The declarations the host published for the dispatch's object
+ *     ({@link readContextObjectActions}), when they name this action: the
+ *     lookup the route performs. A declaration with no `patch` writes the
+ *     collected params alone.
+ *  2. Otherwise the def itself. A host that dispatches an object's action whole
+ *     (`ObjectGrid`'s rows, `DeclaredActionsBar`, `RelatedRecordActionsBridge`,
+ *     `page:header`) hands the runner the declaration, `patch` included. A page
+ *     row reaches the runner through a renderer, which forwards no `patch`, so
+ *     this reads nothing for one.
+ *
+ * Read for the Undo snapshot only; ⛔ never sent (objectui#12941).
+ */
+function declaredUpdatePatch(
+  action: ActionDef,
+  context: ActionContext,
+  objectName: string | undefined,
+): Record<string, unknown> {
+  const name = typeof action.name === 'string' && action.name !== '' ? action.name : undefined;
+  const declared = name === undefined
+    ? undefined
+    : readContextObjectActions(context, objectName)?.find(
+      (candidate) =>
+        !!candidate && typeof candidate === 'object' && (candidate as { name?: unknown }).name === name,
+    );
+  return patchMembers(declared ? (declared as { patch?: unknown }).patch : action.patch);
 }
 
 /**
@@ -1797,6 +1870,14 @@ export class ActionRunner {
    * WINS — the author declared a default, and the user answered it. This
    * runner still computes that same merge, but only to know what the route
    * WROTE, which is what an Undo snapshot must cover; it is never sent.
+   *
+   * ## The `patch` in that merge is the DECLARATION's (objectui#13022)
+   *
+   * The route writes the `patch` of the declaration the action's `name` names,
+   * so that is the `patch` the snapshot covers: read by
+   * {@link declaredUpdatePatch} from the declarations the host published, else
+   * off a def that is the declaration itself. A page action row's own `patch`
+   * is never written (`@objectstack/spec` 18 retires it) and never covered.
    */
   private async executeUpdateOperation(action: ActionDef): Promise<ActionResult> {
     const dispatch = this.handlers.get('script');
@@ -1816,13 +1897,13 @@ export class ActionRunner {
     const collected: Record<string, unknown> = (action.params && !Array.isArray(action.params))
       ? { ...(action.params as Record<string, unknown>) }
       : {};
-    const patch: Record<string, unknown> =
-      (action.patch && typeof action.patch === 'object' && !Array.isArray(action.patch))
-        ? { ...(action.patch as Record<string, unknown>) }
-        : {};
-    // What the route WRITES: `patch` UNDER the collected params, the route's
-    // own merge (see the doc above). Read for the Undo snapshot only — ⛔ never
+    // The object the write lands on: the action's own, else the host's.
+    const objectName = action.objectName || readContextObjectName(this.context);
+    // What the route WRITES: the DECLARATION's `patch` UNDER the collected
+    // params, the route's own merge (see the doc above), never a page row's
+    // own `patch` (objectui#13022). Read for the Undo snapshot only — ⛔ never
     // the request: the route applies `patch` from its declaration.
+    const patch = declaredUpdatePatch(action, this.context, objectName);
     const written = { ...patch, ...collected };
 
     // The row stash and the record selector are transport mechanics, not
@@ -1854,7 +1935,6 @@ export class ActionRunner {
     // carries expanded is captured as its stored id, read against the field
     // map the host published for this object (objectui#11122).
     if (action.undoable && rowRecord && writtenFields.length > 0) {
-      const objectName = action.objectName || readContextObjectName(this.context);
       const recordId = collected.recordId ?? rowRecord.id;
       if (objectName && recordId != null) {
         const undoData = captureUpdateUndoData(

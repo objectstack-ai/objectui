@@ -45,7 +45,7 @@ import { CommandPalette } from '../chrome/CommandPalette.js';
 import { ErrorBoundary } from '../chrome/ErrorBoundary.js';
 import { LoadingScreen } from '../chrome/LoadingScreen.js';
 import { RedirectWithSplash } from '../chrome/RedirectWithSplash.js';
-import { ObjectView } from '../views/ObjectView.js';
+import { ObjectNotFoundState, ObjectView } from '../views/ObjectView.js';
 import { KeyboardShortcutsDialog } from '../chrome/KeyboardShortcutsDialog.js';
 import { OnboardingWalkthrough } from '../chrome/OnboardingWalkthrough.js';
 import { RouteFader } from '../chrome/RouteFader.js';
@@ -1323,6 +1323,11 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                       for (const name of routeObjectReadsFailed) metadata.invalidate('object', name);
                     }}
                   />
+                ) : routeObjectRefusal?.code === 'OBJECT_PACKAGE_DISABLED' ? (
+                  // objectui#13052 — the server answered that the route's
+                  // object exists and its package is disabled: the not-found
+                  // view, with the sentence that says so.
+                  <ObjectNotFoundState objectName={routeObjectRefusal.objectName} packageDisabled />
                 ) : (
                 <Routes>
                 <Route
@@ -1353,13 +1358,13 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                   <Route path=":type/:name/history" element={<MetadataResourceHistoryPage />} />
                 </Route>
                 <Route path=":objectName" element={
-                  <ObjectView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} externalRefreshKey={refreshKey} objectRefusal={routeObjectRefusal} />
+                  <ObjectView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} externalRefreshKey={refreshKey} />
                 } />
                 <Route path=":objectName/new" element={
                   <RecordFormPage mode="create" />
                 } />
                 <Route path=":objectName/view/:viewId" element={
-                  <ObjectView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} externalRefreshKey={refreshKey} objectRefusal={routeObjectRefusal} />
+                  <ObjectView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} externalRefreshKey={refreshKey} />
                 } />
                 {/* ADR-0055: parameterized bare data surface — URL `filter[...]`
                     conditions over everything row-level security permits, NOT

@@ -1323,14 +1323,35 @@ export interface ConsoleObjectViewProps {
      * view (for example a record saved in a form the host owns).
      */
     externalRefreshKey?: number;
-    /**
-     * objectui#13052 — the ADR-0112 code the server refused the route's object
-     * with, when the host read it by name and the answer was a refusal rather
-     * than a plain absence. `OBJECT_PACKAGE_DISABLED` draws the not-found
-     * state with the sentence that names why; anything else, or none, draws
-     * it as before.
-     */
-    objectRefusal?: string | null;
+}
+
+/**
+ * The "object not found" state the route draws for an object it has no
+ * definition of. objectui#13052 — `packageDisabled`: the server answered that
+ * the object exists and its package is disabled (`OBJECT_PACKAGE_DISABLED`),
+ * so the description says that instead. The console route draws it for that
+ * answer (`AppContent`); this module's `ObjectView` draws it for an absence.
+ * Not part of the package entry.
+ */
+export function ObjectNotFoundState({ objectName, packageDisabled = false }: { objectName: string | undefined; packageDisabled?: boolean }) {
+    const { t } = useObjectTranslation();
+    return (
+        <div className="h-full p-4 flex items-center justify-center">
+          <Empty data-testid={packageDisabled ? 'object-package-disabled' : 'object-not-found'}>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <TableIcon className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <EmptyTitle>{t('console.objectView.objectNotFound')}</EmptyTitle>
+            <EmptyDescription>
+              {packageDisabled
+                ? t('console.objectView.objectPackageDisabled', { objectName })
+                : t('console.objectView.objectNotFoundDescription', { objectName })}
+              {' '}
+              {t('console.objectView.objectNotFoundHint')}
+            </EmptyDescription>
+          </Empty>
+        </div>
+    );
 }
 
 /**
@@ -1392,9 +1413,8 @@ function keepInlineEditModeForTheSession(): void {
     // Deliberately empty: see the docblock.
 }
 
-export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey, objectRefusal }: ConsoleObjectViewProps) {
+export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const { objectName } = useParams();
-    const { t } = useObjectTranslation();
 
     // Resolve the object definition up front. When it's missing we render the
     // "object not found" empty state *here*, before the inner component mounts.
@@ -1404,28 +1424,7 @@ export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey, ob
     // return. The inner subtree then mounts/unmounts as a whole (object exists
     // ↔ doesn't) rather than toggling the number of hooks executed per render.
     const objectDef = objects.find((o: any) => o.name === objectName);
-    if (!objectDef) {
-      // objectui#13052 — the object exists and its package is disabled: the
-      // server said so (`OBJECT_PACKAGE_DISABLED`), so the state says so too.
-      const packageDisabled = objectRefusal === 'OBJECT_PACKAGE_DISABLED';
-      return (
-        <div className="h-full p-4 flex items-center justify-center">
-          <Empty data-testid={packageDisabled ? 'object-package-disabled' : 'object-not-found'}>
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-              <TableIcon className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <EmptyTitle>{t('console.objectView.objectNotFound')}</EmptyTitle>
-            <EmptyDescription>
-              {packageDisabled
-                ? t('console.objectView.objectPackageDisabled', { objectName })
-                : t('console.objectView.objectNotFoundDescription', { objectName })}
-              {' '}
-              {t('console.objectView.objectNotFoundHint')}
-            </EmptyDescription>
-          </Empty>
-        </div>
-      );
-    }
+    if (!objectDef) return <ObjectNotFoundState objectName={objectName} />;
 
     return (
       <ObjectViewInner

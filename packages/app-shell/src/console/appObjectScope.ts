@@ -62,9 +62,10 @@ function failedNamesOf(scope: AppObjectScope): readonly string[] {
   return (scope as AppObjectScope & ScopeReadOutcomes).failed ?? [];
 }
 
-function refusalOf(scope: AppObjectScope, name: string | undefined): string | null {
+function refusalOf(scope: AppObjectScope, name: string | undefined): AppObjectScopeRead['routeObjectRefusal'] {
   if (!name || !scope.missing.includes(name)) return null;
-  return (scope as AppObjectScope & ScopeReadOutcomes).refused?.[name] ?? null;
+  const code = (scope as AppObjectScope & ScopeReadOutcomes).refused?.[name];
+  return code ? { objectName: name, code } : null;
 }
 
 /**
@@ -301,7 +302,7 @@ export interface AppObjectScopeRead {
    * object with, when it answered with a refusal rather than a plain absence
    * (`OBJECT_PACKAGE_DISABLED`); `null` otherwise.
    */
-  routeObjectRefusal: string | null;
+  routeObjectRefusal: { objectName: string; code: string } | null;
 }
 
 const NOT_READ = { failedNames: [] as readonly string[], routeObjectRefusal: null };

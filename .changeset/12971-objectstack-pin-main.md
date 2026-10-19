@@ -23,5 +23,6 @@ Clause-②: no (narrowing)
 
 - `emptyState` on `record:details`, `record:highlights` and `record:quick_actions`.
 - `record` on a `page` node.
+- `dataSource` on a navigation entry, every member but a separator. `NavigationItemSchema` and the `NavigationItem` type take the spec's `ElementApiDataSourceSchema` by reference; before, `NavigationItemSchema` stripped the key. The spec describes it as planned, and the console does not read it yet.
 
 **A palette exclusion that goes.** `record:json` is retired in the spec and is no longer a page component type, so the page designer's palette drops its exclusion entry. Nothing the palette offers changes.

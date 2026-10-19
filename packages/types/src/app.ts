@@ -291,6 +291,13 @@ export interface NavigationEntryItem {
   requiredPermissions?: string[];
 
   /**
+   * One API data source whose bound value {@link visible} reads as `data` —
+   * the spec's shared nav-item base member, by reference (objectui#12971).
+   * The spec describes it as planned and not yet rendered.
+   */
+  dataSource?: SpecObjectNavItem['dataSource'];
+
+  /**
    * Runtime capability gate — name of an object that must be registered
    * in the runtime's SchemaRegistry for this entry to render. Used to
    * hide cloud-only nav entries (e.g. `sys_app`, `sys_package`) in

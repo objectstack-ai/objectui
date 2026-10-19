@@ -17,37 +17,32 @@
  *
  *     "@objectstack/spec": "file:.objectstack-pin/spec"
  *
- * Each such directory holds ONE committed file, the package's `package.json` exactly
- * as `pnpm pack` packs it at the pinned commit. `build` builds the pinned commit's
- * source into `node_modules/.cache/objectstack` and puts every other packed file
- * beside that manifest (git-ignored). So no `@objectstack/*` package resolves from
- * npm; npm ranges in the manifests matter only when objectui itself publishes
- * (objectui#12958).
+ * Each such directory holds ONE committed file, the package's `package.json` as
+ * `pnpm pack` packs it at the pinned commit (`canonicalManifest`). `build` builds
+ * that commit into `node_modules/.cache/objectstack` -- the path CI caches by the
+ * pin, whose stamp turbo hashes -- and links every other packed file beside the
+ * manifest (git-ignored; a copy where a link fails). So no `@objectstack/*` package
+ * resolves from npm; npm ranges in the manifests matter only when objectui itself
+ * publishes (objectui#12958).
  *
  * ## Why the manifests are committed (objectui#13008)
  *
- * Dependabot resolves on a fresh clone with no `node_modules` -- measured on its job
- * for run 39180936608: `pnpm update next@16.3.8 --lockfile-only --no-save -r`. A
- * `file:` directory resolves from its `package.json` alone: on a clean clone that
- * command exited 0 with only the committed manifests, and exited 1
- * (ERR_PNPM_LINKED_PKG_DIR_NOT_FOUND) when the overrides named a directory only
- * `build` creates. A lockfile-only run does not run the root `preinstall` either.
+ * Dependabot resolves on a fresh clone with no `node_modules` (its job for run
+ * 39180936608 ran `pnpm update next@16.3.8 --lockfile-only --no-save -r`). Measured
+ * on clean clones: that command exits 0 with only the committed manifests, and 1
+ * (ERR_PNPM_LINKED_PKG_DIR_NOT_FOUND) when the overrides name a directory only
+ * `build` creates; a lockfile-only run does not run the root `preinstall`. pnpm
+ * HARD-LINKS a directory dependency's files at install time (same inode), so the
+ * build must be beside the manifests before `pnpm install`, and the lockfile does
+ * not change when it appears (byte-identical after a frozen install).
  *
- * The build stays in `node_modules/.cache/objectstack`: CI restores and saves that
- * path by the pin, and turbo hashes its stamp. pnpm HARD-LINKS a directory
- * dependency's files at install time (measured: same inode), so the built files
- * must sit beside the manifest before `pnpm install`; `build` links them there
- * (a copy where a link fails). The lockfile does not change when they appear
- * (measured: a frozen install after them left it byte-identical).
- *
- * The committed manifests must BE the pin's: they are what Dependabot resolves.
- * So a build at the pin REFUSES when a packed manifest differs from the committed
- * one (dependency maps compared sorted, see `canonicalManifest`) -- a pin moved
- * without its manifests, or a hand edit -- and never writes over
- * it; `--write-manifests` writes them, and bump-objectstack.sh commits them with the
- * pin. A stand-in installs its OWN manifests (its exports may differ), so it writes
- * them and records in its stamp the bytes it replaced; the next build at the pin
- * restores exactly those, and nothing else.
+ * The committed manifests must BE the pin's, since Dependabot resolves them: a
+ * build at the pin REFUSES a packed manifest that differs from the committed one
+ * (a pin moved without its manifests, a hand edit) and never writes over it;
+ * `--write-manifests` writes them, and bump-objectstack.sh commits them with the
+ * pin. A stand-in installs its OWN manifests (its exports may differ) and records
+ * in its stamp the ones it replaced; the next build at the pin restores exactly
+ * those, and nothing else.
  *
  * ## Why `file:` DIRECTORIES -- the resolution form, measured on objectui#12957
  *
@@ -616,13 +611,7 @@ export function materialize(root, overrides, { from, mode, replaced = null }) {
   return Object.fromEntries(plan.filter((p) => p.before !== null).map((p) => [p.name, sha256(canonicalManifest(p.before) ?? p.before)]));
 }
 
-/**
- * The packages whose directory in PIN_DIR holds the manifest but not the build.
- *
- * @param {string} root
- * @param {Map<string, string>} overrides
- * @returns {string[]}
- */
+/** @returns {string[]} the packages whose directory in PIN_DIR holds the manifest but not the build */
 export function hollowPackages(root, overrides) {
   return [...overrides].filter(([, dir]) => missingEntryTargets(path.join(root, PIN_DIR, dir)).length > 0).map(([name]) => name);
 }
@@ -631,8 +620,6 @@ export function hollowPackages(root, overrides) {
  * The root `preinstall`. Without the build beside the manifests, `pnpm install`
  * exits 0 and links packages holding nothing but a manifest; this refuses instead.
  * A lockfile-only resolution (Dependabot's) does not run it.
- *
- * @param {{ root?: string }} [opts]
  */
 export function check({ root = REPO_ROOT } = {}) {
   const hollow = hollowPackages(root, readOverrides(readJson(path.join(root, 'package.json'))));

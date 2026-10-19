@@ -47,6 +47,7 @@ import {
   MessageResponse,
   type MessageProps,
 } from './elements/message';
+import { RecordLinkContext } from './elements/record-link';
 import {
   PromptInput,
   PromptInputBody,
@@ -4225,9 +4226,14 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                       ) : hasVisibleProse ? (
                         // objectui#13032 — a long answer folds only once its
                         // stream has ended; the streaming flag tells it when.
-                        <MessageResponse isAnimating={Boolean(message.streaming)}>
-                          {message.content}
-                        </MessageResponse>
+                        // objectui#13037 — a record link in the answer opens
+                        // the record through the same host opener as the
+                        // `open_record` card.
+                        <RecordLinkContext.Provider value={onOpenRecord ?? null}>
+                          <MessageResponse isAnimating={Boolean(message.streaming)}>
+                            {message.content}
+                          </MessageResponse>
+                        </RecordLinkContext.Provider>
                       ) : !message.streaming && !showsActivity && isToolCallPlaceholder(message.content) ? (
                         // #772: a re-hydrated tool-call-only turn is persisted with
                         // an internal placeholder ("(called todo_write,

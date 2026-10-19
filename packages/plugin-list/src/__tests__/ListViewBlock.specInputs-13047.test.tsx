@@ -38,11 +38,13 @@
  * The last describe block is the keys measured NOT honoured on a page node,
  * each held out of `inputs` with its reason in the console's repo-wide parity
  * gate: `name` (read by nothing here), `sharing` (draws a button that does
- * nothing on a page node), and `filterableFields` (read, but as the Filter
- * panel's field list, not as the quick-filter shorthand the row declares it to
- * be). `requiredPermissions` and `addRecord` were measured here too, until
- * objectui#13074 honoured both on a page node; their pins now live in
- * `ListViewBlock.inertKeys-13074.test.tsx`. One MEMBER is
+ * nothing on a page node), `addRecord` (its Add button is withheld on a page
+ * node under no `onCreate` host, objectui#13089), and `filterableFields`
+ * (read, but as the Filter panel's field list, not as the quick-filter
+ * shorthand the row declares it to be). `requiredPermissions` was measured
+ * here too, until objectui#13074 honoured it on a page node; its pins now live
+ * in `ListViewBlock.inertKeys-13074.test.tsx`, beside the `addRecord` routing
+ * rows under a provider that serves `onCreate`. One MEMBER is
  * recorded the same way beside the key that carries it:
  * `appearance.allowedVisualizations` narrows a view switcher a page node does
  * not draw, while `appearance.showDescription` acts.
@@ -57,7 +59,7 @@ import React from 'react';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, waitFor, cleanup, act, fireEvent, screen, within } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider, RelatedRecordActionsProvider } from '@object-ui/react';
 import { LocalizationProvider } from '@object-ui/i18n';
 import { ComponentPropsMap } from '@objectstack/spec/ui';
 // Registers the REAL `list-view` (and the `object-gallery` this file replaces below).
@@ -803,5 +805,30 @@ describe('objectui#13047 — measured NOT honoured on a page `list-view` node (h
     const { dataSource } = mount({ filterableFields: ['amount', 'owner'] });
     await loaded(dataSource);
     expect(await firstFilterField()).toBe('Amount');
+  });
+
+  it('`addRecord.enabled`: no Add button on a page node under no `onCreate` host — withheld, not drawn dead (objectui#13089)', async () => {
+    // No provider at all.
+    const bare = mount({ addRecord: { enabled: true } });
+    await loaded(bare.dataSource);
+    expect(screen.queryByTestId('add-record-button')).toBeNull();
+    expect(bare.dataSource.create).not.toHaveBeenCalled();
+    cleanup();
+
+    // A provider that, like the console's page host for a parent-less list,
+    // answers the object with no handlers at all.
+    const dataSource = makeDataSource(ROWS, {});
+    const resolve = vi.fn(() => Object.freeze({}));
+    render(
+      <RelatedRecordActionsProvider value={{ resolve }}>
+        <SchemaRendererProvider dataSource={dataSource as never}>
+          <SchemaRenderer schema={node({ addRecord: { enabled: true } }) as never} />
+        </SchemaRendererProvider>
+      </RelatedRecordActionsProvider>,
+    );
+    await loaded(dataSource);
+    expect(resolve).toHaveBeenCalledWith({ objectName: OBJECT });
+    expect(screen.queryByTestId('add-record-button')).toBeNull();
+    expect(dataSource.create).not.toHaveBeenCalled();
   });
 });

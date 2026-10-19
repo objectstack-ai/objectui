@@ -118,15 +118,18 @@ const LIST_VIEW_TYPE_INPUT: ComponentInput = {
  * objectui#13047). The member shapes are the spec's, named in each
  * description; the spec row is the judge of values.
  *
- * Two keys of the row are NOT here, by the same measurement: `name` (read by
- * nothing on a page node) and `sharing` (draws a Share button that does
- * nothing: the spec declares no action for it). So is `filterableFields`: the
- * row declares it as the shorthand of `userFilters.fields`, and the list reads
- * it as the Filter panel's field list instead. The console's repo-wide parity
- * gate (`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`)
- * records each with its reason. `requiredPermissions` and `addRecord` were
- * among them until `ListViewBlock` honoured both on a page node
- * (objectui#13074, `__tests__/ListViewBlock.inertKeys-13074.test.tsx`).
+ * Three keys of the row are NOT here, by the same measurement: `name` (read
+ * by nothing on a page node), `sharing` (draws a Share button that does
+ * nothing: the spec declares no action for it) and `addRecord` (the block
+ * routes its Add button to an `onCreate` its host serves, and the console page
+ * host serves none, so on a console page the button is withheld; objectui#13089
+ * carries that host). So is `filterableFields`: the row declares it as the
+ * shorthand of `userFilters.fields`, and the list reads it as the Filter
+ * panel's field list instead. The console's repo-wide parity gate
+ * (`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`) records
+ * each with its reason. `requiredPermissions` was among them until
+ * `ListViewBlock` honoured it on a page node (objectui#13074,
+ * `__tests__/ListViewBlock.inertKeys-13074.test.tsx`).
  *
  * `data` is NOT required (objectui#11605): the page compile reads this list,
  * so `required: true` would refuse a node bound by `dataSource.object`, which
@@ -187,12 +190,6 @@ const LIST_VIEW_INPUTS: ComponentInput[] = [
       'Capabilities the viewer must ALL hold to see this list, the names permission sets grant through `systemPermissions`. A viewer missing one sees an insufficient-permissions notice in place of the list, and no records are queried. Absent or empty: no gate.',
   },
   // ── the toolbar ───────────────────────────────────────────────────────────
-  {
-    name: 'addRecord',
-    type: 'object',
-    description:
-      'The Add button, the spec\'s `AddRecordConfig`: `enabled: true` draws it, at `position` `top`, `bottom` or `both`. On a page it opens the object\'s create form, the one the object list opens; a viewer who may not create records of the object gets no button. `mode` and `formView` are not read: every click opens that create form.',
-  },
   {
     name: 'userFilters',
     type: 'object',

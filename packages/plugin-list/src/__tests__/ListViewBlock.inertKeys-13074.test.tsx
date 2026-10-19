@@ -8,14 +8,18 @@
 
 /**
  * objectui#13074 — two keys of the spec's `list-view` row that objectui#13047
- * measured inert on a page node, now honoured by `ListViewBlock` and published:
+ * measured inert on a page node:
  *
- *  - `requiredPermissions`: the audience gate, read the way the record blocks
- *    read it (`hasCapabilities` over the reported `systemPermissions`), with
- *    the same insufficient-permissions notice in place of the list and no
- *    query sent.
- *  - `addRecord`: the Add button opens the page's create path, the host's
- *    `RelatedRecordActionsValue.resolve(...).onCreate` for the listed object.
+ *  - `requiredPermissions`, now honoured by `ListViewBlock` and published: the
+ *    audience gate, read the way the record blocks read it (`hasCapabilities`
+ *    over the reported `systemPermissions`), with the same
+ *    insufficient-permissions notice in place of the list and no query sent.
+ *  - `addRecord`, routed but NOT published: the Add button calls the `onCreate`
+ *    a `RelatedRecordActionsContext` provider serves for the listed object
+ *    (`resolve({ objectName })`), and is withheld under a provider that serves
+ *    none. The console's page host serves none for a parent-less list, so the
+ *    key stays out of `inputs` until objectui#13089 lands that host. The rows
+ *    below pin the block's contract against a provider, not a console page.
  *
  * The third key the card names, `sharing`, stays inert and unpublished: the
  * spec declares no action for its Share button. Its control row is below.
@@ -115,7 +119,7 @@ function me(systemPermissions: string[] | undefined): MePermissionsResponse {
 interface MountOptions {
   /** The viewer's capabilities; `undefined` = a provider that reports none; absent key = no provider. */
   held?: string[] | undefined;
-  /** The page host's create path, as the console's `RelatedRecordActionsBridge` publishes it. */
+  /** A `RelatedRecordActionsContext` provider; absent = no provider at all. */
   host?: RelatedRecordActionsValue;
 }
 
@@ -131,7 +135,7 @@ function mount(properties: Row, options: MountOptions = {}) {
   return { dataSource, ...render(tree) };
 }
 
-/** A host whose `resolve` answers `handlers` for any object, and records what it was asked. */
+/** A provider value whose `resolve` answers `handlers` for any object, and records what it was asked. */
 function makeHost(handlers: RelatedRecordHandlers) {
   const resolve = vi.fn(() => handlers);
   return { resolve, host: { resolve } as RelatedRecordActionsValue };
@@ -205,8 +209,8 @@ describe('objectui#13074 — `requiredPermissions` gates a page `list-view` node
   });
 });
 
-describe('objectui#13074 — `addRecord` on a page `list-view` node opens the page\'s create path', () => {
-  it('clicking the Add button calls the host\'s `onCreate` for the listed object', async () => {
+describe('objectui#13074 — `addRecord` on a page `list-view` node calls the `onCreate` a provider serves', () => {
+  it('under a provider serving `onCreate`, clicking the Add button calls it for the listed object', async () => {
     const onCreate = vi.fn();
     const { resolve, host } = makeHost({ onCreate });
     const { dataSource } = mount({ addRecord: { enabled: true } }, { host });
@@ -217,7 +221,7 @@ describe('objectui#13074 — `addRecord` on a page `list-view` node opens the pa
     expect(dataSource.create).not.toHaveBeenCalled();
   });
 
-  it('`position: \'both\'` draws two buttons, and each opens the create path', async () => {
+  it('`position: \'both\'` under a provider serving `onCreate` draws two buttons, and each calls it', async () => {
     const onCreate = vi.fn();
     const { host } = makeHost({ onCreate });
     const { dataSource } = mount({ addRecord: { enabled: true, position: 'both' } }, { host });
@@ -228,7 +232,7 @@ describe('objectui#13074 — `addRecord` on a page `list-view` node opens the pa
     expect(onCreate).toHaveBeenCalledTimes(2);
   });
 
-  it('a viewer the host gives no `onCreate` (no create grant) gets no Add button, rather than a dead one', async () => {
+  it('a provider that serves no `onCreate` for the object (no create grant) gets no Add button, rather than a dead one', async () => {
     const { host } = makeHost({ onView: vi.fn() });
     const { dataSource } = mount({ addRecord: { enabled: true } }, { host });
     await listDrawn(dataSource);
@@ -236,7 +240,7 @@ describe('objectui#13074 — `addRecord` on a page `list-view` node opens the pa
     expect(screen.queryByTestId('add-record-button')).toBeNull();
   });
 
-  it('a create the host greys (`createDisabled`) is withheld too: the list draws no greyed Add button', async () => {
+  it('an `onCreate` the provider greys (`createDisabled`) is withheld too: the list draws no greyed Add button', async () => {
     const onCreate = vi.fn();
     const { host } = makeHost({ onCreate, createDisabled: true });
     const { dataSource } = mount({ addRecord: { enabled: true } }, { host });
@@ -245,14 +249,14 @@ describe('objectui#13074 — `addRecord` on a page `list-view` node opens the pa
     expect(screen.queryByTestId('add-record-button')).toBeNull();
   });
 
-  it('with no host at all (a designer preview, a standalone embed) the button is withheld', async () => {
+  it('with no provider at all (a designer preview, a standalone embed) the button is withheld', async () => {
     const { dataSource } = mount({ addRecord: { enabled: true } });
     await listDrawn(dataSource);
     await settle();
     expect(screen.queryByTestId('add-record-button')).toBeNull();
   });
 
-  it('CONTROL: a node without `addRecord` draws no Add button and asks the host nothing', async () => {
+  it('CONTROL: a node without `addRecord` draws no Add button and asks the provider nothing', async () => {
     const onCreate = vi.fn();
     const { resolve, host } = makeHost({ onCreate });
     const { dataSource } = mount({}, { host });
@@ -275,10 +279,10 @@ describe('objectui#13074 — `sharing` stays inert and unpublished (CONTROL)', (
     expect(document.body.innerHTML).toBe(before);
   });
 
-  it('the registration publishes `requiredPermissions` and `addRecord`, and not `sharing`', () => {
+  it('the registration publishes `requiredPermissions`, and neither `addRecord` (objectui#13089) nor `sharing`', () => {
     const inputs = (ComponentRegistry.getConfig('list-view')?.inputs ?? []).map((input: { name: string }) => input.name);
     expect(inputs).toContain('requiredPermissions');
-    expect(inputs).toContain('addRecord');
+    expect(inputs).not.toContain('addRecord');
     expect(inputs).not.toContain('sharing');
   });
 });

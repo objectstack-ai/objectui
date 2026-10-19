@@ -183,21 +183,22 @@ function boundObjectName(schema: ListViewSchema): string | undefined {
  * `ListView` draws it from.
  *
  * `ListView` draws the button from `addRecord.enabled` and calls its host's
- * `onAddRecord` prop, which a page node never receives. So on a page the click
- * goes through the page's existing create path: the host's
- * `RelatedRecordActionsValue.resolve` for the object this block lists, whose
- * `onCreate` opens that object's create form (the console's record-form
- * overlay, the form the object list's own New button opens). No host prop and
- * no new export: the page already publishes that path, and the
- * `record:related_list` block's "+ New" calls the same handler.
+ * `onAddRecord` prop, which a page node never receives. So the click goes to
+ * the `onCreate` a `RelatedRecordActionsContext` provider serves for the
+ * object this block lists (`resolve({ objectName })`), the handler the
+ * `record:related_list` block's "+ New" calls. No host prop and no new export.
+ * The console's page host serves no `onCreate` for a parent-less list, so on a
+ * console page the button is withheld; serving it there is objectui#13089's,
+ * and `addRecord` stays unpublished until then.
  *
  *  - A host that hands this block `onAddRecord` itself keeps it: an explicit
- *    prop outranks the page path, as the explicit `dataSource` adapter does.
- *  - The host omits `onCreate` when the viewer may not create records of the
- *    object (or when no host routes to it: the designer, a standalone embed).
- *    The button is then withheld, with `addRecord` taken off the node, rather
- *    than drawn as a control that does nothing. So is a create the host greys
- *    (`createDisabled`), because `ListView` draws no greyed Add button.
+ *    prop outranks the provider, as the explicit `dataSource` adapter does.
+ *  - A provider omits `onCreate` when the viewer may not create records of the
+ *    object, and no provider serves one at all with no host (the designer, a
+ *    standalone embed). The button is then withheld, with `addRecord` taken
+ *    off the node, rather than drawn as a control that does nothing. So is a
+ *    create the provider greys (`createDisabled`), because `ListView` draws no
+ *    greyed Add button.
  *
  * Plain function, not a hook: it is called inside the gate's render callback,
  * on the node after the binding, so it reads the object the binding names.
@@ -327,7 +328,7 @@ const ListViewBlock = elementDataSourceBlock(React.forwardRef<ListViewHandle, Li
   const compact = usePageRegionPosture() === 'compact';
   // The host's list destination builder, for the compact list's "View all"
   // link (objectui#12703, part 2), read only when the posture is compact, and
-  // the page's create path for the Add button (objectui#13074).
+  // the `onCreate` it serves for the Add button (objectui#13074).
   const host = useRelatedRecordActions();
 
   // A list that names its records in neither place has nothing to fetch, and
@@ -384,14 +385,18 @@ const ListViewBlock = elementDataSourceBlock(React.forwardRef<ListViewHandle, Li
     >
       {(schema) => {
         if (!namesRecordSource(schema)) return <ListViewNoObjectHint />;
-        // objectui#13074 — the Add button opens the page's create path.
+        // objectui#13074 — the Add button calls the provider's `onCreate`.
         const add = pageAddRecord(props.onAddRecord, host, schema);
+        // A named local, not `add.schema` inline: it is the same document (less a
+        // withheld `addRecord`), and `check-handler-key-read-sites` follows the
+        // hop into `ListView` only through a document-derived name.
+        const listSchema = add.schema;
         return (
           <CompactListDestinationContext.Provider value={compact ? compactListDestination(host, schema) : null}>
             <ListView
               ref={ref}
               {...props}
-              schema={add.schema}
+              schema={listSchema}
               dataSource={adapter}
               compact={compact}
               onAddRecord={add.onAddRecord}

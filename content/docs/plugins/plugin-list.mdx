@@ -13,33 +13,28 @@ ListView plugin for Object UI - unified view component with view type switching
 pnpm add @object-ui/plugin-list
 ```
 
-## On a page — `requiredPermissions` and `addRecord`
+## On a page — `requiredPermissions`
 
 A page `list-view` node is written in `@objectstack/spec`'s list view spelling,
-with its keys in `properties`. Two of them gate and extend what the node draws:
+with its keys in `properties`. `requiredPermissions` gates what the node draws:
 
 ```json
 {
   "type": "list-view",
   "properties": {
     "data": { "provider": "object", "object": "deal" },
-    "requiredPermissions": ["sales.view_pipeline"],
-    "addRecord": { "enabled": true }
+    "requiredPermissions": ["sales.view_pipeline"]
   }
 }
 ```
 
-- `requiredPermissions` — capabilities the viewer must all hold. A viewer
-  missing one sees "Insufficient permissions to view list." in place of the
-  list, as the record blocks show, and no records are queried.
-- `addRecord` — `enabled: true` draws the Add button (`position`: `top`,
-  `bottom` or `both`). A click opens the listed object's create form through the
-  page's create path. A viewer who may not create records of the object, or a
-  page with no host to open the form, gets no button. `mode` and `formView` are
-  not read.
+`requiredPermissions` lists capabilities the viewer must all hold. A viewer
+missing one sees "Insufficient permissions to view list." in place of the list,
+as the record blocks show, and no records are queried.
 
-`sharing` does nothing on a page node yet: its Share button has no action the
-spec declares.
+`addRecord` and `sharing` are not published inputs of a page node yet: the Add
+button is drawn only under a host that serves the object's create handler, and
+the Share button has no action the spec declares.
 
 ## Status
 

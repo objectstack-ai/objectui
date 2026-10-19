@@ -100,6 +100,7 @@ vi.mock('../LiveCanvas', () => ({ LiveCanvas: () => null }));
 import { I18nProvider } from '@object-ui/i18n';
 import { ChatDockPanel, type ChatDockState } from '../../../layout/ChatDock';
 import { AiChatPage } from '../AiChatPage';
+import { IN_FLOW_ABOVE, readPlacement } from './inFlowPlacement';
 
 window.matchMedia = ((query: string) => ({
   matches: false,
@@ -179,59 +180,12 @@ function renderDock() {
   );
 }
 
-/** A class or inline style that takes a box out of normal flow, or null. */
-function outOfFlow(el: Element): string | null {
-  const classes = (el.getAttribute('class') ?? '').split(/\s+/);
-  const hit = classes.find((c) => /^(?:[\w-]+:)*(?:absolute|fixed|sticky)$/.test(c));
-  if (hit) return hit;
-  const position = (el as HTMLElement).style?.position;
-  return position === 'absolute' || position === 'fixed' || position === 'sticky'
-    ? `style position: ${position}`
-    : null;
-}
-
-/** Every out-of-flow marker from `from` up to, not including, `stop`. */
-function outOfFlowBetween(from: Element, stop: Element): string[] {
-  const hits: string[] = [];
-  for (let el: Element | null = from; el && el !== stop; el = el.parentElement) {
-    const hit = outOfFlow(el);
-    if (hit) hits.push(`${el.tagName.toLowerCase()} ${hit}`);
-  }
-  return hits;
-}
-
-/** `el` and its ancestors, nearest first (walked by `parentElement` alone). */
-function lineage(el: Element): Element[] {
-  const chain: Element[] = [];
-  for (let n: Element | null = el; n; n = n.parentElement) chain.push(n);
-  return chain;
-}
-
 /** How the bar sits against the composer's input, read from the DOM. */
-async function readPlacement() {
+async function readBarPlacement() {
   const bar = await screen.findByTestId('pending-drafts-bar', undefined, { timeout: 4000 });
   const input = document.querySelector('form textarea');
   expect(input).not.toBeNull();
-  const barLine = lineage(bar);
-  const inputLine = lineage(input!);
-  // The nearest element holding both, and the row of it each one belongs to.
-  const common = barLine.find((el) => inputLine.includes(el));
-  expect(common).toBeDefined();
-  // Counted by siblings, never by identity: in this environment the composer's
-  // form reached through `parentElement` compares unequal to the one
-  // `children` lists, so `indexOf`, `contains` and `compareDocumentPosition`
-  // all miss it (measured while writing this test).
-  const rowOf = (line: Element[]) => {
-    let index = 0;
-    for (let n = line[line.indexOf(common!) - 1].previousElementSibling; n; n = n.previousElementSibling) index += 1;
-    return index;
-  };
-  return {
-    holdsConversation: common!.querySelector('[role="log"]') !== null,
-    outOfFlow: [...outOfFlowBetween(bar, common!), ...outOfFlowBetween(input!, common!)],
-    barRowBeforeInputRow: rowOf(barLine) < rowOf(inputLine),
-    barInsideForm: barLine.some((el) => el.tagName === 'FORM'),
-  };
+  return readPlacement(bar, input!);
 }
 
 describe('objectui#12978 — the pending-drafts bar is a row above the composer, never over it', () => {
@@ -240,11 +194,6 @@ describe('objectui#12978 — the pending-drafts bar is a row above the composer,
     ['the console dock, inside the running app', renderDock],
   ])('%s, with a draft pending: the bar is laid out in flow above the input', async (_host, mount) => {
     mount();
-    expect(await readPlacement()).toEqual({
-      holdsConversation: false,
-      outOfFlow: [],
-      barRowBeforeInputRow: true,
-      barInsideForm: false,
-    });
+    expect(await readBarPlacement()).toEqual(IN_FLOW_ABOVE);
   });
 });

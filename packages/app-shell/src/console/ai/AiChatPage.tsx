@@ -2487,6 +2487,48 @@ export function ChatPane({
   // and the canvas becomes a full-screen overlay instead (see #2481 below).
   const desktopSplit = canvasApp !== null && !isMobile;
 
+  // objectui#5694 — the standing unpublished-changes affordance: shown while
+  // the bound package has pending drafts, so the publish entry point survives
+  // scrolling (the inline card button does not). It renders nothing when the
+  // count is 0 or the conversation is unbound.
+  // objectui#12965 — not drawn in the package's own Studio: there the Studio
+  // top bar's 变更 and 发布 and the applied card's 查看变更并发布 are the ways
+  // to review and publish (objectui#12725's ruled artboard draws no bar).
+  const pendingDraftsBar =
+    isBuildSurface && !onBoundPackageStudio ? (
+      <PendingDraftsBar packageId={boundPackageId} idle={!isLoading} />
+    ) : null;
+
+  // #2481 — on a phone a built app is previewed full-screen, on request: the
+  // pill below offers it, and closing the overlay brings the pill back.
+  // objectui#13068 — the pill is a row of the composer's own area, like the
+  // drafts bar (objectui#12978). It used to float (`absolute bottom-24`) over
+  // the chat, and on a phone that box sat on the input's first line.
+  // The rows share one column, pill above bar, from the moment a preview is
+  // available until it goes away, so opening and closing the overlay never
+  // remounts the bar (its count would re-read and blink). That column exists
+  // only then: without a preview the slot holds the bar alone, as before, and
+  // stays empty, taking no space, while the bar renders nothing.
+  const mobilePreviewAvailable = canvasApp !== null && isMobile;
+  const promptHeaderRows = mobilePreviewAvailable ? (
+    <div className="flex w-full flex-col items-center gap-2">
+      {!mobileCanvasOpen ? (
+        <Button
+          size="sm"
+          onClick={() => setMobileCanvasOpen(true)}
+          data-testid="ai-chat-mobile-preview-open"
+          className="gap-1.5 rounded-full shadow-lg"
+        >
+          <Eye className="h-4 w-4" />
+          {t('console.ai.previewApp', { defaultValue: 'Preview app' })}
+        </Button>
+      ) : null}
+      {pendingDraftsBar}
+    </div>
+  ) : (
+    pendingDraftsBar ?? undefined
+  );
+
   return (
     <div ref={split.containerRef} className="relative flex min-h-0 flex-1 px-0">
       {/* Excel→App (cloud#797): float the real-data import affordance above the
@@ -2542,25 +2584,14 @@ export function ChatPane({
         surface="plain"
         maxHeight="100%"
         headerSlot={headerSlot}
-        // objectui#5694 — the standing unpublished-changes affordance: shown
-        // while the bound package has pending drafts, so the publish entry
-        // point survives scrolling (the inline card button does not). It
-        // renders nothing when the count is 0 or the conversation is unbound.
-        // objectui#12978 — a row of the composer's own area, in flow above the
-        // input. It used to float (`absolute bottom-20`) over the chat, and on
-        // the full-page chat that put it over the input's first line, hiding
-        // the placeholder and the first typed line; in flow, the conversation
-        // gives up the room instead, at every width, here and in the console
-        // dock, which mounts this same pane.
-        // objectui#12965 — not drawn in the package's own Studio: there the
-        // Studio top bar's 变更 and 发布 and the applied card's 查看变更并发布
-        // are the ways to review and publish (objectui#12725's ruled artboard
-        // draws no bar).
-        promptHeaderSlot={
-          isBuildSurface && !onBoundPackageStudio ? (
-            <PendingDraftsBar packageId={boundPackageId} idle={!isLoading} />
-          ) : undefined
-        }
+        // objectui#12978 — the drafts bar and, on a phone, the preview pill
+        // (`promptHeaderRows` above) are rows of the composer's own area, in
+        // flow above the input. The bar used to float (`absolute bottom-20`)
+        // over the chat, and on the full-page chat that put it over the
+        // input's first line, hiding the placeholder and the first typed line;
+        // in flow, the conversation gives up the room instead, at every width,
+        // here and in the console dock, which mounts this same pane.
+        promptHeaderSlot={promptHeaderRows}
         messages={runtimeMessages}
         placeholder={
           activeAgent
@@ -2909,41 +2940,26 @@ export function ChatPane({
         </>
       ) : null}
       {/* #2481 — MOBILE preview. The beside-chat split has no room on a phone,
-          so the canvas is opt-in and full-screen: a floating pill offers it
-          (build streams uninterrupted in the chat below), and tapping it — or a
-          Preview button on a draft card — takes over the screen. Closing the
-          overlay returns to the chat with the preview still one tap away. */}
-      {canvasApp && isMobile ? (
-        <>
-          {!mobileCanvasOpen ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-24 z-20 flex justify-center px-4">
-              <Button
-                size="sm"
-                onClick={() => setMobileCanvasOpen(true)}
-                data-testid="ai-chat-mobile-preview-open"
-                className="pointer-events-auto gap-1.5 rounded-full shadow-lg"
-              >
-                <Eye className="h-4 w-4" />
-                {t('console.ai.previewApp', { defaultValue: 'Preview app' })}
-              </Button>
-            </div>
-          ) : (
-            <div
-              className="absolute inset-0 z-30 flex flex-col bg-background"
-              data-testid="ai-chat-mobile-canvas"
-            >
-              <LiveCanvas
-                appName={canvasApp.name}
-                appSegment={canvasApp.segment}
-                materialized={canvasApp.materialized}
-                path={canvasApp.path}
-                refreshKey={canvasRefreshKey}
-                // Close returns to the chat; the pill re-offers the preview.
-                onClose={() => setMobileCanvasOpen(false)}
-              />
-            </div>
-          )}
-        </>
+          so the canvas is opt-in and full-screen: the pill above the composer
+          (`promptHeaderRows`) offers it (build streams uninterrupted in the
+          chat), and tapping it — or a Preview button on a draft card — takes
+          over the screen. Closing the overlay returns to the chat with the
+          preview still one tap away. */}
+      {canvasApp && isMobile && mobileCanvasOpen ? (
+        <div
+          className="absolute inset-0 z-30 flex flex-col bg-background"
+          data-testid="ai-chat-mobile-canvas"
+        >
+          <LiveCanvas
+            appName={canvasApp.name}
+            appSegment={canvasApp.segment}
+            materialized={canvasApp.materialized}
+            path={canvasApp.path}
+            refreshKey={canvasRefreshKey}
+            // Close returns to the chat; the pill re-offers the preview.
+            onClose={() => setMobileCanvasOpen(false)}
+          />
+        </div>
       ) : null}
     </div>
   );

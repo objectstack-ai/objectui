@@ -56,6 +56,9 @@ import {
 } from './catalog-activation.js';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
 import { declarationOnlyAuthoredObject } from './sharing-rule-catalog.js';
+import { resolveAffordance, type SchemaLike } from '@object-ui/core';
+import { useMetadata } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { SharingRuleCloneDialog, type SharingRuleCloneDialogProps } from './SharingRuleCloneDialog.js';
 import { postureHasOrgWall, useTenancyPosture } from '../../hooks/useTenancyPosture.js';
 
@@ -176,7 +179,23 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   // environment scope lists declarations read-only, and the items an
   // environment authors are records of this object, edited on its own page.
   const authoredObject = envScope ? declarationOnlyAuthoredObject(type) : undefined;
-  const CloneDialog = authoredObject ? DECLARATION_CLONE_DIALOGS[type] : undefined;
+  // Clone creates a record of the authored object, so it reads that write's
+  // row of the affordance-to-grant map (`resolveAffordance` in
+  // `@object-ui/core`), asked of the object with its schema as the registry
+  // serves it. A caller without the create grant is offered no Clone; the
+  // server decides the write either way.
+  const perms = usePermissions();
+  const metadataStore = useMetadata();
+  const canClone =
+    !!authoredObject &&
+    resolveAffordance('declarationClone', {
+      objectSchema: ((metadataStore.objects ?? []).find(
+        (o) => (o as { name?: unknown } | null)?.name === authoredObject,
+      ) ?? null) as SchemaLike | null,
+      objectName: authoredObject,
+      perms,
+    }).allowed;
+  const CloneDialog = authoredObject && canClone ? DECLARATION_CLONE_DIALOGS[type] : undefined;
   const [cloning, setCloning] = React.useState<Record<string, unknown> | null>(null);
 
   // Studio is scoped to a single *project* package at a time. Load the

@@ -240,7 +240,7 @@ describe('ConditionWidget — no `WidgetContext` at all is byte-for-byte unchang
  *    its own mount. The standalone `validation` kind is retired (ADR-0088), so
  *    the generic editor never receives it either. See `conditionScope.ts`'s note
  *    on that row.
- *  - `sharing_rule` and the other spec-schema types — served by the generic
+ *  - the other spec-schema types — served by the generic
  *    editor through `clientValidation`'s loader table rather than by a
  *    registered resource row, so they reach `conditionScopeForMetadataType`
  *    without ever appearing in `listMetadataResources()`.
@@ -254,7 +254,6 @@ const RULED_BEYOND_THE_REGISTRY = [
   'index',
   'job',
   'mapping',
-  'sharing_rule',
   'validation',
   'webhook',
 ] as const;

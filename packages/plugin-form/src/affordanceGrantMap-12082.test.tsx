@@ -130,6 +130,9 @@ const EXPECTED_GRANT: Record<string, Grant> = {
   // asked of `sys_comment`.
   feedCommentEdit: 'update',
   feedCommentDelete: 'delete',
+  // objectui#12982: Setup's Clone of a declared sharing rule, asked of
+  // `sys_sharing_rule`: it creates an organization rule.
+  declarationClone: 'create',
 };
 
 /** The field rows, and which grant their no-entry fallback reads. */
@@ -645,6 +648,9 @@ const RELATED_LIST_BLOCK = 'packages/plugin-detail/src/renderers/record-related-
 // permission-set editor, the position editor, the record renderer) is gated.
 const ASSIGNED_USERS = 'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx';
 const POSITION_HOLDERS = 'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx';
+// Setup's declared sharing rules: the list offers Clone only where the caller
+// holds the authored object's create grant.
+const RESOURCE_LIST_PAGE = 'packages/app-shell/src/views/metadata-admin/ResourceListPage.tsx';
 const ADAPTER ='a DataSource implementation: it runs the writes its callers hand it';
 
 /**
@@ -706,6 +712,10 @@ const WRITE_SITES: Record<string, WriteSite> = {
     mapped(['relatedNew'], POSITION_HOLDERS),
   'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > removeHolder :: delete':
     mapped(['relatedRowDelete'], POSITION_HOLDERS),
+  // A declared sharing rule's Clone (objectui#12982) creates a `sys_sharing_rule`
+  // record; the list page draws Clone only when that create's row is held.
+  'packages/app-shell/src/views/metadata-admin/SharingRuleCloneDialog.tsx :: SharingRuleCloneDialog > submit :: create':
+    mapped(['declarationClone'], RESOURCE_LIST_PAGE),
   // ── core ──
   'packages/core/src/actions/TransactionManager.ts :: TransactionManager > executeBatch :: batch':
     door('the action engine\'s transaction executor runs the operations its caller hands it'),

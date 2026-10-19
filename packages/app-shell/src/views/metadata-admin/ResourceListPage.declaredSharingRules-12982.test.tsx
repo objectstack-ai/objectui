@@ -138,6 +138,23 @@ vi.mock('@object-ui/react', async (importOriginal) => ({
   useAdapter: () => ADAPTER,
 }));
 
+/** Whether the caller holds the create grant on `sys_sharing_rule` (Clone's row). */
+let canCreateRule = true;
+vi.mock('@object-ui/permissions', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@object-ui/permissions')>();
+  return {
+    ...mod,
+    usePermissions: () => {
+      const base = mod.usePermissions();
+      return {
+        ...base,
+        can: (object: string, grant: string) =>
+          object === 'sys_sharing_rule' && grant === 'create' ? canCreateRule : base.can(object, grant as never),
+      };
+    },
+  };
+});
+
 let ledgerRows: Record<string, unknown>[] = [];
 let doorAnswer: { status: number; body: unknown } = { status: 200, body: {} };
 /** `GET /sharing/rules/:name` per name; a missing name answers the recorded 404. */
@@ -153,6 +170,7 @@ registerBuiltinAnchors();
 
 beforeEach(() => {
   canAuthor = true;
+  canCreateRule = true;
   ledgerRows = [];
   doorAnswer = { status: 200, body: { success: true, data: { type: 'sharing_rule', enabled: false } } };
   projections = { share_key_account_qualified_contacts_with_managers: KEY_ACCOUNT_PROJECTION };
@@ -278,6 +296,22 @@ describe('Disable / Enable, through the activation door', () => {
     expect(screen.getByTestId('catalog-readonly-reason')).toHaveTextContent(
       t('engine.catalog.declaredOnly.switchReadOnly', ADMIN_LOCALE),
     );
+  });
+});
+
+describe("Clone reads the authored object's create grant (`declarationClone`)", () => {
+  it('a caller without the sys_sharing_rule create grant is offered no Clone; the list and switch stay', async () => {
+    canCreateRule = false;
+    const { container } = mount();
+    await screen.findByTestId(`catalog-active-${KEY}`);
+    expect(container.querySelector('[data-testid^="catalog-clone-"]')).toBeNull();
+    expect(container.querySelector(`a[href*="/${INQ}"]`)).not.toBeNull();
+  });
+
+  it('control: holding it, each declared rule offers Clone', async () => {
+    mount();
+    await screen.findByTestId(`catalog-clone-${KEY}`);
+    expect(screen.getByTestId(`catalog-clone-${INQ}`)).toBeInTheDocument();
   });
 });
 

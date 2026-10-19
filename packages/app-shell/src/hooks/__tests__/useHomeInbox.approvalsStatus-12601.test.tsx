@@ -33,6 +33,16 @@ vi.mock('../../utils/authToken', () => ({ bearerAuthHeaders: () => ({}) }));
 import { useHomeInbox } from '../useHomeInbox';
 import { __resetSharedUserFeeds, __markFirstPainted } from '../sharedUserFeeds';
 
+/**
+ * What the approvals route answers (objectui#13027): asked for a page
+ * (`limit`), the first `limit` rows plus the exact `total`; unpaged, every row
+ * and no `total` — the route's two shapes, so the fixture is the server's.
+ */
+function approvalsPage(rows: unknown[], url: string): { data: unknown[]; total?: number } {
+  const limit = new URL(url, 'http://localhost').searchParams.get('limit');
+  return limit == null ? { data: rows } : { data: rows.slice(0, Number(limit)), total: rows.length };
+}
+
 /** How the approvals endpoint answers this case; `pending` never settles. */
 let answer: 'pending' | { status: number; ids?: string[] } = 'pending';
 let requested: string[] = [];
@@ -56,7 +66,7 @@ beforeEach(() => {
       if (answer === 'pending') return new Promise<Response>(() => {});
       const { status, ids = [] } = answer;
       return Promise.resolve(
-        new Response(JSON.stringify({ data: ids.map((id) => ({ id })) }), {
+        new Response(JSON.stringify(approvalsPage(ids.map((id) => ({ id })), String(url))), {
           status,
           headers: { 'content-type': 'application/json' },
         }),

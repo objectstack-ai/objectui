@@ -206,6 +206,16 @@ const READER: MePermissionsResponse = {
   fields: {},
 };
 
+/**
+ * What the approvals route answers (objectui#13027): asked for a page
+ * (`limit`), the first `limit` rows plus the exact `total`; unpaged, every row
+ * and no `total` — the route's two shapes, so the fixture is the server's.
+ */
+function approvalsPage(rows: unknown[], url: string): { data: unknown[]; total?: number } {
+  const limit = new URL(url, 'http://localhost').searchParams.get('limit');
+  return limit == null ? { data: rows } : { data: rows.slice(0, Number(limit)), total: rows.length };
+}
+
 /** Every approvals request, and the hand that answers the pending one. */
 let approvalUrls: string[] = [];
 let answerApprovals: ((rows: Array<{ id: string }>) => void) | null = null;
@@ -241,7 +251,7 @@ beforeEach(() => {
         return new Promise<Response>((resolve) => {
           answerApprovals = (rows) =>
             resolve(
-              new Response(JSON.stringify({ data: rows }), {
+              new Response(JSON.stringify(approvalsPage(rows, url)), {
                 status: 200,
                 headers: { 'Content-Type': 'application/json' },
               }),

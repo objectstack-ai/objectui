@@ -102,8 +102,12 @@ vi.mock('../../../hooks/sharedUserFeeds', async (importOriginal) => ({
   // the dial is still the count, always an answer here.
   // objectui#12602: the feed hands Home the requests themselves, and the
   // count is their number. Still always an answer here.
+  // objectui#13027: one page of them plus the read's `total`.
   useSharedPendingApprovalRequests: () => ({
-    value: Array.from({ length: approvalsFixture }, (_, i) => ({ id: `apr_${i + 1}`, processName: 'p' })),
+    value: {
+      requests: Array.from({ length: approvalsFixture }, (_, i) => ({ id: `apr_${i + 1}`, processName: 'p' })),
+      total: approvalsFixture,
+    },
     status: 'ready',
   }),
   useHumanActivityFeed: () => ({ value: [], status: 'ready', readable: true }),

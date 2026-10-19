@@ -542,7 +542,7 @@ describe('OBJECTSTACK_ROOT stands an existing tree in (objectui#12957, objectsta
 });
 
 describe('one build per machine, outside every checkout (objectui#12972)', () => {
-  const PINNED = `${JSON.stringify({ name: '@objectstack/spec', version: '1.0.0', exports: { '.': './dist/index.mjs' }, dependencies: { a: '1' } })}\n`;
+  const MANIFEST = `${JSON.stringify({ name: '@objectstack/spec', version: '1.0.0', exports: { '.': './dist/index.mjs' }, dependencies: { a: '1' } })}\n`;
   const BUILT = 'export const pinned = true;\n';
   /** A checkout at the pin with no build, a cache as `build` leaves one, and the store's entry for it. */
   function machine(name: string) {
@@ -553,7 +553,7 @@ describe('one build per machine, outside every checkout (objectui#12972)', () =>
     fs.writeFileSync(path.join(root, '.objectstack-sha'), `${SHA}\n`);
     fs.writeFileSync(path.join(root, 'pnpm-lock.yaml'), "snapshots:\n  '@objectstack/spec@file:.objectstack-pin/spec':\n    dependencies:\n      a: 1.0.0\n");
     const [cache, store] = [path.join(base, 'cache'), path.join(base, 'store')];
-    for (const [file, text] of [[path.join(root, PIN_DIR, 'spec/package.json'), PINNED], [path.join(cache, 'spec/package.json'), PINNED], [path.join(cache, 'spec/dist/index.mjs'), BUILT]]) {
+    for (const [file, text] of [[path.join(root, PIN_DIR, 'spec/package.json'), MANIFEST], [path.join(cache, 'spec/package.json'), MANIFEST], [path.join(cache, 'spec/dist/index.mjs'), BUILT]]) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, text);
     }
@@ -587,7 +587,7 @@ describe('one build per machine, outside every checkout (objectui#12972)', () =>
   });
 
   it.each<[string, (entry: string) => void, RegExp]>([
-    ['another pin', (e) => writeJson(path.join(e, STAMP_FILE), { recipe: RECIPE, source: 'pin', sha: 'f'.repeat(40), packages: { '@objectstack/spec': '1.0.0' } }), /not the pin: .*the pin is 0123456789ab/],
+    ['another pin', (e) => writeJson(path.join(e, STAMP_FILE), { recipe: RECIPE, source: 'pin', sha: 'f'.repeat(40), packages: { '@objectstack/spec': '1.0.0' } }), /not the pin: the cache holds f{12}, /],
     ['a package gone', (e) => fs.rmSync(path.join(e, 'spec'), { recursive: true }), /not the pin: .*does not hold @objectstack\/spec/],
     ['a file gone', (e) => fs.rmSync(path.join(e, 'spec/dist/index.mjs')), /not the ones it was published with/],
     ['a byte changed', (e) => fs.appendFileSync(path.join(e, 'spec/dist/index.mjs'), ' '), /not the ones it was published with/],

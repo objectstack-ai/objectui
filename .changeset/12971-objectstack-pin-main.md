@@ -6,9 +6,9 @@
 "@object-ui/runner": minor
 ---
 
-Build `@objectstack/*` from objectstack `main` `2ec6827962` (objectui#12971).
+Build `@objectstack/*` from objectstack `main` `f4755a68a7` (objectui#12971).
 
-`.objectstack-sha` moves from `2c9bf9430a`, the commit `@objectstack/spec` `18.0.0-next.3` was released from, to `2ec6827962`, a commit on objectstack `main` whose packages read `18.0.0-next.4`. The console and the runner bundle `@objectstack/*` built from it. No package's `@objectstack/*` range changes.
+`.objectstack-sha` moves from `2c9bf9430a`, the commit `@objectstack/spec` `18.0.0-next.3` was released from, to `f4755a68a7`, a commit on objectstack `main` after the `18.0.0-next.5` release, so its packages read `18.0.0-next.5`. The console and the runner bundle `@objectstack/*` built from it. No package's `@objectstack/*` range changes.
 
 Clause-②: no (narrowing)
 

@@ -102,6 +102,16 @@ const makeSource = () => ({
 });
 
 /**
+ * The schema reads one data load makes: one per reader. The groupBy label leg
+ * of `fetchData` reads the schema after the aggregate, and since objectui#13039
+ * the option-colour effect reads it through `getObjectSchema` too (it used to
+ * fetch `/meta/object/NAME` raw), so this double, which counts calls rather than
+ * joining them as the adapter's cache does, sees both. Neither re-runs on a
+ * re-render; under the loop this file guards, the count is in the dozens.
+ */
+const SCHEMA_READS_PER_LOAD = 2;
+
+/**
  * Let anything the render just scheduled actually run.
  *
  * Deliberately a plain timer rather than `act(async …)`: a refetch loop
@@ -154,7 +164,7 @@ describe('ObjectChart — fieldOptionLabel is a direct dependency (objectui#5587
 
     expect(seen.afterFirstLoad).toBe(1);
     expect(seen.aggregateCalls).toBe(1);
-    expect(seen.schemaCalls).toBe(1);
+    expect(seen.schemaCalls).toBe(SCHEMA_READS_PER_LOAD);
     // Precondition, asserted rather than assumed: a leaked global instance
     // would localize this and turn the case into a duplicate of the next one.
     expect(seen.resolvedLabel).toBe(RAW_OPTION_LABEL);
@@ -186,7 +196,7 @@ describe('ObjectChart — fieldOptionLabel is a direct dependency (objectui#5587
 
     expect(seen.afterFirstLoad).toBe(1);
     expect(seen.aggregateCalls).toBe(1);
-    expect(seen.schemaCalls).toBe(1);
+    expect(seen.schemaCalls).toBe(SCHEMA_READS_PER_LOAD);
     // The resolver really ran through the bound instance — so the case above
     // and this one exercise the two different identity paths, not one twice.
     expect(seen.resolvedLabel).toBe(LOCALIZED_OPTION_LABEL);

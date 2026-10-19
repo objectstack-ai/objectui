@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { ActionRunner, type ActionContext } from '../ActionRunner';
+import { ActionRunner, type ActionContext, type ActionDef } from '../ActionRunner';
 
 const PAGE: ActionContext = {
   record: { id: 'P-1', name: 'Launch' },
@@ -42,7 +42,7 @@ describe('execute with a call context (objectui#13063)', () => {
 
   it('a registered handler receives the merged context; user and the identity alias stay', async () => {
     const runner = new ActionRunner(PAGE);
-    const handler = vi.fn(async () => ({ success: true }));
+    const handler = vi.fn(async (_action: ActionDef, _ctx?: ActionContext) => ({ success: true }));
     runner.registerHandler('api', handler);
 
     await runner.execute({ type: 'api', target: '/x' }, { record: ROW, objectName: 'task' });
@@ -55,7 +55,7 @@ describe('execute with a call context (objectui#13063)', () => {
 
   it('another object drops the base object definitions; the same object keeps them', async () => {
     const runner = new ActionRunner(PAGE);
-    const handler = vi.fn(async () => ({ success: true }));
+    const handler = vi.fn(async (_action: ActionDef, _ctx?: ActionContext) => ({ success: true }));
     runner.registerHandler('api', handler);
 
     await runner.execute({ type: 'api', target: '/x' }, { record: ROW, objectName: 'task' });
@@ -71,7 +71,7 @@ describe('execute with a call context (objectui#13063)', () => {
 
   it('the `ctx` mirror follows the merge', async () => {
     const runner = new ActionRunner({ ...PAGE, ctx: { ...PAGE } });
-    const handler = vi.fn(async () => ({ success: true }));
+    const handler = vi.fn(async (_action: ActionDef, _ctx?: ActionContext) => ({ success: true }));
     runner.registerHandler('api', handler);
 
     await runner.execute({ type: 'api', target: '/x' }, { record: ROW, objectName: 'task' });

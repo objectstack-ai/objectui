@@ -1,0 +1,35 @@
+{
+  "number": 13007,
+  "kind": "pull_request",
+  "title": "feat(plugin-chatbot): the plan card draws a generated record title's line (objectui#13004)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T00:35:58Z",
+  "updated_at": "2026-10-19T01:02:35Z",
+  "closed_at": "2026-10-19T01:02:33Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-19T01:02:33Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13007",
+  "body": "Fixes #13004\nClause-②: no\n\n## What\n\nThe AI build plan card now draws a composed record title's line (the AiBuild artboard's 「名称：自动生成「{图书} · {读者} · {借出日期}」，表单里不出现」) in place of the plain 「名称：LABEL」 line. It reads the key objectstack-ai/cloud's producer writes since cloud `f7ab9cc8` (cloud PR #3047): `planCard.objects[].nameField.generated = { template, line }`.\n\n- `mapMessages.ts`: `ProposedPlanCard`'s `nameField` gains `generated?: { line: string }`. `liftPlanCard` lifts it only when `generated` is an object with a non-empty string `line`. Any other value (a string, an array, null, an object with no line, an empty or non-string line) is dropped with no throw, and the `nameField` keeps its `name` and `label`. Only `line` is lifted: the card does not draw `template`. This is the same handling #12994 gave `lifecycle` (lifted as `{ label }`).\n- `ChatbotEnhanced.tsx` (`PlanCardObjectRows`): when `nameField.generated` is present, the name line draws `generated.line` as given, in place of the translated 「名称：LABEL」 string. The line comes from the producer already localised, so it is not wrapped in the translation key. The span keeps `data-testid=\"proposed-plan-name-field\"` and gains `data-generated=\"true\"`. An object without the key renders the same markup as before.\n- Chips: drawn from `fields[]` as given. Cloud's `planCardOf` already leaves the title field out of `fields[]` when `generated` is present (the filter in `build-cards.ts`, \"The generated title is not a field the user fills or removes\"). So nothing is filtered on this side.\n- `__tests__/fixtures/build-cards.schema.ts`: re-copied from cloud `packages/service-ai-studio/schema/build-cards.schema.json` at `f7ab9cc8`, the last commit to touch that file. I followed the file's own refresh rule. Against the old copy (cloud `5a562dfc`), the diff is the `generated` subtree under `PlanCardNameField` only, plus the sha in the header line. Byte check: the object body after the header, minus the trailing `;` line, `cmp`s equal to the cloud file.\n- `__tests__/fixtures/buildCards.fixtures.ts`: `planEnvelope(lang, { generatedTitle: true })` (the same opts idiom as `applyEnvelope` and `checklistOf`). It gives the loan a formula `nameField: 'title'` on the blueprint. On the plan card it gives `nameField: { name, label, generated: { template, line } }` in both languages, spelled the way cloud's `nameGenerated` words write it, with the title field left out of the loan's chips as cloud does. With no opts, the envelope is unchanged, so every existing pin, including the 12724 \"none under one that does not\" loan control, reads the same payload as before.\n- `buildCards.contract-12724.test.ts`: two new cases check the generated-title envelope against the re-vendored schema. Both pass. Against the old copy, they would fail with `not declared`.\n\nNo new export from the package index. No other key.\n\n## Tests\n\nNew files:\n- `ChatbotEnhanced.planCardGeneratedName-13004.test.tsx`: (a) the zh and en loan rows draw the producer's line, not 「名称：借阅标题」. The loan's chips are exactly the six `fields[]` entries, with no client-side filter. (b) CONTROL: book and reader still draw 「名称：书名」 / 「名称：姓名」 with no `data-generated`. The same loan `nameField` with `generated` removed draws 「名称：借阅标题」.\n- `mapMessages.planCardGeneratedName-13004.test.ts`: (c) the lift keeps `{ line }` and not `template`. Name fields without the key lift none. Six malformed values are each dropped without throwing.\n\nAll runs below are at `f4c3fe59f1`, from the repo root. Test, build and type-check runs went through the shared verify lock:\n- New tests plus the `buildCards` / `planCard` / `mapMessages` families (12 files): `Test Files 12 passed (12)`, `Tests 148 passed (148)`.\n- `pnpm --filter @object-ui/plugin-chatbot type-check`: exit 0. `tsc -p tsconfig.test.json --listFiles` includes both new test files and the fixture.\n- The full `packages/plugin-chatbot/` directory is left to CI, as the dispatch order says.\n\nAblation (a one-time proof, done after the fix was committed): `ablation-replace.mjs` deleted the `generated` lift line in `mapMessages.ts` (anchor x1 → x0; blob `b6d9b074` → `4230c3a6`). Three tests went red: the zh and en draw tests (a) and the lift test (c). The controls (b), the chips test and the malformed-drop cases stayed green. The restore is proven by blob hash: after the restore the file is `b6d9b074`, matching HEAD, and `git diff HEAD` is empty. These suites import `../mapMessages` from source, so no `dist/` is involved.\n\nGates (exit codes recorded):\n- `pnpm --filter '@object-ui/plugin-chatbot^...' build`: 0.\n- eslint, narrowed to the 7 changed `.ts`/`.tsx` files (`--no-inline-config`): exit 0, 0 errors. All 11 warnings are in `ChatbotEnhanced.tsx`, on lines outside this diff. The JSON output counted 7 files, which is every changed lintable file. `eslint.config.js` does not enable type-aware linting, so this diff cannot change the result for any file it does not touch.\n- `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`, `check-changeset-presence.mjs`, `check:new-line-citations`: all exit 0.\n\nChangeset: `.changeset/13004-plan-card-generated-name.md` (`@object-ui/plugin-chatbot: patch`).\n\n## Acceptance notes\n\n- The shared plan fixture keeps the loan without a name field by default. The generated title is opt-in (`generatedTitle: true`), so the existing #12724 pins keep their negative case and are not edited.\n- The generated line uses the same muted 11px text as the plain name line. Only `generated.line` is consumed. `template` is left to whatever later surface needs the composition itself.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nImplemented in session `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 12999,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): record:quick_actions draws nothing when its named actions are all withheld (objectui#12995)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T22:40:41Z",
+  "updated_at": "2026-10-18T23:07:21Z",
+  "closed_at": "2026-10-18T23:07:20Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-18T23:07:19Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12999",
+  "body": "Fixes #12995\nClause-②: no\n\n## What changed\n\n`record:quick_actions` (`@object-ui/plugin-detail`) drew its authoring placeholder, \"record:quick_actions — no actions configured\", whenever its resolved action list was empty. A member whose named actions were all withheld by `requiredPermissions` saw that false developer sentence on a published page. The empty bar now tells three cases apart:\n\n- **Named actions, all withheld** (or hidden by `visible`, at another location, or with no record to run against): the bar draws **nothing**, as the record header and the row menu do. \"Named\" is read from the block's own declared list, resolved to action defs **before** the engine's filters. The capability check is not run a second time; `getActionsForLocation` stays its only owner.\n- **No action named** (or only ids that resolve to none): the placeholder is drawn only where `usePreviewMode()` from `@object-ui/react` is true, and a runtime view draws nothing. That signal already exists: the Studio page canvas (`PageBlockCanvas`) and the view previews mount `PreviewModeProvider`, and it defaults to `false`. No new context key was added.\n- **Refused array** (mixed ids and objects): unchanged. The refusal is still named on the surface and in the console.\n\n`ActionEngine` is unchanged and the spec is unchanged.\n\nThe registered `actionNames` input description, which `gen-manifest` publishes, said that with no names \"the bar renders its empty placeholder\". This change made that sentence false at runtime, so it now says the placeholder shows on a design / preview surface and nothing shows at runtime. This is the one edit in `packages/plugin-detail/src/index.tsx`.\n\n## Tests\n\nNew pin: `record-quick-actions.withheldEmpty-12995.test.tsx`.\n- (a) A block naming two actions, both withheld by `requiredPermissions`, renders nothing: no placeholder, no toolbar, empty text. This holds at runtime and on a preview surface.\n- (b) A block naming none renders the placeholder under `PreviewModeProvider` and nothing at runtime.\n- (c) CONTROL: a block naming one held action renders that button. A held action next to a withheld one renders only the held one.\n\nExisting pins updated:\n- `record-quick-actions.declared-action-ids-7182`: the typo-id empty state is now read on a preview surface.\n- `recordQuickActionsInputs.actionNamesFallback`: case 1 is now read on a preview surface. The description pin still matches \"empty placeholder\".\n- `recordBinding.appPage-12294`: with zero rows, the bar now draws no placeholder.\n\nRuns, all at head `beca5c5867`:\n- Targeted vitest, `--maxWorkers=1`, under the shared lock:\n  - Every `record-quick-actions.*` and `recordBinding.*` test, plus `actionNamesFallback`, `declaredActionIds.twoRenderers-7182`, `record-blocks.requiredPermissions-gate`, `recordComponentAria-9556`, `recordAriaLabelRetired-9945` and `detailRendererUndeclaredKeys-8649`: 19 files, 224 tests passed.\n  - The cross-package families that name the block (apps/console `record-block-record-reach`, `registry-inputs-spec-parity`, `public-contract`, `objectname-binding-required-11605`; app-shell `currentUserCan-*` render tests and `block-config`; plugin-detail `buildDefaultPageSchema`): 8 files, 531 tests passed.\n- **Ablation, one-off, no test file kept.** The new `return null` branch was deleted through `ablation-replace.mjs`. The anchor went from 1 hit to 0, and the blob changed from `d1ca207f92dd` to `80ff9331dcef`. With the branch gone, both (a) cases and the runtime (b) case went red: 3 failed, 3 passed. Both (c) controls and the preview (b) case stayed green. The restore was proven by blob hash: the restored file equals the HEAD blob `d1ca207f92dd`, and `git diff HEAD` is empty.\n- `pnpm --filter @object-ui/plugin-detail type-check` (after building the closure with `--filter '@object-ui/plugin-detail^...' build`): exit 0. Tests are covered by `tsconfig.test.json`.\n- eslint on the 6 changed files: 0 errors (warnings are of the kinds already present). A narrowed run is a real measurement here because type-aware linting is not enabled, so this diff cannot move the verdict on any untouched file.\n- The pre-tsc battery (`check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`), plus `check-hand-rolled-comment-mask`, `check-changeset-fixed`, `check-changeset-presence` and `check:new-line-citations`: all exit 0.\n- NOT MEASURED locally: the whole `packages/plugin-detail/` directory. The dispatch declares it to CI.\n\n## Acceptance notes\n\n- The page-editor **preview tab** in `PagePreview` (the non-design path that mirrors the runtime) does not mount `PreviewModeProvider`, so it shows what a member sees: nothing for a block that names no action. The design canvas shows the placeholder. This follows the preview's stated intent (\"authors see exactly what end-users would see\"). It is noted here rather than changed.\n- The refused-array placeholder (\"… refused at index N (see console)\") is still drawn at runtime too. That is developer copy of the same kind, but it is outside this card's ruling. Carrier: none.\n- The live smoke `e2e/live/showcase-smoke.spec.ts` already asserts that no \"no actions configured\" placeholder leaks onto showcase surfaces. This change moves the renderer the same way.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

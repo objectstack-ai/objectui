@@ -2,8 +2,8 @@
   "number": 12983,
   "kind": "issue",
   "title": "Environments list: on the free plan, draw the 「开发环境 · 团队版起」 lock mark only for a viewer the server sends an upgrade link to (ruling B on cloud#2917)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,20 +13,21 @@
   "labels": [
     "domain:ui",
     "enhancement",
-    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [
-    "os-zhuang"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-18T17:58:51Z",
-  "updated_at": "2026-10-18T19:33:16Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-18T21:35:06Z",
+  "closed_at": "2026-10-18T21:33:53Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12983",
   "body": "Filed by the `repo:cloud#2` seat (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`) under ruling B on objectstack-ai/cloud#2917 (`6251325902`, the maintainer's 「2917 B」), item 2. That item binds this seat to file the objectui shape when cloud's `create_environment` cannot carry the change. ⛔ Not a claim.\n\n## The ruling\n\nRuling B: the 「开发环境」 upsell reaches only whoever can upgrade. On a Free organization, a plain member cannot upgrade, so a plain member no longer meets it.\n- **Item 1 (cloud, objectstack-ai/cloud PR #3032):** the environment record page's line, now drawn only for managers.\n- **Item 2 (this card):** the environments list's lock mark. objectstack-ai/objectui#12956, named in the decision as the carrier, is closed, so it cannot carry this.\n\n## Why cloud cannot carry it\n\nMeasured by the cloud#2917 round-2 dev (report `6253181270` on objectstack-ai/cloud#2917):\n- **A member may create.** `POST /api/v1/cloud/environments` admits any organization member (`packages/service-cloud/src/routes/environment-lifecycle.ts:1254-1258`, \"The role is deliberately not checked\"). On a team plan, a plain member's create answered 201 (measured), and `environment-create-org-authz.test.ts:191-205` pins it.\n- **So the action cannot be the lever.** Declaring `requiredPermissions` on `create_environment` would hide 新建环境 from that member on every plan, not only the lock mark on the free plan.\n\n## What the user sees today (objectui `43efd078aaf9`)\n\n- `packages/app-shell/src/environment/EnvironmentListToolbar.tsx:250-262`: when `ctaKind` is `upgrade_for_development` and the create action is on the bar, `DevelopmentLockedMark` is drawn for every viewer.\n- `:145-166`: the mark is drawn UNLINKED when the summary carries no `upgradeUrl`. That is exactly a plain member's answer, because cloud already trims it by role:\n  - `environment-lifecycle.ts:1681` `resolveSummaryCanManage`; at `:1697-1700`, `plan`, `seatCount`, `upgradeUrl` and `contactSalesUrl` are sent only when the viewer manages the organization;\n  - pinned by `packages/service-cloud/test/environment-entitlements-authz.test.ts:92-116` and the booted `apps/cloud/test/billing-page-bindings.test.ts`.\n- objectui keeps the trimmed answer verbatim: `useEnvironmentEntitlements.ts:102`, `entitlements.ts:202-225` (`state.upgradeUrl`).\n\n## Target\n\nIn the `upgrade_for_development` branch of `EnvironmentListToolbar`, draw `DevelopmentLockedMark` only when `entitlements.upgradeUrl` is present, and retire the unlinked variant. The server's own role decision is the signal. A viewer the server sends no upgrade link cannot upgrade, which is ruling B's test.\n\n- **The create action's other behaviour is unchanged.** On a paid plan, every member who sees 新建环境 today still sees it.\n- **Not this card:** a new viewer flag in cloud's summary. That would widen a contract for a fact the trim already carries, and it spans two repos.\n\n## File surface\n\n`packages/app-shell/src/environment/EnvironmentListToolbar.tsx` (the mark's condition and the unlinked variant), its tests, a changeset.\n\n## Acceptance\n\n1. On a Free organization, a manager (summary with `upgradeUrl`) sees the mark, linked, and a plain member (summary without it) sees no mark. The toolbar's other actions render as before, for both.\n2. On a paid plan, 新建环境 renders for a plain member exactly as today.\n3. The unlinked variant and its tests are gone, and nothing else imports it.\n\n## After it lands\n\nThe cloud comment at `packages/service-cloud/src/routes/environment-lifecycle.ts:1671-1677` (\"Absent, the console draws ... an unlinked locked mark\") goes stale. It rides the next cloud PR that touches that file. Carrier: objectstack-ai/cloud#2917.\n\n## Dedupe\n\nobjectstack-ai/objectui#12956 (closed; the decision named it), objectstack-ai/cloud#2917 (ruling B), objectstack-ai/cloud#3002 (ruling A item 2: plain members see no concept they cannot use).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

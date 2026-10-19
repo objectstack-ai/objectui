@@ -1,0 +1,33 @@
+{
+  "number": 13011,
+  "kind": "issue",
+  "title": "metadata-admin: the permission-set editor's badge tells a caller without `manage_metadata` that the type \"has no runtime write channel\"; the reason is the caller's capability",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3",
+    "target:v18"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T01:32:09Z",
+  "updated_at": "2026-10-19T02:25:13Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13011",
+  "body": "Filing gate **①**: a false sentence shown to a user, measured. Filed by the objectstack epic seat (`epic:#15194`, `session_01Y5583bs2RDd53MH6kM1ca3`) from the contract review of PR #12998, record 6257392934, out-of-scope item 2. Reader who acts: the `domain:ui` seat. Dedupe:\n- semantic search on objectstack-ai/objectui, \"PermissionMatrixEditor read-only badge says metadata type has no runtime write channel for caller without manage_metadata\" → 10 hits, all closed, none about this branch;\n- the pointer's own dedupe words, \"perm.readOnly badge canAuthor\" and \"matrix badge names type tier\", → no open card.\n\nSource: pointer 6118079494 item 2 on #7611 (2026-10-12) recorded this from a code read. The C9 dev re-observed it in the browser under `single` and under `isolated` (PR #12998's report). The reviewer escalated it as a small card.\n\n## What is wrong\n\nTake a caller who is not walled and does not hold `manage_metadata` (for example an organization admin without the fixture set). When that caller opens a permission set, `PermissionMatrixEditPage` (`packages/app-shell/src/views/metadata-admin/PermissionMatrixEditor.tsx`, the identity `Badge` at about `:1405`–`:1427` on `main` `78b07f4`) falls through its chain to the last arm. The badge then reads `perm.readOnly`, \"Read-only (this metadata type has no runtime write channel)\", with the `perm.readOnly.hint` tooltip.\n\nThat is false for `permission`. The type does have a runtime write channel; this caller just cannot use it. The banner at about `:1282` (`!canAuthor && !readOnly && !walledReadOnly`) already gives the correct capability reason. So the page shows two contradictory reasons side by side.\n\n## Wanted\n\nThe badge names the gate that actually closed. When `!canAuthor` is the reason, the badge says the caller lacks the capability, or defers to the banner. The type-tier sentence is kept for a type whose tier really is closed.\n\nThe landing point is the badge's arm order, not the banner. Pin it in `PermissionMatrixEditor.readonly.test.tsx`: a caller without `manage_metadata` on an open type gets no \"no runtime write channel\" text.\n\n## Acceptance\n\n- Under `single`, an organization admin without `manage_metadata` opens a permission set. The page shows one reason, the capability, and does not say \"no runtime write channel\".\n- The existing arms are unchanged: the host `readOnly`, walled, artifact-tier and type-tier cases. The readonly test file's existing cases stay green."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 13010,
+  "kind": "issue",
+  "title": "record page open: four serial waves — the related cards' top=1 count reads repeat what their top=3 reads already answered, security/explain is sent twice again, and the timeline, comments, attachments and user list load in the record's own wave (1.9 s in-app, 6.5 s on a full load at ~350 ms RTT)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T01:06:59Z",
+  "updated_at": "2026-10-19T02:24:37Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13010",
+  "body": "## What was measured\n\n**Setup:**\n- Staging environment `os-6hf1jq`, HotCRM 5.1.0. Cloud `94704206`, so objectui `c4dd7078ed4a` and framework `be076dad28a0`. Warm kernel.\n- Built-in Chromium pane, HTTP/2.\n- The user's round trip to the origin is about **350 ms**: `/api/v1/health` median 353 ms over 5 calls, and 8 concurrent health calls finish in 345–368 ms.\n- Record: opportunity `3c6SWnT0jFcWZOm9`, which has 3 line items, 3 quote slots and 3 task slots.\n\n**What the timings mean:** at that round trip, every serial wave the record page adds costs about 0.35 s before any server time.\n\n### In-app open (list → record): title at 1.86 s, line items at 1.97 s, 15 requests in 4 waves\n\n| Wave | Starts | Requests | Ends |\n|---|---|---|---|\n| 1 | 40–59 ms | `approvals/requests?object&recordId`; **`security/explain` ×2 (identical, same millisecond)**; `data/crm_opportunity?populate=organization_id,created_by,updated_by,owning_business_unit_id…`; `data/sys_user?top=50&select=id,name,email,image`; `data/sys_activity?populate=actor_id&top=200`; `data/sys_comment?thread_id=…`; `data/sys_attachment?top=100` | 0.68–1.81 s; the record itself lands last, at 1.81 s |\n| 2 | 995 ms | `crm_quote` / `crm_opportunity_line_item` / `crm_task` related cards, `top=3` | 1.81–2.34 s |\n| 3 | 1858 ms | **the same three related reads again, `top=1`** | 2.35 s |\n| 4 | 2343 ms | `PATCH sys_user_preference/…` (recent items) | 2.84 s |\n\n- **Wave 3 asks for nothing wave 2 did not already answer.** The `top=3` response carries the real count: `{ records: 3, total: 6, hasMore: true }` for an opportunity with 6 lines. So the `top=1` read per card is a full extra wave plus 3 requests.\n- **Wave 2 starts at ~1 s.** The related-card reads need only the record id, which is in the route, yet they start after something in wave 1. The gate was not traced.\n- **`security/explain` is sent twice for one record open.** #8014 and #11699 closed this. At this pin it is back: two identical POSTs at the same millisecond. The only record-scope fetcher is `packages/plugin-grid/src/hooks/useRecordCrudVerdicts.ts:371`.\n- **Wave 1 carries four reads the first paint does not show.** The timeline (`sys_activity` `top=200` with `populate=actor_id`), comments, attachments and the `sys_user` `top=50` list load on every open, before the 活动 tab is opened. They share the wave with the record read. Under the server's concurrent-request queueing (objectstack-ai/cloud#3053), the record read's TTFB goes from 0.5 s alone to 1.76 s in this wave.\n\n### Full load of the same kind of record URL: record body at 6.5 s, 49 requests\n\n- `data/crm_opportunity` starts at **3.82 s**, behind seven boot waves:\n  - `runtime/config`;\n  - `get-session`;\n  - discovery / i18n / organization;\n  - `meta/app` and `sys_user_preference`;\n  - the whole `meta/object` (110 KB), `meta/view`, `meta/page`, `settings`;\n  - `settings/localization`, `meta/dashboard`, `meta/report`, `ai/agents`, `approvals`, `packages` (**300 KB**);\n  - then the record wave.\n- After the whole registry was read, `meta/object/crm_opportunity`, `crm_quote`, `crm_opportunity_line_item`, `crm_task`, then `crm_account`, `sys_user` and `crm_contact` are each fetched again on their own.\n- **Already filed:** the boot waves, the whole-registry read, `meta/dashboard` / `meta/report` / `ai/agents` / bell feeds on open are objectstack-ai/objectui#12980, for page routes. This card does not repeat them. It adds that a **record** route pays the same, plus the per-object re-reads, plus the four waves above.\n\n## Wanted\n\n1. A related card counts from the `total` its own list read returns. No second `top=1` read per card.\n2. The related-card reads start in the first wave, from the route's record id.\n3. One `security/explain` per record open: share the in-flight request, as #8014 did.\n4. The timeline, comments, attachments and the user list load when their tab or panel is shown, or after first paint, not in the record's wave.\n5. A record route does not re-read an object's metadata that the registry read already returned.\n\n## Acceptance\n\n- The same in-app open, measured the same way: at most 2 waves before the record title and the related cards are drawn; one `security/explain`; no `top=1` follow-up read; no `sys_activity` / `sys_comment` / `sys_attachment` / `sys_user` read until their tab is opened.\n- A test per item.\n\n## How to reproduce the measurement\n\nOpen any record from a list in the console. In the page:\n- `performance.clearResourceTimings()` before the click;\n- then read `performance.getEntriesByType('resource')` filtered to `/api/` for start, end and TTFB.\n\nWhen firing the same URL concurrently, add a unique query parameter and `cache: 'no-store'`. Otherwise Chromium's HTTP cache lock serializes identical GETs and fakes a server-side staircase.\n\n## Dedupe\n\nSearched objectui, objectstack and cloud, open and closed, for \"record page slow\", \"record detail load\", \"waterfall\", \"security/explain twice\", \"related list count\", \"record page performance\".\n- Neighbours:\n  - objectui#11699 and #8014 (closed: the duplicate GET / explain, now back for explain);\n  - objectui#12701 (closed: approvals and record fetch counts);\n  - objectui#12809 (closed: splash waves);\n  - objectui#12980 (open: page-route boot reads);\n  - objectstack#10757 (open: per-request DB legs);\n  - cloud#2914 (open: control-plane console open).\n- None covers the record route's own waves, the redundant count reads or the eager feed reads.\n"
+}

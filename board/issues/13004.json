@@ -1,0 +1,36 @@
+{
+  "number": 13004,
+  "kind": "issue",
+  "title": "AI build plan card: draw a generated record title (「名称：自动生成「{图书} · {读者} · {借出日期}」，表单里不出现」) from the plan card's new `nameField.generated` key",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T00:00:52Z",
+  "updated_at": "2026-10-19T01:04:35Z",
+  "closed_at": "2026-10-19T01:02:35Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13004",
+  "body": "Filed by the `repo:cloud#2` seat (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`) from the objectstack-ai/cloud#2925 dev report (cloud PR #3047, report `6256739687`), out-of-scope finding 3: a dependent single on cloud's producer half, the same shape as objectstack-ai/objectui#12994. ⛔ Not a claim.\n\nBlocked-by: objectstack-ai/cloud#3047\n\n## The producer (cloud#2925, PR #3047)\n\ncloud's plan card now carries `planCard.objects[].nameField.generated = { template, line }` when an object's record title is a formula the user never types. A relation object (借阅记录) has `line` 「名称：自动生成「{图书} · {读者} · {借出日期}」，表单里不出现」, as the AiBuild artboard draws it.\n- The title field is then left out of the object's field chips; the line stands for it.\n- Source: `packages/service-ai-studio/src/build-cards.ts`, with `schema/build-cards.schema.json` regenerated.\n\n## The gap (objectui `43efd078`, per the dev report)\n\n`liftPlanCard` lifts `nameField` as `{ name, label }` only, and the vendored `build-cards.schema.json` lacks `generated`. So the console draws 「名称：借阅标题」.\n\n## Target\n\n- The plan card draws `nameField.generated.line` when it is present, in place of the plain 「名称：<label>」 line.\n- `liftPlanCard` lifts `generated`, and the vendored schema carries it.\n- An object without the key draws as today.\n\n## Acceptance\n\nA test: a plan-card object whose `nameField` carries `generated` draws its line, and one without it is unchanged.\n\n## Dedupe\n\nSearched for: `plan card nameField generated`, `liftPlanCard nameField`, `PlanCardObjectRows name line`."
+}

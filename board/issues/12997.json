@@ -1,0 +1,35 @@
+{
+  "number": 12997,
+  "kind": "pull_request",
+  "title": "feat(plugin-chatbot): the plan card draws a stage field's lifecycle on its chip (objectui#12994)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-18T22:38:25Z",
+  "updated_at": "2026-10-18T23:05:22Z",
+  "closed_at": "2026-10-18T23:05:20Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-18T23:05:20Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12997",
+  "body": "Fixes #12994\nClause-②: no\n\n## What\n\nThe AI build plan card now draws a stage field's lifecycle on that field's chip (the AiBuild artboard's 「借出 · 已还 ✓完成 · 逾期 ⚠」), read from the key objectstack-ai/cloud's producer writes since cloud `5a562dfc` (cloud PR #3037): `planCard.objects[].fields[].lifecycle = { options, label }`.\n\n- `mapMessages.ts`: `ProposedPlanCard`'s field gains `lifecycle?: { label: string }`. `liftPlanCard` lifts it only when `lifecycle` is an object with a non-empty string `label`. Any other value (a string, an array, null, an object with no label, an empty or non-string label) is dropped like an unknown key, with no throw. Only `label` is lifted: the card does not draw `options`, and this follows the interface's own rule that keys the card does not draw are not lifted. It is the same handling `format` gets (`{ kind, label }` lifted to `{ label }`).\n- `ChatbotEnhanced.tsx` (`PlanCardObjectRows`): the chip draws `lifecycle.label` **beside** the field label, in a muted span (`data-testid=\"proposed-plan-field-lifecycle\"`), placed after the format span. Why beside and not in place of: the chip draws no plain type label today (only the field label, the format, and the suggested mark), so there is nothing for it to replace. The field label stays the chip's name, as it does for the artboard's 状态 chip. A chip without the key renders the same markup as before.\n- `__tests__/fixtures/build-cards.schema.ts`: re-copied from cloud `packages/service-ai-studio/schema/build-cards.schema.json` at `5a562dfc` (unchanged at cloud `main` `0d89ebb7`), following the file's own refresh rule. The diff against the old copy (`69632617`) is the `lifecycle` subtree under `PlanCardField` only, plus the sha in the header line. Byte check: the object body after the header, minus the trailing `;` line, `cmp`s equal to the cloud file.\n- `__tests__/fixtures/buildCards.fixtures.ts`: the loan `status` field on `planCard` carries `lifecycle` in both languages, spelled the way cloud's `cardFieldLifecycle` writes it (open → label; won → label + ` ✓完成` / ` ✓done`; lost → label + ` ⚠`). `buildCards.contract-12724.test.ts` checks it against the re-vendored schema and passes. Against the old copy it would fail with `not declared`.\n\nNo new export from the package index. No other chip key.\n\n## Tests\n\nNew files:\n- `ChatbotEnhanced.planCardLifecycle-12994.test.tsx`: (a) the zh and en stage-field chips draw their lifecycle line; (b) CONTROL: the other five loan chips and every book chip draw as before; and the same stage field with `lifecycle` removed draws its plain label `状态` with no lifecycle span.\n- `mapMessages.planCardLifecycle-12994.test.ts`: (c) the lift keeps `{ label }`; fields without the key lift none; six malformed values are each dropped without throwing.\n\nRuns, all at `cb34a67c4a`, all from the repo root under the shared verify lock:\n- New tests plus the `buildCards` / `PlanCard` / `mapMessages` families (12 files): `Test Files 12 passed (12)`, `Tests 145 passed (145)`.\n- `pnpm --filter @object-ui/plugin-chatbot type-check`: exit 0. `tsc -p tsconfig.test.json --listFiles` includes both new test files.\n- The full `packages/plugin-chatbot/` directory is left to CI, as the dispatch order says.\n\nAblation (a one-time proof, done after the fix was committed): `ablation-replace.mjs` deleted the lift line in `mapMessages.ts` (anchor x1 → x0; blob `b5875b42` → `905d881d`). Three tests went red: the zh and en chip tests (a) and the lift test (c). The controls (b) stayed green. The restore is proven by blob hash: after the restore the file is `b5875b42`, matching HEAD, and `git diff HEAD` is empty. These suites import `../mapMessages` from source, so no `dist/` is involved.\n\nGates (exit codes recorded):\n- `pnpm --filter '@object-ui/plugin-chatbot^...' build`: 0.\n- eslint, narrowed to the 6 changed `.ts`/`.tsx` files (`--no-inline-config`): exit 0, 0 errors. All 11 warnings are on lines outside this diff. The JSON output counted 6 files, which is every changed lintable file. `eslint.config.js` does not enable type-aware linting, so this diff cannot change the result for any file it does not touch.\n- `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`: all exit 0.\n\nChangeset: `.changeset/12994-plan-card-lifecycle.md` (`@object-ui/plugin-chatbot: patch`).\n\n## Acceptance notes\n\n- The lifecycle line uses the same muted, 10.5px text as the format span, but not mono type. It is prose, not a constraint value.\n- Only `lifecycle.label` is consumed. `lifecycle.options` (each option's value, label and kind) is left to whatever later surface draws the options one by one.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nImplemented in session `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

@@ -1962,7 +1962,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // Latched for the view's life for the feed's reason.
   const historyPage = useMemo(() => {
     if (!historyEnabled || assignedPage || namedPageBlocked || !objectDef) return null;
-    return buildDefaultPageSchema(objectDef as any, {
+    return buildDefaultPageSchema(objectDef, {
       ...(assignedSlots ? { slots: assignedSlots } : {}),
       history: { entries: [] },
     });

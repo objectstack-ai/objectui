@@ -618,7 +618,9 @@ export async function lintCelPredicate(
     // Lowerability (objectui#13061) — see `rlsLowerabilityVerdict`. Both RLS
     // clauses, only once the predicate parses (a parse fault already surfaced
     // above), at the server's severity and in its words.
-    if (issues.every((i) => i.severity !== 'error') && (hint.clause === 'using' || hint.clause === 'check')) {
+    // (`some`, not `every`: an inferred predicate on `every` would narrow
+    // `issues` to warnings and refuse the push below.)
+    if (!issues.some((i) => i.severity === 'error') && (hint.clause === 'using' || hint.clause === 'check')) {
       try {
         issues.push(...(await rlsLowerabilityVerdict(mod, source, hint.clause)));
       } catch {

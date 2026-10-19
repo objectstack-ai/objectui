@@ -72,6 +72,15 @@ export function deriveFieldGroupSections(
     // key — nothing on this surface would read it.
     ...(s.description !== undefined ? { description: s.description } : {}),
     ...(s.visibleWhen !== undefined ? { visibleWhen: s.visibleWhen as ObjectFormSection['visibleWhen'] } : {}),
+    // The fault direction travels WITH the predicate (objectui#13055): this is
+    // a field group's `visibleWhen`, which `@objectstack/spec` declares
+    // fail-closed ("else hidden (fail-closed)" on
+    // `ObjectFieldGroupSchema.visibleWhen`), while a form-view section's own
+    // `visibleWhen` is declared to fault open. Both reach the form renderer in
+    // the same `section-divider` slot, so the slot cannot tell them apart;
+    // this stamp can. Every arm that rebuilds a section key by key carries it
+    // beside `visibleWhen` (`sectionFaultCarry-13055` pins that).
+    ...(s.visibleWhen !== undefined ? { visibleWhenFault: 'hidden' as const } : {}),
     fields: [...s.fields],
     // Map the shared `collapse` enum onto the renderer's boolean pair.
     ...(s.collapse !== 'none' ? { collapsible: true } : {}),
@@ -127,6 +136,11 @@ export interface SectionDividerSource {
   description?: string;
   /** ADR-0089 `FormSection.visibleWhen` (#6111), unevaluated. */
   visibleWhen?: unknown;
+  /**
+   * The fault direction of {@link visibleWhen}, copied onto the row unchanged
+   * (`ObjectFormSection.visibleWhenFault`, objectui#13055).
+   */
+  visibleWhenFault?: ObjectFormSection['visibleWhenFault'];
   /** The objectui#6236 membership claim: RESOLVED (post-FLS) member names. */
   members: string[];
   /** Read by one arm only — see `projectSectionDivider`. */
@@ -283,6 +297,9 @@ const DIVIDER_COL_SPAN = 4;
  *    evaluates it on this pseudo-field with the host predicate scope bound
  *    (#6010), so copying it here is what makes the authored predicate reach an
  *    evaluator at all.
+ *  - `visibleWhenFault` — the fault direction of that predicate, emitted only
+ *    when the section carries one (a field group's: `'hidden'`,
+ *    objectui#13055). The renderer reads it for the divider's fault fallback.
  *  - `fields` — the objectui#6236 membership claim: RESOLVED member names, so
  *    the predicate gates the whole group and not just the heading. The form
  *    renderer also ends the group's field grid where the claim ends
@@ -306,7 +323,7 @@ const DIVIDER_COL_SPAN = 4;
  * have.
  */
 export function projectSectionDivider(source: SectionDividerSource): FormField[] {
-  const { key, title, description, visibleWhen, members, className, collapse } = source;
+  const { key, title, description, visibleWhen, visibleWhenFault, members, className, collapse } = source;
 
   if (!sectionDrawsDividerRow(title, description)) {
     if (visibleWhen == null) return [];
@@ -315,6 +332,7 @@ export function projectSectionDivider(source: SectionDividerSource): FormField[]
         name: `__section_gate_${key}`,
         type: 'section-divider',
         visibleWhen,
+        ...(visibleWhenFault !== undefined ? { visibleWhenFault } : {}),
         fields: members,
         colSpan: DIVIDER_COL_SPAN,
       } as unknown as FormField,
@@ -330,6 +348,7 @@ export function projectSectionDivider(source: SectionDividerSource): FormField[]
     fields: members,
     colSpan: DIVIDER_COL_SPAN,
   };
+  if (visibleWhenFault !== undefined) row.visibleWhenFault = visibleWhenFault;
   if (className !== undefined) row.className = className;
   if (collapse) {
     row.collapsible = collapse.collapsible;

@@ -27,7 +27,7 @@ import {
   resolveAffordance,
   type FieldRulePredicate,
   recordDisplayValueAt,
-  resolveFieldRuleState,
+  evalFieldPredicate,
   resolveNameField,
   toPredicateRecord,
   withoutDeniedFields,
@@ -216,9 +216,10 @@ function sectionPredicateRecord(
  * reference it with `{ group }` — which is what the synthesized default page
  * and a Studio seed now emit.
  *
- * ⭐ ONE evaluator, the form's: `resolveFieldRuleState` from `@object-ui/core`,
- * the call the form renderer makes for a `section-divider` row's own
- * `visibleWhen`, with the same three inputs it passes —
+ * ⭐ ONE engine, the form's: `evalFieldPredicate` from `@object-ui/core`, the
+ * call the form renderer makes for a field group's `section-divider` gate
+ * (`sectionGateVisible` in `@object-ui/components`' form renderer), with the
+ * same three inputs it passes —
  *
  *  - `record` — {@link sectionPredicateRecord}; values bind under `record.`
  *    only, so a bare `kind == 'pro'` is an unbound identifier on both
@@ -238,11 +239,14 @@ function sectionPredicateRecord(
  * `FieldRulePredicate` is safe.
  *
  * ⚠️ A predicate that cannot be evaluated (parse error, unbound identifier, a
- * blank or `source`-less declaration) SHOWS the section, because that is what
- * the form does: `resolveFieldRuleState` answers a faulted `visibleWhen` with
- * `VISIBLE_WHEN_FAULTED` (`true`, ADR-0137 D3) and warns once per predicate
- * text. Taking the direction from the shared evaluator rather than restating
- * it here is what keeps the two surfaces from drifting if that constant moves.
+ * blank or `source`-less declaration) HIDES the section — fail-CLOSED, the
+ * direction `@objectstack/spec` declares for this slot
+ * (`ObjectFieldGroupSchema.visibleWhen`: "else hidden (fail-closed)") and the
+ * one the form takes for the same group (objectui#13055). It is NOT the
+ * field-rule triad's fail-open (`VISIBLE_WHEN_FAULTED`, ADR-0137 D3), whose
+ * scope note leaves this slot its own direction. The one-time warning names
+ * `false` as the default taken. Only field-group references reach this
+ * function, so there is no fail-open origin to tell apart here.
  */
 function sectionPredicateVisible(
   visibleWhen: FieldRulePredicate,
@@ -250,14 +254,9 @@ function sectionPredicateVisible(
   scope: Record<string, unknown>,
   where: string,
 ): boolean {
-  return resolveFieldRuleState(
-    { visibleWhen },
-    record,
-    {},
-    record,
-    scope,
-    where,
-  ).visible;
+  return evalFieldPredicate(visibleWhen, record, false, record, scope, {
+    context: `visibleWhen of ${where} — fail-closed, the group is hidden`,
+  });
 }
 
 export interface RecordDetailsRendererProps {

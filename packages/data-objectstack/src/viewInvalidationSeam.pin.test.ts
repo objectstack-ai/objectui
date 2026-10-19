@@ -42,8 +42,8 @@ import { ObjectStackAdapter } from './index';
  *
  * The published view list both of those readers derive from has one key too,
  * `VIEW_LIST_KEY` (objectui#13044). It is a constant rather than a template,
- * so it is pinned by its invalidation instead: the seam is the only line that
- * drops it.
+ * so it is pinned by its invalidation instead: the seam, and the wrap over this
+ * adapter's client's `view` writes, are the only lines that drop it.
  *
  * Two, not one: a reader must spell the key it caches under — that is where the
  * key is *defined*. What must not recur is a THIRD spelling, because the only
@@ -116,11 +116,14 @@ describe('the view cache key set has exactly one owner (objectui#4373)', () => {
     ]);
   });
 
-  it('drops the shared view list in the seam and nowhere else (objectui#13044)', () => {
+  it('drops the shared view list in exactly two places: the client write wrap and the seam (objectui#13044)', () => {
     const listLines = adapterSrc
       .split('\n')
       .filter((l: string) => l.includes('metadataCache.invalidate') && l.includes('VIEW_LIST_KEY'));
-    expect(listLines.map((l: string) => l.trim())).toEqual(['this.metadataCache.invalidate?.(VIEW_LIST_KEY);']);
+    expect(listLines.map((l: string) => l.trim())).toEqual([
+      'return bound(...args).finally(() => this.metadataCache.invalidate?.(VIEW_LIST_KEY));',
+      'this.metadataCache.invalidate?.(VIEW_LIST_KEY);',
+    ]);
   });
 });
 

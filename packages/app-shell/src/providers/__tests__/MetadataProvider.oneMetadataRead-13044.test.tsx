@@ -18,11 +18,13 @@
  *
  *   (a) the provider's by-name object read and `getObjectSchema` ask
  *       `/meta/object/NAME` once, in either order;
- *   (b) the eager view read, `listViews` and `listViewOverrides` ask
- *       `/meta/view` once;
- *   (c) the controls: an invalidation still refetches, the preview path still
- *       goes to the preview client, and each side's readers see the shape they
- *       saw before.
+ *   (b) the eager view read, `listViews` and `listViewOverrides` share a
+ *       `/meta/view` request that is in flight, and nothing is stored: the
+ *       console order costs two requests where it cost three (ruling
+ *       6268839381 kept the list uncached);
+ *   (c) the controls: an invalidation still refetches, a later list read and
+ *       a view write still ask again, the preview path still goes to the
+ *       preview client, and each side's readers see the shape they saw before.
  */
 
 import { act, cleanup, render, waitFor } from '@testing-library/react';
@@ -79,6 +81,7 @@ function makeServer(): { server: Server; adapter: ObjectStackAdapter } {
   const answer = (path: string): Response => {
     if (path.endsWith('/api/v1/discovery')) return json(200, { success: true, data: {} });
     if (path === '/api/v1/meta/view') return json(200, { success: true, data: { type: 'view', items: structuredClone(VIEWS) } });
+    if (path.startsWith('/api/v1/meta/view/')) return json(200, { success: true });
     const byName = /^\/api\/v1\/meta\/object\/([^/?]+)$/.exec(path);
     if (byName) {
       const name = decodeURIComponent(byName[1]);
@@ -196,18 +199,21 @@ describe('one request per object document across both caches (objectui#13044)', 
   });
 });
 
-describe('one request for the published view list across both caches (objectui#13044)', () => {
-  it('the eager view read, listViews and listViewOverrides ask /meta/view once', async () => {
+describe('the published view list: one request in flight, nothing stored (objectui#13044)', () => {
+  it('console order: the eager read lands, then the object page reads the list and the overrides together', async () => {
     const { server, adapter } = makeServer();
     const ctx = mount(adapter);
     await waitFor(() => expect(ctx().getTypeStatus!('view')).toBe('ready'));
-    const views = await adapter.listViews('account');
-    const overrides = await adapter.listViewOverrides('account');
-    // The object page reads the override map twice (`loadViewOverrides`).
+    expect(count(server.calls, VIEW_URL)).toBe(1);
+    // ObjectView starts both reads in one commit (`listViews` and
+    // `loadViewOverrides`), and reads the override map a second time.
+    const [views, overrides] = await Promise.all([adapter.listViews('account'), adapter.listViewOverrides('account')]);
     await adapter.listViewOverrides('account');
     expect(views.map((v: any) => v.name).sort()).toEqual(['account.all', 'account.mine']);
     expect(Object.keys(overrides).sort()).toEqual(['account.all', 'account.mine']);
-    expect(count(server.calls, VIEW_URL)).toBe(1);
+    // Was 3 (one per reader). The eager read is answered before the page asks,
+    // and no answer is stored, so the page's two readers share one more.
+    expect(count(server.calls, VIEW_URL)).toBe(2);
   });
 
   it('a reader that asks while the eager read is on the wire joins it', async () => {
@@ -254,20 +260,46 @@ describe('controls (objectui#13044)', () => {
     expect(count(server.calls, OBJECT_URL)).toBe(3);
   });
 
-  it('a view write through the seam makes the next list read ask again', async () => {
+  it('every list read after a landing asks again: a refresh (refreshKey) re-reads the views', async () => {
     const { server, adapter } = makeServer();
     const ctx = mount(adapter);
     await waitFor(() => expect(ctx().getTypeStatus!('view')).toBe('ready'));
     await adapter.listViews('account');
-    adapter.invalidateViewKeys('account', 'account.mine');
     await adapter.listViews('account');
-    expect(count(server.calls, VIEW_URL)).toBe(2);
-    // The provider's own refresh still asks the server: the client's callers
-    // are never answered from the settled entry.
+    expect(count(server.calls, VIEW_URL)).toBe(3);
     await act(async () => {
       await ctx().refresh('view');
     });
-    expect(count(server.calls, VIEW_URL)).toBe(3);
+    expect(count(server.calls, VIEW_URL)).toBe(4);
+  });
+
+  it('a view write detaches the list request in flight: a read after it asks again', async () => {
+    const { server, adapter } = makeServer();
+    const ctx = mount(adapter);
+    await waitFor(() => expect(ctx().getTypeStatus!('view')).toBe('ready'));
+    server.hold.add(VIEW_URL);
+    const before = adapter.listViews('account');
+    await waitFor(() => expect(count(server.calls, VIEW_URL)).toBe(2));
+    adapter.invalidateViewKeys('account', 'account.mine');
+    const after = adapter.listViews('account');
+    await waitFor(() => expect(count(server.calls, VIEW_URL)).toBe(3));
+    server.release();
+    await Promise.all([before, after]);
+  });
+
+  it('a view saved straight through the client detaches the list request in flight too', async () => {
+    const { server, adapter } = makeServer();
+    const ctx = mount(adapter);
+    await waitFor(() => expect(ctx().getTypeStatus!('view')).toBe('ready'));
+    server.hold.add(VIEW_URL);
+    const before = adapter.listViews('account');
+    await waitFor(() => expect(count(server.calls, VIEW_URL)).toBe(2));
+    // The shape a page uses when it writes a view without the adapter's seam.
+    await adapter.getClient().meta.saveItem('view', 'account.mine', { name: 'account.mine', object: 'account' });
+    const after = adapter.listViews('account');
+    await waitFor(() => expect(count(server.calls, VIEW_URL)).toBe(3));
+    server.release();
+    await Promise.all([before, after]);
   });
 
   it('the preview path still reads through the preview client, never the adapter', async () => {

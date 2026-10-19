@@ -907,10 +907,14 @@ export function serializeOrderBy(orderby: QueryParams['$orderby']): string | und
  * Three readers ask that one URL on a single list-page open: the app-shell
  * `MetadataProvider`'s eager `view` read (through {@link ObjectStackAdapter.getClient}),
  * {@link ObjectStackAdapter.listViews} and
- * {@link ObjectStackAdapter.listViewOverrides}. They share this key, so the
- * page asks the server once. The draft-overlaid list (`listViews` with
- * `previewDrafts`) is a different request on a different client and is never
- * stored here.
+ * {@link ObjectStackAdapter.listViewOverrides}. They share the request IN
+ * FLIGHT under this key: whoever asks while one is on the wire joins it. No
+ * answer is stored under it, so a reader that asks after a request landed
+ * asks the server again, exactly as before (objectui#13044 ruling 6268839381:
+ * a settled list would have needed every refresh, view write and organization
+ * switch in the console to drop it, and several of those paths write through
+ * a client this adapter never sees). The draft-overlaid list (`listViews`
+ * with `previewDrafts`) is a different request on a different client.
  */
 const VIEW_LIST_KEY = 'list:view';
 
@@ -4200,12 +4204,12 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * read the same `GET /api/v1/meta/view`. Each used to put its own request on
    * the wire, so one list-page open asked the server three times for one URL.
    *
-   * A caller of the client keeps its contract, "ask the server": it is never
-   * answered from the settled entry. What changes is that it joins a request
-   * already in flight for the same URL instead of sending a second one, and
-   * that its answer is stored, so the adapter's own readers find it settled
-   * (see {@link readViewList}). Only the bare call is routed: any argument
-   * after the type changes the URL, so such a call goes straight to the SDK.
+   * A caller of the client keeps its contract, "ask the server": nothing is
+   * answered from, or written to, a settled entry. What changes is only that
+   * it joins a request already in flight for the same URL instead of sending
+   * a second one (see {@link MetadataCache.share}). Only the bare call is
+   * routed: any argument after the type changes the URL, so such a call goes
+   * straight to the SDK.
    *
    * Every caller gets its own copy of the answer. Before this, every reader
    * got its own parsed response, so a reader that changed what it was handed
@@ -4223,20 +4227,32 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         .share(VIEW_LIST_KEY, () => original(...args))
         .then((answer) => structuredClone(answer));
     }) as typeof meta.getItems;
+
+    // A write to a `view` row through this client, from any caller (a page
+    // that saves a view with `getClient().meta.saveItem` directly, not only
+    // through {@link invalidateViewKeys}), detaches the list request in
+    // flight once it settles, so a read asked after the write never joins a
+    // request sent before it.
+    for (const door of ['saveItem', 'deleteItem', 'publishItem', 'rollbackItem'] as const) {
+      const write = meta[door] as ((...args: any[]) => Promise<unknown>) | undefined;
+      if (typeof write !== 'function') continue;
+      const bound = write.bind(meta);
+      (meta as any)[door] = (...args: any[]) => {
+        if (args[0] !== 'view') return bound(...args);
+        return bound(...args).finally(() => this.metadataCache.invalidate?.(VIEW_LIST_KEY));
+      };
+    }
   }
 
   /**
-   * The published view list for this adapter's own readers: the settled
-   * {@link VIEW_LIST_KEY} entry when there is one, else the client's read,
-   * which joins or starts the one request and stores its answer
-   * (objectui#13044). Always a copy the caller may keep.
-   *
-   * Every write to a view row drops the key through {@link invalidateViewKeys},
-   * the same seam that already drops the override map derived from this list.
+   * The published view list for this adapter's own readers: the client's
+   * read, which joins the request in flight for {@link VIEW_LIST_KEY} or
+   * starts one (objectui#13044). Never a stored answer; always a copy the
+   * caller may keep. A write to a view row detaches the request in flight
+   * through {@link invalidateViewKeys}, so a read asked after the write never
+   * joins one sent before it.
    */
-  private async readViewList(): Promise<any> {
-    const settled = this.metadataCache.getCachedSync(VIEW_LIST_KEY);
-    if (settled !== undefined) return structuredClone(settled);
+  private readViewList(): Promise<any> {
     return this.client.meta.getItems('view');
   }
 
@@ -5528,8 +5544,8 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     // suite records, so a reordering is a visible decision rather than drift.
     this.metadataCache.invalidate?.(`view:${objectName}:${viewName}`);
     this.metadataCache.invalidate?.(`view-overrides:${objectName}`);
-    // The list both readers derive from (objectui#13044): a map rebuilt from
-    // a stale list would be the stale map again.
+    // The list both readers derive from (objectui#13044): a read asked after
+    // this write must not join a list request sent before it.
     this.metadataCache.invalidate?.(VIEW_LIST_KEY);
   }
 

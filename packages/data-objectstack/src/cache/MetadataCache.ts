@@ -135,34 +135,34 @@ export class MetadataCache {
       }
     }
 
-    return this.load(key, fetcher);
+    return this.load(key, fetcher, true);
   }
 
   /**
-   * Join the read in flight for `key`, or start one, and store its landing.
-   * Never answered from a settled entry: a caller of this always gets an
-   * answer from a request that was on the wire when it asked.
+   * Join the read in flight for `key`, or start one. Nothing is read from or
+   * written to the settled entries: a caller of this always gets an answer
+   * from a request that was on the wire when it asked, and its answer is
+   * never served to anyone who asks after it lands.
    *
    * objectui#13044. This is the door for a caller whose own contract is "ask
-   * the server", who should still not put a second identical request on the
-   * wire while one is already there, and whose answer a later {@link get} for
-   * the same key may read settled.
+   * the server", which should still not put a second identical request on the
+   * wire while one is already there.
    */
   share<T = unknown>(key: string, fetcher: () => Promise<T>): Promise<T> {
-    return this.load(key, fetcher);
+    return this.load(key, fetcher, false);
   }
 
   /**
    * The in-flight half of {@link get} and {@link share}: join the request in
    * flight for `key`, or start one.
    *
-   * A landing is stored, and its in-flight entry cleared, only while it is
-   * still the request registered for `key` (objectui#13044). {@link invalidate}
+   * A landing is stored (when `store`), and its in-flight entry cleared, only
+   * while it is still the request registered for `key` (objectui#13044). {@link invalidate}
    * and {@link clear} detach the request in flight, so a request sent before an
    * invalidation can neither answer a caller who asks after it nor write its
    * answer over a newer one.
    */
-  private load<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+  private load<T>(key: string, fetcher: () => Promise<T>, store: boolean): Promise<T> {
     const existing = this.inflight.get(key);
     if (existing) {
       this.stats.coalesced++;
@@ -174,7 +174,7 @@ export class MetadataCache {
     const run = async (): Promise<T> => {
       try {
         const data = await fetcher();
-        if (this.inflight.get(key) === promise) this.set(key, data);
+        if (store && this.inflight.get(key) === promise) this.set(key, data);
         return data;
       } finally {
         if (this.inflight.get(key) === promise) this.inflight.delete(key);

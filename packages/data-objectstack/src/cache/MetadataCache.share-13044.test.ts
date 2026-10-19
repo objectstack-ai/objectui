@@ -13,8 +13,8 @@ import { MetadataCache } from './MetadataCache';
  * `share` and the in-flight half of `invalidate` (objectui#13044).
  *
  * `share` is the door for a caller whose contract is "ask the server": it
- * joins a request already in flight and stores its answer, but never answers
- * from a settled entry. `invalidate` detaches the request in flight, so a
+ * joins a request already in flight, and neither reads nor writes a settled
+ * entry. `invalidate` detaches the request in flight, so a
  * request sent before an invalidation neither answers a later caller nor
  * overwrites a newer answer.
  */
@@ -41,14 +41,16 @@ describe('MetadataCache.share (objectui#13044)', () => {
     expect(calls).toBe(1);
   });
 
-  it('is never answered from the settled entry, and its landing is what get reads next', async () => {
+  it('is never answered from the settled entry, and stores nothing', async () => {
     const cache = new MetadataCache();
     let calls = 0;
     const fetcher = async () => `answer ${(calls += 1)}`;
     expect(await cache.get('k', fetcher)).toBe('answer 1');
     expect(await cache.share('k', fetcher)).toBe('answer 2');
-    expect(await cache.get('k', fetcher)).toBe('answer 2');
-    expect(calls).toBe(2);
+    expect(await cache.get('k', fetcher)).toBe('answer 1');
+    expect(await cache.share('fresh', fetcher)).toBe('answer 3');
+    expect(cache.has('fresh')).toBe(false);
+    expect(calls).toBe(3);
   });
 });
 

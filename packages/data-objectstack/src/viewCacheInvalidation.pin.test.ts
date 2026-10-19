@@ -25,11 +25,11 @@ import { ObjectStackAdapter } from './index';
  * keys that DO have readers, so the deletion cannot be mistaken for "cache
  * invalidation was dropped".
  *
- * objectui#13044 settled the question #3778 left open, whether `listViews`
- * should be cached: one list-page open asked `GET /meta/view` three times. It
- * and `listViewOverrides` now read the one published view list, `list:view`,
- * which the console's eager view read also fills, and every write path drops
- * it through the seam with the two keys above.
+ * `listViews` stays uncached. objectui#13044 lets it, `listViewOverrides` and
+ * the console's eager view read JOIN one `GET /meta/view` already in flight,
+ * under the key `list:view`, and stores nothing there; every write path drops
+ * that key through the seam with the two keys above, so a read asked after a
+ * write never joins a request sent before it.
  *
  * ## objectui#4363 — every write path names BOTH keys
  *
@@ -44,8 +44,8 @@ import { ObjectStackAdapter } from './index';
  *
  * So the rule these pins now enforce is uniform and per-METHOD, not
  * per-branch: **a write to a view row invalidates the per-view key and the
- * object's override map** — and, since objectui#13044, the published list the
- * map is derived from. Three paths (four call sites — `updateView` has a
+ * object's override map** — and, since objectui#13044, detaches the published
+ * list request the map is derived from. Three paths (four call sites — `updateView` has a
  * draft half and a published half) emit the same ordered keys; a fourth path,
  * `updateViewConfig`, did too until objectui#12504 retired it. The sweep pin
  * stays an untouched control: no path names a `views:` key.
@@ -159,7 +159,7 @@ const VIEW = {
 };
 
 describe('view metadata cache — invalidation names only keys with readers (#3778)', () => {
-  it('listViews reads the shared published list, never a key of its own (objectui#13044)', async () => {
+  it('listViews reads the transport on every call and consults no cache key', async () => {
     const { ds, getItems, cacheReads } = makeDS({ items: [VIEW] });
     const probed: string[] = [];
     ds.metadataCache.getCachedSync = (key: string) => {
@@ -168,12 +168,14 @@ describe('view metadata cache — invalidation names only keys with readers (#37
     };
 
     await ds.listViews('account');
+    await ds.listViews('account');
 
-    // The list `listViewOverrides` derives from too: the seam drops it on every
-    // view write (pinned below), and a miss asks the transport for `view`.
-    expect(probed).toEqual(['list:view']);
+    // Uncached: two calls, two round trips. objectui#13044 shares only a
+    // request already in flight (on the real client); nothing is stored.
+    expect(getItems).toHaveBeenCalledTimes(2);
     expect(getItems).toHaveBeenCalledWith('view');
     expect(cacheReads).toEqual([]);
+    expect(probed).toEqual([]);
   });
 
   it('listViewOverrides reads back under the key the write paths invalidate', async () => {

@@ -222,6 +222,15 @@ describe('RecordPreviewCard — one definition read for N cards (objectui#12029)
   function makeAdapter(defs: Record<string, unknown>, itemCalls: string[]) {
     return {
       clearCache: vi.fn(),
+      invalidateCache: vi.fn(),
+      // objectui#13044 — the provider's by-name OBJECT read goes through the
+      // adapter's `getObjectSchema`. This double answers it from the same
+      // by-name door, unwrapped the way the adapter unwraps it.
+      getObjectSchema(this: { getClient(): any }, name: string) {
+        return this.getClient()
+          .meta.getItem('object', name)
+          .then((res: any) => (res && typeof res === 'object' && 'item' in res ? res.item : res));
+      },
       getClient: () => ({
         meta: {
           getItems: (type: string) => Promise.resolve({ type, items: [] }),

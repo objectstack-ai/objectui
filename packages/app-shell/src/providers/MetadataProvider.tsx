@@ -762,6 +762,17 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       try { adapterRef.current?.invalidateCache?.(n); } catch { /* adapter mid-swap */ }
     }
   }, []);
+  /**
+   * An organization or session switch swaps the world every `/meta/*` request
+   * resolves in. The adapter's own metadata cache is the one the provider now
+   * reads objects through, so it is dropped whole (objectui#13044, ruling
+   * 6268839381): one organization's documents, or a request in flight for one,
+   * must not answer a read made in another.
+   */
+  const dropAdapterWorld = useCallback((): void => {
+    adapterObjectNamesRef.current.clear();
+    try { adapterRef.current?.clearCache?.(); } catch { /* adapter mid-swap */ }
+  }, []);
 
   const [version, setVersion] = useState(0);
   // Defer state bumps so they never occur synchronously during a consumer's
@@ -1175,7 +1186,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
   // survives into another organization's reads. Same shape as the preview-mode
   // clear above — swapping the active org swaps the world every `/meta/*`
   // request resolves in.
-  const { activeOrganization } = useAuth();
+  const { activeOrganization, user } = useAuth();
   const activeOrgId = activeOrganization?.id ?? null;
   const lastOrgId = useRef<string | null>(null);
   useEffect(() => {
@@ -1233,7 +1244,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     cacheRef.current.clear();
     itemPromisesRef.current.clear();
     scopesRef.current.clear();
-    dropAdapterObjectReads();
+    dropAdapterWorld();
     // `apps` is the one collection read straight off the entry
     // (`getEntry('app').items`) instead of through `readType`, so unlike every
     // lazy type it is NOT re-armed by a consumer reading it. Without this kick
@@ -1249,7 +1260,22 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     return () => {
       cancelled = true;
     };
-  }, [activeOrgId, bump, dropAdapterObjectReads, ensureType]);
+  }, [activeOrgId, bump, dropAdapterWorld, ensureType]);
+
+  // ── A session switch drops the adapter's metadata too (objectui#13044) ────
+  //
+  // Same reasoning as the organization switch above, for the principal: the
+  // first resolution (unknown → known) is not a switch, any later change of
+  // the signed-in user (another user, or none) is. Only the adapter's cache is
+  // dropped here — the provider's own cache keeps the behaviour it had.
+  const sessionUserId = user?.id ?? null;
+  const lastSessionUserId = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = lastSessionUserId.current;
+    lastSessionUserId.current = sessionUserId;
+    if (previous === null || previous === sessionUserId) return;
+    dropAdapterWorld();
+  }, [sessionUserId, dropAdapterWorld]);
 
   useEffect(() => {
     let cancelled = false;

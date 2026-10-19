@@ -1749,17 +1749,28 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // engine for the row-level verdict (fail-open; the server stays the
   // authority per the framework's ADR-0124 D1 — server enforces, client is
   // courtesy) and fold it into the same affordance gates.
+  //
+  // [objectui#13045] An operation the object turns off with a STATIC
+  // `userActions` boolean is not asked about: the affordance resolver already
+  // hides that affordance (the `false` reaches `resolveRecordHeaderActionGates`
+  // from this same `objectDef.userActions` entry), so its verdict would gate
+  // nothing on screen and only cost a `security/explain` round trip before the
+  // first paint. Only the literal `false` skips. A per-record predicate form,
+  // `true`, or an absent entry still asks, and the affordance still follows
+  // the verdict.
+  const editOffByObject = objectDef?.userActions?.edit === false;
+  const deleteOffByObject = objectDef?.userActions?.delete === false;
   const recordWriteAllowed = useRecordEditable(
     objectDef?.name,
     pureRecordId,
     'update',
-    !!objectDef?.name && !!pureRecordId,
+    !!objectDef?.name && !!pureRecordId && !editOffByObject,
   );
   const recordDeleteAllowed = useRecordEditable(
     objectDef?.name,
     pureRecordId,
     'delete',
-    !!objectDef?.name && !!pureRecordId,
+    !!objectDef?.name && !!pureRecordId && !deleteOffByObject,
   );
 
   // ── Per-record `userActions` predicates — the header's FOURTH gate ────────

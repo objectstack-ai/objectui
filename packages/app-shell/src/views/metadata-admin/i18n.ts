@@ -242,6 +242,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.list.col.object': 'Object',
   'engine.list.col.type': 'Type',
   'engine.list.col.description': 'Description',
+  'engine.list.col.sharedWith': 'Shared with',
+  'engine.list.col.accessLevel': 'Access',
+  'engine.list.col._packageId': 'Package',
+  'engine.list.col.criteria': 'Criteria',
+  'engine.list.col.actions': 'Actions',
   'engine.list.emptyType': 'No {type} items registered',
   'engine.list.emptyQuery': 'No matches for "{query}"',
   'engine.list.createHint': 'Click "New" above to create the first {type}.',
@@ -262,6 +267,32 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
     'Read-only for your account. {type} items are defined by the platform administrator (the `manage_metadata` capability); your organization assigns them.',
   'engine.catalog.readOnly.walled':
     'Read-only for organization administrators. On this deployment the platform operator defines {type} items for every organization in Studio; your organization assigns them.',
+  // objectui#12982 — a declaration-only catalog (declared sharing rules). See
+  // `sharing-rule-catalog.ts`.
+  'engine.catalog.declaredOnly.hint.sharing_rule':
+    'These sharing rules are declared by installed packages and are read-only. Switch one off, or clone it into a rule your organization owns. Rules your organization authors are on the Organization rules page.',
+  'engine.catalog.declaredOnly.authoredLink.sharing_rule': 'Organization rules',
+  'engine.catalog.declaredOnly.switchReadOnly':
+    'Read-only for your account: switching a declared item on or off requires the `manage_metadata` capability.',
+  'engine.sharingRule.clone.action': 'Clone',
+  'engine.sharingRule.clone.title': 'Clone sharing rule',
+  'engine.sharingRule.clone.body':
+    'Creates a sharing rule your organization owns from the declared rule "{name}", under a new name. The declared rule itself does not change.',
+  'engine.sharingRule.clone.copyLabel': '{label} (copy)',
+  'engine.sharingRule.clone.name': 'New rule name',
+  'engine.sharingRule.clone.label': 'New label',
+  'engine.sharingRule.clone.loading': 'Reading the rule…',
+  'engine.sharingRule.clone.noCriteria':
+    'The server serves no criteria for "{name}" while it is switched off. Continue in the New form and enter them there.',
+  'engine.sharingRule.clone.confirm': 'Create rule',
+  'engine.sharingRule.clone.continueInForm': 'Continue in New form',
+  'engine.sharingRule.clone.failed': 'The rule was not created.',
+  'engine.sharingRule.clone.created':
+    'Created "{name}". The declared rule "{source}" still grants access until you switch it off.',
+  'engine.sharingRule.clone.disableSource': 'Switch "{source}" off',
+  'engine.sharingRule.clone.sourceOff': 'The declared rule "{source}" is switched off.',
+  'engine.sharingRule.clone.openCopy': 'Open the new rule',
+  'engine.sharingRule.clone.done': 'Done',
   'engine.edit.capabilityReadOnly':
     'Read-only for your account: changing this item requires the `manage_metadata` capability, which the platform administrator holds.',
   'engine.edit.save': 'Save',
@@ -3849,6 +3880,11 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.list.col.object': '对象',
   'engine.list.col.type': '类型',
   'engine.list.col.description': '描述',
+  'engine.list.col.sharedWith': '共享给',
+  'engine.list.col.accessLevel': '访问级别',
+  'engine.list.col._packageId': '软件包',
+  'engine.list.col.criteria': '条件',
+  'engine.list.col.actions': '操作',
   'engine.list.emptyType': '暂无 {type} 条目',
   'engine.list.emptyQuery': '没有匹配 "{query}" 的结果',
   'engine.list.createHint': '点击上方"新建"创建第一个 {type}。',
@@ -3867,6 +3903,30 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
     '您的账号只能查看。{type}由平台管理员定义（需要 `manage_metadata` 能力）；您的组织负责分配。',
   'engine.catalog.readOnly.walled':
     '组织管理员只能查看。此部署中由平台运营方在 Studio 中为所有组织定义{type}；您的组织负责分配。',
+  'engine.catalog.declaredOnly.hint.sharing_rule':
+    '这些共享规则由已安装的软件包声明，只读。可以停用某条规则，或将其克隆为您组织自己的规则。您组织编写的规则在「组织规则」页面中。',
+  'engine.catalog.declaredOnly.authoredLink.sharing_rule': '组织规则',
+  'engine.catalog.declaredOnly.switchReadOnly':
+    '您的账号只能查看：启用或停用已声明的条目需要 `manage_metadata` 能力。',
+  'engine.sharingRule.clone.action': '克隆',
+  'engine.sharingRule.clone.title': '克隆共享规则',
+  'engine.sharingRule.clone.body':
+    '以新名称从已声明的规则「{name}」创建一条归您组织所有的共享规则。已声明的规则本身不变。',
+  'engine.sharingRule.clone.copyLabel': '{label}（副本）',
+  'engine.sharingRule.clone.name': '新规则名称',
+  'engine.sharingRule.clone.label': '新标签',
+  'engine.sharingRule.clone.loading': '正在读取规则…',
+  'engine.sharingRule.clone.noCriteria':
+    '「{name}」停用期间，服务器不提供它的条件。请在新建表单中继续并填写条件。',
+  'engine.sharingRule.clone.confirm': '创建规则',
+  'engine.sharingRule.clone.continueInForm': '在新建表单中继续',
+  'engine.sharingRule.clone.failed': '规则未创建。',
+  'engine.sharingRule.clone.created':
+    '已创建「{name}」。在您停用之前，已声明的规则「{source}」仍会授予访问权限。',
+  'engine.sharingRule.clone.disableSource': '停用「{source}」',
+  'engine.sharingRule.clone.sourceOff': '已声明的规则「{source}」已停用。',
+  'engine.sharingRule.clone.openCopy': '打开新规则',
+  'engine.sharingRule.clone.done': '完成',
   'engine.edit.capabilityReadOnly':
     '您的账号只能查看：修改此条目需要 `manage_metadata` 能力，该能力由平台管理员持有。',
   'engine.edit.save': '保存',

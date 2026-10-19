@@ -76,8 +76,14 @@ export function environmentScopeSuffix(search: QueryLike): string {
  * (objectui#7611). What a capability lacks is the switch: ADR-0126 §3 makes it
  * code-only, and the activation door refuses the type with `400`, so naming it
  * here would put a switch on that page that every click refuses.
+ *
+ * `sharing_rule` is here since objectstack ADR-0131 D6 charts declared sharing
+ * rules under regime C (objectui#12982): a rule a package declares is switched
+ * through the same door and ledger. It is not a security catalog type (below):
+ * the wall's verdict on its switch is the door's, said as the server's
+ * refusal, and the page lists declarations only (`sharing-rule-catalog.ts`).
  */
-export const SETUP_CATALOG_TYPES = ['permission', 'position'] as const;
+export const SETUP_CATALOG_TYPES = ['permission', 'position', 'sharing_rule'] as const;
 
 /**
  * The security catalog: the metadata types whose items every organization

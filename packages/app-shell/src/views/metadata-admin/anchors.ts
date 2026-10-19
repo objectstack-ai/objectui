@@ -544,6 +544,34 @@ export function registerBuiltinAnchors(): void {
       { key: 'description', label: 'Description' },
     ],
   });
+
+  // objectui#12982 — the declared sharing rules Setup lists read-only
+  // (`sharing-rule-catalog.ts`): what each grants, and the package that
+  // declares it.
+  registerMetadataResource({
+    type: 'sharing_rule',
+    iconName: 'share-2',
+    searchableFields: ['name', 'label', 'description', 'object'],
+    listColumns: [
+      { key: 'name', label: 'Name' },
+      { key: 'label', label: 'Label' },
+      { key: 'object', label: 'Object' },
+      {
+        key: 'sharedWith',
+        label: 'Shared with',
+        render: (value) => {
+          const v = value as { type?: unknown; value?: unknown } | null | undefined;
+          return v && typeof v === 'object' ? `${String(v.type ?? '')}: ${String(v.value ?? '')}` : '—';
+        },
+      },
+      { key: 'accessLevel', label: 'Access' },
+      {
+        key: '_packageId',
+        label: 'Package',
+        render: (value) => (typeof value === 'string' && value && value !== 'sys_metadata' ? value : '—'),
+      },
+    ],
+  });
 }
 
 /**

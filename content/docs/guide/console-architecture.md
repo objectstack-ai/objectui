@@ -103,8 +103,10 @@ the metadata-admin list and editor with the query parameter `scope=environment`,
 example `/apps/setup/metadata/permission?scope=environment`. That scope lists every item
 the registry serves for the type and adds the Setup half of an item, which is who holds
 it. The console's legacy `system/roles`, `system/positions` and `system/permissions`
-URLs forward there. The `@object-ui/app-shell` README describes the scope under "The
-Setup catalog".
+URLs forward there. The same scope lists the sharing rules installed packages declare,
+`/apps/setup/metadata/sharing_rule?scope=environment`, read-only with Disable / Enable
+and Clone; the rules an organization authors stay on the `sys_sharing_rule` object page.
+The `@object-ui/app-shell` README describes the scope under "The Setup catalog".
 
 | Route Pattern | Component | Purpose |
 |---------------|-----------|---------|

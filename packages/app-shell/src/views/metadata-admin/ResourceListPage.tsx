@@ -14,7 +14,7 @@
 
 import * as React from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Plus, Search, RefreshCw, AlertTriangle, Lock } from 'lucide-react';
+import { Plus, Search, RefreshCw, AlertTriangle, Lock, Copy } from 'lucide-react';
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@object-ui/components';
 import { Input } from '@object-ui/components';
 import { Badge } from '@object-ui/components';
@@ -55,7 +55,18 @@ import {
   type CatalogActivation,
 } from './catalog-activation.js';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
+import { declarationOnlyAuthoredObject } from './sharing-rule-catalog.js';
+import { SharingRuleCloneDialog, type SharingRuleCloneDialogProps } from './SharingRuleCloneDialog.js';
 import { postureHasOrgWall, useTenancyPosture } from '../../hooks/useTenancyPosture.js';
+
+/**
+ * objectui#12982 — the Clone dialog of a declaration-only catalog
+ * (`sharing-rule-catalog.ts`), keyed by type and internal to this page, as
+ * `ResourceEditPage`'s environment sections are.
+ */
+const DECLARATION_CLONE_DIALOGS: Readonly<Record<string, React.ComponentType<SharingRuleCloneDialogProps>>> = {
+  sharing_rule: SharingRuleCloneDialog,
+};
 
 export interface MetadataResourceListPageProps {
   type?: string;
@@ -161,6 +172,12 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   const [ledger, setLedger] = React.useState<CatalogLedger | 'error' | null>(null);
   const [switching, setSwitching] = React.useState<string | null>(null);
   const [switchError, setSwitchError] = React.useState<string | null>(null);
+  // objectui#12982 — a declaration-only catalog (declared sharing rules): the
+  // environment scope lists declarations read-only, and the items an
+  // environment authors are records of this object, edited on its own page.
+  const authoredObject = envScope ? declarationOnlyAuthoredObject(type) : undefined;
+  const CloneDialog = authoredObject ? DECLARATION_CLONE_DIALOGS[type] : undefined;
+  const [cloning, setCloning] = React.useState<Record<string, unknown> | null>(null);
 
   // Studio is scoped to a single *project* package at a time. Load the
   // installed packages and keep only project-scoped ones — anything not
@@ -307,25 +324,29 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
     return () => controller.abort();
   }, [activation, type, refreshKey]);
 
+  const recordSwitched = React.useCallback((itemName: string, now: boolean) => {
+    setLedger((prev) => {
+      if (!prev || prev === 'error') return prev;
+      const states = new Map(prev.states);
+      states.set(itemName, now);
+      return { ...prev, states };
+    });
+  }, []);
+
   const toggleActive = React.useCallback(
     async (itemName: string, enabled: boolean) => {
       setSwitching(itemName);
       setSwitchError(null);
       try {
         const now = await writeCatalogActivation(type, itemName, !enabled);
-        setLedger((prev) => {
-          if (!prev || prev === 'error') return prev;
-          const states = new Map(prev.states);
-          states.set(itemName, now);
-          return { ...prev, states };
-        });
+        recordSwitched(itemName, now);
       } catch (err: any) {
         setSwitchError(err?.message ?? String(err));
       } finally {
         setSwitching(null);
       }
     },
-    [type],
+    [type, recordSwitched],
   );
 
   React.useEffect(() => {
@@ -439,7 +460,9 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   // door requires. The server refuses either way; this is the half that says
   // so before the click (objectui#7611, the #22621 → A parity gate).
   const typeWritable = !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
-  const canCreate = typeWritable && !walled && (!envScope || canAuthor);
+  // A declaration-only catalog is never authored here: its items are created
+  // on the authored object's page.
+  const canCreate = typeWritable && !walled && (!envScope || canAuthor) && !authoredObject;
   // The wall is the gate to NAME only where the type would otherwise admit a
   // write: a type with no runtime write channel is read-only for the operator
   // too, and its page says nothing about the wall.
@@ -476,7 +499,16 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   // Per-row (`list_item`) actions are not surfaced here yet — they need the
   // row's recordId from the grid.
   const typeActions = (
-    <MetadataTypeActions entry={entry} location="list_toolbar" onAfter={refresh} />
+    <>
+      <MetadataTypeActions entry={entry} location="list_toolbar" onAfter={refresh} />
+      {authoredObject && (
+        <Button asChild size="sm" variant="outline" data-testid="catalog-authored-object-link">
+          <Link to={`/apps/${encodeURIComponent(appName ?? 'setup')}/${authoredObject}`}>
+            {t(`engine.catalog.declaredOnly.authoredLink.${type}`, locale)}
+          </Link>
+        </Button>
+      )}
+    </>
   );
 
   const body = (
@@ -535,7 +567,16 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
             and tenants assign. objectui#12183 — and under a wall a tenant
             holding the capability is told the same thing, since the capability
             does not admit it there. */}
-        {((envScope && !canAuthor) || walledDeciding) && (
+        {authoredObject && (
+          <div
+            data-testid="catalog-declared-only-hint"
+            className="text-xs text-muted-foreground border rounded-md px-3 py-2.5 bg-muted/30 flex items-start gap-2"
+          >
+            <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>{t(`engine.catalog.declaredOnly.hint.${type}`, locale)}</span>
+          </div>
+        )}
+        {((envScope && !canAuthor && !authoredObject) || walledDeciding) && (
           <div
             data-testid="catalog-readonly-reason"
             className="text-xs text-amber-800 border border-amber-300/70 bg-amber-50/70 rounded-md px-3 py-2.5 dark:text-amber-200 dark:border-amber-700/40 dark:bg-amber-950/20 flex items-start gap-2"
@@ -549,6 +590,27 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
               )}
             </span>
           </div>
+        )}
+        {authoredObject && !canAuthor && (
+          <div
+            data-testid="catalog-readonly-reason"
+            className="text-xs text-amber-800 border border-amber-300/70 bg-amber-50/70 rounded-md px-3 py-2.5 dark:text-amber-200 dark:border-amber-700/40 dark:bg-amber-950/20 flex items-start gap-2"
+          >
+            <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>{t('engine.catalog.declaredOnly.switchReadOnly', locale)}</span>
+          </div>
+        )}
+        {cloning && CloneDialog && (
+          <CloneDialog
+            declaration={cloning}
+            declaredNames={scopedItems.map((r) => String(r.item.name ?? ''))}
+            sourceActive={
+              ledger && ledger !== 'error' ? isCatalogItemActive(ledger.states, String(cloning.name ?? '')) : undefined
+            }
+            locale={locale}
+            onClose={() => setCloning(null)}
+            onSourceSwitched={recordSwitched}
+          />
         )}
         {switchError && (
           <div className="text-xs text-destructive border border-destructive/30 rounded p-2 bg-destructive/5">
@@ -598,7 +660,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
           </Empty>
         )}
         {!loading && filtered.length > 0 && (
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border rounded-lg overflow-x-auto">
             <table className="w-full text-sm">
               {/* Under Setup the table reads as the console's record list
                   (objectui#12606): sentence-case headers, the grid's 36px
@@ -624,6 +686,11 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                     <th className={cn('px-3 text-left font-medium w-[90px]', inSetup ? 'h-9 py-0' : 'py-2')}>{t('engine.catalog.col.active', locale)}</th>
                   )}
                   <th className={cn('px-3 text-right font-medium w-[80px]', inSetup ? 'h-9 py-0' : 'py-2')}>{t('engine.list.col.source', locale)}</th>
+                  {CloneDialog && (
+                    <th className={cn('px-3 w-[80px]', inSetup ? 'h-9 py-0' : 'py-2')}>
+                      <span className="sr-only">{t('engine.list.col.actions', locale)}</span>
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -774,6 +841,20 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                           </Badge>
                         )}
                       </td>
+                      {CloneDialog && (
+                        <td className={cn(cellClass, 'text-right')}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => setCloning(row.item)}
+                            data-testid={`catalog-clone-${name}`}
+                          >
+                            <Copy className="h-3.5 w-3.5 mr-1" />
+                            {t('engine.sharingRule.clone.action', locale)}
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -826,7 +907,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
           icon={React.createElement(getIcon(config.iconName ?? 'layers'), { className: 'h-4 w-4' })}
           badge={
             <span className="inline-flex shrink-0 items-center gap-1.5">
-              <WritabilityBadge entry={entry} readOnly={false} locale={locale} />
+              <WritabilityBadge entry={entry} readOnly={!!authoredObject} locale={locale} />
               {diagnosticStats.map((s, i) => (
                 <span key={i} className="inline-flex items-center gap-1 text-xs" title={s.label}>
                   {s.value}

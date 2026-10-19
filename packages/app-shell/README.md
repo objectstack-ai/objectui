@@ -646,6 +646,29 @@ package-declared one), read-only, because the type offers no runtime write
 channel. That page has no switch, because a capability has no activation. The
 capability picker in the permission-set editor lists the same registry.
 
+**Declared sharing rules** (objectui#12982) are listed by the same scope,
+`…/metadata/sharing_rule?scope=environment`. objectstack ADR-0131 D6 charts
+`sharing_rule` under regime C: a rule a package declares lives in the
+registry, is read-only and clonable, and is switched through the activation
+ledger. A rule an organization authors is a `sys_sharing_rule` record, and its
+page is that object's ordinary data view. Each page reads one source, and no
+page merges the two lists (`views/metadata-admin/sharing-rule-catalog.ts`).
+On the declared page:
+
+- the list shows each rule's object, recipient, access level and declaring
+  package, offers no New, and opens a rule read-only. A link leads to the
+  organization rules page, where New lives;
+- the active switch is the ledger's state, written through
+  `POST /security/_activation/sharing_rule/:name`, and a refusal is shown in
+  the server's words;
+- **Clone** pre-fills a new organization rule from the server's compiled
+  projection of that rule (`GET /sharing/rules/:name`), under a name no
+  declared rule holds, and writes it through the `sys_sharing_rule` data door.
+  The server's `409 RESOURCE_CONFLICT` for a declared name is shown as sent.
+  Once the copy exists, the dialog offers to switch the declared rule off. A
+  rule already switched off has no served projection, so its clone continues
+  in the pre-filled New form, which asks for the criteria.
+
 ### Package-less flows (`/studio/~org/automations`)
 
 A flow that belongs to no package — a clone of a packaged flow is one, by

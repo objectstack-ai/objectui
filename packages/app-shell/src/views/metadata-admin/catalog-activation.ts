@@ -1,9 +1,10 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * The ACTIVE switch of a Setup catalog item — a position's or a permission
- * set's row in the activation ledger, read and written through the ledger's own
- * doors (objectui#7611, objectstack ADR-0131 D3).
+ * The ACTIVE switch of a Setup catalog item — a position's, a permission
+ * set's or a declared sharing rule's row in the activation ledger, read and
+ * written through the ledger's own doors (objectui#7611, objectstack ADR-0131
+ * D3; `sharing_rule` since D6 regime C, objectui#12982).
  *
  * ## Where the switch lives
  *

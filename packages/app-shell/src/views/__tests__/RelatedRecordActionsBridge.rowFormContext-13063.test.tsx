@@ -120,12 +120,15 @@ const doc = {
   properties: { objectName: CHILD_NAME, relationshipField: PARENT_NAME, columns: ['name'] },
 };
 
-/** Hands the provider's page-level `execute` to the test (a header button's door). */
-let pageExecute: ((action: ActionDef) => Promise<ActionResult>) | null = null;
-function PageExecuteProbe() {
-  pageExecute = useAction().execute;
+type Execute = (action: ActionDef) => Promise<ActionResult>;
+
+/** Hands a provider's page-level `execute` to the test (a header button's door). */
+function ExecuteProbe({ onExecute }: { onExecute: (execute: Execute) => void }) {
+  onExecute(useAction().execute);
   return null;
 }
+
+let pageExecute: Execute | null = null;
 
 /** A record page of the PARENT, with the child's related list on it. */
 function mountParentPage() {
@@ -133,7 +136,7 @@ function mountParentPage() {
   return render(
     <MetadataCtx.Provider value={METADATA}>
       <ActionProvider context={PARENT_CONTEXT} onNavigate={navigateHandler} handlers={{ api: apiHandler }}>
-        <PageExecuteProbe />
+        <ExecuteProbe onExecute={(execute) => { pageExecute = execute; }} />
         <MemoryRouter initialEntries={['/apps/demo/project/record/P-1']}>
           <RelatedRecordActionsBridge
             appName="demo"
@@ -176,14 +179,10 @@ describe('objectui#13063 — a `form` row action on a related list opens the cli
 
 describe('objectui#13063 — controls', () => {
   it('the same action from the child record page is unchanged', async () => {
-    let childExecute: ((action: ActionDef) => Promise<ActionResult>) | null = null;
-    function ChildProbe() {
-      childExecute = useAction().execute;
-      return null;
-    }
+    let childExecute: Execute | null = null;
     render(
       <ActionProvider context={{ record: ROW, objectName: CHILD_NAME }} onNavigate={navigateHandler}>
-        <ChildProbe />
+        <ExecuteProbe onExecute={(execute) => { childExecute = execute; }} />
       </ActionProvider>,
     );
     await childExecute!(LOG_TIME as ActionDef);

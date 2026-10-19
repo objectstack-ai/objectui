@@ -181,15 +181,20 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   const authoredObject = envScope ? declarationOnlyAuthoredObject(type) : undefined;
   // Clone creates a record of the authored object, so it reads that write's
   // row of the affordance-to-grant map (`resolveAffordance` in
-  // `@object-ui/core`), asked of the object with its schema as the registry
-  // serves it. A caller without the create grant is offered no Clone; the
-  // server decides the write either way.
+  // `@object-ui/core`), asked of the object with its schema as the server
+  // serves it — that one object, read by name through `readObjectScope`, not
+  // the whole object registry (objectui#12811). A caller without the create
+  // grant is offered no Clone; the server decides the write either way.
   const perms = usePermissions();
   const metadataStore = useMetadata();
+  const authoredScope =
+    authoredObject && metadataStore.readObjectScope
+      ? metadataStore.readObjectScope({ names: [authoredObject] })
+      : null;
   const canClone =
     !!authoredObject &&
     resolveAffordance('declarationClone', {
-      objectSchema: ((metadataStore.objects ?? []).find(
+      objectSchema: ((authoredScope?.objects ?? []).find(
         (o) => (o as { name?: unknown } | null)?.name === authoredObject,
       ) ?? null) as SchemaLike | null,
       objectName: authoredObject,

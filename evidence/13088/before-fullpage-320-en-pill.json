@@ -1,0 +1,83 @@
+{
+ "label": "before-fullpage-320-en-pill",
+ "mode": "fullpage",
+ "width": 320,
+ "height": 700,
+ "lang": "en",
+ "openPill": true,
+ "errors": [],
+ "sentence": "1 change(s) are not published yet — users cannot see them.",
+ "sentenceClass": "min-w-0 truncate",
+ "sentenceStyle": {
+  "whiteSpace": "nowrap",
+  "textOverflow": "ellipsis",
+  "overflow": "hidden",
+  "lineHeight": "20px"
+ },
+ "sentenceWidths": {
+  "scroll": 386,
+  "client": 150
+ },
+ "sentenceCut": true,
+ "sentenceLines": 1,
+ "sentenceBox": {
+  "left": 29,
+  "top": 515,
+  "right": 179,
+  "bottom": 535,
+  "width": 150,
+  "height": 20
+ },
+ "bar": {
+  "left": 16,
+  "top": 498,
+  "right": 304,
+  "bottom": 552,
+  "width": 288,
+  "height": 54
+ },
+ "button": {
+  "left": 191,
+  "top": 507,
+  "right": 291,
+  "bottom": 543,
+  "width": 100,
+  "height": 36
+ },
+ "buttonInsideBar": true,
+ "buttonOnScreen": true,
+ "buttonTapReachesButton": true,
+ "buttonVsSentence": 0,
+ "textarea": {
+  "left": 17,
+  "top": 561,
+  "right": 303,
+  "bottom": 633,
+  "width": 286,
+  "height": 72
+ },
+ "barVsTextarea": 0,
+ "pill": {
+  "left": 97,
+  "top": 454,
+  "right": 223,
+  "bottom": 490,
+  "width": 126,
+  "height": 36
+ },
+ "pillVsBar": 0,
+ "conversation": {
+  "left": 0,
+  "top": 97,
+  "right": 320,
+  "bottom": 454,
+  "width": 320,
+  "height": 357
+ },
+ "barVsConversation": 0,
+ "viewport": {
+  "w": 320,
+  "h": 700
+ },
+ "docScrollWidth": 320
+}

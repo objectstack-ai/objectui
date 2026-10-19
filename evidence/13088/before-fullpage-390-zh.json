@@ -1,0 +1,76 @@
+{
+ "label": "before-fullpage-390-zh",
+ "mode": "fullpage",
+ "width": 390,
+ "height": 844,
+ "lang": "zh",
+ "openPill": false,
+ "errors": [],
+ "sentence": "有 1 项改动尚未发布——用户还看不到。",
+ "sentenceClass": "min-w-0 truncate",
+ "sentenceStyle": {
+  "whiteSpace": "nowrap",
+  "textOverflow": "ellipsis",
+  "overflow": "hidden",
+  "lineHeight": "20px"
+ },
+ "sentenceWidths": {
+  "scroll": 248,
+  "client": 240
+ },
+ "sentenceCut": true,
+ "sentenceLines": 1,
+ "sentenceBox": {
+  "left": 29,
+  "top": 667,
+  "right": 269,
+  "bottom": 687,
+  "width": 240,
+  "height": 20
+ },
+ "bar": {
+  "left": 16,
+  "top": 650,
+  "right": 374,
+  "bottom": 704,
+  "width": 358,
+  "height": 54
+ },
+ "button": {
+  "left": 281,
+  "top": 659,
+  "right": 361,
+  "bottom": 695,
+  "width": 80,
+  "height": 36
+ },
+ "buttonInsideBar": true,
+ "buttonOnScreen": true,
+ "buttonTapReachesButton": true,
+ "buttonVsSentence": 0,
+ "textarea": {
+  "left": 17,
+  "top": 713,
+  "right": 373,
+  "bottom": 777,
+  "width": 356,
+  "height": 64
+ },
+ "barVsTextarea": 0,
+ "pill": null,
+ "pillVsBar": null,
+ "conversation": {
+  "left": 0,
+  "top": 97,
+  "right": 390,
+  "bottom": 650,
+  "width": 390,
+  "height": 553
+ },
+ "barVsConversation": 0,
+ "viewport": {
+  "w": 390,
+  "h": 844
+ },
+ "docScrollWidth": 390
+}

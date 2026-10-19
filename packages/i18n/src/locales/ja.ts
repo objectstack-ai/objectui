@@ -596,6 +596,9 @@ const ja = {
       undoing: "取り消し中…",
       undoConfirm: "このインポートを取り消しますか？作成されたレコードは削除され、更新されたレコードは以前の値に戻されます。",
       reverted: "取り消し済み",
+      undoPartial: "{{count}} 行を取り消せませんでした。もう一度取り消すと、これらの行だけを再試行します。",
+      undoPartial_one: "{{count}} 行を取り消せませんでした。もう一度取り消すと、この行だけを再試行します。",
+      undoPartial_other: "{{count}} 行を取り消せませんでした。もう一度取り消すと、これらの行だけを再試行します。",
       jobStatus: {
         pending: "待機中",
         running: "実行中",

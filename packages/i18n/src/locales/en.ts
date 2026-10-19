@@ -868,6 +868,9 @@ const en = {
       undoing: 'Undoing…',
       undoConfirm: 'Undo this import? Records it created will be deleted and records it updated will be restored to their previous values.',
       reverted: 'Undone',
+      undoPartial: '{{count}} rows were not undone. Undo again to retry only those rows.',
+      undoPartial_one: '{{count}} row was not undone. Undo again to retry only that row.',
+      undoPartial_other: '{{count}} rows were not undone. Undo again to retry only those rows.',
       jobStatus: {
         pending: 'Pending',
         running: 'Running',

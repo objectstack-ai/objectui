@@ -616,6 +616,10 @@ const es = {
       undoing: "Deshaciendo…",
       undoConfirm: "¿Deshacer esta importación? Los registros que creó se eliminarán y los que actualizó se restaurarán a sus valores anteriores.",
       reverted: "Deshecha",
+      undoPartial: "{{count}} filas no se deshicieron. Al deshacer de nuevo, solo se reintentan esas filas.",
+      undoPartial_one: "{{count}} fila no se deshizo. Al deshacer de nuevo, solo se reintenta esa fila.",
+      undoPartial_many: "{{count}} de filas no se deshicieron. Al deshacer de nuevo, solo se reintentan esas filas.",
+      undoPartial_other: "{{count}} filas no se deshicieron. Al deshacer de nuevo, solo se reintentan esas filas.",
       jobStatus: {
         pending: "Pendiente",
         running: "En ejecución",

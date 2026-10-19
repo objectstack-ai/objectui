@@ -611,6 +611,10 @@ const pt = {
       undoing: "Desfazendo…",
       undoConfirm: "Desfazer esta importação? Os registros criados serão excluídos e os registros atualizados voltarão aos valores anteriores.",
       reverted: "Desfeita",
+      undoPartial: "{{count}} linhas não foram desfeitas. Ao desfazer novamente, só essas linhas serão tentadas de novo.",
+      undoPartial_one: "{{count}} linha não foi desfeita. Ao desfazer novamente, só essa linha será tentada de novo.",
+      undoPartial_many: "{{count}} de linhas não foram desfeitas. Ao desfazer novamente, só essas linhas serão tentadas de novo.",
+      undoPartial_other: "{{count}} linhas não foram desfeitas. Ao desfazer novamente, só essas linhas serão tentadas de novo.",
       jobStatus: {
         pending: "Pendente",
         running: "Em execução",

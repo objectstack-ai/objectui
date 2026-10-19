@@ -666,6 +666,9 @@ const zh = {
       undoImport: '撤销导入',
       undoing: '撤销中…',
       reverted: '已撤销',
+      undoPartial: '{{count}} 行未能撤销。再次撤销只会重试这些行。',
+      undoPartial_one: '{{count}} 行未能撤销。再次撤销只会重试这一行。',
+      undoPartial_other: '{{count}} 行未能撤销。再次撤销只会重试这些行。',
       undoConfirm: '撤销此次导入？它新建的记录将被删除，它更新的记录将恢复为之前的值。',
     },
     bulk: {

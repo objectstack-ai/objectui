@@ -611,6 +611,10 @@ const fr = {
       undoing: "Annulation…",
       undoConfirm: "Annuler cet import ? Les enregistrements créés seront supprimés et les enregistrements mis à jour seront rétablis à leurs valeurs précédentes.",
       reverted: "Annulé",
+      undoPartial: "{{count}} lignes n'ont pas été annulées. Annuler à nouveau ne réessaie que ces lignes.",
+      undoPartial_one: "{{count}} ligne n'a pas été annulée. Annuler à nouveau ne réessaie que cette ligne.",
+      undoPartial_many: "{{count}} de lignes n'ont pas été annulées. Annuler à nouveau ne réessaie que ces lignes.",
+      undoPartial_other: "{{count}} lignes n'ont pas été annulées. Annuler à nouveau ne réessaie que ces lignes.",
       jobStatus: {
         pending: "En attente",
         running: "En cours",

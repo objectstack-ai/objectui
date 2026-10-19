@@ -596,6 +596,9 @@ const ko = {
       undoing: "되돌리는 중…",
       undoConfirm: "이 가져오기를 되돌릴까요? 생성된 레코드는 삭제되고 업데이트된 레코드는 이전 값으로 복원됩니다.",
       reverted: "되돌림",
+      undoPartial: "{{count}}개 행을 되돌리지 못했습니다. 다시 되돌리면 이 행만 다시 시도합니다.",
+      undoPartial_one: "{{count}}개 행을 되돌리지 못했습니다. 다시 되돌리면 이 행만 다시 시도합니다.",
+      undoPartial_other: "{{count}}개 행을 되돌리지 못했습니다. 다시 되돌리면 이 행만 다시 시도합니다.",
       jobStatus: {
         pending: "대기 중",
         running: "실행 중",

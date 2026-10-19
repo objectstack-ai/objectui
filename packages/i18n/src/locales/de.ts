@@ -596,6 +596,9 @@ const de = {
       undoing: "Wird rückgängig gemacht…",
       undoConfirm: "Diesen Import rückgängig machen? Dabei erstellte Datensätze werden gelöscht und aktualisierte Datensätze auf ihre vorherigen Werte zurückgesetzt.",
       reverted: "Rückgängig gemacht",
+      undoPartial: "{{count}} Zeilen wurden nicht rückgängig gemacht. Erneutes Rückgängigmachen wiederholt nur diese Zeilen.",
+      undoPartial_one: "{{count}} Zeile wurde nicht rückgängig gemacht. Erneutes Rückgängigmachen wiederholt nur diese Zeile.",
+      undoPartial_other: "{{count}} Zeilen wurden nicht rückgängig gemacht. Erneutes Rückgängigmachen wiederholt nur diese Zeilen.",
       jobStatus: {
         pending: "Ausstehend",
         running: "Läuft",

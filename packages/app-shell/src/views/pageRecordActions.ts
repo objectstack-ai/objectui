@@ -17,28 +17,42 @@ import { documentHref } from './documentHref.js';
 const NO_RELATED_HANDLERS: RelatedRecordHandlers = Object.freeze({});
 
 /**
- * The page's related-list handlers for one list (objectui#12870): the
- * record page's executor for the list's ACTIONS, and nothing else.
+ * The page's handlers for one list, three cases by the input's shape.
  *
- *  - A list with no parent in scope (`parentId` empty: no `parentDataSource`,
- *    or a bound row without a key) gets no handlers, as before.
- *  - A list whose parent resolved gets `onRowAction` / `onToolbarAction` from
- *    the bridge the record page mounts — the same closures, so an authored
- *    action runs through the same `ActionRunner` dispatch it runs through on a
- *    record page.
+ *  - **An object-scoped list** (no `relationshipField`, no `parentId`: a page
+ *    `list-view` node, `ListViewBlock`'s `resolve({ objectName })`) gets the
+ *    bridge's create pair, `onCreate` / `createDisabled`, and nothing else
+ *    (objectui#13089). Its `addRecord` Add button opens the record-form
+ *    create the object list opens. `ResolveRelatedRecordActionsInput`
+ *    declares what an input without `relationshipField` asks for.
+ *  - **A related list with no parent in scope** (it names its
+ *    `relationshipField`, but `parentId` is empty: no `parentDataSource`, or a
+ *    bound row without a key) gets no handlers, as before. A "+ New" there
+ *    would open a child form linked to no parent.
+ *  - **A related list whose parent resolved** gets `onRowAction` /
+ *    `onToolbarAction` from the bridge the record page mounts (objectui#12870)
+ *    — the same closures, so an authored action runs through the same
+ *    `ActionRunner` dispatch it runs through on a record page.
  *
- * Only the two executors are served. The bridge's other members (New, Edit,
- * Delete, row click, "View all", and the child object's default
- * `rowActions` / `toolbarActions`) would change what a page list that authors
- * no `actions` draws, and that list is unchanged by this card. The renderer
- * draws an authored action only beside its executor, so the executors alone
- * are what an authored `actions` needs.
+ * Nothing else is served. The bridge's other members (Edit, Delete, row
+ * click, "View all", New under a parent, and the child object's default
+ * `rowActions` / `toolbarActions`) would change what a page list draws when
+ * it authors none of them. The renderer draws an authored action only beside
+ * its executor, so the executors alone are what an authored `actions` needs.
  */
 function pageRelatedHandlers(
   related: RelatedRecordActionsValue | undefined,
   input: ResolveRelatedRecordActionsInput,
 ): RelatedRecordHandlers {
-  if (!related || input.parentId == null || input.parentId === '') return NO_RELATED_HANDLERS;
+  if (!related) return NO_RELATED_HANDLERS;
+  const hasParent = input.parentId != null && input.parentId !== '';
+  if (!hasParent) {
+    const relatedList = input.relationshipField != null && input.relationshipField !== '';
+    if (relatedList) return NO_RELATED_HANDLERS;
+    const { onCreate, createDisabled } = related.resolve(input);
+    if (!onCreate) return NO_RELATED_HANDLERS;
+    return { onCreate, ...(createDisabled ? { createDisabled } : {}) };
+  }
   const { onRowAction, onToolbarAction } = related.resolve(input);
   if (!onRowAction && !onToolbarAction) return NO_RELATED_HANDLERS;
   return {
@@ -64,14 +78,16 @@ function pageRelatedHandlers(
  *
  * Deliberate limits, on the model of `listRecordActionsValue`:
  *
- *  - **`resolve` serves a list's action executors only, and only under a
- *    parent (objectui#12870).** A page has no parent record of its own; a
+ *  - **`resolve` serves a related list's action executors only under a
+ *    parent (objectui#12870), and an object-scoped list its create pair only
+ *    (objectui#13089).** A page has no parent record of its own; a
  *    `record:related_list` that bound one through `parentDataSource` has, and
  *    gets the record page's executor for its authored `actions`, from the
- *    bridge passed as `related` (see `pageRelatedHandlers`). Every other list
- *    gets an empty handler set, which the context documents as "capability
- *    unavailable", the same read-only outcome a consumer gets with no provider
- *    at all.
+ *    bridge passed as `related` (see `pageRelatedHandlers`). A `list-view`
+ *    node gets `onCreate` / `createDisabled` for its `addRecord`. A related
+ *    list with no parent gets an empty handler set, which the context
+ *    documents as "capability unavailable", the same read-only outcome a
+ *    consumer gets with no provider at all.
  *  - **Only objects this console can route to.** `recordHref` answers `null`
  *    for an object outside the app's metadata, or outside an app route, and
  *    `openRecord` then does nothing — the shape of the record page's own

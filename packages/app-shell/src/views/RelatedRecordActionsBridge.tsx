@@ -90,6 +90,7 @@ import { usePermissions } from '@object-ui/permissions';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM, RECORD_TRAIL_PARAM, appendRecordTrail } from '../urlParams.js';
 import { documentHref } from './documentHref.js';
 import { recordListPath } from './useOpenRecordList.js';
+import { resolveRecordFormTarget } from '../utils/recordFormNavigation.js';
 
 /**
  * Notify open related lists for `objectName` to refetch.
@@ -398,8 +399,25 @@ export function RelatedRecordActionsBridge({
   // form overlay, by URL params. Pushes ONE history entry (Back = close, the
   // parent detail stays mounted underneath). The read side lives in
   // `AppContent` (see its record-form URL contract).
+  //
+  // objectui#13089 — a create linked to NO parent is not a child task: it is
+  // the object's own create (a page `list-view` node's Add button), so it
+  // takes the object list's create semantics. For an `editMode: 'page'`
+  // object that is the full-page create route `AppContent`'s `handleEdit`
+  // navigates to (`resolveRecordFormTarget`), not the overlay.
   const openChildForm = useCallback(
     (opts: { objectName: string; recordId?: string; link?: { field: string; parentId: string | number } }) => {
+      if (opts.recordId == null && !opts.link) {
+        const target = resolveRecordFormTarget({
+          objectDef: objects.find((o: any) => o?.name === opts.objectName),
+          baseUrl: base,
+          record: null,
+        });
+        if (target.kind === 'page') {
+          navigate(target.url);
+          return;
+        }
+      }
       const sp = new URLSearchParams(window.location.search);
       sp.set(RECORD_FORM_PARAM, opts.recordId ?? 'new');
       sp.set(RECORD_FORM_OBJECT_PARAM, opts.objectName);
@@ -407,7 +425,7 @@ export function RelatedRecordActionsBridge({
       else sp.delete(RECORD_FORM_LINK_PARAM);
       setSearchParams(sp); // push → Back closes the overlay
     },
-    [setSearchParams],
+    [setSearchParams, objects, base, navigate],
   );
 
   // Execute a child object's row action against the clicked record. Reuses the

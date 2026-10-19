@@ -32,9 +32,25 @@ with its keys in `properties`. `requiredPermissions` gates what the node draws:
 missing one sees "Insufficient permissions to view list." in place of the list,
 as the record blocks show, and no records are queried.
 
-`addRecord` and `sharing` are not published inputs of a page node yet: the Add
-button is drawn only under a host that serves the object's create handler, and
-the Share button has no action the spec declares.
+`addRecord` draws an Add button: `enabled: true` turns it on, and `position`
+places it (`"top"`, the default here, `"bottom"` or `"both"`). A click opens the
+create form the object list's New opens: the record-form overlay, or the
+full-page create for an object whose `editMode` is `page`. The button is not
+drawn for a viewer who may not create, or under a host that serves no create.
+`mode` and `formView` are not read.
+
+```json
+{
+  "type": "list-view",
+  "properties": {
+    "data": { "provider": "object", "object": "deal" },
+    "addRecord": { "enabled": true, "position": "top" }
+  }
+}
+```
+
+`sharing` is not a published input of a page node yet: the Share button has no
+action the spec declares.
 
 ## Status
 

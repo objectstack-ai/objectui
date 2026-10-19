@@ -187,9 +187,10 @@ function boundObjectName(schema: ListViewSchema): string | undefined {
  * the `onCreate` a `RelatedRecordActionsContext` provider serves for the
  * object this block lists (`resolve({ objectName })`), the handler the
  * `record:related_list` block's "+ New" calls. No host prop and no new export.
- * The console's page host serves no `onCreate` for a parent-less list, so on a
- * console page the button is withheld; serving it there is objectui#13089's,
- * and `addRecord` stays unpublished until then.
+ * The input names no `relationshipField`, which is how a host tells this
+ * object-scoped list from a related list whose parent did not resolve
+ * (`ResolveRelatedRecordActionsInput`). The console's page host serves it the
+ * record-form create the object list opens (objectui#13089).
  *
  *  - A host that hands this block `onAddRecord` itself keeps it: an explicit
  *    prop outranks the provider, as the explicit `dataSource` adapter does.

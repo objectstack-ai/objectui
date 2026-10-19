@@ -445,11 +445,29 @@ provider that reports no capabilities at all leaves the list shown; the server
 stays the authority. Only the page node reads this key: the object list page
 draws `ListView` itself, and the server gates the views it serves.
 
-`addRecord` is not a published input. On a page node, `enabled: true` draws the
-Add button only when a `RelatedRecordActionsContext` provider (`@object-ui/react`)
-serves an `onCreate` for the listed object, and a click calls it; with no such
-provider the button is not drawn, rather than drawn with no action. A host that
-passes `ListView`'s own `onAddRecord` prop keeps it.
+`addRecord` draws an Add button. `enabled: true` turns it on, and `position`
+places it: `"top"` (the toolbar, also when absent), `"bottom"` or `"both"`.
+`mode` and `formView` are not read.
+
+```json
+{
+  "type": "list-view",
+  "properties": {
+    "data": { "provider": "object", "object": "deal" },
+    "addRecord": { "enabled": true, "position": "top" }
+  }
+}
+```
+
+On a page node the click calls the `onCreate` a `RelatedRecordActionsContext`
+provider (`@object-ui/react`) serves for the listed object, resolved with
+`{ objectName }` and no `relationshipField`. The console's page host serves the
+create the object list's New opens: the record-form overlay, or the full-page
+create route for an object whose `editMode` is `page`. With no such provider,
+for a viewer who may not create, or for a create the object greys, the button
+is not drawn, rather than drawn with no action. A host that passes `ListView`'s
+own `onAddRecord` prop keeps it; the console's object list passes its header
+New's create.
 
 `sharing` does nothing on a page node yet: it draws a Share button with no
 action, because the spec declares none for it. It is not a published input.

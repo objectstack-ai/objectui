@@ -118,18 +118,18 @@ const LIST_VIEW_TYPE_INPUT: ComponentInput = {
  * objectui#13047). The member shapes are the spec's, named in each
  * description; the spec row is the judge of values.
  *
- * Three keys of the row are NOT here, by the same measurement: `name` (read
- * by nothing on a page node), `sharing` (draws a Share button that does
- * nothing: the spec declares no action for it) and `addRecord` (the block
- * routes its Add button to an `onCreate` its host serves, and the console page
- * host serves none, so on a console page the button is withheld; objectui#13089
- * carries that host). So is `filterableFields`: the row declares it as the
+ * Two keys of the row are NOT here, by the same measurement: `name` (read
+ * by nothing on a page node) and `sharing` (draws a Share button that does
+ * nothing: the spec declares no action for it). So is `filterableFields`: the row declares it as the
  * shorthand of `userFilters.fields`, and the list reads it as the Filter
  * panel's field list instead. The console's repo-wide parity gate
  * (`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`) records
  * each with its reason. `requiredPermissions` was among them until
  * `ListViewBlock` honoured it on a page node (objectui#13074,
- * `__tests__/ListViewBlock.inertKeys-13074.test.tsx`).
+ * `__tests__/ListViewBlock.inertKeys-13074.test.tsx`), and so was `addRecord`
+ * until the console's page host served the create its Add button opens
+ * (objectui#13089, `PageView.listViewAddRecord-13089.test.tsx` in
+ * `@object-ui/app-shell`).
  *
  * `data` is NOT required (objectui#11605): the page compile reads this list,
  * so `required: true` would refuse a node bound by `dataSource.object`, which
@@ -201,6 +201,12 @@ const LIST_VIEW_INPUTS: ComponentInput[] = [
     type: 'object',
     description:
       'Which toolbar controls the user gets, the spec\'s `UserActionsConfig` of per-control toggles: a control set to `false` (for example `sort: false`) is taken off the toolbar, and the controls it does not name stay.',
+  },
+  {
+    name: 'addRecord',
+    type: 'object',
+    description:
+      'The Add button, the spec\'s `AddRecordConfig`. `enabled: true` draws it and `position` places it: `"top"` (the toolbar, also when absent), `"bottom"` (under the list) or `"both"`. A click opens the create form for the listed object, the one the object list\'s New opens: the record-form overlay, or the full-page create for an object whose `editMode` is `page`. The button is withheld for a viewer who may not create, or whose create the object greys, and on a host that serves no create. `mode` and `formView` are not read. `userActions.addRecordForm: false` also takes the button off.',
   },
   {
     name: 'compactToolbar',

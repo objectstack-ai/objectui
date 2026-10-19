@@ -38,13 +38,14 @@
  * The last describe block is the keys measured NOT honoured on a page node,
  * each held out of `inputs` with its reason in the console's repo-wide parity
  * gate: `name` (read by nothing here), `sharing` (draws a button that does
- * nothing on a page node), `addRecord` (its Add button is withheld on a page
- * node under no `onCreate` host, objectui#13089), and `filterableFields`
+ * nothing on a page node), and `filterableFields`
  * (read, but as the Filter panel's field list, not as the quick-filter
  * shorthand the row declares it to be). `requiredPermissions` was measured
  * here too, until objectui#13074 honoured it on a page node; its pins now live
  * in `ListViewBlock.inertKeys-13074.test.tsx`, beside the `addRecord` routing
- * rows under a provider that serves `onCreate`. One MEMBER is
+ * rows under a provider that serves `onCreate`. `addRecord` was held out too,
+ * until objectui#13089 had the console's page host serve that `onCreate`; the
+ * row below stays as the block's half: no host create, no button. One MEMBER is
  * recorded the same way beside the key that carries it:
  * `appearance.allowedVisualizations` narrows a view switcher a page node does
  * not draw, while `appearance.showDescription` acts.
@@ -807,7 +808,7 @@ describe('objectui#13047 — measured NOT honoured on a page `list-view` node (h
     expect(await firstFilterField()).toBe('Amount');
   });
 
-  it('`addRecord.enabled`: no Add button on a page node under no `onCreate` host — withheld, not drawn dead (objectui#13089)', async () => {
+  it('`addRecord.enabled`: no Add button on a page node under no `onCreate` host — withheld, not drawn dead', async () => {
     // No provider at all.
     const bare = mount({ addRecord: { enabled: true } });
     await loaded(bare.dataSource);
@@ -815,8 +816,8 @@ describe('objectui#13047 — measured NOT honoured on a page `list-view` node (h
     expect(bare.dataSource.create).not.toHaveBeenCalled();
     cleanup();
 
-    // A provider that, like the console's page host for a parent-less list,
-    // answers the object with no handlers at all.
+    // A provider that answers the object with no handlers at all, as a host
+    // that serves no create does.
     const dataSource = makeDataSource(ROWS, {});
     const resolve = vi.fn(() => Object.freeze({}));
     render(

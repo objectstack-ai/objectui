@@ -1652,14 +1652,14 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
    * renderer does instead, and each leaves this map the day a reader lands
    * and the key is published. objectui#13074 struck one of the five:
    * `requiredPermissions`, which `ListViewBlock` now honours on a page node
-   * (`ListViewBlock.inertKeys-13074.test.tsx`).
+   * (`ListViewBlock.inertKeys-13074.test.tsx`). objectui#13089 struck
+   * `addRecord`, whose Add button the console's page host now serves a create
+   * for (`PageView.listViewAddRecord-13089.test.tsx`).
    */
   'list-view.name':
     'Unpublished by measurement (objectui#13047): read by nothing on a page `list-view` node. The node draws, queries and hands its view the same thing with and without it — the view\'s own `name` is its identity in metadata, which an embedded list has no use for.',
   'list-view.sharing':
     'Unpublished by measurement (objectui#13047): `sharing.type` draws a Share button with no click handler, and the sharing config is enforced nowhere in the renderer. Publishing it would advertise a dead control (objectui#13047\'s report).',
-  'list-view.addRecord':
-    'Unpublished by measurement (objectui#13047, objectui#13074): on a page node the Add button is withheld, because the page host serves no `onCreate`. The block routes `addRecord.enabled` to the `onCreate` a `RelatedRecordActionsContext` provider serves for the listed object, and the console\'s page host answers a parent-less list with no handlers, so a console page draws no Add button (`ListViewBlock.specInputs-13047.test.tsx`). Serving `onCreate` there is objectui#13089\'s; the key is published when it lands.',
   'list-view.filterableFields':
     'Unpublished by measurement (objectui#13047): the row declares it as the legacy shorthand of `userFilters.fields` (end-user quick filters), and the list reads it as something else — the field list of the Filter panel — while it draws no quick-filter bar. Publishing it would advertise the row\'s meaning, which nothing honours; which meaning stands is a contract question for the seat (objectui#13047\'s report).',
 };
@@ -2838,6 +2838,7 @@ const actionLeafMemberPins = (type: 'action:button' | 'action:icon'): Record<str
  */
 const LIST_VIEW_PIN_FILE = 'packages/plugin-list/src/__tests__/ListViewBlock.specInputs-13047.test.tsx';
 const LIST_VIEW_13074_PIN_FILE = 'packages/plugin-list/src/__tests__/ListViewBlock.inertKeys-13074.test.tsx';
+const LIST_VIEW_13089_PIN_FILE = 'packages/app-shell/src/views/__tests__/PageView.listViewAddRecord-13089.test.tsx';
 
 const MEMBER_PINS: Record<string, MemberPin> = {
   ...actionLeafMemberPins('action:button'),
@@ -3027,6 +3028,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'list-view.pagination': {
     file: LIST_VIEW_PIN_FILE,
     pins: 'The `pageSize` member caps the query (`$top`), and the same node with no `pagination` sends the default page (objectui#13047).',
+  },
+  'list-view.addRecord': {
+    file: LIST_VIEW_13089_PIN_FILE,
+    pins: 'Through the real `PageView`: `enabled: true` draws the Add button, and a click pushes `form=new` + `formObject` for the listed object (no `formLink`), or navigates to the full-page create route for an `editMode: \'page\'` object; no create grant, and a create the object greys, withhold it; a node without the key draws none. Controls: an unbound `record:related_list` on the same page draws no `+ New`, and a parent-less resolve is served `onCreate` alone (objectui#13089).',
   },
   'list-view.requiredPermissions': {
     file: LIST_VIEW_13074_PIN_FILE,

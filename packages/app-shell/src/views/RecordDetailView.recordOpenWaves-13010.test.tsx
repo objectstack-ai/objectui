@@ -418,6 +418,8 @@ const isActivityRead = isPanelRead('sys_activity');
 const isCommentRead = isPanelRead('sys_comment');
 const isUserListRead = (h: Held) => isPanelRead('sys_user')(h) && topOf(h) === 50;
 const isAttachmentListRead = (h: Held) => isPanelRead('sys_attachment')(h) && topOf(h) === 100;
+/** The `record:activity` block's node, as `SchemaRenderer` marks it in the DOM. */
+const ACTIVITY_MOUNT = '[data-obj-id="deal_activity"]';
 const FOUR_READS = [isActivityRead, isCommentRead, isUserListRead, isAttachmentListRead];
 
 /**
@@ -496,6 +498,37 @@ describe('the timeline, comments, attachments and user list wait for their panel
     expect(held.filter(isAttachmentListRead), table).toEqual([]);
   });
 
+  // Drift pin: "not read" holds only because the block is not MOUNTED. A tab
+  // strip that began mounting a non-first tab unprompted would draw the block
+  // over a feed nobody reads; this turns red on that, not just on a read.
+  it('a page whose feed tab is not first, opened with no ?tab=, neither reads the feed nor mounts its block', async () => {
+    const { held } = await openRecordPage({ page: ACTIVITY_PAGE, object: filesObject, observer: FoldObserver });
+    const table = waveTable(held);
+    for (const isRead of [isActivityRead, isCommentRead, isUserListRead]) expect(held.filter(isRead), table).toEqual([]);
+    expect(document.querySelector(ACTIVITY_MOUNT), table).toBeNull();
+    // Nor any feed panel at all: a mounted one over an unread feed shows its loading state.
+    expect(screen.queryByTestId('activity-loading'), table).toBeNull();
+  });
+
+  // An authored `properties.defaultTab` beats `?tab=` in the renderer (the
+  // `properties` hoist runs after `withPageTabsUrlSync` writes `?tab=`), so the
+  // view may not judge such a strip by `?tab=`: it reads the feed at open.
+  it('a strip whose properties.defaultTab names the Activity tab still reads the feed when ?tab= names another tab', async () => {
+    const page = {
+      ...ACTIVITY_PAGE,
+      regions: [
+        { name: 'main', width: 'large', components: [{ type: 'page:tabs', id: 'deal_tabs', properties: { items: [DETAILS_TAB, ACTIVITY_TAB], defaultTab: 'activity' } }] },
+        RECORD_PAGE.regions[1],
+      ],
+    };
+    const { held } = await openRecordPage({ page, object: filesObject, observer: FoldObserver, search: '?tab=details' });
+    const table = waveTable(held);
+    for (const isRead of [isActivityRead, isCommentRead, isUserListRead]) expect(held.filter(isRead), table).toHaveLength(1);
+    expect(document.querySelector(ACTIVITY_MOUNT), table).not.toBeNull();
+    expect(screen.getByText('Stage moved to proposal')).toBeTruthy();
+    expect(screen.getByText('Ping the buyer on Friday')).toBeTruthy();
+  });
+
   it('the foot-of-page Attachments panel reads once it scrolls into view, and draws its rows', async () => {
     const { held, state } = await openRecordPage({ page: ACTIVITY_PAGE, object: filesObject, observer: FoldObserver });
     expect(held.filter(isAttachmentListRead), waveTable(held)).toEqual([]);
@@ -509,6 +542,8 @@ describe('the timeline, comments, attachments and user list wait for their panel
   it('CONTROL: a record opened on its Activity tab reads all three at open, and draws the same rows', async () => {
     const { held } = await openRecordPage({ page: ACTIVITY_PAGE, object: filesObject, observer: FoldObserver, search: '?tab=activity' });
     const table = waveTable(held);
+    // The mount marker the drift pin below reads is real: present when the tab is.
+    expect(document.querySelector(ACTIVITY_MOUNT), table).not.toBeNull();
     for (const isRead of [isActivityRead, isCommentRead, isUserListRead]) {
       expect(held.filter(isRead).map((h) => h.wave), table).toEqual([1]);
     }

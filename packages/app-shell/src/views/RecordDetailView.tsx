@@ -190,8 +190,9 @@ const TABS_URL_SYNC_KEYS: ReadonlySet<string> = new Set(['regions', 'components'
  * whose active tab this view can know. Every case it cannot read answers
  * `true`, which is the eager read this view always made: a strip the URL does
  * not drive, a strip with a conditional item (`visibleWhen` can remove the
- * first one), a strip that carries its own `defaultTab` with no `?tab=` value
- * to override it, and a strip whose items sit under both spellings.
+ * first one), a strip that carries its own `defaultTab` in either spelling
+ * (whether or not `?tab=` is set), and a strip whose items sit under both
+ * spellings.
  */
 function pageShowsNodeOnOpen(page: unknown, types: ReadonlySet<string>, activeTab: string | undefined): boolean {
   const seen = { synced: new WeakSet<object>(), local: new WeakSet<object>() };
@@ -218,7 +219,11 @@ function pageShowsNodeOnOpen(page: unknown, types: ReadonlySet<string>, activeTa
         items !== undefined
         && items.length > 0
         && items.every((it) => it !== undefined && (it.visibleWhen === undefined || it.visibleWhen === null))
-        && (activeTab !== undefined || (node.defaultTab === undefined && props?.defaultTab === undefined));
+        // An authored `defaultTab`, in either spelling, makes the strip unreadable
+        // whatever `?tab=` says: `SchemaRenderer`'s hoist copies `properties.*`
+        // over the node AFTER `withPageTabsUrlSync` writes `?tab=` onto it, so
+        // `properties.defaultTab` beats `?tab=` in the renderer.
+        && node.defaultTab === undefined && props?.defaultTab === undefined;
       if (items && readable) {
         const values = items.map((it, idx) => (typeof it?.value === 'string' && it.value !== '' ? it.value : `tab-${idx}`));
         const activeIdx = activeTab !== undefined && values.includes(activeTab) ? values.indexOf(activeTab) : 0;

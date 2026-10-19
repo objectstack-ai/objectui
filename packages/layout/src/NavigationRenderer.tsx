@@ -74,6 +74,7 @@ import {
   useIsMobile,
 } from '@object-ui/components';
 import type { NavigationItem, KeyedI18nLabel } from '@object-ui/types';
+import { isElementApiDataSourceShape } from '@object-ui/react';
 // Aliased on import, following PR #4169's convention (as `AppSchemaRenderer`
 // does): this file has its OWN `resolveLabel` over the KEYED vocabulary, and
 // the spec's resolver reads the INLINE locale map — neither accepts the other's
@@ -141,9 +142,18 @@ const HIDDEN_ICON_LABEL_NOT_FOCUSABLE =
  * The parameter is the item's own `visible` type, so the spec's
  * `{ dialect, source }` envelope reaches the evaluator as authored
  * (objectui#13075).
+ *
+ * `entry` is the navigation entry whose `visible` this is (objectui#13029).
+ * The item guard always passes it. An entry may declare the spec's API
+ * `dataSource` (`{ provider: 'api', read: { url }, path? }`), whose selected
+ * value its `visible` reads as `data`; reading that binding is the host's job,
+ * so an evaluator that answers such an entry reads it through `entry`. The
+ * default evaluator reads no binding, so it hides an entry that declares one:
+ * a value nobody read is unknown, and an unknown navigation gate is closed.
  */
 export type VisibilityEvaluator = (
   expression: NavigationItem['visible'],
+  entry?: NavigationItem,
 ) => boolean;
 
 /**
@@ -613,7 +623,10 @@ function inheritedNavItemLabel(
 // Default evaluators (always-visible, always-permitted)
 // ---------------------------------------------------------------------------
 
-const defaultVisibility: VisibilityEvaluator = (expr) => {
+const defaultVisibility: VisibilityEvaluator = (expr, entry) => {
+  // objectui#13029 — this default reads no API binding, so an entry that
+  // declares one is hidden: its `visible` is about a value never read.
+  if (entry && isElementApiDataSourceShape(entry.dataSource)) return false;
   if (expr === false || expr === 'false') return false;
   return true;
 };
@@ -683,7 +696,9 @@ function passesNavItemGuards(
     checkDocTarget,
   } = options;
 
-  if (!evaluateVisibility(item.visible)) return false;
+  // The entry rides along so an evaluator can bind its API `dataSource` as
+  // `data` (objectui#13029); the decision about that binding is the evaluator's.
+  if (!evaluateVisibility(item.visible, item)) return false;
   if (item.requiredPermissions?.length && !checkPermission(item.requiredPermissions)) return false;
   const requiresObject = (item as { requiresObject?: string }).requiresObject;
   const requiresService = (item as { requiresService?: string }).requiresService;

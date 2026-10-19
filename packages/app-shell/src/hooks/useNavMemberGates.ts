@@ -47,12 +47,39 @@
  * permissions payload is bound, as on a frame with no permission provider —
  * withholds its entry and reports once, instead of drawing it for everyone.
  *
+ * ## An entry's API binding (objectui#13029)
+ *
+ * An entry may declare the spec's API `dataSource`
+ * (`{ provider: 'api', read: { url }, path? }`, `BaseNavItemSchema.dataSource`):
+ * its `visible` reads the value the binding selects as `data`
+ * (`data.total == 1`). Only `visible` reads it: not the label, not the target,
+ * and not the entry's `children`. {@link useNavVisibility} is the one evaluator
+ * every navigation surface of the shell hands its guard: the sidebar and the
+ * landing through {@link useNavMemberGates}, the `nav:menu` block and the
+ * command palette directly. It reads each binding an app's navigation declares
+ * through `@object-ui/react`'s element reader (`readElementApi`, the request a
+ * page element's binding makes, with the host's `apiFetch`), so there is no
+ * second fetch. An entry is drawn only once its read has answered and its
+ * `visible` holds over that value: while the read is pending, when it fails,
+ * when `path` selects nothing, or when the spec refuses the binding, the entry
+ * is hidden. An entry without the key is evaluated exactly as before, with no
+ * read and no wait.
+ *
  * Internal module: not re-exported by the package entry.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { hasVisibleNavigationItems, type NavigationVisibilityOptions } from '@object-ui/layout';
 import type { NavigationItem } from '@object-ui/types';
+import type { ExpressionEvaluator } from '@object-ui/core';
+import {
+  SchemaRendererContext,
+  isElementApiDataSourceShape,
+  judgeElementApiDataSource,
+  readElementApi,
+  selectElementApiPath,
+  type ApiFetch,
+} from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { useExpressionContext, evaluateNavigationVisibility } from '../providers/ExpressionProvider.js';
@@ -87,6 +114,136 @@ function requiredObjectUnion(apps: unknown, current: Record<string, unknown> | u
   return [...out].sort();
 }
 
+/** Where one entry's API binding stands for its `visible` (objectui#13029). */
+export type NavEntryDataRead =
+  | { status: 'absent' }
+  | { status: 'pending' }
+  | { status: 'failed' }
+  | { status: 'ready'; data: unknown };
+
+/** A binding's content: the key its read is shared and remembered under. */
+function bindingKey(dataSource: unknown): string {
+  return JSON.stringify(dataSource);
+}
+
+/**
+ * Every API binding an app's navigation declares, in its `navigation` and every
+ * `areas[].navigation`, at every group depth: sorted keys, so the same bindings
+ * read as the same list.
+ */
+function navBindingKeys(app: unknown): string[] {
+  const out = new Set<string>();
+  const visit = (items: unknown): void => {
+    if (!Array.isArray(items)) return;
+    for (const item of items) {
+      if (!item || typeof item !== 'object') continue;
+      const { dataSource, children } = item as { dataSource?: unknown; children?: unknown };
+      if (isElementApiDataSourceShape(dataSource)) out.add(bindingKey(dataSource));
+      visit(children);
+    }
+  };
+  const shape = (app && typeof app === 'object' ? app : {}) as { navigation?: unknown; areas?: unknown };
+  visit(shape.navigation);
+  if (Array.isArray(shape.areas)) {
+    for (const area of shape.areas) {
+      visit(area && typeof area === 'object' ? (area as { navigation?: unknown }).navigation : undefined);
+    }
+  }
+  return [...out].sort();
+}
+
+type SettledRead = { ok: true; data: unknown } | { ok: false };
+
+/**
+ * Read every API binding `app`'s navigation declares, and answer where a given
+ * entry's binding stands. Each binding is read once per change of the set,
+ * through `readElementApi` with the host's `apiFetch` (the page element's
+ * reader), and its `path` selected with `selectElementApiPath`; a binding the
+ * spec refuses is judged by `judgeElementApiDataSource` and never read.
+ */
+function useNavEntryData(app: unknown): (entry: NavigationItem) => NavEntryDataRead {
+  const context = useContext(SchemaRendererContext);
+  const doFetch: ApiFetch = context?.apiFetch ?? fetch;
+  // Keyed on the bindings' CONTENT, never on the identity of the tree that
+  // holds them (AGENTS.md #10).
+  const signature = navBindingKeys(app).join('\n');
+  const [answers, setAnswers] = useState<Record<string, SettledRead>>({});
+
+  useEffect(() => {
+    if (!signature) return;
+    let cancelled = false;
+    const settle = (key: string, read: SettledRead) => {
+      if (!cancelled) setAnswers((prev) => ({ ...prev, [key]: read }));
+    };
+    for (const key of signature.split('\n')) {
+      const judged = judgeElementApiDataSource(JSON.parse(key));
+      if (judged.status !== 'parsed') continue;
+      const { read, path } = judged.config;
+      readElementApi(read.url, doFetch).then(
+        (body) => {
+          const selected = selectElementApiPath(body, path);
+          settle(key, selected.found ? { ok: true, data: selected.value } : { ok: false });
+        },
+        () => settle(key, { ok: false }),
+      );
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [signature, doFetch]);
+
+  return useCallback(
+    (entry: NavigationItem): NavEntryDataRead => {
+      const dataSource = entry.dataSource;
+      if (!isElementApiDataSourceShape(dataSource)) return { status: 'absent' };
+      if (judgeElementApiDataSource(dataSource).status !== 'parsed') return { status: 'failed' };
+      const answer = answers[bindingKey(dataSource)];
+      if (!answer) return { status: 'pending' };
+      return answer.ok ? { status: 'ready', data: answer.data } : { status: 'failed' };
+    },
+    [answers],
+  );
+}
+
+/**
+ * Should this navigation entry be drawn, as far as its `visible` goes? The one
+ * decision every navigation surface of the shell makes (objectui#13029): an
+ * entry that declares an API `dataSource` is hidden until its read is `ready`,
+ * and then its `visible` is evaluated with the selected value bound as `data`;
+ * any other entry is `evaluateNavigationVisibility`'s answer, as before.
+ */
+export function navEntryVisible(
+  expression: NavigationItem['visible'],
+  entry: NavigationItem | undefined,
+  evaluator: ExpressionEvaluator,
+  readEntry: (entry: NavigationItem) => NavEntryDataRead,
+): boolean {
+  if (entry && isElementApiDataSourceShape(entry.dataSource)) {
+    const read = readEntry(entry);
+    if (read.status !== 'ready') return false;
+    return evaluateNavigationVisibility(expression, evaluator.withContext({ data: read.data }));
+  }
+  return evaluateNavigationVisibility(expression, evaluator);
+}
+
+/**
+ * The `visible` evaluator for `app`'s navigation: {@link navEntryVisible} over
+ * the shell's expression evaluator and the bindings `app` declares. The sidebar
+ * (through {@link useNavMemberGates}), the `nav:menu` block and the command
+ * palette each build theirs here, so they cannot disagree.
+ */
+export function useNavVisibility(
+  app: unknown,
+): (expression: NavigationItem['visible'], entry?: NavigationItem) => boolean {
+  const { evaluator } = useExpressionContext();
+  const readEntry = useNavEntryData(app);
+  return useCallback(
+    (expression: NavigationItem['visible'], entry?: NavigationItem) =>
+      navEntryVisible(expression, entry, evaluator, readEntry),
+    [evaluator, readEntry],
+  );
+}
+
 /** The member's gates, as the sidebar applies them. */
 export interface NavMemberGates {
   /** The `visible` evaluator handed to `@object-ui/layout`'s item guard. */
@@ -104,11 +261,9 @@ export interface NavMemberGates {
  * expression evaluator, `usePermissions()`, and the registered object list.
  */
 export function useNavMemberGates(): NavMemberGates {
-  const { evaluator, app } = useExpressionContext();
-  const evalVis = useCallback(
-    (expr: NavigationItem['visible']) => evaluateNavigationVisibility(expr, evaluator),
-    [evaluator],
-  );
+  const { app } = useExpressionContext();
+  // objectui#13029 — the entries of the app this frame renders may bind data.
+  const evalVis = useNavVisibility(app);
 
   // Permission check for nav `requiredPermissions` entries.
   //

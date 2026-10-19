@@ -305,9 +305,11 @@ const NavigationItemObject = z.object({
   // (objectstack#24332, `ElementApiDataSourceSchema` by reference), whose bound
   // value an entry's `visible` reads as `data`. Taken by reference for the
   // reason `runAction` is declared above: this schema strips unknown keys, so an
-  // authored binding would have validated clean and been thrown away. The spec
-  // describes it as planned and not yet rendered; the console does not read it.
-  dataSource: stripImportedDefaults(SpecElementApiDataSourceSchema).optional().describe("One API data source whose bound value the entry's `visible` reads as `data` (`@objectstack/spec` `ElementApiDataSourceSchema`). Planned in the spec; the console does not read it yet"),
+  // authored binding would have validated clean and been thrown away. The
+  // console reads it (objectui#13029): the shell's navigation `visible`
+  // evaluator (`useNavVisibility` in `@object-ui/app-shell`) reads the binding
+  // and hides the entry until it answers.
+  dataSource: stripImportedDefaults(SpecElementApiDataSourceSchema).optional().describe("One API data source whose bound value the entry's `visible` reads as `data` (`@objectstack/spec` `ElementApiDataSourceSchema`). The console reads it with the signed-in fetch; the entry stays hidden while the read is pending or after it fails. Only `visible` reads `data`; the label, the target and `children` do not"),
   requiredPermissions: z.array(z.string()).optional().describe('Required permissions'),
   // Runtime capability gates. `NavigationRenderer` has always honoured these
   // and `NavigationItem` has always declared them — only this schema lagged,

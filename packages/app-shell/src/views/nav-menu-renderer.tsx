@@ -131,7 +131,7 @@ import {
   type NavTemplateContext,
 } from '@object-ui/layout';
 import type { NavigationItem } from '@object-ui/types';
-import { useExpressionContext, evaluateNavigationVisibility } from '../providers/ExpressionProvider.js';
+import { useNavVisibility } from '../hooks/useNavMemberGates.js';
 import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
 import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { useNavDocTargetCheck } from '../hooks/useNavDocTargetCheck.js';
@@ -183,11 +183,9 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
 
   /* ── The three guards, wired to the same providers `UnifiedSidebar` uses ── */
 
-  const { evaluator } = useExpressionContext();
-  const evalVis = useCallback(
-    (expr: NavigationItem['visible']) => evaluateNavigationVisibility(expr, evaluator),
-    [evaluator],
-  );
+  // The shell's one navigation `visible` evaluator (objectui#13029): an entry
+  // that declares an API `dataSource` reads its bound value as `data`, and is
+  // hidden until that read answers. Built below, once the app is known.
 
   // `object:action` → object CRUD gate; a bare name is an ADR-0066 system
   // capability, with the legacy "can read <object>" reading kept as fallback.
@@ -209,6 +207,8 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
     const list = ((apps as any[]) || []).filter((a: any) => a?.active !== false);
     return matchAppBySegment(list, appName ?? currentAppName ?? null);
   }, [apps, appName, currentAppName]);
+
+  const evalVis = useNavVisibility(activeApp);
 
   // The runtime-capability gate for `requiresObject` entries. objectui#12980 —
   // it reads the objects the app's entries require, by name (beside the app's
@@ -321,7 +321,7 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
       // The guard ORDER is `NavigationItemRenderer`'s and
       // `hasVisibleNavigationItems`'; keeping it identical is what makes the
       // derived-area predicate above agree with what actually renders.
-      if (!evalVis(item.visible)) return null;
+      if (!evalVis(item.visible, item)) return null;
       if (item.requiredPermissions?.length && !checkPerm(item.requiredPermissions)) return null;
       if (item.requiresObject && !checkCap('object', item.requiresObject)) return null;
       if (item.requiresService && !checkCap('service', item.requiresService)) return null;

@@ -43,7 +43,7 @@ import {
 import { useRecordSearch } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { useTheme } from './ThemeProvider.js';
-import { useExpressionContext, evaluateNavigationVisibility } from '../providers/ExpressionProvider.js';
+import { useNavVisibility } from '../hooks/useNavMemberGates.js';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { resolveKeyedI18nLabel, getRecordDisplayName, appRouteSegment } from '../utils/index.js';
 import { getIcon } from '../utils/getIcon.js';
@@ -111,7 +111,10 @@ export function CommandPalette(props: CommandPaletteProps) {
   const navigate = useNavigate();
   const { appName } = useParams();
   const { setTheme } = useTheme();
-  const { evaluator } = useExpressionContext();
+  // The shell's one navigation `visible` evaluator, the sidebar's and
+  // `nav:menu`'s: an entry that declares an API `dataSource` reads its bound
+  // value as `data`, and is hidden until that read answers (objectui#13029).
+  const evalVis = useNavVisibility(activeApp);
   const { t, language } = useObjectTranslation();
   // A nav entry's text, the way the sidebar and `nav:menu` name it: an entry
   // with NO `label` shows its target's current label, else its target's machine
@@ -152,7 +155,7 @@ export function CommandPalette(props: CommandPaletteProps) {
 
   // Extract navigation items from active app, filtering by visibility expressions
   const navItems = flattenNavigation(activeApp?.navigation || []).filter(
-    (item) => evaluateNavigationVisibility(item.visible ?? item.visibleOn, evaluator)
+    (item) => evalVis(item.visible ?? item.visibleOn, item)
   );
 
   // The entries the palette shows for the query: a navigation entry or app by

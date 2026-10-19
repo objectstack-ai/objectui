@@ -45,7 +45,8 @@
  *   a name not served) shows as itself, in monospace, as before. Display only:
  *   what is committed is always the name.
  *
- * Module-private: imported by its sibling inspectors, exported from no barrel.
+ * Module-private: imported by its sibling inspectors and the flow header,
+ * exported from no barrel.
  */
 
 import * as React from 'react';
@@ -102,8 +103,11 @@ function readCatalogEntry(raw: unknown): ObjectCatalogEntry | null {
  * draft, its package and its `_draft` mark — where the draft headers carry the
  * name alone. A caller the server does not admit to pending drafts is answered
  * the published list, which is the list it could pick from anyway.
+ *
+ * The flow header's Trigger pill names its object through this same read
+ * (objectui#13056), so the header and the Start node's picker draw one label.
  */
-function useObjectCatalog() {
+export function useObjectCatalog() {
   const client = useMetadataClient();
   // The read is asked ONCE per mount. The client is reached through a ref so
   // that a fresh client object (a discarded memo, a test double minted per

@@ -38,6 +38,7 @@ import { EmptyDescription } from '@object-ui/components';
 import type { MetadataPreviewProps, MetadataSelection } from '../preview-registry.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 import { appendArray } from '../inspectors/_shared.js';
+import { useObjectCatalog, type ObjectCatalogEntry } from '../inspectors/ObjectPicker.js';
 import { t as tr, translateFlowMeta } from '../i18n.js';
 import { FlowCanvas } from './FlowCanvas.js';
 import { defaultNodeLabel } from './flow-canvas-parts.js';
@@ -169,10 +170,20 @@ export function flowSelectionHeading(
  * The words are the Start node inspector's own option labels for the same
  * tokens (`flow-node-config`), localized the way the inspector localizes them,
  * so the header and the inspector name one trigger one way.
+ *
+ * The object reads as its label (objectui#13056), from the catalog the Start
+ * node's object picker reads, with its name on the pill's `title`; while the
+ * catalog loads, when it fails, or for an object it does not label, the name
+ * is the text, as before.
  */
-function flowTriggerLabel(d: Record<string, unknown>, nodes: FlowNode[], locale?: string): string {
+function flowTriggerLabel(
+  d: Record<string, unknown>,
+  nodes: FlowNode[],
+  objects: readonly ObjectCatalogEntry[],
+  locale?: string,
+): { value: string; title?: string } {
   const kind = resolveFlowTriggerKind(d);
-  if (!kind) return translateFlowMeta('type', String(d.type ?? 'autolaunched'), locale);
+  if (!kind) return { value: translateFlowMeta('type', String(d.type ?? 'autolaunched'), locale) };
   const config = nodes.find((n) => n?.type === 'start')?.config ?? {};
   // A record kind means the Start node's `triggerType` IS a `record-*` token —
   // the resolver read it to answer.
@@ -186,8 +197,13 @@ function flowTriggerLabel(d: Record<string, unknown>, nodes: FlowNode[], locale?
       : kind === 'time_relative'
         ? (typeof sweep?.object === 'string' ? sweep.object : config.objectName)
         : undefined;
-  return typeof object === 'string' && object ? `${label} · ${object}` : label;
+  if (typeof object !== 'string' || !object) return { value: label };
+  const objectLabel = objects.find((o) => o.name === object)?.label;
+  return objectLabel ? { value: `${label} · ${objectLabel}`, title: object } : { value: `${label} · ${object}` };
 }
+
+/** The catalog before it answered, or when it failed: one stable empty list. */
+const NO_OBJECTS: ObjectCatalogEntry[] = [];
 
 /**
  * The flow's meta — Trigger, Status, Run as, version and, when set, On error —
@@ -215,12 +231,15 @@ export function FlowMetaPills({
   const errorStrategy = (draft.errorHandling as { strategy?: unknown } | undefined)?.strategy;
   const onError = typeof errorStrategy === 'string' && errorStrategy ? errorStrategy : undefined;
   const header = variant === 'header';
+  const catalog = useObjectCatalog();
+  const trigger = flowTriggerLabel(draft, nodes, catalog.status === 'loaded' ? catalog.data : NO_OBJECTS, locale);
   const items: React.ReactNode[] = [
     <Pill
       key="trigger"
       icon={header ? undefined : Zap}
       label={tr('engine.flowPreview.pill.trigger', locale)}
-      value={flowTriggerLabel(draft, nodes, locale)}
+      value={trigger.value}
+      title={trigger.title}
       compact={header}
     />,
     <Pill
@@ -686,7 +705,7 @@ function Pill({
   label: string;
   value: string;
   tone?: FlowRunStatusView['tone'];
-  /** Hover text — the run status's reason, for the Status pill. */
+  /** Hover text — the run status's reason, for the Status pill; the trigger object's name, for the Trigger pill. */
   title?: string;
   /** The item header's meta (objectui#12454): the value at the caption's weight, plain text muted. */
   compact?: boolean;

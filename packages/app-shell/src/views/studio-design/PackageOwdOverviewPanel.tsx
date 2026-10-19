@@ -370,7 +370,7 @@ export function PackageOwdOverviewPanel({
         // runtime resolved from the list; the authoring door refuses the two
         // together, for the whole object. So the resolved `options` stay out of
         // the body, on every bound field and on nothing else.
-        await client.save('object', s.row.name, dropServedPicklistOptions(next), { mode: 'draft', packageId });
+        await client.save('object', s.row.name, dropServedPicklistOptions(next), { mode: 'draft', packageId, surface: 'studio' });
       }
       toast.success(tFormat('engine.studio.owd.saved', locale, { count: changed.length }));
       onDraftSaved?.();

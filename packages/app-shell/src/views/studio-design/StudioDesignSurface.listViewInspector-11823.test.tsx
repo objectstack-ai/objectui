@@ -196,9 +196,9 @@ describe('an object leaf\'s Properties panel edits its list view (objectui#11823
     // so its first save is the first-write pin; a later one is pinned to the
     // receipt before it.
     const sentOptions = viewSaves().map((call) => call[3]);
-    expect(sentOptions[0]).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifNoneMatch: '*' });
+    expect(sentOptions[0]).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifNoneMatch: '*', surface: 'studio' });
     for (const later of sentOptions.slice(1)) {
-      expect(later).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifMatch: 'v1' });
+      expect(later).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifMatch: 'v1', surface: 'studio' });
     }
     const parsed = ViewItemSchema.safeParse(body);
     expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);

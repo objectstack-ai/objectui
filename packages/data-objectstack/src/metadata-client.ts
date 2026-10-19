@@ -39,6 +39,7 @@ import { FlowRegistrationSchema, GetMetaItemLayeredResponseSchema } from '@objec
 // nothing has to enumerate. See that module's docblock for why the writers are
 // deliberately not listed anywhere.
 import { assertObjectMetadataWritable } from './object-metadata-write-guard';
+import type { DraftChange } from './draft-envelope';
 import type {
   FlowRegistration,
   GetMetaItemLayeredResponse,
@@ -435,6 +436,19 @@ export interface MetadataClientSaveOptions {
    * Studio package workspace. Omit for an env-local overlay.
    */
   packageId?: string;
+  /**
+   * The authoring surface this save is made through (objectui#12725), sent as
+   * `?surface=`. A draft save stamps it as `by` on every key path it changes,
+   * the entries the strict draft read serves as `draftChanges`; absent, the
+   * framework stamps `api`. Studio's own saves send `'studio'`, so a person's
+   * edit there is told apart from the AI copilot's (objectstack#24395).
+   *
+   * DERIVED from the spec's authoring-surface set (the one `draftChanges[].by`
+   * reports, `MetadataAuthoringSurface`), minus `'copilot'`: the HTTP doors
+   * refuse `?surface=copilot` `400` (only an in-process tool may state it), so
+   * this client cannot send it. Omit for any other caller.
+   */
+  surface?: Exclude<DraftChange['by'], 'copilot'>;
 }
 
 export interface MetadataGetOptions {
@@ -453,7 +467,10 @@ export interface MetadataGetOptions {
   packageId?: string;
 }
 
-export interface MetadataDeleteOptions extends MetadataClientSaveOptions {
+// `surface` is a SAVE input (`?surface=` on `PUT`); the delete door reads no
+// such parameter, so a delete option of that name would be declared and never
+// sent (objectui#12725).
+export interface MetadataDeleteOptions extends Omit<MetadataClientSaveOptions, 'surface'> {
   /**
    * Target state. `'draft'` discards the pending draft (keeps the
    * published overlay intact). Omit to reset the active overlay back
@@ -1363,6 +1380,9 @@ export class MetadataClient {
     if (options.force) params.push('force=true');
     if (options.mode === 'draft') params.push('mode=draft');
     if (options.packageId) params.push(`package=${encodeURIComponent(options.packageId)}`);
+    // objectui#12725 - once, and only when stated: the doors refuse a repeated
+    // `?surface=` (the arity rule), and an absent one is recorded as `api`.
+    if (options.surface) params.push(`surface=${encodeURIComponent(options.surface)}`);
     const qs = params.length ? `?${params.join('&')}` : '';
     const url = `${this.base}/${encodeURIComponent(type)}/${encodeURIComponent(name)}${qs}`;
     const headers: Record<string, string> = {

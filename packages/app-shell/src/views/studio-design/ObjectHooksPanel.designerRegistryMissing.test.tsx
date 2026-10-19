@@ -104,7 +104,7 @@ describe('ObjectHooksPanel — no curated hook editor registered (#6846)', () =>
       expect.objectContaining({ handler: 'guard_fn_v2' }),
       // objectui#11773 — no draft of this hook was pending at the load: its
       // first save is the first-write pin.
-      { mode: 'draft', packageId: 'com.example.showcase', ifNoneMatch: '*' },
+      { mode: 'draft', packageId: 'com.example.showcase', ifNoneMatch: '*', surface: 'studio' },
     );
   });
 });

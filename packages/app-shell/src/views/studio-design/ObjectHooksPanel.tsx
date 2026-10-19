@@ -290,7 +290,7 @@ export function ObjectHooksPanel({
     setSaving(true);
     setError(null);
     try {
-      if ((await saveHookDraft('hook', String(draft.name), draft, { mode: 'draft', packageId })) === 'reloaded') {
+      if ((await saveHookDraft('hook', String(draft.name), draft, { mode: 'draft', packageId, surface: 'studio' })) === 'reloaded') {
         // objectui#11773 — the author chose the saved version: the list re-read
         // installs it over this buffer, which holds nothing of theirs to keep.
         setDirty(false);
@@ -363,7 +363,7 @@ export function ObjectHooksPanel({
     try {
       // objectui#11773 — a create is the first-write pin: refused where the
       // name already holds a draft, instead of written over it.
-      await client.save('hook', name, fresh, { mode: 'draft', packageId, ifNoneMatch: '*' });
+      await client.save('hook', name, fresh, { mode: 'draft', packageId, ifNoneMatch: '*', surface: 'studio' });
       // objectui#11787 — a new hook is a new draft: the count says so.
       onDraftSaved?.();
       setNonce((n) => n + 1);

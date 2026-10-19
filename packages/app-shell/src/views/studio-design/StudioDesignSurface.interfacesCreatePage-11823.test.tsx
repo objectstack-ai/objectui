@@ -190,7 +190,7 @@ describe('the Interfaces pillar creates a page and opens it on source plus live 
     const [[, name, body, options]] = savesOf('page');
     expect(name).toBe('team_handbook');
     // objectui#11773 — a create is the first-write pin.
-    expect(options).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifNoneMatch: '*' });
+    expect(options).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifNoneMatch: '*', surface: 'studio' });
     expect(body).toEqual({
       name: 'team_handbook',
       label: 'Team handbook',
@@ -207,7 +207,7 @@ describe('the Interfaces pillar creates a page and opens it on source plus live 
     expect(appName).toBe('acme_app');
     // objectui#11773 — the app had no pending draft when the pillar loaded it,
     // so the nav save that links the new item is the first-write pin too.
-    expect(appOptions).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifNoneMatch: '*' });
+    expect(appOptions).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifNoneMatch: '*', surface: 'studio' });
     expect(appBody.navigation).toEqual([
       ...NAV,
       { id: 'nav_team_handbook', type: 'page', pageName: 'team_handbook', label: 'Team handbook' },

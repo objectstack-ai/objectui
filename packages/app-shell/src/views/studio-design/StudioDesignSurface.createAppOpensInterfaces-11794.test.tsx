@@ -6,7 +6,7 @@
  * button was pressed from.
  *
  * Navigation only. The create's one write — `save('app', NAME, skeleton,
- * { mode: 'draft', packageId, ifNoneMatch: '*' })` — is pinned byte for byte
+ * { mode: 'draft', packageId, ifNoneMatch: '*', surface: 'studio' })` — is pinned byte for byte
  * against `buildAppSkeleton`, so the card changes where the author lands and
  * nothing the server receives. (`ifNoneMatch` is objectui#11773's first-write
  * pin, which every create sends.)
@@ -170,7 +170,7 @@ function expectTheCreateWriteUnchanged() {
       'app',
       'field_service',
       buildAppSkeleton('field_service', 'Field Service', [{ name: 'a_account' }]),
-      { mode: 'draft', packageId: 'app.a', ifNoneMatch: '*' },
+      { mode: 'draft', packageId: 'app.a', ifNoneMatch: '*', surface: 'studio' },
     ],
   ]);
 }

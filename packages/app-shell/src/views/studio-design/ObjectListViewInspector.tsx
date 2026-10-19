@@ -61,7 +61,7 @@ import {
 import { useMetadata } from '@object-ui/react';
 import { useAuth } from '@object-ui/auth';
 import { resolveViewId } from '@object-ui/core';
-import { extractDraftBody, type MetadataClient } from '@object-ui/data-objectstack';
+import { extractDraftBody, readDraftChanges, type DraftChange, type MetadataClient } from '@object-ui/data-objectstack';
 import { stripReadDecorations } from '@objectstack/spec/kernel';
 import { NavigationModeSchema, resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
 import { InspectorReorderButtons, InspectorShell } from '../metadata-admin/inspectors/_shared.js';
@@ -83,6 +83,14 @@ import {
 } from './studio-canvas-preview.js';
 import type { Surface } from './navSurface.js';
 import { issueRefusal, plainRefusal } from './metadataError.js';
+import {
+  addedArrayElements,
+  copilotDraftMarkOf,
+  DraftChip,
+  DraftElementList,
+  DraftSourceLine,
+  type CopilotDraftMark,
+} from './StudioDraftMark.js';
 
 type Row = Record<string, unknown>;
 
@@ -224,6 +232,19 @@ export interface ObjectListViewDraft {
   dirty: boolean;
   /** A draft of the view is pending in the package. */
   hasDraft: boolean;
+  /**
+   * objectui#12725 — the draft read's per-key provenance (`draftChanges`), for
+   * the copilot's marks; `null` with no draft, or when the read recorded none.
+   */
+  draftChanges: DraftChange[] | null;
+  /**
+   * objectui#12725 — the view as PUBLISHED, read beside a draft only when a
+   * copilot mark needs it: which elements of an array setting the copilot
+   * added is read by comparing the draft's array with this one's. `null` when
+   * nothing is published; `undefined` when it is unknown (not read, or that
+   * read failed), and then no element is marked.
+   */
+  published: Row | null | undefined;
   saving: boolean;
   /**
    * The last load's or save's failure, as thrown. Read at render, in the
@@ -288,11 +309,20 @@ export function useObjectListViewDraft({
   const targetKey = viewId ? listViewBufferKey(viewId) : '';
   const seedColumns = React.useMemo(() => defaultListColumnsFromObject(objectDef, 5), [objectDef]);
 
-  const [buffer, setBuffer] = React.useState<{ for: string; row: Row | null; dirty: boolean; hasDraft: boolean }>({
+  const [buffer, setBuffer] = React.useState<{
+    for: string;
+    row: Row | null;
+    dirty: boolean;
+    hasDraft: boolean;
+    draftChanges: DraftChange[] | null;
+    published: Row | null | undefined;
+  }>({
     for: '',
     row: null,
     dirty: false,
     hasDraft: false,
+    draftChanges: null,
+    published: undefined,
   });
   const [failure, setFailure] = React.useState<ObjectListViewDraft['failure']>(null);
   const [saving, setSaving] = React.useState(false);
@@ -309,7 +339,7 @@ export function useObjectListViewDraft({
   React.useEffect(() => {
     setFailure(null);
     if (!viewId) {
-      setBuffer({ for: '', row: null, dirty: false, hasDraft: false });
+      setBuffer({ for: '', row: null, dirty: false, hasDraft: false, draftChanges: null, published: undefined });
       return;
     }
     let cancelled = false;
@@ -334,13 +364,50 @@ export function useObjectListViewDraft({
         const known = draftOnlyRef.current;
         const objectDraftOnly =
           !!objectName && !!known && known.publishNonce === publishNonce && known.names.has(objectName);
-        const lay = draft || objectDraftOnly ? null : await client.layered<Row>('view', viewId);
+        // objectui#12725 — the per-key provenance the same read served. With a
+        // copilot entry, the published layer is read beside the draft too (the
+        // one added read): an array setting's added elements are the draft's
+        // elements the published array does not hold. Not when the draft holds
+        // a whole-body entry (`[]`): that write created the draft over no
+        // published body, so there is nothing to compare against.
+        const draftChanges = draft ? readDraftChanges(draftResp) : null;
+        const marksNeedPublished =
+          !!draftChanges &&
+          draftChanges.some((c) => c.by === 'copilot') &&
+          !draftChanges.some((c) => c.path.length === 0);
+        // A failure of that added read costs the element marks only, never the
+        // editor: the draft is the buffer either way.
+        const lay = objectDraftOnly
+          ? null
+          : !draft
+            ? await client.layered<Row>('view', viewId)
+            : marksNeedPublished
+              ? await client.layered<Row>('view', viewId).catch(() => undefined)
+              : null;
         if (cancelled) return;
         const published = (lay as { effective?: unknown; code?: unknown } | null)?.effective ?? (lay as { code?: unknown } | null)?.code;
-        const row = draft ?? (isPlainObject(published) ? (stripReadDecorations(published) as Row) : null);
+        const publishedRow = isPlainObject(published) ? (stripReadDecorations(published) as Row) : null;
+        const row = draft ?? publishedRow;
+        // What the marks compare against: `null` where nothing is published (a
+        // draft-only object, or a draft created over no body), `undefined`
+        // where it is unknown (not read, or the added read failed).
+        const publishedForMarks: Row | null | undefined = !draft
+          ? undefined
+          : objectDraftOnly || draftChanges?.some((c) => c.path.length === 0)
+            ? null
+            : marksNeedPublished && lay !== undefined
+              ? publishedRow
+              : undefined;
         // objectui#11773 — the next save is pinned to what the draft read served.
         recordRead('view', viewId, packageId, draftRead.pin);
-        setBuffer({ for: listViewBufferKey(viewId), row, dirty: false, hasDraft: !!draft });
+        setBuffer({
+          for: listViewBufferKey(viewId),
+          row,
+          dirty: false,
+          hasDraft: !!draft,
+          draftChanges,
+          published: publishedForMarks,
+        });
       } catch (e) {
         if (!cancelled) setFailure({ during: 'load', error: e });
       }
@@ -361,7 +428,7 @@ export function useObjectListViewDraft({
       if (!viewId || !row || notList) return;
       setSaving(true);
       try {
-        const outcome = await guardedSave('view', viewId, row, { mode: 'draft', packageId });
+        const outcome = await guardedSave('view', viewId, row, { mode: 'draft', packageId, surface: 'studio' });
         // objectui#11773 — the author chose the saved version; the load replaces the buffer.
         if (outcome === 'reloaded') return;
         // objectui#11204 — clean only if nothing was edited while it was in flight.
@@ -405,6 +472,8 @@ export function useObjectListViewDraft({
     seedColumns,
     dirty: buffer.dirty,
     hasDraft: current && buffer.hasDraft,
+    draftChanges: current ? buffer.draftChanges : null,
+    published: current ? buffer.published : undefined,
     saving,
     failure,
     edit,
@@ -499,6 +568,17 @@ export function listViewIsKanban(listView: ObjectListViewDraft): boolean {
 
 const noop = (): void => {};
 
+/** objectui#12725 — the copilot's marks on the kanban card section's settings. */
+interface KanbanCardMarks {
+  fields: CopilotDraftMark | null;
+  /** The card fields (`kanban.columns`) the copilot added, by name. */
+  addedFields: string[];
+  title: CopilotDraftMark | null;
+  open: CopilotDraftMark | null;
+  groupBy: CopilotDraftMark | null;
+  labelOf: (name: string) => string;
+}
+
 const SORT_ID = 'studio-list-view-sort';
 const FILTER_ID = 'studio-list-view-filter';
 const KANBAN_GROUP_ID = 'studio-list-view-kanban-group';
@@ -549,6 +629,7 @@ function KanbanCardSection({
   readOnly,
   locale,
   selected,
+  marks,
 }: {
   body: Row;
   writeBody: (next: Row) => void;
@@ -557,6 +638,8 @@ function KanbanCardSection({
   readOnly: boolean;
   locale: string;
   selected: boolean;
+  /** objectui#12725 — the copilot's marks on this section's settings. */
+  marks: KanbanCardMarks;
 }): React.ReactElement {
   const ref = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -605,8 +688,9 @@ function KanbanCardSection({
         </p>
       )}
       <div className="space-y-1.5" data-testid="list-view-kanban-fields">
-        <p id={KANBAN_FIELDS_LABEL_ID} className="text-xs text-muted-foreground">
+        <p id={KANBAN_FIELDS_LABEL_ID} className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {t('engine.studio.inspector.listView.kanbanCard.fields', locale)}
+          {marks.fields && <DraftChip locale={locale} of="kanban.columns" />}
         </p>
         <FieldsWidget
           ariaLabelledBy={KANBAN_FIELDS_LABEL_ID}
@@ -618,10 +702,14 @@ function KanbanCardSection({
             if (kanban && Array.isArray(next)) writeKanban({ ...kanban, columns: next.map(String) });
           }}
         />
+        {marks.addedFields.length > 0 && (
+          <DraftElementList names={marks.addedFields} labelOf={marks.labelOf} locale={locale} testId="list-view-kanban-draft-fields" />
+        )}
       </div>
       <div className="space-y-1.5" data-testid="list-view-kanban-title">
-        <Label htmlFor={KANBAN_TITLE_ID} className="text-xs text-muted-foreground">
+        <Label htmlFor={KANBAN_TITLE_ID} className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {t('engine.studio.inspector.listView.kanbanCard.title', locale)}
+          {marks.title && <DraftChip locale={locale} of="kanban.titleField" />}
         </Label>
         <Select
           value={titleField || UNSET}
@@ -644,8 +732,9 @@ function KanbanCardSection({
         </Select>
       </div>
       <div className="space-y-1.5" data-testid="list-view-kanban-open">
-        <Label htmlFor={KANBAN_OPEN_ID} className="text-xs text-muted-foreground">
+        <Label htmlFor={KANBAN_OPEN_ID} className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {t('engine.studio.inspector.listView.kanbanCard.open', locale)}
+          {marks.open && <DraftChip locale={locale} of="navigation.mode" />}
         </Label>
         <Select
           value={mode || UNSET}
@@ -678,8 +767,9 @@ function KanbanCardSection({
         </Select>
       </div>
       <div className="space-y-1.5 border-t pt-3" data-testid="list-view-kanban-group">
-        <Label htmlFor={KANBAN_GROUP_ID} className="text-xs text-muted-foreground">
+        <Label htmlFor={KANBAN_GROUP_ID} className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {t('engine.studio.inspector.listView.kanbanCard.groupBy', locale)}
+          {marks.groupBy && <DraftChip locale={locale} of="kanban.groupByField" />}
         </Label>
         <Select
           value={groupBy || undefined}
@@ -722,7 +812,8 @@ export function ObjectListViewInspector({
   selection?: ListViewColumnSelection | null;
   onSelectionChange?: (selection: ListViewColumnSelection | null) => void;
 }): React.ReactElement | null {
-  const { target, row, notList, seedColumns, failure, saving, hasDraft, edit, loadedFor, targetKey } = listView;
+  const { target, row, notList, seedColumns, failure, saving, hasDraft, edit, loadedFor, targetKey, draftChanges, published } =
+    listView;
   const objectName = target?.objectName;
   const fieldState = useObjectFields(objectName);
   const [ownSelected, setOwnSelected] = React.useState<{ key: string; index: number | null }>({ key: '', index: null });
@@ -766,6 +857,45 @@ export function ObjectListViewInspector({
     )
     .join(', ');
   const FilterWidget = WIDGETS['filter-builder'];
+
+  // objectui#12725 — the copilot's draft marks. A key path is the item's own:
+  // a record-shaped view keeps its list body under `config`.
+  const bodyPath = isPlainObject(working.config) ? ['config'] : [];
+  const markOf = (...path: string[]) => copilotDraftMarkOf(draftChanges, [...bodyPath, ...path]);
+  // `undefined`: the published body is unknown, so no element is marked.
+  const publishedBody = published ? listBodyOf(published) : published;
+  const addedNames = (mark: CopilotDraftMark | null, draftArray: unknown, publishedArray: unknown): string[] =>
+    mark && publishedBody !== undefined
+      ? addedArrayElements(draftArray, publishedArray)
+          .map((c) => colFieldName(c) ?? (typeof c === 'string' ? c : ''))
+          .filter((n) => n !== '')
+      : [];
+  const kanbanBody = isPlainObject(body.kanban) ? body.kanban : null;
+  const publishedKanban = publishedBody && isPlainObject(publishedBody.kanban) ? publishedBody.kanban : null;
+  const kanbanFieldsMark = markOf('kanban', 'columns');
+  const kanbanMarks: KanbanCardMarks = {
+    fields: kanbanFieldsMark,
+    addedFields: addedNames(kanbanFieldsMark, kanbanBody?.columns, publishedKanban?.columns),
+    title: markOf('kanban', 'titleField'),
+    open: markOf('navigation', 'mode'),
+    groupBy: markOf('kanban', 'groupByField'),
+    labelOf,
+  };
+  const columnsMark = markOf('columns');
+  const addedColumns = addedNames(columnsMark, columns, publishedBody?.columns);
+  const filterMark = markOf('filter');
+  const sortMark = markOf('sort');
+  const drawnMarks = [
+    ...(body.type === 'kanban' ? [kanbanMarks.fields, kanbanMarks.title, kanbanMarks.open, kanbanMarks.groupBy] : []),
+    columnsMark,
+    filterMark,
+    sortMark,
+  ].filter((m): m is CopilotDraftMark => m !== null);
+  const latestMark = drawnMarks.reduce<CopilotDraftMark | null>(
+    (latest, m) => (!latest || Date.parse(m.at) > Date.parse(latest.at) ? m : latest),
+    null,
+  );
+  const addedLabels = [...new Set([...(body.type === 'kanban' ? kanbanMarks.addedFields : []), ...addedColumns])].map(labelOf);
 
   return (
     <InspectorShell
@@ -835,6 +965,7 @@ export function ObjectListViewInspector({
                 readOnly={readOnly}
                 locale={locale}
                 selected={hostHeld && listViewCardIdOf(selection) !== null}
+                marks={kanbanMarks}
               />
             )}
             <div className="space-y-1.5" data-testid="list-view-columns">
@@ -852,6 +983,12 @@ export function ObjectListViewInspector({
                 }}
                 onSelectionChange={selectColumn}
               />
+              {columnsMark &&
+                (addedColumns.length > 0 ? (
+                  <DraftElementList names={addedColumns} labelOf={labelOf} locale={locale} testId="list-view-draft-columns" />
+                ) : (
+                  <DraftChip locale={locale} of="columns" />
+                ))}
               {selectedIndex != null && selectedIndex < columns.length && (
                 <div className="flex items-center justify-end">
                   <InspectorReorderButtons
@@ -870,8 +1007,9 @@ export function ObjectListViewInspector({
               )}
             </div>
             <div className="space-y-1.5 border-t pt-3" data-testid="list-view-filter">
-              <Label htmlFor={FILTER_ID} className="text-xs text-muted-foreground">
+              <Label htmlFor={FILTER_ID} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 {t('engine.studio.inspector.listView.filter', locale)}
+                {filterMark && <DraftChip locale={locale} of="filter" />}
               </Label>
               <FilterWidget
                 id={FILTER_ID}
@@ -886,8 +1024,9 @@ export function ObjectListViewInspector({
               />
             </div>
             <div className="space-y-1.5 border-t pt-3" data-testid="list-view-sort">
-              <Label htmlFor={SORT_ID} className="text-xs text-muted-foreground">
+              <Label htmlFor={SORT_ID} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 {t('engine.studio.inspector.listView.sort', locale)}
+                {sortMark && <DraftChip locale={locale} of="sort" />}
               </Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -924,6 +1063,10 @@ export function ObjectListViewInspector({
                 </PopoverContent>
               </Popover>
             </div>
+            {latestMark && (
+              // objectui#12725 — the 来源 line: who drafted the marked settings, and when.
+              <DraftSourceLine at={latestMark.at} locale={locale} items={addedLabels} className="border-t pt-3" />
+            )}
           </>
         )}
       </div>

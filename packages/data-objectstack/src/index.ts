@@ -7292,6 +7292,11 @@ export { MetadataClient, readSaveAdvisories } from './metadata-client';
 // `getDraft` that produces the envelope, because the unwrap-and-strip is part
 // of that method's contract rather than a detail of any one view.
 export { extractDraftBody } from './draft-envelope';
+// objectui#12725 - the reader of the same envelope's per-key provenance
+// (`draftChanges`, objectstack#24298): which surface last changed a key of the
+// pending draft. One reader, so the longest-prefix rule is spelled once.
+export { readDraftChanges, governingDraftChange, draftChangesUnder } from './draft-envelope';
+export type { DraftChange } from './draft-envelope';
 // objectui#10202 / objectui#11692 - the served -> authored conversion of a
 // picklist-bound field, exported for the WRITERS that seed an object PUT from a
 // served read (the read answers `picklist` beside the resolved `options`, and the

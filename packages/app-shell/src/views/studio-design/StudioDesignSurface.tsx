@@ -24,7 +24,13 @@ import { useAdapter, SchemaRendererProvider, useMetadata } from '@object-ui/reac
 // …and `formatMetadataError`, the one metadata-save error reader (objectui#11302).
 // …and `dropServedPicklistOptions`, the served -> authored conversion of a
 // picklist-bound field (objectui#10202), moved here by objectui#11692.
-import { dropServedPicklistOptions, extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
+import {
+  dropServedPicklistOptions,
+  extractDraftBody,
+  formatMetadataError,
+  readDraftChanges,
+  type DraftChange,
+} from '@object-ui/data-objectstack';
 import type { MetadataClient } from '@object-ui/data-objectstack';
 import type { FlowRuntimeState as SpecFlowRuntimeState } from '@objectstack/spec/contracts';
 import { resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
@@ -56,6 +62,7 @@ import {
   STUDIO_PKG_READONLY_WORD,
 } from './studio-tokens.js';
 import { StudioInspector } from './StudioInspector.js';
+import { copilotDraftMarkOf, DraftChip, DraftSourceLine } from './StudioDraftMark.js';
 import {
   StudioItemHeader,
   StudioStatusChip,
@@ -1661,7 +1668,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
           'app',
           name,
           buildAppSkeleton(name, label, navObjects),
-          { mode: 'draft', packageId, ifNoneMatch: '*' },
+          { mode: 'draft', packageId, ifNoneMatch: '*', surface: 'studio' },
         );
         toast.success(tFormat('engine.studio.app.savedDraft', locale, { label }));
         setAppDraftPending(label);
@@ -3925,7 +3932,7 @@ export function InterfacesPillar({
     // a later save is sent, and a save refused again shows its own.
     setError(null);
     try {
-      const outcome = await saveLeafDraft(current.type, current.name, interfacesSaveBody(current.type, draft), { mode: 'draft', packageId });
+      const outcome = await saveLeafDraft(current.type, current.name, interfacesSaveBody(current.type, draft), { mode: 'draft', packageId, surface: 'studio' });
       // objectui#11773 — the author chose the saved version; the load replaces the buffer.
       if (outcome === 'reloaded') return;
       setHasDraft(true);
@@ -4053,7 +4060,7 @@ export function InterfacesPillar({
     try {
       const leftOut = sentNav.length !== editorNav.length || sentNav.some((n, i) => n !== editorNav[i]);
       const saved = { ...doc, navigation: sentNav };
-      const outcome = await saveNavDraft('app', appName, saved, { mode: 'draft', packageId });
+      const outcome = await saveNavDraft('app', appName, saved, { mode: 'draft', packageId, surface: 'studio' });
       // objectui#11773 — the author chose the saved version; the load replaces
       // the buffer, and with it any failure this editor showed (objectui#11776).
       if (outcome === 'reloaded') {
@@ -4203,7 +4210,7 @@ export function InterfacesPillar({
               : buildPageSkeleton(name, label, sourceKind, t('engine.studio.interfaces.create.pageStarter', locale));
         // objectui#11773 — and the door refuses it too (the first-write pin),
         // for a draft that lands between the check above and this save.
-        await client.save(kind, name, body, { mode: 'draft', packageId, ifNoneMatch: '*' });
+        await client.save(kind, name, body, { mode: 'draft', packageId, ifNoneMatch: '*', surface: 'studio' });
         onDraftSaved?.();
         // The entry that links it, appended to the app document and sent
         // through the nav editor's own save, as an edit there would be: its
@@ -5473,6 +5480,10 @@ export function DataPillar({
   // objectui#11272 — the object `objDraft` was loaded for, `object:NAME`:
   // written where the load below installs it, and nowhere else.
   const [objDraftFor, setObjDraftFor] = React.useState('');
+  // objectui#12725 — the per-key provenance the object's draft read served
+  // (`draftChanges`), `null` when it recorded none or there is no draft. Read
+  // by the field inspector's copilot marks; installed with `objDraft`.
+  const [objDraftChanges, setObjDraftChanges] = React.useState<DraftChange[] | null>(null);
   const [loading, setLoading] = React.useState(false);
   // objectui#11785 — a load failure as it was (`plainRefusal`), a refused save
   // as an author sentence naming the field, with the raw text behind Details.
@@ -5765,6 +5776,7 @@ export function DataPillar({
         // Served draft as-is, baseline only without one (objectui#10765).
         setObjDraft(draftBody ?? baseline);
         setObjDraftFor(`object:${current.name}`);
+        setObjDraftChanges(draftBody ? readDraftChanges(draftRead.answer) : null);
         // objectui#11773 — the next save is pinned to what the draft read served.
         recordObjRead('object', current.name, packageId, draftRead.pin);
         // objectui#11272 — the buffer installed is clean, as every pillar's
@@ -5932,7 +5944,7 @@ export function DataPillar({
         const body = buildObjectSkeleton(name, label, t('engine.studio.data.nameFieldLabel', locale), sharingModel);
         // objectui#11773 — a create is the first-write pin: refused where the
         // name already holds a draft, instead of written over it.
-        await client.save('object', name, body, { mode: 'draft', packageId, ifNoneMatch: '*' });
+        await client.save('object', name, body, { mode: 'draft', packageId, ifNoneMatch: '*', surface: 'studio' });
         const surface: Surface = { type: 'object', name, label };
         setObjects((prev) => [...prev, surface]);
         setCurrent(surface);
@@ -5960,7 +5972,7 @@ export function DataPillar({
     // objectui#11785 — kept, so a refusal is read against what was sent.
     const body = dropServedPicklistOptions(objDraft);
     try {
-      const outcome = await saveObjDraft('object', current.name, body, { mode: 'draft', packageId });
+      const outcome = await saveObjDraft('object', current.name, body, { mode: 'draft', packageId, surface: 'studio' });
       // objectui#11773 — the author chose the saved version; the load replaces the buffer.
       if (outcome === 'reloaded') return;
       setHasDraft(true);
@@ -6000,6 +6012,10 @@ export function DataPillar({
   });
   // Only the open object's own buffer is held (objectui#11272).
   const objHeld = objLoaded ? objIncomplete : null;
+  // objectui#12725 — the copilot's mark on the selected field: its key path is
+  // `["fields", NAME]` in the object body, and only a `copilot` write answers.
+  const fieldCopilotMark =
+    objLoaded && fieldSel?.kind === 'field' ? copilotDraftMarkOf(objDraftChanges, ['fields', fieldSel.id]) : null;
   useHeldEditReport(onHeldEditChange, objHeld?.clause ?? null);
   // objectui#12725 — the header's draft line reads the badge's ledger.
   const objDraftStatus = useStudioItemDraftStatus(
@@ -6059,7 +6075,7 @@ export function DataPillar({
       // objectui#10202 — same served `options` as `doSave` above.
       const wire = dropServedPicklistOptions(body);
       try {
-        const outcome = await saveObjDraft('object', current.name, wire, { mode: 'draft', packageId });
+        const outcome = await saveObjDraft('object', current.name, wire, { mode: 'draft', packageId, surface: 'studio' });
         if (outcome === 'reloaded') return;
         setHasDraft(true);
         if (sent.unmoved()) setDirty(false);
@@ -6709,12 +6725,14 @@ export function DataPillar({
             id={fieldSel.id}
             onClose={() => setFieldSel(null)}
             closeLabel={t('engine.studio.close', locale)}
+            // objectui#12725 — the copilot's 草稿 chip on a field it changed.
+            actions={fieldCopilotMark ? <DraftChip locale={locale} className="mr-1" /> : undefined}
             // objectui#12453 — a read-only package saves no draft: no footer.
             footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
             bodyClassName="flex min-h-0 flex-1 flex-col"
           >
             {(() => {
-              const railContent = fieldSel.kind === 'group' ? (
+              const fieldRailContent = fieldSel.kind === 'group' ? (
                 <ObjectGroupInspector
                   draft={objDraft}
                   groupKey={fieldSel.id}
@@ -6746,6 +6764,15 @@ export function DataPillar({
                   <Ban className="h-5 w-5" />
                   {t('engine.studio.data.fieldInspectorMissing', locale)}
                 </div>
+              );
+              // objectui#12725 — the 来源 line under the field's properties.
+              const railContent = fieldCopilotMark ? (
+                <>
+                  {fieldRailContent}
+                  <DraftSourceLine at={fieldCopilotMark.at} locale={locale} className="mt-4 border-t pt-3" />
+                </>
+              ) : (
+                fieldRailContent
               );
               if (!readOnly) return <div className="min-h-0 flex-1 overflow-auto p-3">{railContent}</div>;
               // objectui#12303 — on a read-only package every input and the
@@ -7393,7 +7420,7 @@ export function AutomationsPillar({
         );
         // objectui#11773 — a create is the first-write pin: refused where the
         // name already holds a draft, instead of written over it.
-        await client.save('flow', name, skeleton, { mode: 'draft', packageId: draftPackageId, ifNoneMatch: '*' });
+        await client.save('flow', name, skeleton, { mode: 'draft', packageId: draftPackageId, ifNoneMatch: '*', surface: 'studio' });
         const item: Surface = { type: 'flow', name, label };
         setFlows((fs) => [...fs.filter((f) => f.name !== name), item]);
         // objectui#12454 — and groups by what it was born with.
@@ -7473,7 +7500,7 @@ export function AutomationsPillar({
     setSaving('draft');
     setError(null);
     try {
-      const outcome = await saveFlowDraft('flow', current.name, draft, { mode: 'draft', packageId: draftPackageId });
+      const outcome = await saveFlowDraft('flow', current.name, draft, { mode: 'draft', packageId: draftPackageId, surface: 'studio' });
       // objectui#11773 — the author chose the saved version; the load replaces the buffer.
       if (outcome === 'reloaded') return;
       setHasDraft(true);
@@ -7544,7 +7571,7 @@ export function AutomationsPillar({
     setError(null);
     try {
       // objectui#11773 — a reload replaced the buffer the flip was taken on.
-      if ((await saveFlowDraft('flow', flowName, nextDraft, { mode: 'draft', packageId: draftPackageId })) === 'reloaded') return;
+      if ((await saveFlowDraft('flow', flowName, nextDraft, { mode: 'draft', packageId: draftPackageId, surface: 'studio' })) === 'reloaded') return;
       setHasDraft(true);
       onDraftSaved?.();
       toast.success(next ? t('engine.studio.auto.enabledToast', locale) : t('engine.studio.auto.disabledToast', locale));
@@ -8500,6 +8527,7 @@ export function AccessPillar({
           mode: 'draft',
           packageId,
           ifNoneMatch: '*',
+          surface: 'studio',
         });
         toast.success(tFormat('engine.studio.access.created', locale, { label }));
         setCreating(false);

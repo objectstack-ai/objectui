@@ -127,7 +127,7 @@ describe('the OWD overview dials are the shared Select (objectui#11865)', () => 
 });
 
 const SAVED = (name: string, body: Body) =>
-  JSON.stringify([{ name, body, opts: { mode: 'draft', packageId: 'pkg.a' } }]);
+  JSON.stringify([{ name, body, opts: { mode: 'draft', packageId: 'pkg.a', surface: 'studio' } }]);
 
 /**
  * [dial, option label, the JSON text of the saves Save sent]. `null`: the

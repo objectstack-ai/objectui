@@ -2134,6 +2134,7 @@ const ja = {
       objectNotFound: "オブジェクトが見つかりません",
       objectNotFoundDescription: "オブジェクト「{{objectName}}」は現在の設定に存在しません。",
       objectNotFoundHint: "アプリのナビゲーション設定を確認するか、サイドバーから別のオブジェクトを選択してください。",
+      objectPackageDisabled: "オブジェクト「{{objectName}}」が属するパッケージは無効になっているため、提供されていません。",
       filterOrNotSavable: "このフィルターは条件間に OR を使用しており、保存済みビューにはまだ保存できません。現在のリストには適用されています。ビューに保存するには OR グループを解除してください。",
       filterNestedNotSavable: "このフィルターはネストされた条件グループを使用しており、保存済みビューには保存できません。ビューに保存するには単一の条件リストに展開してください。",
       allRecords: "すべてのレコード",

@@ -12,8 +12,10 @@
  *
  *   (a) a by-name read that rejects without an answer (a 5xx, a network drop,
  *       a 404 carrying no declared code) leaves the name out of `missing`, the
- *       scope unsettled, and `useObjectPresence` reading `unknown`; the next
- *       read asks it again;
+ *       scope unsettled, and `useObjectPresence` reading `unknown`. Since
+ *       objectui#13052 the failure is recorded once (so a route can stop
+ *       waiting on it) and a later read does not ask it again: `invalidate`
+ *       (the route's Retry) or `refresh` does;
  *   (b) CONTROL: a not-found ANSWER (a thrown `RESOURCE_NOT_FOUND`, or a
  *       read that resolves with no document) still records `missing` and reads
  *       `absent`; a found answer still records the item and reads `present`.
@@ -137,7 +139,7 @@ describe('the by-name object scope tells a failed read from a not-found answer (
     });
   }
 
-  it('(a) the next read asks a failed name again, and a later answer settles it', async () => {
+  it('(a) a later read does not ask a failed name again; invalidate does, and a later answer settles it (objectui#13052)', async () => {
     const m = mount('server-error');
     await waitFor(() => expect(byNameCalls(m.server.calls)).toHaveLength(1));
     // The boot's own list loads re-render the reader, and each such read may
@@ -151,6 +153,11 @@ describe('the by-name object scope tells a failed read from a not-found answer (
 
     m.server.next = 'found';
     m.rerender();
+    await settle();
+    expect(byNameCalls(m.server.calls)).toHaveLength(asked);
+    expect(m.read().presence).toEqual({ presence: 'unknown', settled: false });
+
+    act(() => m.read().ctx.invalidate('object', 'sys_activity'));
     await waitFor(() => expect(m.read().presence.settled).toBe(true));
     expect(byNameCalls(m.server.calls)).toHaveLength(asked + 1);
     expect(m.read().presence.presence).toBe('present');

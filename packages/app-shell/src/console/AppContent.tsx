@@ -398,7 +398,13 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // app whose served item carries its package; the whole registry everywhere
   // else, as before (that module says why). A page route reads the objects
   // its page binds (objectui#12980), resolved as `PageView` resolves the page.
-  const { candidate: scopeCandidate, scope: objectScope, ready: objectScopeReady } = readAppObjectScope(
+  const {
+    candidate: scopeCandidate,
+    scope: objectScope,
+    ready: objectScopeReady,
+    failedNames: routeObjectReadsFailed,
+    routeObjectRefusal,
+  } = readAppObjectScope(
     readObjectScope,
     activeApp,
     appSubPath,
@@ -1308,7 +1314,16 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
               <RouteFader className="h-full">
                 {/* objectui#12809 — the route's metadata has not landed: its
                     skeleton, never its empty or "not found" state. */}
-                {!routeReadsSettled ? <RouteMetadataSkeleton reads={routeReadsKey || 'object'} /> : (
+                {!routeReadsSettled ? <RouteMetadataSkeleton reads={routeReadsKey || 'object'} /> : objectScope && routeObjectReadsFailed.length > 0 ? (
+                  // objectui#13052 — the route's object read failed (a 5xx, a
+                  // network drop, a code this build does not know): say so in
+                  // the shell, and let Retry ask those names once more.
+                  <RouteObjectReadFailed
+                    onRetry={() => {
+                      for (const name of routeObjectReadsFailed) metadata.invalidate('object', name);
+                    }}
+                  />
+                ) : (
                 <Routes>
                 <Route
                   path="/"
@@ -1338,13 +1353,13 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                   <Route path=":type/:name/history" element={<MetadataResourceHistoryPage />} />
                 </Route>
                 <Route path=":objectName" element={
-                  <ObjectView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} externalRefreshKey={refreshKey} />
+                  <ObjectView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} externalRefreshKey={refreshKey} objectRefusal={routeObjectRefusal} />
                 } />
                 <Route path=":objectName/new" element={
                   <RecordFormPage mode="create" />
                 } />
                 <Route path=":objectName/view/:viewId" element={
-                  <ObjectView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} externalRefreshKey={refreshKey} />
+                  <ObjectView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} externalRefreshKey={refreshKey} objectRefusal={routeObjectRefusal} />
                 } />
                 {/* ADR-0055: parameterized bare data surface — URL `filter[...]`
                     conditions over everything row-level security permits, NOT
@@ -1689,6 +1704,34 @@ function RouteNotFound() {
         <div className="mt-4">
           <Button variant="outline" onClick={() => navigate(-1)}>
             {t('console.notFound.back', { defaultValue: 'Go back' })}
+          </Button>
+        </div>
+      </Empty>
+    </div>
+  );
+}
+
+/**
+ * objectui#13052 — the route slot when the by-name read of the object it
+ * shows obtained no answer: inside the shell, never the boot splash, with a
+ * Retry that asks again once (`invalidate` drops the failed read; the next
+ * render asks it). The list's own load-failure copy: this is the same
+ * question, a list that could not be loaded.
+ */
+function RouteObjectReadFailed({ onRetry }: { onRetry: () => void }) {
+  const { t } = useObjectTranslation();
+  return (
+    <div className="flex h-full w-full items-center justify-center p-8">
+      <Empty data-testid="route-object-read-failed">
+        <EmptyTitle>{t('list.loadErrorTitle', { defaultValue: 'Couldn\u2019t load records' })}</EmptyTitle>
+        <EmptyDescription>
+          {t('list.loadErrorMessage', {
+            defaultValue: 'Something went wrong while loading this data. Check your connection and try again.',
+          })}
+        </EmptyDescription>
+        <div className="mt-4">
+          <Button onClick={onRetry} data-testid="route-object-read-failed-retry">
+            {t('common.retry', { defaultValue: 'Retry' })}
           </Button>
         </div>
       </Empty>

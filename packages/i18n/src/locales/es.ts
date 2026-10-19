@@ -2178,6 +2178,7 @@ const es = {
       objectNotFound: "Objeto no encontrado",
       objectNotFoundDescription: "El objeto \"{{objectName}}\" no existe en la configuración actual.",
       objectNotFoundHint: "Verifique la configuración de navegación de su aplicación o seleccione un objeto diferente en la barra lateral.",
+      objectPackageDisabled: "El objeto \"{{objectName}}\" pertenece a un paquete deshabilitado, por lo que no se está sirviendo.",
       filterOrNotSavable: "Este filtro une las condiciones con O, algo que una vista guardada aún no puede almacenar. Se sigue aplicando a esta lista: quite la agrupación O para guardarlo en la vista.",
       filterNestedNotSavable: "Este filtro usa grupos de condiciones anidados, que una vista guardada no puede almacenar. Conviértalo en una única lista de condiciones para guardarlo en la vista.",
       allRecords: "Todos los registros",

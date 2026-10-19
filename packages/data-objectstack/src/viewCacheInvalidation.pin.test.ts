@@ -165,10 +165,10 @@ describe('view metadata cache — invalidation names only keys with readers (#37
   it('listViews reads the stored list:view while one is held, else the transport, and no other key (objectui#13057)', async () => {
     const { ds, getItems, cacheReads } = makeDS({ items: [VIEW] });
     const probed: string[] = [];
-    let held: unknown;
+    const cache: { held?: unknown } = {};
     ds.metadataCache.getCachedSync = (key: string) => {
       probed.push(key);
-      return held;
+      return cache.held;
     };
 
     // Nothing held: each call goes to the transport. Storing the answer is
@@ -179,7 +179,7 @@ describe('view metadata cache — invalidation names only keys with readers (#37
     expect(getItems).toHaveBeenCalledWith('view');
 
     // A list held under `list:view` answers the read: no third round trip.
-    held = { items: [VIEW] };
+    cache.held = { items: [VIEW] };
     const views = await ds.listViews('account');
     expect(views.map((v: any) => v.name)).toEqual(['account.all']);
     expect(getItems).toHaveBeenCalledTimes(2);

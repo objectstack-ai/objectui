@@ -81,6 +81,7 @@ import { PageHeader } from '../../layout/PageHeader.js';
 import { errorCodeIs } from '@object-ui/types';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { refusedItemsText } from '../../preview/publishRefusal.js';
+import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
 import { duplicatePackage, isSpecPackageId } from '../studio-design/packages-io.js';
 import { PackageIdInput } from '../studio-design/PackageIdInput.js';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
@@ -574,6 +575,14 @@ export function PackageDetailSheet({
               t('engine.packages.detail.actionFailed', locale),
           );
         }
+        // objectui#13057 — announce the publish, as every other publish path
+        // does (Studio's publish-all, Home's and the chat bar's): each mounted
+        // `MetadataProvider` drops the adapter's caches and re-reads its loaded
+        // types, so the views, forms and nav this tree already read show what
+        // just went live, and the pending-drafts surfaces converge. Sent before
+        // the `failed[]` verdict below, as Studio sends it: a pre-15.1 server's
+        // partial publish still made some drafts live.
+        emitMetadataRefresh();
         try {
           const fresh = await apiJson<{ drafts?: Array<{ type: string; name: string }> }>(
             `/api/v1/meta/_drafts?packageId=${encodeURIComponent(id)}`,

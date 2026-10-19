@@ -13,8 +13,9 @@ import { MetadataCache } from './MetadataCache';
  * `share` and the in-flight half of `invalidate` (objectui#13044).
  *
  * `share` is the door for a caller whose contract is "ask the server": it
- * joins a request already in flight, and neither reads nor writes a settled
- * entry. `invalidate` detaches the request in flight, so a
+ * joins a request already in flight and is never answered from a settled
+ * entry. Since objectui#13057 its landing is stored, so a later `get` may be
+ * answered from it. `invalidate` detaches the request in flight, so a
  * request sent before an invalidation neither answers a later caller nor
  * overwrites a newer answer.
  */
@@ -41,16 +42,29 @@ describe('MetadataCache.share (objectui#13044)', () => {
     expect(calls).toBe(1);
   });
 
-  it('is never answered from the settled entry, and stores nothing', async () => {
+  it('is never answered from the settled entry, and stores what it was answered (objectui#13057)', async () => {
     const cache = new MetadataCache();
     let calls = 0;
     const fetcher = async () => `answer ${(calls += 1)}`;
     expect(await cache.get('k', fetcher)).toBe('answer 1');
+    // A settled entry is there; `share` asks the server anyway.
     expect(await cache.share('k', fetcher)).toBe('answer 2');
-    expect(await cache.get('k', fetcher)).toBe('answer 1');
+    // ...and what it was answered is what a later `get` is answered from.
+    expect(await cache.get('k', fetcher)).toBe('answer 2');
     expect(await cache.share('fresh', fetcher)).toBe('answer 3');
-    expect(cache.has('fresh')).toBe(false);
+    expect(cache.has('fresh')).toBe(true);
+    expect(await cache.get('fresh', fetcher)).toBe('answer 3');
     expect(calls).toBe(3);
+  });
+
+  it('a request detached by an invalidation stores nothing (objectui#13057)', async () => {
+    const cache = new MetadataCache();
+    const wire = deferred<string>();
+    const shared = cache.share('k', () => wire.promise);
+    cache.invalidate('k');
+    wire.resolve('before the invalidation');
+    expect(await shared).toBe('before the invalidation');
+    expect(cache.has('k')).toBe(false);
   });
 });
 

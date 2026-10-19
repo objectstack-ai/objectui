@@ -127,6 +127,38 @@ describe('a switch drops the adapter metadata the provider read through it (obje
     await views;
   });
 
+  it('an organization or session switch drops the stored view list: the next list read asks again (objectui#13057)', async () => {
+    for (const change of [
+      () => {
+        authState.activeOrganization = { id: 'org_b' };
+      },
+      () => {
+        authState.user = { id: 'user_b' };
+      },
+    ]) {
+      const { adapter, calls } = makeServer();
+      authState.activeOrganization = { id: 'org_a' };
+      authState.user = { id: 'user_a' };
+      const m = mount(adapter);
+      await waitFor(() => expect(count(calls, VIEW_URL)).toBe(1));
+      await waitFor(() => expect(m.ctx().getTypeStatus!('view')).toBe('ready'));
+      // Settled within the open: the eager read's answer serves the list read.
+      await adapter.listViews('account');
+      expect(count(calls, VIEW_URL)).toBe(1);
+
+      change();
+      m.rerender();
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      await adapter.listViews('account');
+      expect(count(calls, VIEW_URL)).toBe(2);
+      cleanup();
+      authState.activeOrganization = null;
+      authState.user = null;
+    }
+  });
+
   it('a session switch (another user) drops it the same way', async () => {
     const { adapter, calls } = makeServer();
     authState.user = { id: 'user_a' };

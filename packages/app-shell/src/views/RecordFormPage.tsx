@@ -42,6 +42,7 @@ import {
   createExpressionEvaluator,
   isObjectFieldVisible,
   useExpressionPermissions,
+  useExpressionSystemPermissions,
 } from '../providers/ExpressionProvider.js';
 import { buildExpressionUser } from '../providers/expressionUser.js';
 import { SkeletonDetail } from '../skeletons/index.js';
@@ -208,7 +209,10 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
   // faulted here and failed OPEN while resolving normally on a nav item.
   // objectui#4421 — the `permissions` input the `ExpressionProvider` below
   // reads for itself, so `current_user.can(...)` answers the same on both.
+  // objectui#13083 — and its `systemPermissions` beside it, so
+  // `current_user.hasCapability(name)` answers here too (objectui#13006).
   const expressionPermissions = useExpressionPermissions();
+  const expressionSystemPermissions = useExpressionSystemPermissions();
   const expressionEvaluator = useMemo(
     () =>
       // ⛔ No `app`: objectui#8155 removed it from the predicate scope, because
@@ -223,8 +227,9 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
         user: expressionUser,
         features,
         permissions: expressionPermissions,
+        systemPermissions: expressionSystemPermissions,
       }),
-    [expressionUser, features, expressionPermissions],
+    [expressionUser, features, expressionPermissions, expressionSystemPermissions],
   );
 
   // Resolve the field list using the same visibility-aware logic as the

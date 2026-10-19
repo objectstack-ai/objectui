@@ -69,6 +69,36 @@ describe('PermissionAdvancedFacets · CEL authoring safety (objectui#2413)', () 
     expect(onCelErrorsChange).toHaveBeenLastCalledWith(0);
   });
 
+  // objectui#13082 — a clause that lowers but reads something the rule refuses
+  // holds Save the same way: the card's predicate in USING, in CHECK and in
+  // both, and its control.
+  const ownerPolicy = (using: string, check: string) => ({
+    draft: { rowLevelSecurity: [{ name: 'p1', object: 'account', operation: 'all', using, check, enabled: true }] },
+    loadObjectFields: async () => ['organization_id', 'owner_id'],
+  });
+  for (const [label, using, check, expected] of [
+    ['an unknown `current_user` variable in USING', 'current_user.nope == owner_id', '', 1],
+    ['an unknown `current_user` variable in CHECK', 'owner_id == current_user.id', 'current_user.nope == owner_id', 1],
+    ['an unknown `current_user` variable in both clauses', 'current_user.nope == owner_id', 'current_user.nope == owner_id', 2],
+  ] as const) {
+    it(`reports ${label} up as blocking (objectui#13082)`, async () => {
+      const onCelErrorsChange = vi.fn();
+      const user = userEvent.setup();
+      renderFacets({ ...ownerPolicy(using, check), onCelErrorsChange });
+      await user.click(screen.getByText('perm.rls.title'));
+      await waitFor(() => expect(onCelErrorsChange).toHaveBeenLastCalledWith(expected), { timeout: 3000 });
+    });
+  }
+
+  it('CONTROL — `owner_id == current_user.id` on both clauses leaves Save open (objectui#13082)', async () => {
+    const onCelErrorsChange = vi.fn();
+    const user = userEvent.setup();
+    renderFacets({ ...ownerPolicy('owner_id == current_user.id', 'owner_id == current_user.id'), onCelErrorsChange });
+    await user.click(screen.getByText('perm.rls.title'));
+    await waitFor(() => expect(screen.getAllByText('perm.cel.valid')).toHaveLength(2), { timeout: 3000 });
+    expect(onCelErrorsChange).toHaveBeenLastCalledWith(0);
+  });
+
   it('opens the test-run dialog for a policy', async () => {
     const user = userEvent.setup();
     renderFacets();

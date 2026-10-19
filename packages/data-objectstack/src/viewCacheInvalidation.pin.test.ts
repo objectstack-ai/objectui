@@ -19,17 +19,20 @@ import { ObjectStackAdapter } from './index';
  * | `getView`           | `view:{object}:{viewId}`     |
  * | `listViewOverrides` | `view-overrides:{object}`    |
  *
- * `listViews` has no key of its own. Five write paths used to invalidate a
+ * `listViews` has no per-object key of its own. Five write paths used to invalidate a
  * `views:{object}` key that no read path has ever populated — five permanent
  * no-ops. They are gone (#3778); the surviving invalidations still name the
  * keys that DO have readers, so the deletion cannot be mistaken for "cache
  * invalidation was dropped".
  *
- * `listViews` stays uncached. objectui#13044 lets it, `listViewOverrides` and
- * the console's eager view read JOIN one `GET /meta/view` already in flight,
- * under the key `list:view`, and stores nothing there; every write path drops
- * that key through the seam with the two keys above, so a read asked after a
- * write never joins a request sent before it.
+ * objectui#13044 lets `listViews`, `listViewOverrides` and the console's eager
+ * view read JOIN one `GET /meta/view` already in flight, under the key
+ * `list:view`. objectui#13057 stores that answer there, and `listViews` and
+ * `listViewOverrides` read the stored list while it is held (settled within an
+ * open), so every write path drops that key through the seam with the two keys
+ * above: a read asked after a write is answered neither by the stored list nor
+ * by a request sent before it. The console's own drops of it (a user refresh,
+ * its `MetadataClient` view writes) are pinned in app-shell, where they live.
  *
  * ## objectui#4363 — every write path names BOTH keys
  *
@@ -159,23 +162,31 @@ const VIEW = {
 };
 
 describe('view metadata cache — invalidation names only keys with readers (#3778)', () => {
-  it('listViews reads the transport on every call and consults no cache key', async () => {
+  it('listViews reads the stored list:view while one is held, else the transport, and no other key (objectui#13057)', async () => {
     const { ds, getItems, cacheReads } = makeDS({ items: [VIEW] });
     const probed: string[] = [];
+    const cache: { held?: unknown } = {};
     ds.metadataCache.getCachedSync = (key: string) => {
       probed.push(key);
-      return undefined;
+      return cache.held;
     };
 
+    // Nothing held: each call goes to the transport. Storing the answer is
+    // the real client's (its `getItems` wrap); this stand-in client has none.
     await ds.listViews('account');
     await ds.listViews('account');
-
-    // Uncached: two calls, two round trips. objectui#13044 shares only a
-    // request already in flight (on the real client); nothing is stored.
     expect(getItems).toHaveBeenCalledTimes(2);
     expect(getItems).toHaveBeenCalledWith('view');
+
+    // A list held under `list:view` answers the read: no third round trip.
+    cache.held = { items: [VIEW] };
+    const views = await ds.listViews('account');
+    expect(views.map((v: any) => v.name)).toEqual(['account.all']);
+    expect(getItems).toHaveBeenCalledTimes(2);
+
+    // The one key it consults is the list; no per-object key is read.
     expect(cacheReads).toEqual([]);
-    expect(probed).toEqual([]);
+    expect(probed).toEqual(['list:view', 'list:view', 'list:view']);
   });
 
   it('listViewOverrides reads back under the key the write paths invalidate', async () => {

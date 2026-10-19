@@ -67,6 +67,16 @@ describe.each([
     expect(checkboxOf('Ada')).toHaveAttribute('aria-checked', 'false');
   });
 
+  it('every row\'s leading cell is a hit area, not only the first', () => {
+    const { onRowClick, onSelectionChange } = renderTable(extra);
+    const cell = leadingCellOf('Grace');
+    fireEvent.click(cell.querySelector('[data-slot="row-select"]') ?? cell);
+    expect(onRowClick).not.toHaveBeenCalled();
+    expect(checkboxOf('Grace')).toHaveAttribute('aria-checked', 'true');
+    expect(checkboxOf('Ada')).toHaveAttribute('aria-checked', 'false');
+    expect(onSelectionChange).toHaveBeenLastCalledWith([ROWS[1]]);
+  });
+
   it('a click on the checkbox itself toggles once', () => {
     const { onRowClick } = renderTable(extra);
     fireEvent.click(checkboxOf('Grace'));

@@ -15,4 +15,4 @@ The undo route runs its reversal writes under the object's declared controls, so
 
 BREAKING (`@object-ui/types`), for a custom `DataSource` whose `undoImportJob` resolves to the old shape: it must now return `failures` (an empty array for a full undo). `@object-ui/data-objectstack` already returns the server's answer unchanged. The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.
 
-**Clause-②: yes (widening)**: `ImportJobUndoResult`, exported from `@object-ui/types`, gains `failures`. The new pack keys widen `@object-ui/i18n`'s `TranslationKeys`.
+Clause-②: yes (narrowing): `ImportJobUndoResult`, exported from `@object-ui/types`, gains `failures`, and the new pack keys widen `@object-ui/i18n`'s `TranslationKeys` (the widening). `failures` is now required of a custom `DataSource`'s `undoImportJob` answer (the narrowing; see BREAKING above).

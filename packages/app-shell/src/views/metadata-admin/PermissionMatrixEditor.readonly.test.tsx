@@ -109,12 +109,23 @@ vi.mock('./useMetadata', () => ({
   }),
 }));
 
+// The CALLER gate (objectui#7611): does this session hold `manage_metadata`?
+// `true` is what the unmocked hook answers here (no permission provider, so it
+// fails open), so every case above the caller-gate block reads exactly as before.
+let canAuthor = true;
+vi.mock('../../hooks/useCanAuthorMetadata', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useCanAuthorMetadata: () => canAuthor,
+}));
+
 import { PermissionMatrixEditPage } from './PermissionMatrixEditor';
+import { t } from './i18n';
 
 afterEach(() => {
   cleanup();
   allowEnvironmentOverlay = true;
   allowRuntimeCreate = false;
+  canAuthor = true;
   server.saved = [];
 });
 
@@ -272,6 +283,69 @@ describe('PermissionMatrixEditPage — type-level gate keeps its own wording', (
     expect(screen.queryByRole('button', { name: /^Save$/ })).toBeNull();
     expect(screen.getByLabelText('a_account Read')).toBeEnabled();
     expect(screen.queryByText('Read-only', { exact: true })).toBeNull();
+    expect(screen.queryByText(/no runtime write channel/)).toBeNull();
+  });
+});
+
+/**
+ * objectui#13011 — the badge names the gate that actually closed. A caller who
+ * is not walled and lacks `manage_metadata`, on a type whose tier is open (the
+ * stock-boot `permission` shape), used to fall through to the type-tier
+ * sentence, "this metadata type has no runtime write channel", beside a
+ * banner giving the capability reason. The type has a channel; the caller
+ * may not use it. The type-tier sentence stays for a type that has none.
+ */
+describe('PermissionMatrixEditPage — the caller gate names the capability, not the type', () => {
+  const CAPABILITY_BADGE = t('perm.readOnly.capability', 'en-US');
+
+  it('an open type and a caller without manage_metadata: the badge gives the capability reason', async () => {
+    allowEnvironmentOverlay = false;
+    allowRuntimeCreate = true;
+    canAuthor = false;
+    renderMatrix();
+    await screen.findByText('Account');
+
+    expect(screen.getByLabelText('a_account Read')).toBeDisabled();
+    expect(screen.queryByText(/no runtime write channel/)).toBeNull();
+    const badge = screen.getByText(CAPABILITY_BADGE);
+    expect(badge).toHaveTextContent(/manage_metadata/);
+    // Badge and banner give one reason: the hint is the banner's sentence.
+    expect(badge).toHaveAttribute('title', t('engine.edit.capabilityReadOnly', 'en-US'));
+    expect(screen.getByTestId('perm-capability-readonly')).toHaveTextContent(/manage_metadata/);
+  });
+
+  it('CONTROL: a closed type keeps the type-tier sentence for the same caller', async () => {
+    allowEnvironmentOverlay = false;
+    allowRuntimeCreate = false;
+    canAuthor = false;
+    renderMatrix();
+    await screen.findByText('Account');
+
+    expect(screen.getByText(/no runtime write channel/)).toBeInTheDocument();
+    expect(screen.queryByText(CAPABILITY_BADGE)).toBeNull();
+  });
+
+  it('CONTROL: the host readOnly still names the package for the same caller', async () => {
+    allowEnvironmentOverlay = false;
+    allowRuntimeCreate = true;
+    canAuthor = false;
+    renderMatrix({ readOnly: true });
+    await screen.findByText('Account');
+
+    const badge = screen.getByText('Read-only', { exact: true });
+    expect(badge).toHaveAttribute('title', expect.stringContaining('Read-only package'));
+    expect(screen.queryByText(CAPABILITY_BADGE)).toBeNull();
+    expect(screen.queryByText(/no runtime write channel/)).toBeNull();
+  });
+
+  it('CONTROL: a holder on the same open type gets no read-only badge at all', async () => {
+    allowEnvironmentOverlay = false;
+    allowRuntimeCreate = true;
+    renderMatrix();
+    await screen.findByText('Account');
+
+    expect(screen.getByLabelText('a_account Read')).toBeEnabled();
+    expect(screen.queryByText(CAPABILITY_BADGE)).toBeNull();
     expect(screen.queryByText(/no runtime write channel/)).toBeNull();
   });
 });

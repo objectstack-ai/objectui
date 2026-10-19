@@ -2544,6 +2544,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // tenant's write of a set whatever it holds. Its hint is the catalog's own
   // walled sentence, `engine.catalog.readOnly.walled`.
   'perm.readOnly.walled': 'Read-only (the platform operator defines this catalog)',
+  // objectui#13011 — the CALLER, a fourth reason: the type is open and this
+  // caller lacks `manage_metadata`. Naming the type tier there was false. Its
+  // hint is the capability banner's own sentence, `engine.edit.capabilityReadOnly`.
+  'perm.readOnly.capability': 'Read-only (requires the `manage_metadata` capability)',
   // objectui#4518 — the ARTIFACT tier, the server's SECOND refusal. Distinct
   // from `perm.readOnly` above on purpose: the TYPE does have a runtime write
   // channel here (a brand-new set authored on this screen saves fine), so
@@ -5970,6 +5974,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // 与上面的「类型没有写入通道」是两回事：该类型有运行时写入通道，被锁的是「这一个」
   // 由代码包提供的权限集。
   'perm.readOnly.walled': '只读（此目录由平台运营方定义）',
+  // objectui#13011 — 见 EN 表同键注释。
+  'perm.readOnly.capability': '只读（需要 `manage_metadata` 能力）',
   'perm.readOnly.artifact': '只读（该权限集由代码包提供）',
   // objectui#5987 — 见 EN 表同键注释：裁定的路径（克隆后自定义）放在最前。
   'perm.readOnly.artifact.hint':

@@ -1375,7 +1375,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     </>
   );
   const lockBadgeEl = writable ? null : (
-    // Same badge slot, three distinct reasons, and each names the gate
+    // Same badge slot, five distinct reasons, and each names the gate
     // that ACTUALLY tripped (objectui#4446, #4518):
     //
     //  • host gate — a read-only PACKAGE; mirror the top-bar wording
@@ -1402,6 +1402,12 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     //    ships is then the artifact gate's). The env var is a
     //    documented REMEDY (it appears in the server's own 403 text),
     //    never the cause, so it belongs in the hint, not the label.
+    //  • caller gate — the type is open and nothing above closed, so
+    //    the one gate left is `canAuthor` (`writable` is the conjunction
+    //    of exactly these). The type-tier sentence was false here: the
+    //    type DOES have a runtime write channel, this caller may not use
+    //    it (objectui#13011). The hint is the capability banner's
+    //    sentence, so badge and banner give one reason.
     <Badge
       variant="secondary"
       className={studio ? 'shrink-0' : 'ml-auto shrink-0'}
@@ -1414,7 +1420,9 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
               })
             : lockedByArtifactTier
               ? t('perm.readOnly.artifact.hint')
-              : t('perm.readOnly.hint')
+              : !typeTierOpen
+                ? t('perm.readOnly.hint')
+                : t('engine.edit.capabilityReadOnly')
       }
     >
       {readOnly
@@ -1423,7 +1431,9 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           ? t('perm.readOnly.walled')
           : lockedByArtifactTier
             ? t('perm.readOnly.artifact')
-            : t('perm.readOnly')}
+            : !typeTierOpen
+              ? t('perm.readOnly')
+              : t('perm.readOnly.capability')}
     </Badge>
   );
   const basicsFieldsEl = (

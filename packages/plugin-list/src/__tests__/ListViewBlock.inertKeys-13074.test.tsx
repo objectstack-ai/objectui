@@ -280,10 +280,12 @@ describe('objectui#13074 — `sharing` stays inert and unpublished (CONTROL)', (
     expect(document.body.innerHTML).toBe(before);
   });
 
-  it('the registration publishes `requiredPermissions`, and neither `addRecord` (objectui#13089) nor `sharing`', () => {
+  it('the registration publishes `requiredPermissions` and `addRecord` (objectui#13089), and not `sharing`', () => {
     const inputs = (ComponentRegistry.getConfig('list-view')?.inputs ?? []).map((input: { name: string }) => input.name);
     expect(inputs).toContain('requiredPermissions');
-    expect(inputs).not.toContain('addRecord');
+    // Published once the console's page host served the create its Add button
+    // opens (`PageView.listViewAddRecord-13089.test.tsx` in `@object-ui/app-shell`).
+    expect(inputs).toContain('addRecord');
     expect(inputs).not.toContain('sharing');
   });
 });

@@ -3437,6 +3437,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                            // dropdown "Edit" item would navigate to the record detail.
                            const target = e.target as HTMLElement;
                            if (
+                             // objectui#13016 — the leading cell is the selection's hit area
+                             // (see its own handler below): a click that
+                             // misses the small checkbox there selects the
+                             // row, never opens the record.
+                             target.closest('[data-slot="row-leading-cell"]') ||
                              target.closest('button') ||
                              target.closest('a') ||
                              target.closest('input, select, textarea, label') ||
@@ -3469,7 +3474,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       {selectable && (
                         <TableCell
                           data-slot="row-leading-cell"
-                          className={cn(cellClassName, "w-10 px-3 relative", showRowNumbers && "text-center", frozenColumns > 0 && ["sticky left-0 z-10 bg-background", STICKY_ROW_TINT])}
+                          // objectui#13016 — the whole cell toggles the row, not the 16px box
+                          // alone: on a tall row the box is a small target
+                          // and a near miss used to open the record. The
+                          // checkbox itself handles its own clicks.
+                          onClick={(e) => {
+                            if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
+                            handleSelectRow(rowId, !isSelected);
+                          }}
+                          className={cn(cellClassName, "w-10 px-3 relative cursor-pointer", showRowNumbers && "text-center", frozenColumns > 0 && ["sticky left-0 z-10 bg-background", STICKY_ROW_TINT])}
                         >
                           {/* objectui#12423 — the leading cell (see
                               `leadingCellCount`): the row number by default,

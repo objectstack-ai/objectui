@@ -38,6 +38,7 @@ import { AdapterCtx } from '@object-ui/react';
 import { MetadataClient, ObjectStackAdapter } from '@object-ui/data-objectstack';
 import { useMetadataClient } from './useMetadata';
 import { ITEM_WRITE_DOORS, PACKAGE_WRITE_DOORS } from './viewListDrop';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
 import { maskComments } from '../../../../../scripts/js-comment-mask.mjs';
 
 /** Local annotation, since the import above is untyped. */

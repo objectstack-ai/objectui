@@ -293,6 +293,12 @@ grow: `utility` is the narrowest and suits settings and forms, `record` (the def
 }
 ```
 
+A page laid out in `regions` can drop the cap altogether: a `main` region declared
+`width: 'full'` makes the page full-bleed. That is the only `width` a `main` region takes.
+The template decides how wide `main` is (the space `sidebar` and `aside` leave, or one grid
+cell on `dashboard`), so `'small'`, `'medium'` and `'large'` on `main` are refused at that
+region's `width`, as `@objectstack/spec` refuses them. Other regions keep all four values.
+
 `pageType` is more than a width. A `record` page leaves its heading to a `page:header`
 block, so a `title` on a page with no `pageType` draws no heading. That is one more reason
 the settings page above says `utility`.

@@ -80,7 +80,7 @@ const specPage = (kind: string) => ({
   kind: 'full',
   regions: [
     { name: 'header', width: 'full', components: [{ type: 'page:header', properties: { title: 'Welcome' } }] },
-    { name: 'main', width: 'large', components: [{ type: 'element:text', properties: { content: 'Hello' } }] },
+    { name: 'main', components: [{ type: 'element:text', properties: { content: 'Hello' } }] },
   ],
 });
 

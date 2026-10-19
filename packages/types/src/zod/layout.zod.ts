@@ -23,6 +23,8 @@ import {
   PageTypeSchema as SpecPageTypeSchema,
   PageVariableSchema as SpecPageVariableSchema,
   checkPageDefaultPlacement,
+  checkPageMainRegionWidth,
+  checkPageRecordBindingPlacement,
   checkPageRegionPlacement,
   checkPageRequiresKind,
   checkPageSlotPair,
@@ -1368,29 +1370,41 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   //    does not place: on a page that names a slotted template it is drawn
   //    nowhere and the page shows a refusal (objectui#12476); on a page that
   //    names no template it is still stacked under `main`.
-  // The spec's `PageSchema` carries six on objectstack `main` (the installed
-  // 18.0.0-next.2 still carries the removed one below); these four are attached as-is: the first
-  // three read `kind`, `source`, `requires` and `slots`, which this node carries
-  // by reference — none is in {@link PAGE_SPEC_EXCLUDED} nor overridden above.
+  //  - a region named `main` (case-insensitively) with `width` `'small'`,
+  //    `'medium'` or `'large'` is refused at `regions.N.width`, because no
+  //    layout reads `main.width` except `'full'`, which lifts the page's
+  //    max-width cap (`checkPageMainRegionWidth`, objectstack#24326; attached
+  //    by objectui#12971). It reads each region's `name` and `width`, which
+  //    this node's own {@link PageNodeRegionSchema} carries with the same
+  //    meaning: `page.tsx` places `main` by its lowercased `name` and reads its
+  //    `width` only for `'full'`.
+  // The checks listed above are attached as-is: the first three read `kind`,
+  // `source`, `requires` and `slots`, which this node carries by reference —
+  // none is in {@link PAGE_SPEC_EXCLUDED} nor overridden above.
   // The page-parse judge of a view-data component's retired `api` binding is no
   // longer among them: objectstack#23784 removed it from the spec, which now
   // leaves that verdict to the component-props lint rule at the save door
   // (`validateComponentProps`, `@objectstack/lint`). So a slotted block naming
   // `api` passes here, as it passes the spec's own `PageSchema`; a region
   // block is still refused by its arm in the component union (measured in
-  // `__tests__/page-component-view-data-12666.test.ts`). The fifth, `checkPagePrintComposition`,
+  // `__tests__/page-component-view-data-12666.test.ts`). `checkPagePrintComposition`
   // reads `type` and `regions` as the PAGE's own, which this node does NOT carry
-  // by reference, so it is not attached; the census below records why. The
-  // sixth, `checkPageDefaultPlacement` (18.0.0-next.2), judges `isDefault` by
-  // the page's `type`, and on this node `type` is the component discriminator
-  // (`'page'`), so attached here it would refuse every `isDefault`; it is
-  // attached on {@link PageKindNodeSchema} below, whose `type` IS the page kind.
+  // by reference, so it is not attached; the census below records why.
+  // `checkPageDefaultPlacement` (18.0.0-next.2) judges `isDefault` by the page's
+  // `type`, and on this node `type` is the component discriminator (`'page'`),
+  // so attached here it would refuse every `isDefault`; it is attached on
+  // {@link PageKindNodeSchema} below, whose `type` IS the page kind.
+  // `checkPageRecordBindingPlacement` (objectstack#24275) refuses the page
+  // `record` binding on any page whose `type` is not `app`. It reads `type` the
+  // same way, so attached here it would refuse every `record`, a `pageType:
+  // 'app'` page's included; it is attached on the kind node only (objectui#12971).
   // `__tests__/spec-object-refinements-7715.test.ts` re-derives the count, so a
   // check the spec adds to `PageSchema` later reddens there.
   .superRefine(checkPageSourceCompleteness)
   .superRefine(checkPageRequiresKind)
   .superRefine(checkPageSlotPair)
-  .superRefine(checkPageRegionPlacement);
+  .superRefine(checkPageRegionPlacement)
+  .superRefine(checkPageMainRegionWidth);
 
 /**
  * The spec page KINDS a node may carry in `type` (objectui#11440): `record`,
@@ -1438,10 +1452,11 @@ const { type: _pageNodeTypeLiteral, ...PAGE_NODE_MEMBERS } = PageNodeSchema.shap
  * member is {@link PageNodeSchema}'s own, by reference, and that node already
  * takes the spec's `PageSchema` fields by reference through
  * {@link SpecPageFields}. Its four refusals (`actions`, `breadcrumbs`,
- * `maxWidth`, `padding`), the `body` refusal and the spec's four attachable
+ * `maxWidth`, `padding`), the `body` refusal and the spec's attachable
  * object-level checks (`source`, `requires` by `kind`, the `details` /
- * `tabs` slot pair, and region placement by `template`) come with it. The spec's
- * `isDefault` placement check is attached here only: it reads the page
+ * `tabs` slot pair, region placement by `template`, and the `main` region's
+ * `width`) come with it. The spec's `isDefault` placement check and its
+ * `record` binding placement check are attached here only: each reads the page
  * kind from `type`, which this node carries and the `page` node does not. `regions` stays the node's own
  * {@link PageNodeRegionSchema}, so each region component is judged by this
  * union at every depth, as on `page`.
@@ -1454,9 +1469,14 @@ export const PageKindNodeSchema: PageKindNodeSchemaType = BaseSchema.extend({
   type: PAGE_KIND_NODE_TYPE.describe('The spec page kind — `record`, `home` or `utility` (`@objectstack/spec` `PageTypeSchema`)'),
 }).superRefine(checkPageSourceCompleteness).superRefine(checkPageRequiresKind).superRefine(checkPageSlotPair)
   .superRefine(checkPageRegionPlacement)
+  .superRefine(checkPageMainRegionWidth)
   // On this node `type` is the spec page kind, the field the spec's
-  // `checkPageDefaultPlacement` judges `isDefault` by (objectui#12626).
-  .superRefine(checkPageDefaultPlacement);
+  // `checkPageDefaultPlacement` judges `isDefault` by (objectui#12626), and
+  // `checkPageRecordBindingPlacement` judges `record` by (objectui#12971): none
+  // of the three kinds is `app`, so a `record` binding is refused here, as the
+  // spec refuses it.
+  .superRefine(checkPageDefaultPlacement)
+  .superRefine(checkPageRecordBindingPlacement);
 
 /**
  * The TYPE of {@link PageKindNodeSchema}, written out BY REFERENCE to the

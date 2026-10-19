@@ -83,6 +83,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { maskComments } from './js-comment-mask.mjs';
 import { findComponentRegistrations } from './component-registrations.mjs';
+import { isEntrypoint } from './invoked-as.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -136,6 +137,58 @@ function* sources(dir) {
   }
 }
 
+/**
+ * Named HOSTS that consume the gate without being a registration -- one file
+ * each, with its reason, and never a pattern or a directory.
+ *
+ * The rule above is stated over files because a static reader cannot pair a
+ * use site with the renderer that encloses it. Its honest limit is a file that
+ * consumes the gate and registers nothing at all: there is no registration for
+ * the seam to mark, and no `dataSource` input it could publish. An entry here
+ * is that limit, written down for exactly one file (the seat ruling on
+ * objectui#12931, comment 6272155387).
+ *
+ * ⭐ SELF-LIMITING: an entry holds only while its file, read through
+ * `scripts/js-comment-mask.mjs`, registers no component -- no
+ * `ComponentRegistry.register(` and no bare `register(` call. The moment the
+ * file registers one, it is judged like every other consumer and the seam is
+ * demanded again. An entry whose file no longer consumes the gate is stale and
+ * fails the run (exit 2), so the list cannot outlive what it excuses.
+ */
+export const HOST_EXEMPTIONS = Object.freeze({
+  'packages/app-shell/src/views/PageView.tsx':
+    'page host: resolves the page-level `PageSchema.record` binding (objectstack#24265, objectui#12931), ' +
+    'a key the spec declares on the page itself; it registers no block, so there is no input for the seam to publish',
+});
+
+/** A registration in masked code: the registry call, or any bare `register(` call. */
+const BARE_REGISTER_CALL = /(?<![\w$])register\s*\(/;
+
+/** Does masked `code` register a component? Either form counts; a string mention errs toward "yes". */
+export function registersComponent(code) {
+  return findComponentRegistrations(code).calls > 0 || BARE_REGISTER_CALL.test(code);
+}
+
+/**
+ * Judge one gate-consuming file (repo-relative POSIX path, comment-masked text).
+ * `host` carries the exemption's reason when -- and only when -- the file is a
+ * named host that registers nothing.
+ */
+export function judgeSite(rel, code) {
+  const posix = rel.split(path.sep).join('/');
+  const reason = Object.hasOwn(HOST_EXEMPTIONS, posix) ? HOST_EXEMPTIONS[posix] : undefined;
+  const host = reason !== undefined && !registersComponent(code) ? reason : undefined;
+  const reachesSeam = REACHES_SEAM.test(code);
+  return {
+    rel,
+    host,
+    reachesSeam,
+    // Only meaningful for a file that actually calls the seam.
+    seamFromCore: !reachesSeam || SEAM_FROM_CORE.test(code),
+  };
+}
+
+function main() {
 const wrapping = [];
 const excluded = [];
 for (const full of sources(PACKAGES)) {
@@ -148,17 +201,15 @@ for (const full of sources(PACKAGES)) {
     excluded.push({ rel, registers: findComponentRegistrations(text).calls });
     continue;
   }
-  const reachesSeam = REACHES_SEAM.test(text);
-  wrapping.push({
-    rel,
-    reachesSeam,
-    // Only meaningful for a file that actually calls the seam.
-    seamFromCore: !reachesSeam || SEAM_FROM_CORE.test(text),
-  });
+  wrapping.push(judgeSite(rel, text));
 }
 
 if (process.argv.includes('--list')) {
   for (const site of wrapping.sort((a, b) => a.rel.localeCompare(b.rel))) {
+    if (site.host) {
+      console.log(`HOST ${site.rel} -- exempt while it registers no component: ${site.host}`);
+      continue;
+    }
     const verdict = !site.reachesSeam ? 'MISS' : !site.seamFromCore ? 'FROM-REACT' : 'ok  ';
     console.log(`${verdict} ${site.rel}`);
   }
@@ -195,7 +246,18 @@ if (hidden.length > 0) {
   process.exit(2);
 }
 
-const missing = wrapping.filter((s) => !s.reachesSeam);
+const consuming = new Set(wrapping.map((s) => s.rel.split(path.sep).join('/')));
+const stale = Object.keys(HOST_EXEMPTIONS).filter((rel) => !consuming.has(rel));
+if (stale.length > 0) {
+  console.error(
+    'check-element-data-source-declaration: a HOST_EXEMPTIONS entry names a file that no longer consumes the gate:\n' +
+      stale.map((rel) => `  ${rel}`).join('\n') +
+      '\n\nDelete the entry: an exemption may not outlive the consumption it excuses.',
+  );
+  process.exit(2);
+}
+
+const missing = wrapping.filter((s) => !s.host && !s.reachesSeam);
 if (missing.length > 0) {
   console.error(
     `check-element-data-source-declaration: ${missing.length} file(s) consume ElementDataSourceGate\n` +
@@ -215,7 +277,7 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-const fromReact = wrapping.filter((s) => s.reachesSeam && !s.seamFromCore);
+const fromReact = wrapping.filter((s) => !s.host && s.reachesSeam && !s.seamFromCore);
 if (fromReact.length > 0) {
   console.error(
     `check-element-data-source-declaration: ${fromReact.length} file(s) import the seam from\n` +
@@ -233,7 +295,12 @@ if (fromReact.length > 0) {
   process.exit(1);
 }
 
+const hosts = wrapping.filter((s) => s.host).length;
 console.log(
   `check-element-data-source-declaration: OK — ${wrapping.length} gate-consuming file(s) checked, `
-    + `${excluded.length} definition file(s) excluded; all reach the seam and take it from core.`,
+    + `${excluded.length} definition file(s) excluded, ${hosts} named host(s) exempt (registering nothing); `
+    + 'the rest reach the seam and take it from core.',
 );
+}
+
+if (isEntrypoint(import.meta.url)) main();

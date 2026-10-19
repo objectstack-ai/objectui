@@ -147,6 +147,8 @@ import {
   checkPageSlotPair,
   checkPageRegionPlacement,
   checkPageDefaultPlacement,
+  checkPageMainRegionWidth,
+  checkPageRecordBindingPlacement,
   VIEW_METADATA_MEMBERS as SpecViewMetadataMembers,
   // objectui#12736 — the form option's spec shape: the form-view option.
   FormSelectOptionSchema as SpecFormSelectOptionSchema,
@@ -722,6 +724,11 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       // `PageKindNodeSchema`, and `isDefault` placement, on `PageKindNodeSchema` only.
       ['checkPageRegionPlacement', checkPageRegionPlacement],
       ['checkPageDefaultPlacement', checkPageDefaultPlacement],
+      // objectui#12971: the two page checks objectstack `main` adds to `PageSchema` after
+      // 18.0.0-next.3 — the `main` region's `width`, re-attached on `PageNodeSchema` and
+      // `PageKindNodeSchema`, and `record` binding placement, on `PageKindNodeSchema` only.
+      ['checkPageMainRegionWidth', checkPageMainRegionWidth],
+      ['checkPageRecordBindingPlacement', checkPageRecordBindingPlacement],
       // objectui#12670: the list view chart-binding check `@objectstack/spec` 18 carries on
       // `ListViewSchema`, attached on the authored page `list-view` node's bag
       // (`ListViewPropsBag`), whose `type` is the spec's view kind.

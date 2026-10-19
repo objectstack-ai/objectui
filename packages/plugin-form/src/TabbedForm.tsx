@@ -99,6 +99,12 @@ export interface FormSectionConfig {
    * there, on the type whose renderer has to honour it.
    */
   visibleWhen?: string | { dialect?: string; source: string };
+  /**
+   * The fault direction of {@link visibleWhen}, by reference to
+   * `ObjectFormSection.visibleWhenFault` (objectui#13055): `'hidden'` (a field
+   * group's predicate) hides the section when it cannot be evaluated.
+   */
+  visibleWhenFault?: ObjectFormSection['visibleWhenFault'];
 
   /**
    * Custom CSS class for the section's Card wrapper.
@@ -601,6 +607,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
       // BOTH synthesis paths below can read it — the tab arm and the sub-two-tab
       // degradation — instead of each re-deriving it from `schema.sections`.
       visibleWhen: section.visibleWhen,
+      visibleWhenFault: section.visibleWhenFault,
       fields: sectionGrid.layOut(body, section.columns),
     };
   });
@@ -645,6 +652,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
           name: `__section_gate_${g.key}`,
           type: 'section-divider',
           visibleWhen: g.visibleWhen,
+          visibleWhenFault: g.visibleWhenFault,
           fields: g.fields.map((f) => f.name),
           colSpan: 4,
         } as unknown as FormField));
@@ -695,6 +703,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
       // tabs), so this layout inherits all three ruled semantics instead
       // of re-implementing any of them.
       visibleWhen: g.visibleWhen,
+      visibleWhenFault: g.visibleWhenFault,
     })),
     defaultFieldTab: initialTab,
     fieldTabsPosition: schema.tabPosition || 'top',

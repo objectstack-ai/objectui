@@ -22,9 +22,9 @@
  *
  *  - group hidden (`basic`): zero, in the strip and in the body;
  *  - group shown (`pro`): exactly one, in the body;
- *  - predicate faulted: exactly one, in the body, which answers a fault the
- *    way the form does (shows the group). The strip never evaluates, so the
- *    two cannot disagree about it.
+ *  - predicate faulted: zero — the body answers a fault the way the form
+ *    does for a field group, fail-CLOSED (hides the group; objectui#13055),
+ *    and the strip never draws a gated group's member at all.
  *
  * Every leg first finds the `kind` chip in the strip and the ungrouped
  * `code` value in the body, so a page that rendered nothing cannot pass a
@@ -160,13 +160,13 @@ describe('the synthesized strip and body agree on a gated field group (objectui#
     expect(onPage('only-for-pro')).toBe(1);
   });
 
-  it('a faulted predicate: the body shows the group as the form does, the strip still declines it', () => {
+  it('a faulted predicate: the body hides the group as the form does (fail-closed), the strip still declines it', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       const { strip, body } = renderSynthesizedPage(cardObject('record.kind =='), row('basic'));
-      expect(body.getByText('Pro details')).toBeInTheDocument();
+      expect(body.queryByText('Pro details')).not.toBeInTheDocument();
       expect(strip.queryByText('only-for-pro')).not.toBeInTheDocument();
-      expect(onPage('only-for-pro')).toBe(1);
+      expect(onPage('only-for-pro')).toBe(0);
     } finally {
       warn.mockRestore();
     }

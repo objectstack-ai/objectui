@@ -120,6 +120,12 @@ export interface DrawerFormSectionConfig {
    * engine and the host predicate scope (#6010/#6111). Fails OPEN.
    */
   visibleWhen?: string | { dialect?: string; source: string };
+  /**
+   * The fault direction of {@link visibleWhen}, by reference to
+   * `ObjectFormSection.visibleWhenFault` (objectui#13055): `'hidden'` (a field
+   * group's predicate) hides the section when it cannot be evaluated.
+   */
+  visibleWhenFault?: ObjectFormSection['visibleWhenFault'];
   /** Custom CSS class for the section's divider header. */
   className?: string;
 }
@@ -773,6 +779,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
             title: section.label,
             description: section.description,
             visibleWhen: (section as any).visibleWhen,
+            visibleWhenFault: section.visibleWhenFault,
             members: sectionFields.map(f => f.name),
             collapse,
           }),
@@ -825,6 +832,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
             title,
             description: section.description,
             visibleWhen: (section as any).visibleWhen,
+            visibleWhenFault: section.visibleWhenFault,
             members: body.map(f => f.name),
             collapse,
           }),

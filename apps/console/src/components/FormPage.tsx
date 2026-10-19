@@ -151,6 +151,7 @@ import {
 import { usePredicateScope } from '@object-ui/react';
 import { useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
 import type { FormFieldSpec, FormSectionSpec, FormViewSpec } from '@object-ui/app-shell';
+import type { ObjectFormSection } from '@object-ui/types';
 import { resolveSubmitRedirect } from './submitRedirect';
 
 const API_BASE = (import.meta.env.VITE_SERVER_URL || '') + '/api/v1';
@@ -603,6 +604,14 @@ interface RenderableSection {
    * derives its own from `FormFieldSpec`.
    */
   visibleWhen?: FormSectionSpec['visibleWhen'];
+  /**
+   * The fault direction of {@link visibleWhen} (objectui#13055), carried off
+   * the resolved section: `'hidden'` when the predicate is a field group's
+   * (`{ group }` reference), which `@objectstack/spec` declares fail-closed.
+   * An authored section's own predicate carries none and faults open. See
+   * `ObjectFormSection.visibleWhenFault`.
+   */
+  visibleWhenFault?: ObjectFormSection['visibleWhenFault'];
   fields: RenderableField[];
 }
 
@@ -773,7 +782,7 @@ export function buildSections(
       formType: form.type,
       objectDef: objectSchema,
     },
-  ) ?? []) as unknown as FormSectionSpec[];
+  ) ?? []) as unknown as Array<FormSectionSpec & Pick<ObjectFormSection, 'visibleWhenFault'>>;
   return sections.map((sec) => {
     const cols = normalizeColumns(sec.columns);
     const fields: RenderableField[] = [];
@@ -847,6 +856,7 @@ export function buildSections(
       // The one spelling, as on the field row — see
       // `RenderableSection.visibleWhen` (objectui#5627, objectui#12654).
       visibleWhen: sec.visibleWhen,
+      visibleWhenFault: sec.visibleWhenFault,
       fields,
     };
   });
@@ -937,6 +947,15 @@ export function isSectionVisible(
   previous?: Record<string, unknown> | null,
   predicateScope?: Record<string, unknown>,
 ): boolean {
+  // A field group's predicate is fail-CLOSED (objectui#13055): one that cannot
+  // be evaluated hides the section, and the warning names `false` as the
+  // default taken. Every other section keeps the fail-open answer above.
+  if (section.visibleWhenFault === 'hidden') {
+    if (section.visibleWhen == null) return true;
+    return evalFieldPredicate(section.visibleWhen, values, false, previous ?? undefined, predicateScope, {
+      context: `visibleWhen of field group section '${section.label ?? '(unlabelled)'}' — fail-closed, the section is hidden`,
+    });
+  }
   return evalFieldPredicate(section.visibleWhen, values, true, previous ?? undefined, predicateScope, {
     // The locator is the heading an author can actually find in their own
     // metadata; an unlabelled section says so rather than printing

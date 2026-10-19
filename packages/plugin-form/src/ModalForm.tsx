@@ -137,6 +137,12 @@ export interface ModalFormSectionConfig {
    * engine and the host predicate scope (#6010/#6111). Fails OPEN.
    */
   visibleWhen?: string | { dialect?: string; source: string };
+  /**
+   * The fault direction of {@link visibleWhen}, by reference to
+   * `ObjectFormSection.visibleWhenFault` (objectui#13055): `'hidden'` (a field
+   * group's predicate) hides the section when it cannot be evaluated.
+   */
+  visibleWhenFault?: ObjectFormSection['visibleWhenFault'];
   /** Custom CSS class for the section's header row (stacked layout). */
   className?: string;
   /**
@@ -908,6 +914,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
             // Key-by-key rebuild: an uncopied key never reaches the divider
             // synthesis below (#6111).
             visibleWhen: section.visibleWhen,
+            visibleWhenFault: section.visibleWhenFault,
             className: section.className,
             gridClassName: section.gridClassName,
             fields: sectionGrid.layOut(body, section.columns),
@@ -940,6 +947,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
             // divider; the renderer evaluates it and hides trigger, panel
             // and fields together under the ruled hidden-group semantics.
             visibleWhen: g.visibleWhen,
+            visibleWhenFault: g.visibleWhenFault,
           })),
         };
         return <SchemaRenderer schema={tabbedFormSchema} />;
@@ -964,6 +972,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
             title: g.title,
             description: g.description,
             visibleWhen: g.visibleWhen,
+            visibleWhenFault: g.visibleWhenFault,
             members: g.fields.map((f) => f.name),
             className: g.className,
             collapse,
@@ -1014,6 +1023,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
             title,
             description: section.description,
             visibleWhen: (section as any).visibleWhen,
+            visibleWhenFault: section.visibleWhenFault,
             members: body.map((f) => f.name),
             collapse,
           }),

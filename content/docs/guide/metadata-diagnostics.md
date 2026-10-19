@@ -168,6 +168,14 @@ fires while its field stays visible is the classic symptom — open the
 browser console and the broken predicate identifies itself (most often a
 bare field name where `record.<field>` was meant).
 
+One slot is the opposite: an object **field group**'s `visibleWhen` is
+fail-CLOSED, as `@objectstack/spec` declares for
+`ObjectFieldGroupSchema.visibleWhen`. A group whose predicate cannot be
+evaluated is hidden whole, header and members, on the form and on the
+record detail page. The same one-time warning names `safe default (false)`
+and "the group is hidden". A form-view section's own `visibleWhen` keeps
+failing open (objectui#13055).
+
 At **submit**, a broken field rule is refused rather than passed (ADR-0137
 D2). A field-level `visibleWhen` that cannot be evaluated refuses the submit
 on the client — the record form, the `/forms/:name` and `/f/:slug` page, and a

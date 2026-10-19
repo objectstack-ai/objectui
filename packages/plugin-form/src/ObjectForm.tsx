@@ -435,6 +435,7 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
             // compiling and silently copy `undefined` — the exact silent-drop
             // failure this line exists to fix.
             visibleWhen: s.visibleWhen,
+            visibleWhenFault: s.visibleWhenFault,
             // ⛔ `className` / `gridClassName` are DELIBERATELY not copied here
             // or at any of the six sibling sites below — objectstack#13626,
             // maintainer ruling 2026-09-01 (director decision batch C):
@@ -530,6 +531,7 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
             // ADR-0089 section predicate (#6111) — same reason as `pane` above:
             // a key this map does not copy never reaches the layout at all.
             visibleWhen: (s as any).visibleWhen,
+            visibleWhenFault: s.visibleWhenFault,
             // `className` / `gridClassName`: deliberately not copied — see the
             // tabbed arm above (objectstack#13626, ruled 2026-09-01).
           })),
@@ -564,6 +566,7 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
             // ADR-0089 section predicate (#6111) — key-by-key rebuild, so an
             // uncopied key is silently dropped before DrawerForm ever sees it.
             visibleWhen: (s as any).visibleWhen,
+            visibleWhenFault: s.visibleWhenFault,
             // `className`: deliberately not copied — see the tabbed arm above
             // (objectstack#13626, ruled 2026-09-01). DrawerForm's own divider
             // site stops reading it in the same pass.
@@ -602,6 +605,7 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
             // ADR-0089 section predicate (#6111) — key-by-key rebuild, so an
             // uncopied key is silently dropped before ModalForm ever sees it.
             visibleWhen: (s as any).visibleWhen,
+            visibleWhenFault: s.visibleWhenFault,
             // `className` / `gridClassName`: deliberately not copied — see the
             // tabbed arm above (objectstack#13626, ruled 2026-09-01).
           })),
@@ -1759,6 +1763,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
           title: label,
           description: section.description,
           visibleWhen: (section as any).visibleWhen,
+          visibleWhenFault: section.visibleWhenFault,
           // RESOLVED rather than authored on purpose: the authored
           // `section.fields` entries can be spec field-defs, and a
           // perms-filtered field is not in the form at all.

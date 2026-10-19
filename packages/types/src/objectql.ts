@@ -1688,6 +1688,32 @@ export interface ObjectFormSection {
    */
   visibleWhen?: string | { dialect?: string; source: string };
 
+  /**
+   * What a {@link visibleWhen} that cannot be evaluated (a parse error, an
+   * unbound field or root, an evaluation error) does to the section:
+   * `'hidden'` hides it whole, header and members; `'shown'` or absent draws
+   * it, which is the fail-open default every other predicate slot keeps.
+   *
+   * ⛔ Not an authoring key. It is a runtime hand-off that names the fault
+   * direction the predicate's ORIGIN declares, and only the field-group
+   * derivation writes it: `deriveFieldGroupSections` (`@object-ui/plugin-form`)
+   * stamps `'hidden'` beside the predicate it copies off an object's
+   * `fieldGroups` entry, because `@objectstack/spec` declares
+   * `ObjectFieldGroupSchema.visibleWhen` fail-closed ("else hidden
+   * (fail-closed)"). An authored form-view section's own `visibleWhen` is
+   * declared to fault OPEN (`FormSectionSchema.visibleWhen`), and on the form
+   * both predicates arrive in the same slot, so the direction has to travel
+   * with the predicate rather than be read off the slot (objectui#13055). The
+   * spec's strict `FormSectionSchema` refuses this key in authored metadata.
+   *
+   * Every layout that rebuilds a section key by key carries it next to
+   * `visibleWhen` (pinned by `sectionFaultCarry-13055` in
+   * `@object-ui/plugin-form`), down to the `section-divider` row
+   * ({@link FormField.visibleWhenFault}) or the tab
+   * ({@link FormFieldTab.visibleWhenFault}) the form renderer evaluates.
+   */
+  visibleWhenFault?: 'hidden' | 'shown';
+
   // `className` / `gridClassName` are deliberately NOT declared here
   // (objectui#7200 — the declared-but-inert remainder of objectstack#13626,
   // maintainer ruling 2026-09-01: "retire the reads … Declaring the keys was

@@ -34,7 +34,8 @@
  * `buildDefaultDetails`), and once through the entry form renderer itself —
  * `@object-ui/components`' `form`, given the section-divider row
  * `plugin-form`'s `projectSectionDivider` emits for a field group (the
- * predicate, and the claim on the group's members), as an edit form of that
+ * predicate, its fail-closed `visibleWhenFault: 'hidden'` stamp — objectui#13055 —
+ * and the claim on the group's members), as an edit form of that
  * row (`defaultValues` and `previousValues`). Each leg asserts the form's
  * verdict, the detail page's verdict, AND the expected verdict, so two
  * surfaces that are wrong the same way still turn the leg red.
@@ -42,7 +43,9 @@
  * The matrix covers what the form's evaluator does with a section predicate:
  * both spellings (bare string and `{ dialect: 'cel', source }` envelope), the
  * `record.` scoping (a bare identifier is unbound), a predicate that cannot be
- * evaluated (the form SHOWS the section — fail-open), a declared field the row
+ * evaluated (the form HIDES a field group's section — fail-closed, the
+ * direction `@objectstack/spec` declares for this slot, objectui#13055), a
+ * declared field the row
  * does not carry (seeded `null`, so it evaluates instead of faulting), a
  * relation that arrives expanded on this page and as its id on the form, the
  * `previous` root an edit form binds, and the host `current_user` scope.
@@ -199,6 +202,9 @@ function formShowsPro(visibleWhen: unknown, row: Row, scope: Record<string, unkn
               label: 'Pro details',
               type: 'section-divider',
               visibleWhen,
+              // What `deriveFieldGroupSections` stamps beside a group's
+              // predicate and `projectSectionDivider` carries (objectui#13055).
+              ...(visibleWhen !== undefined ? { visibleWhenFault: 'hidden' } : {}),
               fields: ['pro_a', 'pro_b'],
               colSpan: 4,
             },
@@ -272,8 +278,9 @@ const MATRIX: Case[] = [
   { label: 'envelope `record.kind == pro` — the card reproduction', visibleWhen: cel("record.kind == 'pro'"), expected: [false, true] },
   { label: 'bare-string `record.kind == pro` — the same verdict as the envelope', visibleWhen: "record.kind == 'pro'", expected: [false, true] },
   { label: 'no predicate — the control: the group is drawn on every row', visibleWhen: undefined, expected: [true, true] },
-  { label: 'bare identifier `kind == pro` — values bind under `record.` only, so it is unbound and SHOWS (fail-open)', visibleWhen: "kind == 'pro'", expected: [true, true] },
-  { label: 'a parse error SHOWS the section (fail-open)', visibleWhen: cel('record.kind =='), expected: [true, true] },
+  { label: 'bare identifier `kind == pro` — values bind under `record.` only, so it is unbound and HIDES (fail-closed, objectui#13055)', visibleWhen: "kind == 'pro'", expected: [false, false] },
+  { label: 'a parse error HIDES the section (fail-closed, objectui#13055)', visibleWhen: cel('record.kind =='), expected: [false, false] },
+  { label: 'an unknown field HIDES the section (fail-closed, objectui#13055)', visibleWhen: cel("record.no_such_field == 'x'"), expected: [false, false] },
   { label: 'a declared field the row does not carry compares as null — evaluated, not faulted', visibleWhen: cel("record.tier == 'gold'"), expected: [false, false] },
   { label: 'a relation binds as its stored id, expanded or not', visibleWhen: cel("record.owner == 'u2'"), expected: [false, true] },
   { label: '`previous` binds the persisted row, as on the record\'s edit form', visibleWhen: cel("previous.kind == 'pro'"), expected: [false, true] },

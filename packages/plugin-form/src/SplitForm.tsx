@@ -73,6 +73,12 @@ export interface SplitFormSectionConfig {
    * engine and the host predicate scope (#6010/#6111). Fails OPEN.
    */
   visibleWhen?: string | { dialect?: string; source: string };
+  /**
+   * The fault direction of {@link visibleWhen}, by reference to
+   * `ObjectFormSection.visibleWhenFault` (objectui#13055): `'hidden'` (a field
+   * group's predicate) hides the section when it cannot be evaluated.
+   */
+  visibleWhenFault?: ObjectFormSection['visibleWhenFault'];
   /** Custom CSS class for the section's header row. */
   className?: string;
   /**
@@ -520,6 +526,7 @@ export const SplitForm: React.FC<SplitFormProps> = ({
           // ADR-0089 section predicate (#6111) — the renderer evaluates it on
           // this pseudo-field with the host predicate scope bound (#6010).
           visibleWhen: section.visibleWhen,
+          visibleWhenFault: section.visibleWhenFault,
           // The membership claim (#6236): resolved member names, so the
           // predicate gates the whole group.
           fields: body.map(f => f.name),

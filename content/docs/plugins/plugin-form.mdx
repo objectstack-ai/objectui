@@ -244,6 +244,22 @@ host predicate scope bound, so it can read `current_user` / `data` /
 system it **fails open**: a predicate that cannot be evaluated leaves the tab
 visible rather than hiding data behind a broken expression.
 
+**One exception: a tab or section built from an object field group fails
+CLOSED.** `@objectstack/spec` declares `ObjectFieldGroupSchema.visibleWhen`
+"else hidden (fail-closed)", so when the predicate comes from the object's
+`fieldGroups` entry (the no-sections `fieldGroups` fallback, or a
+`{ group }` section reference) and cannot be evaluated, the whole group is
+hidden: header, tab trigger and panel, and every member. The record detail
+page (`record:details`) does the same. The one-time console warning still
+fires, naming `safe default (false)` and "the group is hidden". Members
+hidden this way behave exactly like members of a group whose predicate is
+FALSE: their values still submit, and their client-side validation is
+skipped. A form-view `FormSection` predicate, a `fieldTabs[].visibleWhen`
+written on the form itself, and a field's own `visibleWhen` keep failing
+open. The layouts tell the two origins apart by the runtime hand-off key
+`visibleWhenFault: 'hidden'`, which only the field-group derivation writes
+(objectui#13055).
+
 When the predicate resolves FALSE the renderer draws **neither the tab's
 trigger nor its panel** — a hidden tab disappears from the tab strip entirely,
 it is not merely an empty panel.

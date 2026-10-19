@@ -46,7 +46,7 @@ import { RecordFormPage } from './RecordFormPage';
 const h = React.createElement;
 
 const { formSchemas, authState } = vi.hoisted(() => ({
-  formSchemas: [] as any[],
+  formSchemas: [] as Array<{ fields: string[] }>,
   authState: { user: null as Record<string, unknown> | null },
 }));
 
@@ -68,13 +68,13 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 
 vi.mock('@object-ui/plugin-form', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  ObjectForm: ({ schema }: any) => {
+  ObjectForm: ({ schema }: { schema: { fields: string[] } }) => {
     formSchemas.push(schema);
     return h('div', { 'data-testid': 'object-form' });
   },
 }));
 
-const metadataState = { objects: [] as any[], loading: false };
+const metadataState = { objects: [] as unknown[], loading: false };
 vi.mock('../providers/MetadataProvider', () => ({ useMetadata: () => metadataState }));
 vi.mock('../providers/AdapterProvider', () => ({ useAdapter: () => null }));
 

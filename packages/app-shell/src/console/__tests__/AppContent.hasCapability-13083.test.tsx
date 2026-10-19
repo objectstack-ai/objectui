@@ -38,12 +38,12 @@ import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/pe
 // "nothing reported" is a reading, not a leftover from an earlier arm.
 import { __resetVisibilityPredicateWarnings } from '../../../../react/src/utils/visibilityDiagnostic';
 
-const { modalSchemas } = vi.hoisted(() => ({ modalSchemas: [] as any[] }));
+const { modalSchemas } = vi.hoisted(() => ({ modalSchemas: [] as Array<{ fields: string[] }> }));
 
 /** The probe: the global modal's schema is where the filtered field list lands. */
 vi.mock('@object-ui/plugin-form', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  ModalForm: ({ schema }: any) => {
+  ModalForm: ({ schema }: { schema: { fields: string[] } }) => {
     modalSchemas.push(schema);
     return <div data-testid="modal-form" />;
   },

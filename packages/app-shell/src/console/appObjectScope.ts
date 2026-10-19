@@ -230,7 +230,7 @@ export function navigationNames(navigation: unknown, pick: (item: Record<string,
  * (objectui#12980), so an area entry requiring an object outside the package
  * is asked by name and answered exactly.
  */
-function appRequiredObjectNames(app: Record<string, any> | undefined): string[] {
+function appRequiredObjectNames(app: Record<string, unknown> | undefined): string[] {
   const pick = (item: Record<string, unknown>) => item.requiresObject;
   const areas: unknown[] = Array.isArray(app?.areas) ? app.areas : [];
   return [

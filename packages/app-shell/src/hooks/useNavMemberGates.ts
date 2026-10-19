@@ -72,14 +72,16 @@ const NO_REQUIRED_OBJECTS = Object.freeze({ objects: [] as readonly unknown[], m
  * the names any consumer of the gate asks it about. Sorted, so the same list
  * reads the same names in the same order.
  */
-function requiredObjectUnion(apps: unknown, current: Record<string, any> | undefined): string[] {
+function requiredObjectUnion(apps: unknown, current: Record<string, unknown> | undefined): string[] {
   const out = new Set<string>();
   const pick = (item: Record<string, unknown>) => item.requiresObject;
-  const listed = filterActiveApps(Array.isArray(apps) ? (apps as Array<Record<string, any>>) : []);
+  const listed = filterActiveApps(Array.isArray(apps) ? (apps as Array<Record<string, unknown>>) : []);
   for (const app of current ? [...listed, current] : listed) {
     for (const name of navigationNames(app?.navigation, pick)) out.add(name);
-    for (const area of Array.isArray(app?.areas) ? app.areas : []) {
-      for (const name of navigationNames(area?.navigation, pick)) out.add(name);
+    const areas: unknown[] = Array.isArray(app?.areas) ? app.areas : [];
+    for (const area of areas) {
+      const tree = area && typeof area === 'object' ? (area as { navigation?: unknown }).navigation : undefined;
+      for (const name of navigationNames(tree, pick)) out.add(name);
     }
   }
   return [...out].sort();

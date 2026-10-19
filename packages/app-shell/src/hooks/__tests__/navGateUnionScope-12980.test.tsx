@@ -72,7 +72,7 @@ function makeAdapter(calls: string[], apps: unknown[], behaviour: Behaviour = {}
           if (type === 'object' && !options?.packageId && behaviour.failWholeList) {
             return Promise.reject(Object.assign(new Error('unavailable'), { httpStatus: 503 }));
           }
-          const all: any[] = type === 'object' ? OBJECTS : type === 'app' ? apps : [];
+          const all = (type === 'object' ? OBJECTS : type === 'app' ? apps : []) as Array<{ _packageId?: string }>;
           const items = options?.packageId ? all.filter((o) => o._packageId === options.packageId) : all;
           return Promise.resolve({ type, items: structuredClone(items) });
         },

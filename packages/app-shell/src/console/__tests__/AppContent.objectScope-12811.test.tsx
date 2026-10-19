@@ -18,8 +18,9 @@
  * one `requiresObject` entry, and `useActionModal` is mounted beside it, as
  * `ConsoleShell` mounts it.
  *
- * CONTROLs: an app item with no package id, or whose package holds no objects
- * of its own (a platform app such as Setup), asks the whole registry, as before;
+ * CONTROLs: an app item with no package id asks the whole registry, as before,
+ * and so does the root of an app whose package holds no objects of its own (a
+ * platform app such as Setup; its object routes read by name, objectui#13046);
  * a record overlay (`?recordId=`) reads the whole registry, because a record's
  * related lists come from every object that points at it.
  */
@@ -238,10 +239,14 @@ describe('one console open asks for the app\'s objects, not the whole registry (
     expect(screen.getByTestId('object-view')).toHaveTextContent('crm_account,crm_contact,crm_case,sys_user');
   });
 
-  it('CONTROL: an app whose package holds no objects of its own reads the whole registry, and asks none by name', async () => {
+  it("CONTROL: the root of an app whose package holds no objects of its own reads the whole registry, and asks none by name", async () => {
+    // objectui#13046 moved this control from an object's route to the app's
+    // root: an object's route in such an app now reads by name
+    // (`AppContent.emptyPackageScope-13046.test.tsx`), its landing does not.
     server.apps = [{ name: 'crm', label: 'Setup-like', _packageId: 'app.platform', navigation: NAVIGATION }];
-    boot('/apps/crm/crm_account');
-    await waitFor(() => expect(screen.getByTestId('object-view')).toHaveTextContent('crm_case'));
+    boot('/apps/crm');
+    await waitFor(() => expect(objectCalls()).toContain('object'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     expect(objectCalls()).toEqual(['object?package=app.platform', 'object']);
   });

@@ -18,16 +18,30 @@
  * a block names outside that set is read by name when the block asks for it
  * (`PageView`).
  *
- * Everywhere else the route reads the whole registry, as before. A record
- * surface derives its related lists from every object that points at its
- * object, in any package, so a record overlay (`?recordId=`, `?form=`) reads
- * the whole registry, and so does a list whose views open records in an
- * in-page overlay the URL does not carry (`modal`, `split`, `popover`). An app
- * item without a package id has no package to scope by, and neither has an app
- * whose package holds no objects of its own (a platform app such as Setup,
- * whose every entry opens another package's object): asking each of those by
- * name costs a request per object, measured on HotCRM, and its landing loads
- * the whole registry anyway.
+ * An object's list in an app whose package holds no objects of its own
+ * (objectui#13046: cloud's control-plane app, whose package ships only the
+ * app, and Setup, whose every entry opens another package's object) reads the
+ * same names by name once the package list has answered empty: the route's
+ * object, its lookup targets and the app's `requiresObject` entries, never the
+ * whole registry. Only the route's object holds the route. The app's ROOT in
+ * such a package keeps the whole registry: measured on Setup's landing, asking
+ * the entries' objects by name cost a request each and the landing loaded the
+ * whole registry anyway (objectui#12811).
+ *
+ * A record route (`:objectName/record/:recordId`, and its named-page sibling)
+ * whose record page is declared as a full page reads the objects that page
+ * binds, by name, the way a page route does (objectui#13046), once the page
+ * list has answered; the page it picks is the page `RecordDetailView` renders
+ * (`usePageAssignment`'s choice). A record route with no declared record page,
+ * or a slotted one, reads the whole registry: its synthesized page derives
+ * the related lists from every object that points at the record's object, in
+ * any package.
+ *
+ * Everywhere else the route reads the whole registry, as before. For the
+ * related lists' reason a record overlay (`?recordId=`, `?form=`) reads the
+ * whole registry, and so does a list whose views open records in an in-page
+ * overlay the URL does not carry (`modal`, `split`, `popover`). An app item
+ * without a package id has no package to scope by.
  *
  * Two readers ask the same question with the same answer: `AppContent`, which
  * renders the route, and the console root (`ConsoleShell`), which asks it as
@@ -36,7 +50,8 @@
  */
 
 import { matchRoutes, useLocation } from 'react-router-dom';
-import { useMetadata, type MetadataContextValue } from '@object-ui/react';
+import { isRecordPageOf, useMetadata, type MetadataContextValue } from '@object-ui/react';
+import { defaultRecordPageObject } from '@objectstack/spec/ui';
 import { APP_ROUTE_METADATA_READS } from './appRouteMetadataReads.js';
 import { matchAppBySegment } from '../utils/appRoute.js';
 import { COMMAND_PALETTE_PARAM, RECORD_DRAWER_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_PARAM } from '../urlParams.js';
@@ -80,21 +95,30 @@ function routeReadDone(scope: AppObjectScope): boolean {
 /**
  * The routes under `/apps/:appName` whose element, and the chrome around it,
  * read the app's object scope: the app's root (its landing reads only the
- * navigation's gates) and an object's list. Paths as `APP_ROUTE_METADATA_READS`
- * spells them, and matched against that table, so a more specific route
- * (`search`, `create-app`, a host route) is never taken for `:objectName`.
+ * navigation's gates), an object's list, a page, and a record (objectui#13046:
+ * the objects its declared record page binds). Paths as
+ * `APP_ROUTE_METADATA_READS` spells them, and matched against that table, so a
+ * more specific route (`search`, `create-app`, a host route) is never taken
+ * for `:objectName`.
  */
-export const APP_OBJECT_SCOPE_ROUTES: readonly string[] = ['/', ':objectName', ':objectName/view/:viewId', 'page/:pageName'];
+export const APP_OBJECT_SCOPE_ROUTES: readonly string[] = [
+  '/',
+  ':objectName',
+  ':objectName/view/:viewId',
+  'page/:pageName',
+  ':objectName/record/:recordId',
+  ':objectName/record/:recordId/page/:pageName',
+];
 
 function matchObjectScopeRoute(
   subPath: string,
   hostPaths: readonly string[],
-): { objectName?: string; pageName?: string } | null {
+): { objectName?: string; pageName?: string; recordId?: string } | null {
   const routes = [...APP_ROUTE_METADATA_READS.map(({ path }) => ({ path })), ...hostPaths.map((path) => ({ path }))];
   const matches = matchRoutes(routes, `/${subPath.replace(/^\/+/, '')}`);
   const match = matches?.[matches.length - 1];
   if (!match || !APP_OBJECT_SCOPE_ROUTES.includes(match.route.path)) return null;
-  return { objectName: match.params.objectName, pageName: match.params.pageName };
+  return { objectName: match.params.objectName, pageName: match.params.pageName, recordId: match.params.recordId };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -216,6 +240,31 @@ export function readPageObjectScope(
   };
 }
 
+/** The page list, and whether the `page` type has answered (objectui#13046). */
+export interface PagesRead {
+  pages: readonly unknown[];
+  settled: boolean;
+}
+
+/**
+ * The record page a record route of `objectName` renders (objectui#13046), as
+ * `RecordDetailView` picks it through `usePageAssignment`: the page the route
+ * names, when it is a record page of the object; otherwise the object's
+ * default record page (`defaultRecordPageObject`), else its first record page.
+ * Only a full page is returned. A slotted page, or none, returns `null`: the
+ * view synthesizes that page, and derives its related lists from every object
+ * that points at the record's object.
+ */
+function declaredRecordPage(pages: readonly unknown[], objectName: string, pageName: string | undefined): unknown {
+  const page = pageName
+    ? pages.find((p) => isRecord(p) && p.name === pageName && isRecordPageOf(p, objectName))
+    : (() => {
+        const candidates = pages.filter((p) => isRecordPageOf(p, objectName));
+        return candidates.find((p) => defaultRecordPageObject(p) === objectName) ?? candidates[0];
+      })();
+  return isRecord(page) && page.kind !== 'slotted' ? page : null;
+}
+
 /** A record overlay the URL carries: the detail drawer, or the record form. */
 function hasRecordOverlay(search: string): boolean {
   const sp = new URLSearchParams(search);
@@ -318,10 +367,27 @@ export function readAppObjectScope(
   search: string,
   hostPaths: readonly string[] = [],
   readPage?: (pageName: string) => PageRead,
+  readPages?: () => PagesRead,
 ): AppObjectScopeRead {
   const route = matchObjectScopeRoute(subPath, hostPaths);
   const candidate = !!route && !!readObjectScope && !hasRecordOverlay(search);
   const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
+  if (candidate && readObjectScope && route && route.recordId !== undefined && route.objectName) {
+    // objectui#13046 — a record route: the app list, then the page list, then
+    // either the objects the record's declared page binds, by name, or the
+    // whole registry. Nothing is read while the page list is out: a route that
+    // turns out to have no declared page asks exactly what it asked before.
+    if (!app) return { candidate, scope: null, ready: false, ...NOT_READ };
+    const pagesRead = readPages?.();
+    if (!pagesRead?.settled) return { candidate, scope: PENDING_OBJECT_SCOPE, ready: false, ...NOT_READ };
+    const page = declaredRecordPage(pagesRead.pages, route.objectName, route.pageName);
+    if (!page) return { candidate, scope: null, ready: false, ...NOT_READ };
+    const extra = [route.objectName, ...appRequiredObjectNames(app)];
+    if (new URLSearchParams(search).has(COMMAND_PALETTE_PARAM)) {
+      extra.push(...navigationNames(app.navigation, (item) => (item.type === 'object' ? item.objectName : undefined)));
+    }
+    return { candidate, ...readPageObjectScope(readObjectScope, app, page, extra), routeObjectRefusal: null };
+  }
   if (candidate && readObjectScope && route && route.pageName !== undefined) {
     // objectui#12980 — a page route: the app list first (it names the
     // package), then the page, then the objects the page binds.
@@ -340,11 +406,15 @@ export function readAppObjectScope(
     return { candidate, ...readPageObjectScope(readObjectScope, app, pageRead.page, extra), routeObjectRefusal: null };
   }
   if (!candidate || !packageId || !readObjectScope || !route) return { candidate, scope: null, ready: false, ...NOT_READ };
-  // The package list first: no name is asked until it shows the app holds
-  // objects of its own.
+  // The package list first: no name is asked until it has answered.
   const own = readObjectScope({ packageId });
   if (!own.settled) return { candidate, scope: own, ready: false, ...NOT_READ };
-  if (!own.served.some((o: any) => o?._packageId === packageId)) return { candidate, scope: null, ready: false, ...NOT_READ };
+  // objectui#13046 — a package that holds no objects of its own: an object's
+  // route reads its names by name all the same, below; the app's root keeps the
+  // whole registry (the header says why).
+  if (!route.objectName && !own.served.some((o: any) => o?._packageId === packageId)) {
+    return { candidate, scope: null, ready: false, ...NOT_READ };
+  }
   const routeRead = readObjectScope({ packageId, names: route.objectName ? [route.objectName] : [] });
   const ready = routeReadDone(routeRead);
   const routeOutcome = { failedNames: failedNamesOf(routeRead), routeObjectRefusal: refusalOf(routeRead, route.objectName) };

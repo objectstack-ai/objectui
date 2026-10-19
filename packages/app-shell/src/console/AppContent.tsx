@@ -400,7 +400,8 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // the app's object scope on the routes `appObjectScope.ts` names, inside an
   // app whose served item carries its package; the whole registry everywhere
   // else, as before (that module says why). A page route reads the objects
-  // its page binds (objectui#12980), resolved as `PageView` resolves the page.
+  // its page binds (objectui#12980), resolved as `PageView` resolves the page,
+  // and a record route those of its declared record page (objectui#13046).
   const {
     candidate: scopeCandidate,
     scope: objectScope,
@@ -417,6 +418,15 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
       const status = getTypeStatus?.('page');
       return {
         page: preferLocal(metadata.pages as any[], pageName, (activeApp as any)?._packageId),
+        settled: status === undefined || status === 'ready' || status === 'error',
+      };
+    },
+    // objectui#13046 — a record route reads the objects its declared record
+    // page binds, picked from the page list as `RecordDetailView` picks it.
+    () => {
+      const status = getTypeStatus?.('page');
+      return {
+        pages: Array.isArray(metadata.pages) ? (metadata.pages as unknown[]) : [],
         settled: status === undefined || status === 'ready' || status === 'error',
       };
     },

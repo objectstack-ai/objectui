@@ -3001,6 +3001,12 @@ const zh = {
       summaryItems_one: '{{count}} 项',
       summaryItems_other: '{{count}} 项',
       summaryType: '{{type}} {{n}}',
+      // objectui#12929 — the unchecked choice under an added object field whose
+      // literal default the batch publish can write into the existing records.
+      backfillOption: '补默认值（{{count}} 条已有记录）',
+      backfillOption_one: '补默认值（{{count}} 条已有记录）',
+      backfillOption_other: '补默认值（{{count}} 条已有记录）',
+      backfillOptionNoCount: '补默认值',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

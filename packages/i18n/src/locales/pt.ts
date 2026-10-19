@@ -4092,6 +4092,13 @@ const pt = {
       summaryItems_many: '{{count}} de itens',
       summaryItems_other: '{{count}} itens',
       summaryType: '{{n}} {{type}}',
+      // objectui#12929 — the unchecked choice under an added object field whose
+      // literal default the batch publish can write into the existing records.
+      backfillOption: 'Preencher o valor padrão ({{count}} registros existentes)',
+      backfillOption_one: 'Preencher o valor padrão ({{count}} registro existente)',
+      backfillOption_many: 'Preencher o valor padrão ({{count}} de registros existentes)',
+      backfillOption_other: 'Preencher o valor padrão ({{count}} registros existentes)',
+      backfillOptionNoCount: 'Preencher o valor padrão',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

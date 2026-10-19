@@ -3091,6 +3091,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // objectui#11807 — the publish toast names how many items went live.
   'engine.studio.publishedAllCount': 'Published {count} items in this package (one atomic release)',
   'engine.studio.publishedAllCountOne': 'Published {count} item in this package (one atomic release)',
+  // objectui#12929 — the batch door's backfill receipt, one clause per field
+  // the review sheet named: the rows the server wrote, and why a field stopped.
+  'engine.studio.backfillWritten': 'Default backfilled into {field}: {count} record(s)',
+  'engine.studio.backfillStopped': 'Default backfill of {field} stopped after {count} record(s): {error}',
   'engine.studio.app.open': 'Open app',
   'engine.studio.app.openTitle': 'Open app “{label}” (the published front-end)',
   'engine.studio.app.create': 'Create app',
@@ -6475,6 +6479,10 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // objectui#11807 — the publish toast names how many items went live.
   'engine.studio.publishedAllCount': '已发布本软件包的 {count} 项(一次原子发布)',
   'engine.studio.publishedAllCountOne': '已发布本软件包的 {count} 项(一次原子发布)',
+  // objectui#12929 — the batch door's backfill receipt, one clause per field
+  // the review sheet named: the rows the server wrote, and why a field stopped.
+  'engine.studio.backfillWritten': '已为 {field} 补默认值：{count} 条记录',
+  'engine.studio.backfillStopped': '{field} 的默认值补写中途停止(停止前已写入 {count} 条)：{error}',
   'engine.studio.app.open': '打开应用',
   'engine.studio.app.openTitle': '打开应用「{label}」(发布后的前端界面)',
   'engine.studio.app.create': '创建应用',

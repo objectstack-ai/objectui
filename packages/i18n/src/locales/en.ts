@@ -3469,6 +3469,12 @@ const en = {
       summaryItems_one: '{{count}} item',
       summaryItems_other: '{{count}} items',
       summaryType: '{{n}} {{type}}',
+      // objectui#12929 — the unchecked choice under an added object field whose
+      // literal default the batch publish can write into the existing records.
+      backfillOption: 'Backfill default ({{count}} existing records)',
+      backfillOption_one: 'Backfill default ({{count}} existing record)',
+      backfillOption_other: 'Backfill default ({{count}} existing records)',
+      backfillOptionNoCount: 'Backfill default',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

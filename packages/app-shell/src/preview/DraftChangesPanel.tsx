@@ -21,15 +21,19 @@
  * Read-only by default: fetches `_drafts` + published lists on open, and
  * never writes. When the caller passes `onPublish`, the panel additionally
  * renders a confirm footer — review-then-publish in one surface — but the
- * publish action itself still belongs to the caller.
+ * publish action itself still belongs to the caller. With a package as well,
+ * an added object field the batch door could backfill carries an unchecked
+ * "backfill default" choice (objectui#12929); the checked ones ride on the
+ * footer's call as the door's `backfill` option.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Equal, FilePlus2, FilePen, Loader2, Rocket, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Badge,
   Button,
+  Checkbox,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -37,6 +41,8 @@ import {
   SheetTitle,
 } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
+import { useAdapter } from '@object-ui/react';
+import type { MetadataClient } from '@object-ui/data-objectstack';
 // The `/meta` URL-spelling fold (objectstack#7894, objectstack-ai/objectstack#8424), applied once in
 // `listPendingDrafts` below.
 //
@@ -74,6 +80,10 @@ import { fetchPendingDrafts } from './usePendingDrafts.js';
 import { canonicalMetaUrlType } from '@objectstack/spec/shared';
 import { resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
 import { MetadataProtectionFields, stripReadDecorations } from '@objectstack/spec/kernel';
+// objectui#12929 — the ONE discriminator of an authored default's shape, the
+// same function the batch door's backfill judgement calls. Moves nothing onto
+// the eager graph for the reason recorded above (`vendor-objectstack`).
+import { discriminateDefaultValueShape } from '@objectstack/spec/data';
 import { diffFields } from '../views/metadata-admin/previews/object-fields-io.js';
 // The live `?surface=` channel, and NOT `useSurfaceDeepLink` beside it: this
 // import must stay React-only, because that module reaches `nav-selection.js`
@@ -345,6 +355,78 @@ export function computeChangeDetail(
 }
 
 /**
+ * What the footer's Publish hands its host (objectui#12929): the batch door's
+ * own options, by reference to `MetadataClient.publishPackageDrafts`, so the
+ * sheet can only ask for what that door sends. Today that is the protocol's
+ * opt-in `backfill`.
+ */
+export type DraftPublishOptions = NonNullable<Parameters<MetadataClient['publishPackageDrafts']>[1]>;
+
+/** One field a publish is asked to backfill: `{ object, field }`, the door's element. */
+export type DraftBackfillEntry = NonNullable<DraftPublishOptions['backfill']>[number];
+
+/**
+ * The field additions of one object draft that the sheet may offer to backfill
+ * (objectui#12929), each with the literal its draft declares.
+ *
+ * The rule is the batch door's own (objectstack#24253), applied to the two
+ * bodies the drill-in already read, because the door refuses the WHOLE publish
+ * with a 400 for any field it would not honour. So a field is offered only
+ * when every condition the door checks holds on the sheet's side too:
+ *
+ * - the object is already published (`published` is a body): only a published
+ *   object has existing records, and only those are written;
+ * - the field is one this publish ADDS (`added`, the drill-in's own diff);
+ * - the draft declares it in the `fields` map, the one shape the door reads;
+ * - it declares a `defaultValue` (absent and `null` are both "none", the
+ *   engine's presence rule), and that default is a LITERAL. A runtime token
+ *   (`NOW()`, `current_user`) or an expression envelope resolves per insert,
+ *   so there is no one value to write into rows other people wrote; the
+ *   discriminator is the spec's, never a local copy.
+ *
+ * The one condition the sheet cannot see is the door's "absent from the object
+ * the engine serves" (a draft can name a field the engine injects). That one
+ * stays the door's loud refusal, read back through the host's error toast.
+ */
+export function backfillCandidates(
+  published: Record<string, unknown> | null,
+  draft: Record<string, unknown> | null,
+  added: readonly string[],
+): Array<{ field: string; value: unknown }> {
+  if (published === null || draft === null) return [];
+  const fields = draft.fields;
+  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return [];
+  const out: Array<{ field: string; value: unknown }> = [];
+  for (const name of added) {
+    if (!Object.prototype.hasOwnProperty.call(fields, name)) continue;
+    const def = (fields as Record<string, unknown>)[name];
+    if (!def || typeof def !== 'object') continue;
+    const value = (def as { defaultValue?: unknown }).defaultValue;
+    if (value === undefined || value === null) continue;
+    if (discriminateDefaultValueShape(value) !== 'literal') continue;
+    out.push({ field: name, value });
+  }
+  return out;
+}
+
+/** A backfill choice's identity: object and field, as a JSON tuple so no spelling collides. */
+function backfillKey(entry: DraftBackfillEntry): string {
+  return JSON.stringify([entry.object, entry.field]);
+}
+
+/**
+ * The sheet's backfill choices, handed to each drill-in (objectui#12929).
+ * Present only where the footer publishes a package as one batch: the door
+ * that takes `backfill` is the batch door, and nowhere else is there a
+ * Publish for the choice to ride on.
+ */
+interface EntryBackfillControl {
+  selected: ReadonlySet<string>;
+  onToggle: (entry: DraftBackfillEntry, checked: boolean) => void;
+  disabled: boolean;
+}
+
+/**
  * Lazily-loaded drill-in for one draft entry: published vs draft, rendered as
  * added / changed / removed field rows, then the top-level keys split the same
  * way.
@@ -354,17 +436,38 @@ export function computeChangeDetail(
  * the comparison this drill-in renders, read-decoration strip included, so the
  * row can never call a draft unchanged on any other evidence: a NEW item (no
  * published body) and a draft that is gone (no draft body) are never equal.
+ *
+ * `backfill` (objectui#12929) adds, under each added field the door would
+ * honour ({@link backfillCandidates}), an unchecked "backfill default" choice
+ * naming how many records the object holds today. That number is the console's
+ * footer probe — the adapter's `find` with `$top: 0`, read as the signed-in
+ * caller, the same caller the door writes as — and it is shown only when the
+ * answer carries a numeric `total`: with none, the choice names no number
+ * rather than a guessed one. What the publish actually wrote is the door's
+ * receipt, which the host reports.
  */
 function EntryDetail({
   entry,
   onCompared,
+  backfill,
 }: {
   entry: DraftChangeEntry;
   onCompared?: (unchanged: boolean) => void;
+  backfill?: EntryBackfillControl;
 }) {
   const { t } = useObjectTranslation();
   const [detail, setDetail] = useState<EntryChangeDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<Array<{ field: string; value: unknown }>>([]);
+  const [recordCount, setRecordCount] = useState<number | undefined>(undefined);
+  const optionId = useId();
+  // The count read keys on primitives (AGENTS.md #10): the adapter is read
+  // through a ref, never as an effect dependency.
+  const adapter = useAdapter();
+  const adapterRef = useRef(adapter);
+  useEffect(() => {
+    adapterRef.current = adapter;
+  });
   // Read through a ref so the load below keys on the entry alone, never on the
   // identity of the callback the panel hands down (AGENTS.md #10). Kept current
   // from an effect, not during render.
@@ -389,6 +492,10 @@ function EntryDetail({
         if (cancelled) return;
         const computed = computeChangeDetail(published, draft);
         setDetail(computed);
+        // Only an object's added fields can be backfilled (objectui#12929).
+        setCandidates(
+          entry.type === 'object' ? backfillCandidates(published, draft, computed.fields?.added ?? []) : [],
+        );
         onComparedRef.current?.(published !== null && draft !== null && isEmptyChangeDetail(computed));
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
@@ -398,6 +505,26 @@ function EntryDetail({
       cancelled = true;
     };
   }, [entry.type, entry.name, entry.packageId, entry.member]);
+
+  // objectui#12929 — how many records the choice would reach: asked once per
+  // object, and only where a choice is offered.
+  const offersBackfill = backfill !== undefined && candidates.length > 0;
+  useEffect(() => {
+    const source = adapterRef.current;
+    if (!offersBackfill || !source || typeof source.find !== 'function') return;
+    let cancelled = false;
+    source
+      .find(entry.name, { $top: 0 })
+      .then((result) => {
+        if (!cancelled && typeof result?.total === 'number') setRecordCount(result.total);
+      })
+      .catch(() => {
+        // No count is a choice that names no number, never a failed sheet.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [offersBackfill, entry.name]);
 
   if (error) {
     return (
@@ -430,11 +557,41 @@ function EntryDetail({
 
   return (
     <div className="flex flex-col gap-0.5 px-2 py-1" data-testid="draft-entry-detail">
-      {fields?.added.map((name) => (
-        <p key={`+${name}`} className="font-mono text-xs text-emerald-700 dark:text-emerald-400">
-          + {name}
-        </p>
-      ))}
+      {fields?.added.map((name) => {
+        const candidate = backfill ? candidates.find((c) => c.field === name) : undefined;
+        const choice: DraftBackfillEntry = { object: entry.name, field: name };
+        const id = `${optionId}-backfill-${name}`;
+        return (
+          <div key={`+${name}`}>
+            <p className="font-mono text-xs text-emerald-700 dark:text-emerald-400">+ {name}</p>
+            {backfill && candidate ? (
+              // objectui#12929 — unchecked until the author checks it: nothing
+              // is backfilled that was not asked for.
+              <div className="ml-3 flex items-center gap-1.5 py-0.5" data-testid="draft-backfill-option">
+                <Checkbox
+                  id={id}
+                  className="h-3.5 w-3.5"
+                  checked={backfill.selected.has(backfillKey(choice))}
+                  disabled={backfill.disabled}
+                  onCheckedChange={(checked) => backfill.onToggle(choice, checked === true)}
+                />
+                <label htmlFor={id} className="cursor-pointer text-xs text-muted-foreground">
+                  {recordCount === undefined
+                    ? t('preview.changes.backfillOptionNoCount', { defaultValue: 'Backfill default' })
+                    : t('preview.changes.backfillOption', {
+                        count: recordCount,
+                        defaultValue: 'Backfill default ({{count}} existing records)',
+                      })}
+                </label>
+                {/* The literal the door would write, as the draft declares it. */}
+                <span className="truncate font-mono text-[11px] text-muted-foreground">
+                  = {JSON.stringify(candidate.value)}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
       {fields?.changed.map((f) => (
         <p key={`~${f.name}`} className="font-mono text-xs text-amber-700 dark:text-amber-400">
           ~ {f.name}
@@ -492,8 +649,14 @@ export interface DraftChangesPanelProps {
    * When provided, the panel renders a confirm footer whose button invokes
    * this — turning the panel into the review-then-publish step. The caller
    * still owns the actual publish request and closing the panel on success.
+   *
+   * With a `packageId`, the drill-ins also offer to backfill the default of
+   * each added field the batch door would honour (objectui#12929). The button
+   * passes the checked ones as `{ backfill }` — the door's own options — and
+   * passes NOTHING when none is checked, so the caller's request is the one it
+   * sent before.
    */
-  onPublish?: () => void | Promise<void>;
+  onPublish?: (options?: DraftPublishOptions) => void | Promise<void>;
   /** Disables the confirm button and shows a spinner while the caller publishes. */
   publishing?: boolean;
   /**
@@ -542,6 +705,22 @@ export function DraftChangesPanel({
    * bodies are read anyway, rather than by reading every body at open.
    */
   const [unchanged, setUnchanged] = useState<ReadonlySet<string>>(new Set());
+  /**
+   * objectui#12929 — the fields the author checked for a default backfill, in
+   * the order checked, keyed by {@link backfillKey}. Empty at every open: a
+   * choice is made on the drafts this open reviews, never carried over.
+   */
+  const [backfill, setBackfill] = useState<ReadonlyMap<string, DraftBackfillEntry>>(new Map());
+  const toggleBackfill = useCallback((entry: DraftBackfillEntry, checked: boolean) => {
+    setBackfill((prev) => {
+      const key = backfillKey(entry);
+      if (prev.has(key) === checked) return prev;
+      const next = new Map(prev);
+      if (checked) next.set(key, entry);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
 
   const toggleExpanded = useCallback((key: string) => {
     setExpanded((prev) => {
@@ -599,6 +778,7 @@ export function DraftChangesPanel({
     setError(null);
     setProblems([]);
     setUnchanged(new Set());
+    setBackfill(new Map());
     try {
       const listed = await listPendingDrafts(packageId);
       const drafts = include ? listed.filter(include) : listed;
@@ -708,6 +888,14 @@ export function DraftChangesPanel({
   const noChangeText = t('preview.changes.detailNone', {
     defaultValue: 'No differences detected — the draft matches the published version.',
   });
+
+  // objectui#12929 — offered only where the footer publishes one package as a
+  // batch: the package-less scope publishes by reference, a door with no
+  // `backfill`, and a read-only host has no Publish to carry the choice.
+  const backfillControl: EntryBackfillControl | undefined =
+    onPublish && packageId
+      ? { selected: new Set(backfill.keys()), onToggle: toggleBackfill, disabled: publishing }
+      : undefined;
 
   const byType = new Map<string, DraftChangeEntry[]>();
   for (const entry of entries ?? []) {
@@ -863,7 +1051,11 @@ export function DraftChangesPanel({
                         </button>
                         {isExpanded && (
                           <div className="border-t bg-muted/20">
-                            <EntryDetail entry={entry} onCompared={(same) => markCompared(key, same)} />
+                            <EntryDetail
+                              entry={entry}
+                              onCompared={(same) => markCompared(key, same)}
+                              backfill={backfillControl}
+                            />
                           </div>
                         )}
                       </li>
@@ -948,7 +1140,11 @@ export function DraftChangesPanel({
             <Button
               ref={publishRef}
               size="sm"
-              onClick={() => void onPublish()}
+              // objectui#12929 — the checked backfill choices, or no options at
+              // all: an unchecked sheet sends the request it always sent.
+              onClick={() =>
+                void (backfill.size > 0 ? onPublish({ backfill: [...backfill.values()] }) : onPublish())
+              }
               disabled={publishing}
               data-testid="draft-changes-publish"
             >

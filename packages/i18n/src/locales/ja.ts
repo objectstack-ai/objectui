@@ -4010,6 +4010,12 @@ const ja = {
       summaryItems_one: '{{count}} 件',
       summaryItems_other: '{{count}} 件',
       summaryType: '{{type}} {{n}}',
+      // objectui#12929 — the unchecked choice under an added object field whose
+      // literal default the batch publish can write into the existing records.
+      backfillOption: '既定値を補完（既存レコード {{count}} 件）',
+      backfillOption_one: '既定値を補完（既存レコード {{count}} 件）',
+      backfillOption_other: '既定値を補完（既存レコード {{count}} 件）',
+      backfillOptionNoCount: '既定値を補完',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

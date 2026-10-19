@@ -181,7 +181,10 @@ describe('the item header’s tab row over the open flow (objectui#12454)', () =
     expect(screen.getAllByTitle(en('engine.flowPreview.problemsTitle'))).toEqual([screen.getByTestId('auto-tab-problems')]);
     // The meta the bar carried is the header's now, once.
     expect(screen.getAllByText(`${en('engine.flowPreview.pill.trigger')}:`)).toHaveLength(1);
-    expect(within(screen.getByTestId('auto-flow-header')).getByTestId('auto-flow-meta')).toHaveTextContent('Record created · crm_lead');
+    // objectui#13056: the trigger object reads as its served label, not its name.
+    await waitFor(() =>
+      expect(within(screen.getByTestId('auto-flow-header')).getByTestId('auto-flow-meta')).toHaveTextContent('Record created · Lead'),
+    );
   });
 
   it('a problem picked in the Problems body opens the canvas with its element selected', async () => {

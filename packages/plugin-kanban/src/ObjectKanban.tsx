@@ -50,6 +50,7 @@ import { getBadgeColorClasses, getBadgeHexAppearance, getCellRenderer, resolveCe
 import { usePermissions } from '@object-ui/permissions';
 import { KANBAN_UNCOLUMNED_ID } from './index';
 import { KanbanBoardCore } from './KanbanBoardCore';
+import type { KanbanBoardProps } from './KanbanImpl';
 import {
   collectRequiredWhenPromptFields,
   type RequiredWhenPromptField,
@@ -124,6 +125,17 @@ export const DEFAULT_KANBAN_FETCH_BATCH_SIZE = 100;
  * choose; it is a value the contract refuses, and a renderer that forwards it
  * to the wire is the only party not saying so.
  */
+/**
+ * What a card move's write answered, in the shape the board's `onCardMove`
+ * reads (objectui#13054). Derived from the board's prop rather than restated,
+ * so the two cannot drift.
+ */
+type KanbanCardMoveOutcome = Exclude<
+  Awaited<ReturnType<NonNullable<KanbanBoardProps['onCardMove']>>>,
+  void
+>;
+const MOVED: KanbanCardMoveOutcome = { kind: 'moved' };
+
 function isUsableRowLimit(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;
 }
@@ -1660,16 +1672,21 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   // required go out as ONE PATCH — two writes would leave the record in the
   // state the engine refuses if the second one failed. With no prompt the
   // spread is empty and the body is exactly what it has always been.
+  //
+  // It reports what the write answered (objectui#13054), so the board can say
+  // it to a screen reader once it is known rather than at the drop: `moved`,
+  // or `refused` with the very sentence the toast below shows — computed once
+  // and used for both, so the two channels cannot say different things.
   const persistCardMove = React.useCallback(
     async (
       cardId: string,
       fromColumnId: string,
       toColumnId: string,
       extraValues?: Record<string, unknown>,
-    ) => {
+    ): Promise<KanbanCardMoveOutcome> => {
       const groupBy = schema.groupBy;
       const objectName = schema.objectName;
-      if (!groupBy) return;
+      if (!groupBy) return MOVED;
 
       // Optimistic local update so the card visibly stays in the new column.
       // Skipped when data is owned by a parent (ListView): `fetchedData` is not
@@ -1688,7 +1705,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         );
       }
 
-      if (!objectName || !dataSource?.update) return;
+      if (!objectName || !dataSource?.update) return MOVED;
       try {
         await dataSource.update(objectName, String(cardId), {
           [groupBy]: toColumnId,
@@ -1705,6 +1722,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
             ),
           );
         }
+        return MOVED;
       } catch (err) {
         console.warn('[ObjectKanban] Failed to persist card move', err);
         // Surface the failure — never silently snap the card back. A row-level
@@ -1718,12 +1736,12 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         // guessing what a body contains. Status-agnostic on purpose: 403 is
         // where this was reported (objectui#5210/#5902), not a fence the
         // contract draws — a marked 409 or 400 renders identically.
-        toast.error(
+        const refusal =
           declaredUserMessage(err) ??
-            (isPermissionError(err)
-              ? tt('errors.unauthorized', 'You are not authorized to perform this action.')
-              : extractWriteErrorMessage(err) ?? tt('table.saveFailed', 'Save failed')),
-        );
+          (isPermissionError(err)
+            ? tt('errors.unauthorized', 'You are not authorized to perform this action.')
+            : extractWriteErrorMessage(err) ?? tt('table.saveFailed', 'Save failed'));
+        toast.error(refusal);
         // Roll the optimistic move back, on BOTH data ownerships (#4138).
         //
         // The optimistic move is the kanban's own local display state, so
@@ -1755,6 +1773,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
               : r,
           ),
         );
+        return { kind: 'refused', message: refusal };
       }
     },
     [schema.groupBy, schema.objectName, dataSource, hasExternalData, tt],
@@ -1797,15 +1816,17 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
       fromColumnId: string,
       toColumnId: string,
       _newIndex: number,
-    ) => {
+    ): Promise<KanbanCardMoveOutcome> => {
       void _newIndex;
       const groupBy = schema.groupBy;
-      if (!groupBy || fromColumnId === toColumnId) return;
+      // The early returns below write nothing and refuse nothing: the board
+      // keeps announcing them as moved, as it always did (objectui#13054).
+      if (!groupBy || fromColumnId === toColumnId) return MOVED;
       // #2792: the "Uncategorized" lane is a display bucket, not a real option.
       // Dragging a card OUT of it into a real column repairs the record's
       // status (handled below); dropping one IN would write the sentinel id as
       // a bogus status, so refuse to persist that direction.
-      if (toColumnId === KANBAN_UNCOLUMNED_ID) return;
+      if (toColumnId === KANBAN_UNCOLUMNED_ID) return MOVED;
 
       // The record as stored, not the card-shaped projection: `effectiveData`
       // overlays a derived `title`/`badges`, and the predicates must see the
@@ -1824,10 +1845,12 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         // behind the modal until the user commits, so Cancel needs no rollback
         // and a refusal that never happens cannot need one either.
         setPendingMove({ cardId, fromColumnId, toColumnId, fields });
-        return;
+        // Nothing was written yet: the board announces nothing at settle. The
+        // dialog, and the toast of the write it submits, speak for this move.
+        return { kind: 'deferred' };
       }
 
-      await persistCardMove(cardId, fromColumnId, toColumnId);
+      return persistCardMove(cardId, fromColumnId, toColumnId);
     },
     [schema.groupBy, rawData, objectDef, persistCardMove],
   );

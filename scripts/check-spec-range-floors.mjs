@@ -10,6 +10,11 @@
  *       1 = at least one floor admits a spec that lacks one, OR the gate could
  *           not read an artifact, a published export surface, or a floor
  *
+ * Since objectui#12958 the floors it judges at publish (and nightly) are computed
+ * from `.objectstack-sha` by `scripts/objectstack-floor.mjs`, which runs first. It
+ * stays: a release that contains the pin can still have removed a symbol the
+ * artifact uses, and only this gate reads the floor release's exports.
+ *
  * ## What a GREEN run does NOT judge: key REFUSAL (objectui#9036)
  *
  * This gate judges SYMBOL PRESENCE, and only that. A floor that admits a spec

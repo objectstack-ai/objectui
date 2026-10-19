@@ -134,7 +134,7 @@
     "changeset:version": "changeset version && node scripts/sync-quick-reference-release.mjs",
     "quick-reference:sync": "node scripts/sync-quick-reference-release.mjs",
     "quick-reference:check": "node scripts/sync-quick-reference-release.mjs --check",
-    "changeset:publish": "node scripts/check-published-dist-tooling.mjs && node scripts/check-spec-range-floors.mjs && changeset publish",
+    "changeset:publish": "node scripts/objectstack-floor.mjs && node scripts/check-published-dist-tooling.mjs && node scripts/check-spec-range-floors.mjs && changeset publish",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:live": "playwright test --config=playwright.live.config.ts",

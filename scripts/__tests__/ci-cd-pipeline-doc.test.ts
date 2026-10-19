@@ -2818,7 +2818,7 @@ describe('ci-cd-pipeline.md — the vi-mock and shadcn sections', () => {
 
 /**
  * ⭐ Lifted to module scope by objectui#9463, for the reason the alias rule above
- * was: the whole-page sweep below declares the SAME four phantoms at a coarser
+ * was: the whole-page sweep below declares the SAME phantoms at a coarser
  * granularity (per workflow, not per job), and two copies of a declaration are two
  * declarations — the next edit would have corrected one of them and left the other
  * saying the opposite. The sweep re-keys these instead of restating them, so there
@@ -2850,15 +2850,20 @@ const DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
   ],
   [
     'changeset-release.yml `release`: pnpm check:published-dist',
-    'The blocking copy of the Published Dist Gate, reached the same way: it is the first leg of ' +
+    'The blocking copy of the Published Dist Gate, reached the same way: it is the second leg of ' +
       '`pnpm changeset:publish`, which runs through the action input. The section names it to ' +
       'explain why the refresh lane deliberately does NOT run it.',
   ],
   [
     'changeset-release.yml `release`: pnpm check:spec-floors',
-    'The second leg of `pnpm changeset:publish`, same action input, same invisibility. The ' +
+    'The third leg of `pnpm changeset:publish`, same action input, same invisibility. The ' +
       'section quotes that script body verbatim and names this gate to explain why the nightly ' +
       '`spec-range-floors.yml` is an alarm rather than the blocking copy.',
+  ],
+  [
+    'changeset-release.yml `release`: scripts/objectstack-floor.mjs',
+    'The first leg of `pnpm changeset:publish` (objectui#12958), same action input. The section ' +
+      'quotes that script body verbatim and names this step to say what it computes before a publish.',
   ],
 ]);
 
@@ -3763,17 +3768,18 @@ describe('ci-cd-pipeline.md — command parity, every workflow section', () => {
     ).toBeGreaterThan(60);
 
     // And the inherited declarations must actually arrive. An empty re-key would let
-    // four real phantoms read as undeclared — or, worse, silently shrink the exact-set
+    // real phantoms read as undeclared — or, worse, silently shrink the exact-set
     // assertion below to something nobody wrote.
     expect(
       [...inheritedDeclarations().keys()].sort(),
-      'the per-job declarations above no longer re-key onto this block\'s labels, so the four ' +
+      'the per-job declarations above no longer re-key onto this block\'s labels, so the ' +
         'phantoms they explain are about to be reported as undeclared. Check the key format of ' +
         'DECLARED_NON_RUN_COMMANDS against the regex in `inheritedDeclarations`.',
     ).toEqual([
       'changeset-release.yml: pnpm changeset:publish',
       'changeset-release.yml: pnpm check:published-dist',
       'changeset-release.yml: pnpm check:spec-floors',
+      'changeset-release.yml: scripts/objectstack-floor.mjs',
       'performance-budget.yml: pnpm test',
     ]);
   });

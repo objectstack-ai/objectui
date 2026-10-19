@@ -54,6 +54,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/check-spec-range-floors.mjs'
+      - 'scripts/objectstack-floor.mjs'
       - '.github/workflows/spec-range-floors.yml'
 
 concurrency:
@@ -113,7 +114,24 @@ jobs:
       - name: Build every published package
         run: pnpm exec turbo run build --filter='!@object-ui/site'
 
+      # objectui#12958: the scan judges the floors a publish ships, so the floor
+      # step first computes them from the pin, as `pnpm changeset:publish` does.
+      # Exit 2 = no published objectstack release contains the pin yet, the normal
+      # state between a pin bump and objectstack's next release: nothing to judge.
+      - name: Compute the @objectstack floors from the pin
+        id: floor
+        run: |
+          code=0
+          node scripts/objectstack-floor.mjs || code=$?
+          if [ "${code}" -eq 2 ]; then
+            echo "::notice::No published @objectstack release contains .objectstack-sha yet, so the scan is skipped."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "${code}" -ne 0 ]; then
+            exit "${code}"
+          fi
+
       - name: Verify every declared spec floor carries the symbols its artifact uses
+        if: steps.floor.outputs.skip != 'true'
         run: pnpm check:spec-floors -- --cross-check
 
       # The pinned @objectstack build, saved only when this job built it (a cache

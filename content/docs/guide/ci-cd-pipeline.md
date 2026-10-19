@@ -2282,9 +2282,13 @@ before it is saved under this job's own key prefix
 ([#12276](https://github.com/objectstack-ai/objectui/issues/12276)).
 
 The publish lane then runs `pnpm changeset:publish`, and that script is
-`node scripts/check-published-dist-tooling.mjs && node scripts/check-spec-range-floors.mjs && changeset publish`
-— the **blocking** copies of the Published Dist Gate and the Spec Range Floors
-gate above. A published package whose `dist/` carries tooling material, or one whose declared
+`node scripts/objectstack-floor.mjs && node scripts/check-published-dist-tooling.mjs && node scripts/check-spec-range-floors.mjs && changeset publish`.
+Its first step computes every `@objectstack/*` floor from `.objectstack-sha` — the earliest
+published release whose tag contains the pinned commit — writes it into the published manifests
+and their CHANGELOG entries, and stops the publish when no release contains the pin
+([#12958](https://github.com/objectstack-ai/objectui/issues/12958); the rules are that script's
+header). The other two are the **blocking** copies of the Published Dist Gate and the Spec Range
+Floors gate above. A published package whose `dist/` carries tooling material, or one whose declared
 `@objectstack/spec` floor is missing a symbol its own artifact uses, stops the publish before a
 single tarball reaches npm, which is where those defects actually cost anything
 ([#4846](https://github.com/objectstack-ai/objectui/issues/4846)).
@@ -2402,6 +2406,11 @@ build output references. The gate is `scripts/check-spec-range-floors.mjs`
 (filtered only to exclude the docs site), then the gate compares
 each one's `dist` imports of `@objectstack/spec/*` against the export set of the version that
 package's own range admits at its lowest.
+
+Between the build and the scan, the job runs `scripts/objectstack-floor.mjs`, the step the publish
+path runs first, so the gate judges the floors a publish would ship. Its exit 2 — no published
+objectstack release contains the pin yet — leaves nothing to judge, and the scan is skipped with a
+notice ([#12958](https://github.com/objectstack-ai/objectui/issues/12958)).
 
 The defect it closes, repaired in the gate's own landing commit `111741454`:
 `@object-ui/plugin-detail` shipped `dist/renderers/record-reference-rail.d.ts` re-exporting

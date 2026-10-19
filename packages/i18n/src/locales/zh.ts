@@ -3491,6 +3491,12 @@ const zh = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    answer: {
+      showFull: '展开全文',
+      collapse: '收起',
+      expandTable: '展开',
+      exitExpandedTable: '关闭',
+    },
     tool: {
       aggregate_data: '汇总相关数据',
       get_record: '读取这条记录',

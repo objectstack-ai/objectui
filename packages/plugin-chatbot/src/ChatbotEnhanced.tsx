@@ -4223,7 +4223,11 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                       ) : isEmptyAssistantStreaming ? (
                         <ThinkingDots />
                       ) : hasVisibleProse ? (
-                        <MessageResponse>{message.content}</MessageResponse>
+                        // objectui#13032 — a long answer folds only once its
+                        // stream has ended; the streaming flag tells it when.
+                        <MessageResponse isAnimating={Boolean(message.streaming)}>
+                          {message.content}
+                        </MessageResponse>
                       ) : !message.streaming && !showsActivity && isToolCallPlaceholder(message.content) ? (
                         // #772: a re-hydrated tool-call-only turn is persisted with
                         // an internal placeholder ("(called todo_write,

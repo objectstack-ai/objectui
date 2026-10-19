@@ -3351,6 +3351,12 @@ const ko = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    answer: {
+      showFull: '전체 답변 보기',
+      collapse: '접기',
+      expandTable: '펼치기',
+      exitExpandedTable: '닫기',
+    },
     tool: {
       aggregate_data: "관련 데이터 집계하기",
       get_record: "이 레코드 읽기",

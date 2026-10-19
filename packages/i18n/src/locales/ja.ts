@@ -3354,6 +3354,12 @@ const ja = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    answer: {
+      showFull: '全文を表示',
+      collapse: '折りたたむ',
+      expandTable: '展開',
+      exitExpandedTable: '閉じる',
+    },
     tool: {
       aggregate_data: "関連データを集計する",
       get_record: "このレコードを読み込む",

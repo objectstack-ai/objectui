@@ -3410,6 +3410,12 @@ const fr = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    answer: {
+      showFull: 'Afficher toute la réponse',
+      collapse: 'Réduire',
+      expandTable: 'Agrandir',
+      exitExpandedTable: 'Fermer',
+    },
     tool: {
       aggregate_data: "Synthétiser les données",
       get_record: "Lire l’enregistrement",

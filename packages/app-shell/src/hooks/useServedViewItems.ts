@@ -151,7 +151,7 @@ export function useServedViewItems(): ServedViewReads {
  * the console is stored bound to none, and served without `_packageId`).
  * Outside an app the expression context's `app` is empty: no name.
  */
-function isPackagelessApp(app: Record<string, any> | undefined): app is Record<string, any> {
+function isPackagelessApp(app: Record<string, unknown> | undefined): app is Record<string, unknown> {
   return typeof app?.name === 'string' && app.name !== '' && !(typeof app._packageId === 'string' && app._packageId);
 }
 

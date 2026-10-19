@@ -466,6 +466,21 @@ ComponentRegistry.register('detail', DetailView, {
 // them. Every block here is reachable as `record:<name>` and only that.
 // ---------------------------------------------------------------------------
 
+/**
+ * `emptyState` on the three BOUND record blocks — `record:details`,
+ * `record:highlights` and `record:quick_actions`, the set `recordBindingBlock`
+ * wraps (objectui#12932). The spec declares it on each of their rows
+ * (objectstack#24266), the list view's own `EmptyStateSchema` by reference, so
+ * the one input is published on all three. `BoundRecordEmptyState`
+ * (`renderers/recordBinding.tsx`) draws it, pinned by
+ * `renderers/__tests__/recordBinding.emptyState-12932.test.tsx`.
+ */
+const BOUND_RECORD_EMPTY_STATE_INPUT: ComponentInput = {
+  name: 'emptyState',
+  type: 'object',
+  description: 'What this block draws in its place when its `dataSource` binding answers no row, `{ title, message, icon, link }` — the list view\'s own empty-state shape: a Lucide `icon` name, a `title` (default: "Record not found"), a `message` (default: none) and one `link: { label, url }` the user follows (default: none), opened as a `url` action opens it. `title`, `message` and the link\'s `label` each accept a plain string or an inline per-locale map, resolved against the display locale. Drawn then and only then — never on a block with no `dataSource` (it reads the record page\'s record instead), never while the bound read is loading, and never in place of the error a failed read shows; a read the server refuses as forbidden reads as no row, so it is drawn for that too. Leave it out and a binding with no row keeps the block\'s own placeholder.',
+};
+
 ComponentRegistry.register('details', RecordDetailsRenderer, {
   namespace: 'record',
   skipFallback: true,
@@ -601,6 +616,7 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
     { name: 'enforceFieldSecurity', type: 'boolean', description: 'Fold this block\'s field list through the caller\'s FIELD-read permissions before rendering, so a field the permission set denies leaves no empty row behind (renderer default: off). Presentation only: it re-applies the same field-read answer the server already enforced (ADR-0066 D3) and never widens access — with it off a denied field still arrives masked or stripped, and with it on the server still decides every value.' },
     { name: 'redactFields', type: 'array', of: 'string', description: 'Field names this block never renders, whatever the permission answer (renderer default: render everything authored). Presentation only, evaluated in the browser after the record is fetched — the values are still in the page, so this is NOT a data-access control and NOT the object\'s `publicSharing.redactFields`, which removes them server-side. To keep a value from the caller, gate the field itself (`requiredPermissions` / `maskingRule`, ADR-0066 D3) or the permission set. Neighbours `hideFields`, which is the dedupe channel the renderer also writes to.' },
     { name: 'requiredPermissions', type: 'array', of: 'string', description: '[ADR-0066] Capabilities the user must ALL hold — names that permission sets grant through `systemPermissions`, not object actions: `read` or `update` here is an ordinary capability name, not the object\'s read or edit permission. When the client has resolved the user\'s capabilities and any of these is missing, this block does not render its content; wherever it would otherwise render, an insufficient-permissions notice takes its place. Presentation only: it authorises nothing, and the data API still serves the same data to the same user. A client that cannot resolve the user\'s capabilities (no permission provider, or one that does not report `systemPermissions`) renders this block as if they were held — it fails open.' },
+    BOUND_RECORD_EMPTY_STATE_INPUT,
   ],
 });
 
@@ -762,6 +778,7 @@ ComponentRegistry.register('highlights', RecordHighlightsRenderer, {
     { name: 'enforceFieldSecurity', type: 'boolean', description: 'Fold this block\'s highlight chips through the caller\'s FIELD-read permissions before rendering, so a field the permission set denies leaves no empty chip behind (renderer default: off). Presentation only: it re-applies the same field-read answer the server already enforced (ADR-0066 D3) and never widens access — the record is fetched either way and the server still decides every value.' },
     { name: 'redactFields', type: 'array', of: 'string', description: 'Field names this block never renders as a chip, whatever the permission answer (renderer default: render every field authored). Presentation only, evaluated in the browser after the record is fetched — the values are still in the page, so this is NOT a data-access control and NOT the object\'s `publicSharing.redactFields`, which removes them server-side. To keep a value from the caller, gate the field itself (`requiredPermissions` / `maskingRule`, ADR-0066 D3) or the permission set.' },
     { name: 'requiredPermissions', type: 'array', of: 'string', description: '[ADR-0066] Capabilities the user must ALL hold — names that permission sets grant through `systemPermissions`, not object actions: `read` or `update` here is an ordinary capability name, not the object\'s read or edit permission. When the client has resolved the user\'s capabilities and any of these is missing, this block does not render its content; wherever it would otherwise render, an insufficient-permissions notice takes its place. Presentation only: it authorises nothing, and the data API still serves the same data to the same user. A client that cannot resolve the user\'s capabilities (no permission provider, or one that does not report `systemPermissions`) renders this block as if they were held — it fails open.' },
+    BOUND_RECORD_EMPTY_STATE_INPUT,
   ],
 });
 
@@ -928,6 +945,7 @@ ComponentRegistry.register('quick_actions', RecordQuickActionsRenderer, {
     { name: 'inline', type: 'boolean', description: 'Render in the flow instead of folding into the record header' },
     { name: 'variant', type: 'string', description: 'Passed to the Button primitive; a per-action variant overrides it' },
     { name: 'size', type: 'string', description: 'Passed to the Button primitive; a per-action size overrides it' },
+    BOUND_RECORD_EMPTY_STATE_INPUT,
   ],
 });
 

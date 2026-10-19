@@ -316,10 +316,15 @@ row becomes its record, so a product page shows a record without being a
 }
 ```
 
-When no row matches — or the server refuses the read — the block draws what it
-draws for a record that is not there: `record:details` its "record not found"
-state, `record:highlights` nothing, `record:quick_actions` an empty bar. A read
-that fails any other way is reported in the block's place. `record:quick_actions`
+When no row matches — or the server refuses the read — the block draws its
+authored `emptyState` in its place, when its `properties` declare one. That is
+the spec's empty-state shape, the one `object-grid` takes: `{ title, message,
+icon, link }`, with `title` and `message` as plain strings or inline locale maps
+and `link` as `{ label, url }`. A block that declares none draws what it draws
+for a record that is not there: `record:details` its "record not found" state,
+`record:highlights` nothing, `record:quick_actions` an empty bar. The empty state
+is never drawn while the read loads, on a block with no `dataSource`, or for a
+read that fails any other way, which is reported in the block's place. `record:quick_actions`
 runs the object's declared actions against the bound row's id. The bound row is
 re-read whenever a write to its object is announced on the page (the data
 source's mutation events, or `notifyDataChanged`). `objectui validate` warns on a

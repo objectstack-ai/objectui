@@ -12,20 +12,29 @@
  * page, built by the same `appStudioRoutePath` (objectui#12540).
  */
 
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation, useHref } from 'react-router-dom';
 import {
+  ElementDataSourceGate,
   SchemaRenderer,
+  classifyLoadError,
+  noDataSourceMessage,
   notifyDataChanged,
   useAdapter,
+  useDataInvalidation,
+  useFilterScope,
+  useResolvedFilter,
+  type ElementDataSourceMapping,
   type RelatedRecordActionsValue,
 } from '@object-ui/react';
-import { Empty, EmptyTitle, EmptyDescription, Spinner } from '@object-ui/components';
-import { FileText, Pencil } from 'lucide-react';
+import { isElementDataSourceConfig } from '@object-ui/core';
+import type { DataSource, QueryParams } from '@object-ui/types';
+import { Button, Empty, EmptyTitle, EmptyDescription, Spinner } from '@object-ui/components';
+import { AlertTriangle, FileText, Pencil, RotateCw } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
-import { useExpressionContext } from '../providers/ExpressionProvider.js';
+import { PageRecordScope, useExpressionContext } from '../providers/ExpressionProvider.js';
 import { preferLocal } from '../utils/preferLocal.js';
 import { appStudioRoutePath } from '../utils/appRoute.js';
 import { ConsoleActionRuntimeProvider } from '../hooks/useConsoleActionRuntime.js';
@@ -64,6 +73,229 @@ const InterfaceListPage = lazy(() =>
  */
 function declarePageDataChanged(): void {
   notifyDataChanged({ objectName: '*' });
+}
+
+/**
+ * The page's `record` binding (`@objectstack/spec` `PageSchema.record`,
+ * objectstack#24265) when this page declares one the reader below can run: on
+ * an `app` page only, as the spec places it, and only a binding that names its
+ * object. Anything else is "no binding": the page renders exactly as before,
+ * with `record` unbound (objectui#12931).
+ */
+function appPageRecordBinding(page: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (page.type !== 'app') return undefined;
+  return isElementDataSourceConfig(page.record) ? (page.record as unknown as Record<string, unknown>) : undefined;
+}
+
+/**
+ * What the gate lands for the page row: the bound object on `objectName`, the
+ * named view's filter AND-combined with the binding's, and the sort. There is
+ * no `limit`: one row is read, whatever the set holds.
+ */
+const PAGE_RECORD_MAPPING: ElementDataSourceMapping = { filter: true, sort: true };
+const PAGE_RECORD_TEST_ID = 'page-record';
+
+type PageRow = Record<string, unknown>;
+
+/** One settled read of the page row, tagged with the query it answered. */
+type PageRowRead =
+  | { key: string; status: 'loaded'; row: PageRow | null }
+  | { key: string; status: 'failed' };
+
+/** The first row of a `find` answer: `QueryResult.data`, or a bare array. */
+const firstRow = (result: unknown): PageRow | null => {
+  const rows = (result as { data?: unknown } | null | undefined)?.data ?? result;
+  const row = Array.isArray(rows) ? rows[0] : undefined;
+  return row && typeof row === 'object' && !Array.isArray(row) ? (row as PageRow) : null;
+};
+
+const sameRow = (a: PageRow | null, b: PageRow | null): boolean =>
+  a === b || (a !== null && b !== null && JSON.stringify(a) === JSON.stringify(b));
+
+/**
+ * Read an `app` page's bound row and give the page's predicates `record`
+ * (objectui#12931).
+ *
+ * The binding is resolved by `ElementDataSourceGate`, as a block's one-record
+ * binding is (`ParentRecordBinding` in `@object-ui/plugin-detail`): the named
+ * view, the AND-combined filter, the sort, and the family's panels for a view
+ * that does not resolve, a refused filter, or no adapter. Each of those panels
+ * stands where the page body would be.
+ */
+function AppPageRecord({
+  binding,
+  dataSource,
+  children,
+}: {
+  binding: Record<string, unknown> | undefined;
+  dataSource: unknown;
+  children: ReactNode;
+}): ReactElement {
+  // No binding: the children as they are — no gate, no read, no scope.
+  if (!binding) return <>{children}</>;
+  return (
+    <AppPageRecordGate binding={binding} dataSource={dataSource}>
+      {children}
+    </AppPageRecordGate>
+  );
+}
+
+function AppPageRecordGate({
+  binding,
+  dataSource,
+  children,
+}: {
+  binding: Record<string, unknown>;
+  dataSource: unknown;
+  children: ReactNode;
+}): ReactElement {
+  // Memoised for cost only (AGENTS.md #10): the read below keys on the strings
+  // the gate lands, never on this object.
+  const gateSchema = useMemo(() => ({ dataSource: binding }), [binding]);
+  return (
+    <ElementDataSourceGate
+      schema={gateSchema}
+      mapping={PAGE_RECORD_MAPPING}
+      dataSource={dataSource}
+      testId={PAGE_RECORD_TEST_ID}
+      requiresDataSource
+      noDataSourceMessage={noDataSourceMessage('page record', binding.object)}
+    >
+      {(landed) => {
+        // A composed binding always names its object (`isElementDataSourceConfig`).
+        const { objectName, filter, sort } = landed as { objectName?: unknown; filter?: unknown; sort?: unknown };
+        return (
+          <AppPageRecordRead
+            object={typeof objectName === 'string' ? objectName : ''}
+            filter={filter}
+            sort={sort}
+            dataSource={dataSource as DataSource}
+          >
+            {children}
+          </AppPageRecordRead>
+        );
+      }}
+    </ElementDataSourceGate>
+  );
+}
+
+/**
+ * The one-row read itself, and the three states a predicate can see.
+ *
+ * - **Pending.** Until the read settles, the page body is not drawn: no
+ *   `visibleWhen` reading `record` is evaluated, so none can show and then
+ *   vanish, or the reverse. This is the record blocks' convention for their
+ *   one-record binding (`BoundRecordProvider`: nothing under the row until it
+ *   lands), drawn as this page's own loading state.
+ * - **No row.** The set is empty, or the server refused the read
+ *   (`classifyLoadError` → `forbidden`): `record` is bound as `null`, so "absent"
+ *   and "not yours to read" read the same.
+ * - **Failed.** Any other rejection: the page body is not drawn, so every
+ *   predicate on it is closed, and the record page's failed-read state stands
+ *   in its place, with the same copy and a Retry that re-runs this read.
+ *
+ * Read once per page open, under the caller's identity with the adapter the
+ * page already uses, as `$top: 1` — the first row of the set under `sort`. The
+ * filter's placeholder tokens resolve the way every bound block's do
+ * (`useResolvedFilter` over `useFilterScope`). A write to the bound object (the
+ * data-invalidation bus) re-reads in place, keeping the row on screen; an equal
+ * answer keeps the row object it replaces (AGENTS.md #10).
+ */
+function AppPageRecordRead({
+  object,
+  filter,
+  sort,
+  dataSource,
+  children,
+}: {
+  object: string;
+  filter: unknown;
+  sort: unknown;
+  dataSource: DataSource;
+  children: ReactNode;
+}): ReactElement {
+  const { t } = useObjectTranslation();
+  const queryFilter = useResolvedFilter(filter, useFilterScope());
+  const filterKey = queryFilter === undefined ? '' : JSON.stringify(queryFilter);
+  const sortKey = sort === undefined ? '' : JSON.stringify(sort);
+  const readKey = JSON.stringify([object, filterKey, sortKey]);
+  const invalidationNonce = useDataInvalidation(object);
+  // Retry's own counter: a click re-runs this effect, so the retry is the same
+  // read, never a second path.
+  const [attempt, setAttempt] = useState(0);
+  const [read, setRead] = useState<PageRowRead | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const params: QueryParams = { $top: 1 };
+    if (filterKey) params.$filter = JSON.parse(filterKey);
+    if (sortKey) params.$orderby = JSON.parse(sortKey);
+    Promise.resolve()
+      .then(() => dataSource.find(object, params))
+      .then(
+        (result) => {
+          if (cancelled) return;
+          const row = firstRow(result);
+          setRead((prev) =>
+            prev && prev.key === readKey && prev.status === 'loaded' && sameRow(prev.row, row)
+              ? prev
+              : { key: readKey, status: 'loaded', row },
+          );
+        },
+        (err: unknown) => {
+          if (cancelled) return;
+          setRead(
+            classifyLoadError(err) === 'forbidden'
+              ? { key: readKey, status: 'loaded', row: null }
+              : { key: readKey, status: 'failed' },
+          );
+        },
+      );
+    return () => {
+      cancelled = true;
+    };
+    // Keyed on the query's DATA, never on the objects it was read from.
+  }, [dataSource, object, readKey, filterKey, sortKey, invalidationNonce, attempt]);
+
+  const current = read?.key === readKey ? read : null;
+  if (!current) {
+    return (
+      <div className="h-full flex items-center justify-center p-8" data-testid="page-record-loading" aria-busy="true">
+        <Spinner className="h-5 w-5 text-muted-foreground" />
+      </div>
+    );
+  }
+  if (current.status === 'failed') {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <Empty data-testid="page-record-load-failed">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <AlertTriangle className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <EmptyTitle>
+            {t('empty.recordLoadFailed', { defaultValue: 'Couldn’t load this record' })}
+          </EmptyTitle>
+          <EmptyDescription>
+            {t('empty.recordLoadFailedDescription', {
+              defaultValue: 'Something went wrong while loading it. Check your connection and try again.',
+            })}
+          </EmptyDescription>
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="page-record-load-failed-retry"
+              onClick={() => setAttempt((n) => n + 1)}
+            >
+              <RotateCw className="mr-1.5 h-4 w-4" />
+              {t('common.retry', { defaultValue: 'Retry' })}
+            </Button>
+          </div>
+        </Empty>
+      </div>
+    );
+  }
+  return <PageRecordScope record={current.row}>{children}</PageRecordScope>;
 }
 
 export function PageView() {
@@ -249,51 +481,53 @@ export function PageView() {
               serve={servePageRecordActions}
               parentFromList
             >
-              <SchemaRenderer
-                schema={{
-                  ...page,
-                  // `type` stays the SchemaNode discriminator ComponentRegistry
-                  // dispatches on. The spec's page KIND (`record|home|app|utility|
-                  // list`) rides `pageType`, which PageRenderer reads — without
-                  // this mapping every page fell back to `pageType: 'record'`,
-                  // so non-record pages got the record max-width, a wrong
-                  // `data-page-type` and a suppressed header (framework#1878 §3
-                  // naming-drift recheck).
-                  //
-                  // ⭐ This is the WRITING end of the page-kind to node-type
-                  // channel, and a comment here was not enough: two cards audited
-                  // the READING end and concluded the registrations it feeds were
-                  // undeclared (objectui#9263, re-ruled letter E "⛔ not a
-                  // defect", and objectui#9576). The channel is now declared at
-                  // both reading ends — `@object-ui/types`' `SchemaRegistry` map
-                  // at its `'page'` entry, and the `PageRenderer` registrations in
-                  // `@object-ui/components`. Each END is pinned by a DIFFERENT
-                  // file, because no one package can import both.
-                  //
-                  // ⛔ Change this mapping and `page-kind-writing-end-9718`, in
-                  // this package's `views/__tests__`, goes red by design and names
-                  // the kind that stopped being written (objectui#9718): it is the
-                  // declaration, not an incidental assertion.
-                  //
-                  // ⚠️ The reading end's pin — `page-kind-node-type-channel-9642`
-                  // (objectui#9642) — does NOT answer for this line. It lives in
-                  // `@object-ui/components`, which does not depend on this
-                  // package, so its module graph cannot reach this file: gutting
-                  // this mapping leaves it green, and deleting a registration
-                  // turns it red. Both directions were measured on objectui#9718.
-                  //
-                  // The pair is built by `pageKindNode`, the ONE builder this
-                  // writer shares with Studio's page previews (objectui#11933):
-                  // they used to write `type` alone, so they drew an app or
-                  // home page as a record page.
-                  ...pageKindNode(page),
-                  // `context` is built here, never read off the page: `PageSchema`
-                  // refuses a page-level `context` key, so no parsed page can
-                  // carry one (objectui#9673). Written after `...page`, it also
-                  // overrides whatever an unparsed document smuggled in.
-                  context: { params },
-                }}
-              />
+              <AppPageRecord binding={appPageRecordBinding(page as Record<string, unknown>)} dataSource={dataSource}>
+                <SchemaRenderer
+                  schema={{
+                    ...page,
+                    // `type` stays the SchemaNode discriminator ComponentRegistry
+                    // dispatches on. The spec's page KIND (`record|home|app|utility|
+                    // list`) rides `pageType`, which PageRenderer reads — without
+                    // this mapping every page fell back to `pageType: 'record'`,
+                    // so non-record pages got the record max-width, a wrong
+                    // `data-page-type` and a suppressed header (framework#1878 §3
+                    // naming-drift recheck).
+                    //
+                    // ⭐ This is the WRITING end of the page-kind to node-type
+                    // channel, and a comment here was not enough: two cards audited
+                    // the READING end and concluded the registrations it feeds were
+                    // undeclared (objectui#9263, re-ruled letter E "⛔ not a
+                    // defect", and objectui#9576). The channel is now declared at
+                    // both reading ends — `@object-ui/types`' `SchemaRegistry` map
+                    // at its `'page'` entry, and the `PageRenderer` registrations in
+                    // `@object-ui/components`. Each END is pinned by a DIFFERENT
+                    // file, because no one package can import both.
+                    //
+                    // ⛔ Change this mapping and `page-kind-writing-end-9718`, in
+                    // this package's `views/__tests__`, goes red by design and names
+                    // the kind that stopped being written (objectui#9718): it is the
+                    // declaration, not an incidental assertion.
+                    //
+                    // ⚠️ The reading end's pin — `page-kind-node-type-channel-9642`
+                    // (objectui#9642) — does NOT answer for this line. It lives in
+                    // `@object-ui/components`, which does not depend on this
+                    // package, so its module graph cannot reach this file: gutting
+                    // this mapping leaves it green, and deleting a registration
+                    // turns it red. Both directions were measured on objectui#9718.
+                    //
+                    // The pair is built by `pageKindNode`, the ONE builder this
+                    // writer shares with Studio's page previews (objectui#11933):
+                    // they used to write `type` alone, so they drew an app or
+                    // home page as a record page.
+                    ...pageKindNode(page),
+                    // `context` is built here, never read off the page: `PageSchema`
+                    // refuses a page-level `context` key, so no parsed page can
+                    // carry one (objectui#9673). Written after `...page`, it also
+                    // overrides whatever an unparsed document smuggled in.
+                    context: { params },
+                  }}
+                />
+              </AppPageRecord>
             </RelatedRecordActionsBridge>
           )}
         </div>

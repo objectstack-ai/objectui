@@ -24,10 +24,10 @@
  * raw read beside the shared one is counted, wherever it goes.
  *
  * Directions on the base tree (predicted before the first run):
- *   three charts over one object ⇒ one request          RED (four: three raw + one shared)
- *   two objects ⇒ one request each (control)           RED (raw reads beside the shared ones)
+ *   three charts over one object ⇒ one request          RED (three raw reads beside the shared one)
+ *   two objects ⇒ one request each                      RED (raw reads beside the shared ones)
  *   no data source ⇒ the raw fallback paints colours    GREEN (unchanged)
- *   dotted dataset dimension resolves through the hop   RED (raw reads for both objects)
+ *   dotted dataset dimension resolves through the hop   RED (both objects read raw)
  */
 
 import type { DataSource } from '@object-ui/types';
@@ -109,6 +109,17 @@ function installGlobalFetch(routes: Record<string, unknown> = {}) {
   return calls;
 }
 
+/**
+ * The raw route answers the same documents as the shared one, so the colours
+ * and labels paint either way and the only thing these pins can go red on is
+ * WHICH route carried the read — never a missing document.
+ */
+const RAW_DOCS = {
+  '/api/v1/meta/object/opportunity': { item: OPPORTUNITY },
+  '/api/v1/meta/object/task': { item: TASK },
+  '/api/v1/meta/object/account': { item: ACCOUNT },
+};
+
 const metaObjectCalls = (calls: string[]) => calls.filter((u) => u.includes('/meta/object/'));
 
 const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 50)));
@@ -136,7 +147,7 @@ afterEach(() => {
 
 describe('ObjectChart joins the shared object-schema read (objectui#13039)', () => {
   it('three charts over one object make one metadata request', async () => {
-    const globalCalls = installGlobalFetch();
+    const globalCalls = installGlobalFetch(RAW_DOCS);
     const { source, network } = makeSharedReadSource({ opportunity: OPPORTUNITY });
 
     render(
@@ -161,7 +172,7 @@ describe('ObjectChart joins the shared object-schema read (objectui#13039)', () 
   });
 
   it('CONTROL: two objects make one request each', async () => {
-    const globalCalls = installGlobalFetch();
+    const globalCalls = installGlobalFetch(RAW_DOCS);
     const { source, network } = makeSharedReadSource({ opportunity: OPPORTUNITY, task: TASK });
 
     render(
@@ -185,7 +196,7 @@ describe('ObjectChart joins the shared object-schema read (objectui#13039)', () 
   });
 
   it('CONTROL: a chart with no data source resolves its category metadata through the raw fallback', async () => {
-    const globalCalls = installGlobalFetch({ '/api/v1/meta/object/opportunity': { item: OPPORTUNITY } });
+    const globalCalls = installGlobalFetch(RAW_DOCS);
 
     render(
       <ObjectChart
@@ -208,6 +219,7 @@ describe('ObjectChart joins the shared object-schema read (objectui#13039)', () 
 
   it('CONTROL: a dotted dataset dimension still walks to the object that owns the field', async () => {
     const globalCalls = installGlobalFetch({
+      ...RAW_DOCS,
       '/api/v1/meta/dataset/opportunity_metrics': {
         item: {
           name: 'opportunity_metrics',

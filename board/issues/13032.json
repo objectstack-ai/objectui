@@ -1,0 +1,33 @@
+{
+  "number": 13032,
+  "kind": "issue",
+  "title": "chat: an assistant answer in the side panel — headings at chat size, wide tables fit the narrow panel, long answers fold, the scroll-to-bottom button never covers text",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T08:14:50Z",
+  "updated_at": "2026-10-19T08:26:24Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13032",
+  "body": "③ 维护者直派（2026-10-19，执行席会话里的原话）：「按你的分析立两张卡：cloud 一张改问数据回答写法（结论先行、要点带链接、表格少列），objectui 一张改聊天排版（标题降级、宽表适配、长答折叠、按钮不遮挡），附上实测和截图，挂 pm:queue 交车道。」并要求「相关任务排高优先级」。\n\n**Reader:** `domain:ui` 车道。改 `packages/plugin-chatbot`：\n- `src/elements/message.tsx`：助手消息的 markdown 渲染；\n- `src/elements/conversation.tsx`：回到底部按钮。\n\n回答写法那一半由 objectstack-ai/cloud#3072 承接（私有仓库）。\n\n## 现象（cloud staging 租户环境，控制台右侧「助手」面板，2026-10-19 实测）\n\n问「帮我分析一下客户」，得到一条约 3,200 字的 markdown 回答，在面板里：\n\n| 测量 | 数值 |\n|:--|:--|\n| 面板宽 / 可视高 | 419 px / 794 px |\n| 这一条回答的高度 | 5,966 px（约 7.5 屏） |\n| 二级 / 三级标题字号 | 24 px / 20 px（照搬文章页） |\n| 6 列表格 | 表宽 1,177 px，容器 583 px，一半列要横向滚动 |\n| 回到底部「↓」按钮 | 浮在正文上，盖住了表格单元格和标题文字（例如「Acme Corporation」） |\n\n![助手面板全页](https://github.com/objectstack-ai/objectui/blob/f523c73752e52d50a7d68ab01aa7f1f06888ddc8/page-with-assistant.jpg?raw=true)\n![回答开头：宽表被截断，↓ 按钮压在表上](https://github.com/objectstack-ai/objectui/blob/f523c73752e52d50a7d68ab01aa7f1f06888ddc8/answer-top-wide-table.png?raw=true)\n![回答中段：大标题](https://github.com/objectstack-ai/objectui/blob/f523c73752e52d50a7d68ab01aa7f1f06888ddc8/answer-middle-headings.png?raw=true)\n\n## 要改成什么\n\n1. **标题降级**：对话气泡里的 h1–h3 统一渲染成 15–16 px 加粗，层级只靠字重和间距区分，不再用文章页字号。\n2. **宽表适配窄栏**：\n   - 首列冻结，表格字号压缩到 13 px；\n   - 列数超出可视宽度时，表格工具栏上已有的「展开」按钮要明显可见，用来打开全宽查看；\n   - 可选：在面板宽度小于 480 px 时，把表格渲染成每行一张卡片的列表。\n3. **长答折叠**：单条助手消息超过约 2 屏时默认折叠，显示「展开全文」；流式输出期间不折叠，结束后再折叠。\n4. **回到底部按钮不遮挡正文**：\n   - 放在消息列表外侧，或给列表底部留出等高的内边距；\n   - 不能压在正文、表格或标题上。\n\n## 验收\n\n- 用同一条回答（或长度相当的固定 markdown 样本）在 419 px 宽的面板里渲染：\n  - 标题不大于 16 px；\n  - 表格首列冻结，能看到「展开」入口；\n  - 超过 2 屏时折叠；\n  - 「↓」按钮在任何滚动位置都不盖住文字。\n- 组件测试钉住：标题字号、折叠阈值、按钮不与内容重叠（布局断言或快照）。\n\n**Dedupe:**\n- 查询 `repo:objectstack-ai/objectui chatbot markdown heading table narrow`：21 条命中，最近的是已关的 #11854（markdown chunk 体积），不同题；\n- 查询 `chat answer collapse long`：103 条命中，最近的开放卡是 #12724（AI 搭建对话的计划卡 / 结果卡 v2）和 #12725（Studio copilot 右栏），讲的都不是问数据回答的 markdown 排版。\n"
+}

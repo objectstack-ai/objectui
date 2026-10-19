@@ -1,0 +1,35 @@
+{
+  "number": 13014,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the permission-set badge names the caller's capability, not the type tier (objectui#13011)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T02:53:55Z",
+  "updated_at": "2026-10-19T03:20:21Z",
+  "closed_at": "2026-10-19T03:20:20Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-19T03:20:20Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13014",
+  "body": "Fixes #13011\nClause-②: no\n\n## What changed\n\nThe permission-set editor's identity badge (`lockBadgeEl` in `PermissionMatrixEditor.tsx`) now names the gate that actually closed. A caller who is not walled and lacks `manage_metadata`, on a type whose tier is open (the stock `permission` shape: `allowEnvironmentOverlay: false`, `allowRuntimeCreate: true`), used to fall through to the last arm and read \"Read-only (this metadata type has no runtime write channel)\", beside the banner (`perm-capability-readonly`) giving the capability reason.\n\nArm order, label and hint, after this change:\n\n| Arm | Condition | Label | Hint |\n|---|---|---|---|\n| host | `readOnly` | `engine.studio.pkg.readonly` | unchanged |\n| walled | `walledReadOnly` | `perm.readOnly.walled` | unchanged |\n| artifact tier | `lockedByArtifactTier` | `perm.readOnly.artifact` | unchanged |\n| type tier | `!typeTierOpen` (the type's tier really is closed) | `perm.readOnly` | unchanged |\n| caller (new) | otherwise | `perm.readOnly.capability` (new) | `engine.edit.capabilityReadOnly` (the banner's key, reused) |\n\nThe new arm is complete by construction: `writable` is `canWriteByType && !readOnly && canAuthor && !walled`, so once the four arms above have not fired on an open type, the only closed gate left is `canAuthor`. This also covers an open type, a set a code package ships, and a caller without the capability: `lockedByArtifactTier` already excludes `!canAuthor` on purpose, and that case used to fall to the type sentence too; it now reads the capability.\n\nThe banner is unchanged. The existing arms keep their text and order.\n\n**Why a new short key rather than the banner key as the label:** the banner sentence (`engine.edit.capabilityReadOnly`) is a full sentence, too long for a `shrink-0` badge in the identity strip. The order prefers reuse, so the banner key is reused as the badge's hint, and the label is one new designer-table key, `perm.readOnly.capability`, in English and Chinese (the two locales that carry every `perm.readOnly*` key). No language-pack key is added.\n\n## Tests (at HEAD `5898ea9879`)\n\nNew block in `PermissionMatrixEditor.readonly.test.tsx`, \"the caller gate names the capability, not the type\". The suite now mocks `useCanAuthorMetadata` with a default of `true`, which is what the unmocked hook answered there (no permission provider, so it fails open). The existing cases are unchanged.\n\n- (a) an open type and a caller without `manage_metadata`: no \"no runtime write channel\" text; the badge reads the capability, its title is the banner's sentence, and the banner is present.\n- CONTROL: a closed type keeps the type-tier sentence for the same caller; the host `readOnly` still names the package for the same caller; a holder on the same open type gets no read-only badge.\n- The walled and artifact-tier badge texts are held by their existing suites (`walledCatalogReadOnly-12183.test.tsx` asserts `perm.readOnly.walled`; `PermissionMatrixEditor.artifactTier.test.tsx`), both run green below.\n\nRuns (all from the repo root, under the shared verify lock):\n\n- `pnpm exec vitest run --maxWorkers=1 packages/app-shell/src/views/metadata-admin/PermissionMatrixEditor.readonly.test.tsx`: `Tests 11 passed (11)`.\n- every `PermissionMatrixEditor.*` suite, plus `walledCatalogReadOnly-12183` and `BuilderLanding.environmentOverlayCopy-12171` (which reads the `perm.readOnly*` keys): `Test Files 23 passed (23)`, `Tests 164 passed (164)`.\n- `pnpm --filter @object-ui/app-shell type-check` after the dependency closure build (`pnpm --workspace-concurrency=2 --filter \"@object-ui/app-shell^...\" build`, exit 0): exit 0. `tsconfig.test.json` lists the edited test file (`--listFilesOnly`, 1 hit).\n\n**Ablation (one-off, no test file kept).** The capability label arm was reverted to the old fall-through (`: t('perm.readOnly')}`) through `ablation-replace.mjs`: anchor 1 to 0, blob `da507aee0f6d` to `b9261727ce04`. Result: `Tests 1 failed | 10 passed (11)`; the failing case is (a), and every control stayed green. Restore: blob after restore `da507aee0f6d` equals the HEAD blob, and `git diff HEAD` is empty. The subject is imported relatively (`./PermissionMatrixEditor`), so the run reads source and needs no `dist/` rebuild.\n\n**Not run locally, declared to CI:** the whole `packages/app-shell/` vitest directory (the order forbids a whole-package run here).\n\n## Gates (exit codes)\n\nAll exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:i18n-dead-keys`, `check:control-bytes`, `check:new-line-citations` (0 new citations), `node scripts/check-hand-rolled-comment-mask.mjs`, `node scripts/check-changeset-fixed.mjs`, `node scripts/check-changeset-presence.mjs` (1 changeset for 1 released package).\n\nLint, narrowed: `eslint --format json` over the three changed source files, run from `packages/app-shell` (whose `lint` script is `eslint .`). All three are inside the config (`--print-config` resolves each one). The JSON lists 3 files, 0 errors and 22 warnings, all on lines outside this diff's hunks. Type-aware linting is off: `--print-config` names neither `project` nor `projectService`. So this diff cannot change the verdict on any file it did not touch. The full `pnpm lint` is left to CI.\n\n## Acceptance notes\n\n- The editor's comment over the badge said \"three distinct reasons\"; it now says five (host, walled, artifact, type, caller). The walled arm had already made it four.\n- Browser check not run: the pin drives the same component the console mounts, with the caller gate mocked at its hook.\n\nChangeset: `.changeset/13011-matrix-badge-capability.md` (`@object-ui/app-shell: patch`).\n\nWritten by an agent session, `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

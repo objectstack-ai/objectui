@@ -12,21 +12,21 @@
   },
   "labels": [
     "domain:ui",
-    "finding",
     "pm:dispatched",
-    "priority:p3"
+    "priority:p1",
+    "target:v18"
   ],
   "assignees": [
-    "sunhaolin"
+    "baozhoutao"
   ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-18T10:08:55Z",
-  "updated_at": "2026-10-18T14:44:46Z",
+  "updated_at": "2026-10-19T08:25:44Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 7,
+  "comments": 11,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12954",
   "body": "Filing gate ①: class (c), a shipped capability with zero consumers. Filed by `repo:cloud` seat 2 (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`) from the cloud#2801 dev report (cloud PR #3010). ⛔ Not a claim.\n\n## Why\n\ncloud#2801 (home v2) retired both product widgets from cloud's pages. cloud PR #3010 merged as `94704206`:\n- the home's `cloud:onboarding-next` is replaced by declared `element:button` nodes over `GET /api/v1/cloud/home`;\n- the pricing page's `cloud:plan-status` is replaced by a `visibleWhen` on the same summary.\n\ncloud was the only consumer of both. objectui's product-neutral renderer rule (`product-specific.allowlist.json` and its ratchet test) retires product-specific widgets once the product stops drawing them. The startup-phase rule says a shipped capability with zero consumers retires at once.\n\n## The paths, on objectui `main` `0707b4ae` (read by the cloud dev)\n\n- `packages/app-shell/src/console/home/CloudOnboardingNext.tsx`, `CloudPlanStatus.tsx`, and their tests under `console/home/__tests__/`;\n- their registration and exports: `packages/app-shell/src/index.ts`, `packages/app-shell/package.json`;\n- the allowlist and its ratchet: `packages/app-shell/src/__tests__/product-specific.allowlist.json`, `product-neutral-renderer.ratchet.test.ts`;\n- the keys `cloudOnboarding.*` and `cloudPlanStatus.*` in `packages/i18n/src/locales/{ar,de,en,es,fr,ja,ko,pt,ru,zh}.ts`;\n- the type arm: `packages/types/src/cloud.ts`, `packages/types/src/zod/cloud.zod.ts`, `packages/types/src/index.ts`, `packages/types/src/zod/index.zod.ts`, `packages/types/src/__tests__/cloud-plan-status-arm-10919.test.ts`;\n- `packages/cli/src/utils/known-schema-types.ts`;\n- gate inputs: `scripts/check-sdui-registration-pins.mjs`, `scripts/check-side-effects-array.mjs`, `scripts/vite-declared-lazy-views.ts`.\n\n**Keep:** `useEnvironmentEntitlements`, which `EnvironmentListToolbar` still reads.\n\n## Wanted\n\n- Remove the two widgets, their registrations, keys and type arm.\n- The ratchet goes down by two.\n- A changeset (minor for the removed exports, per objectui's no-major rule).\n- **Before removing, confirm no other repository draws either type:** grep objectstack-ai/cloud `main` and objectstack-ai/hotcrm for `cloud:onboarding-next` and `cloud:plan-status`.\n\nDedupe words: retire CloudOnboardingNext, cloudOnboarding keys, CloudPlanStatus widget, cloud:plan-status arm."

@@ -1,0 +1,31 @@
+{
+  "number": 13027,
+  "kind": "issue",
+  "title": "Console open: a full warm open of a control-plane page still makes 22 API calls; seven chrome reads were deferred past the first paint, not removed (cloud#2914's budget is 15)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:api",
+    "domain:ui",
+    "needs-user-decision",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T06:32:01Z",
+  "updated_at": "2026-10-19T08:09:31Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 15,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13027",
+  "body": "Filed by the `repo:cloud#2` seat (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`) from objectstack-ai/cloud#2914's round-5 report (PR objectstack-ai/cloud#3067), open question 1, under the seat's ruling A on that card. ⛔ Not a claim.\n\n## What was measured\n\nThe console was measured at objectui `4016370a` (cloud's new `.objectui-sha`), on `run-stack --prod-like --with-ui --seed` with local SQLite and an ordinary organization owner. The page was `/_console/apps/cloud_control/page/pricing`, opened 8 times warm. The readings come from the performance entries.\n\n| | objectui `4dfdebdf` | objectui `4016370a` |\n|:--|:--|:--|\n| API calls in one full open | 25 | **22** |\n| duplicate URLs | 0 | 0 |\n| calls started under the splash | 24 | 16 |\n| last API response (median) | 1.22 s | 1.46 s |\n\nobjectstack-ai/objectui#12980 closed on \"calls before the first paint\", which is 14 at `4016370a`. cloud#2914's Target 4 counts every call of one full open (≤ 15, no duplicate URL). The seat ruled that the card keeps its own measure.\n\n**The seven reads deferred past the paint rather than removed** (each once per open):\n\n| read | where it comes from |\n|:--|:--|\n| `ai/agents` | `plugin-chatbot` `useAgents` |\n| `api/settings` | `WorkspaceTimezonePrompt.tsx` |\n| `i18n/locales` | `loadLocales.ts` |\n| `meta/dashboard` | `useNavigationSync` |\n| `approvals/requests` and `data/sys_inbox_message` | `sharedUserFeeds.ts` |\n| `data/sys_user/USER_ID` | `useUserLocale.ts` |\n\nAt the new pin the page's own `cloud/home` read goes out within about 40 ms of the six reads that wait for the paint. So the deferred reads still compete with the page's data.\n\n## Target\n\nA full warm open of a cloud control-plane page makes ≤ 15 API calls and no duplicate URL. Each of the seven reads is either removed from the open, or made to load only on the intent that needs it, as the activity feed already does on the bell's open.\n\n- `useUserLocale`'s `sys_user` row read stays only while `GET /auth/me/localization` cannot name the user's locale source. See objectstack-ai/objectstack#14788's ruling on the spellings before changing it.\n\n## Acceptance\n\nOn cloud's pin smoke stack, or the same `--prod-like` rig, a full warm open of `/_console/apps/cloud_control/page/pricing` makes ≤ 15 API calls with 0 duplicate URLs. Paste the performance entries before and after.\n\nDedupe words: console open call budget 22 calls, deferred chrome reads after first paint, cloud#2914 target 4, objectui#12980 follow-up."
+}

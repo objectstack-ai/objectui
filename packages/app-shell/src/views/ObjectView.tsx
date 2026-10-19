@@ -1829,6 +1829,15 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
      * so `renderListView` depends on a primitive, not a memoised identity
      * (AGENTS.md #10).
      */
+    /**
+     * objectui#13089 — the view's `addRecord` Add button opens this page's own
+     * create (`actions.create`, the header New's), so it is offered exactly
+     * where that New is offered and live: the object-level verdict, the
+     * toolbar-scope `visibleWhen`, and not greyed by `disabledWhen` (`ListView`
+     * draws no greyed Add button). A boolean, so `renderListView` depends on
+     * a primitive (AGENTS.md #10).
+     */
+    const listAddRecordOpensCreate = objectCanCreate && createVisible && !createDisabled;
     const mayInvokeToolbarAction = useCapabilityGate();
     const toolbarPredicateScope = usePredicateScope();
     const pageOffersCreate =
@@ -3487,7 +3496,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             bulkActions: viewDef.bulkActions ?? listSchema.bulkActions,
             bulkActionDefs: (viewDef as any).bulkActionDefs ?? (listSchema as any).bulkActionDefs,
             sharing: viewDef.sharing ?? listSchema.sharing,
-            addRecord: viewDef.addRecord ?? listSchema.addRecord,
+            // objectui#13089 — the Add button `ListView` draws from
+            // `addRecord.enabled` opens the header New's create (`onAddRecord`
+            // below), so it follows the New's verdict: withheld, not drawn
+            // dead, for a viewer who may not create or whose create is greyed.
+            addRecord: listAddRecordOpensCreate ? viewDef.addRecord ?? listSchema.addRecord : undefined,
             conditionalFormatting: viewDef.conditionalFormatting ?? listSchema.conditionalFormatting,
             // ADR-0047 (amended, objectui #2338): this is the object default
             // list = "views" mode. `dropdown` (value-chip) userFilters ARE
@@ -3661,6 +3674,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 viewDefaults={{ hiddenFields: viewHiddenFields, rowHeight: viewRowHeight }}
                 className={className}
                 onEdit={editHandler}
+                // objectui#13089 — the view's Add button is the header New:
+                // `onEdit(null)`, which the host routes to the record-form
+                // overlay or an `editMode: 'page'` object's create route.
+                onAddRecord={listAddRecordOpensCreate ? actions.create : undefined}
                 onDelete={(record: any) => {
                     if (record?.id != null) {
                         // useObjectActions.deleteRecord wraps execute() which
@@ -3724,7 +3741,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 dataSource={ds}
             />
         );
-    }, [inSetup, activeView, activeViewDeclaresColumns, activeViewIsSaved, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar]);
+    }, [inSetup, activeView, activeViewDeclaresColumns, activeViewIsSaved, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listAddRecordOpensCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).

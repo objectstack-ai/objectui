@@ -137,6 +137,10 @@ describe('PageView in an app with no package reads its page\'s objects by name (
       expect(screen.getByTestId('page-blocks').getAttribute('data-lookup-href')).toBe('/apps/crm/sys_user/record/u1'),
     );
     expect(objectCalls()).toContain('object/crm_case');
+    // objectui#13044 — the by-name read now goes through the adapter's
+    // `getObjectSchema`; each name still reaches the by-name door once.
+    expect(objectCalls().filter((c) => c === 'object/crm_case')).toHaveLength(1);
+    expect(objectCalls().filter((c) => c === 'object/sys_user')).toHaveLength(1);
     expect(objectCalls()).not.toContain('object');
     expect(objectCalls().some((c) => c.startsWith('object?'))).toBe(false);
   });

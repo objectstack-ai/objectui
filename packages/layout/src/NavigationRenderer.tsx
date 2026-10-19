@@ -137,9 +137,13 @@ const HIDDEN_ICON_LABEL_NOT_FOCUSABLE =
  * Callback to evaluate a visibility expression.
  * Return `true` if the item should be visible.
  * When not provided, all items default to visible.
+ *
+ * The parameter is the item's own `visible` type, so the spec's
+ * `{ dialect, source }` envelope reaches the evaluator as authored
+ * (objectui#13075).
  */
 export type VisibilityEvaluator = (
-  expression: string | boolean | undefined,
+  expression: NavigationItem['visible'],
 ) => boolean;
 
 /**

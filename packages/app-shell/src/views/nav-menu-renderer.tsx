@@ -185,7 +185,7 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
 
   const { evaluator } = useExpressionContext();
   const evalVis = useCallback(
-    (expr: string | boolean | undefined) => evaluateNavigationVisibility(expr, evaluator),
+    (expr: NavigationItem['visible']) => evaluateNavigationVisibility(expr, evaluator),
     [evaluator],
   );
 

@@ -106,7 +106,7 @@ export interface NavMemberGates {
 export function useNavMemberGates(): NavMemberGates {
   const { evaluator, app } = useExpressionContext();
   const evalVis = useCallback(
-    (expr: string | boolean | undefined) => evaluateNavigationVisibility(expr, evaluator),
+    (expr: NavigationItem['visible']) => evaluateNavigationVisibility(expr, evaluator),
     [evaluator],
   );
 

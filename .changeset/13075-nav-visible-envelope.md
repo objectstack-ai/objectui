@@ -1,5 +1,7 @@
 ---
 '@object-ui/types': minor
+'@object-ui/layout': minor
+'@object-ui/app-shell': patch
 ---
 
 A navigation item's `visible` now takes `@objectstack/spec`'s `EvaluatedExpressionInputSchema` by reference, beside the boolean it already took (objectui#13075).
@@ -12,3 +14,7 @@ The spec types every navigation entry's `visible` as an evaluated expression inp
 Unchanged: a non-blank string is still accepted and kept as a string (the validator does not rewrite it into an envelope), and `visible: true` / `false` are still accepted. The boolean is the one stated divergence from the spec on this key.
 
 Code that reads `NavigationItem['visible']` and passes it on as `string | boolean` no longer compiles: widen that parameter to `NavigationItem['visible']`.
+
+`@object-ui/layout` (minor): the exported `VisibilityEvaluator` type now takes `NavigationItem['visible']` instead of `string | boolean | undefined`, so an evaluator receives the envelope as authored. An evaluator a host passes in whose parameter is the old, narrower type no longer type-checks; widen it the same way. The runtime is unchanged: `NavigationRenderer` already handed the value through.
+
+`@object-ui/app-shell` (patch): the shell's navigation gates (`useNavMemberGates` and the `nav:menu` block) take the widened type internally. No exported type changes, and the runtime is unchanged: `evaluateNavigationVisibility` already evaluated the envelope.

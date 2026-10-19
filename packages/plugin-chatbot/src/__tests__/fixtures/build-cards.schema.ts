@@ -1,4 +1,4 @@
-// Vendored from objectstack-ai/cloud packages/service-ai-studio/schema/build-cards.schema.json at 5a562dfc (cloud PR #3037); the object below is that file verbatim.
+// Vendored from objectstack-ai/cloud packages/service-ai-studio/schema/build-cards.schema.json at f7ab9cc8 (cloud PR #3047); the object below is that file verbatim.
 //
 // objectui#12724 — the producer's contract for the two build cards the chat draws:
 // `ProposeBlueprintCardPayload` (`propose_blueprint`'s `planCard`, beside the
@@ -181,6 +181,24 @@ export const BUILD_CARDS_SCHEMA: Record<string, unknown> =
                       "label": {
                         "type": "string",
                         "minLength": 1
+                      },
+                      "generated": {
+                        "type": "object",
+                        "properties": {
+                          "template": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "line": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "template",
+                          "line"
+                        ],
+                        "additionalProperties": false
                       }
                     },
                     "required": [

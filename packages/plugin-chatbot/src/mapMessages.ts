@@ -359,8 +359,14 @@ export interface ProposedPlanCard {
       /** The model added this field; the user's words did not name it. */
       suggested?: true;
     }>;
-    /** The record's name field, when the plan declares one. */
-    nameField?: { name: string; label: string };
+    /**
+     * The record's name field, when the plan declares one. `generated`
+     * (objectui#13004) is present when the title is composed for the user, not
+     * typed: the card draws its `line` (e.g. 「名称：自动生成「{图书} · {读者} ·
+     * {借出日期}」，表单里不出现」) in place of 「名称：LABEL」. The producer's
+     * `template` is not drawn, so it is not lifted.
+     */
+    nameField?: { name: string; label: string; generated?: { line: string } };
   }>;
   views: ProposedPlanViewLine[];
   assumptions: string[];
@@ -527,13 +533,20 @@ function liftPlanCard(raw: unknown): ProposedPlanCard | undefined {
       ];
     });
     const nameField = recordOf(r.nameField);
+    const generated = recordOf(nameField?.generated);
     return [
       {
         name: r.name,
         label: r.label,
         fields,
         ...(nameField && isText(nameField.name) && isText(nameField.label)
-          ? { nameField: { name: nameField.name, label: nameField.label } }
+          ? {
+              nameField: {
+                name: nameField.name,
+                label: nameField.label,
+                ...(generated && isText(generated.line) ? { generated: { line: generated.line } } : {}),
+              },
+            }
           : {}),
       },
     ];

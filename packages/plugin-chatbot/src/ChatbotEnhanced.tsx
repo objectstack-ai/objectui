@@ -5091,7 +5091,9 @@ function BlueprintProgressPanel({
  * a field the user's words did not name (`suggested`), the stage field's
  * lifecycle beside its label (`lifecycle.label`, objectui#12994), and
  * 「名称：FIELD」 under the chips when the object declares its name field
- * (`nameField`). Each of those four is drawn only when its key is present.
+ * (`nameField`). Each of those four is drawn only when its key is present. When
+ * the title is composed rather than typed, the producer's own line
+ * (`nameField.generated.line`, objectui#13004) is drawn in place of 「名称：FIELD」.
  */
 function PlanCardObjectRows({
   objects,
@@ -5151,8 +5153,14 @@ function PlanCardObjectRows({
               ))}
             </div>
             {o.nameField ? (
-              <span className="text-[11px] text-muted-foreground" data-testid="proposed-plan-name-field">
-                {t('chatbot.plan.nameField', { field: o.nameField.label, defaultValue: 'Name: {{field}}' })}
+              <span
+                className="text-[11px] text-muted-foreground"
+                data-testid="proposed-plan-name-field"
+                {...(o.nameField.generated ? { 'data-generated': 'true' } : {})}
+              >
+                {o.nameField.generated
+                  ? o.nameField.generated.line
+                  : t('chatbot.plan.nameField', { field: o.nameField.label, defaultValue: 'Name: {{field}}' })}
               </span>
             ) : null}
           </div>

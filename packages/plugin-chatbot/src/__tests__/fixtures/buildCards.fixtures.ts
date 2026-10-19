@@ -55,6 +55,9 @@ const W = {
     returned: '已还',
     overdueOption: '逾期',
     statusLifecycle: '借出 · 已还 ✓完成 · 逾期 ⚠',
+    loanTitle: '借阅标题',
+    loanTitleTemplate: '{图书} · {读者} · {借出日期}',
+    loanTitleLine: '名称：自动生成「{图书} · {读者} · {借出日期}」，表单里不出现',
     nextSteps: ['给借阅记录加续借次数', '做一个本月借出统计的仪表盘', '只允许管理员删除图书'],
   },
   en: {
@@ -97,13 +100,28 @@ const W = {
     returned: 'Returned',
     overdueOption: 'Overdue',
     statusLifecycle: 'Borrowed · Returned ✓done · Overdue ⚠',
+    loanTitle: 'Loan title',
+    loanTitleTemplate: '{Book} · {Reader} · {Loan date}',
+    loanTitleLine: 'Name: generated as “{Book} · {Reader} · {Loan date}”, not on the form',
     nextSteps: ['Add a renewal count to loans', 'Make a dashboard of this month’s loans', 'Only admins may delete books'],
   },
 } as const;
 
-/** `propose_blueprint`'s `blueprint_proposed` envelope with `planCard` and `viewIntents`. */
-export function planEnvelope(lang: Lang) {
+/**
+ * `propose_blueprint`'s `blueprint_proposed` envelope with `planCard` and `viewIntents`.
+ * `generatedTitle: true` (objectui#13004) gives the loan a record title composed
+ * from its two lookups and its date, as cloud#2925's builder writes it: a formula
+ * `nameField` on the blueprint, and on the plan card `nameField.generated` with
+ * the title field left out of the loan's chips (its line stands for it).
+ */
+export function planEnvelope(lang: Lang, opts: { generatedTitle?: boolean } = {}) {
   const w = W[lang];
+  const loanTitleField = {
+    name: 'title',
+    label: w.loanTitle,
+    type: 'formula',
+    expression: "joinNonEmpty([record.book.title, record.reader.full_name, record.loan_date], ' · ')",
+  };
   const planViews = [
     {
       view: 'loan_board',
@@ -167,7 +185,9 @@ export function planEnvelope(lang: Lang) {
         {
           name: 'loan',
           label: w.loan,
+          ...(opts.generatedTitle ? { nameField: 'title' } : {}),
           fields: [
+            ...(opts.generatedTitle ? [loanTitleField] : []),
             { name: 'book', label: w.book, type: 'lookup', reference: 'book' },
             { name: 'reader', label: w.reader, type: 'lookup', reference: 'reader' },
             { name: 'loan_date', label: w.loanDate, type: 'date' },
@@ -234,6 +254,15 @@ export function planEnvelope(lang: Lang) {
               },
             },
           ],
+          ...(opts.generatedTitle
+            ? {
+                nameField: {
+                  name: 'title',
+                  label: w.loanTitle,
+                  generated: { template: w.loanTitleTemplate, line: w.loanTitleLine },
+                },
+              }
+            : {}),
         },
       ],
       views: planViews,

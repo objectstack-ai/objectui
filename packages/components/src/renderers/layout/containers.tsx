@@ -798,7 +798,7 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     const out = new Map<number, Array<Probe>>();
     items.forEach((it, idx) => {
       if (it.count !== undefined && it.count !== null && it.count !== '') return;
-      const itemGated = (it as any).visibleWhen !== undefined;
+      const itemGated = it.visibleWhen !== undefined;
       if (itemGated && !recordLoaded) return;
       const lists = shownListsByItem[idx]
         .filter((entry) => recordLoaded || entry.gates.length === 0)

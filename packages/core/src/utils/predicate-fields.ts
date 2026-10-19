@@ -133,7 +133,11 @@ function defaultFromRowKey(param: unknown): unknown {
  * Each source is the one a writer actually merges into the written set:
  *
  *  - `patch`: the static field values of `operation: 'update'`, merged under the
- *    collected params (`ActionRunner`'s `executeUpdateOperation`);
+ *    collected params (`ActionRunner`'s `executeUpdateOperation`). Every def
+ *    this harvest reads is a definition its writer applies whole (a view's
+ *    resolved row def, a `bulkActionDefs` entry, an object's action), never a
+ *    page action row, so this is the declared `patch` the write applies: the
+ *    one the runner's Undo snapshot reads too (objectui#13022);
  *  - each param's COLLECTED key, `name ?? field`: the key the param dialog
  *    stores its answer under (`paramName` in `app-shell`'s
  *    `resolveActionParams`). This is the opposite precedence to

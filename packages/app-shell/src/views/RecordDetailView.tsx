@@ -3676,6 +3676,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             // (objectui#11122): the runner's `operation: 'update'` Undo capture
             // reads them to capture a relation `$expand` filled as its stored id.
             ...(objectDef?.fields ? { objectFields: objectDef.fields } : {}),
+            // Its declared actions (objectui#13022): the same capture reads the
+            // `patch` of the declaration an update action's `name` names,
+            // which is what the platform action route writes.
+            ...(Array.isArray(objectDef?.actions) ? { objectActions: objectDef.actions } : {}),
             user: currentUser,
             org: actionContextOrg(activeOrganization),
           }}

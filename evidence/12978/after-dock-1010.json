@@ -1,0 +1,89 @@
+{
+ "label": "after-dock-1010",
+ "mode": "dock",
+ "width": 1010,
+ "height": 900,
+ "drafts": true,
+ "draftReads": 2,
+ "errors": [],
+ "placeholder": "问问数据，或让我改改这个应用…",
+ "placeholderWidth": 208,
+ "composerContentWidth": 393,
+ "textarea": {
+  "left": 592,
+  "top": 769,
+  "right": 1009,
+  "bottom": 833,
+  "width": 417,
+  "height": 64
+ },
+ "barShown": true,
+ "bar": {
+  "left": 591,
+  "top": 706,
+  "right": 1010,
+  "bottom": 760,
+  "width": 419,
+  "height": 54
+ },
+ "barText": "有 1 项改动尚未发布——用户还看不到。\n发布",
+ "intersection": {
+  "x": 417,
+  "y": 0,
+  "area": 0
+ },
+ "firstLine": [
+  {
+   "x": 624,
+   "y": 791,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  },
+  {
+   "x": 702,
+   "y": 791,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  },
+  {
+   "x": 801,
+   "y": 791,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  },
+  {
+   "x": 899,
+   "y": 791,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  },
+  {
+   "x": 977,
+   "y": 791,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  }
+ ],
+ "firstLineClear": true,
+ "conversation": {
+  "left": 591,
+  "top": 149,
+  "right": 1010,
+  "bottom": 706,
+  "width": 419,
+  "height": 557
+ },
+ "lastMessage": {
+  "left": 601,
+  "top": 273,
+  "right": 980,
+  "bottom": 313,
+  "width": 379,
+  "height": 40
+ },
+ "lastMessageBarOverlapY": 0,
+ "viewport": {
+  "w": 1010,
+  "h": 900
+ }
+}

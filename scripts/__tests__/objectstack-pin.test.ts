@@ -26,6 +26,7 @@ import {
   RECIPE,
   STAMP_FILE,
   build,
+  canonicalManifest,
   check,
   checkOverrideSet,
   checkoutPin,
@@ -248,7 +249,7 @@ describe('the lockfile must record what the build declares (objectui#12957)', ()
 
 describe('the committed manifests, and the build beside them (objectui#13008)', () => {
   const sha256 = (text: string) => `sha256-${crypto.createHash('sha256').update(text).digest('hex')}`;
-  const PACKED = '{\n  "name": "@objectstack/spec",\n  "version": "1.0.0",\n  "exports": { ".": "./dist/index.mjs" }\n}\n';
+  const PACKED = `${JSON.stringify({ name: '@objectstack/spec', version: '1.0.0', exports: { '.': './dist/index.mjs' }, dependencies: { a: '1', b: '1' } }, null, 2)}\n`;
   const overrides = new Map([['@objectstack/spec', 'spec']]);
   /** A packed build to link from, and a root whose committed manifest is `committed` (absent when null). */
   function layout(name: string, committed: string | null, packed = PACKED) {
@@ -287,6 +288,19 @@ describe('the committed manifests, and the build beside them (objectui#13008)', 
     const missing = layout('missing', null);
     expect(() => materialize(missing.root, overrides, { from: missing.from, mode: 'pin' })).toThrow(PinRefusal);
     expect(fs.existsSync(missing.target)).toBe(false);
+  });
+
+  it('compares manifests with dependency maps sorted -- pnpm pack orders them by completion -- and nothing else', () => {
+    const reordered = PACKED.replace('"a": "1",\n    "b": "1"', '"b": "1",\n    "a": "1"');
+    expect(reordered, 'the reorder landed').not.toBe(PACKED);
+    expect(canonicalManifest(reordered)).toBe(PACKED);
+    // Equal in canonical form: accepted at the pin, and the committed bytes are left alone.
+    const { from, root, target } = layout('reordered', reordered);
+    materialize(root, overrides, { from, mode: 'pin' });
+    expect(fs.readFileSync(path.join(target, 'package.json'), 'utf8')).toBe(reordered);
+    // The order of exports conditions is meaning, not noise.
+    const conditions = (first: string, second: string) => `${JSON.stringify({ name: 'x', exports: { '.': { [first]: './a', [second]: './b' } } })}\n`;
+    expect(canonicalManifest(conditions('types', 'import'))).not.toBe(canonicalManifest(conditions('import', 'types')));
   });
 
   it('writes the packed manifest with --write-manifests and for a stand-in, and the pin restores exactly what a stand-in replaced', () => {

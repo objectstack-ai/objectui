@@ -42,7 +42,8 @@
  *
  * The committed manifests must BE the pin's: they are what Dependabot resolves.
  * So a build at the pin REFUSES when a packed manifest differs from the committed
- * one -- a pin moved without its manifests, or a hand edit -- and never writes over
+ * one (dependency maps compared sorted, see `canonicalManifest`) -- a pin moved
+ * without its manifests, or a hand edit -- and never writes over
  * it; `--write-manifests` writes them, and bump-objectstack.sh commits them with the
  * pin. A stand-in installs its OWN manifests (its exports may differ), so it writes
  * them and records in its stamp the bytes it replaced; the next build at the pin
@@ -521,6 +522,32 @@ export function hashTree(dir) {
 // ── the committed manifests, and the build beside them (objectui#13008) ─────
 
 const sha256 = (bytes) => `sha256-${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+const DEPENDENCY_MAPS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies', 'peerDependenciesMeta'];
+
+/**
+ * A packed manifest as it is committed. `pnpm pack` rewrites `workspace:` ranges
+ * asynchronously, so two packs of ONE commit order a dependency map's keys
+ * differently with every value equal (measured on objectui#13008: client and lint
+ * differed between two builds of the pin). Those maps are sorted; nothing else
+ * moves -- the order of `exports` conditions carries meaning.
+ *
+ * @param {string | Buffer} text
+ * @returns {string | null} null when the text is not a JSON object
+ */
+export function canonicalManifest(text) {
+  let manifest;
+  try {
+    manifest = JSON.parse(String(text));
+  } catch {
+    return null;
+  }
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) return null;
+  for (const field of DEPENDENCY_MAPS) {
+    const map = manifest[field];
+    if (map && typeof map === 'object') manifest[field] = Object.fromEntries(Object.entries(map).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  }
+  return `${JSON.stringify(manifest, null, 2)}\n`;
+}
 
 /** Hard-link (copy where a link fails) every file under `from` into `to`, except a top-level `package.json`. */
 function linkTree(from, to, rel = '') {
@@ -542,10 +569,12 @@ function linkTree(from, to, rel = '') {
 
 /**
  * Put a packed build (`from`: one directory per package) beside the committed
- * manifests in PIN_DIR. Every manifest is judged before anything is written:
+ * manifests in PIN_DIR. Every manifest is judged, in its canonical form, before
+ * anything is written:
  *
- *   - `pin`: the packed manifest must equal the one on disk, or be the bytes a
- *     stand-in replaced (`replaced`, from its stamp); anything else refuses;
+ *   - `pin`: the packed manifest must equal the one on disk, or be the one a
+ *     stand-in replaced (`replaced`, from its stamp); anything else refuses, and
+ *     an equal manifest is left byte for byte;
  *   - `write` (`--write-manifests`) and `stand-in`: the packed manifest is written.
  *
  * @param {string} root
@@ -557,10 +586,13 @@ export function materialize(root, overrides, { from, mode, replaced = null }) {
   const plan = [...overrides].map(([name, dir]) => {
     const target = path.join(root, PIN_DIR, dir);
     const manifest = path.join(target, 'package.json');
-    const before = fs.existsSync(manifest) ? fs.readFileSync(manifest) : null;
-    return { name, dir, target, before, packed: fs.readFileSync(path.join(from, dir, 'package.json')) };
+    const before = fs.existsSync(manifest) ? fs.readFileSync(manifest, 'utf8') : null;
+    const packed = canonicalManifest(fs.readFileSync(path.join(from, dir, 'package.json')));
+    if (packed === null) throw new PinRefusal(`the packed manifest of ${name} in ${from} is not a JSON object.`);
+    const same = before !== null && canonicalManifest(before) === packed;
+    return { name, dir, target, before, packed, same, write: mode === 'pin' ? !same : before !== packed };
   });
-  const stale = plan.filter((p) => !p.before?.equals(p.packed) && replaced?.[p.name] !== sha256(p.packed));
+  const stale = plan.filter((p) => !p.same && replaced?.[p.name] !== sha256(p.packed));
   if (mode === 'pin' && stale.length) {
     throw new PinRefusal(
       `the manifests committed in ${PIN_DIR} are not the ones the pin packs:\n` +
@@ -575,13 +607,13 @@ export function materialize(root, overrides, { from, mode, replaced = null }) {
       if (entry !== 'package.json') fs.rmSync(path.join(p.target, entry), { recursive: true, force: true });
     }
     linkTree(path.join(from, p.dir), p.target);
-    if (!p.before?.equals(p.packed)) {
+    if (p.write) {
       const tmp = path.join(p.target, '.package.json.tmp');
       fs.writeFileSync(tmp, p.packed);
       fs.renameSync(tmp, path.join(p.target, 'package.json'));
     }
   }
-  return Object.fromEntries(plan.filter((p) => p.before).map((p) => [p.name, sha256(p.before)]));
+  return Object.fromEntries(plan.filter((p) => p.before !== null).map((p) => [p.name, sha256(canonicalManifest(p.before) ?? p.before)]));
 }
 
 /**

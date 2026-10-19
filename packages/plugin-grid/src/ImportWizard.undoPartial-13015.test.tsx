@@ -149,6 +149,8 @@ describe('ImportWizard: an import undo that leaves rows unreverted says so (obje
       createImportJob: vi.fn(async () => ({ jobId: JOB_ID, object: 'contact', status: 'pending', total: 12 })),
       // After a partial undo the job reads exactly as before: undoable, not reverted.
       getImportJobProgress: vi.fn(async () => (cancelledYet ? cancelled : running)),
+      // Read only by a job that completes; the wizard needs it to offer a background job.
+      getImportJobResults: vi.fn(async () => ({ ...cancelled, status: 'succeeded' as const, results: [], resultsTruncated: false })),
       cancelImportJob: vi.fn(async () => { cancelledYet = true; }),
       undoImportJob: vi.fn(async () => PARTIAL),
     };

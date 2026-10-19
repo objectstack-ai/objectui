@@ -10,7 +10,7 @@
  *      objectstack-shaped workspace packed by the real `pnpm pack` — the input
  *      objectstack#24306 consumes. No network: nothing is fetched or installed.
  */
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -20,11 +20,13 @@ import { fileURLToPath } from 'node:url';
 
 import {
   CACHE_DIR,
+  ENTRY_FILE,
   OVERRIDE_PREFIX,
   PIN_DIR,
   PinRefusal,
   RECIPE,
   STAMP_FILE,
+  STORE_ENV,
   build,
   canonicalManifest,
   check,
@@ -38,6 +40,11 @@ import {
   lockfileDependencyNames,
   materialize,
   objectstackEnv,
+  publishToStore,
+  pruneStore,
+  storeDir,
+  storeKey,
+  takeFromStore,
   annotation,
   tailLines,
   readOverrides,
@@ -463,8 +470,10 @@ describe('OBJECTSTACK_ROOT stands an existing tree in (objectui#12957, objectsta
   it('packs the tree into the pinned-build directories, publish-shaped, and stamps it as a stand-in', () => {
     const tree = makeObjectstack('stand-in');
     const root = makeObjectui('stand-in');
-    const result = build({ root, env: { ...process.env, OBJECTSTACK_ROOT: tree } });
+    const store = path.join(scratch, 'stand-in', 'store');
+    const result = build({ root, env: { ...process.env, OBJECTSTACK_ROOT: tree, [STORE_ENV]: store } });
     expect(result.skipped).toBe(false);
+    expect(fs.existsSync(store), 'a stand-in is not the pin: it never reaches the machine-wide store (objectui#12972)').toBe(false);
     const cache = path.join(root, CACHE_DIR);
     const core = JSON.parse(fs.readFileSync(path.join(cache, 'core/package.json'), 'utf8'));
     expect(core.dependencies['@objectstack/spec'], 'pnpm pack rewrote the workspace protocol').toBe('9.9.9-test.1');
@@ -526,5 +535,92 @@ describe('OBJECTSTACK_ROOT stands an existing tree in (objectui#12957, objectsta
     // The stand-in cases above are only meaningful if they reached the real packer.
     const r = spawnSync('pnpm', ['--version'], { encoding: 'utf8' });
     expect(r.status).toBe(0);
+  });
+});
+
+describe('one build per machine, outside every checkout (objectui#12972)', () => {
+  const PINNED = `${JSON.stringify({ name: '@objectstack/spec', version: '1.0.0', exports: { '.': './dist/index.mjs' }, dependencies: { a: '1' } })}\n`;
+  const BUILT = 'export const pinned = true;\n';
+  /** A checkout at the pin with no build, a cache as `build` leaves one, and the store's entry for it. */
+  function machine(name: string) {
+    const base = fs.mkdtempSync(path.join(scratch, `${name.replace(/ /g, '-')}-`));
+    const root = path.join(base, 'objectui');
+    writeJson(path.join(root, 'package.json'), { name: 'x', dependencies: { '@objectstack/spec': '1' }, pnpm: { overrides: { '@objectstack/spec': override('spec') } } });
+    fs.writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages: []\n');
+    fs.writeFileSync(path.join(root, '.objectstack-sha'), `${SHA}\n`);
+    fs.writeFileSync(path.join(root, 'pnpm-lock.yaml'), "snapshots:\n  '@objectstack/spec@file:.objectstack-pin/spec':\n    dependencies:\n      a: 1.0.0\n");
+    const [cache, store] = [path.join(base, 'cache'), path.join(base, 'store')];
+    for (const [file, text] of [[path.join(root, PIN_DIR, 'spec/package.json'), PINNED], [path.join(cache, 'spec/package.json'), PINNED], [path.join(cache, 'spec/dist/index.mjs'), BUILT]]) {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, text);
+    }
+    writeJson(path.join(cache, STAMP_FILE), { recipe: RECIPE, source: 'pin', sha: SHA, packages: { '@objectstack/spec': '1.0.0' } });
+    // Offline: a build the store does not satisfy fails fast, at the fetch.
+    const env = { ...process.env, OBJECTSTACK_ROOT: '', [STORE_ENV]: store, OBJECTSTACK_REPO_URL: `file://${base}/no-such-repo` };
+    return { root, cache, store, entry: path.join(store, storeKey(SHA)), env };
+  }
+
+  it('lives at an overridable path outside any checkout, keyed by the pin and this script', () => {
+    expect(storeDir({ [STORE_ENV]: '/srv/pins' })).toBe('/srv/pins');
+    expect(storeDir({ XDG_CACHE_HOME: '/c' })).toBe('/c/objectstack-pin');
+    expect(storeDir({})).toBe(path.join(os.homedir(), '.cache', 'objectstack-pin'));
+    const other = path.join(scratch, 'other-script.mjs');
+    fs.writeFileSync(other, 'another script');
+    expect(storeKey(SHA)).toMatch(new RegExp(`^${SHA}-[0-9a-f]{16}$`));
+    expect(storeKey(SHA, other), 'another script never reuses the entry').not.toBe(storeKey(SHA));
+  });
+
+  it('publishes once, and a fresh checkout COPIES the entry -- a write into the checkout never reaches it', () => {
+    const { root, cache, store, entry, env } = machine('reuse');
+    expect([publishToStore(cache, entry), publishToStore(cache, entry)]).toEqual(['published', 'present']);
+    expect(fs.readdirSync(store), 'nothing temporary is left').toEqual([path.basename(entry)]);
+    expect(build({ root, env })).toMatchObject({ skipped: false, reused: true, stamp: { source: 'pin', sha: SHA } });
+    const linked = path.join(root, PIN_DIR, 'spec/dist/index.mjs');
+    expect(fs.statSync(linked).ino, 'beside the manifest').toBe(fs.statSync(path.join(root, CACHE_DIR, 'spec/dist/index.mjs')).ino);
+    expect(fs.statSync(linked).ino, 'a copy, not a link').not.toBe(fs.statSync(path.join(entry, 'spec/dist/index.mjs')).ino);
+    expect(() => check({ root })).not.toThrow();
+    fs.appendFileSync(linked, 'export const marker = 1;\n');
+    expect(fs.readFileSync(path.join(entry, 'spec/dist/index.mjs'), 'utf8')).toBe(BUILT);
+  });
+
+  it.each<[string, (entry: string) => void, RegExp]>([
+    ['another pin', (e) => writeJson(path.join(e, STAMP_FILE), { recipe: RECIPE, source: 'pin', sha: 'f'.repeat(40), packages: { '@objectstack/spec': '1.0.0' } }), /not the pin: .*the pin is 0123456789ab/],
+    ['a package gone', (e) => fs.rmSync(path.join(e, 'spec'), { recursive: true }), /not the pin: .*does not hold @objectstack\/spec/],
+    ['a file gone', (e) => fs.rmSync(path.join(e, 'spec/dist/index.mjs')), /not the ones it was published with/],
+    ['a byte changed', (e) => fs.appendFileSync(path.join(e, 'spec/dist/index.mjs'), ' '), /not the ones it was published with/],
+    ['no record', (e) => fs.rmSync(path.join(e, ENTRY_FILE)), /could not be read/],
+  ])('never takes an entry with %s: the reason is said, staging is emptied, the pin is built', (label, spoil, reason) => {
+    const { root, cache, entry, env } = machine(label);
+    publishToStore(cache, entry);
+    spoil(entry);
+    const staging = fs.mkdtempSync(path.join(scratch, 'staging-'));
+    expect(takeFromStore(entry, staging, { pin: SHA, overrides: new Map([['@objectstack/spec', 'spec']]) })).toMatch(reason);
+    expect(fs.readdirSync(staging)).toEqual([]);
+    expect(() => build({ root, env })).toThrow(/git fetch .*exited/);
+    expect(fs.existsSync(path.join(root, CACHE_DIR))).toBe(false);
+  });
+
+  it('drops its own copy when a concurrent run renamed its entry into place first', () => {
+    const { cache, store, entry } = machine('race');
+    publishToStore(cache, entry);
+    fs.writeFileSync(path.join(cache, 'spec/dist/index.mjs'), 'export const second = true;\n');
+    const spy = vi.spyOn(fs, 'existsSync').mockReturnValueOnce(false); // both runs looked before either renamed
+    try {
+      expect(publishToStore(cache, entry)).toBe('present');
+    } finally {
+      spy.mockRestore();
+    }
+    expect(fs.readFileSync(path.join(entry, 'spec/dist/index.mjs'), 'utf8')).toBe(BUILT);
+    expect(fs.readdirSync(store)).toEqual([path.basename(entry)]);
+  });
+
+  it('keeps the current entry and the most recently used others, and clears what a dead run left', () => {
+    const store = fs.mkdtempSync(path.join(scratch, 'prune-'));
+    for (const [name, age] of [['current', 9e4], ['newest', 1], ['newer', 2], ['old', 3], ['.tmp-live', 1], ['.tmp-dead', 7200]] as const) {
+      fs.mkdirSync(path.join(store, name));
+      fs.utimesSync(path.join(store, name), Date.now() / 1000 - age, Date.now() / 1000 - age);
+    }
+    pruneStore(store, 3, 'current');
+    expect(fs.readdirSync(store).sort()).toEqual(['.tmp-live', 'current', 'newer', 'newest']);
   });
 });

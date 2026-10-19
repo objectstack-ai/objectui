@@ -80,6 +80,20 @@
  * that builds it. The lockfile does not change; the committed manifests in
  * `.objectstack-pin` do, until the next build at the pin restores them.
  *
+ * ## One build per machine (objectui#12972)
+ *
+ * A build at the pin is also kept once per machine, outside every checkout, in
+ * `$OBJECTSTACK_PIN_STORE` (default `$XDG_CACHE_HOME/objectstack-pin`, else
+ * `~/.cache/objectstack-pin`) as `PIN-HASH`, HASH over this script's bytes: CI's
+ * cache key inputs. A checkout whose cache is not the pin COPIES the entry instead of
+ * building -- never links it: the cache is hard-linked into `.objectstack-pin` and
+ * `node_modules`, so a linked entry would carry one checkout's write into a built file
+ * to every checkout. Only a build this run made is published (a current cache may
+ * have been written to), copied, hashed (`.entry.json`) and renamed into place: a
+ * reader finds no entry or a whole one, and a concurrent run that renamed first wins.
+ * The COPY is judged before use, by the stamp check and the hash. A stand-in never
+ * reads or writes the store; it keeps STORE_KEEP entries; a failed write only warns.
+ *
  * ## The lockfile must record what the build declares -- and pnpm will not check it
  *
  * Measured on objectui#12957: with a pinned package's manifest given a dependency
@@ -133,6 +147,10 @@ export const STAMP_FILE = '.stamp.json';
 export const OVERRIDE_PREFIX = `file:${PIN_DIR}/`;
 /** Bump when what `build` writes changes shape, so an older cache is rebuilt rather than trusted. */
 export const RECIPE = 1;
+/** objectui#12972: the store's variable, an entry's record, how many entries it keeps. */
+export const STORE_ENV = 'OBJECTSTACK_PIN_STORE';
+export const ENTRY_FILE = '.entry.json';
+export const STORE_KEEP = 4;
 export const DEFAULT_REPO_URL = 'https://github.com/objectstack-ai/objectstack.git';
 
 const SCOPE = '@objectstack/';
@@ -471,10 +489,10 @@ export function readStamp(root) {
  * Whether the cache already holds the pin's build of exactly these packages.
  *
  * @param {Record<string, any> | null} stamp
- * @param {{ pin: string, overrides: Map<string, string>, root: string }} want
+ * @param {{ pin: string, overrides: Map<string, string>, root?: string, cache?: string }} want `cache` defaults to root's
  * @returns {{ current: boolean, why: string }}
  */
-export function judgeStamp(stamp, { pin, overrides, root }) {
+export function judgeStamp(stamp, { pin, overrides, root, cache = path.join(root, CACHE_DIR) }) {
   if (!stamp) return { current: false, why: 'no build in the cache' };
   if (stamp.recipe !== RECIPE) return { current: false, why: `the cache was written by recipe ${stamp.recipe}, this script is recipe ${RECIPE}` };
   if (stamp.source !== 'pin') return { current: false, why: `the cache holds a stand-in from ${stamp.root ?? 'an external tree'} (${String(stamp.sha).slice(0, 12)}), not the pin` };
@@ -483,8 +501,8 @@ export function judgeStamp(stamp, { pin, overrides, root }) {
   const have = Object.keys(stamp.packages ?? {}).sort();
   if (want.join() !== have.join()) return { current: false, why: `the cache holds ${have.join(', ') || 'no package'}, the overrides name ${want.join(', ')}` };
   for (const [name, dir] of overrides) {
-    const manifest = path.join(root, CACHE_DIR, dir, 'package.json');
-    if (!fs.existsSync(manifest) || readJson(manifest).name !== name) return { current: false, why: `${CACHE_DIR}/${dir} does not hold ${name}` };
+    const manifest = path.join(cache, dir, 'package.json');
+    if (!fs.existsSync(manifest) || readJson(manifest).name !== name) return { current: false, why: `${path.join(cache, dir)} does not hold ${name}` };
   }
   return { current: true, why: `built at the pin ${pin.slice(0, 12)}` };
 }
@@ -628,6 +646,105 @@ export function check({ root = REPO_ROOT } = {}) {
       `${PIN_DIR} holds the committed manifests of ${hollow.join(', ')} but not the pinned build, so this install would ` +
         'link packages with no code in them. Run `pnpm run setup`: it builds the pin, then installs.',
     );
+  }
+}
+
+// ── one build per machine (objectui#12972) ─────────────────────────────────
+
+/**
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {string} the store
+ */
+export function storeDir(env) {
+  if (env[STORE_ENV]) return path.resolve(env[STORE_ENV]);
+  return path.join(env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'), 'objectstack-pin');
+}
+
+/**
+ * @param {string} pin
+ * @param {string} [script] whose bytes key the entry: this one
+ * @returns {string} `PIN-HASH`
+ */
+export function storeKey(pin, script = fileURLToPath(import.meta.url)) {
+  return `${pin}-${sha256(fs.readFileSync(script)).slice(7, 23)}`;
+}
+
+/**
+ * Copy an entry into an empty `staging` and judge the COPY, so a prune or a write racing it shows.
+ *
+ * @param {string} entry
+ * @param {string} staging
+ * @param {{ pin: string, overrides: Map<string, string> }} want
+ * @returns {string | null} why it was not taken (`staging` left empty), or null
+ */
+export function takeFromStore(entry, staging, { pin, overrides }) {
+  if (!fs.existsSync(entry)) return 'no entry for this pin and script';
+  let why = null;
+  try {
+    fs.cpSync(entry, staging, { recursive: true });
+    const { contentHash } = readJson(path.join(staging, ENTRY_FILE));
+    fs.rmSync(path.join(staging, ENTRY_FILE));
+    const verdict = judgeStamp(readJson(path.join(staging, STAMP_FILE)), { pin, overrides, cache: staging });
+    if (!verdict.current) why = `the entry is not the pin: ${verdict.why}`;
+    else if (hashTree(staging) !== contentHash) why = "the entry's files are not the ones it was published with";
+    else fs.utimesSync(entry, new Date(), new Date()); // "recently used", for the prune
+  } catch (error) {
+    why = `the entry could not be read: ${error}`;
+  }
+  if (why !== null) {
+    fs.rmSync(staging, { recursive: true, force: true });
+    fs.mkdirSync(staging);
+  }
+  return why;
+}
+
+/**
+ * Publish a cache this run built: copy, hash, rename -- a reader finds no entry or a whole one.
+ *
+ * @param {string} cache
+ * @param {string} entry
+ * @param {number} [keep]
+ * @returns {'published' | 'present'} `present`: another run's entry was there first
+ */
+export function publishToStore(cache, entry, keep = STORE_KEEP) {
+  if (fs.existsSync(entry)) return 'present';
+  fs.mkdirSync(path.dirname(entry), { recursive: true });
+  const tmp = fs.mkdtempSync(path.join(path.dirname(entry), '.tmp-'));
+  try {
+    fs.cpSync(cache, tmp, { recursive: true });
+    fs.writeFileSync(path.join(tmp, ENTRY_FILE), `${JSON.stringify({ contentHash: hashTree(tmp) })}\n`);
+    fs.renameSync(tmp, entry);
+  } catch (error) {
+    if (fs.existsSync(entry)) return 'present';
+    throw error;
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+  pruneStore(path.dirname(entry), keep, path.basename(entry));
+  return 'published';
+}
+
+/**
+ * Keep `current` and the `keep - 1` most recently used others, each removal renamed
+ * away first; a temporary directory an hour old is a dead run's.
+ *
+ * @param {string} store
+ * @param {number} keep
+ * @param {string} current
+ */
+export function pruneStore(store, keep, current) {
+  const dirs = fs.readdirSync(store, { withFileTypes: true }).filter((e) => e.isDirectory() && e.name !== current);
+  const aged = dirs.map((e) => ({ name: e.name, mtime: fs.statSync(path.join(store, e.name)).mtimeMs })).sort((a, b) => b.mtime - a.mtime);
+  const doomed = [
+    ...aged.filter((e) => !e.name.startsWith('.')).slice(Math.max(keep - 1, 0)),
+    ...aged.filter((e) => e.name.startsWith('.') && e.mtime < Date.now() - 3600_000),
+  ];
+  for (const { name } of doomed) {
+    const gone = name.startsWith('.') ? name : `.gone-${name}-${process.pid}`;
+    try {
+      fs.renameSync(path.join(store, name), path.join(store, gone));
+      fs.rmSync(path.join(store, gone), { recursive: true, force: true });
+    } catch {}
   }
 }
 
@@ -786,7 +903,7 @@ function describeTree(tree) {
  * it beside the committed manifests.
  *
  * @param {{ root?: string, env?: NodeJS.ProcessEnv, writeManifests?: boolean }} [opts]
- * @returns {{ skipped: boolean, stamp: Record<string, any> }}
+ * @returns {{ skipped: boolean, reused: boolean, stamp: Record<string, any> }} `reused`: copied from the store
  */
 export function build({ root = REPO_ROOT, env = process.env, writeManifests = false } = {}) {
   const manifest = readJson(path.join(root, 'package.json'));
@@ -804,15 +921,17 @@ export function build({ root = REPO_ROOT, env = process.env, writeManifests = fa
     else assertLockfileRecordsBuild(root, overrides);
   };
 
+  // objectui#12972: the machine-wide entry for this pin and script; a stand-in has none.
+  const entry = external ? null : path.join(storeDir(env), storeKey(pin));
   if (!external) {
     const verdict = judgeStamp(previous, { pin, overrides, root });
     if (verdict.current) {
       console.log(`✓ ${CACHE_DIR} is ${verdict.why} -- nothing to build.`);
       materialize(root, overrides, { from: path.join(root, CACHE_DIR), mode });
       settle();
-      return { skipped: true, stamp: previous };
+      return { skipped: true, reused: false, stamp: previous };
     }
-    console.log(`→ ${CACHE_DIR}: ${verdict.why}. Building @objectstack/* at ${pin}.`);
+    console.log(`→ ${CACHE_DIR}: ${verdict.why}.`);
   } else {
     console.log(`→ OBJECTSTACK_ROOT is set: packing @objectstack/* from ${external}, standing in for the pin ${pin.slice(0, 12)}.`);
   }
@@ -821,7 +940,18 @@ export function build({ root = REPO_ROOT, env = process.env, writeManifests = fa
   fs.mkdirSync(cacheParent, { recursive: true });
   const staging = fs.mkdtempSync(path.join(cacheParent, 'objectstack.staging-'));
   const scratch = fs.mkdtempSync(path.join(scratchBase(env), 'ospin-'));
+  const target = path.join(root, CACHE_DIR);
   try {
+    const why = entry && takeFromStore(entry, staging, { pin, overrides });
+    if (entry && why === null) {
+      materialize(root, overrides, { from: staging, mode, replaced });
+      fs.rmSync(target, { recursive: true, force: true });
+      fs.renameSync(staging, target);
+      console.log(`✓ ${CACHE_DIR} now holds the build of ${pin.slice(0, 12)} copied from ${entry}, linked into ${PIN_DIR}. Run \`pnpm install\` so node_modules links it.`);
+      settle();
+      return { skipped: false, reused: true, stamp: readStamp(root) };
+    }
+    if (entry) console.log(`→ ${entry}: ${why}. Building @objectstack/* at ${pin}.`);
     let tree = external;
     if (!external) {
       tree = path.join(scratch, 'src');
@@ -869,16 +999,23 @@ export function build({ root = REPO_ROOT, env = process.env, writeManifests = fa
       ? { recipe: RECIPE, source: 'external', root: external, ...describeTree(external), packages, contentHash: hashTree(staging), replaced: replaced ?? before }
       : { recipe: RECIPE, source: 'pin', sha: pin, packages };
     fs.writeFileSync(path.join(staging, STAMP_FILE), `${JSON.stringify(stamp, null, 2)}\n`);
-    const target = path.join(root, CACHE_DIR);
     fs.rmSync(target, { recursive: true, force: true });
     fs.renameSync(staging, target);
+    if (entry) {
+      try {
+        const published = publishToStore(target, entry);
+        console.log(`  ${entry}: ${published === 'published' ? 'published for every checkout on this machine' : 'another run published it first'}`);
+      } catch (error) {
+        console.warn(`⚠ objectstack-pin: could not publish the build to ${entry}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
     console.log(
       `✓ ${CACHE_DIR} now holds ${names.join(', ')} ` +
         (external ? `from ${external} (${String(stamp.sha).slice(0, 12)}${stamp.dirty ? ', with uncommitted changes' : ''})` : `built at ${pin.slice(0, 12)}`) +
         `, linked into ${PIN_DIR}${external ? ' with its own manifests (the next build at the pin restores the committed ones)' : ''}. Run \`pnpm install\` so node_modules links it.`,
     );
     settle();
-    return { skipped: false, stamp };
+    return { skipped: false, reused: false, stamp };
   } finally {
     // Cleanup never speaks for the build: a removal that fails (a child process
     // still writing in the tree) is a warning, not an exception that would replace
@@ -894,10 +1031,10 @@ export function build({ root = REPO_ROOT, env = process.env, writeManifests = fa
 }
 
 /**
- * @param {{ root?: string }} [opts]
+ * @param {{ root?: string, env?: NodeJS.ProcessEnv }} [opts]
  * @returns {number} exit code
  */
-export function status({ root = REPO_ROOT } = {}) {
+export function status({ root = REPO_ROOT, env = process.env } = {}) {
   const pin = readPin(root);
   const overrides = readOverrides(readJson(path.join(root, 'package.json')));
   const stamp = readStamp(root);
@@ -905,6 +1042,8 @@ export function status({ root = REPO_ROOT } = {}) {
   const hollow = hollowPackages(root, overrides);
   console.log(`pin    ${pin}  (${PIN_FILE})`);
   console.log(`cache  ${stamp ? `${stamp.source} ${stamp.sha}${stamp.root ? ` from ${stamp.root}` : ''}` : 'empty'}  (${CACHE_DIR})`);
+  const entry = path.join(storeDir(env), storeKey(pin));
+  console.log(`store  ${entry} ${fs.existsSync(entry) ? 'holds this pin and script' : 'is absent'}  (${STORE_ENV})`);
   console.log(`${verdict.current ? '✓' : '✗'} ${verdict.why}${verdict.current ? '' : ' -- run `pnpm run setup`'}`);
   if (hollow.length) console.log(`✗ ${PIN_DIR} holds no build for ${hollow.join(', ')} -- run \`pnpm run setup\``);
   return verdict.current && !hollow.length ? 0 : 1;

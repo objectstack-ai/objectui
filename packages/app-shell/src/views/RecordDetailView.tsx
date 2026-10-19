@@ -169,6 +169,11 @@ const FEED_CONSUMER_TYPES: ReadonlySet<string> = new Set([
   'record:chatter',
   'record:activity',
 ]);
+/**
+ * objectui#13010 part 5 — the block that draws this view's `sys_audit_log`
+ * read: the synthesized page's History tab hands it the rows as `entries`.
+ */
+const HISTORY_CONSUMER_TYPES: ReadonlySet<string> = new Set(['record:history']);
 /** Where a page tree nests nodes: the keys `pageSchemaIntrospect` walks. */
 const PAGE_NODE_KEYS = ['children', 'items', 'body', 'components', 'regions'] as const;
 const PAGE_NODE_PROPERTY_KEYS = ['children', 'items'] as const;
@@ -1944,11 +1949,41 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     return () => observer.disconnect();
   }, [attachmentsFallbackEl, attachmentsFallbackShown]);
 
+  // ── The audit read waits for the History tab (objectui#13010 part 5) ───
+  //
+  // The `sys_audit_log` read below, and the `sys_user` name lookup behind it,
+  // fill only the `record:history` node of the History tab the synthesized
+  // page composes; an assigned page is rendered as authored, and its
+  // `record:history` reads its own source. So, like the feed above, the read
+  // goes out when that node is on screen, judged by `pageShowsNodeOnOpen` on
+  // the page this view synthesizes (the History tab is added only in the
+  // rebuild below, so the judgment synthesizes it here with no rows): at open
+  // when `?tab=` names the History tab, else on the tab switch that mounts it.
+  // Latched for the view's life for the feed's reason.
+  const historyPage = useMemo(() => {
+    if (!historyEnabled || assignedPage || namedPageBlocked || !objectDef) return null;
+    return buildDefaultPageSchema(objectDef, {
+      ...(assignedSlots ? { slots: assignedSlots } : {}),
+      history: { entries: [] },
+    });
+  }, [historyEnabled, assignedPage, namedPageBlocked, objectDef, assignedSlots]);
+  const historyConsumerOnScreen = useMemo(
+    () => historyPage != null && pageShowsNodeOnOpen(historyPage, HISTORY_CONSUMER_TYPES, activeTabParam),
+    [historyPage, activeTabParam],
+  );
+  const [historyConsumerShown, setHistoryConsumerShown] = useState(false);
+  if (historyConsumerOnScreen && !historyConsumerShown) setHistoryConsumerShown(true);
+  const historyWanted = historyConsumerOnScreen || historyConsumerShown;
+  // The read is issued from an effect, after the commit that mounts the tab;
+  // that commit shows the tab's loading state, as the read's own would.
+  const historyPending = historyWanted && !!dataSource && !!pureRecordId;
+
   useEffect(() => {
     if (!dataSource || !pureRecordId || !objectDef || !historyEnabled) {
       setHistoryEntries(null);
       return;
     }
+    if (!historyWanted) return;
     let cancelled = false;
     setHistoryLoading(true);
 
@@ -2090,7 +2125,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // language switch so the translated values re-localize, and
     // `displayLocale` on a display-locale switch so the dates do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataSource, pureRecordId, objectDef, historyEnabled, objects, language, displayLocale]);
+  }, [dataSource, pureRecordId, objectDef, historyEnabled, historyWanted, objects, language, displayLocale]);
 
   // Fetch a directory of active users once per dataSource mount and expose
   // them as @-mention suggestions to the DiscussionContext. Capped at 50 to
@@ -3095,7 +3130,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       ...(historyEnabled && {
         history: {
           entries: historyEntries ?? [],
-          loading: historyLoading && historyEntries === null,
+          loading: (historyLoading || historyPending) && historyEntries === null,
           unknownUserText: t('detail.unknownUser', { defaultValue: 'Unknown' }),
         },
       }),
@@ -3124,7 +3159,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // the panel's headline is the pending one. (The decision actions no longer
   // ride this list at all — objectui#3055 moved them to the declared-action
   // bar, which reads the pending row directly.)
-  }, [objectDef?.name, childRelations, t, objectPluralLabel, objects, historyEnabled, historyEntries, historyLoading, approvals.available, approvals.pendingRequest, approvals.requests, user?.id]);
+  }, [objectDef?.name, childRelations, t, objectPluralLabel, objects, historyEnabled, historyEntries, historyLoading, historyPending, approvals.available, approvals.pendingRequest, approvals.requests, user?.id]);
 
   if (isLoading) {
     return <SkeletonDetail />;

@@ -47,7 +47,7 @@ import {
   MessageResponse,
   type MessageProps,
 } from './elements/message';
-import { RecordLinkContext } from './elements/record-link';
+import { RecordLinkContext } from './recordLink';
 import {
   PromptInput,
   PromptInputBody,

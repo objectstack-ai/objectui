@@ -37,7 +37,7 @@ import {
 } from "react";
 import { useSafeTranslate } from "@object-ui/i18n";
 import { Streamdown } from "streamdown";
-import { RecordLinkContext, withRecordLinks } from "./record-link";
+import { RecordLinkContext, withRecordLinks } from "../recordLink";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -412,7 +412,7 @@ const MessageResponseImpl = ({
   const tt = useSafeTranslate();
   // objectui#13037 — a record link (`/record/OBJECT/ID`) opens the record in
   // the console through the host's opener; every other link keeps the
-  // caller's (by default streamdown's) link safety. See `./record-link`.
+  // caller's (by default streamdown's) link safety. See `../recordLink`.
   const openRecordLink = useContext(RecordLinkContext);
   const answerLinkSafety = useMemo(
     () => withRecordLinks(linkSafety, openRecordLink),

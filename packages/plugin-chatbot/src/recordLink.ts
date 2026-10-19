@@ -32,8 +32,9 @@
  * streamdown's link component for EVERY link, and that component (with its
  * dialog) is not exported, so the default could not be kept for the rest.
  *
- * Module-private: imported by `message.tsx` and `ChatbotEnhanced.tsx`, never
- * re-exported from the elements barrel or the package entry.
+ * Module-private: imported by `elements/message.tsx` and
+ * `ChatbotEnhanced.tsx`, never re-exported from the package entry. It lives
+ * outside `elements/`, which holds vendored upstream files only.
  */
 import { createContext } from "react";
 import type { LinkSafetyConfig } from "streamdown";

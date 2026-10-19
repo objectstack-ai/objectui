@@ -11,7 +11,7 @@
  * inside the console, and nothing else about link safety moves.
  *
  * The one record-link form is `/record/OBJECT/ID` (`RECORD_LINK_PATTERN` in
- * `elements/record-link.ts`). A click on it hands `{ objectName, recordId }` to
+ * `src/recordLink.ts`). A click on it hands `{ objectName, recordId }` to
  * the chat's `onOpenRecord` (the host's `open_record` opener) with no dialog
  * and no new tab. Every other link, and the record form when the host gives
  * no opener, keeps streamdown's link-safety dialog.
@@ -26,7 +26,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { ChatbotEnhanced } from '../ChatbotEnhanced';
 import type { ChatbotEnhancedMessage } from '../ChatbotEnhanced';
-import { parseRecordLink, RECORD_LINK_PATTERN } from '../elements/record-link';
+import { parseRecordLink, RECORD_LINK_PATTERN } from '../recordLink';
 
 const user = { id: 'u1', role: 'user', content: 'analyse my customers' } as ChatbotEnhancedMessage;
 const answer = (content: string) =>

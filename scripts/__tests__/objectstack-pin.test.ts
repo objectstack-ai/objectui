@@ -60,7 +60,10 @@ const SHA = '0123456789abcdef0123456789abcdef01234567';
 // Anchored on the OS temp directory at module scope, so no path below can be
 // read as relative to the process cwd (`pnpm check:test-path-roots`).
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'objectstack-pin-test-'));
+// No build in this file reaches the machine's real store (objectui#12972), whatever a regression does.
+vi.stubEnv(STORE_ENV, path.join(scratch, 'machine-store'));
 afterAll(() => {
+  vi.unstubAllEnvs();
   fs.rmSync(scratch, { recursive: true, force: true });
 });
 

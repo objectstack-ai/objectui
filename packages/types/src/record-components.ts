@@ -17,7 +17,7 @@
  * @packageDocumentation
  */
 
-import type { ElementDataSource, I18nLabel, ViewFilterRule } from '@objectstack/spec/ui';
+import type { ElementDataSource, EmptyState, I18nLabel, ViewFilterRule } from '@objectstack/spec/ui';
 
 /**
  * ARIA props shared across all record components.
@@ -329,6 +329,15 @@ export interface RecordDetailsComponentProps {
    * `enforceFieldSecurity` above for the declaration's standing.
    */
   requiredPermissions?: string[];
+  /**
+   * What the block draws in its place when its node-level `dataSource`
+   * binding answers no row (`@objectstack/spec` `RecordDetailsProps.emptyState`, the list
+   * view's own `EmptyStateSchema` by reference — objectstack#24266). Drawn
+   * only for a bound block whose read settled with no row; never while the
+   * read loads, in place of a failed read's error, or on an unbound block.
+   * Omitted, the block keeps its own no-record placeholder (objectui#12932).
+   */
+  emptyState?: EmptyState;
   /** ARIA accessibility attributes */
   aria?: RecordComponentAriaProps;
 }
@@ -437,6 +446,15 @@ export interface RecordHighlightsComponentProps {
    * where the client cannot resolve the viewer's capabilities.
    */
   requiredPermissions?: string[];
+  /**
+   * What the block draws in its place when its node-level `dataSource`
+   * binding answers no row (`@objectstack/spec` `RecordHighlightsProps.emptyState`, the list
+   * view's own `EmptyStateSchema` by reference — objectstack#24266). Drawn
+   * only for a bound block whose read settled with no row; never while the
+   * read loads, in place of a failed read's error, or on an unbound block.
+   * Omitted, the block keeps its own no-record placeholder (objectui#12932).
+   */
+  emptyState?: EmptyState;
   /** ARIA accessibility attributes */
   aria?: RecordComponentAriaProps;
 }

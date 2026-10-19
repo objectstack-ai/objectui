@@ -1,5 +1,6 @@
 ---
 '@object-ui/plugin-detail': minor
+'@object-ui/types': minor
 ---
 
 Bound record blocks draw an authored empty state when their binding answers no row (objectui#12932, the renderer half of objectstack-ai/objectstack#24266).
@@ -9,3 +10,7 @@ Bound record blocks draw an authored empty state when their binding answers no r
 It is not drawn while the read is loading, in place of the error panel a failed read shows, when a bound row is there, or on a block with no `dataSource`. A block that declares no `emptyState` keeps its own placeholder: "Record not found" on `record:details`, nothing on `record:highlights`, and the empty bar on `record:quick_actions`.
 
 The three registrations publish the `emptyState` input.
+
+`@object-ui/types` declares `emptyState` on `RecordDetailsComponentProps` and `RecordHighlightsComponentProps`, by reference to the spec's `EmptyState` type, so a typed literal can author it.
+
+`@object-ui/plugin-detail` now requires `@objectstack/spec` `^18.0.0-next.5`, the first published release that declares the key.

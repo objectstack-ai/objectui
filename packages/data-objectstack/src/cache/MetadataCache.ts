@@ -170,17 +170,20 @@ export class MetadataCache {
     }
 
     this.stats.misses++;
-    let promise: Promise<T> | undefined;
+    // The run compares itself against the registered request, so it needs a
+    // handle to the promise it is about to become.
+    const self: { promise?: Promise<T> } = {};
     const run = async (): Promise<T> => {
       try {
         const data = await fetcher();
-        if (store && this.inflight.get(key) === promise) this.set(key, data);
+        if (store && this.inflight.get(key) === self.promise) this.set(key, data);
         return data;
       } finally {
-        if (this.inflight.get(key) === promise) this.inflight.delete(key);
+        if (this.inflight.get(key) === self.promise) this.inflight.delete(key);
       }
     };
-    promise = run();
+    const promise = run();
+    self.promise = promise;
     this.inflight.set(key, promise as Promise<unknown>);
     return promise;
   }

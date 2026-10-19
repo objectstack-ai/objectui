@@ -53,7 +53,7 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  useObjectTranslation: () => ({ t: (k: string, o?: any) => o?.defaultValue ?? o?.name ?? k, language: 'en' }),
+  useObjectTranslation: () => ({ t: (k: string, o?: { defaultValue?: string; name?: string }) => o?.defaultValue ?? o?.name ?? k, language: 'en' }),
 }));
 
 /** The stored page document the next mount resolves. */
@@ -138,7 +138,7 @@ function mount(page: Record<string, unknown>, find: Find) {
   };
   render(
     <AdapterCtx.Provider value={ds as never}>
-      <SchemaRendererProvider dataSource={ds as any}>
+      <SchemaRendererProvider dataSource={ds as never}>
         <FilterScopeProvider currentUserId="u1" currentOrgId="o1">
           <PredicateScopeProvider scope={AMBIENT}>
             <MemoryRouter initialEntries={[`/apps/cloud/page/${page.name as string}`]}>
@@ -291,7 +291,7 @@ describe('objectui#12931 — the controls', () => {
 
   it('0 rows: `record` is bound as null, and predicates read it as absent', async () => {
     const page = envPage();
-    (page.regions as any[])[0].components.push(
+    (page.regions as Array<{ components: unknown[] }>)[0].components.push(
       text('no_row', 'No organisation row', 'record == null'),
       text('has_row', 'Has organisation row', 'record != null'),
       { type: 'test-12931-scope-probe', id: 'probe' },

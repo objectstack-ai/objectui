@@ -184,6 +184,20 @@ const FEED_ROWS: Record<string, Array<Record<string, unknown>>> = {
   ],
 };
 
+/** The rows the History tab's audit read answers (objectui#13010 part 5). */
+const AUDIT_ROWS: Record<string, Array<Record<string, unknown>>> = {
+  sys_audit_log: [
+    {
+      id: 'aud-1',
+      created_at: '2026-01-05T00:00:00Z',
+      action: 'update',
+      user_id: 'u2',
+      old_value: JSON.stringify({ stage: 'prospecting' }),
+      new_value: JSON.stringify({ stage: 'negotiation' }),
+    },
+  ],
+};
+
 /** The `top` a data read asked for, or undefined. */
 const topOf = (h: Held): number | undefined => {
   const q = new URLSearchParams(h.path.slice(h.path.indexOf('?') + 1));
@@ -203,6 +217,10 @@ function answerFor(h: Held): unknown {
     const total = TOTALS[object];
     const top = topOf(h) ?? total;
     return { success: true, data: { records: childRows(object, Math.min(top, total)), total } };
+  }
+  if (object && object in AUDIT_ROWS) {
+    const rows = AUDIT_ROWS[object];
+    return { success: true, data: { records: rows, total: rows.length } };
   }
   if (object && object in FEED_ROWS) {
     const rows = FEED_ROWS[object];
@@ -296,6 +314,8 @@ interface OpenOptions {
   search?: string;
   /** The IntersectionObserver the page sees; every element on screen by default. */
   observer?: unknown;
+  /** Objects registered beside the record's own and its children. */
+  extraObjects?: Array<Record<string, unknown>>;
 }
 
 async function openRecordPage(options: OpenOptions = {}) {
@@ -304,7 +324,7 @@ async function openRecordPage(options: OpenOptions = {}) {
   vi.stubGlobal('IntersectionObserver', options.observer ?? VisibleObserver);
   const ds = new ObjectStackAdapter({ baseUrl: BASE, fetch, autoReconnect: false });
   await ds.connect();
-  const allObjects = [options.object ?? objectDef, quoteDef, lineDef, taskDef];
+  const allObjects = [options.object ?? objectDef, quoteDef, lineDef, taskDef, ...(options.extraObjects ?? [])];
   (ds as unknown as { getObjectSchema: (n: string) => Promise<unknown> }).getObjectSchema = async (n: string) =>
     allObjects.find((o) => o.name === n) ?? null;
 
@@ -576,5 +596,86 @@ describe('the timeline, comments, attachments and user list wait for their panel
     for (const isRead of [isActivityRead, isCommentRead, isUserListRead]) {
       expect(held.filter(isRead).map((h) => h.wave), table).toEqual([1]);
     }
+  });
+});
+
+// ── objectui#13010 part 5: the History tab's audit read waits for its tab ──
+
+/** Registered, so the view offers a History tab for a `trackHistory` object. */
+const auditLogDef = {
+  name: 'sys_audit_log',
+  label: 'Audit Log',
+  managedBy: 'platform',
+  fields: {
+    id: { label: 'Id', type: 'text' },
+    created_at: { label: 'Created', type: 'datetime' },
+    action: { label: 'Action', type: 'text' },
+    user_id: { label: 'User', type: 'text' },
+    old_value: { label: 'Old', type: 'textarea' },
+    new_value: { label: 'New', type: 'textarea' },
+  },
+};
+const historyObject = { ...objectDef, enable: { trackHistory: true } };
+/** No record page is assigned to the object, so the view synthesizes its default page. */
+const SYNTH = { ...RECORD_PAGE, isDefault: false, object: 'os_13010_other' };
+const isAuditRead = isPanelRead('sys_audit_log');
+/** The audit timeline's actor-name lookup: `sys_user` by the row's `user_id`, not the 50-row mention list. */
+const isAuditUserLookup = (h: Held) => isPanelRead('sys_user')(h) && h.path.includes('u2') && topOf(h) === 1;
+const openHistory = (options: OpenOptions = {}) =>
+  openRecordPage({ page: SYNTH, object: historyObject, extraObjects: [auditLogDef], observer: FoldObserver, ...options });
+
+describe('the History tab reads the audit log when it is shown (objectui#13010 part 5)', () => {
+  beforeEach(() => {
+    offscreen.length = 0;
+  });
+
+  // Wave table measured on this file, the synthesized page of a `trackHistory`
+  // object. Before this part: `sys_audit_log top=50` in wave 1 beside the
+  // record read and its `sys_user` name lookup in wave 2, with the History tab
+  // closed. After it: neither until the tab opens.
+  it('a trackHistory record opened on its Details tab reads neither the audit log nor its user names', async () => {
+    const { held } = await openHistory();
+    const table = waveTable(held);
+    expect(held.filter(isRecordRead).map((h) => h.wave), table).toEqual([1]);
+    // The tab is offered, so the silence is not a missing tab.
+    expect(screen.getByRole('tab', { name: /^History/ }), table).toBeTruthy();
+    expect(held.filter(isAuditRead), table).toEqual([]);
+    expect(held.filter(isAuditUserLookup), table).toEqual([]);
+    expect(screen.queryByText('Grace'), table).toBeNull();
+  });
+
+  it('opening the History tab reads the audit log and its user names once each, and draws the rows', async () => {
+    const { held, state } = await openHistory();
+    const openedWith = held.length;
+    await openTab('History');
+    await runWaves(held, state);
+    const table = waveTable(held);
+    const audit = held.filter(isAuditRead);
+    expect(audit, table).toHaveLength(1);
+    expect(audit[0].seq, table).toBeGreaterThanOrEqual(openedWith);
+    expect(topOf(audit[0]), table).toBe(50);
+    expect(held.filter(isAuditUserLookup), table).toHaveLength(1);
+    expect(screen.getByText('Grace')).toBeTruthy();
+    expect(screen.getByText(/negotiation/)).toBeTruthy();
+  });
+
+  it('CONTROL: a trackHistory record opened with ?tab=history reads the audit log at open and draws the rows', async () => {
+    const { held } = await openHistory({ search: '?tab=history' });
+    const table = waveTable(held);
+    expect(held.filter(isAuditRead).map((h) => h.wave), table).toEqual([1]);
+    expect(held.filter(isAuditUserLookup).map((h) => h.wave), table).toEqual([2]);
+    expect(screen.getByText('Grace')).toBeTruthy();
+    expect(screen.getByText(/negotiation/)).toBeTruthy();
+  });
+
+  // Only the synthesized page hands the view's audit rows to a block; an
+  // assigned page's `record:history` reads its own source. So an assigned page
+  // never shows what this read fetches.
+  it('an assigned page of a trackHistory object never reads the audit log', async () => {
+    const { held } = await openHistory({ page: ACTIVITY_PAGE, search: '?tab=activity' });
+    const table = waveTable(held);
+    expect(held.filter(isActivityRead), table).toHaveLength(1);
+    expect(held.filter(isAuditRead), table).toEqual([]);
+    expect(held.filter(isAuditUserLookup), table).toEqual([]);
   });
 });

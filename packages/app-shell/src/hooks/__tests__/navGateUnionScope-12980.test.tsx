@@ -103,9 +103,11 @@ type Reading = { gates: NavMemberGates; ctx: ReturnType<typeof useMetadata> };
 
 const ids = (items: NavigationItem[]) => items.map((item) => item.id as string);
 
-function answers(read: Reading, app: typeof NOTES_APP | typeof CRM_APP, apps: unknown[]): Answers {
+type GatedApp = { navigation: NavigationItem[]; areas?: Array<{ navigation: NavigationItem[] }> };
+
+function answers(read: Reading, app: GatedApp, apps: unknown[]): Answers {
   const { gates } = read;
-  const areas = ((app as { areas?: Array<{ navigation: NavigationItem[] }> }).areas ?? []);
+  const areas = app.areas ?? [];
   return {
     sidebar: ids(navEntriesShownToMember(app.navigation, gates)),
     sidebarAreas: areas.flatMap((area) => ids(navEntriesShownToMember(area.navigation, gates))),
@@ -223,7 +225,7 @@ describe('package app: an area entry requiring an object outside the package is 
     await waitFor(() => expect(objectCalls(calls)).toContain('object/area_gone'));
     await waitFor(() => expect(read().gates.checkCapability('object', 'area_gone')).toBe(false));
 
-    expect(answers(read(), AREA_APP as typeof NOTES_APP, [AREA_APP]).sidebarAreas).toEqual(['nav_sys_user']);
+    expect(answers(read(), AREA_APP, [AREA_APP]).sidebarAreas).toEqual(['nav_sys_user']);
     expect(objectCalls(calls)).not.toContain('object');
   });
 
@@ -233,7 +235,7 @@ describe('package app: an area entry requiring an object outside the package is 
     await waitFor(() => expect(read().gates.checkCapability('object', 'legacy_gone')).toBe(false));
 
     expect(objectCalls(calls)).toEqual([`object?package=${CRM}`, 'object/legacy_gone']);
-    expect(answers(read(), CRM_APP as typeof NOTES_APP, [CRM_APP]).sidebar).toEqual(['nav_crm_account']);
+    expect(answers(read(), CRM_APP, [CRM_APP]).sidebar).toEqual(['nav_crm_account']);
     // A name nobody asked reads as registered inside a package app, as objectui#12811 left it.
     expect(read().gates.checkCapability('object', 'never_asked')).toBe(true);
   });

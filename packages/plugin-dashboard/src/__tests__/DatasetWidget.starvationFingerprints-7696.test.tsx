@@ -286,10 +286,18 @@ function renderPage(opts: PageOptions) {
   const ds: any = listChannel(listDoc);
   ds.queryDataset = vi.fn(async () => datasetResult(omitObject));
 
+  // Since objectui#13039 the net reads through the CONTEXT data source's
+  // `getObjectSchema` when it has one, which puts the chart on the list's
+  // channel and so closes path (2) in any host that provides one. This file
+  // measures the route the objectui#7696 report rode, the raw fallback, so the
+  // context source answers `queryDataset` only. The widget takes `ds` itself
+  // through its prop, as before.
+  const contextSource: any = { queryDataset: ds.queryDataset };
+
   const page = (
     // No `apiFetch` on the provider — the host of objectui#4121's report had
     // none either, which is exactly why the net fell back to global `fetch`.
-    <SchemaRendererProvider dataSource={ds}>
+    <SchemaRendererProvider dataSource={contextSource}>
       <DatasetWidget widget={PIE_WIDGET} dataSource={ds} />
       <NeighbouringListCell doc={listDoc} columnOptions={listColumnOptions} />
       <BundleChromeProbe />

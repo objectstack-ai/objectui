@@ -195,27 +195,32 @@ const TABS_URL_SYNC_KEYS: ReadonlySet<string> = new Set(['regions', 'components'
  */
 function pageShowsNodeOnOpen(page: unknown, types: ReadonlySet<string>, activeTab: string | undefined): boolean {
   const seen = { synced: new WeakSet<object>(), local: new WeakSet<object>() };
-  const walk = (node: any, synced: boolean): boolean => {
-    if (!node || typeof node !== 'object') return false;
+  type PageNode = Record<string, unknown>;
+  const asNode = (value: unknown): PageNode | undefined =>
+    value && typeof value === 'object' && !Array.isArray(value) ? (value as PageNode) : undefined;
+  const walk = (value: unknown, synced: boolean): boolean => {
+    if (!value || typeof value !== 'object') return false;
     const visited = synced ? seen.synced : seen.local;
-    if (visited.has(node)) return false;
-    visited.add(node);
-    if (Array.isArray(node)) return node.some((entry) => walk(entry, synced));
+    if (visited.has(value)) return false;
+    visited.add(value);
+    if (Array.isArray(value)) return value.some((entry) => walk(entry, synced));
+    const node = value as PageNode;
     if (typeof node.type === 'string' && types.has(node.type)) return true;
 
-    const props = node.properties && typeof node.properties === 'object' ? node.properties : undefined;
+    const props = asNode(node.properties);
     let skipItems = false;
     if (node.type === 'page:tabs' && synced) {
-      const top = Array.isArray(node.items) ? node.items : undefined;
-      const nested = Array.isArray(props?.items) ? props.items : undefined;
-      const items: any[] | undefined = top && nested ? undefined : top ?? nested;
+      const top = Array.isArray(node.items) ? (node.items as unknown[]) : undefined;
+      const nested = Array.isArray(props?.items) ? (props.items as unknown[]) : undefined;
+      const raw = top && nested ? undefined : top ?? nested;
+      const items = raw?.map(asNode);
       const readable =
         items !== undefined
         && items.length > 0
-        && items.every((it) => it && typeof it === 'object' && (it.visibleWhen === undefined || it.visibleWhen === null))
+        && items.every((it) => it !== undefined && (it.visibleWhen === undefined || it.visibleWhen === null))
         && (activeTab !== undefined || (node.defaultTab === undefined && props?.defaultTab === undefined));
-      if (readable) {
-        const values = items.map((it, idx) => (typeof it.value === 'string' && it.value !== '' ? it.value : `tab-${idx}`));
+      if (items && readable) {
+        const values = items.map((it, idx) => (typeof it?.value === 'string' && it.value !== '' ? it.value : `tab-${idx}`));
         const activeIdx = activeTab !== undefined && values.includes(activeTab) ? values.indexOf(activeTab) : 0;
         // The item's content is past `withPageTabsUrlSync`'s reach, so a strip
         // nested in it is one this view cannot read.
@@ -1907,9 +1912,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     [feedPage, activeTabParam],
   );
   const [feedConsumerShown, setFeedConsumerShown] = useState(false);
-  useEffect(() => {
-    if (feedConsumerOnScreen) setFeedConsumerShown(true);
-  }, [feedConsumerOnScreen]);
+  // Recorded during render, React's pattern for state derived from an earlier
+  // render: no effect, and no render that reads the latch unset.
+  if (feedConsumerOnScreen && !feedConsumerShown) setFeedConsumerShown(true);
   const feedWanted = feedConsumerOnScreen || feedConsumerShown;
 
   // The host's own Attachments panel, appended at the page foot for a page
@@ -1919,17 +1924,14 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // by handing the panel no data source: it issues no read and stays in its
   // loading state. Latched for the view's life, like the feed above.
   const [attachmentsFallbackEl, setAttachmentsFallbackEl] = useState<HTMLDivElement | null>(null);
-  const [attachmentsFallbackShown, setAttachmentsFallbackShown] = useState(false);
+  const [attachmentsFallbackSeen, setAttachmentsFallbackSeen] = useState(false);
+  // No observer (SSR / a test environment): read at once, as before.
+  const attachmentsFallbackShown = attachmentsFallbackSeen || typeof IntersectionObserver === 'undefined';
   useEffect(() => {
     if (attachmentsFallbackShown || !attachmentsFallbackEl) return;
-    if (typeof IntersectionObserver === 'undefined') {
-      // No observer (SSR / a test environment): read at once, as before.
-      setAttachmentsFallbackShown(true);
-      return;
-    }
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) setAttachmentsFallbackShown(true);
+        if (entries.some((entry) => entry.isIntersecting)) setAttachmentsFallbackSeen(true);
       },
       { rootMargin: '200px' },
     );

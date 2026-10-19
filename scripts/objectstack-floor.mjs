@@ -1,51 +1,34 @@
 #!/usr/bin/env node
 /**
- * objectstack-floor -- at publish, the floor of every `@objectstack/*` range a
- * published manifest declares is computed from `.objectstack-sha` (ruling B on
- * objectui#12955, executed by objectui#12958).
+ * objectstack-floor -- at publish, every `@objectstack/*` floor objectui ships is
+ * computed from `.objectstack-sha` (ruling B on objectui#12955, executed by objectui#12958).
  *
  *   node scripts/objectstack-floor.mjs            # first step of `pnpm changeset:publish`
  *   node scripts/objectstack-floor.mjs --dry-run  # compute and report, write nothing
  *
- * ## The floor
+ * THE FLOOR is the earliest `@objectstack/spec` version npm carries whose objectstack
+ * release tag `@objectstack/spec@<version>` contains the pin (`git merge-base
+ * --is-ancestor`); a tag npm does not carry is not a release. Prereleases count -- an
+ * unshipped major exists on npm only as `X.0.0-next.N` -- ordered by semver precedence.
+ * objectstack versions its packages as one fixed group, so that version floors every
+ * `@objectstack/*` range, and npm is asked for each moved name at that version.
+ * Tags and history: a treeless fetch (commits only, full depth, so a non-ancestor
+ * answer is real) of objectstack's public repository into a temporary directory -- no
+ * secret, the access `scripts/objectstack-pin.mjs` already uses (`OBJECTSTACK_REPO_URL`).
  *
- * The EARLIEST `@objectstack/spec` version that npm carries (`npm view … versions`)
- * AND whose objectstack release tag `@objectstack/spec@<version>` contains the pin
- * (`git merge-base --is-ancestor <pin> <tag>`). A tag npm does not carry is not a
- * release. Prereleases count -- a major that has not shipped exists on npm only as
- * `X.0.0-next.N` -- and versions are ordered by semver precedence, so a pin inside
- * `18.0.0-next.3` floors at `next.3` even after `18.0.0` ships. objectstack versions
- * its packages as one fixed group, so the spec's version is the floor of every
- * `@objectstack/*` range; each name a range moves to is read on npm at that version
- * before anything is written.
+ * THE RANGES, in every dependency field of every published manifest: one below the
+ * floor becomes `^<floor>`, with a `### Dependency floors` entry under the package's
+ * `## <version>` CHANGELOG.md section -- the tarball's CHANGELOG and the GitHub Release
+ * body (`scripts/release-github-releases.mjs`) carry it. One at or above the floor stays
+ * as written: it already admits no release older than the pin. The writes are the
+ * runner's; the tagged commit keeps `main`'s ranges. `check-spec-range-floors.mjs` runs
+ * after this step, because a release that contains the pin can still have removed a
+ * symbol the artifact uses.
  *
- * Tags and history come from a treeless fetch (`--filter=tree:0`: commits only, no
- * depth limit, so a non-ancestor answer is real) of objectstack's public repository
- * into a temporary directory -- no secret and no objectstack checkout, the same
- * anonymous access `scripts/objectstack-pin.mjs` uses (`OBJECTSTACK_REPO_URL`
- * overrides both). A pin missing from that fetch is reachable from no release tag.
- *
- * ## The ranges -- every dependency field of every published manifest
- *
- * A range below the floor becomes `^<floor>`, and a `### Dependency floors` entry
- * goes under the package's `## <version>` section of CHANGELOG.md, so the move
- * reaches the released CHANGELOG: the tarball's copy, and the GitHub Release body
- * `scripts/release-github-releases.mjs` cuts from it. A range at or above the floor
- * is left as written -- it already admits no release older than the pin. Every
- * range is reported. The writes are the runner's, read by `changeset publish`; the
- * tagged commit keeps the ranges `main` declares.
- *
- * `scripts/check-spec-range-floors.mjs` runs after this step: a release that
- * contains the pin can still have removed a symbol the artifact uses, and only that
- * gate reads the floor release's exports.
- *
- * ## Exit codes -- nothing is written unless the answer is 0
- *
- *   0  floors computed (and written, without --dry-run)
- *   1  refused: a range whose minimum this step cannot read, a fetch or npm failure,
- *      or a moved name npm does not carry at the floor
- *   2  no published release contains the pin: publishing waits for objectstack's
- *      next release, and `spec-range-floors.yml` reads it as nothing to judge yet
+ * EXIT 0 computed (and written, unless --dry-run) · 1 refused (an unreadable range, a
+ * fetch or npm failure, a moved name npm lacks at the floor) · 2 no published release
+ * contains the pin, so publishing waits for objectstack's next release. Nothing is
+ * written unless the answer is 0.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -93,7 +76,10 @@ export function computeFloor({ published, tagged, contains }) {
 export function releaseTags(dir, url, pin) {
   const git = (args) => spawnSync('git', args, { cwd: dir, encoding: 'utf8' });
   fs.mkdirSync(dir, { recursive: true });
-  const steps = [['init', '-q', '--bare'], ['fetch', '-q', '--filter=tree:0', '--no-tags', url, `+refs/tags/${TAG_PREFIX}*:refs/tags/${TAG_PREFIX}*`]];
+  // The commit-graph is what makes one `--is-ancestor` per tag cheap: without it each
+  // call walks the whole history (measured on objectui#12958: 89 s against 0.5 s).
+  const fetch = ['fetch', '-q', '--filter=tree:0', '--no-tags', url, `+refs/tags/${TAG_PREFIX}*:refs/tags/${TAG_PREFIX}*`];
+  const steps = [['init', '-q', '--bare'], fetch, ['commit-graph', 'write', '--reachable']];
   for (const args of steps) {
     const r = git(args);
     if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${(r.stderr || String(r.error)).trim()}`);

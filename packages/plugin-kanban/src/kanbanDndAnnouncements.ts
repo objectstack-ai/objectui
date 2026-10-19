@@ -25,8 +25,9 @@
  * Nothing here moves a card. Each id is resolved the way the board's
  * `handleDragEnd` resolves it — a card id first, then a column id — so the
  * column a sentence names is the column a drop there lands in. A drop on a
- * card in another column moves the card to that column; a drop in its own
- * column, on itself, or on nothing moves nothing.
+ * card in another column moves the card to that column — and is announced by
+ * the board once the move's write settles, not here (objectui#13054); a drop
+ * in its own column, on itself, or on nothing moves nothing.
  *
  * ⛔ No id ever reaches a sentence. A card or a column that cannot be resolved,
  * or whose title is blank, is named by a neutral phrase from the same packs.
@@ -139,9 +140,14 @@ function kanbanDndAnnouncements(
       const home = homeOf(active.id)
       const card = cardName(home?.card)
       const target = targetOf(active.id, over?.id)
-      if (home && target && target.column.id !== home.column.id) {
-        return t('kanban.dnd.moved', { card, column: columnName(target.column) })
-      }
+      // A drop on another column says nothing here (objectui#13054). This runs
+      // the instant the pointer is released, before the write that moves the
+      // card has answered, so "Moved" here told a screen-reader user that a
+      // move the server then refused had happened. The board speaks the
+      // outcome — the move, or the refusal the toast shows — in its own status
+      // region once the write settles (`KanbanImpl.tsx`). `undefined` leaves
+      // dnd-kit's region as it is, which dnd-kit allows.
+      if (home && target && target.column.id !== home.column.id) return undefined
       return t('kanban.dnd.dropped', { card, column: columnName(home?.column) })
     },
     onDragCancel({ active }) {

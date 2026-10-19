@@ -135,7 +135,34 @@ export class MetadataCache {
       }
     }
 
-    // Cache miss - dedupe concurrent fetches for the same key
+    return this.load(key, fetcher);
+  }
+
+  /**
+   * Join the read in flight for `key`, or start one, and store its landing.
+   * Never answered from a settled entry: a caller of this always gets an
+   * answer from a request that was on the wire when it asked.
+   *
+   * objectui#13044. This is the door for a caller whose own contract is "ask
+   * the server", who should still not put a second identical request on the
+   * wire while one is already there, and whose answer a later {@link get} for
+   * the same key may read settled.
+   */
+  share<T = unknown>(key: string, fetcher: () => Promise<T>): Promise<T> {
+    return this.load(key, fetcher);
+  }
+
+  /**
+   * The in-flight half of {@link get} and {@link share}: join the request in
+   * flight for `key`, or start one.
+   *
+   * A landing is stored, and its in-flight entry cleared, only while it is
+   * still the request registered for `key` (objectui#13044). {@link invalidate}
+   * and {@link clear} detach the request in flight, so a request sent before an
+   * invalidation can neither answer a caller who asks after it nor write its
+   * answer over a newer one.
+   */
+  private load<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
     const existing = this.inflight.get(key);
     if (existing) {
       this.stats.coalesced++;
@@ -143,13 +170,13 @@ export class MetadataCache {
     }
 
     this.stats.misses++;
-    const promise = (async () => {
+    const promise: Promise<T> = (async () => {
       try {
         const data = await fetcher();
-        this.set(key, data);
+        if (this.inflight.get(key) === promise) this.set(key, data);
         return data;
       } finally {
-        this.inflight.delete(key);
+        if (this.inflight.get(key) === promise) this.inflight.delete(key);
       }
     })();
     this.inflight.set(key, promise as Promise<unknown>);
@@ -208,10 +235,15 @@ export class MetadataCache {
    * @param key - Optional key to invalidate. If omitted, invalidates all entries
    */
   invalidate(key?: string): void {
+    // The request in flight is detached too (objectui#13044): it was sent
+    // before the invalidation, so its answer is not one a later caller may
+    // join or that may be stored. See `load`.
     if (key) {
       this.cache.delete(key);
+      this.inflight.delete(key);
     } else {
       this.cache.clear();
+      this.inflight.clear();
     }
   }
 

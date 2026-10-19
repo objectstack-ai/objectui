@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { expandViewContainer } from '@objectstack/spec/ui';
 import { ActiveOrganizationStorage, TokenStorage, useAuth } from '@object-ui/auth';
-import { isMetaItemAbsentError, type ObjectStackAdapter } from '@object-ui/data-objectstack';
+import { isMetaItemAbsentError, MetadataNotFoundError, type ObjectStackAdapter } from '@object-ui/data-objectstack';
 import { normalizeSchemaReferenceKeys } from '@object-ui/core';
 import { resolveInlineMode } from '@object-ui/plugin-form';
 import { MetadataCtx, useMetadata, type MetadataContextValue, type MetadataCacheState, type MetadataTypeStatus } from '@object-ui/react';
@@ -721,6 +721,48 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
   const previewClientRef = useRef(previewClient);
   previewClientRef.current = previewClient;
 
+  // ── objectui#13044 — one request per object document ─────────────────────
+  //
+  // `GET /meta/object/NAME` is also what the adapter's `getObjectSchema` reads,
+  // and the record form, `useSettledSchema` and the field widgets read it
+  // there, so one page open asked the server for the same document twice: once
+  // here for the page's object scope, once there. The published by-name object
+  // read therefore goes through `getObjectSchema`, and the two share its cache
+  // entry, its in-flight request and its revalidating fetch (`cache:
+  // 'no-cache'`), whichever asks first.
+  //
+  // What a reader of THIS context sees is unchanged. The answer is copied, so
+  // it does not carry the adapter's per-column sortability projection (a
+  // non-enumerable symbol on the adapter's copy) and nothing done to one copy
+  // reaches the other; it is handed back in the `{ item }` envelope the
+  // client's `getItem` answered, so `extractItem` below unwraps it exactly as
+  // before. A 404 reaches the catch below as the transport's own error, which
+  // `getObjectSchema` keeps as the cause of its `MetadataNotFoundError`, so an
+  // absence is still told apart from a failure by the declared code.
+  //
+  // Every name read through the adapter is remembered, so a path below that
+  // asks this context to read objects again also drops the adapter's entry for
+  // each: otherwise the next read would be answered from that entry instead of
+  // the server. The preview client's reads never touch the adapter.
+  const adapterObjectNamesRef = useRef<Set<string>>(new Set());
+  const readObjectThroughAdapter = useCallback((name: string): Promise<unknown> => {
+    adapterObjectNamesRef.current.add(name);
+    return adapterRef.current.getObjectSchema(name).then(
+      (schema: unknown) => ({ item: schema == null ? schema : structuredClone(schema) }),
+      (err: unknown) => {
+        throw err instanceof MetadataNotFoundError ? (err.details?.originalError ?? err) : err;
+      },
+    );
+  }, []);
+  /** Drop the adapter's entry for `name`, or for every name read through it. */
+  const dropAdapterObjectReads = useCallback((name?: string): void => {
+    const names = name ? [name] : Array.from(adapterObjectNamesRef.current);
+    for (const n of names) {
+      adapterObjectNamesRef.current.delete(n);
+      try { adapterRef.current?.invalidateCache?.(n); } catch { /* adapter mid-swap */ }
+    }
+  }, []);
+
   const [version, setVersion] = useState(0);
   // Defer state bumps so they never occur synchronously during a consumer's
   // render phase. `ensureType` may be invoked from inside `useMemo` getters
@@ -760,8 +802,9 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     cacheRef.current.clear();
     itemPromisesRef.current.clear();
     scopesRef.current.clear();
+    dropAdapterObjectReads();
     bump();
-  }, [previewDrafts, bump]);
+  }, [previewDrafts, bump, dropAdapterObjectReads]);
 
   const getEntry = useCallback((type: string): TypeCacheEntry => {
     let entry = cacheRef.current.get(type);
@@ -888,7 +931,9 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       const preview = previewClientRef.current;
       const fetchItem: Promise<unknown> = preview
         ? preview.get(type, name)
-        : adapterRef.current.getClient().meta.getItem(type, name);
+        : type === 'object'
+          ? readObjectThroughAdapter(name)
+          : adapterRef.current.getClient().meta.getItem(type, name);
       const promise = fetchItem
         .then((res: unknown) => {
           const item = extractItem(res);
@@ -924,7 +969,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       pending.set(name, promise);
       return promise;
     },
-    [getEntry],
+    [getEntry, readObjectThroughAdapter],
   );
 
   // The published read: `null` for "none came back", whichever way.
@@ -1009,6 +1054,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     // must ask the server again.
     getEntry('object').byName.clear();
     itemPromisesRef.current.get('object')?.clear();
+    dropAdapterObjectReads();
     const pending: Promise<void>[] = [];
     for (const [packageId, entry] of scopesRef.current) {
       if (entry.status === 'idle') continue;
@@ -1016,7 +1062,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       for (const name of Array.from(entry.names.keys())) pending.push(fetchScopeName(packageId, entry, name));
     }
     return pending;
-  }, [fetchScopeList, fetchScopeName, getEntry]);
+  }, [dropAdapterObjectReads, fetchScopeList, fetchScopeName, getEntry]);
 
   const refresh = useCallback(
     async (type?: string): Promise<void> => {
@@ -1053,6 +1099,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
         entry.byName.delete(name);
         entry.items = entry.items.filter((it: any) => it?.name !== name);
         if (type === 'object') {
+          dropAdapterObjectReads(name);
           for (const scope of scopesRef.current.values()) {
             if (scope.items.some((it: any) => it?.name === name)) {
               scope.items = scope.items.filter((it: any) => it?.name !== name);
@@ -1063,7 +1110,10 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
         }
         debug(`invalidated type=${type} name=${name}`);
       } else {
-        if (type === 'object') scopesRef.current.clear();
+        if (type === 'object') {
+          scopesRef.current.clear();
+          dropAdapterObjectReads();
+        }
         entry.status = 'idle';
         entry.items = [];
         entry.byName.clear();
@@ -1073,7 +1123,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       }
       bump();
     },
-    [bump, getEntry],
+    [bump, dropAdapterObjectReads, getEntry],
   );
 
   // ADR-0037 P2.5 — same-document live refresh: while this tree renders the
@@ -1183,6 +1233,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     cacheRef.current.clear();
     itemPromisesRef.current.clear();
     scopesRef.current.clear();
+    dropAdapterObjectReads();
     // `apps` is the one collection read straight off the entry
     // (`getEntry('app').items`) instead of through `readType`, so unlike every
     // lazy type it is NOT re-armed by a consumer reading it. Without this kick
@@ -1198,7 +1249,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     return () => {
       cancelled = true;
     };
-  }, [activeOrgId, bump, ensureType]);
+  }, [activeOrgId, bump, dropAdapterObjectReads, ensureType]);
 
   useEffect(() => {
     let cancelled = false;

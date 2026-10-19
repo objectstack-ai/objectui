@@ -19,18 +19,17 @@ import { ObjectStackAdapter } from './index';
  * | `getView`           | `view:{object}:{viewId}`     |
  * | `listViewOverrides` | `view-overrides:{object}`    |
  *
- * `listViews` is **not** one of them: it fetches `meta.getItems('view')`
- * directly on every call, with no `metadataCache.get` wrapper. Five write
- * paths nevertheless used to invalidate a `views:{object}` key that no read
- * path has ever populated — five permanent no-ops. They are gone; these pins
- * keep both halves of that honest:
+ * `listViews` has no key of its own. Five write paths used to invalidate a
+ * `views:{object}` key that no read path has ever populated — five permanent
+ * no-ops. They are gone (#3778); the surviving invalidations still name the
+ * keys that DO have readers, so the deletion cannot be mistaken for "cache
+ * invalidation was dropped".
  *
- * 1. the surviving invalidations still name the keys that DO have readers, so
- *    the deletion cannot be mistaken for "cache invalidation was dropped"; and
- * 2. `listViews` keeps its uncached behavior — the deletion changed no
- *    request count, which is what makes it a pure dead-code removal rather
- *    than a caching change. (Whether `listViews` SHOULD be cached is a
- *    separate product question, deliberately not settled here.)
+ * objectui#13044 settled the question #3778 left open, whether `listViews`
+ * should be cached: one list-page open asked `GET /meta/view` three times. It
+ * and `listViewOverrides` now read the one published view list, `list:view`,
+ * which the console's eager view read also fills, and every write path drops
+ * it through the seam with the two keys above.
  *
  * ## objectui#4363 — every write path names BOTH keys
  *
@@ -45,11 +44,11 @@ import { ObjectStackAdapter } from './index';
  *
  * So the rule these pins now enforce is uniform and per-METHOD, not
  * per-branch: **a write to a view row invalidates the per-view key and the
- * object's override map.** Three paths (four call sites — `updateView` has a
- * draft half and a published half) emit the same ordered pair; a fourth path,
- * `updateViewConfig`, did too until objectui#12504 retired it. The two sweep
- * pins are untouched controls: `listViews` stays uncached, and no path names a
- * `views:` key.
+ * object's override map** — and, since objectui#13044, the published list the
+ * map is derived from. Three paths (four call sites — `updateView` has a
+ * draft half and a published half) emit the same ordered keys; a fourth path,
+ * `updateViewConfig`, did too until objectui#12504 retired it. The sweep pin
+ * stays an untouched control: no path names a `views:` key.
  */
 
 interface Harness {
@@ -160,15 +159,19 @@ const VIEW = {
 };
 
 describe('view metadata cache — invalidation names only keys with readers (#3778)', () => {
-  it('listViews reads the transport on every call and consults no cache key', async () => {
+  it('listViews reads the shared published list, never a key of its own (objectui#13044)', async () => {
     const { ds, getItems, cacheReads } = makeDS({ items: [VIEW] });
+    const probed: string[] = [];
+    ds.metadataCache.getCachedSync = (key: string) => {
+      probed.push(key);
+      return undefined;
+    };
 
     await ds.listViews('account');
-    await ds.listViews('account');
 
-    // Uncached: two calls, two round trips. This is the behavior the removed
-    // `views:{object}` invalidations pretended to manage.
-    expect(getItems).toHaveBeenCalledTimes(2);
+    // The list `listViewOverrides` derives from too: the seam drops it on every
+    // view write (pinned below), and a miss asks the transport for `view`.
+    expect(probed).toEqual(['list:view']);
     expect(getItems).toHaveBeenCalledWith('view');
     expect(cacheReads).toEqual([]);
   });
@@ -195,7 +198,7 @@ describe('view metadata cache — invalidation names only keys with readers (#37
     // A created view is a new row in the batch map; nothing else notices.
     // `saveItem` is an upsert, so the per-view key is named too — an explicit
     // `name` that already exists overwrites a row `getView` may hold cached.
-    expect(invalidated).toEqual(['view:account:account.mine', 'view-overrides:account']);
+    expect(invalidated).toEqual(['view:account:account.mine', 'view-overrides:account', 'list:view']);
   });
 
   it('updateView (published overlay) invalidates both keys (#4363)', async () => {
@@ -203,7 +206,7 @@ describe('view metadata cache — invalidation names only keys with readers (#37
 
     await ds.updateView('account', 'v1', { label: 'Renamed' });
 
-    expect(invalidated).toEqual(['view:account:v1', 'view-overrides:account']);
+    expect(invalidated).toEqual(['view:account:v1', 'view-overrides:account', 'list:view']);
   });
 
   it('updateView (pending draft) invalidates both keys (#4363)', async () => {
@@ -218,6 +221,7 @@ describe('view metadata cache — invalidation names only keys with readers (#37
     expect(invalidated).toEqual([
       `view:account:${VIEW.name}`,
       'view-overrides:account',
+      'list:view',
     ]);
   });
 
@@ -228,7 +232,7 @@ describe('view metadata cache — invalidation names only keys with readers (#37
 
     // The deleted row leaves the override map too — a ghost entry there is what
     // the object page would keep applying for the rest of the TTL.
-    expect(invalidated).toEqual(['view:account:v1', 'view-overrides:account']);
+    expect(invalidated).toEqual(['view:account:v1', 'view-overrides:account', 'list:view']);
   });
 
   it('no write path invalidates a `views:` key — nothing populates one', async () => {

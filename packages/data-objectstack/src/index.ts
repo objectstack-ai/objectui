@@ -900,6 +900,20 @@ export function serializeOrderBy(orderby: QueryParams['$orderby']): string | und
 // at the same baseUrl (e.g. ConditionalAuthWrapper's throwaway adapter +
 // AdapterProvider's main adapter) would otherwise each fire `/discovery`. By
 // keying on baseUrl we collapse them to a single network round trip per origin.
+/**
+ * The one {@link MetadataCache} key for the published view list,
+ * `GET /api/v1/meta/view` (objectui#13044).
+ *
+ * Three readers ask that one URL on a single list-page open: the app-shell
+ * `MetadataProvider`'s eager `view` read (through {@link ObjectStackAdapter.getClient}),
+ * {@link ObjectStackAdapter.listViews} and
+ * {@link ObjectStackAdapter.listViewOverrides}. They share this key, so the
+ * page asks the server once. The draft-overlaid list (`listViews` with
+ * `previewDrafts`) is a different request on a different client and is never
+ * stored here.
+ */
+const VIEW_LIST_KEY = 'list:view';
+
 const discoveryCache = new Map<string, Promise<unknown>>();
 
 /**
@@ -3314,6 +3328,8 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     // installed the moment the client exists so no save can precede it.
     this.installSaveAdvisoryInterceptor();
     this.metadataCache = new MetadataCache(config.cache);
+    // objectui#13044 — after the cache, which the wrap reads.
+    this.installViewListShare();
     this.autoReconnect = config.autoReconnect ?? true;
     this.maxReconnectAttempts = config.maxReconnectAttempts ?? 3;
     this.reconnectDelay = config.reconnectDelay ?? 1000;
@@ -4173,6 +4189,55 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       }
       return result;
     };
+  }
+
+  /**
+   * Route this adapter's client's published view-list read through the one
+   * {@link VIEW_LIST_KEY} (objectui#13044).
+   *
+   * The app-shell `MetadataProvider` reads `client.meta.getItems('view')`
+   * through {@link getClient}; {@link listViews} and {@link listViewOverrides}
+   * read the same `GET /api/v1/meta/view`. Each used to put its own request on
+   * the wire, so one list-page open asked the server three times for one URL.
+   *
+   * A caller of the client keeps its contract, "ask the server": it is never
+   * answered from the settled entry. What changes is that it joins a request
+   * already in flight for the same URL instead of sending a second one, and
+   * that its answer is stored, so the adapter's own readers find it settled
+   * (see {@link readViewList}). Only the bare call is routed: any argument
+   * after the type changes the URL, so such a call goes straight to the SDK.
+   *
+   * Every caller gets its own copy of the answer. Before this, every reader
+   * got its own parsed response, so a reader that changed what it was handed
+   * changed nothing anyone else read; a shared answer must not change that.
+   *
+   * Same wrap shape and the same bound as `installSaveAdvisoryInterceptor`:
+   * `meta` is an own property of a client this adapter built and never shares.
+   */
+  private installViewListShare(): void {
+    const meta = this.client.meta;
+    const original = meta.getItems.bind(meta);
+    meta.getItems = ((...args: Parameters<typeof original>) => {
+      if (args[0] !== 'view' || args.length > 1) return original(...args);
+      return this.metadataCache
+        .share(VIEW_LIST_KEY, () => original(...args))
+        .then((answer) => structuredClone(answer));
+    }) as typeof meta.getItems;
+  }
+
+  /**
+   * The published view list for this adapter's own readers: the settled
+   * {@link VIEW_LIST_KEY} entry when there is one, else the client's read,
+   * which joins or starts the one request and stores its answer
+   * (objectui#13044). Always a copy the caller may keep.
+   *
+   * Every write to a view row drops the key through {@link invalidateViewKeys},
+   * the same seam that already drops the override map derived from this list.
+   */
+  private async readViewList(): Promise<any> {
+    const settled = this.metadataCache.getCachedSync(VIEW_LIST_KEY);
+    if (settled !== undefined) return structuredClone(settled);
+    return this.client.meta.getItems('view');
   }
 
   async create(resource: string, data: Partial<T>): Promise<T> {
@@ -5463,6 +5528,9 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     // suite records, so a reordering is a visible decision rather than drift.
     this.metadataCache.invalidate?.(`view:${objectName}:${viewName}`);
     this.metadataCache.invalidate?.(`view-overrides:${objectName}`);
+    // The list both readers derive from (objectui#13044): a map rebuilt from
+    // a stale list would be the stale map again.
+    this.metadataCache.invalidate?.(VIEW_LIST_KEY);
   }
 
   /**
@@ -5515,7 +5583,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
     const cacheKey = `view-overrides:${objectName}`;
     return await this.metadataCache.get(cacheKey, async () => {
-      const result: any = await this.client.meta.getItems('view');
+      const result: any = await this.readViewList();
       const items: any[] = Array.isArray(result?.items)
         ? result.items
         : Array.isArray(result) ? result : [];
@@ -5633,7 +5701,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
           .list<any>('view');
         items = Array.isArray(draftItems) ? draftItems : [];
       } else {
-        const result: any = await this.client.meta.getItems('view');
+        const result: any = await this.readViewList();
         items = Array.isArray(result?.items)
           ? result.items
           : Array.isArray(result) ? result : [];

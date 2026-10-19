@@ -170,7 +170,8 @@ export class MetadataCache {
     }
 
     this.stats.misses++;
-    const promise: Promise<T> = (async () => {
+    let promise: Promise<T> | undefined;
+    const run = async (): Promise<T> => {
       try {
         const data = await fetcher();
         if (this.inflight.get(key) === promise) this.set(key, data);
@@ -178,7 +179,8 @@ export class MetadataCache {
       } finally {
         if (this.inflight.get(key) === promise) this.inflight.delete(key);
       }
-    })();
+    };
+    promise = run();
     this.inflight.set(key, promise as Promise<unknown>);
     return promise;
   }

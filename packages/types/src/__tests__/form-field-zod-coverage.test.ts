@@ -77,6 +77,8 @@ const DECLARED_KEYS = [
   'span',
   // objectui#6236 — the section grouping claim (section-divider rows only).
   'fields',
+  // objectui#13055 — the fault direction of a section-divider row's predicate.
+  'visibleWhenFault',
   // objectui#11070 — field metadata a hand-authored form writes on the entry
   // itself, read off it by the field widgets and the built-in branches. All
   // but `pattern` are the spec's `FieldSchema` members by reference.

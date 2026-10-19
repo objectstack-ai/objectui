@@ -419,6 +419,46 @@ by name, on the node or in `properties`, each naming what to write instead
 list view draws is refused, and so is a list view prop such as `columns` written
 on the node itself rather than in `properties`.
 
+## On a page — `requiredPermissions` and `addRecord`
+
+Two more keys of the spec's list view row act on a page `list-view` node. Both
+sit in `properties`:
+
+```json
+{
+  "type": "list-view",
+  "properties": {
+    "data": { "provider": "object", "object": "deal" },
+    "columns": ["name", "amount"],
+    "requiredPermissions": ["sales.view_pipeline"],
+    "addRecord": { "enabled": true, "position": "top" }
+  }
+}
+```
+
+- **`requiredPermissions`** names the capabilities the viewer must **all** hold,
+  the names permission sets grant through `systemPermissions`. It gates the
+  node the way it gates the record blocks (`record:details`,
+  `record:highlights`, `record:related_list`). A viewer missing one sees the
+  notice "Insufficient permissions to view list." (`role="status"`) in place of
+  the list, and no records are queried. An empty list, or no key, is no gate. A
+  permission provider that reports no capabilities at all leaves the list shown;
+  the server stays the authority. Only the page node reads this key: the object
+  list page draws `ListView` itself, and the server gates the views it serves.
+- **`addRecord`** draws the Add button: `enabled: true`, at `position` `top`,
+  `bottom` or `both`. On a page, a click opens the page's create path for the
+  listed object: the `onCreate` the host publishes through
+  `RelatedRecordActionsContext` (`@object-ui/react`). The console opens the
+  object's create form with it, the same form the object list's New button
+  opens. When the host offers no `onCreate` (the viewer may not create records
+  of the object, or there is no host, as in a designer preview or a standalone
+  embed), the button is not drawn; a create the host greys is not drawn either.
+  `mode` and `formView` are not read. A host that passes `ListView`'s own
+  `onAddRecord` prop keeps it.
+
+`sharing` does nothing on a page node yet: it draws a Share button with no
+action, because the spec declares none for it. It is not a published input.
+
 ## Page binding — `dataSource` (referencing a saved view by name)
 
 On a metadata page, a `list-view` component can also bind its data through the

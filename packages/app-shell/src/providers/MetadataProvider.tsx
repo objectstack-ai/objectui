@@ -10,6 +10,7 @@ import { expandViewContainer } from '@objectstack/spec/ui';
 import { ActiveOrganizationStorage, TokenStorage, useAuth } from '@object-ui/auth';
 import { isMetaItemAbsentError, MetadataNotFoundError, type ObjectStackAdapter } from '@object-ui/data-objectstack';
 import { normalizeSchemaReferenceKeys } from '@object-ui/core';
+import { errorCodeIs } from '@object-ui/types';
 import { resolveInlineMode } from '@object-ui/plugin-form';
 import { MetadataCtx, useMetadata, type MetadataContextValue, type MetadataCacheState, type MetadataTypeStatus } from '@object-ui/react';
 import { usePreviewDrafts } from '../preview/PreviewModeContext.js';
@@ -40,16 +41,30 @@ interface TypeCacheEntry {
 /**
  * One by-name read's outcome (objectui#13009). `item` is the definition, or
  * `null` when none came back; `failed` tells WHICH `null` it is: `false` when
- * the server answered without one (the item-less envelope, or a thrown
- * `RESOURCE_NOT_FOUND`), `true` when no answer was obtained at all (a 5xx, a
- * network drop, a 404 carrying no declared code; see `isMetaItemAbsentError`).
+ * the server answered without one (the item-less envelope, a thrown
+ * `RESOURCE_NOT_FOUND`, or a thrown {@link ANSWERED_REFUSAL_CODES} refusal),
+ * `true` when no answer was obtained at all (a 5xx, a network drop, a 404
+ * carrying no declared code or a code this build does not know).
+ * `refusal` names the refusal code when the answer was one (objectui#13052).
  * `getItem` hands its callers `item` alone, as it always has; the object scope
  * needs the difference, because only an answer may record a name as missing.
  */
 interface ItemRead {
   item: any | null;
   failed: boolean;
+  refusal?: string;
 }
+
+/**
+ * objectui#13052 — the refusals a by-name read takes as a definite ANSWER
+ * besides the plain absence (`isMetaItemAbsentError`, whose published meaning
+ * "does not exist" stays exactly that). `OBJECT_PACKAGE_DISABLED` is the
+ * ADR-0112 code the metadata route answers for an object whose owning package
+ * is disabled: the object exists and is not being served. Classified here, at
+ * the console's read site, so a route can say which of the two it was. Any
+ * other code is not an answer this build understands: the read failed.
+ */
+const ANSWERED_REFUSAL_CODES: readonly string[] = ['OBJECT_PACKAGE_DISABLED'];
 
 type ItemPromiseMap = Map<string, Promise<ItemRead>>;
 
@@ -68,10 +83,30 @@ interface ObjectScopeEntry {
   items: any[];
   /** The package list has answered once; a refetch keeps this, and the items. */
   answered: boolean;
-  /** The names read by name for this scope, and whether each has answered. */
-  names: Map<string, 'pending' | 'answered'>;
+  /**
+   * The names read by name for this scope, and how each read stands.
+   * `failed` (objectui#13052): the last read obtained no answer. It is not
+   * asked again by a later read, only by `invalidate`, `refresh` or a scope
+   * refetch, so a failure settles the route once instead of re-asking on every
+   * render it causes.
+   */
+  names: Map<string, 'pending' | 'answered' | 'failed'>;
   /** The names the server answered without a definition. Replaced on change. */
   missing: string[];
+  /**
+   * The names in `missing` whose answer was a refusal, with its code
+   * (objectui#13052). Replaced on change.
+   */
+  refused: Readonly<Record<string, string>>;
+}
+
+const NO_REFUSALS: Readonly<Record<string, string>> = Object.freeze({});
+
+/** `refused` without `name`: a new record, the stored one is never mutated. */
+function withoutRefusal(refused: Readonly<Record<string, string>>, name: string): Readonly<Record<string, string>> {
+  const next = { ...refused };
+  delete next[name];
+  return next;
 }
 
 const NO_NAMES: readonly string[] = Object.freeze([]) as readonly string[];
@@ -974,7 +1009,11 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
           pending!.delete(name);
           debug(`fetch item failed type=${type} name=${name}`, err);
           // A thrown absence is an answer; anything else is not (objectui#13009).
-          return { item: null, failed: !isMetaItemAbsentError(err) };
+          if (isMetaItemAbsentError(err)) return { item: null, failed: false };
+          // objectui#13052 — and so is a definite refusal, named.
+          const refusal = ANSWERED_REFUSAL_CODES.find((code) => errorCodeIs(err, code));
+          if (refusal) return { item: null, failed: false, refusal };
+          return { item: null, failed: true };
         });
 
       pending.set(name, promise);
@@ -1032,16 +1071,20 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
   const fetchScopeName = useCallback(
     (packageId: string, entry: ObjectScopeEntry, name: string): Promise<void> => {
       entry.names.set(name, 'pending');
-      return readItem('object', name).then(({ item, failed }) => {
+      return readItem('object', name).then(({ item, failed, refusal }) => {
         if (scopesRef.current.get(packageId) !== entry) return;
-        // objectui#13009 — a read that obtained no answer records nothing: the
-        // name is not answered (so the scope stays unsettled and
-        // `useObjectPresence` reads `unknown`, never `absent`), and the next
-        // `readObjectScope` asks it again. No bump: nothing a reader sees has
-        // changed, and a bump would re-render straight into another request,
-        // a retry loop paced by the failures themselves.
+        // objectui#13009 — a read that obtained no answer records no answer:
+        // the name is not missing (so the scope stays unsettled and
+        // `useObjectPresence` reads `unknown`, never `absent`).
+        //
+        // objectui#13052 — it records the failure instead, once, so a route
+        // waiting on the name can stop waiting and say so. A failed name is
+        // not asked again by the re-render this bump causes (`readObjectScope`
+        // skips it), so there is no retry loop paced by the failures
+        // themselves; `invalidate`, `refresh` and a scope refetch ask it again.
         if (failed) {
-          entry.names.delete(name);
+          entry.names.set(name, 'failed');
+          bump();
           return;
         }
         entry.names.set(name, 'answered');
@@ -1052,6 +1095,9 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
         } else {
           if (rest.length !== entry.items.length) entry.items = rest;
           if (!entry.missing.includes(name)) entry.missing = [...entry.missing, name];
+        }
+        if (refusal ? entry.refused[name] !== refusal : name in entry.refused) {
+          entry.refused = refusal ? { ...entry.refused, [name]: refusal } : withoutRefusal(entry.refused, name);
         }
         bump();
       });
@@ -1117,6 +1163,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
             }
             scope.names.delete(name);
             if (scope.missing.includes(name)) scope.missing = scope.missing.filter(n => n !== name);
+            if (name in scope.refused) scope.refused = withoutRefusal(scope.refused, name);
           }
         }
         debug(`invalidated type=${type} name=${name}`);
@@ -1359,7 +1406,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       }
       let entry = scopesRef.current.get(packageId);
       if (!entry) {
-        entry = { status: 'idle', items: [], answered: false, names: new Map(), missing: [] };
+        entry = { status: 'idle', items: [], answered: false, names: new Map(), missing: [], refused: NO_REFUSALS };
         scopesRef.current.set(packageId, entry);
       }
       const whole = getEntry('object');
@@ -1381,6 +1428,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
         }
       }
       let namesSettled = true;
+      const failedNames: string[] = [];
       if (scope.names && scope.names.length > 0) {
         if (!entry.answered) {
           namesSettled = false;
@@ -1391,6 +1439,11 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
             if (state === 'answered') continue;
             if (state === 'pending') {
               namesSettled = false;
+              continue;
+            }
+            // objectui#13052 — failed once: reported, not asked again here.
+            if (state === 'failed') {
+              failedNames.push(name);
               continue;
             }
             if (whole.status === 'ready') {
@@ -1405,11 +1458,20 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
           }
         }
       }
+      // objectui#13052 — `settled` stays false while a name's read has
+      // failed (a failure is not an answer, objectui#13009); `failed` names
+      // those reads once nothing else is still in flight, so a reader can stop
+      // waiting on them. `refused` maps each refused name in `missing` to its
+      // code. Both ride beside the published shape: this package's own
+      // readers read them (`appObjectScope.ts`), other readers never see them.
+      const atRest = entry.answered && namesSettled;
       return {
         objects: composeObjects(entry.items, readType('view')) as any[],
         served: entry.items,
         missing: entry.missing as readonly string[],
-        settled: entry.answered && namesSettled,
+        settled: atRest && failedNames.length === 0,
+        failed: atRest && failedNames.length > 0 ? (failedNames as readonly string[]) : NO_NAMES,
+        refused: entry.refused,
       };
     },
     [fetchScopeList, fetchScopeName, getEntry, readType],

@@ -868,6 +868,9 @@ const en = {
       undoing: 'Undoing…',
       undoConfirm: 'Undo this import? Records it created will be deleted and records it updated will be restored to their previous values.',
       reverted: 'Undone',
+      undoPartial: '{{count}} rows were not undone. Undo again to retry only those rows.',
+      undoPartial_one: '{{count}} row was not undone. Undo again to retry only that row.',
+      undoPartial_other: '{{count}} rows were not undone. Undo again to retry only those rows.',
       jobStatus: {
         pending: 'Pending',
         running: 'Running',
@@ -2615,6 +2618,7 @@ const en = {
       objectNotFound: 'Object Not Found',
       objectNotFoundDescription: 'The object "{{objectName}}" does not exist in the current configuration.',
       objectNotFoundHint: 'Check your app navigation settings or select a different object from the sidebar.',
+      objectPackageDisabled: 'The object "{{objectName}}" belongs to a package that is disabled, so it is not being served.',
       filterOrNotSavable: 'This filter uses OR between conditions, which a saved view cannot store yet. It still applies to this list — remove the OR grouping to save it to the view.',
       filterNestedNotSavable: 'This filter uses nested condition groups, which a saved view cannot store. Flatten it to a single list of conditions to save it to the view.',
       systemViewReadonly: 'System view defined in code — read-only.',

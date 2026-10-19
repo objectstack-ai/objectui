@@ -7,12 +7,20 @@ import {
   EXIT_BREACHED,
   EXIT_CANNOT_RUN,
   EXIT_OK,
+  GATE_BUDGET_MS,
+  REQUEST_TIMEOUT_MS,
   REREAD_LIMIT,
   REREAD_WAIT_MS,
+  STALE_REREAD_LIMIT,
+  STALE_REREAD_WAIT_MS,
+  TRANSIENT_RETRY_LIMIT,
+  TRANSIENT_RETRY_WAIT_MS,
+  carryForward,
   evaluate,
   exitCodeFor,
   fetchJob,
   renderReading,
+  run,
   settleReading,
   shardContexts,
   unconcludedShards,
@@ -340,6 +348,439 @@ describe('check-test-shard-results — a present shard with no conclusion is re-
   });
 });
 
+/**
+ * objectui#13064 — the whole gate, driven through `run` over a scripted API.
+ *
+ * `run` is what `main` calls with the real environment, network and clock, so
+ * these cases exercise the composition CI runs: argument parsing, the token
+ * refusal, the attempt reads, the re-read and the exit code. The clock is
+ * virtual and only `sleep` moves it, so a wait is observable and costs nothing.
+ */
+const API = 'https://api.test';
+const REPO = 'objectstack-ai/objectui';
+
+type Answer = Response | Error;
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+const jobsPage = (jobs: unknown[]) => json({ total_count: jobs.length, jobs });
+
+/** One attempt's job list as the endpoint answers it: ids, statuses, `run_attempt`, and the aggregator's own job. */
+function attemptJobs(attempt: number, conclusionOf: (name: string) => string | null | undefined = () => 'success', shards = 8) {
+  const jobs: Record<string, unknown>[] = [];
+  shardContexts(shards).forEach((name, i) => {
+    const conclusion = conclusionOf(name);
+    if (conclusion === undefined) return; // not in this attempt
+    jobs.push({ id: attempt * 1000 + i, name, status: conclusion === null ? 'in_progress' : 'completed', conclusion, run_attempt: attempt });
+  });
+  jobs.push({ id: attempt * 1000 + 999, name: 'Test', status: 'in_progress', conclusion: null, run_attempt: attempt });
+  return jobs;
+}
+
+const attemptOf = (url: string) => Number(/\/attempts\/(\d+)\/jobs/.exec(url)?.[1] ?? Number.NaN);
+
+function gate(answer: (url: string, call: number) => Answer, env: Record<string, string | undefined> = {}, shards = 8) {
+  let clock = 0;
+  const urls: string[] = [];
+  const slept: number[] = [];
+  const out: string[] = [];
+  const err: string[] = [];
+  const result = run(['--shards', String(shards), '--job-name', 'Test'], {
+    env: {
+      GITHUB_TOKEN: 't',
+      GITHUB_API_URL: API,
+      GITHUB_REPOSITORY: REPO,
+      GITHUB_RUN_ID: '42',
+      GITHUB_RUN_ATTEMPT: '1',
+      ...env,
+    },
+    fetchImpl: (async (url: string | URL | Request) => {
+      urls.push(String(url));
+      const reply = answer(String(url), urls.length);
+      if (reply instanceof Error) throw reply;
+      return reply;
+    }) as typeof fetch,
+    sleep: async (ms: number) => {
+      slept.push(ms);
+      clock += ms;
+    },
+    now: () => clock,
+    out: (line: string) => {
+      out.push(line);
+    },
+    err: (line: string) => {
+      err.push(line);
+    },
+  });
+  return { result, urls, slept, out, err, elapsed: () => clock };
+}
+
+/** The connection-reset and timeout shapes the script's header records as measured on Node 22's `fetch`. */
+const connectionReset = () => new TypeError('fetch failed', { cause: Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }) });
+const requestTimeout = () => new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+
+describe('check-test-shard-results — a transient read is asked again, bounded (objectui#13064)', () => {
+  it('⭐ one 502 then 200 gives a verdict', async () => {
+    // Runs 39276047959 and 39276560990: one HTTP 502 on the job list, exit 2.
+    const g = gate((_url, call) => (call === 1 ? json({ message: 'Bad Gateway' }, 502) : jobsPage(attemptJobs(1))));
+
+    expect(await g.result).toBe(EXIT_OK);
+    expect(g.urls).toHaveLength(2);
+    expect(new Set(g.urls).size, 'the retry asks the same route again').toBe(1);
+    expect(g.slept).toEqual([TRANSIENT_RETRY_WAIT_MS]);
+    expect(g.out.filter((line) => line.includes('HTTP 502'))).toHaveLength(1);
+    expect(g.out.join('\n')).toContain('all 8 shards reported success');
+  });
+
+  it('⛔ a 5xx that persists past the bound stays exit 2', async () => {
+    const g = gate(() => json({ message: 'Bad Gateway' }, 502));
+
+    expect(await g.result).toBe(EXIT_CANNOT_RUN);
+    expect(g.urls).toHaveLength(TRANSIENT_RETRY_LIMIT + 1);
+    expect(g.slept).toEqual(Array.from({ length: TRANSIENT_RETRY_LIMIT }, () => TRANSIENT_RETRY_WAIT_MS));
+    expect(g.err.join('\n')).toContain('HTTP 502');
+    expect(g.out.join('\n')).not.toContain('reported success');
+  });
+
+  it('a connection reset and a request timeout are retried the same way', async () => {
+    const g = gate((_url, call) => (call === 1 ? connectionReset() : call === 2 ? requestTimeout() : jobsPage(attemptJobs(1))));
+
+    expect(await g.result).toBe(EXIT_OK);
+    expect(g.urls).toHaveLength(3);
+    expect(g.out.some((line) => line.includes('ECONNRESET'))).toBe(true);
+    expect(g.out.some((line) => line.includes('request timeout'))).toBe(true);
+  });
+
+  it('a re-read that meets a 5xx is asked again too', async () => {
+    const late = 'Test (shard 6/8)';
+    let reread = 0;
+    const g = gate((url) => {
+      if (url.includes('/attempts/')) return jobsPage(attemptJobs(1, (name) => (name === late ? null : 'success')));
+      reread += 1;
+      return reread === 1 ? json({}, 503) : json({ id: 1005, name: late, status: 'completed', conclusion: 'success', run_attempt: 1 });
+    });
+
+    expect(await g.result).toBe(EXIT_OK);
+    expect(g.slept).toEqual([REREAD_WAIT_MS, TRANSIENT_RETRY_WAIT_MS]);
+  });
+
+  it('⛔ 401, 403, 404 and 429 are answers: exit 2 at once, never asked again', async () => {
+    for (const status of [401, 403, 404, 429]) {
+      const g = gate(() => json({ message: 'no' }, status));
+      expect(await g.result, `HTTP ${status}`).toBe(EXIT_CANNOT_RUN);
+      expect(g.urls, `HTTP ${status} must not be retried`).toHaveLength(1);
+      expect(g.slept).toEqual([]);
+    }
+  });
+
+  it('⛔ a truncated page is exit 2 at once, never asked again', async () => {
+    const g = gate(() => new Response('{"total_count": 9, "jobs": [{"name": "Test (shard 1/8)"', { status: 200 }));
+
+    expect(await g.result).toBe(EXIT_CANNOT_RUN);
+    expect(g.urls).toHaveLength(1);
+    expect(g.slept).toEqual([]);
+  });
+
+  it('⛔ a missing token is exit 2 before any request', async () => {
+    const g = gate(() => jobsPage(attemptJobs(1)), { GITHUB_TOKEN: undefined });
+
+    expect(await g.result).toBe(EXIT_CANNOT_RUN);
+    expect(g.urls).toEqual([]);
+    expect(g.err.join('\n')).toContain('GITHUB_TOKEN');
+  });
+
+  it('⛔ no retry starts that the gate budget cannot finish', async () => {
+    const urls: string[] = [];
+    const slept: number[] = [];
+    const fail = (async (url: string | URL | Request) => {
+      urls.push(String(url));
+      return json({}, 502);
+    }) as typeof fetch;
+    const input = {
+      repository: REPO,
+      apiUrl: API,
+      token: 't',
+      fetchImpl: fail,
+      retries: TRANSIENT_RETRY_LIMIT,
+      now: () => 0,
+      sleep: async (ms: number) => {
+        slept.push(ms);
+      },
+      // Room for one request, not for a wait plus another.
+      deadline: TRANSIENT_RETRY_WAIT_MS + REQUEST_TIMEOUT_MS - 1,
+    };
+
+    await expect(fetchJob(7, input)).rejects.toThrow(/HTTP 502; no further retry fits/);
+    expect(urls).toHaveLength(1);
+    expect(slept).toEqual([]);
+  });
+});
+
+describe('check-test-shard-results — a re-run attempt is judged with the attempts before it (objectui#13064)', () => {
+  it('⭐ attempt 2 with every shard only in attempt 1, all success, passes', async () => {
+    // Run 39276047959 attempt 2 as the gate read it: "re-run failed jobs"
+    // re-ran only this job, so its attempt holds this job and nothing else yet.
+    const g = gate(
+      (url) => (attemptOf(url) === 2 ? jobsPage(attemptJobs(2, () => undefined)) : jobsPage(attemptJobs(1))),
+      { GITHUB_RUN_ATTEMPT: '2' },
+    );
+
+    expect(await g.result).toBe(EXIT_OK);
+    expect(g.urls.map(attemptOf)).toEqual([2, 1]);
+    const printed = g.out.join('\n');
+    expect(printed).toContain('all 8 shards reported success');
+    expect(printed).toContain('(attempt 1; not re-run in attempt 2)');
+  });
+
+  it('⛔ attempt 2 with a shard `failure` in attempt 1 and not re-run stays red', async () => {
+    const g = gate(
+      (url) =>
+        attemptOf(url) === 2
+          ? jobsPage(attemptJobs(2, () => undefined))
+          : jobsPage(attemptJobs(1, (name) => (name === 'Test (shard 3/8)' ? 'failure' : 'success'))),
+      { GITHUB_RUN_ATTEMPT: '2' },
+    );
+
+    expect(await g.result).toBe(EXIT_BREACHED);
+    expect(g.out.join('\n')).toContain('Test (shard 3/8) (failure)');
+  });
+
+  it('⛔ a carried `cancelled` or `skipped` stays red', async () => {
+    for (const conclusion of ['cancelled', 'skipped']) {
+      const g = gate(
+        (url) =>
+          attemptOf(url) === 2
+            ? jobsPage(attemptJobs(2, () => undefined))
+            : jobsPage(attemptJobs(1, (name) => (name === 'Test (shard 5/8)' ? conclusion : 'success'))),
+        { GITHUB_RUN_ATTEMPT: '2' },
+      );
+      expect(await g.result, `a carried ${conclusion}`).toBe(EXIT_BREACHED);
+    }
+  });
+
+  it('⛔ a shard present in no attempt stays ABSENT', async () => {
+    const without = (name: string) => (name === 'Test (shard 8/8)' ? undefined : 'success');
+    const g = gate(
+      (url) => (attemptOf(url) === 2 ? jobsPage(attemptJobs(2, () => undefined)) : jobsPage(attemptJobs(1, without))),
+      { GITHUB_RUN_ATTEMPT: '2' },
+    );
+
+    expect(await g.result).toBe(EXIT_BREACHED);
+    const printed = g.out.join('\n');
+    expect(printed).toContain('ABSENT  Test (shard 8/8)');
+    expect(printed).toContain('produced no job at all in attempt 2 or any attempt before it');
+  });
+
+  it('a shard the re-run re-ran is judged by its re-run, both ways', async () => {
+    const shard = 'Test (shard 3/8)';
+    for (const [first, rerun, expected] of [
+      ['failure', 'success', EXIT_OK],
+      ['success', 'failure', EXIT_BREACHED],
+    ] as const) {
+      const g = gate(
+        (url) =>
+          attemptOf(url) === 2
+            ? jobsPage(attemptJobs(2, (name) => (name === shard ? rerun : undefined)))
+            : jobsPage(attemptJobs(1, (name) => (name === shard ? first : 'success'))),
+        { GITHUB_RUN_ATTEMPT: '2' },
+      );
+      expect(await g.result, `attempt 1 ${first}, re-run ${rerun}`).toBe(expected);
+    }
+  });
+
+  it('takes each absent shard from the LATEST earlier attempt that has it, and stops reading once none is absent', async () => {
+    const shard = 'Test (shard 3/8)';
+    const g = gate(
+      (url) => {
+        const k = attemptOf(url);
+        if (k === 3) return jobsPage(attemptJobs(3, () => undefined));
+        if (k === 2) return jobsPage(attemptJobs(2, (name) => (name === shard ? 'success' : undefined)));
+        return jobsPage(attemptJobs(1, (name) => (name === shard ? 'failure' : 'success')));
+      },
+      { GITHUB_RUN_ATTEMPT: '3' },
+    );
+
+    expect(await g.result).toBe(EXIT_OK);
+    expect(g.urls.map(attemptOf)).toEqual([3, 2, 1]);
+    expect(g.out.join('\n')).toContain(`success  ${shard}  (attempt 2; not re-run in attempt 3)`);
+
+    const full = gate((url) => jobsPage(attemptJobs(attemptOf(url))), { GITHUB_RUN_ATTEMPT: '2' });
+    expect(await full.result).toBe(EXIT_OK);
+    expect(full.urls.map(attemptOf), 'a full re-run needs no earlier attempt').toEqual([2]);
+  });
+
+  it('⛔ the own-job control is the current attempt’s, and nothing is carried into a reading that fails it', async () => {
+    const g = gate(
+      (url) => (attemptOf(url) === 2 ? jobsPage([]) : jobsPage(attemptJobs(1))),
+      { GITHUB_RUN_ATTEMPT: '2' },
+    );
+
+    expect(await g.result).toBe(EXIT_CANNOT_RUN);
+    expect(g.urls.map(attemptOf)).toEqual([2]);
+  });
+
+  it('refuses a carried record whose run_attempt is not the attempt it was read from', () => {
+    const current = attemptJobs(2, () => undefined);
+    const wrong = attemptJobs(1).map((job) => ({ ...job, run_attempt: 2 }));
+    expect(() => carryForward({ jobs: current, from: { attempt: 1, jobs: wrong }, shards: 8 })).toThrow(/not that attempt/);
+  });
+
+  it('⛔ an earlier attempt that cannot be read is exit 2, never a pass', async () => {
+    const g = gate(
+      (url) => (attemptOf(url) === 2 ? jobsPage(attemptJobs(2, () => undefined)) : json({ message: 'Not Found' }, 404)),
+      { GITHUB_RUN_ATTEMPT: '2' },
+    );
+    expect(await g.result).toBe(EXIT_CANNOT_RUN);
+  });
+});
+
+/**
+ * objectui#13064 — merge-group run 39286083342, the third measurement.
+ *
+ * Its job log printed nine shards with no conclusion at the first read, seven
+ * settling during the eight re-reads, and `Test (shard 7/16)` and
+ * `Test (shard 12/16)` still `in_progress` at the last, 6 min 22 s and
+ * 4 min 35 s after their `completed_at`, beside a `needs.test.result` of
+ * `success`. Those readings are the card's and the log's, taken by hand.
+ * The cases below replay the worst position for that staleness: the 6 min 22 s
+ * starting at the gate's own first read.
+ */
+const RECORDED_STALENESS_MS = 6 * 60_000 + 22_000;
+const STALE = ['Test (shard 7/16)', 'Test (shard 12/16)'];
+
+function staleRun() {
+  return [
+    ...shardContexts(16).map((name, i) =>
+      STALE.includes(name)
+        ? { id: 7000 + i, name, status: 'in_progress', conclusion: null, run_attempt: 1 }
+        : { id: 7000 + i, name, status: 'completed', conclusion: 'success', run_attempt: 1 },
+    ),
+    { id: 7999, name: 'Test', status: 'in_progress', conclusion: null, run_attempt: 1 },
+  ];
+}
+
+/** `settleReading` over a virtual clock: `answer` sees the time each re-read is taken at. */
+function settleStale(rollup: string | null, answer: (job: Record<string, unknown>, at: number) => unknown, jobs: unknown[] = staleRun()) {
+  let clock = 0;
+  const slept: number[] = [];
+  const logged: string[] = [];
+  const byId = new Map((jobs as Record<string, unknown>[]).map((job) => [job.id as number, job]));
+  const result = settleReading({
+    jobs,
+    shards: 16,
+    selfJobName: 'Test',
+    rollup,
+    rereadJob: async (jobId: number) => answer(byId.get(jobId)!, clock),
+    sleep: async (ms: number) => {
+      slept.push(ms);
+      clock += ms;
+    },
+    now: () => clock,
+    deadline: GATE_BUDGET_MS,
+    log: (line: string) => {
+      logged.push(line);
+    },
+  });
+  return { result, slept, logged, elapsed: () => clock };
+}
+
+const settlesAt = (ms: number) => (job: Record<string, unknown>, at: number) =>
+  at >= ms ? { ...job, status: 'completed', conclusion: 'success' } : { ...job, completed_at: '2026-10-19T16:38:37Z' };
+
+describe('check-test-shard-results — staleness past the first re-read bound (objectui#13064)', () => {
+  it('⭐ shards still in_progress past the first bound settle inside the extension while the rollup reads success', async () => {
+    const s = settleStale('success', settlesAt(RECORDED_STALENESS_MS));
+    const { reading, rereads, stale } = await s.result;
+
+    expect(reading.verdict).toBe('intact');
+    expect(exitCodeFor(reading)).toBe(EXIT_OK);
+    expect(rereads).toBeGreaterThan(REREAD_LIMIT);
+    expect(stale).toBe(rereads - REREAD_LIMIT);
+    expect(s.elapsed()).toBeGreaterThanOrEqual(RECORDED_STALENESS_MS);
+  });
+
+  it('⛔ without a success rollup the same answer stays red after the first bound', async () => {
+    for (const rollup of [null, 'failure', 'cancelled', 'skipped']) {
+      const s = settleStale(rollup, settlesAt(RECORDED_STALENESS_MS));
+      const { reading, rereads, stale } = await s.result;
+      expect(reading.verdict, `rollup ${String(rollup)}`).toBe('breached');
+      expect(rereads).toBe(REREAD_LIMIT);
+      expect(stale).toBe(0);
+    }
+  });
+
+  it('⛔ the rollup never passes a shard: one that never answers stays red, `completed_at` and all', async () => {
+    // Every re-read answers in_progress with a `completed_at`: that is not a conclusion.
+    const s = settleStale('success', settlesAt(Number.POSITIVE_INFINITY));
+    const { reading, rereads, stale } = await s.result;
+
+    expect(reading.verdict).toBe('breached');
+    expect(exitCodeFor(reading)).toBe(EXIT_BREACHED);
+    expect(reading.notSuccess).toEqual(STALE.map((name) => `${name} (no conclusion)`));
+    expect(rereads).toBe(REREAD_LIMIT + STALE_REREAD_LIMIT);
+    expect(stale).toBe(STALE_REREAD_LIMIT);
+    expect(s.elapsed()).toBeLessThanOrEqual(GATE_BUDGET_MS);
+  });
+
+  it('⛔ no extension once anything but a missing conclusion disagrees', async () => {
+    const failing = staleRun().map((job) => (job.name === 'Test (shard 3/16)' ? { ...job, conclusion: 'failure' } : job));
+    const s = settleStale('success', settlesAt(Number.POSITIVE_INFINITY), failing);
+    const { reading, rereads, stale } = await s.result;
+    expect(reading.verdict).toBe('breached');
+    expect(rereads).toBe(REREAD_LIMIT);
+    expect(stale).toBe(0);
+
+    // A late shard that turns out to have FAILED ends the extension at once.
+    const turns = settleStale('success', (job, at) =>
+      at > REREAD_LIMIT * REREAD_WAIT_MS ? { ...job, status: 'completed', conclusion: 'failure' } : job,
+    );
+    const late = await turns.result;
+    expect(late.reading.verdict).toBe('breached');
+    expect(late.stale).toBe(1);
+  });
+
+  it('⛔ no re-read starts that the gate budget cannot finish', async () => {
+    let clock = 0;
+    const logged: string[] = [];
+    const { reading, rereads, budgetSpent } = await settleReading({
+      jobs: staleRun(),
+      shards: 16,
+      selfJobName: 'Test',
+      rollup: 'success',
+      rereadJob: async (jobId: number) => staleRun().find((job) => job.id === jobId),
+      sleep: async (ms: number) => {
+        clock += ms;
+      },
+      now: () => clock,
+      // Room for two first-stretch re-reads and their requests, not a third.
+      deadline: 3 * REREAD_WAIT_MS + REQUEST_TIMEOUT_MS - 1,
+      log: (line: string) => {
+        logged.push(line);
+      },
+    });
+
+    expect(rereads).toBe(2);
+    expect(budgetSpent).toBe(true);
+    expect(reading.verdict).toBe('breached');
+    expect(logged.at(-1)).toContain("gate's budget");
+  });
+
+  it('run reads the rollup from TEST_MATRIX_ROLLUP, the name ci.yml hands it in under', async () => {
+    const stale = 'Test (shard 6/8)';
+    const replay = (rollup: string | undefined) =>
+      gate(
+        (url, call) =>
+          url.includes('/attempts/')
+            ? jobsPage(attemptJobs(1, (name) => (name === stale ? null : 'success')))
+            : call > REREAD_LIMIT + 2
+              ? json({ id: 1005, name: stale, status: 'completed', conclusion: 'success', run_attempt: 1 })
+              : json({ id: 1005, name: stale, status: 'in_progress', conclusion: null, run_attempt: 1 }),
+        { TEST_MATRIX_ROLLUP: rollup },
+      );
+
+    expect(await replay('success').result).toBe(EXIT_OK);
+    expect(await replay(undefined).result).toBe(EXIT_BREACHED);
+  });
+});
+
 describe('ci.yml wires the gate to its own matrix (#9499)', () => {
   /** The `test-aggregate` job block, comments stripped. */
   const aggregate = (() => {
@@ -397,6 +838,39 @@ describe('ci.yml wires the gate to its own matrix (#9499)', () => {
     expect(timeout, '`test-aggregate` must declare its own `timeout-minutes`').toBeTruthy();
     expect(REREAD_LIMIT).toBeGreaterThan(0);
     expect(REREAD_LIMIT * REREAD_WAIT_MS).toBeLessThanOrEqual((Number(timeout![1]) * 60_000) / 2);
+  });
+
+  it('keeps the whole gate inside the job, with room for the steps around it (objectui#13064)', () => {
+    // `GATE_BUDGET_MS` bounds every retry and re-read, and each request is cut
+    // to what is left of it, so it is the gate step's worst case. After it,
+    // the report-only headroom step makes one `fetchRunJobs()` read with no
+    // retry, bounded by `REQUEST_TIMEOUT_MS`. The two minutes are for set-up,
+    // checkout and post steps (the three runs the card records spent about
+    // ten seconds on them, read by hand once and not re-derived here). Past
+    // `timeout-minutes` the job reports `cancelled`, which the merge queue
+    // reads exactly as it reads a red.
+    const timeout = aggregate.match(/^ {4}timeout-minutes: (\d+)$/m);
+    expect(timeout, '`test-aggregate` must declare its own `timeout-minutes`').toBeTruthy();
+    const job = Number(timeout![1]) * 60_000;
+    expect(GATE_BUDGET_MS + REQUEST_TIMEOUT_MS + 2 * 60_000).toBeLessThanOrEqual(job);
+  });
+
+  it('sizes the two re-read stretches against the recorded staleness and the gate budget (objectui#13064)', () => {
+    const sleeps = REREAD_LIMIT * REREAD_WAIT_MS + STALE_REREAD_LIMIT * STALE_REREAD_WAIT_MS;
+    // Long enough for the 6 min 22 s run 39286083342 recorded, even starting
+    // at the gate's own first read…
+    expect(sleeps).toBeGreaterThanOrEqual(RECORDED_STALENESS_MS);
+    // …and short enough that the last stretch's wait and request still fit.
+    expect(sleeps + REQUEST_TIMEOUT_MS).toBeLessThanOrEqual(GATE_BUDGET_MS);
+    expect(STALE_REREAD_WAIT_MS).toBeGreaterThanOrEqual(REREAD_WAIT_MS);
+    // A transient retry's whole stretch fits too, with its requests.
+    expect(TRANSIENT_RETRY_LIMIT * TRANSIENT_RETRY_WAIT_MS + (TRANSIENT_RETRY_LIMIT + 1) * REQUEST_TIMEOUT_MS).toBeLessThan(GATE_BUDGET_MS);
+  });
+
+  it('hands the gate the matrix rollup under the name it reads (objectui#13064)', () => {
+    // The gate reads it only to decide whether to wait longer. Pinned so that
+    // renaming it in ci.yml cannot silently switch the extension off.
+    expect(aggregate).toMatch(/^ {10}TEST_MATRIX_ROLLUP: \$\{\{ needs\.test\.result \}\}$/m);
   });
 
   it('asserts the dist-pin job too, so nothing in the lane is left ungated', () => {

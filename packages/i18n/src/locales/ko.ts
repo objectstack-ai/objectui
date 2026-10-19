@@ -596,6 +596,9 @@ const ko = {
       undoing: "되돌리는 중…",
       undoConfirm: "이 가져오기를 되돌릴까요? 생성된 레코드는 삭제되고 업데이트된 레코드는 이전 값으로 복원됩니다.",
       reverted: "되돌림",
+      undoPartial: "{{count}}개 행을 되돌리지 못했습니다. 다시 되돌리면 이 행만 다시 시도합니다.",
+      undoPartial_one: "{{count}}개 행을 되돌리지 못했습니다. 다시 되돌리면 이 행만 다시 시도합니다.",
+      undoPartial_other: "{{count}}개 행을 되돌리지 못했습니다. 다시 되돌리면 이 행만 다시 시도합니다.",
       jobStatus: {
         pending: "대기 중",
         running: "실행 중",
@@ -2132,6 +2135,7 @@ const ko = {
       objectNotFound: "객체를 찾을 수 없음",
       objectNotFoundDescription: "객체 \"{{objectName}}\"이(가) 현재 구성에 존재하지 않습니다.",
       objectNotFoundHint: "앱 탐색 설정을 확인하거나 사이드바에서 다른 객체를 선택하세요.",
+      objectPackageDisabled: "객체 \"{{objectName}}\"이(가) 속한 패키지가 비활성화되어 있어 제공되지 않습니다.",
       filterOrNotSavable: "이 필터는 조건 사이에 OR을 사용하며, 저장된 뷰에는 아직 저장할 수 없습니다. 현재 목록에는 계속 적용됩니다. 뷰에 저장하려면 OR 그룹을 해제하세요.",
       filterNestedNotSavable: "이 필터는 중첩된 조건 그룹을 사용하며, 저장된 뷰에는 저장할 수 없습니다. 뷰에 저장하려면 단일 조건 목록으로 펼치세요.",
       allRecords: "모든 레코드",

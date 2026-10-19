@@ -1326,6 +1326,35 @@ export interface ConsoleObjectViewProps {
 }
 
 /**
+ * The "object not found" state the route draws for an object it has no
+ * definition of. objectui#13052 — `packageDisabled`: the server answered that
+ * the object exists and its package is disabled (`OBJECT_PACKAGE_DISABLED`),
+ * so the description says that instead. The console route draws it for that
+ * answer (`AppContent`); this module's `ObjectView` draws it for an absence.
+ * Not part of the package entry.
+ */
+export function ObjectNotFoundState({ objectName, packageDisabled = false }: { objectName: string | undefined; packageDisabled?: boolean }) {
+    const { t } = useObjectTranslation();
+    return (
+        <div className="h-full p-4 flex items-center justify-center">
+          <Empty data-testid={packageDisabled ? 'object-package-disabled' : 'object-not-found'}>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <TableIcon className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <EmptyTitle>{t('console.objectView.objectNotFound')}</EmptyTitle>
+            <EmptyDescription>
+              {packageDisabled
+                ? t('console.objectView.objectPackageDisabled', { objectName })
+                : t('console.objectView.objectNotFoundDescription', { objectName })}
+              {' '}
+              {t('console.objectView.objectNotFoundHint')}
+            </EmptyDescription>
+          </Empty>
+        </div>
+    );
+}
+
+/**
  * The list toolbar's inline-edit toggle, as this page wires it: it writes
  * nothing (objectui#5144, triage's ruling E).
  *
@@ -1386,7 +1415,6 @@ function keepInlineEditModeForTheSession(): void {
 
 export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const { objectName } = useParams();
-    const { t } = useObjectTranslation();
 
     // Resolve the object definition up front. When it's missing we render the
     // "object not found" empty state *here*, before the inner component mounts.
@@ -1396,23 +1424,7 @@ export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: 
     // return. The inner subtree then mounts/unmounts as a whole (object exists
     // ↔ doesn't) rather than toggling the number of hooks executed per render.
     const objectDef = objects.find((o: any) => o.name === objectName);
-    if (!objectDef) {
-      return (
-        <div className="h-full p-4 flex items-center justify-center">
-          <Empty>
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-              <TableIcon className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <EmptyTitle>{t('console.objectView.objectNotFound')}</EmptyTitle>
-            <EmptyDescription>
-              {t('console.objectView.objectNotFoundDescription', { objectName })}
-              {' '}
-              {t('console.objectView.objectNotFoundHint')}
-            </EmptyDescription>
-          </Empty>
-        </div>
-      );
-    }
+    if (!objectDef) return <ObjectNotFoundState objectName={objectName} />;
 
     return (
       <ObjectViewInner

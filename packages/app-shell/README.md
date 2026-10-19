@@ -722,10 +722,14 @@ server** instead of maintaining a second grammar:
 
 - **Inline lint** (`CelPredicateField`) — `validateExpression` flags parse
   faults inline (blocking Save) and unknown-field near-misses as non-blocking
-  "did-you-mean" warnings; a `USING` or `CHECK` predicate the runtime cannot
-  lower (`isSupportedRlsExpression`) is an error that blocks Save, carrying
-  `@objectstack/lint`'s `rls-predicate-*` message as written — the verdict
-  publish and `os build` give.
+  "did-you-mean" warnings; a `USING` or `CHECK` predicate `@objectstack/lint`'s
+  `rls-predicate-*` rule refuses is an error that blocks Save, carrying the
+  rule's message as written — the verdict publish and `os build` give. The
+  editor asks the rule about the clause alone: a predicate the runtime cannot
+  lower, and, for one that lowers, a `current_user` member nothing resolves, a
+  `current_user` value of the wrong type for its position or a refused `null`
+  comparand. The verdicts that read the object's field map or field types, or
+  the server's engine, stay at publish.
 - **Field autocomplete** — `introspectScope` supplies the target object's
   fields plus scope vars (`current_user`, `record`, …) and stdlib functions as
   you type, so an identifier that would silently never match is caught early.

@@ -16,9 +16,9 @@
  * author-time safeties, all backed by the framework's canonical CEL engine
  * (see {@link file://./celAuthoring.ts}):
  *
- *  - inline LINT — parse faults and, on an RLS clause, a predicate the
- *    runtime cannot lower (both blocking), and typo / wrong-layer advisories,
- *    surfaced under the field as you type (debounced);
+ *  - inline LINT — parse faults and, on an RLS clause, a predicate
+ *    `@objectstack/lint`'s RLS rule refuses (both blocking), and typo /
+ *    wrong-layer advisories, surfaced under the field as you type (debounced);
  *  - as-you-type AUTOCOMPLETE — the target object's fields, the scope roots
  *    (`current_user`, `record`, …) and the stdlib functions, so a mistyped
  *    identifier is caught before it silently never matches;
@@ -82,7 +82,7 @@ export interface CelPredicateFieldProps {
   objectName?: string;
   /** Known field names of {@link objectName}. */
   fieldNames?: string[];
-  /** Which RLS clause this is (turns on the blocking lowerability verdict). */
+  /** Which RLS clause this is (turns on the blocking verdicts of `@objectstack/lint`'s RLS rule). */
   clause?: 'using' | 'check';
   /**
    * Evaluation scope of the authoring site (objectui#1582). `'flattened'`

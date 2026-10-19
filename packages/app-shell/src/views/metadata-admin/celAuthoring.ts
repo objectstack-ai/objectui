@@ -44,9 +44,9 @@ export interface CelSchemaHint {
   fields?: string[];
   /**
    * Which RLS clause is being edited: `USING` (read filter) or `CHECK` (write
-   * filter). Naming one turns on the lowerability verdict — a clause the
-   * runtime cannot lower to a row filter is an `error` (see
-   * {@link lintCelPredicate}). Omitted on every non-RLS surface.
+   * filter). Naming one turns on `@objectstack/lint`'s RLS rule — a clause it
+   * refuses, lowerable or not, is an `error` (see {@link lintCelPredicate}).
+   * Omitted on every non-RLS surface.
    */
   clause?: 'using' | 'check';
   /**
@@ -108,8 +108,8 @@ export type CelLintMessageKey = 'engine.celLint.notTheRow';
 
 /**
  * A single lint finding surfaced inline under the editor. `error` blocks save
- * (a parse fault, or an RLS clause the runtime would drop); `warning` is
- * advisory (a typo, a wrong-layer root).
+ * (a parse fault, or an RLS clause `@objectstack/lint`'s rule refuses);
+ * `warning` is advisory (a typo, a wrong-layer root).
  *
  * Every error, and every advisory the engine or `@objectstack/lint` words,
  * carries that producer's `message` as written. An advisory this module words
@@ -192,8 +192,6 @@ interface FormulaModule {
     input: unknown,
     schema?: unknown,
   ) => 'number' | 'text' | 'boolean' | 'date' | 'unknown';
-  /** The RLS shape gate: `false` = the runtime cannot lower this clause and drops the policy. */
-  isSupportedRlsExpression?: (expression: string) => boolean;
   ExpressionEngine?: {
     evaluate: (
       expr: { dialect: string; source: string },
@@ -227,7 +225,7 @@ function loadFormula(): Promise<FormulaModule | null> {
   return cached;
 }
 
-/* ── Lazy RLS lowerability verdict (objectui#13061) ──────────────────── */
+/* ── Lazy RLS rule verdict (objectui#13061, objectui#13082) ──────────── */
 
 /** One finding of `@objectstack/lint`'s published RLS rule — the fields read here. */
 interface RlsPredicateFinding {
@@ -260,33 +258,61 @@ function loadRlsRule(): Promise<RlsPredicateRule | null> {
 }
 
 /**
- * The server's verdict on an RLS clause the runtime cannot lower, in the
- * server's words (objectui#13061).
+ * `@objectstack/lint`'s verdicts on one RLS clause, in the lint's words
+ * (objectui#13061, objectui#13082).
  *
- * The verdict is the runtime's. The RLS compiler drops a clause it cannot lower
- * to a row filter, and the policy then grants (or admits) nothing — it fails
- * CLOSED. `isSupportedRlsExpression` (`@objectstack/formula`) is the decision
- * the compiler makes, and the one `@objectstack/lint`'s rule calls at severity
- * `error`; asking the same function here means Studio and the server cannot
- * disagree about which clauses are dropped.
+ * The verdicts are the publish door's. `validateRlsPredicateEnforceability` is
+ * the `rls-predicate-*` rule `os build` and the runtime publish gate run, so
+ * asking it here means Studio and the server cannot disagree about a clause.
+ * The runtime drops a policy the rule refuses, and the policy then grants (or
+ * admits) nothing: it fails CLOSED.
  *
- * The words are the lint's. ⛔ No sentence for this verdict is written here:
- * the finding is the one the published rule returns for a one-clause stack
- * holding this source, with its severity and message as written. For a clause
- * the gate refuses, the rule reports through its shape pass alone.
+ * The words are the lint's. ⛔ No sentence for any of these verdicts is written
+ * here, and none is synthesized: each finding is one the published rule returns
+ * for a one-clause stack holding this source, with its severity and message as
+ * written. What the rule does not say, the editor does not say.
  *
- * Only the gate's question — will this clause lower at all. The rule's other
- * passes judge what a lowerable clause POINTS AT and need the object's
- * metadata; they stay the publish door's. An engine without the gate, or a
- * lint without the rule, gives no verdict here, the same degradation as every
+ * ## What the one-clause stack lets the rule judge
+ *
+ * Every clause that parses is asked, lowerable or not (objectui#13082; until
+ * then only a clause `isSupportedRlsExpression` refuses was). A clause the
+ * engine already refuses as a parse fault is not asked, so one fault earns one
+ * blocking finding (a `null` beside a typed list member is one). The stack names
+ * no object, so the rule answers exactly what the clause alone decides — the
+ * answer the publish door gives for the same clause. For a clause the runtime
+ * cannot lower that is the shape pass. For one that lowers it is each
+ * reference verdict that reads the clause and nothing else: a `current_user`
+ * member nothing pre-resolves, a `current_user` value of the wrong type for
+ * its position, a comparand the shared filter faces refuse. Which verdicts
+ * those are is the rule's, not a list kept here:
+ * `celAuthoring.rlsReferencePasses-13082.test.ts` pins each one against the
+ * rule.
+ *
+ * ## What stays at the publish door, and why
+ *
+ * The rule's other reference passes read metadata the editor does not hold.
+ * The one-clause stack carries no object, so they are silent here by the
+ * rule's own construction (an object the stack does not declare is one it
+ * cannot judge), and absent metadata is never an editor verdict:
+ *
+ *  - an unknown field reads the object's field map as the door's universe
+ *    holds it: the live objects plus the drafts a package publish carries with
+ *    the write. The editor holds a list of field NAMES read from the published
+ *    object (the host's `loadObjectFields`), so a field the author added in a
+ *    pending object draft is missing from it, and the rule would refuse a
+ *    predicate the package publish accepts. Here an unknown field gets at most
+ *    the engine's non-blocking "did you mean" warning, for a near miss
+ *    ({@link lintCelPredicate});
+ *  - a field compared with a field that holds a list or an object, or with a
+ *    field of another comparison class, reads each field's declared TYPE; the
+ *    editor holds names only;
+ *  - the engine's admission of the read scope reads the host engine's
+ *    `judgeFilter`, which only the server holds.
+ *
+ * A lint without the rule gives no verdict, the same degradation as every
  * other entry point of this module.
  */
-async function rlsLowerabilityVerdict(
-  mod: FormulaModule,
-  source: string,
-  clause: 'using' | 'check',
-): Promise<CelLintIssue[]> {
-  if (!mod.isSupportedRlsExpression || mod.isSupportedRlsExpression(source)) return [];
+async function rlsPredicateVerdict(source: string, clause: 'using' | 'check'): Promise<CelLintIssue[]> {
   const rule = await loadRlsRule();
   if (!rule) return [];
   const issues: CelLintIssue[] = [];
@@ -573,9 +599,9 @@ async function rowCanonAdvisory(source: string, slot: string | undefined): Promi
 /**
  * Validate one CEL source. Returns the findings to surface inline: parse
  * faults as `error` (block save), unknown-field near-misses as `warning`
- * (advisory). With {@link CelSchemaHint.clause} set, an RLS clause the runtime
- * cannot lower is an `error` too — the server's verdict in the server's words
- * (see `rlsLowerabilityVerdict`).
+ * (advisory). With {@link CelSchemaHint.clause} set, `@objectstack/lint`'s RLS
+ * rule judges the clause too, and each finding keeps the rule's severity and
+ * words — the publish door's verdict (see `rlsPredicateVerdict`).
  *
  * RLS predicates reference fields BARE (`organization_id == current_user.…`),
  * like a flattened flow condition — so a bare identifier is legal and an
@@ -615,14 +641,15 @@ export async function lintCelPredicate(
     for (const w of res?.warnings ?? []) {
       if (w?.message) issues.push({ severity: 'warning', message: w.message });
     }
-    // Lowerability (objectui#13061) — see `rlsLowerabilityVerdict`. Both RLS
-    // clauses, only once the predicate parses (a parse fault already surfaced
-    // above), at the server's severity and in its words.
+    // The RLS rule's verdicts (objectui#13061, objectui#13082) — see
+    // `rlsPredicateVerdict`. Both RLS clauses, lowerable or not, only once the
+    // predicate parses (a parse fault already surfaced above), at the rule's
+    // severity and in its words.
     // (`some`, not `every`: an inferred predicate on `every` would narrow
     // `issues` to warnings and refuse the push below.)
     if (!issues.some((i) => i.severity === 'error') && (hint.clause === 'using' || hint.clause === 'check')) {
       try {
-        issues.push(...(await rlsLowerabilityVerdict(mod, source, hint.clause)));
+        issues.push(...(await rlsPredicateVerdict(source, hint.clause)));
       } catch {
         /* author-time assistance — never let it break the lint */
       }

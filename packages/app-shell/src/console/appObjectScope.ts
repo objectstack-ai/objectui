@@ -7,7 +7,7 @@
  * the chrome around it read the app's object scope instead
  * (`MetadataContextValue.readObjectScope`): the package's objects, plus by
  * name the route's object and its lookup targets when the package does not
- * hold them, the objects the app's navigation entries require
+ * hold them, the objects the app's navigation and area entries require
  * (`requiresObject`), and the navigation's objects while the command palette
  * is open.
  *
@@ -224,6 +224,21 @@ export function navigationNames(navigation: unknown, pick: (item: Record<string,
   return out;
 }
 
+/**
+ * The objects an app's entries require (`requiresObject`), in its `navigation`
+ * and in every `areas[].navigation`: the sidebar draws and gates both
+ * (objectui#12980), so an area entry requiring an object outside the package
+ * is asked by name and answered exactly.
+ */
+function appRequiredObjectNames(app: Record<string, any> | undefined): string[] {
+  const pick = (item: Record<string, unknown>) => item.requiresObject;
+  const areas: unknown[] = Array.isArray(app?.areas) ? app.areas : [];
+  return [
+    ...navigationNames(app?.navigation, pick),
+    ...areas.flatMap((area) => navigationNames(isRecord(area) ? area.navigation : undefined, pick)),
+  ];
+}
+
 export interface AppObjectScopeRead {
   /** The route reads a scope when its app names a package: an app route on the scope list, no record overlay. */
   candidate: boolean;
@@ -265,7 +280,7 @@ export function readAppObjectScope(
       if (pageRead?.settled) return { candidate, scope: NO_OBJECT_SCOPE, ready: true };
       return { candidate, scope: packageId ? readObjectScope({ packageId }) : PENDING_OBJECT_SCOPE, ready: false };
     }
-    const extra = navigationNames(app.navigation, (item) => item.requiresObject);
+    const extra = appRequiredObjectNames(app);
     if (new URLSearchParams(search).has(COMMAND_PALETTE_PARAM)) {
       extra.push(...navigationNames(app.navigation, (item) => (item.type === 'object' ? item.objectName : undefined)));
     }
@@ -278,9 +293,9 @@ export function readAppObjectScope(
   if (!own.settled) return { candidate, scope: own, ready: false };
   if (!own.served.some((o: any) => o?._packageId === packageId)) return { candidate, scope: null, ready: false };
   const ready = readObjectScope({ packageId, names: route.objectName ? [route.objectName] : [] }).settled;
-  // The objects the app's own navigation entries require: the sidebar's
-  // capability gate answers from this scope.
-  const names = navigationNames(app?.navigation, (item) => item.requiresObject);
+  // The objects the app's own navigation entries require, in its `navigation`
+  // and its `areas`: the sidebar's capability gate answers from this scope.
+  const names = appRequiredObjectNames(app);
   if (route.objectName) names.push(route.objectName);
   if (new URLSearchParams(search).has(COMMAND_PALETTE_PARAM)) {
     names.push(...navigationNames(app?.navigation, (item) => (item.type === 'object' ? item.objectName : undefined)));

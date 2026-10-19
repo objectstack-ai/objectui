@@ -28,8 +28,6 @@
  * two-key convention, and the base keys of the `_one`/`_other` families
  * (`detail.fileCount` `Файлов: {{count}}`, `ar` `calendar.a11y.dayCell`
  * `عدد الأحداث: {{count}}`) carry it for the categories a family cannot spell.
- * The `ru` pack's own header comment on `perm.facet` records the device as
- * applied throughout that pack and correct at ANY number.
  *
  * ## objectui#11445 — the real few-form, now
  *

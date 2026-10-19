@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { expandViewContainer } from '@objectstack/spec/ui';
 import { ActiveOrganizationStorage, TokenStorage, useAuth } from '@object-ui/auth';
-import { type ObjectStackAdapter } from '@object-ui/data-objectstack';
+import { isMetaItemAbsentError, type ObjectStackAdapter } from '@object-ui/data-objectstack';
 import { normalizeSchemaReferenceKeys } from '@object-ui/core';
 import { resolveInlineMode } from '@object-ui/plugin-form';
 import { MetadataCtx, useMetadata, type MetadataContextValue, type MetadataCacheState, type MetadataTypeStatus } from '@object-ui/react';
@@ -37,7 +37,21 @@ interface TypeCacheEntry {
   promise: Promise<any[]> | null;
 }
 
-type ItemPromiseMap = Map<string, Promise<any | null>>;
+/**
+ * One by-name read's outcome (objectui#13009). `item` is the definition, or
+ * `null` when none came back; `failed` tells WHICH `null` it is: `false` when
+ * the server answered without one (the item-less envelope, or a thrown
+ * `RESOURCE_NOT_FOUND`), `true` when no answer was obtained at all (a 5xx, a
+ * network drop, a 404 carrying no declared code; see `isMetaItemAbsentError`).
+ * `getItem` hands its callers `item` alone, as it always has; the object scope
+ * needs the difference, because only an answer may record a name as missing.
+ */
+interface ItemRead {
+  item: any | null;
+  failed: boolean;
+}
+
+type ItemPromiseMap = Map<string, Promise<ItemRead>>;
 
 /**
  * One package's object definitions, plus the objects outside it that a reader
@@ -61,6 +75,14 @@ interface ObjectScopeEntry {
 }
 
 const NO_NAMES: readonly string[] = Object.freeze([]) as readonly string[];
+
+/**
+ * The key of the names-only object scope (objectui#12980): the objects a
+ * reader names when it has no package to scope by (a page route in an app
+ * item without `_packageId`). A package id is never empty, so it cannot
+ * collide with one. It has no package list: each name is read by name.
+ */
+const NAMES_ONLY_SCOPE = '';
 
 interface MetadataProviderProps {
   children: ReactNode;
@@ -675,7 +697,8 @@ function removeNoOrgSeedEntry(type: string): void {
 export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: MetadataProviderProps) {
   const cacheRef = useRef<Map<string, TypeCacheEntry>>(new Map());
   const itemPromisesRef = useRef<Map<string, ItemPromiseMap>>(new Map());
-  // objectui#12811 — the package-scoped object reads, keyed by package id.
+  // objectui#12811 — the package-scoped object reads, keyed by package id,
+  // and the names-only scope under NAMES_ONLY_SCOPE (objectui#12980).
   const scopesRef = useRef<Map<string, ObjectScopeEntry>>(new Map());
   // Types whose session entry this boot wrote under NO_ORG_SCOPE because the
   // active organization had not resolved yet (objectui#5243).
@@ -844,13 +867,13 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     [bump, getEntry, ttlMs],
   );
 
-  const getItem = useCallback(
-    (type: string, name: string): Promise<any | null> => {
+  const readItem = useCallback(
+    (type: string, name: string): Promise<ItemRead> => {
       const entry = getEntry(type);
 
       if (entry.byName.has(name)) {
         debug(`item cache hit type=${type} name=${name}`);
-        return Promise.resolve(entry.byName.get(name) ?? null);
+        return Promise.resolve({ item: entry.byName.get(name) ?? null, failed: false });
       }
 
       let pending = itemPromisesRef.current.get(type);
@@ -889,18 +912,25 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
           if (item) entry.byName.set(name, item);
           debug(`fetched item type=${type} name=${name} in ${Date.now() - started}ms`);
           pending!.delete(name);
-          return item;
+          return { item, failed: false };
         })
         .catch((err: unknown) => {
           pending!.delete(name);
           debug(`fetch item failed type=${type} name=${name}`, err);
-          return null;
+          // A thrown absence is an answer; anything else is not (objectui#13009).
+          return { item: null, failed: !isMetaItemAbsentError(err) };
         });
 
       pending.set(name, promise);
       return promise;
     },
     [getEntry],
+  );
+
+  // The published read: `null` for "none came back", whichever way.
+  const getItem = useCallback(
+    (type: string, name: string): Promise<any | null> => readItem(type, name).then((read) => read.item),
+    [readItem],
   );
 
   // ── objectui#12811 — package-scoped object reads ─────────────────────────
@@ -946,8 +976,18 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
   const fetchScopeName = useCallback(
     (packageId: string, entry: ObjectScopeEntry, name: string): Promise<void> => {
       entry.names.set(name, 'pending');
-      return getItem('object', name).then((item: any) => {
+      return readItem('object', name).then(({ item, failed }) => {
         if (scopesRef.current.get(packageId) !== entry) return;
+        // objectui#13009 — a read that obtained no answer records nothing: the
+        // name is not answered (so the scope stays unsettled and
+        // `useObjectPresence` reads `unknown`, never `absent`), and the next
+        // `readObjectScope` asks it again. No bump: nothing a reader sees has
+        // changed, and a bump would re-render straight into another request,
+        // a retry loop paced by the failures themselves.
+        if (failed) {
+          entry.names.delete(name);
+          return;
+        }
         entry.names.set(name, 'answered');
         const rest = entry.items.filter((it: any) => it?.name !== name);
         if (item) {
@@ -960,7 +1000,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
         bump();
       });
     },
-    [bump, getItem],
+    [bump, readItem],
   );
 
   /** Refetch every scope in place: the items stay until the answers replace them. */
@@ -972,7 +1012,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     const pending: Promise<void>[] = [];
     for (const [packageId, entry] of scopesRef.current) {
       if (entry.status === 'idle') continue;
-      pending.push(fetchScopeList(packageId, entry));
+      if (packageId !== NAMES_ONLY_SCOPE) pending.push(fetchScopeList(packageId, entry));
       for (const name of Array.from(entry.names.keys())) pending.push(fetchScopeName(packageId, entry, name));
     }
     return pending;
@@ -1224,11 +1264,13 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
   // starts what it needs and nothing more: the package list once, and a name
   // by name only after that list has answered without it. When the whole
   // registry is already loaded (Studio was opened, say), the scope is cut from
-  // it and nothing is requested.
+  // it and nothing is requested. With `names` and no `packageId` it is the
+  // names-only scope (objectui#12980): no package list, each name by name.
   const readObjectScope = useCallback(
     (scope: { packageId?: string; names?: readonly string[] }) => {
-      const packageId = scope.packageId;
-      if (!packageId) {
+      const namesOnly = !scope.packageId && !!scope.names && scope.names.length > 0;
+      const packageId = scope.packageId || (namesOnly ? NAMES_ONLY_SCOPE : undefined);
+      if (packageId === undefined) {
         const status = getEntry('object').status;
         const served = readType('object');
         return {
@@ -1248,11 +1290,17 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       // (a record route reads it), rather than asked for twice.
       if (entry.status === 'idle') {
         if (whole.status === 'ready') {
-          entry.items = whole.items.filter((it: any) => it?._packageId === packageId);
+          entry.items = namesOnly ? [] : whole.items.filter((it: any) => it?._packageId === packageId);
           entry.status = 'ready';
           entry.answered = true;
         } else if (whole.status !== 'loading') {
-          void fetchScopeList(packageId, entry);
+          if (namesOnly) {
+            // No package list to wait for: the names are asked at once.
+            entry.status = 'ready';
+            entry.answered = true;
+          } else {
+            void fetchScopeList(packageId, entry);
+          }
         }
       }
       let namesSettled = true;

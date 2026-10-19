@@ -92,7 +92,7 @@ vi.mock('../../providers/AdapterProvider', () => ({
 
 vi.mock('../../utils/authToken', () => ({ bearerAuthHeaders: () => ({}) }));
 
-import { useSharedPendingApprovalsCount, __resetSharedUserFeeds } from '../sharedUserFeeds';
+import { useSharedPendingApprovalsCount, __resetSharedUserFeeds, __markFirstPainted } from '../sharedUserFeeds';
 
 /** Every approvals request this case issued, as parsed URLs. */
 let requested: URL[] = [];
@@ -136,6 +136,8 @@ beforeEach(() => {
   // Module-scoped feeds outlive any one render tree, so cases would otherwise
   // inherit each other's key, rows and in-flight state.
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string) => {
@@ -153,6 +155,8 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
 });
 
 describe('objectui#5424 — approver identities come from `positions`, the published spelling', () => {

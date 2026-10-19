@@ -86,6 +86,17 @@
  * carries pnpm's own remedy sentinel; otherwise this exits 2, "could not take a
  * reading", which is never a pass.
  *
+ * ## It needs the pinned `@objectstack/*` build (objectui#12957)
+ *
+ * Every `@objectstack/*` package resolves to a `file:` directory of the build
+ * `.objectstack-sha` pins (`scripts/objectstack-pin.mjs`), and `pnpm dedupe
+ * --check` re-reads those directories. Without the build pnpm stops before it
+ * judges anything (`ERR_PNPM_LINKED_PKG_DIR_NOT_FOUND`), so the checker asks
+ * first and reports a reading it could not take, NAMING the cause rather than
+ * leaving it to pnpm's message. `lockfile-dedupe.yml` restores the build before
+ * this runs. Measured on objectui#12957 with the build in place: `VERDICT
+ * deduped`, the lockfile's sha256 unchanged.
+ *
  * ## ⚠️ This gate reads the REGISTRY, unlike its neighbour
  *
  * `check-lockfile-integrity.mjs` is one `node` call over two text files.
@@ -112,6 +123,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { isEntrypoint } from './invoked-as.mjs';
+import { CACHE_DIR, STAMP_FILE } from './objectstack-pin.mjs';
 
 const REPO_ROOT = path.resolve(fileURLToPath(import.meta.url), '..', '..');
 
@@ -310,6 +322,16 @@ export function writeStepSummary(text, env = process.env) {
 }
 
 /**
+ * Whether the pinned `@objectstack/*` build is absent, read off its stamp.
+ *
+ * @param {string} [root]
+ * @returns {boolean}
+ */
+export function pinnedBuildMissing(root = REPO_ROOT) {
+  return !fs.existsSync(path.join(root, CACHE_DIR, STAMP_FILE));
+}
+
+/**
  * @param {string[]} argv
  * @returns {number} process exit code
  */
@@ -318,6 +340,17 @@ export function main(argv = process.argv.slice(2)) {
   /** The annotation LEVEL is the whole difference: same message, same surface. */
   const annotate = (message) =>
     console.error(`::${reportOnly ? 'warning' : 'error'} title=Lockfile dedupe::${message}`);
+
+  if (pinnedBuildMissing()) {
+    annotate(
+      `could not take a reading — the pinned @objectstack/* build is not in ${CACHE_DIR}, so ` +
+        '`pnpm dedupe --check` cannot resolve those packages (objectui#12957). Run `pnpm objectstack:build` ' +
+        'first. ⛔ This is NOT a deduped verdict.',
+    );
+    for (const line of renderVerdict({ outcome: 'cannot-run', reportOnly })) console.error(line);
+    writeStepSummary(renderStepSummary({ outcome: 'cannot-run' }));
+    return reportOnly ? EXIT_CLEAN : EXIT_CANNOT_RUN;
+  }
 
   const run = spawnSync('pnpm', ['dedupe', '--check'], {
     cwd: REPO_ROOT,
@@ -417,6 +450,9 @@ export function selfTest() {
   t('does not report the ADDED identity as removed', !names.includes('zod-validation-error'));
   t('reports each name once, sorted', JSON.stringify(names) === JSON.stringify([...new Set(names)].sort()));
   t('finds nothing in clean output', namesFromOutput(GREEN).length === 0);
+
+  // ── the pinned @objectstack/* build is a precondition (objectui#12957) ─────
+  t('a root without the pinned build is reported missing', pinnedBuildMissing(path.join(REPO_ROOT, 'no-such-root')) === true);
   t(
     'CONTROL — a red verdict still reds when the parse names nothing',
     renderVerdict({ outcome: 'findings', names: [], output: RED }).some((l) => l.startsWith('VERDICT not deduped')),

@@ -23,6 +23,11 @@
  *
  * Decline writes nothing. Closing the dialog any other way (Escape, the
  * overlay, the close button) is a decline.
+ *
+ * Its settings read waits for the console's first paint (`whenBootPainted`,
+ * objectui#12980): this component mounts beside the routes, under the boot
+ * splash, and a dialog has nothing to say before the page it sits over has
+ * painted — so the read no longer goes out beside the page's own reads.
  */
 
 import { useEffect, useState } from 'react';
@@ -44,6 +49,7 @@ import { extractFieldErrors } from '@object-ui/react';
 import { SettingsField } from './SettingsField';
 import { lockedKeyOf, saveSettingsNamespace } from './api';
 import { useSettingsLabel } from './useSettingsLabel';
+import { whenBootPainted } from '../../loadLocales';
 import {
   LOCALIZATION_NAMESPACE,
   TIMEZONE_KEY,
@@ -85,7 +91,8 @@ export function WorkspaceTimezonePrompt() {
     const held = heldKey === '' ? [] : heldKey.split('\n');
 
     let cancelled = false;
-    findTimezoneOffer(held, zone)
+    whenBootPainted()
+      .then(() => (cancelled ? null : findTimezoneOffer(held, zone)))
       .then((found) => {
         if (cancelled || !found) return;
         // Re-read: another tab may have shown it while this one was fetching.

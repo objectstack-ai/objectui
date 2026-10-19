@@ -61,8 +61,8 @@
  * `section={…}` as a direct JSX child — none goes through the registry. Teaching
  * the component two prop shapes would put a second dialect in front of all of
  * them (AGENTS.md #0.1). The registration seam is where the translation
- * belongs, and this package already does exactly that for
- * `field:permission-facet-link` via `withFieldCarrier` (objectui#3307).
+ * belongs — the same seam `withFieldCarrier` is for `field:` registrations
+ * (objectui#3307).
  *
  * ⇒ this adapter accepts the DECLARED surface and nothing else. It does not
  * take a `section` prop: a node carrying one is refused by the platform

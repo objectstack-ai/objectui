@@ -171,7 +171,7 @@ Edit `app.json` to build your UI.
 ### Run the examples from this repo
 
 ```bash
-pnpm install
+pnpm run setup      # builds @objectstack/* at .objectstack-sha, then installs
 pnpm -w build
 
 cd examples/console-starter   # or examples/byo-backend-console
@@ -436,7 +436,7 @@ Contributions are welcome — read the [Contributing Guide](./CONTRIBUTING.md) f
 ```bash
 git clone https://github.com/objectstack-ai/objectui.git
 cd objectui
-./scripts/setup.sh    # or: pnpm install && pnpm build
+./scripts/setup.sh    # or: pnpm run setup && pnpm build
 pnpm dev              # development site
 pnpm test
 ```

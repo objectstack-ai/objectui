@@ -39,39 +39,6 @@ const en = {
       view_all_audit_log: 'View All Audit Log',
     },
   },
-  // objectui#3546 slice six — the read-only facet summary + Studio deep-link a
-  // `sys_permission_set` record shows for its six authorization facets
-  // (ADR-0056 P1, plugin-detail's PermissionFacetLink).
-  //
-  // The four count labels are plural families. i18next looks up the ONE suffix
-  // a language's rules ask for, so every pack spells out every CLDR category its
-  // language selects (`en`: `_one`/`_other`; `ru` adds `_few`/`_many`, `ar`
-  // `_zero`/`_two`/`_few`/`_many` — objectui#11432); the BASE key (no suffix)
-  // answers a call made without a count. `all-locales-key-parity.test.ts`
-  // derives the required slots from `Intl.PluralRules`, and
-  // `perm-home-namespace-3546.test.tsx` renders every language at counts
-  // 1/2/3/5/11/21/100.
-  perm: {
-    facet: {
-      none: 'None',
-      more: '+{{count}} more',
-      objects: '{{count}} objects',
-      objects_one: '{{count}} object',
-      objects_other: '{{count}} objects',
-      fields: '{{count}} field rules',
-      fields_one: '{{count}} field rule',
-      fields_other: '{{count}} field rules',
-      rls: '{{count}} RLS policies',
-      rls_one: '{{count}} RLS policy',
-      rls_other: '{{count}} RLS policies',
-      tabs: '{{count}} tab rules',
-      tabs_one: '{{count}} tab rule',
-      tabs_other: '{{count}} tab rules',
-      adminScope: 'Delegated admin configured',
-      designInStudio: 'Design in Studio →',
-      designInStudioHint: 'Design in Studio',
-    },
-  },
   lookup: {
     recentlyUsed: 'Recently used',
     allResults: 'All results',
@@ -864,9 +831,6 @@ const en = {
       needMatchFields: 'Select at least one field to match on.',
       matchOnlyField: '(match only)',
       optCreateOptions: 'Keep unknown option values',
-      optRunAutomations: 'Run automations & triggers',
-      optTreatHistorical: 'Import as historical data',
-      optTreatHistoricalHint: '(import completed records as-is — skip state-machine checks and keep their original timestamps & author instead of stamping now)',
       optSkipBlankKey: 'Skip rows with a blank match value',
       optBackground: 'Import in the background',
       optBackgroundHint: '(runs as an undoable job)',
@@ -2222,6 +2186,11 @@ const en = {
       toggleChatsList: 'Toggle conversations list',
       goHome: 'Back to home',
     },
+    reportIndex: {
+      title: 'Reports',
+      emptyTitle: 'No reports',
+      emptyDescription: 'This app has no reports you can open.',
+    },
     commandPalette: {
       title: 'Command palette',
       placeholder: 'Type a command or search…',
@@ -2365,7 +2334,7 @@ const en = {
       // NOT the same thing as the platform's manual automation surfaces, which
       // are real and stay as they are: `home.build.subtitle` (that card opens
       // Studio, which does author flows), `engine.studio.landing.description`,
-      // `dataImport.optRunAutomations`, `packagedAutomation.*` and the
+      // `packagedAutomation.*` and the
       // marketplace `automation` category. The boundary is v1 AI AUTHORING, not
       // the word "automation".
       //
@@ -3150,6 +3119,11 @@ const en = {
     keyboardShortcuts: 'Keyboard shortcuts',
     onlineDocs: 'Online documentation',
     loadingDocumentation: 'Loading documentation',
+    about: 'About',
+    aboutTitle: 'About this console',
+    aboutDescription: 'The build this console was compiled from.',
+    aboutBuild: 'Console build',
+    aboutBuildUnknown: 'Unknown build (no version was set when this console was built)',
   },
   sidebar: {
     settings: 'Settings',
@@ -3166,6 +3140,7 @@ const en = {
     recent: 'Recent',
     starred: 'Starred',
     removeFromFavorites: 'Remove {{name}} from favorites',
+    allReports: 'All reports',
   },
   topbar: {
     aiAssistant: 'AI Assistant',
@@ -3451,6 +3426,10 @@ const en = {
       publishing: 'Publishing…',
       exit: 'Exit preview',
       changes: 'Changes',
+      // objectui#12968 — what is pending on the surface the preview shows.
+      pendingHere: 'Draft preview · {{count}} unpublished changes on this page',
+      pendingHere_one: 'Draft preview · {{count}} unpublished change on this page',
+      pendingHere_other: 'Draft preview · {{count}} unpublished changes on this page',
       // Magic-moment hint: a freshly-built draft renders empty (dashboards at 0,
       // lists "Nothing here yet") because seed/sample rows only load on publish.
       // Say so plainly so an empty preview never reads as a broken build.
@@ -3582,10 +3561,6 @@ const en = {
     bulkDeleteConfirmTitle_one: 'Delete {{count}} {{label}} record?',
     bulkDeleteConfirmTitle_other: 'Delete {{count}} {{label}} records?',
     deleteConfirmButton: 'Delete',
-    resetPackageSetConfirm:
-      'This permission set ships with an installed package and cannot be removed. ' +
-      'Deleting resets it to the shipped baseline and discards your environment customization. Continue?',
-    resetPackageSetSuccess: 'Permission set reset to its shipped baseline',
     bulkDeleteSuccess: 'Deleted {{count}} {{label}} records',
     bulkDeleteSuccess_one: 'Deleted {{count}} {{label}} record',
     bulkDeleteSuccess_other: 'Deleted {{count}} {{label}} records',

@@ -34,7 +34,8 @@
  *     falsehood, and that is strictly worse than the stale claim it replaces.
  *   - **"what is installed"** — "Measured against the installed
  *     `@objectstack/spec` 17.2.0", "the pin is still 17.2.0". These are the
- *     subject, and they are false the moment the lockfile moves.
+ *     subject, and they are false the moment the lockfile moves — or, since
+ *     objectui#12957, the moment the pinned build's version string does.
  *
  * A bare version literal cannot tell them apart, which is why the predicate
  * below requires an installed-ness MARKER as well as a version, and why
@@ -308,17 +309,55 @@ export function recogniseLine(line, bareMajors = DEFAULT_BARE_MAJORS) {
  * spelling (`'@objectstack/spec@17.4.0(ai@7.0.65(zod@4.4.3))'`), and a YAML
  * load would hand back a peer-suffixed key that still has to be split the same
  * way. Two keys resolving one package at two versions is itself a finding.
+ *
+ * ⭐ Since objectui#12957 the lockfile names no `@objectstack/*` VERSION: every
+ * one resolves to a directory of the build `.objectstack-sha` pins
+ * (`'@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@…)'`), and the
+ * lockfile records that directory with no version. So this face FOLLOWS the
+ * resolution: the version is the one the directory's manifest declares — the
+ * packed `package.json` of the pinned commit. A directory that is not there (the
+ * build was never made) answers `(pinned build absent: <dir>)`, which equals no
+ * version and so turns into a CONFLICT naming it, never a silent empty face.
+ *
+ * ⚠️ What the version means changed with it: it is the version string the pinned
+ * COMMIT carries, and objectstack moves that string only when it releases — so a
+ * pin between two releases reads as the earlier release's number while carrying
+ * later commits. A claim judged "at the pin" here is right about the number and
+ * says nothing about which commit; the commit is `.objectstack-sha`.
+ *
+ * @param {string} lockText
+ * @param {string} [root] what the lockfile's `file:` paths are relative to
  */
-export function pinsFromLockfile(lockText) {
+export function pinsFromLockfile(lockText, root = ROOT) {
   const found = new Map();
+  const add = (pkg, version) => {
+    if (!ANCHOR_PACKAGES.includes(pkg)) return;
+    if (!found.has(pkg)) found.set(pkg, new Set());
+    found.get(pkg).add(version);
+  };
   for (const line of lockText.split('\n')) {
     const m = line.match(/^\s*'?(@objectstack\/[a-z-]+)@(\d[^'():\s]*)/);
-    if (!m) continue;
-    if (!ANCHOR_PACKAGES.includes(m[1])) continue;
-    if (!found.has(m[1])) found.set(m[1], new Set());
-    found.get(m[1]).add(m[2]);
+    if (m) {
+      add(m[1], m[2]);
+      continue;
+    }
+    const dir = line.match(/^\s*'?(@objectstack\/[a-z-]+)@file:([^'():\s]+)/);
+    if (dir) add(dir[1], versionOfDirectory(root, dir[2]));
   }
   return found;
+}
+
+/**
+ * @param {string} root
+ * @param {string} dir a lockfile `file:` path, relative to `root`
+ * @returns {string}
+ */
+function versionOfDirectory(root, dir) {
+  try {
+    return JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8')).version;
+  } catch {
+    return `(pinned build absent: ${dir} — run \`pnpm objectstack:build\`)`;
+  }
 }
 
 /**
@@ -1060,7 +1099,7 @@ export function run(root = ROOT, ledger = LEDGER) {
   const files = execFileSync('git', ['-C', root, 'ls-files'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
     .split('\n')
     .filter(Boolean);
-  const lockPins = pinsFromLockfile(readFileSync(join(root, 'pnpm-lock.yaml'), 'utf8'));
+  const lockPins = pinsFromLockfile(readFileSync(join(root, 'pnpm-lock.yaml'), 'utf8'), root);
   const treePins = pinsFromResolvedTree(root, workspaceDirs(root));
   const { pins, conflicts, unlinked } = reconcilePins(lockPins, treePins);
   const bareMajors = bareMajorsFor(pins, ledger);

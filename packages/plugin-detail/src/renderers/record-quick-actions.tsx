@@ -16,10 +16,11 @@
  */
 
 import React from 'react';
-import { useRecordContext, useActionEngine, useMetadataItem, useCondition, toPredicateInput, useActionTextLocalizer } from '@object-ui/react';
+import { useRecordContext, useActionEngine, useMetadataItem, useCondition, toPredicateInput, useActionTextLocalizer, usePreviewMode } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import {
   Button,
+  type ButtonProps,
   cn,
   hasDeclaredVisibilityGate,
   resolveIcon,
@@ -39,6 +40,27 @@ import { recordBindingBlock } from './recordBinding';
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
   return { designer: { 'data-obj-id': id, 'data-obj-type': type, style }, rest };
+};
+
+type QuickActionButtonVariant = NonNullable<ButtonProps['variant']>;
+
+/**
+ * An action's spec `variant` (`ActionSchema.variant`: `primary | secondary |
+ * danger | ghost | link`, where "danger = destructive") mapped onto the
+ * `Button` primitive's vocabulary — the same reading the record header and
+ * the row menu give it (objectui#12986). Without it `danger` and `primary`
+ * reached `Button` raw, matched no cva variant, and drew unstyled. Kept
+ * local: no package this one depends on exports the mapping.
+ */
+const SPEC_ACTION_TO_BUTTON_VARIANT: Record<
+  NonNullable<ActionDef['variant']>,
+  QuickActionButtonVariant
+> = {
+  primary: 'default',
+  secondary: 'secondary',
+  danger: 'destructive',
+  ghost: 'ghost',
+  link: 'link',
 };
 
 /** A stable empty array, so an absent `actions` / `actionNames` does not mint one per render. */
@@ -153,6 +175,15 @@ const RecordQuickActionsBody: React.FC<RecordQuickActionsRendererProps> = ({
     block: 'record:quick_actions',
   });
   const perms = usePermissions();
+  /**
+   * Is this bar drawn on a design / metadata preview surface (the Studio page
+   * canvas) rather than a live runtime route? The existing `@object-ui/react`
+   * signal, set by the preview surfaces that mount `PreviewModeProvider`; it
+   * defaults to `false`, so every runtime view reads "not authoring". Read up
+   * here with the other hooks because of the early returns below
+   * (objectui#12995).
+   */
+  const authoring = usePreviewMode();
   // The ONE resolver for a declared action's authored strings (objectui#4265).
   // This bar used to localize the button `label` only, while `executeAction`
   // ran the RAW def looked up out of the object's metadata — so its confirm
@@ -178,7 +209,8 @@ const RecordQuickActionsBody: React.FC<RecordQuickActionsRendererProps> = ({
   // A record context that names an object but NO record has nothing to run a
   // record action against. That is what a `dataSource` binding matching no row
   // provides (objectui#12294, `./recordBinding`): the bar then offers no action
-  // and draws its empty state, the 0-row semantics of a bound record block.
+  // and draws nothing, the 0-row semantics of a bound record block (the empty
+  // bar's rules are below, objectui#12995).
   // The record page always names its record, so its bar is unaffected.
   const noRecord = ctx != null && ctx.recordId == null;
 
@@ -300,7 +332,30 @@ const RecordQuickActionsBody: React.FC<RecordQuickActionsRendererProps> = ({
 
   const visibleActions = actions.length > 0 && !noRecord ? getActionsForLocation(location) : [];
 
+  /**
+   * The empty bar (objectui#12995). Three different facts reach an empty
+   * `visibleActions`, and only one of them is an authoring slip:
+   *
+   *   - the block NAMES actions (`actions` above is the block's own declared
+   *     list, resolved — before the engine's location / capability / `visible`
+   *     filters ran) and every one was withheld, hidden or has no record to
+   *     run against → draw NOTHING, as the record header and the row menu do
+   *     for a fully withheld set. The block is told apart from "named none" by
+   *     its declared list, ⛔ never by re-running the capability check: that
+   *     check is `getActionsForLocation`'s alone.
+   *   - the block names NO action (or only ids that resolve to none) → the
+   *     dashed placeholder is developer copy, so it is drawn on a design /
+   *     preview surface only; a runtime view draws nothing.
+   *   - the declared array was REFUSED (objectui#7182) → the console error
+   *     above names it in every view; the dashed "refused at index N" box is
+   *     developer copy too, so it is drawn on a design / preview surface only
+   *     and a runtime view draws nothing (objectui#13000).
+   *
+   * Only an authoring surface reaches the placeholder at all, and there only
+   * when nothing was named that could be withheld.
+   */
   if (visibleActions.length === 0) {
+    if (!authoring || (declared.kind !== 'refused' && actions.length > 0)) return null;
     return (
       <div className={className} {...designer}>
         <div className="text-xs text-muted-foreground italic px-3 py-2 border border-dashed rounded">
@@ -338,7 +393,14 @@ const RecordQuickActionsBody: React.FC<RecordQuickActionsRendererProps> = ({
           key={action.name || `qa-${idx}`}
           action={action}
           record={ctx?.data}
-          variant={(action as any).variant || schema.variant || 'default'}
+          // A declared action variant is spec vocabulary and is mapped; the
+          // block's own `variant` (Button vocabulary) is the fallback only
+          // for an action that declares none.
+          variant={
+            action.variant
+              ? SPEC_ACTION_TO_BUTTON_VARIANT[action.variant]
+              : schema.variant || 'default'
+          }
           size={(action as any).size || schema.size || 'sm'}
           // Already resolved (with the confirm/success strings that ride the
           // same dispatch) in the `actions` memo above — objectui#4265.
@@ -364,7 +426,7 @@ function QuickActionButton({
 }: {
   action: ActionDef;
   record: Record<string, unknown> | undefined;
-  variant: any;
+  variant: QuickActionButtonVariant;
   size: any;
   label: string;
   onRun: () => Promise<void> | void;

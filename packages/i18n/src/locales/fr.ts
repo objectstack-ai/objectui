@@ -33,34 +33,6 @@ const fr = {
       other: 'Autre',
     },
   },
-  // objectui#3546 slice six — le résumé en lecture seule des facettes
-  // d'autorisation de PermissionFacetLink. Apostrophe droite U+0027 comme dans
-  // le reste du paquet, et espace avant les deux-points.
-  perm: {
-    facet: {
-      none: "Aucun",
-      more: "+{{count}} de plus",
-      objects: "{{count}} objets",
-      objects_one: "{{count}} objet",
-      objects_many: "{{count}} d'objets",
-      objects_other: "{{count}} objets",
-      fields: "{{count}} règles de champ",
-      fields_one: "{{count}} règle de champ",
-      fields_many: "{{count}} de règles de champ",
-      fields_other: "{{count}} règles de champ",
-      rls: "{{count}} politiques RLS",
-      rls_one: "{{count}} politique RLS",
-      rls_many: "{{count}} de politiques RLS",
-      rls_other: "{{count}} politiques RLS",
-      tabs: "{{count}} règles d'onglet",
-      tabs_one: "{{count}} règle d'onglet",
-      tabs_many: "{{count}} de règles d'onglet",
-      tabs_other: "{{count}} règles d'onglet",
-      adminScope: "Administration déléguée configurée",
-      designInStudio: "Concevoir dans Studio →",
-      designInStudioHint: "Concevoir dans Studio",
-    },
-  },
   lookup: {
     recentlyUsed: 'Récemment utilisés',
     allResults: 'Tous les résultats',
@@ -601,9 +573,6 @@ const fr = {
       needMatchFields: "Sélectionnez au moins un champ de correspondance.",
       matchOnlyField: "(correspondance seule)",
       optCreateOptions: "Conserver les valeurs d'option inconnues",
-      optRunAutomations: "Exécuter les automatisations et déclencheurs",
-      optTreatHistorical: "Importer comme données historiques",
-      optTreatHistoricalHint: "(importer les enregistrements terminés tels quels — ignorer les contrôles de la machine à états et conserver leurs horodatages et auteurs d'origine au lieu d'horodater maintenant)",
       optSkipBlankKey: "Ignorer les lignes dont la valeur de correspondance est vide",
       optBackground: "Importer en arrière-plan",
       optBackgroundHint: "(s'exécute comme une tâche annulable)",
@@ -2125,6 +2094,11 @@ const fr = {
       toggleChatsList: "Basculer la liste des discussions",
       goHome: "Retour à l'accueil",
     },
+    reportIndex: {
+      title: "Rapports",
+      emptyTitle: "Aucun rapport",
+      emptyDescription: "Cette application n’a aucun rapport que vous pouvez ouvrir.",
+    },
     commandPalette: {
       title: "Palette de commandes",
       placeholder: "Tapez une commande ou recherchez…",
@@ -2668,6 +2642,11 @@ const fr = {
     allDocs: 'Toute la documentation',
     onlineDocs: 'Documentation en ligne',
     loadingDocumentation: 'Chargement de la documentation',
+    about: 'À propos',
+    aboutTitle: 'À propos de cette console',
+    aboutDescription: 'Le build à partir duquel cette console a été compilée.',
+    aboutBuild: 'Build de la console',
+    aboutBuildUnknown: 'Build inconnu (aucune version n’a été définie lors de la compilation de cette console)',
   },
   sidebar: {
     packageManagement: "Gestion des packages",
@@ -2684,6 +2663,7 @@ const fr = {
     recent: "Récent",
     starred: "Étoilés",
     removeFromFavorites: "Retirer {{name}} des favoris",
+    allReports: "Tous les rapports",
   },
   topbar: {
     openAssistant: "Ouvrir l'assistant {{name}}",
@@ -2970,8 +2950,6 @@ const fr = {
     updateFailed: "Impossible de mettre à jour la navigation",
   },
   objectActions: {
-    resetPackageSetConfirm: "Ce jeu d'autorisations est fourni avec un package installé et ne peut pas être supprimé. La suppression le réinitialise à la version livrée et abandonne vos personnalisations dans cet environnement. Continuer ?",
-    resetPackageSetSuccess: "Jeu d'autorisations réinitialisé à la version livrée",
     deleteSuccess: "{{label}} supprimé avec succès",
     deleteFailed: "Impossible de supprimer {{label}}",
     noRecordId: "Aucun ID d'enregistrement fourni",
@@ -4071,6 +4049,10 @@ const fr = {
       publishing: 'Publication…',
       exit: "Quitter l'aperçu",
       changes: 'Modifications',
+      pendingHere: 'Aperçu du brouillon · {{count}} modifications non publiées sur cette page',
+      pendingHere_one: 'Aperçu du brouillon · {{count}} modification non publiée sur cette page',
+      pendingHere_many: 'Aperçu du brouillon · {{count}} de modifications non publiées sur cette page',
+      pendingHere_other: 'Aperçu du brouillon · {{count}} modifications non publiées sur cette page',
     },
     changes: {
       title: 'Modifications en attente',

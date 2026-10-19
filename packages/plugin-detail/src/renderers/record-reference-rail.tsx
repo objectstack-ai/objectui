@@ -66,7 +66,7 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useRecordContext, useSafeFieldLabel, subscribeDataChanges, dataChangeMatches } from '@object-ui/react';
-import { cn, Card, CardHeader, CardTitle, CardContent, Badge, Skeleton } from '@object-ui/components';
+import { cn, Card, CardHeader, CardTitle, CardContent, Badge, Skeleton, RelatedCountStore } from '@object-ui/components';
 import {
   composeParentScopeFilter,
   declaredNameField,
@@ -217,6 +217,24 @@ function describeRefusedRowLimit(authored: unknown, objectName: unknown): string
     + '(the spec refuses zero and negative values), so it was ignored and this '
     + `entry fell back to its default preview-row cap (${DEFAULT_REFERENCE_RAIL_LIMIT}).`
   );
+}
+
+/**
+ * [objectui#13010] Claim, in the related-count store, the rows each entry of a
+ * claim signature will list — `[objectName, relationshipField, rowCap]`
+ * triples, keyed by CONTENT so a re-render with the same entries claims the
+ * same thing. Released by `releaseRailRows` with the same signature.
+ */
+function claimRailRows(sig: string, parentId: string): void {
+  for (const [objectName, relationshipField, limit] of JSON.parse(sig) as Array<[string, string, number]>) {
+    RelatedCountStore.claimRows(objectName, relationshipField, parentId, limit);
+  }
+}
+
+function releaseRailRows(sig: string, parentId: string): void {
+  for (const [objectName, relationshipField] of JSON.parse(sig) as Array<[string, string, number]>) {
+    RelatedCountStore.releaseRows(objectName, relationshipField, parentId);
+  }
 }
 
 const humanize = (s: string) =>
@@ -380,6 +398,33 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
   // diagnostic has to re-fire when the authored value changes even though the
   // resolved window does not, which is exactly the pair the resolver collapses.
   const authoredLimitSig = JSON.stringify(entries.map((e) => [e.objectName, e.limit ?? null]));
+
+  // [objectui#13010] Claim this rail's rows in the related-count store WHILE
+  // RENDERING, before any effect on the page runs — so a `page:tabs` badge
+  // that counts the same unfiltered list on this record asks for these rows
+  // with its count, and the card below takes them instead of reading the same
+  // question again (`RelatedCountStore`'s header). A claim reads nothing: the
+  // visibility gate below still decides when this rail reads on its own.
+  // Idempotent, so a render React repeats or discards changes nothing; the
+  // effect re-claims after a StrictMode remount and releases on unmount or on
+  // a new scope, so a claim lives as long as this record open.
+  const claimable = !!dataSource?.find && !!parentId;
+  const claimSig = claimable
+    ? JSON.stringify(
+        entries.map((e) => [
+          e.objectName,
+          e.relationshipField,
+          resolveRowLimit(e.limit, DEFAULT_REFERENCE_RAIL_LIMIT),
+        ]),
+      )
+    : '[]';
+  if (claimable) claimRailRows(claimSig, String(parentId));
+  React.useEffect(() => {
+    if (!parentId) return;
+    const owner = String(parentId);
+    claimRailRows(claimSig, owner);
+    return () => releaseRailRows(claimSig, owner);
+  }, [claimSig, parentId]);
   React.useEffect(() => {
     for (const entry of entries) {
       const message = describeRefusedRowLimit(entry.limit, entry.objectName);
@@ -455,26 +500,55 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
     });
     const fetchEntry = async (entry: ReferenceRailEntry, fields: FieldContainerLike) => {
       const key = entry.objectName;
+      const limit = resolveRowLimit(entry.limit, DEFAULT_REFERENCE_RAIL_LIMIT);
       try {
-        const res: any = await dataSource.find(entry.objectName, {
-          // The parent-relationship condition, compiled to match the field's
-          // ARITY by the one seam the rows and the tab badge already use
-          // (objectui#8883). With no `fields` it compiles equality — the
-          // historical wire — so an adapter that cannot serve metadata is no
-          // worse off than before this card.
-          $filter: composeParentScopeFilter(entry.relationshipField, parentId, fields),
-          $top: resolveRowLimit(entry.limit, DEFAULT_REFERENCE_RAIL_LIMIT),
-          $count: true,
-        });
+        let total: number;
+        let items: unknown[];
+        // A refresh (objectui#12110 item 4) reads again, always: the rows a
+        // badge's read holds for this card, or a read already in flight, may
+        // predate the change that triggered it. So does a FIRST read after any
+        // bus invalidation this rail heard (`invalidationNonce` above zero): a
+        // change to the PARENT record (a `refreshAfter: true` action) marks the
+        // rail stale without invalidating the store's child keys, so rows a
+        // badge read before it, held for a rail that was not yet on screen,
+        // would otherwise be handed over after the action.
+        if (refreshing || invalidationNonce > 0) {
+          const res: any = await dataSource.find(entry.objectName, {
+            // The parent-relationship condition, compiled to match the field's
+            // ARITY by the one seam the rows and the tab badge already use
+            // (objectui#8883). With no `fields` it compiles equality — the
+            // historical wire — so an adapter that cannot serve metadata is no
+            // worse off than before this card.
+            $filter: composeParentScopeFilter(entry.relationshipField, parentId, fields),
+            $top: limit,
+            $count: true,
+          });
+          items = Array.isArray(res) ? res : res?.data || [];
+          // `total` is the ONE count member `QueryResult` (`@object-ui/types`)
+          // declares — the reason `$count: true` is sent above. A `count` arm
+          // used to sit between it and the row-length fallback; measured zero
+          // producers emit `count` at this seam (objectui#6917), so it is gone
+          // rather than left as somewhere a non-conforming producer keeps
+          // working unrejected (AGENTS.md #0.1).
+          total = typeof res?.total === 'number' ? res.total : items.length;
+        } else {
+          // objectui#13010 — the first read of this scope goes through the
+          // related-count store, which sends the SAME query (same seam, same
+          // `$top`, `$count: true`) and reads `total` the same way, but shares
+          // it with a `page:tabs` badge counting the same unfiltered list:
+          // whichever of the two asks first makes the one read.
+          const res = await RelatedCountStore.fetchRows(
+            (object, query) => dataSource.find(object, query),
+            entry.objectName,
+            entry.relationshipField,
+            String(parentId),
+            limit,
+            fields,
+          );
+          items = res.rows;
+          total = res.total;
+        }
         if (!isCurrent()) return;
-        const items = Array.isArray(res) ? res : res?.data || [];
-        // `total` is the ONE count member `QueryResult` (`@object-ui/types`)
-        // declares — the reason `$count: true` is sent above. A `count` arm
-        // used to sit between it and the row-length fallback; measured zero
-        // producers emit `count` at this seam (objectui#6917), so it is gone
-        // rather than left as somewhere a non-conforming producer keeps
-        // working unrejected (AGENTS.md #0.1).
-        const total = typeof res?.total === 'number' ? res.total : items.length;
         setStates((prev) => ({ ...prev, [key]: { loading: false, total, items } }));
       } catch (err: any) {
         if (!isCurrent()) return;

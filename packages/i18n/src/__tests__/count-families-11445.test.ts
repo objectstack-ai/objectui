@@ -105,7 +105,6 @@ const COUNT_NEUTRAL = {
   /** The number stands alone — in parentheses, after `+`, beside `/ {{total}}`,
    *  or after a label or verb — so nothing has to agree with it. */
   tally: [
-    'perm.facet.more',
     'lookup.showAllResults',
     'fields.textarea.characterCount',
     'fields.textarea.charactersRemaining',

@@ -33,30 +33,6 @@ const de = {
       other: 'Andere',
     },
   },
-  // objectui#3546 slice six — die schreibgeschützte Facetten-Zusammenfassung von
-  // PermissionFacetLink. "Registerkarte" (nicht "Tab") für In-App-Reiter, wie in
-  // console.objectView.ufTabs; "Tab" bleibt dem Browser-Tab vorbehalten.
-  perm: {
-    facet: {
-      none: "Keine",
-      more: "+{{count}} weitere",
-      objects: "{{count}} Objekte",
-      objects_one: "{{count}} Objekt",
-      objects_other: "{{count}} Objekte",
-      fields: "{{count}} Feldregeln",
-      fields_one: "{{count}} Feldregel",
-      fields_other: "{{count}} Feldregeln",
-      rls: "{{count}} RLS-Richtlinien",
-      rls_one: "{{count}} RLS-Richtlinie",
-      rls_other: "{{count}} RLS-Richtlinien",
-      tabs: "{{count}} Registerkarten-Regeln",
-      tabs_one: "{{count}} Registerkarten-Regel",
-      tabs_other: "{{count}} Registerkarten-Regeln",
-      adminScope: "Delegierte Administration konfiguriert",
-      designInStudio: "Im Studio gestalten →",
-      designInStudioHint: "Im Studio gestalten",
-    },
-  },
   lookup: {
     recentlyUsed: 'Zuletzt verwendet',
     allResults: 'Alle Ergebnisse',
@@ -583,9 +559,6 @@ const de = {
       needMatchFields: "Wählen Sie mindestens ein Feld für den Abgleich aus.",
       matchOnlyField: "(nur Abgleich)",
       optCreateOptions: "Unbekannte Optionswerte beibehalten",
-      optRunAutomations: "Automatisierungen und Trigger ausführen",
-      optTreatHistorical: "Als historische Daten importieren",
-      optTreatHistoricalHint: "(abgeschlossene Datensätze unverändert importieren — Zustandsautomat-Prüfungen überspringen und die ursprünglichen Zeitstempel und Autoren beibehalten, statt jetzt zu stempeln)",
       optSkipBlankKey: "Zeilen mit leerem Abgleichswert überspringen",
       optBackground: "Im Hintergrund importieren",
       optBackgroundHint: "(läuft als rückgängig machbarer Auftrag)",
@@ -2079,6 +2052,11 @@ const de = {
       toggleChatsList: "Chatliste umschalten",
       goHome: "Zurück zur Startseite",
     },
+    reportIndex: {
+      title: "Berichte",
+      emptyTitle: "Keine Berichte",
+      emptyDescription: "Diese App hat keine Berichte, die Sie öffnen können.",
+    },
     commandPalette: {
       title: "Befehlspalette",
       placeholder: "Befehl eingeben oder suchen…",
@@ -2619,6 +2597,11 @@ const de = {
     allDocs: 'Gesamte Dokumentation',
     onlineDocs: 'Online-Dokumentation',
     loadingDocumentation: 'Dokumentation wird geladen',
+    about: 'Über',
+    aboutTitle: 'Über diese Konsole',
+    aboutDescription: 'Der Build, aus dem diese Konsole kompiliert wurde.',
+    aboutBuild: 'Konsolen-Build',
+    aboutBuildUnknown: 'Unbekannter Build (beim Erstellen dieser Konsole wurde keine Version gesetzt)',
   },
   sidebar: {
     packageManagement: "Paketverwaltung",
@@ -2635,6 +2618,7 @@ const de = {
     recent: "Zuletzt",
     starred: "Markiert",
     removeFromFavorites: "{{name}} aus Favoriten entfernen",
+    allReports: "Alle Berichte",
   },
   topbar: {
     openAssistant: "Assistent {{name}} öffnen",
@@ -2917,8 +2901,6 @@ const de = {
     updateFailed: "Navigation konnte nicht aktualisiert werden",
   },
   objectActions: {
-    resetPackageSetConfirm: "Dieses Berechtigungsset gehört zu einem installierten Paket und kann nicht entfernt werden. Beim Löschen wird es auf den ausgelieferten Ausgangszustand zurückgesetzt und Ihre Anpassungen in dieser Umgebung gehen verloren. Fortfahren?",
-    resetPackageSetSuccess: "Berechtigungsset auf den ausgelieferten Ausgangszustand zurückgesetzt",
     deleteSuccess: "{{label}} erfolgreich gelöscht",
     deleteFailed: "{{label}} konnte nicht gelöscht werden",
     noRecordId: "Keine Datensatz-ID angegeben",
@@ -3987,6 +3969,9 @@ const de = {
       publishing: 'Wird veröffentlicht…',
       exit: 'Vorschau beenden',
       changes: 'Änderungen',
+      pendingHere: 'Entwurfsvorschau · {{count}} unveröffentlichte Änderungen auf dieser Seite',
+      pendingHere_one: 'Entwurfsvorschau · {{count}} unveröffentlichte Änderung auf dieser Seite',
+      pendingHere_other: 'Entwurfsvorschau · {{count}} unveröffentlichte Änderungen auf dieser Seite',
     },
     changes: {
       title: 'Ausstehende Änderungen',

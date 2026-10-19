@@ -60,7 +60,6 @@ import {
 // the type must resolve wherever this view renders, not only under hosts
 // that import the app-shell barrel.
 import './record-approvals-renderer.js';
-import { RecordPermissionAssignmentsRenderer } from './metadata-admin/RecordPermissionAssignmentsRenderer.js';
 import { getRecordDisplayName } from '../utils/index.js';
 import { parseAuditValue, collectAuditChanges, collectLookupIds, formatAuditValue } from '../utils/auditHistoryDisplay.js';
 import { useFavorites } from '../hooks/useFavorites.js';
@@ -157,6 +156,102 @@ export { isSecondaryField } from './recordDetailSections.js';
  * pipeline on every render of a record with no comments.
  */
 const EMPTY_FEED: FeedItem[] = [];
+
+/**
+ * objectui#13010 — the blocks that draw what this view's feed reads fetch. All
+ * three read the DiscussionContext this view provides: its merged
+ * `sys_comment` + `sys_activity` rows, and the `sys_user` mention list their
+ * comment composer suggests. A page with none of them on screen draws nothing
+ * those three reads return.
+ */
+const FEED_CONSUMER_TYPES: ReadonlySet<string> = new Set([
+  'record:discussion',
+  'record:chatter',
+  'record:activity',
+]);
+/**
+ * objectui#13010 part 5 — the block that draws this view's `sys_audit_log`
+ * read: the synthesized page's History tab hands it the rows as `entries`.
+ */
+const HISTORY_CONSUMER_TYPES: ReadonlySet<string> = new Set(['record:history']);
+/** Where a page tree nests nodes: the keys `pageSchemaIntrospect` walks. */
+const PAGE_NODE_KEYS = ['children', 'items', 'body', 'components', 'regions'] as const;
+const PAGE_NODE_PROPERTY_KEYS = ['children', 'items'] as const;
+/**
+ * The keys `withPageTabsUrlSync` descends through. A `page:tabs` node reached
+ * through these alone is the one whose active tab is the `?tab=` value; any
+ * other strip keeps its selection in its own state, which this view cannot see.
+ */
+const TABS_URL_SYNC_KEYS: ReadonlySet<string> = new Set(['regions', 'components', 'children']);
+
+/**
+ * Whether a node of one of `types` is on screen when `page` opens with
+ * `activeTab` as its `?tab=` value — that is, whether it is mounted.
+ *
+ * The one thing that keeps a node off screen here is a `page:tabs` item that
+ * is not the active one: the strip mounts only the active item's content. The
+ * active item is chosen the way `PageTabsRenderer` chooses it — the `?tab=`
+ * value when it names an item, else the first item — and only for a strip
+ * whose active tab this view can know. Every case it cannot read answers
+ * `true`, which is the eager read this view always made: a strip the URL does
+ * not drive, a strip with a conditional item (`visibleWhen` can remove the
+ * first one), a strip that carries its own `defaultTab` in either spelling
+ * (whether or not `?tab=` is set), and a strip whose items sit under both
+ * spellings.
+ */
+function pageShowsNodeOnOpen(page: unknown, types: ReadonlySet<string>, activeTab: string | undefined): boolean {
+  const seen = { synced: new WeakSet<object>(), local: new WeakSet<object>() };
+  type PageNode = Record<string, unknown>;
+  const asNode = (value: unknown): PageNode | undefined =>
+    value && typeof value === 'object' && !Array.isArray(value) ? (value as PageNode) : undefined;
+  const walk = (value: unknown, synced: boolean): boolean => {
+    if (!value || typeof value !== 'object') return false;
+    const visited = synced ? seen.synced : seen.local;
+    if (visited.has(value)) return false;
+    visited.add(value);
+    if (Array.isArray(value)) return value.some((entry) => walk(entry, synced));
+    const node = value as PageNode;
+    if (typeof node.type === 'string' && types.has(node.type)) return true;
+
+    const props = asNode(node.properties);
+    let skipItems = false;
+    if (node.type === 'page:tabs' && synced) {
+      const top = Array.isArray(node.items) ? (node.items as unknown[]) : undefined;
+      const nested = Array.isArray(props?.items) ? (props.items as unknown[]) : undefined;
+      const raw = top && nested ? undefined : top ?? nested;
+      const items = raw?.map(asNode);
+      const readable =
+        items !== undefined
+        && items.length > 0
+        && items.every((it) => it !== undefined && (it.visibleWhen === undefined || it.visibleWhen === null))
+        // An authored `defaultTab`, in either spelling, makes the strip unreadable
+        // whatever `?tab=` says: `SchemaRenderer`'s hoist copies `properties.*`
+        // over the node AFTER `withPageTabsUrlSync` writes `?tab=` onto it, so
+        // `properties.defaultTab` beats `?tab=` in the renderer.
+        && node.defaultTab === undefined && props?.defaultTab === undefined;
+      if (items && readable) {
+        const values = items.map((it, idx) => (typeof it?.value === 'string' && it.value !== '' ? it.value : `tab-${idx}`));
+        const activeIdx = activeTab !== undefined && values.includes(activeTab) ? values.indexOf(activeTab) : 0;
+        // The item's content is past `withPageTabsUrlSync`'s reach, so a strip
+        // nested in it is one this view cannot read.
+        if (walk(items[activeIdx], false)) return true;
+        skipItems = true;
+      }
+    }
+    for (const key of PAGE_NODE_KEYS) {
+      if (key === 'items' && skipItems) continue;
+      if (walk(node[key], synced && TABS_URL_SYNC_KEYS.has(key))) return true;
+    }
+    if (props) {
+      for (const key of PAGE_NODE_PROPERTY_KEYS) {
+        if (key === 'items' && skipItems) continue;
+        if (walk(props[key], false)) return true;
+      }
+    }
+    return false;
+  };
+  return walk(page, true);
+}
 
 /**
  * Which of a record's two feed reads the server REFUSED (objectui#11195):
@@ -955,7 +1050,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // not read `overrideNotice` itself — it takes the envelope so the two
   // handlers on this seam cannot drift apart from each other, and so a reader
   // added here later has the key declared rather than reaching for a cast.
-  const paramCollectionHandler = useCallback((params: ActionParamDef[], action?: ConsoleActionDispatch) => {
+  const paramCollectionHandler = useCallback((params: ActionParamDef[], action?: ConsoleActionDispatch, interpolate?: (text: string) => string) => {
     return new Promise<Record<string, any> | null>((resolve) => {
       // Related-list row actions retarget a CHILD object (e.g. sys_member rows
       // on an org record page) and stash the clicked row under
@@ -990,6 +1085,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           ? p.options.map((o: any) => ({ ...o, label: actionParamOptionLabel(objForI18n, action?.name, p.name, o.value, o.label) }))
           : p.options,
       }));
+      const declaredDescription = actionDescription(objForI18n, action?.name, action?.description);
       setParamState({
         open: true,
         params: localized,
@@ -1007,7 +1103,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         // handlers drift as a pair (objectui#5610). Reads exactly one key, like
         // `description` below.
         title: action?.label,
-        description: actionDescription(objForI18n, action?.name, action?.description),
+        // `${...}` holes in the description and each `helpText` are filled in
+        // the runner's template scope, as `confirmText` is (objectui#12967).
+        description: interpolate && declaredDescription ? interpolate(declaredDescription) : declaredDescription,
+        interpolate,
         resolve,
       });
     });
@@ -1795,11 +1894,96 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // sys_attachment creation (403 FILES_DISABLED).
   const filesEnabled = objectDef?.enable?.files === true;
 
+  // ── The feed reads wait for a block that draws them (objectui#13010) ─────
+  //
+  // The `sys_comment` and `sys_activity` reads below, and the `sys_user`
+  // mention list, fill only the DiscussionContext, and only a
+  // `record:discussion` / `record:chatter` / `record:activity` block draws it.
+  // Read while no such block was mounted, they shared the record read's wave
+  // and drew nothing: HotCRM's opportunity page keeps `record:activity` in its
+  // Activity tab, so every open paid for a timeline no one had opened. So the
+  // reads go out when such a block is on screen, judged on the tree this view
+  // renders (`feeds: false` strips the discussion nodes, as below) and the
+  // `?tab=` the tab strip writes: at open when the page shows one (the
+  // synthesized page's discussion footer, or `?tab=` naming the tab that holds
+  // one), else on the tab switch that mounts it. Until then the feed stays in
+  // its loading state, which is what such a block shows when it mounts.
+  //
+  // Once on screen it stays wanted for this view's life. A strip keeps its own
+  // selection across a record swap in the same view (a drawer swaps
+  // `recordIdOverride` without a remount), while `?tab=` may not follow it, so
+  // a reading taken after the swap could say hidden while the block is drawn.
+  const feedPage = useMemo(
+    () => (feedsEnabled ? effectivePage : stripDiscussionNodes(effectivePage)),
+    [feedsEnabled, effectivePage],
+  );
+  const feedConsumerOnScreen = useMemo(
+    () => feedPage != null && pageShowsNodeOnOpen(feedPage, FEED_CONSUMER_TYPES, activeTabParam),
+    [feedPage, activeTabParam],
+  );
+  const [feedConsumerShown, setFeedConsumerShown] = useState(false);
+  // Recorded during render, React's pattern for state derived from an earlier
+  // render: no effect, and no render that reads the latch unset.
+  if (feedConsumerOnScreen && !feedConsumerShown) setFeedConsumerShown(true);
+  const feedWanted = feedConsumerOnScreen || feedConsumerShown;
+
+  // The host's own Attachments panel, appended at the page foot for a page
+  // that places none (below), is mounted on every open but drawn below the
+  // record's content, so its `sys_attachment` read waits until the panel
+  // scrolls into view, the way the reference rail's reads do. Held until then
+  // by handing the panel no data source: it issues no read and stays in its
+  // loading state. Latched for the view's life, like the feed above.
+  const [attachmentsFallbackEl, setAttachmentsFallbackEl] = useState<HTMLDivElement | null>(null);
+  const [attachmentsFallbackSeen, setAttachmentsFallbackSeen] = useState(false);
+  // No observer (SSR / a test environment): read at once, as before.
+  const attachmentsFallbackShown = attachmentsFallbackSeen || typeof IntersectionObserver === 'undefined';
+  useEffect(() => {
+    if (attachmentsFallbackShown || !attachmentsFallbackEl) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) setAttachmentsFallbackSeen(true);
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(attachmentsFallbackEl);
+    return () => observer.disconnect();
+  }, [attachmentsFallbackEl, attachmentsFallbackShown]);
+
+  // ── The audit read waits for the History tab (objectui#13010 part 5) ───
+  //
+  // The `sys_audit_log` read below, and the `sys_user` name lookup behind it,
+  // fill only the `record:history` node of the History tab the synthesized
+  // page composes; an assigned page is rendered as authored, and its
+  // `record:history` reads its own source. So, like the feed above, the read
+  // goes out when that node is on screen, judged by `pageShowsNodeOnOpen` on
+  // the page this view synthesizes (the History tab is added only in the
+  // rebuild below, so the judgment synthesizes it here with no rows): at open
+  // when `?tab=` names the History tab, else on the tab switch that mounts it.
+  // Latched for the view's life for the feed's reason.
+  const historyPage = useMemo(() => {
+    if (!historyEnabled || assignedPage || namedPageBlocked || !objectDef) return null;
+    return buildDefaultPageSchema(objectDef, {
+      ...(assignedSlots ? { slots: assignedSlots } : {}),
+      history: { entries: [] },
+    });
+  }, [historyEnabled, assignedPage, namedPageBlocked, objectDef, assignedSlots]);
+  const historyConsumerOnScreen = useMemo(
+    () => historyPage != null && pageShowsNodeOnOpen(historyPage, HISTORY_CONSUMER_TYPES, activeTabParam),
+    [historyPage, activeTabParam],
+  );
+  const [historyConsumerShown, setHistoryConsumerShown] = useState(false);
+  if (historyConsumerOnScreen && !historyConsumerShown) setHistoryConsumerShown(true);
+  const historyWanted = historyConsumerOnScreen || historyConsumerShown;
+  // The read is issued from an effect, after the commit that mounts the tab;
+  // that commit shows the tab's loading state, as the read's own would.
+  const historyPending = historyWanted && !!dataSource && !!pureRecordId;
+
   useEffect(() => {
     if (!dataSource || !pureRecordId || !objectDef || !historyEnabled) {
       setHistoryEntries(null);
       return;
     }
+    if (!historyWanted) return;
     let cancelled = false;
     setHistoryLoading(true);
 
@@ -1941,14 +2125,16 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // language switch so the translated values re-localize, and
     // `displayLocale` on a display-locale switch so the dates do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataSource, pureRecordId, objectDef, historyEnabled, objects, language, displayLocale]);
+  }, [dataSource, pureRecordId, objectDef, historyEnabled, historyWanted, objects, language, displayLocale]);
 
   // Fetch a directory of active users once per dataSource mount and expose
   // them as @-mention suggestions to the DiscussionContext. Capped at 50 to
   // keep the dropdown tight; hosts can swap in a paginated/server-search
   // implementation later by mounting their own DiscussionContextProvider.
+  // Only the comment composer of a feed block reads the list, so it waits for
+  // one to be on screen (objectui#13010, `feedWanted` above).
   useEffect(() => {
-    if (!dataSource) return;
+    if (!dataSource || !feedWanted) return;
     let cancelled = false;
 
     // Always seed with the current user so the @-mention dropdown shows at
@@ -1991,7 +2177,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       }
     })();
     return () => { cancelled = true; };
-  }, [dataSource, user?.id, user?.name, user?.email]);
+  }, [dataSource, user?.id, user?.name, user?.email, feedWanted]);
 
   // Memoize so the object identity is stable across renders — otherwise
   // any effect that depends on it (e.g. the feed loader below) would
@@ -2097,6 +2283,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // realtime / OCC plan.
   useEffect(() => {
     if (!dataSource || !objectName || !pureRecordId) return;
+    // No block that draws the feed is on screen yet (objectui#13010): nothing
+    // is read, and the feed stays in its loading state until one mounts.
+    if (!feedWanted) return;
     // The comment read needs to know where reactions are stored; until the
     // registry says, nothing is read and the panel stays in its loading state.
     if (feedsEnabled && reactionStore === null) return;
@@ -2317,7 +2506,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     });
 
     return () => { cancelled = true; };
-  }, [dataSource, objectName, pureRecordId, currentUser, feedsEnabled, activitiesEnabled, feedFetchKey, reactionStore]);
+  }, [dataSource, objectName, pureRecordId, currentUser, feedsEnabled, activitiesEnabled, feedFetchKey, reactionStore, feedWanted]);
 
   /**
    * Note: comment-mention → notification fan-out lives on the server
@@ -2941,7 +3130,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       ...(historyEnabled && {
         history: {
           entries: historyEntries ?? [],
-          loading: historyLoading && historyEntries === null,
+          loading: (historyLoading || historyPending) && historyEntries === null,
           unknownUserText: t('detail.unknownUser', { defaultValue: 'Unknown' }),
         },
       }),
@@ -2970,7 +3159,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // the panel's headline is the pending one. (The decision actions no longer
   // ride this list at all — objectui#3055 moved them to the declared-action
   // bar, which reads the pending row directly.)
-  }, [objectDef?.name, childRelations, t, objectPluralLabel, objects, historyEnabled, historyEntries, historyLoading, approvals.available, approvals.pendingRequest, approvals.requests, user?.id]);
+  }, [objectDef?.name, childRelations, t, objectPluralLabel, objects, historyEnabled, historyEntries, historyLoading, historyPending, approvals.available, approvals.pendingRequest, approvals.requests, user?.id]);
 
   if (isLoading) {
     return <SkeletonDetail />;
@@ -3257,8 +3446,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           // (`recordDelete.confirmCopy`): the title names this record by the
           // ADR-0079 resolver over the READABLE row the header title reads
           // (a denied name field reads as absent here too) plus the object
-          // label, the body is the list's question — ADR-0094's reset question
-          // for a package-owned permission set — and the confirm button is
+          // label, the body is the list's question, and the confirm button is
           // "Delete", painted destructive.
           const copy = recordDelete.confirmCopy(
             {
@@ -3610,16 +3798,6 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                   currentUserId={user?.id}
                 />
               )}
-              {/* ADR-0056 P1b — user assignment lives in Setup (the pure
-                  model): the permission set's facets render read-only as
-                  summary + Studio deep-link, and admins add/remove users
-                  here. Rendered directly (mirrors RecordAttachmentsPanel)
-                  inside RecordContextProvider so it reads the set's name. */}
-              {objectName === 'sys_permission_set' && pureRecordId && (
-                <div className="mt-6">
-                  <RecordPermissionAssignmentsRenderer />
-                </div>
-              )}
               {/* Generic Attachments panel (objectstack-ai/objectstack#2727) — opt-in via
                   `enable.files: true`; the server rejects attachments
                   targeting any other object (403 FILES_DISABLED).
@@ -3628,11 +3806,13 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                   (objectstack#4358), so this bottom append fires only for
                   authored pages that omit the panel. */}
               {filesEnabled && !hasAttachments && pureRecordId && (
-                <div className="mt-6">
+                <div className="mt-6" ref={setAttachmentsFallbackEl} data-record-attachments-fallback="">
                   <RecordAttachmentsPanel
                     objectName={objectName!}
                     recordId={pureRecordId}
-                    dataSource={dataSource}
+                    // Withheld until the panel scrolls into view
+                    // (objectui#13010, `attachmentsFallbackShown` above).
+                    dataSource={attachmentsFallbackShown ? dataSource : undefined}
                     currentUserId={currentUser?.id}
                   />
                 </div>

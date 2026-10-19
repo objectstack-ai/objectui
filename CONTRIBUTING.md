@@ -46,9 +46,14 @@ Thank you for your interest in contributing to Object UI! This document provides
 # Install pnpm if you haven't
 npm install -g pnpm
 
-# Install project dependencies
-pnpm install
+# Build @objectstack/* at the commit .objectstack-sha pins, then install
+# (`pnpm run setup` -- not `pnpm setup`, which is pnpm's own built-in command)
+pnpm run setup
 ```
+
+objectui resolves every `@objectstack/*` package from a build of the objectstack
+commit that `.objectstack-sha` names, not from npm. `scripts/bump-objectstack.sh`
+moves that pin; the dependency and lockfile section of `AGENTS.md` has the whole procedure.
 
 ### Configure Git Merge Driver for pnpm-lock.yaml
 

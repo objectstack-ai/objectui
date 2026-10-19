@@ -198,7 +198,11 @@ describe('page:header and record:quick_actions — one authored array, one meani
     header.unmount();
 
     const bar = mount('record:quick_actions', mixed);
-    expect(await screen.findByText(/actions refused at index 1/i)).toBeInTheDocument();
+    // Both mounts are runtime views, so the bar draws nothing: its dashed
+    // "refused at index N" box is preview-only developer copy (objectui#13000),
+    // and the index is named in the console below, as the header names it.
+    expect(screen.queryByText(/refused at index/i)).toBeNull();
+    expect(bar.container.textContent).toBe('');
     expect(buttonNames(bar.container)).toEqual([]);
     bar.unmount();
 

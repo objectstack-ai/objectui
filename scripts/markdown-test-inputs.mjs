@@ -1122,6 +1122,12 @@ export const ADJUDICATED = new Map([
       walker: 'not-markdown: `.github/workflows/*.yml`',
     },
   ],
+  // objectui#12958. Its `CHANGELOG.md` is a fixture written into a temp directory;
+  // from this tree it reads the root `package.json` and one workflow, no markdown.
+  [
+    'scripts/__tests__/objectstack-floor.test.ts',
+    { reads: [], notRead: ['CHANGELOG.md'] },
+  ],
   [
     'scripts/__tests__/quick-reference-commands-4149.test.ts',
     {

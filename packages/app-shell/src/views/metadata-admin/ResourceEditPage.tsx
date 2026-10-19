@@ -1724,7 +1724,12 @@ function MetadataResourceEditPageImpl({
       // a draft instead of writing over it, and reads it as a create. A save of
       // the item this editor loaded sends the pin its load or last save held.
       if (createMode) {
-        await client.save<any>(type, savedName, itemToSave, { ...saveOptions, ifNoneMatch: '*' });
+        // objectui#7611 — a type whose edit page writes the live item creates
+        // it live too (`createLive`), so the page that opens next reads what
+        // was created and no draft is left behind for a Publish to replay.
+        const createOptions =
+          config.createLive && !activePackage ? { force } : saveOptions;
+        await client.save<any>(type, savedName, itemToSave, { ...createOptions, ifNoneMatch: '*' });
       } else if ((await saveDraftVersioned(type, savedName, itemToSave, saveOptions)) === 'reloaded') {
         // The author chose the saved version; the load effect replaces the draft.
         return;

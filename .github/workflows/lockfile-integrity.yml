@@ -1,8 +1,10 @@
 name: Lockfile Integrity
 
 # objectui#8326 — a pull request's `pnpm-lock.yaml` may not silently DUPLICATE a
-# dependency the workspace declares, or move an `@objectstack/*` identity
-# BACKWARD. The mechanism, both incident causes and every boundary this gate
+# dependency the workspace declares. (Its second rule, an `@objectstack/*`
+# identity moving BACKWARD, was retired by objectui#12957: `@objectstack/*` now
+# resolves to the build `.objectstack-sha` pins, with no version in the lockfile
+# to move.) The mechanism, both incident causes and every boundary this gate
 # keeps are documented at length in `scripts/check-lockfile-integrity.mjs`.
 #
 # ── Why it is its own workflow ───────────────────────────────────────────────

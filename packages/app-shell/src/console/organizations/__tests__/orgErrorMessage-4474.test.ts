@@ -143,6 +143,36 @@ describe('#4474 — resolveOrgErrorMessage', () => {
   });
 });
 
+describe('#12977 — ORGANIZATION_CREATION_DISABLED (objectstack registered code)', () => {
+  // The server refuses a create with this code when the deployment's tenancy
+  // posture enforces no organization wall — the same posture the create dialog's
+  // own guard reads as `multiOrgEnabled === false`. It is a deployment setting,
+  // not a missing grant, so it maps to the guard's sentence.
+  it('maps to the localized workspace.multiOrgDisabled sentence in zh, ignoring the English text', () => {
+    expect(
+      resolveOrgErrorMessage(
+        withCode(
+          'ORGANIZATION_CREATION_DISABLED',
+          'Creating additional organizations is disabled on this deployment.',
+        ),
+        tZh,
+      ),
+    ).toBe('此实例已禁用创建新组织。');
+  });
+
+  it('CONTROL: an unmapped code still degrades to the server sentence', () => {
+    expect(
+      resolveOrgErrorMessage(
+        withCode(
+          'ORGANIZATION_SLUG_LOCKED_BY_ACTIVE_ENVIRONMENTS',
+          'The slug is locked while the organization has an active environment.',
+        ),
+        tZh,
+      ),
+    ).toBe('The slug is locked while the organization has an active environment.');
+  });
+});
+
 describe('#4474 — the mapping table itself', () => {
   it('every mapped code resolves to a key the zh pack actually defines', () => {
     // Guards the class of typo that only shows up as a raw i18n key on screen,
@@ -153,13 +183,16 @@ describe('#4474 — the mapping table itself', () => {
     }
   });
 
-  it('every mapped code is a real better-auth organization code, spelled exactly', () => {
+  it('every mapped code is a real organization code (better-auth or objectstack-registered), spelled exactly', () => {
     // A code with a typo is unreachable: it maps nothing and degrades forever,
     // which reads as "the translation is missing" rather than "the key is wrong".
+    // Every member is better-auth's own code except `ORGANIZATION_CREATION_DISABLED`,
+    // which is objectstack's registered code (ADR-0112) for the same refusal.
     expect(Object.keys(ORG_ERROR_MESSAGE_KEYS).sort()).toEqual(
       [
         'INVITATION_NOT_FOUND',
         'ORGANIZATION_ALREADY_EXISTS',
+        'ORGANIZATION_CREATION_DISABLED',
         'ORGANIZATION_SLUG_ALREADY_TAKEN',
         'USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION',
         'YOU_ARE_NOT_ALLOWED_TO_CREATE_A_NEW_ORGANIZATION',

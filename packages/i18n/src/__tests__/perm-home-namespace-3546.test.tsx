@@ -1,78 +1,36 @@
 /**
- * The `perm` and `home` namespaces — objectui#3546 slice six — resolve **from
- * the locale packs, with a provider mounted**.
+ * The `home` namespace — objectui#3546 slice six — resolves **from the locale
+ * packs, with a provider mounted**.
  *
  * ## What was broken, precisely
  *
  * `scripts/check-i18n-call-site-keys.mjs` (#3530's gate) measured **14 distinct
  * keys at 14 call sites** under `perm.*` / `home.*` that a `t()` call site asks
- * for and that NO pack defined. 1:1, no multi-site key, and **no**
- * `missing-prefix` family belongs to these namespaces — the two that remain in
- * the ratchet (`gantt.linkEnd.`, `organization.invitations.status.`) are later
- * slices'. Measured, never hand-counted: slice two predicted 90 and the truth
- * was 93.
+ * for and that NO pack defined. Measured, never hand-counted: slice two
+ * predicted 90 and the truth was 93.
  *
- * Two files own all 14:
+ * Two files owned all 14. The nine `perm.facet.*` keys belonged to
+ * `PermissionFacetLink.tsx`, the read-only facet summary on the
+ * `sys_permission_set` object page; that renderer and its keys were deleted
+ * when ADR-0131 retired the catalog objects (a permission set is edited on its
+ * registry-backed metadata page), so this file pins the surviving five:
  *
- *   - `PermissionFacetLink.tsx` — the read-only summary + "Design in Studio →"
- *     deep-link a `sys_permission_set` record shows for its authorization facets
- *     (ADR-0056 P1). 9 keys.
  *   - `usePublishAllDrafts.ts` — the rest of the publish-everything toasts
  *     (ADR-0038 L3 probe health, seed health, the ADR-0066 ⑨ capability lint).
  *     5 keys, shared by Home's pending-drafts banner and the draft preview bar.
  *
- * All 14 carried an inline `t(key, { defaultValue: … })`, so with a provider
- * mounted this is the milder objectui#3517 class: English rendered and all ten
- * languages were stuck on it. Consequence for test design, as in slices two
- * through five: **`en` output was already correct before the change**, so an
- * `en` assertion cannot discriminate before from after. Every assertion that
+ * All of them carried an inline `t(key, { defaultValue: … })`, so with a
+ * provider mounted this is the milder objectui#3517 class: English rendered and
+ * all ten languages were stuck on it. Consequence for test design, as in slices
+ * two through five: **`en` output was already correct before the change**, so
+ * an `en` assertion cannot discriminate before from after. Every assertion that
  * pins the fix is a non-`en` one; the `en` cases prove reachability and prove
  * the wording did not move.
- *
- * ## The four plural families, and why the base key is not redundant
- *
- * Four of the nine `perm` call sites pluralise English INSIDE the template
- * literal, e.g. `` `${count} object${count === 1 ? '' : 's'}` ``. A byte compare
- * against that is structurally impossible (slice five hit the same wall on
- * `marketplace.org.installed`), and the equivalence pinned instead is stronger:
- * **the template's own output, count by count, equals what the pack renders.**
- *
- * That needs two English forms, so these four keys are i18next plural families.
- * The shape this slice landed was `key` + `key_one`, NOT the conventional
- * `key_one` + `key_other`, and the reason was measured behaviour rather than taste:
- *
- *   i18next asks `Intl.PluralRules` for the ONE suffix a language needs for that
- *   count, and if the pack lacks it, moves down the fallback chain to `en` —
- *   which renders ENGLISH. With `_one`/`_other` only, `ru` (few: 2-4, many:
- *   5-20) and `ar` (two, few: 3-10, many: 11-99) would show English at exactly
- *   the counts a user meets first. A pack that also defines the BASE key gets
- *   that key for every category it did not enumerate — in its own language.
- *
- * objectui#11432 went the rest of the way: the base kept those packs in their
- * own language but in ONE form, so every pack now spells out every category its
- * language selects (`_other` everywhere, `ru` `_few`/`_many`, `ar`
- * `_zero`/`_two`/`_few`/`_many`), held by `all-locales-key-parity.test.ts`. The
- * assertions below compute the answering slot from the pack, so they read the
- * slot i18next selects whichever shape a family has.
- *
- * `detail.showEmptyRelated_one`/`_other` (the repo's one older plural family)
- * has no base key and therefore has that leak today; it is filed, not fixed
- * here — it belongs to the `detail` debt a later slice owns.
  *
  * ## Why a provider is mounted
  *
  * `usePublishAllDrafts` receives `t` from a bare `useObjectTranslation()` (Home
  * and the draft bar both pass it in), so i18next is the thing answering.
- * `PermissionFacetLink` binds `useDetailTranslation`, which is
- * `createSafeTranslation(DETAIL_DEFAULT_TRANSLATIONS, …)`: with a provider it
- * hands over i18next's `t`, and that is the console's path. Its defaults map has
- * no `perm.facet.*` entry, so the provider-LESS path returns the raw key —
- * `fallbackT` reads `defaults[key] || key` and never looks at the call site's
- * inline `defaultValue`. That is a separate defect from this slice's (measured:
- * 16 distinct keys reached through that hook are absent from its 146-entry map,
- * 4 of them keys the packs already resolve); it is filed, and the assertions
- * below deliberately describe the provider path, which is the one the console
- * mounts.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
@@ -109,18 +67,8 @@ const REPO_ROOT = decodeURIComponent(new URL(import.meta.url).pathname)
   .join('/');
 
 
-/** The 14 keys the guard measured. */
-const MEASURED_KEYS = [
-  // perm.facet — PermissionFacetLink (9)
-  'perm.facet.none',
-  'perm.facet.more',
-  'perm.facet.objects',
-  'perm.facet.fields',
-  'perm.facet.rls',
-  'perm.facet.tabs',
-  'perm.facet.adminScope',
-  'perm.facet.designInStudio',
-  'perm.facet.designInStudioHint',
+/** The five surviving keys of the 14 the guard measured. */
+const KEYS = [
   // home.pendingDrafts — usePublishAllDrafts (5)
   'home.pendingDrafts.nothing',
   'home.pendingDrafts.probeWarn',
@@ -128,12 +76,6 @@ const MEASURED_KEYS = [
   'home.pendingDrafts.publishedVerified',
   'home.pendingDrafts.capabilityWarn',
 ] as const;
-
-/** The four keys whose call site pluralises English inside its template. */
-const COUNT_KEYS = ['perm.facet.objects', 'perm.facet.fields', 'perm.facet.rls', 'perm.facet.tabs'] as const;
-
-/** Every path this slice added: the 14 above plus one `_one` per plural family. */
-const KEYS = [...MEASURED_KEYS, ...COUNT_KEYS.map((k) => `${k}_one`)];
 
 // Derived from the map rather than left as `string[]`: `Object.keys` erases
 // which keys it enumerated, so `builtInLocales[lang]` below would be an
@@ -143,9 +85,7 @@ const KEYS = [...MEASURED_KEYS, ...COUNT_KEYS.map((k) => `${k}_one`)];
 type LocaleCode = keyof typeof builtInLocales;
 const LANGS = Object.keys(builtInLocales) as LocaleCode[];
 
-const FACET = 'packages/plugin-detail/src/renderers/PermissionFacetLink.tsx';
 const PUBLISH = 'packages/app-shell/src/preview/usePublishAllDrafts.ts';
-const DETAIL_HOOK = 'packages/plugin-detail/src/useDetailTranslation.ts';
 
 const at = (pack: unknown, path: string): unknown =>
   path.split('.').reduce<unknown>((n, k) => (n as Record<string, unknown> | undefined)?.[k], pack);
@@ -170,41 +110,21 @@ function sourceOf(rel: string): string {
   return readFileSync(path, 'utf8');
 }
 
-/**
- * Render one of the call sites' template literals for a given count, the way
- * JavaScript would. Only the two forms those four sites actually use are
- * handled — `${count}` and `${count === 1 ? 'a' : 'b'}` — so a template that
- * grows a third form fails loudly here instead of being silently mis-modelled.
- */
-function renderTemplate(template: string, count: number): string {
-  const rendered = template
-    .replace(/\$\{count === 1 \? '([^']*)' : '([^']*)'\}/g, (_m, one, other) => (count === 1 ? one : other))
-    .replace(/\$\{count\}/g, String(count));
-  expect(rendered, `unmodelled substitution left in ${template}`).not.toContain('${');
-  return rendered;
-}
-
 beforeEach(() => {
   // The provider persists the last language (objectstack#5406); without this a
   // stale locale leaks into the `en` cases.
   window.localStorage.clear();
 });
 
-describe('objectui#3546 slice six — the perm and home namespaces', () => {
-  it('covers all ten packs and all eighteen paths (guards the loops from emptying)', () => {
+describe('objectui#3546 slice six — the home namespace', () => {
+  it('covers all ten packs and all five paths (guards the loops from emptying)', () => {
     expect(LANGS).toHaveLength(10);
-    expect(MEASURED_KEYS).toHaveLength(14);
-    expect(KEYS).toHaveLength(18);
-    expect(new Set(KEYS).size).toBe(18);
-    // 14 measured + 4 `_one` companions. Splitting the two apart here is what
-    // stops a later reader reading "18" off the ratchet, which held 14 lines.
-    expect(COUNT_KEYS).toHaveLength(4);
-    const perArea = MEASURED_KEYS.reduce<Record<string, number>>((acc, k) => {
-      const area = k.split('.').slice(0, 2).join('.');
-      acc[area] = (acc[area] ?? 0) + 1;
-      return acc;
-    }, {});
-    expect(perArea).toEqual({ 'perm.facet': 9, 'home.pendingDrafts': 5 });
+    expect(KEYS).toHaveLength(5);
+    expect(new Set(KEYS).size).toBe(5);
+    // The retired facet keys stay retired: no pack defines a `perm.facet` branch.
+    for (const lang of LANGS) {
+      expect(at(builtInLocales[lang], 'perm.facet'), `${lang}.perm.facet`).toBeUndefined();
+    }
   });
 
   it.each(LANGS)('%s defines every path in this slice as a non-empty string', (lang) => {
@@ -221,7 +141,7 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
     // English. `all-locales-key-parity.test.ts` cannot see it — it compares key
     // sets and placeholder shape, never what a value SAYS.
     //
-    // Set equality against the EMPTY set: 0 of 162 pairs is identical to `en`,
+    // Set equality against the EMPTY set: no pair is identical to `en`,
     // as in slice five and unlike slices two (12 cognates), three (18) and four
     // (1). A first identical pair fails here and must be justified on the line
     // below, the way those slices justified theirs.
@@ -238,21 +158,12 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
     // An empty set-equality is green when the packs are green AND when they are
     // empty (slice two's B1 lesson). The presence assertion above covers
     // emptiness; this one covers the other way it could be empty for the wrong
-    // reason — packs that dodged every English-looking token. `RLS`, `Studio`
-    // and `Capability` are all carried through, and none of these is
-    // byte-identical to `en`.
-    expect(at(builtInLocales.de, 'perm.facet.rls')).toBe('{{count}} RLS-Richtlinien');
-    expect(at(builtInLocales.fr, 'perm.facet.rls')).toBe('{{count}} politiques RLS');
-    expect(at(builtInLocales.ja, 'perm.facet.designInStudio')).toBe('Studio でデザイン →');
+    // reason — packs that dodged every English-looking token. `Capability` is
+    // carried through, and the value is not byte-identical to `en`.
     expect(at(builtInLocales.de, 'home.pendingDrafts.capabilityWarn')).toContain('Capability-Verweis(e)');
-    for (const [lang, key] of [
-      ['de', 'perm.facet.rls'],
-      ['fr', 'perm.facet.rls'],
-      ['ja', 'perm.facet.designInStudio'],
-      ['de', 'home.pendingDrafts.capabilityWarn'],
-    ] as const) {
-      expect(at(builtInLocales[lang], key)).not.toBe(at(builtInLocales.en, key));
-    }
+    expect(at(builtInLocales.de, 'home.pendingDrafts.capabilityWarn')).not.toBe(
+      at(builtInLocales.en, 'home.pendingDrafts.capabilityWarn'),
+    );
   });
 
   it('exactly the counting paths interpolate, and every pack carries the same hole', () => {
@@ -265,10 +176,7 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
     // `lastIndex` (slice five's own bug).
     const HOLES = /\{\{\w+\}\}/g;
     const HAS_HOLE = /\{\{\w+\}\}/;
-    const INTERPOLATED = [
-      'perm.facet.more',
-      ...COUNT_KEYS,
-      ...COUNT_KEYS.map((k) => `${k}_one`),
+    const INTERPOLATED: string[] = [
       'home.pendingDrafts.publishedVerified',
       'home.pendingDrafts.capabilityWarn',
     ].sort();
@@ -281,143 +189,23 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
     }
   });
 
-  describe('the four plural families', () => {
-    it('every pack defines the base key and its _one companion', () => {
-      // A pack that ships only `_one` would render the singular for everything;
-      // one that ships only the base key would lose the English singular. Both
-      // halves, all ten packs. (The other category slots are the parity file's
-      // computed rule, objectui#11432.)
-      for (const lang of LANGS) {
-        for (const key of COUNT_KEYS) {
-          expect(typeof at(builtInLocales[lang], key), `${lang}.${key}`).toBe('string');
-          expect(typeof at(builtInLocales[lang], `${key}_one`), `${lang}.${key}_one`).toBe('string');
-        }
-      }
-    });
-
-    it("en renders exactly what the call site's template literal renders, count by count", () => {
-      // The equivalence that replaces a byte compare. If the pack path ever
-      // disagreed with the template, this slice would have CHANGED the English a
-      // user sees — which is the one thing it must not do.
-      const src = sourceOf(FACET);
-      const TEMPLATES: Record<string, string> = {
-        'perm.facet.objects': "${count} object${count === 1 ? '' : 's'}",
-        'perm.facet.fields': "${count} field rule${count === 1 ? '' : 's'}",
-        'perm.facet.rls': "${count} RLS polic${count === 1 ? 'y' : 'ies'}",
-        'perm.facet.tabs': "${count} tab rule${count === 1 ? '' : 's'}",
-      };
-      const { result } = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor('en') });
-      for (const [key, template] of Object.entries(TEMPLATES)) {
-        // the premise: that template really is still what the call site passes
-        expect(src, `${key}'s defaultValue template moved`).toContain(`defaultValue: \`${template}\``);
-        for (const count of [1, 2, 3, 5, 11, 21, 100]) {
-          expect(result.current.t(key, { count }), `en ${key} at count=${count}`).toBe(
-            renderTemplate(template, count),
-          );
-        }
-      }
-      // …including the one counting site with no morphology: `+N more` never
-      // inflects, so it stays a single flat key even though `count` is passed.
-      expect(src).toContain("t('perm.facet.more', { count: extra, defaultValue: `+${extra} more` })");
-      for (const count of [1, 3, 11]) {
-        expect(result.current.t('perm.facet.more', { count })).toBe(renderTemplate('+${count} more', count));
-      }
-    });
-
-    it.each(LANGS)('%s stays in its own language at every plural category', (lang) => {
-      // `Intl.PluralRules` is the same resolver i18next uses, so `select()`
-      // predicts which slot answers: the category's own slot where the pack has
-      // it (every category, since objectui#11432), the base key otherwise. A pack
-      // with neither would resolve NOTHING and i18next would walk the fallback
-      // chain to `en` — English, silently, at counts 2-20 in `ru` and 2-99 in `ar`.
-      const { result } = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor(lang) });
-      const rules = new Intl.PluralRules(lang);
-      for (const key of COUNT_KEYS) {
-        for (const count of [1, 2, 3, 5, 11, 21, 100]) {
-          const own = `${key}_${rules.select(count)}`;
-          const slot = typeof at(builtInLocales[lang], own) === 'string' ? own : key;
-          const expected = (at(builtInLocales[lang], slot) as string).replace('{{count}}', String(count));
-          expect(result.current.t(key, { count }), `${lang} ${key} at count=${count}`).toBe(expected);
-        }
-      }
-    });
-
-    it('ru and ar render their own form at the categories beyond one/other', () => {
-      // Named, not just covered by the loop above, because the numbers matter: ru 3
-      // is `few`, ru 7 is `many`, ar 2 is `two`, ar 5 is `few`, ar 30 is `many`.
-      // Before objectui#11432 no pack defined these slots and the base key answered
-      // them in one count-invariant form; now each has its own grammatical form.
-      expect(new Intl.PluralRules('ru').select(3)).toBe('few');
-      expect(new Intl.PluralRules('ru').select(7)).toBe('many');
-      expect(new Intl.PluralRules('ar').select(2)).toBe('two');
-      expect(new Intl.PluralRules('ar').select(5)).toBe('few');
-      expect(new Intl.PluralRules('ar').select(30)).toBe('many');
-
-      const ru = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor('ru') });
-      expect(ru.result.current.t('perm.facet.objects', { count: 3 })).toBe('3 объекта');
-      expect(ru.result.current.t('perm.facet.rls', { count: 7 })).toBe('7 политик RLS');
-      // and NOT the English the fallback chain would have produced
-      expect(ru.result.current.t('perm.facet.objects', { count: 3 })).not.toBe('3 objects');
-
-      window.localStorage.clear();
-      const ar = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor('ar') });
-      expect(ar.result.current.t('perm.facet.objects', { count: 2 })).toBe('كائنان (2)');
-      expect(ar.result.current.t('perm.facet.fields', { count: 5 })).toBe('5 قواعد حقول');
-      expect(ar.result.current.t('perm.facet.tabs', { count: 30 })).not.toBe('30 tab rules');
-    });
-
-    it('the languages with no singular slot say so by repeating the base form', () => {
-      // zh/ja/ko have ONE plural category (`other`), so `_one` is unreachable
-      // there. Equal values are therefore correct, not a copy-paste slip — pinned
-      // so review reads it that way, and so a language that DOES inflect cannot
-      // quietly join the list. (`ru` left it in objectui#11432: its `_one` now
-      // agrees with the numeral, like its new `_few`/`_many`, while the base keeps
-      // the count-invariant label for a call made without a count.)
-      const collapsed = LANGS.filter((l) =>
-        COUNT_KEYS.every((k) => at(builtInLocales[l], k) === at(builtInLocales[l], `${k}_one`)),
-      );
-      expect(collapsed.sort()).toEqual(['ja', 'ko', 'zh']);
-      for (const lang of ['zh', 'ja', 'ko'] as const) {
-        expect(new Intl.PluralRules(lang).resolvedOptions().pluralCategories).toEqual(['other']);
-      }
-      // en/de/fr/es/pt/ar all inflect, and their two slots really do differ.
-      for (const lang of ['en', 'de', 'fr', 'es', 'pt', 'ar'] as const) {
-        expect(at(builtInLocales[lang], 'perm.facet.objects'), `${lang} objects`).not.toBe(
-          at(builtInLocales[lang], 'perm.facet.objects_one'),
-        );
-      }
-    });
-  });
-
-  it('the nine other en values are byte-identical to their inline defaultValue', () => {
-    // The nine call sites whose `defaultValue` is a static literal. Two paths
-    // must not diverge: with the pack present i18next answers, and before this
-    // slice the inline default did — a user must not be able to tell which ran.
-    // `source` is the union of the two files, not `string`: `sources` below is
-    // keyed by those two literals, so a bare `string` made `sources[rel]` an
-    // implicit-`any` index (TS7053) and a third file added here would have
-    // read `undefined` instead of failing.
-    const EXPECTED: Array<[key: string, source: typeof FACET | typeof PUBLISH, value: string]> = [
-      ['perm.facet.none', FACET, 'None'],
-      ['perm.facet.adminScope', FACET, 'Delegated admin configured'],
-      ['perm.facet.designInStudio', FACET, 'Design in Studio →'],
-      ['perm.facet.designInStudioHint', FACET, 'Design in Studio'],
-      ['home.pendingDrafts.nothing', PUBLISH, 'Nothing to publish.'],
-      ['home.pendingDrafts.probeWarn', PUBLISH, 'Published, but verification found problems.'],
-      ['home.pendingDrafts.seedWarn', PUBLISH, 'Published, but some sample data failed to load.'],
-      ['home.pendingDrafts.publishedVerified', PUBLISH, 'Published & verified — {{count}} sample row(s) live.'],
-      [
-        'home.pendingDrafts.capabilityWarn',
-        PUBLISH,
-        'Authoring check: {{count}} capability reference(s) resolve nowhere.',
-      ],
+  it('the five en values are byte-identical to their inline defaultValue', () => {
+    // The call sites whose `defaultValue` is a static literal. Two paths must
+    // not diverge: with the pack present i18next answers, and before this slice
+    // the inline default did — a user must not be able to tell which ran.
+    const EXPECTED: Array<[key: string, value: string]> = [
+      ['home.pendingDrafts.nothing', 'Nothing to publish.'],
+      ['home.pendingDrafts.probeWarn', 'Published, but verification found problems.'],
+      ['home.pendingDrafts.seedWarn', 'Published, but some sample data failed to load.'],
+      ['home.pendingDrafts.publishedVerified', 'Published & verified — {{count}} sample row(s) live.'],
+      ['home.pendingDrafts.capabilityWarn', 'Authoring check: {{count}} capability reference(s) resolve nowhere.'],
     ];
-    expect(EXPECTED).toHaveLength(9);
-    const sources = { [FACET]: sourceOf(FACET), [PUBLISH]: sourceOf(PUBLISH) };
-    for (const [key, rel, value] of EXPECTED) {
+    expect(EXPECTED).toHaveLength(5);
+    const source = sourceOf(PUBLISH);
+    for (const [key, value] of EXPECTED) {
       expect(at(builtInLocales.en, key), `en ${key}`).toBe(value);
       // the premise: the call site still passes exactly this defaultValue
-      expect(sources[rel], `${key}'s defaultValue moved`).toContain(`defaultValue: '${value}'`);
+      expect(source, `${key}'s defaultValue moved`).toContain(`defaultValue: '${value}'`);
     }
   });
 
@@ -427,9 +215,6 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
     // never renders as two different sentences in the same language. A drift on
     // either side fails here.
     const REUSED: Array<[newKey: string, neighbour: string]> = [
-      ['perm.facet.none', 'list.none'],
-      ['perm.facet.more', 'calendar.moreEvents'],
-      ['perm.facet.designInStudioHint', 'topbar.designInStudio'],
       ['home.pendingDrafts.seedWarn', 'console.ai.seedWarn'],
     ];
     for (const [newKey, neighbour] of REUSED) {
@@ -443,62 +228,6 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
         );
       }
     }
-    // `designInStudio` is the same sentence plus the arrow, so it reuses the same
-    // row rather than re-translating the words in front of it.
-    for (const lang of LANGS) {
-      expect(at(builtInLocales[lang], 'perm.facet.designInStudio'), `${lang} designInStudio`).toBe(
-        `${at(builtInLocales[lang], 'topbar.designInStudio')} →`,
-      );
-    }
-    // `console.ai.designBuiltApp`, once the near-miss this paragraph ruled out,
-    // retired with objectui#12724 (the build card's Studio door now reads
-    // `console.ai.viewBuiltAppInStudio`), so there is no second rendering left
-    // to rule out.
-  });
-
-  it('the count-plus-unit wording follows each pack own neighbours', () => {
-    // Concept adjacency, not byte adjacency — slice five's blind spot was that a
-    // neighbour expressing the SAME concept in different English is invisible to
-    // a byte search. These were found by concept and the premise of each is
-    // asserted alongside it, so a neighbour that moves takes this with it.
-    //
-    // zh: the permission-set designer's own suffix (metadata-admin's module-local
-    // table, `perm.stat.objectsSuffix` = 个对象) — the very screen this chip
-    // links to. Its 行级策略 / 标签页 / 委派管理范围 come from the same table.
-    expect(at(builtInLocales.zh, 'perm.facet.objects')).toBe('{{count}} 个对象');
-    const designer = sourceOf('packages/app-shell/src/views/metadata-admin/i18n.ts');
-    expect(designer).toContain("'perm.stat.objectsSuffix': '个对象'");
-    expect(designer).toContain("'perm.rls.empty': '暂无行级策略。'");
-    expect(at(builtInLocales.zh, 'perm.facet.rls')).toContain('RLS 策略');
-
-    // ja/ko: the same `{{count}} + unit` shape as appDesigner.objectManager.fieldCount.
-    expect(at(builtInLocales.en, 'appDesigner.objectManager.fieldCount')).toBe('{{count}} fields');
-    expect(at(builtInLocales.ja, 'appDesigner.objectManager.fieldCount')).toBe('{{count}} フィールド');
-    expect(at(builtInLocales.ko, 'appDesigner.objectManager.fieldCount')).toBe('{{count}}개 필드');
-    expect(at(builtInLocales.ja, 'perm.facet.fields')).toBe('{{count}} フィールドルール');
-    expect(at(builtInLocales.ko, 'perm.facet.fields')).toBe('{{count}}개 필드 규칙');
-
-    // ru: «Noun: {{count}}» — 25 values in this pack already write counts that
-    // way (lookup.recordCount, notifications.groupCount, approvalsInbox.*), and
-    // it is the only form that is correct for EVERY Russian count, which is what
-    // lets the base key carry few/many.
-    expect(at(builtInLocales.ru, 'lookup.recordCount')).toBe('Записей: {{count}}');
-    expect(at(builtInLocales.ru, 'notifications.groupCount')).toBe('Уведомлений: {{count}}');
-    for (const key of COUNT_KEYS) {
-      expect(at(builtInLocales.ru, key), `ru ${key}`).toMatch(/: \{\{count\}\}$/);
-    }
-
-    // ar: «{{count}} singular(plural)», the marker this pack uses for exactly
-    // this construction.
-    expect(at(builtInLocales.ar, 'appDesigner.objectManager.fieldCount')).toBe('{{count}} حقل(حقول)');
-    expect(at(builtInLocales.ar, 'perm.facet.objects')).toBe('{{count}} كائن(كائنات)');
-
-    // de: in-app tabs are Registerkarten (console.objectView.ufTabs), and "Tab"
-    // is reserved for the browser tab (detail.openInNewTab) — 4 occurrences each,
-    // a real distinction rather than an inconsistency.
-    expect(at(builtInLocales.de, 'console.objectView.ufTabs')).toBe('Registerkarten');
-    expect(at(builtInLocales.de, 'detail.openInNewTab')).toBe('In neuem Tab öffnen');
-    expect(at(builtInLocales.de, 'perm.facet.tabs')).toBe('{{count}} Registerkarten-Regeln');
   });
 
   it('the two counting home strings follow their own family on the (s) marker', () => {
@@ -532,17 +261,8 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
     expect(/\(\w{1,4}\)/.test('поле(й)')).toBe(false);
   });
 
-  it('the arrow, the ampersand and the em dash follow en in every pack', () => {
-    // `Design in Studio →` is a trailing action arrow, and this repo keeps those
-    // as `→` in all ten packs including `ar` (marketplace.browseLink, 10/10) —
-    // unlike the two `ar` values that mirror an inline left-to-right MAPPING to
-    // `←` (aiModelStatus.summaryRouting, connectAgent.claude.body).
+  it('the ampersand and the em dash follow en in every pack', () => {
     for (const lang of LANGS) {
-      expect(at(builtInLocales[lang], 'marketplace.browseLink'), `${lang} browseLink`).toContain('→');
-      expect((at(builtInLocales[lang], 'perm.facet.designInStudio') as string).endsWith(' →'), `${lang}`).toBe(
-        true,
-      );
-      expect(at(builtInLocales[lang], 'perm.facet.designInStudioHint')).not.toContain('→');
       // The em dash in `Published & verified — …` is U+2014 everywhere, except zh
       // which writes the doubled `——` its own pack used in the retired home.pendingDrafts.message.
       const verified = at(builtInLocales[lang], 'home.pendingDrafts.publishedVerified') as string;
@@ -569,19 +289,15 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
     expect(at(builtInLocales.fr, 'home.pendingDrafts.capabilityWarn')).toContain('conception : ');
   });
 
-  it('fr keeps its straight apostrophe and ru keeps its ё', () => {
-    // The two typographic habits a copy-paste from `en` or from a machine
-    // translation breaks first. fr writes U+0027 (502 against 21 U+2019); ru
-    // writes ё in 161 values.
+  it('fr keeps its straight apostrophe', () => {
+    // The typographic habit a copy-paste from `en` or from a machine
+    // translation breaks first: fr writes U+0027, not U+2019.
     for (const key of KEYS) {
       expect(
         (at(builtInLocales.fr, key) as string).includes('’'),
         `fr ${key} used a curly apostrophe`,
       ).toBe(false);
     }
-    expect(at(builtInLocales.fr, 'perm.facet.tabs')).toBe("{{count}} règles d'onglet");
-    expect(at(builtInLocales.ru, 'perm.facet.more')).toBe('+{{count}} ещё');
-    expect(at(builtInLocales.ru, 'calendar.moreEvents')).toBe('+{{count}} ещё');
   });
 
   it('the ratchet actually shrank — no perm/home key is still baselined', () => {
@@ -611,19 +327,14 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
   describe('through the real binding — provider mounted', () => {
     /** One key per surface that owns a group of these keys. */
     const SAMPLE: Array<[key: string, owner: string]> = [
-      ['perm.facet.none', 'PermissionFacetLink (empty facet)'],
-      ['perm.facet.adminScope', 'PermissionFacetLink (admin_scope)'],
-      ['perm.facet.designInStudio', 'PermissionFacetLink (deep-link)'],
       ['home.pendingDrafts.nothing', 'usePublishAllDrafts (no drafts)'],
       ['home.pendingDrafts.probeWarn', 'usePublishAllDrafts (L3 probes)'],
       ['home.pendingDrafts.seedWarn', 'usePublishAllDrafts (seed health)'],
     ];
 
-    it('both owning files still bind t the way this suite assumes', () => {
+    it('the owning file still binds t the way this suite assumes', () => {
       // The premise of mounting a provider. `usePublishAllDrafts` takes `t` as an
-      // argument, so assert its two callers pass the pack-backed one, and that
-      // PermissionFacetLink still goes through useDetailTranslation — which
-      // hands over i18next's `t` once the pack resolves its probe key.
+      // argument, so assert its two callers pass the pack-backed one.
       const publish = sourceOf(PUBLISH);
       expect(publish).toContain('export function usePublishAllDrafts(t: TranslateFn)');
       for (const caller of [
@@ -636,13 +347,6 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
         );
         expect(src, `${caller} stopped passing t into usePublishAllDrafts`).toContain('usePublishAllDrafts(t)');
       }
-      expect(sourceOf(FACET)).toContain("import { useDetailTranslation } from '../useDetailTranslation'");
-      // …and the hook really is the hand-over kind, whose defaults map has no
-      // perm entry (see the file header: the provider-less path is a filed
-      // defect, not this slice's contract).
-      const hook = sourceOf(DETAIL_HOOK);
-      expect(hook).toContain('createSafeTranslationHook(');
-      expect(hook).not.toContain("'perm.facet.");
     });
 
     it.each(['en', 'zh'] as const)('%s resolves every sampled key from the pack', (lang) => {
@@ -659,9 +363,6 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
       // session. That is the whole defect, and only a non-en assertion sees it.
       const { result } = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor('zh') });
       const { t } = result.current;
-      expect(t('perm.facet.adminScope')).toBe('已配置委派管理范围');
-      expect(t('perm.facet.designInStudio')).toBe('在 Studio 中设计 →');
-      expect(t('perm.facet.objects', { count: 4 })).toBe('4 个对象');
       expect(t('home.pendingDrafts.nothing')).toBe('没有需要发布的内容。');
       expect(t('home.pendingDrafts.publishedVerified', { count: 12 })).toBe(
         '已发布并验证 —— 12 行示例数据已生效。',
@@ -670,13 +371,13 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
     });
 
     it.each([
-      ['de', 'perm.facet.adminScope', 'Delegierte Administration konfiguriert'],
+      ['de', 'home.pendingDrafts.nothing', 'Nichts zu veröffentlichen.'],
       ['fr', 'home.pendingDrafts.nothing', 'Rien à publier.'],
-      ['es', 'perm.facet.none', 'Ninguno'],
+      ['es', 'home.pendingDrafts.probeWarn', 'Publicado, pero la verificación encontró problemas.'],
       ['pt', 'home.pendingDrafts.probeWarn', 'Publicado, mas a verificação encontrou problemas.'],
-      ['ru', 'perm.facet.adminScope', 'Делегированное администрирование настроено'],
+      ['ru', 'home.pendingDrafts.nothing', 'Публиковать нечего.'],
       ['ja', 'home.pendingDrafts.nothing', '公開するものはありません。'],
-      ['ko', 'perm.facet.designInStudio', 'Studio에서 디자인 →'],
+      ['ko', 'home.pendingDrafts.probeWarn', '게시했지만 검증에서 문제를 발견했습니다.'],
       ['ar', 'home.pendingDrafts.probeWarn', 'تم النشر، لكن التحقق وجد مشكلات.'],
     ])('%s renders a user-visible string from the pack', (lang, key, expected) => {
       // One pinned surface per remaining pack, across four writing systems, so a
@@ -687,16 +388,13 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
     });
 
     it('the ar pack does not open an RTL string with a Latin token', () => {
-      // Same rule slices three through five applied. `RLS` and `Studio` are the
-      // two Latin runs these strings cannot avoid, and both stay inside the
-      // string instead of leading it.
+      // Same rule slices three through five applied: a Latin run stays inside
+      // the string instead of leading it.
       const { result } = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor('ar') });
       for (const key of KEYS) {
         const value = result.current.t(key, { count: 3 });
         expect(/^[A-Za-z]/.test(value), `${key} starts with a Latin token: ${value}`).toBe(false);
       }
-      expect(result.current.t('perm.facet.rls', { count: 3 })).toBe('3 سياسات RLS');
-      expect(result.current.t('perm.facet.designInStudio')).toBe('التصميم في Studio →');
     });
   });
 });

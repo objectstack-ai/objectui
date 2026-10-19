@@ -16,6 +16,11 @@
  * stayed on the old count for as long as the agent kept narrating after the
  * tool answered. These cases play the stream with the turn still running.
  *
+ * Phase 6 adds the result phase 5 left out: a `status: 'published'` answer that
+ * is not a confirm-replay (cloud's in-turn auto-publish, which promotes every
+ * pending draft of the package) carries neither lifted field, and is announced
+ * through the chat package's own reader of the envelope.
+ *
  * Real: the surface, its top bar, `usePendingDrafts`, the right slot, the
  * Studio copilot (`StudioChatDock` → `StudioCopilotConversation` →
  * `ChatPane`), and the chat package's own mapping of a tool part
@@ -201,6 +206,18 @@ const REPLAY_DRAFTED = {
   draftState: { pending: 1, items: [{ type: 'object', name: 'hcpl_borrowing' }], others: 0 },
 };
 
+/**
+ * The same `apply_edit` where the environment publishes AI changes in the turn
+ * (cloud `maybeAutoPublish`): the package's drafts are promoted, ALL of them,
+ * and the envelope is rewritten to `status: 'published'`. Not a replay, so the
+ * chat lifts neither `draftReview` nor `replayOutcome` from it.
+ */
+const APPLY_EDIT_PUBLISHED = {
+  ...APPLY_EDIT_DRAFTED,
+  status: 'published',
+  note: 'LIVE. Published in-turn — the table/field/view now exists and is visible to users; no separate Publish step is needed. You may tell the user it is created and live.',
+};
+
 /** A read tool's answer: no authoring envelope. */
 const READ_RESULT = { name: 'hcpl_borrowing', label: '借阅记录', fields: { title: { type: 'text' } } };
 
@@ -326,6 +343,30 @@ describe('the 变更 badge counts the copilot\'s drafts the moment they land (ob
       await act(drain);
       expect(pulses).toBe(1);
       await waitFor(() => expect(screen.getByTestId('studio-changes-count')).toHaveTextContent('2'));
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it('a published result that is not a replay (in-turn auto-publish) re-reads the badge as it lands', async () => {
+    // Two drafts are pending when the turn starts.
+    serverDrafts = DRAFTED_ROWS;
+    renderStudio();
+    await screen.findByTestId('copilot-chat-body');
+    await waitFor(() => expect(screen.getByTestId('studio-changes-count')).toHaveTextContent('2'));
+    let pulses = 0;
+    const unsubscribe = subscribeMetadataRefresh(() => {
+      pulses += 1;
+    });
+    try {
+      // The tool publishes in the turn, which promotes every pending draft.
+      serverDrafts = [];
+      play(
+        [USER_TURN, { id: 'm-asst-5', role: 'assistant', parts: [toolPart('apply_edit', 'call_apply_edit_5', APPLY_EDIT_PUBLISHED)] }],
+        true,
+      );
+      await waitFor(() => expect(screen.queryByTestId('studio-changes-count')).toBeNull());
+      expect(pulses).toBe(1);
     } finally {
       unsubscribe();
     }

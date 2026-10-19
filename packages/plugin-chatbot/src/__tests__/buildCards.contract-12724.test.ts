@@ -111,6 +111,10 @@ describe('the build-card fixtures are payloads the producer declares (objectui#1
     expect(violations(PLAN, planEnvelope(lang))).toEqual([]);
   });
 
+  it.each(['zh', 'en'] as const)('%s: the envelope with a generated loan title satisfies ProposeBlueprintCardPayload (objectui#13004)', (lang) => {
+    expect(violations(PLAN, planEnvelope(lang, { generatedTitle: true }))).toEqual([]);
+  });
+
   it.each(['zh', 'en'] as const)('%s: the apply_blueprint envelopes satisfy BuildResultCardPayload', (lang) => {
     expect(violations(RESULT, applyEnvelope(lang))).toEqual([]);
     expect(violations(RESULT, applyEnvelope(lang, { materialized: true }))).toEqual([]);

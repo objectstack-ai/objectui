@@ -37,9 +37,8 @@ import type {
  * Security, Tab Visibility, and Delegated Admin Scope — on the Studio /
  * env-scope permission matrix (ADR-0056 P3 / epic #2398).
  *
- * These facets were authorable ONLY as raw JSON in Setup. In the pure model
- * they are *designed* here in Studio via structured editors and shown read-only
- * in Setup (PermissionFacetLink, P1). Each editor reads/writes the draft's
+ * These facets were authorable ONLY as raw JSON in Setup. They are designed
+ * here via structured editors. Each editor reads/writes the draft's
  * parsed camelCase field (`rowLevelSecurity` / `tabPermissions` / `adminScope`)
  * — tolerating a JSON string on load so legacy rows survive — and is persisted
  * by the editor's existing whole-record Save. The shapes below are the subset

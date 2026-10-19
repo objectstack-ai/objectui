@@ -28,8 +28,8 @@ The Runner is a complete ObjectUI application that demonstrates best practices a
 git clone https://github.com/objectstack-ai/objectui.git
 cd objectui
 
-# Install dependencies
-pnpm install
+# Build @objectstack/* at .objectstack-sha, then install dependencies
+pnpm run setup
 
 # Run the runner
 cd packages/runner
@@ -611,7 +611,7 @@ Clear cache and rebuild:
 
 ```bash
 rm -rf node_modules dist .vite
-pnpm install
+pnpm run setup   # removing node_modules removed the pinned @objectstack/* build too
 pnpm build
 ```
 

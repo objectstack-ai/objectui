@@ -38,32 +38,6 @@ const zh = {
       view_all_audit_log: '查看全部审计日志',
     },
   },
-  // objectui#3546 切片六 —— 权限集记录上六个授权面的只读摘要与 Studio 深链
-  // (ADR-0056 P1,plugin-detail 的 PermissionFacetLink)。
-  // 用词取自本仓权限集设计器(metadata-admin i18n 表):个对象 / 行级策略 /
-  // 标签页 / 委派管理范围 —— 与点进去的那个界面一致。
-  // 中文无单复数,四个计数 key 的 `_one` 与基础 key 同值(设计如此,不是漏改)。
-  perm: {
-    facet: {
-      none: '无',
-      more: '+{{count}} 更多',
-      objects: '{{count}} 个对象',
-      objects_one: '{{count}} 个对象',
-      objects_other: '{{count}} 个对象',
-      fields: '{{count}} 条字段规则',
-      fields_one: '{{count}} 条字段规则',
-      fields_other: '{{count}} 条字段规则',
-      rls: '{{count}} 条 RLS 策略',
-      rls_one: '{{count}} 条 RLS 策略',
-      rls_other: '{{count}} 条 RLS 策略',
-      tabs: '{{count}} 条标签页规则',
-      tabs_one: '{{count}} 条标签页规则',
-      tabs_other: '{{count}} 条标签页规则',
-      adminScope: '已配置委派管理范围',
-      designInStudio: '在 Studio 中设计 →',
-      designInStudioHint: '在 Studio 中设计',
-    },
-  },
   lookup: {
     recentlyUsed: '最近使用',
     allResults: '全部结果',
@@ -592,8 +566,6 @@ const zh = {
       importNRows_other: '导入 {{count}} 行',
       importingProgress: '导入中…',
       requiredMark: '*',
-      optTreatHistorical: '作为历史数据导入',
-      optTreatHistoricalHint: '（按原样导入已完结的记录——跳过状态机校验，保留原始时间戳与作者，而不是记为当前时间）',
       missingRequiredHint: '无法继续——以下必填字段未映射：{{fields}}。请在文件中添加对应的列，或返回上一步重新上传包含该列的文件。',
       legacyFallbackNotice: '已通过兼容模式导入：当前连接不支持服务端导入接口，因此所有值均以文本写入，未做服务端类型转换。请升级后端/客户端以获得完整的导入支持（类型转换与关联查找）。',
       required: '必填',
@@ -648,7 +620,6 @@ const zh = {
       matchFieldsHint: '按这些字段将行匹配到已有记录。',
       needMatchFields: '请至少选择一个匹配字段。',
       matchOnlyField: '（仅匹配）',
-      optRunAutomations: '运行自动化与触发器',
       optCreateOptions: '保留未知选项值',
       optSkipBlankKey: '跳过匹配值为空的行',
       optBackground: '后台导入',
@@ -1869,6 +1840,11 @@ const zh = {
       toggleChatsList: '切换对话列表',
       goHome: '返回首页',
     },
+    reportIndex: {
+      title: '报表',
+      emptyTitle: '暂无报表',
+      emptyDescription: '此应用没有你可以打开的报表。',
+    },
     commandPalette: {
       title: '命令面板',
       placeholder: '输入命令或搜索…',
@@ -2698,6 +2674,11 @@ const zh = {
     allDocs: '全部文档',
     onlineDocs: '在线文档',
     loadingDocumentation: '正在加载文档',
+    about: '关于',
+    aboutTitle: '关于此控制台',
+    aboutDescription: '此控制台编译所用的构建。',
+    aboutBuild: '控制台构建',
+    aboutBuildUnknown: '未知构建（构建此控制台时未设置版本）',
   },
   sidebar: {
     settings: '设置',
@@ -2714,6 +2695,7 @@ const zh = {
     recent: '最近使用',
     starred: '已收藏',
     removeFromFavorites: '从收藏中移除 {{name}}',
+    allReports: '全部报表',
   },
   topbar: {
     aiAssistant: 'AI 助手',
@@ -2981,6 +2963,9 @@ const zh = {
       publishing: '发布中…',
       exit: '退出预览',
       changes: '变更',
+      pendingHere: '草稿预览 · 本页 {{count}} 项未发布',
+      pendingHere_one: '草稿预览 · 本页 {{count}} 项未发布',
+      pendingHere_other: '草稿预览 · 本页 {{count}} 项未发布',
       // 魔法时刻提示：刚搭好的草稿因为种子/示例数据要发布后才载入，预览里
       // 仪表板显示 0、列表显示“暂无内容”。直接说明，避免把空预览误当成搭坏了。
       sampleDataTitle: '示例数据将在发布后出现',
@@ -3091,9 +3076,6 @@ const zh = {
     bulkDeleteConfirmTitle_one: '删除 {{count}} 条 {{label}} 记录？',
     bulkDeleteConfirmTitle_other: '删除 {{count}} 条 {{label}} 记录？',
     deleteConfirmButton: '删除',
-    resetPackageSetConfirm:
-      '该权限集随已安装的软件包发布，无法删除。删除操作将丢弃环境定制并把它重置为发布基线。是否继续？',
-    resetPackageSetSuccess: '权限集已重置为发布基线',
     bulkDeleteSuccess: '已删除 {{count}} 条 {{label}} 记录',
     bulkDeleteSuccess_one: '已删除 {{count}} 条 {{label}} 记录',
     bulkDeleteSuccess_other: '已删除 {{count}} 条 {{label}} 记录',

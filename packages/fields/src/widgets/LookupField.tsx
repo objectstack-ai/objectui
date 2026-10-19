@@ -17,6 +17,7 @@ import { RecordPickerDialog, lookupFiltersToRecord } from './RecordPickerDialog.
 import type { RecordPickerFilterColumn } from './RecordPickerDialog.js';
 import { PeoplePicker } from './PeoplePicker.js';
 import { useRecordQuery } from './useRecordQuery.js';
+import { objectResolvesSearch } from './searchOffer.js';
 import { deriveLookupColumns } from './deriveLookupColumns.js';
 import { buildExpandFields, getRecordDisplayName, mergeFilterNodes, resolveAffordance, toPredicateRecord, withoutDeniedFields } from '@object-ui/core';
 import { getRecentLookupIds, pushRecentLookupId } from './recentLookups.js';
@@ -735,6 +736,12 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   useEffect(() => {
     if (!isOpen) setActiveIndex(-1);
   }, [isOpen]);
+
+  // objectui#12966 — no type-ahead on a target whose search resolves to no
+  // field: the server refuses that search with `400 INVALID_FIELD`. The
+  // dropdown still lists the target's records. The target schema is read at
+  // mount (`refObjectSchema`); until it is known the box is kept, as before.
+  const searchOffered = objectResolvesSearch(refObjectSchema) !== false;
 
   // Search is the kernel's debounced setter.
   const handleSearchChange = useCallback(
@@ -1546,30 +1553,34 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           {triggerButton}
         </PopoverTrigger>
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-          {/* Search input */}
-          <div className="p-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                placeholder={t('table.search')}
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                onKeyDown={handleSearchKeyDown}
-                className="w-full pl-9 h-8 text-sm"
-                role="combobox"
-                aria-autocomplete="list"
-                aria-controls={listboxId}
-                aria-expanded={isOpen}
-                aria-activedescendant={activeIndex >= 0 ? `${listboxId}-opt-${activeIndex}` : undefined}
-              />
-              {loading && (
-                <Loader2
-                  className="absolute right-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground"
-                  data-testid="lookup-loading"
+          {/* Search input — not offered on a target whose search resolves to
+              no field (objectui#12966, see `searchOffered`); the options below
+              are buttons, so the list stays reachable without it. */}
+          {searchOffered && (
+            <div className="p-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  placeholder={t('table.search')}
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  className="w-full pl-9 h-8 text-sm"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-controls={listboxId}
+                  aria-expanded={isOpen}
+                  aria-activedescendant={activeIndex >= 0 ? `${listboxId}-opt-${activeIndex}` : undefined}
                 />
-              )}
+                {loading && (
+                  <Loader2
+                    className="absolute right-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground"
+                    data-testid="lookup-loading"
+                  />
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Error state */}
           {error && (

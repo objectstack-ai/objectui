@@ -33,43 +33,6 @@ const ru = {
       other: 'Другое',
     },
   },
-  // objectui#3546 slice six — the read-only summary of PermissionFacetLink's six
-  // authorization facets, plus the Studio link.
-  //
-  // The four count labels carry one slot per ru CLDR category (objectui#11432):
-  // `_one` 1/21/31… (nominative singular), `_few` 2-4/22-24… (genitive singular),
-  // `_many` 0/5-20… (genitive plural), `_other` fractions (genitive singular).
-  // The base key keeps the count-invariant «Существительное: {{count}}» form for
-  // a call made without a count.
-  perm: {
-    facet: {
-      none: "Нет",
-      more: "+{{count}} ещё",
-      objects: "Объектов: {{count}}",
-      objects_one: "{{count}} объект",
-      objects_few: "{{count}} объекта",
-      objects_many: "{{count}} объектов",
-      objects_other: "{{count}} объекта",
-      fields: "Правил для полей: {{count}}",
-      fields_one: "{{count}} правило для полей",
-      fields_few: "{{count}} правила для полей",
-      fields_many: "{{count}} правил для полей",
-      fields_other: "{{count}} правила для полей",
-      rls: "Политик RLS: {{count}}",
-      rls_one: "{{count}} политика RLS",
-      rls_few: "{{count}} политики RLS",
-      rls_many: "{{count}} политик RLS",
-      rls_other: "{{count}} политики RLS",
-      tabs: "Правил для вкладок: {{count}}",
-      tabs_one: "{{count}} правило для вкладок",
-      tabs_few: "{{count}} правила для вкладок",
-      tabs_many: "{{count}} правил для вкладок",
-      tabs_other: "{{count}} правила для вкладок",
-      adminScope: "Делегированное администрирование настроено",
-      designInStudio: "Дизайн в Studio →",
-      designInStudioHint: "Дизайн в Studio",
-    },
-  },
   lookup: {
     recentlyUsed: 'Недавние',
     allResults: 'Все результаты',
@@ -627,9 +590,6 @@ const ru = {
       needMatchFields: "Выберите хотя бы одно поле для сопоставления.",
       matchOnlyField: "(только сопоставление)",
       optCreateOptions: "Сохранять неизвестные значения списка",
-      optRunAutomations: "Выполнять автоматизации и триггеры",
-      optTreatHistorical: "Импортировать как исторические данные",
-      optTreatHistoricalHint: "(импортирует завершённые записи как есть — пропускает проверки конечного автомата и сохраняет исходные отметки времени и автора вместо текущих)",
       optSkipBlankKey: "Пропускать строки с пустым значением сопоставления",
       optBackground: "Импортировать в фоновом режиме",
       optBackgroundHint: "(выполняется как отменяемая задача)",
@@ -2186,6 +2146,11 @@ const ru = {
       toggleChatsList: "Переключить список чатов",
       goHome: "Вернуться на главную",
     },
+    reportIndex: {
+      title: "Отчёты",
+      emptyTitle: "Нет отчётов",
+      emptyDescription: "В этом приложении нет отчётов, которые вы можете открыть.",
+    },
     commandPalette: {
       title: "Палитра команд",
       placeholder: "Введите команду или поиск…",
@@ -2735,6 +2700,11 @@ const ru = {
     allDocs: 'Вся документация',
     onlineDocs: 'Онлайн-документация',
     loadingDocumentation: 'Загрузка документации',
+    about: 'О программе',
+    aboutTitle: 'Об этой консоли',
+    aboutDescription: 'Сборка, из которой скомпилирована эта консоль.',
+    aboutBuild: 'Сборка консоли',
+    aboutBuildUnknown: 'Неизвестная сборка (при сборке этой консоли версия не была задана)',
   },
   sidebar: {
     packageManagement: "Управление пакетами",
@@ -2751,6 +2721,7 @@ const ru = {
     recent: "Недавние",
     starred: "Отмеченные",
     removeFromFavorites: "Убрать {{name}} из избранного",
+    allReports: "Все отчёты",
   },
   topbar: {
     openAssistant: "Открыть ассистента {{name}}",
@@ -3045,8 +3016,6 @@ const ru = {
     updateFailed: "Не удалось обновить навигацию",
   },
   objectActions: {
-    resetPackageSetConfirm: "Этот набор разрешений поставляется с установленным пакетом и не может быть удалён. Удаление сбросит его к исходному состоянию из пакета и отменит ваши настройки в этой среде. Продолжить?",
-    resetPackageSetSuccess: "Набор разрешений сброшен к исходному состоянию из пакета",
     deleteSuccess: "{{label}} успешно удалён",
     deleteFailed: "Не удалось удалить {{label}}",
     noRecordId: "ID записи не указан",
@@ -4177,6 +4146,11 @@ const ru = {
       publishing: 'Публикация…',
       exit: 'Выйти из предпросмотра',
       changes: 'Изменения',
+      pendingHere: 'Предпросмотр черновика · {{count}} неопубликованных изменений на этой странице',
+      pendingHere_one: 'Предпросмотр черновика · {{count}} неопубликованное изменение на этой странице',
+      pendingHere_few: 'Предпросмотр черновика · {{count}} неопубликованных изменения на этой странице',
+      pendingHere_many: 'Предпросмотр черновика · {{count}} неопубликованных изменений на этой странице',
+      pendingHere_other: 'Предпросмотр черновика · {{count}} неопубликованного изменения на этой странице',
     },
     changes: {
       title: 'Ожидающие изменения',

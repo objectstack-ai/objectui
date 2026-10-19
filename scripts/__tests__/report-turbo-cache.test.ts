@@ -197,19 +197,20 @@ describe('report-turbo-cache (objectui#12222)', () => {
 describe('ci.yml — only the full battery writes the type-check cache, pruned first (objectui#12222)', () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   const workflow = parseYaml(fs.readFileSync(path.join(repoRoot, '.github/workflows/ci.yml'), 'utf8')) as {
-    jobs: Record<string, { steps: Array<{ name?: string; uses?: string; run?: string; if?: string }> }>;
+    jobs: Record<string, { steps: Array<{ name?: string; uses?: string; run?: string; if?: string; with?: Record<string, string> }> }>;
   };
   const steps = workflow.jobs['type-check'].steps;
   const FULL_BATTERY = "(github.event_name == 'push' || github.event_name == 'schedule')";
 
   it('saves only on push and schedule, whose run covers every task', () => {
-    const save = steps.find((s) => (s.uses ?? '').startsWith('actions/cache/save@'));
+    // By path: the job's other save is the pinned @objectstack build's (objectui#12957).
+    const save = steps.find((s) => (s.uses ?? '').startsWith('actions/cache/save@') && s.with?.path === '.turbo/cache');
     expect(save?.if ?? '').toContain(FULL_BATTERY);
   });
 
   it('prunes before it saves, on the same events, and never on a pull request or a queue build', () => {
     const pruneAt = steps.findIndex((s) => s.run === 'node scripts/report-turbo-cache.mjs --prune');
-    const saveAt = steps.findIndex((s) => (s.uses ?? '').startsWith('actions/cache/save@'));
+    const saveAt = steps.findIndex((s) => (s.uses ?? '').startsWith('actions/cache/save@') && s.with?.path === '.turbo/cache');
     expect(pruneAt, 'the prune step is gone').toBeGreaterThan(-1);
     expect(pruneAt).toBeLessThan(saveAt);
     expect(steps[pruneAt].if ?? '').toContain(FULL_BATTERY);

@@ -188,7 +188,7 @@ function recordPageParamCollection() {
  * does and read back the state the dialog received. The promise stays pending —
  * that is the real shape too: nothing is POSTed until the dialog's own Confirm.
  */
-async function collectParams(dispatch: Record<string, unknown>) {
+async function collectParams(dispatch: Record<string, unknown>, interpolate?: (text: string) => string) {
   render(
     <MemoryRouter initialEntries={[`/app/demo/${OBJECT_NAME}/${RECORD_ID}`]}>
       <MetadataCtx.Provider value={METADATA}>
@@ -207,7 +207,7 @@ async function collectParams(dispatch: Record<string, unknown>) {
   const collect = recordPageParamCollection()!;
   paramDialogState = null;
   await act(async () => {
-    void collect(PARAMS, dispatch as any);
+    void collect(PARAMS, dispatch as any, interpolate);
     await Promise.resolve();
   });
 }
@@ -281,5 +281,22 @@ describe('RecordDetailView — the param dialog titles itself from `label` alone
     });
     expect(paramDialogState.title).toBe('Reject');
     expect(paramDialogState.description).toBe('A rejection is final for every approver.');
+  });
+});
+
+describe('RecordDetailView — the param dialog fills the runner\'s template holes (objectui#12967)', () => {
+  /** Stands in for the runner's evaluator over this dispatch's `record`. */
+  const interpolate = (text: string) => text.replace(/\$\{record\.name\}/g, 'Intro call');
+
+  it('fills a record hole in the description and hands `interpolate` to the dialog for `helpText`', async () => {
+    await collectParams({ name: 'log_call', label: 'Log', description: 'Logging ${record.name}' }, interpolate);
+    expect(paramDialogState.description).toBe('Logging Intro call');
+    expect(paramDialogState.interpolate).toBe(interpolate);
+  });
+
+  it('CONTROL: a runner that supplies no `interpolate` leaves the description as authored', async () => {
+    await collectParams({ name: 'log_call', label: 'Log', description: 'Logging ${record.name}' });
+    expect(paramDialogState.description).toBe('Logging ${record.name}');
+    expect(paramDialogState.interpolate).toBeUndefined();
   });
 });

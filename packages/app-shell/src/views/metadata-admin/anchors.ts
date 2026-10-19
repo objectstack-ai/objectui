@@ -396,6 +396,9 @@ export function registerBuiltinAnchors(): void {
       { from: 'label', to: 'name', transform: 'slugify', untilUserEdits: true },
     ],
     createDefaults: { objects: {} },
+    // The set's EditPage, `PermissionMatrixEditPage`, edits the live set
+    // outside a package and reads no draft (objectui#7611).
+    createLive: true,
   });
 
   // action — both record-scoped and object-scoped actions live here.

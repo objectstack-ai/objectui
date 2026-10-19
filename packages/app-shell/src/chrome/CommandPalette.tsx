@@ -61,6 +61,7 @@ import { matchesPaletteQuery } from './paletteMatch.js';
 import { fetchPackages, type PkgEntry } from '../views/studio-design/packages-io.js';
 import { isPackageLessItem, studioOrgScopePath } from '../views/studio-design/studioScope.js';
 import { DESIGNER_SURFACE_PARAM, formatSurfaceParam } from '../views/metadata-admin/nav-selection.js';
+import { useAppReportEntries } from '../views/appReportIndex.js';
 
 /** The palette of the active app: the frame `ConsoleLayout` draws for `/apps/APP`. */
 interface AppCommandPaletteProps {
@@ -166,6 +167,16 @@ export function CommandPalette(props: CommandPaletteProps) {
   const dashboardItems = navOfType('dashboard', 'dashboardName');
   const pageItems = navOfType('page', 'pageName');
   const reportItems = navOfType('report', 'reportName');
+  // objectui#13020 — the app's reports beyond its navigation: the ones it
+  // ships that this member may open, the list the app's report index shows.
+  // Read only while the palette is open inside an app; a report a navigation
+  // entry already names is offered through that entry, once.
+  const navReportNames = new Set(
+    navItems.filter((item) => item.type === 'report').map((item) => item.reportName as string),
+  );
+  const appReports = useAppReportEntries(activeApp, open && !inStudio).entries.filter(
+    (entry) => !navReportNames.has(entry.name) && matches(entry.label, entry.name),
+  );
   const switchableApps = apps.filter((a) => a.active !== false);
   const appItems =
     switchableApps.length > 1
@@ -458,7 +469,7 @@ export function CommandPalette(props: CommandPaletteProps) {
         )}
 
         {/* Reports */}
-        {reportItems.length > 0 && (
+        {(reportItems.length > 0 || appReports.length > 0) && (
           <CommandGroup heading={t('console.commandPalette.reports')}>
             {reportItems
               .map(item => (
@@ -471,6 +482,16 @@ export function CommandPalette(props: CommandPaletteProps) {
                   <span>{navLabel(item)}</span>
                 </CommandItem>
               ))}
+            {appReports.map((entry) => (
+              <CommandItem
+                key={`app-report:${entry.name}`}
+                value={`report ${entry.label} ${entry.name}`}
+                onSelect={() => runCommand(() => navigate(`${baseUrl}/report/${encodeURIComponent(entry.name)}`))}
+              >
+                <BarChart3 className="mr-2 h-4 w-4" />
+                <span>{entry.label}</span>
+              </CommandItem>
+            ))}
           </CommandGroup>
         )}
 

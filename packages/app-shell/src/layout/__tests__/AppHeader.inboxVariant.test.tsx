@@ -228,6 +228,19 @@ let receiptRows: Array<Record<string, unknown>> | null = null;
  * test. Two rows ⇒ `pendingApprovalsCount` 2, which is the second badge addend.
  */
 let approvalRows: Array<{ id: string }> = [];
+/** How many approval rows each approvals response carried — the payload measure (objectui#13027). */
+let approvalRowsServed: number[] = [];
+
+/**
+ * What the approvals route answers (objectui#13027): asked for a page
+ * (`limit`), the first `limit` rows plus the exact `total`; unpaged, every row
+ * and no `total` — the route's two shapes, so the fixture is the server's.
+ */
+function approvalsPage(rows: unknown[], url: string): { data: unknown[]; total?: number } {
+  const limit = new URL(url, 'http://localhost').searchParams.get('limit');
+  return limit == null ? { data: rows } : { data: rows.slice(0, Number(limit)), total: rows.length };
+}
+
 
 const fakeAdapter = {
   find: (object: string, query: unknown) => {
@@ -253,7 +266,7 @@ vi.mock('../../providers/AdapterProvider', () => ({
 import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
 import { AppHeader } from '../AppHeader';
 import { useHomeInbox } from '../../hooks/useHomeInbox';
-import { __resetSharedUserFeeds } from '../../hooks/sharedUserFeeds';
+import { __resetSharedUserFeeds, __markFirstPainted } from '../../hooks/sharedUserFeeds';
 
 /** Every URL passed to `fetch`, in order — the approvals reads are counted here. */
 let fetchUrls: string[] = [];
@@ -261,6 +274,7 @@ let fetchUrls: string[] = [];
 beforeEach(() => {
   finds.length = 0;
   fetchUrls = [];
+  approvalRowsServed = [];
   inboxRows = [INBOX_ROW];
   // Default: no activity, no approvals — so the #4110 cases above keep the
   // exact badge arithmetic they were written against (approvals addend 0).
@@ -271,6 +285,8 @@ beforeEach(() => {
   // Drop the shared feeds' cache and poll timer so cases do not inherit each
   // other's reads — the store deliberately outlives any one render tree.
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
   // Route by URL: the approvals endpoint answers from `approvalRows`; every
   // other request (auth config, mark-read) stays a soft-degrading 404.
   vi.stubGlobal(
@@ -279,8 +295,10 @@ beforeEach(() => {
       const url = String(input);
       fetchUrls.push(url);
       if (url.includes('/api/v1/approvals/requests')) {
+        const page = approvalsPage(approvalRows, url);
+        approvalRowsServed.push(page.data.length);
         return Promise.resolve(
-          new Response(JSON.stringify({ data: approvalRows }), {
+          new Response(JSON.stringify(page), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
           }),
@@ -302,6 +320,13 @@ const inboxReads = () => finds.filter((f) => f.object === 'sys_inbox_message');
 const activityReads = () => finds.filter((f) => f.object === 'sys_activity');
 /** Approvals-endpoint requests issued by anyone in the tree. */
 const approvalReads = () => fetchUrls.filter((u) => u.includes('/api/v1/approvals/requests'));
+/**
+ * objectui#12980 — the bell reads `sys_activity` only once it is about to open
+ * (a pointer over it, focus, a click), not on every console open. A case about
+ * the Activity tab shows that intent first: a click on the bell.
+ */
+const askForActivity = () =>
+  fireEvent.click(within(screen.getByTestId('inbox-bell-intent')).getAllByRole('button')[0]);
 
 describe('AppHeader — the bell polls the inbox in every variant (#4110)', () => {
   it('lists a canonical inbox row on Home, where the To-do card already shows it', async () => {
@@ -395,6 +420,7 @@ describe('AppHeader — Approvals + Activity fill in every variant (#4197)', () 
 
     it(`fills the Activity tab on the ${variant} variant`, async () => {
       render(<AppHeader variant={variant} appName={variant === 'app' ? 'ehr' : undefined} />);
+      askForActivity();
 
       expect(await screen.findByText('updated Contract C-1')).toBeInTheDocument();
       expect(screen.getByText('Li Si')).toBeInTheDocument();
@@ -485,6 +511,7 @@ describe('AppHeader + Home cards share one fetch, not two (#4197)', () => {
         <HomeTodoCardProbe />
       </>,
     );
+    askForActivity();
 
     // The one row surfaces in BOTH places — the bell's Activity tab and Home's
     // card — so it is matched twice and each match is attributed explicitly.
@@ -551,7 +578,9 @@ describe('AppHeader — presence stays app-only chrome (#4197 boundary)', () => 
   it('never issues a presence read in any variant — presence is a subscription', async () => {
     render(<AppHeader variant="app" appName="ehr" connectionState="connected" />);
 
-    await waitFor(() => expect(activityReads().length).toBeGreaterThan(0));
+    // objectui#12980 — the inbox read, not the activity read, is the settle
+    // signal: the bell no longer reads `sys_activity` until it is opened.
+    await waitFor(() => expect(inboxReads().length).toBeGreaterThan(0));
     // Not one read names presence — in the variant that DOES render it.
     expect(finds.some((f) => String(f.object).includes('presence'))).toBe(false);
   });
@@ -816,12 +845,17 @@ describe('AppHeader — the Activity tab asks only a caller who may read sys_act
     },
   };
 
-  const renderBell = (perms: MePermissionsResponse) =>
-    render(
+  const renderBell = (perms: MePermissionsResponse) => {
+    const rendered = render(
       <MePermissionsProvider initialPermissions={perms}>
         <AppHeader variant="home" />
       </MePermissionsProvider>,
     );
+    // Asked for, as a user about to open the bell asks (objectui#12980): the
+    // grant decides from there, so a member without it still issues nothing.
+    askForActivity();
+    return rendered;
+  };
 
   beforeEach(() => {
     activityRows = [ACTIVITY_ROW];
@@ -883,5 +917,49 @@ describe('AppHeader — the Activity tab asks only a caller who may read sys_act
     await waitFor(() => expect(activityReads()).toHaveLength(1));
     expect(await screen.findByText('No recent activity')).toBeInTheDocument();
     expect(screen.queryByTestId('inbox-activity-unanswered')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * objectui#13027 — the approvals read is ONE PAGE plus the route's `total`.
+ *
+ * The count is drawn on every console page (the badge's second addend, the
+ * breakdown line, the tab strip); the rows only by Home's five-row preview. So
+ * the one shared read asks for a page (`limit`) and every surface's count is
+ * the answer's `total` — never the page's length, which would cap the badge at
+ * the page size. Still one request for the bell and Home together (#4197).
+ */
+describe('AppHeader — the approvals read is one page and its total (objectui#13027)', () => {
+  const twelve = Array.from({ length: 12 }, (_, i) => ({ id: `apr_${i + 1}` }));
+
+  it('one open asks for one page, and the badge shows the total, not the page', async () => {
+    approvalRows = twelve;
+    render(<AppHeader variant="app" appName="ehr" />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('inbox-badge-breakdown-approvals')).toHaveTextContent(
+        '12 pending approvals',
+      ),
+    );
+    expect(approvalReads()).toHaveLength(1);
+    expect(new URL(approvalReads()[0], 'http://localhost').searchParams.get('limit')).toBe('5');
+    // The measure: one open's approvals response carried 5 rows, not all 12.
+    expect(approvalRowsServed).toEqual([5]);
+  });
+
+  it('the bell and Home read the same total from the same one read, past the page size', async () => {
+    approvalRows = twelve;
+    render(
+      <>
+        <AppHeader variant="home" />
+        <HomeTodoCardProbe />
+      </>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('home-approvals-count')).toHaveTextContent('12'));
+    expect(screen.getByTestId('inbox-badge-breakdown-approvals')).toHaveTextContent(
+      '12 pending approvals',
+    );
+    expect(approvalReads()).toHaveLength(1);
   });
 });

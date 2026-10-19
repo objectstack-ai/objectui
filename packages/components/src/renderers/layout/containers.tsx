@@ -23,7 +23,7 @@ import { ComponentRegistry, ExpressionEvaluator, declaredNameField, evalRowPredi
 import type { ComponentInput } from '@object-ui/core';
 import { actionRendersAt, resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
-import { useRecordContext, useAction, useCapabilityGate, usePredicateScope, usePageVariables, useInlineEdit, useActionTextLocalizer, useMetadataItem, reportUnresolvableVisibilityPredicate, resolveInlineAriaProps } from '@object-ui/react';
+import { useRecordContext, useAction, useCapabilityGate, usePredicateScope, usePageVariables, useInlineEdit, useActionTextLocalizer, useMetadataItem, reportUnresolvableVisibilityPredicate, resolveInlineAriaProps, buildNodeEvaluationScope } from '@object-ui/react';
 import { renderChildren, renderNodeSlot, cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { RelatedCountStore, useRelatedCountVersion } from '../../hooks/related-count-store';
@@ -512,23 +512,43 @@ const formatTabCount = (v: number | string): string => {
 };
 
 /**
- * Walk a tab's children (depth-first) and return the first
- * `record:related_list` schema node found. Used to auto-derive a count
- * for the tab badge when the spec author didn't supply one explicitly.
+ * One `record:related_list` the tab badge may count, with the gates in front
+ * of it: every node on its path (the list itself included) that declares a
+ * node-level `visibleWhen`. The walk only RECORDS the gates; it evaluates
+ * nothing, so its result depends on the tab's subtree alone. The verdicts are
+ * taken at render, against the viewer's scope (objectui#12987).
  */
+interface CollectedRelatedList {
+  node: any;
+  gates: any[];
+}
+
 /**
  * Walk a tab's children (depth-first) and collect every `record:related_list`
  * schema node. Used to auto-derive a count for the tab badge when the spec
  * author didn't supply one explicitly. Multiple lists are summed (Salesforce
  * "Related" tab convention).
+ *
+ * The gate is the node-level `visibleWhen`, the one key the spec declares for
+ * it: `PageComponentSchema` declares `visibleWhen` on the node, and the
+ * `record:related_list` props shape refuses a `properties.visibleWhen` by name.
+ * A gate that does not pass hides its whole subtree in the tab body, so a list
+ * below a hidden container carries that container's gate too.
  */
-const collectRelatedLists = (nodes: any, acc: any[] = []): any[] => {
+const collectRelatedLists = (
+  nodes: any,
+  acc: CollectedRelatedList[] = [],
+  gates: any[] = [],
+): CollectedRelatedList[] => {
   if (!nodes) return acc;
   const list = Array.isArray(nodes) ? nodes : [nodes];
   for (const n of list) {
     if (!n || typeof n !== 'object') continue;
+    // `!== undefined`, the test `SchemaRenderer`'s own `visibleWhen` leg uses,
+    // so a node it evaluates is a node this walk records as a gate.
+    const pathGates = n.visibleWhen !== undefined ? [...gates, n] : gates;
     if (n.type === 'record:related_list' || n.type === 'record_related_list') {
-      acc.push(n);
+      acc.push({ node: n, gates: pathGates });
       continue; // Don't descend into a related_list's own subtree.
     }
     // ⚠️ `body` STAYS, and an earlier pass of this change wrongly removed it.
@@ -550,7 +570,7 @@ const collectRelatedLists = (nodes: any, acc: any[] = []): any[] => {
       n.items,
     ];
     for (const c of candidates) {
-      if (c) collectRelatedLists(c, acc);
+      if (c) collectRelatedLists(c, acc, pathGates);
     }
   }
   return acc;
@@ -625,7 +645,16 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   //     `RelatedCountStore.invalidate(objectName, parentId)` and every
   //     subscriber updates with no parent re-render.
   const ctx = useRecordContext();
-  const parentId = ctx?.data?.id;
+  // objectui#13010 — the parent is the record the context NAMES (on a record
+  // page, the route's id), not the id inside the loaded row. Keyed on
+  // `ctx.data.id`, every count probe waited for the record read to land and
+  // went out a full wave behind it, although an ungated probe needs nothing
+  // from the record body: its filter is the relationship field and this id.
+  // `recordId` is a required member of `RecordContextValue` that every
+  // provider fills (`null` when it names no record), so this is the one read,
+  // not a fallback. The probes that DO need the body — the ones behind a
+  // `visibleWhen` — wait for it in `probeTargets` below.
+  const parentId = ctx?.recordId ?? undefined;
   const ds = ctx?.dataSource;
 
   // Conditional tabs (framework#2606): an item-level `visibleWhen` CEL
@@ -642,13 +671,16 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const recordData: any = ctx?.data;
   const isItemVisible = (it: PageTabsItem): boolean => {
     if (it?.visibleWhen === undefined || it?.visibleWhen === null) return true;
+    // The node scope (`buildNodeEvaluationScope`: the ambient scope,
+    // `current_user`, `record`, `page`) plus this site's own breadth: the row
+    // spread flat underneath, and `record` / `data` set to the row
+    // unconditionally on top. Composed rather than spelled out again, so a
+    // root added to the node scope reaches this gate too (objectui#12992).
     const evaluator = new ExpressionEvaluator({
       ...(recordData && typeof recordData === 'object' ? recordData : {}),
-      ...predicateScope,
-      current_user: (predicateScope as any)?.user,
+      ...buildNodeEvaluationScope(predicateScope, recordData, pageVariables),
       record: recordData,
       data: recordData,
-      page: pageVariables,
     });
     // evaluateCondition is fail-open (unparseable predicate → visible) — the
     // same semantics SchemaRenderer applies to component-level `visibleWhen`,
@@ -701,11 +733,76 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // need a count probe. Cached per items reference so we don't re-walk on
   // every render.
   const recordObject: string | undefined = ctx?.objectName;
+
+  // objectui#12987 — a related list the tab body does not draw is not counted.
+  // The body draws each block through `SchemaRenderer`, which decides a node's
+  // `visibleWhen` with `ExpressionEvaluator.evaluateCondition` over the scope
+  // `buildNodeEvaluationScope` builds. The gates below are decided by that same
+  // evaluator over a scope built by that same function (objectui#12992), from
+  // the same three hooks — NOT the item-level scope of `isItemVisible` above,
+  // which also spreads the row flat and binds `data`.
+  //
+  // A predicate that cannot be evaluated yet (a root still loading, a
+  // malformed source) is treated as the body treats it: `evaluateCondition`
+  // is fail-open, so the block is drawn and its list is counted. The verdicts
+  // are re-taken every render, so a gate that closes once its scope arrives
+  // drops the list from the badge on that render. A fault is reported through
+  // the body's reporter, whose dedupe key is (node type, key, source), so one
+  // broken predicate is still one line.
+  //
+  // The walk runs per render (a tab's subtree is small) and its verdicts are
+  // folded into `listGateKey`, a string, so the probe memo below keys on the
+  // VALUE of the verdicts and never on a memo's identity (AGENTS.md #10).
+  const listsByItem = items.map((it) =>
+    it.count !== undefined && it.count !== null && it.count !== ''
+      ? []
+      : collectRelatedLists((it as any).children),
+  );
+  const gateVerdicts = new Map<any, boolean>();
+  let blockEvaluator: ExpressionEvaluator | undefined;
+  const isGateOpen = (gate: any): boolean => {
+    const known = gateVerdicts.get(gate);
+    if (known !== undefined) return known;
+    blockEvaluator ??= new ExpressionEvaluator(
+      buildNodeEvaluationScope(predicateScope, recordData, pageVariables),
+    );
+    const verdict = blockEvaluator.evaluateCondition(gate.visibleWhen, {
+      onFault: (reason) =>
+        reportUnresolvableVisibilityPredicate(
+          gate.type,
+          gate.id,
+          'visibleWhen',
+          gate.visibleWhen,
+          reason,
+          'page-component',
+        ),
+    });
+    gateVerdicts.set(gate, verdict);
+    return verdict;
+  };
+  const shownListsByItem = listsByItem.map((lists) =>
+    lists.filter((entry) => entry.gates.every(isGateOpen)),
+  );
+  const listGateKey = listsByItem
+    .map((lists, idx) => lists.map((entry) => (shownListsByItem[idx].includes(entry) ? '1' : '0')).join(''))
+    .join('|');
+
+  // objectui#13010 — whether the record BODY is here yet. The probes no longer
+  // wait for it (see `parentId`), except where a verdict reads it: a list
+  // behind a node-level `visibleWhen`, or in a tab whose item-level
+  // `visibleWhen` decides it, is probed once the body has landed, as every
+  // probe was before. Counting it sooner would spend a request on a list the
+  // gate may close the moment its record arrives.
+  const recordLoaded = recordData !== undefined && recordData !== null;
   const probeTargets = React.useMemo(() => {
     const out = new Map<number, Array<Probe>>();
     items.forEach((it, idx) => {
       if (it.count !== undefined && it.count !== null && it.count !== '') return;
-      const lists = collectRelatedLists((it as any).children);
+      const itemGated = it.visibleWhen !== undefined;
+      if (itemGated && !recordLoaded) return;
+      const lists = shownListsByItem[idx]
+        .filter((entry) => recordLoaded || entry.gates.length === 0)
+        .map((entry) => entry.node);
       const probes: Array<Probe> = [];
       for (const rl of lists) {
         const objectName: string | undefined = rl?.properties?.objectName || rl?.objectName;
@@ -736,7 +833,9 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       if (probes.length > 0) out.set(idx, probes);
     });
     return out;
-  }, [items, recordObject]);
+    // `shownListsByItem` is fresh each render; `listGateKey` is its value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, recordObject, listGateKey, recordLoaded]);
   // objectui#6697 — the probe effect below keys on THIS string, not on the
   // `Map` above. `useMemo` is a pure optimisation, not a correctness
   // dependency: React may discard the cache and recompute even when

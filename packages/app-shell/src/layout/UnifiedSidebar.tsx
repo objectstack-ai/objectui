@@ -36,6 +36,7 @@ import {
   ChevronRight,
   LayoutGrid,
   Layers,
+  BarChart3,
 } from 'lucide-react';
 import { NavigationRenderer, hasVisibleNavigationItems, type NavItemActionContext } from '@object-ui/layout';
 import type { NavigationArea, NavigationItem } from '@object-ui/types';
@@ -591,6 +592,33 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
              t={t}
              templateContext={{ currentUserId: user?.id ?? null, currentOrgId: activeOrganization?.id ?? null, contextValues }}
            />
+
+           {/* The app's report index (objectui#13020): every report the app
+               ships that the member may open, its navigation's or not, so no
+               report is left with only a typed URL. A static entry: the
+               sidebar reads no report list for it (objectui#12980), and the
+               index says so when there are none. Not in Studio, whose
+               navigation is its own design surface. */}
+           {!isStudioApp && (
+             <SidebarGroup>
+               <SidebarGroupContent>
+                 <SidebarMenu>
+                   <SidebarMenuItem>
+                     <SidebarMenuButton
+                       asChild
+                       isActive={location.pathname === `${basePath}/reports`}
+                       tooltip={t('sidebar.allReports', { defaultValue: 'All reports' })}
+                     >
+                       <Link to={`${basePath}/reports`} data-testid="sidebar-report-index">
+                         <BarChart3 className="h-4 w-4" />
+                         <span>{t('sidebar.allReports', { defaultValue: 'All reports' })}</span>
+                       </Link>
+                     </SidebarMenuButton>
+                   </SidebarMenuItem>
+                 </SidebarMenu>
+               </SidebarGroupContent>
+             </SidebarGroup>
+           )}
 
            {/* Recent Items */}
            {recentItems.length > 0 && (

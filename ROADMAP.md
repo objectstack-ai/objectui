@@ -823,8 +823,8 @@ ObjectUI is a universal Server-Driven UI (SDUI) engine built on React + Tailwind
 - [x] Navigate to Create App / Edit App pages
 - [x] Navigate to app home
 
-**Permission Management Page (`/system/permissions`):** _(Retired — the page was deleted; the successor surface is pending maintainer decision, see #3655)_
-- [x] CRUD grid for `sys_permission` object — shipped, then deleted when `apps/console` was slimmed for third-party customisation. `sys_permission` is not a framework object name: plugin-security registers `sys_capability` (the definition registry) and `sys_permission_set` (the grant container)
+**Permission Management Page (`/system/permissions`):** _(Retired — the page was deleted; the URL redirects to the Setup permission-set catalog, see #3655 and #7611)_
+- [x] CRUD grid for `sys_permission` object — shipped, then deleted when `apps/console` was slimmed for third-party customisation. `sys_permission` was never a framework object name; capabilities and permission sets are registry items today (ADR-0131 D3), with no catalog object behind them
 - [x] Search/filter permissions — went with the page
 - [x] Admin-only create/delete controls — went with the page
 
@@ -832,8 +832,8 @@ ObjectUI is a universal Server-Driven UI (SDUI) engine built on React + Tailwind
 - [x] Shared `SystemObjectViewPage` component, and the hand-copied `systemObjects` definitions behind it — deleted as dead code once nothing in the repo referenced them (PR #3699)
 - [x] User Management (`/system/users`) — page gone; the URL survives as a redirect onto the framework's `sys_user` object route (PR #3673)
 - [x] Organization Management (`/system/organizations`) — page gone; the URL redirects to `sys_organization` (PR #3673). The `sys_org` named here was never a framework object
-- [x] Role Management (`/system/roles`) — page gone; the URL redirects to `sys_position` (PR #3673), ADR-0090 D3 having renamed `sys_role` → `sys_position`
-- [ ] Permission Management (`/system/permissions`) — no route is declared for it. The framework splits this surface into `sys_capability` and `sys_permission_set`, so binding the URL to either would pick for the maintainer; left undeclared pending that decision, see #3655
+- [x] Role Management (`/system/roles`) — page gone; the URL redirects to the Setup position catalog (PR #3673, then #7611: positions are registry items, ADR-0131 D3)
+- [x] Permission Management (`/system/permissions`) — decided as the permission-set surface (#3655); the URL redirects to the Setup permission-set catalog (#7611)
 - [x] Audit Log (`/system/audit-log`) — the route still resolves, but to `AuditLogPage`, a standalone read-only page that queries `sys_audit_log` over REST and renders its own table, filters, pagination and detail sheet; ObjectView is not involved
 - [x] Admin-only CRUD operations — were the `operations` config on `SystemObjectViewPage`'s own schema, and went with the component (PR #3699)
 - [x] Automatic search, sort, filter, pagination — likewise; what serves these objects today is the framework's Setup app route, not this repo's

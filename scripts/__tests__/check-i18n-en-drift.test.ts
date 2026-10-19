@@ -293,13 +293,17 @@ describe('the parsed en pack equals the module vitest actually evaluates', () =>
   });
 
   it('folds a sentence written as a concatenation across source lines', () => {
-    // `objectActions.resetPackageSetConfirm` is spelled `'…' + '…'` in en.ts.
     // i18next serves the folded string, so the folded string is what must be
     // compared — and a parser that treated the node as opaque would silently
-    // drop the key out of this gate's sight.
-    const key = 'objectActions.resetPackageSetConfirm';
-    expect(parsed.get(key)).toBe(runtime.get(key));
-    expect(parsed.get(key)).toContain('cannot be removed. Deleting resets it');
+    // drop the key out of this gate's sight. The pack's one such value,
+    // `objectActions.resetPackageSetConfirm`, retired with the permission-set
+    // catalog object (objectui#7611) and no live key is spelled this way, so
+    // the shape is pinned on a fixture.
+    const folded = parsePack(
+      "const en = { a: {\n  b:\n    'This permission set cannot be removed. ' +\n    'Continue?',\n} } as const;\nexport default en;\n",
+      'fixture',
+    );
+    expect([...folded]).toEqual([['a.b', 'This permission set cannot be removed. Continue?']]);
   });
 
   it('refuses a value form it cannot resolve instead of skipping the key', () => {

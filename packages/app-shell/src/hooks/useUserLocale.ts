@@ -77,6 +77,7 @@ import {
   useObjectTranslation,
 } from '@object-ui/i18n';
 import { useAdapter, useDataInvalidation, extractWriteErrorMessage } from '@object-ui/react';
+import { useAfterFirstPaint } from './sharedUserFeeds.js';
 
 /**
  * Owner changes whose language residue this page-load has already re-resolved
@@ -234,6 +235,17 @@ export function pickRenderableLocale(
  * and the device value keeps deciding; the first switch through
  * {@link useLanguageSelection} sets the column and ends that state for good. A
  * failed read leaves the cache standing, which is what a cache is for.
+ *
+ * ## Read after the first paint (objectui#12980)
+ *
+ * The first paint renders from the device cache whatever this read does (see
+ * the module header), so the read waits for that paint rather than going out
+ * beside the page's own reads. It is still a read of its own, beside
+ * `GET /auth/me/localization`, and that is deliberate: that endpoint answers
+ * `locale` as the column when set, else the request's `Accept-Language`, else
+ * the deployment default, and says not which. This hook must tell "the column
+ * is unset" (apply nothing, the device keeps deciding) from "the column says
+ * X", and only the row says that.
  */
 export function useSignedInUserLocale(): void {
   const { user } = useAuth();
@@ -261,8 +273,10 @@ export function useSignedInUserLocale(): void {
     column: null,
   });
 
+  const painted = useAfterFirstPaint();
+
   useEffect(() => {
-    if (!adapter || !userId) return;
+    if (!painted || !adapter || !userId) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -283,7 +297,7 @@ export function useSignedInUserLocale(): void {
     return () => {
       cancelled = true;
     };
-  }, [adapter, userId, invalidationNonce, ownerChanges]);
+  }, [painted, adapter, userId, invalidationNonce, ownerChanges]);
 
   // ⛔ Keyed on the READ and on a primitive, never on the identity of the
   // context's memoised `changeLanguage` nor on the active `language`

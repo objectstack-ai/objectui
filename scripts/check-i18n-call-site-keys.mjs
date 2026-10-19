@@ -1262,11 +1262,11 @@ const PLURAL_SUFFIXES = ['_zero', '_one', '_two', '_few', '_many', '_other'];
 /**
  * Read a node as a static string, or return `null` if it is not one.
  *
- * `'a' + 'b'` counts: `en.ts` wraps one long sentence that way
- * (`objectActions.resetPackageSetConfirm`), and a leaf this returns `null` for
- * is a leaf the `default-value-drift` rule cannot judge — so folding the
- * concatenation here is what keeps that one key inside the checked surface
- * instead of silently outside it.
+ * `'a' + 'b'` counts: a pack may wrap a long sentence that way (none does
+ * today), and a leaf this returns `null` for is a leaf the
+ * `default-value-drift` rule cannot judge — so folding the concatenation here
+ * is what keeps such a key inside the checked surface instead of silently
+ * outside it.
  */
 function staticString(node, source) {
   const inner = unwrapExpression(node);

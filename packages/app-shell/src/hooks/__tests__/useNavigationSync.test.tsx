@@ -26,6 +26,7 @@ import {
   isPlatformArtifact,
   isNavigationSyncableApp,
 } from '../useNavigationSync';
+import { __markFirstPainted } from '../sharedUserFeeds';
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -143,6 +144,9 @@ const crm = { name: 'crm', label: 'CRM', navigation: [] };
 describe('NavigationSyncEffect', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // objectui#12980 — the effect reads nothing before the console's first
+    // paint; these cases are about the diff, so they start past it.
+    __markFirstPainted();
   });
 
   it('does not seed the baseline until page AND dashboard types are ready', async () => {

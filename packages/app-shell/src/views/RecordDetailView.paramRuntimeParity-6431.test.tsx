@@ -215,7 +215,17 @@ const ACTION = {
  *  than derived, so two equally empty field sets cannot satisfy the parity
  *  assertions, and a runtime that stops supplying one is red here rather than
  *  silently blank in the dialog. */
-const DIALOG_READS = ['description', 'open', 'params', 'resolve', 'title'];
+const DIALOG_READS = [
+  'description',
+  // The runner's template filler for each param's `helpText` (objectui#12967).
+  // This suite's handlers are called without one, so it is written `undefined`;
+  // the key is still on both runtimes' state, which is what parity reads.
+  'interpolate',
+  'open',
+  'params',
+  'resolve',
+  'title',
+];
 
 function makeDataSource() {
   return {

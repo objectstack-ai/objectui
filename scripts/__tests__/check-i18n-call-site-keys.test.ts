@@ -897,15 +897,10 @@ export const A = () => { const { t } = useObjectTranslation(); return t('auth.fo
         "t('home.welcome', { product:",
         "t('home.welcome', { defaultValue: 'Build your business system with AI' })",
       ],
-      [
-        // objectui#10383 moved this call, unchanged, out of `app-shell`'s
-        // `useObjectActions.ts` into the one record-delete core both hosts now
-        // bind to. Same call, same argument list; the indentation is the new
-        // file's.
-        'packages/core/src/actions/recordDelete.ts',
-        "t('objectActions.resetPackageSetSuccess', {\n              label:",
-        "t('objectActions.resetPackageSetSuccess', {",
-      ],
+      // The third, `objectActions.resetPackageSetSuccess`'s inert `label` in
+      // the record-delete core, went with the call itself: the package-owned
+      // permission-set reset copy retired with the catalog objects
+      // (objectui#7611, ADR-0131). Its absence is pinned below.
     ];
     for (const [file, absent, present] of gone) {
       const src = fs.readFileSync(path.join(repoRoot, file), 'utf8');
@@ -919,14 +914,15 @@ export const A = () => { const { t } = useObjectTranslation(); return t('auth.fo
       'utf8',
     );
     expect(marketplace).toContain("t('marketplace.install.updateTo', { defaultValue: 'Update \\u2192 v{{version}}', version: latestVersion })");
-    // Same guard for the record-delete core: `resetPackageSetSuccess` lost its
-    // inert `label`, and the sister `deleteSuccess` beside it — whose en value
-    // HAS a `{{label}}` hole — still passes it.
+    // Same guard for the record-delete core: the sister `deleteSuccess` —
+    // whose en value HAS a `{{label}}` hole — still passes it, and the retired
+    // `resetPackageSetSuccess` call is not back.
     const recordDeleteCore = fs.readFileSync(
       path.join(repoRoot, 'packages/core/src/actions/recordDelete.ts'),
       'utf8',
     );
     expect(recordDeleteCore).toContain("t('objectActions.deleteSuccess', { label })");
+    expect(recordDeleteCore).not.toContain('resetPackageSetSuccess');
   });
 });
 

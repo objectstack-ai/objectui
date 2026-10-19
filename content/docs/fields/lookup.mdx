@@ -66,8 +66,7 @@ configuration rather than object metadata. `FieldSchema` refuses an `idField` by
 name, so a lookup field definition cannot carry it, and `LookupFieldMetadata` does
 not declare it. A host sets it where it builds the picker: on a form entry
 (`FormField.idField`), on an action parameter, or on a `master_detail` inline grid
-column. A reference stored by machine name, such as an approval `position` stored as
-`sys_position.name`, sets it to `name`.
+column. A reference stored by machine name sets it to `name`.
 
 When no data source is available the field falls back to a static option list:
 

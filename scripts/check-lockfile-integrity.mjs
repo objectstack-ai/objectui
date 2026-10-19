@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * check-lockfile-integrity -- a pull request's `pnpm-lock.yaml` may not silently
- * DUPLICATE a dependency or move an `@objectstack/*` identity BACKWARD.
+ * DUPLICATE a dependency.
  *
  *   node scripts/check-lockfile-integrity.mjs                    # head = worktree, base = merge-base with origin/main
  *   node scripts/check-lockfile-integrity.mjs --base-ref origin/main
@@ -33,16 +33,33 @@
  * a finding is a decision (re-lock from a clean base, pin, accept), and the
  * 2026-09-08 triage ruling on #8326 kept that decision out of the gate.
  *
- * ## The two causes it must catch, and why one rule is not enough
+ * ## The two causes it was built for, and the rule that is left
  *
  *   cause 1  an `@objectstack/*` identity moves BACKWARD   (objectui#8326)
  *   cause 2  a dependency gains a physical COPY            (objectui#8333)
  *
- * ⭐ objectui#8333 is the measured proof that cause 1 alone is blind. Floating
+ * ⛔ RULE 1 IS RETIRED (objectui#12957). It judged cause 1 by comparing
+ * `@objectstack/*` VERSIONS in the snapshot keys, base against head. Since ruling B
+ * on objectui#12955 no `@objectstack/*` package resolves to a registry version:
+ * each resolves to the pinned build, a `file:node_modules/.cache/objectstack/<name>`
+ * directory, and the lockfile records it with no version at all
+ * (`'@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@…)'`). So the
+ * rule had nothing left to order and could never fire again. The identity it
+ * guarded is now `.objectstack-sha` -- a one-line text file that merges, conflicts
+ * and reviews as text, and that no re-lock can carry backward across a rebase,
+ * which was #8326's whole mechanism. Whether every `@objectstack/*` package is
+ * overridden to that build is refused at build time by `scripts/objectstack-pin.mjs`
+ * (`checkOverrideSet`), which every installing CI job runs before `pnpm install`.
+ * What is left of cause 1 is its DUPLICATION half -- the downgrade on #7058 also
+ * left the workspace on two physical spec copies -- and rule 2 below reads that
+ * unchanged: an `@objectstack/*` package resolving both the pinned build and a
+ * registry version is two snapshot keys under one name.
+ *
+ * ⭐ objectui#8333 is the measured proof that cause 1 alone was blind. Floating
  * `better-auth` from 1.7.2 to 1.7.3 -- re-measured on `da5e4f69e`, 2026-09-08 --
  * moves NO `@objectstack/*` identity at all: the delta is the better-auth
  * family, `@mongodb-js/saslprep` 1.5.0->1.5.2, `seroval`(-plugins) 1.6.4->1.6.7,
- * every one of them FORWARD, plus one ADDED `zod@4.5.4`. Rule 1 is green on it.
+ * every one of them FORWARD, plus one ADDED `zod@4.5.4`. Rule 1 was green on it.
  *
  * ⭐ And rule 2 is not "a single-copy dependency forks", which is the wording
  * both cards use. Measured on `da5e4f69e`: zod is ALREADY two copies on `main`
@@ -81,12 +98,9 @@
  *
  *   - A lockfile that is ALREADY duplicated stays green here as long as the
  *     change does not make it worse. This is a ratchet, not an audit.
- *   - A backward move outside `@objectstack/*` is not judged. Third-party
- *     downgrades are legitimate (a revert, a yanked release, a security pin).
- *     `@objectstack/*` is scoped in because every workspace range on it is a
- *     floating `^17.x` against a registry whose latest is 17.3.0 -- so a
- *     backward move there cannot be the result of any fresh resolution, which
- *     is #8326's impossibility argument.
+ *   - A backward move is not judged, for any package. Third-party downgrades
+ *     are legitimate (a revert, a yanked release, a security pin), and
+ *     `@objectstack/*` has no version here to move (rule 1, retired above).
  *   - It says nothing about bytes. `Bundle Analysis` measures those; this names
  *     the cause so that reading is not attributed to the dependency.
  *
@@ -112,7 +126,12 @@ export const EXIT_CLEAN = 0;
 export const EXIT_FINDINGS = 1;
 export const EXIT_CANNOT_RUN = 2;
 
-/** The scope whose backward movement is structurally impossible from a fresh resolve. */
+/**
+ * The first-party scope. Rule 2 judges it whether or not the workspace declares
+ * the name directly: `@objectstack/types` and `@objectstack/core` arrive only
+ * through `@objectstack/client`, and a second copy of either is still two real
+ * paths in the bundle.
+ */
 export const FIRST_PARTY_SCOPE = '@objectstack/';
 
 // ── parsing ─────────────────────────────────────────────────────────────────
@@ -123,10 +142,10 @@ export const FIRST_PARTY_SCOPE = '@objectstack/';
  * `'@objectstack/spec@17.3.0(ai@7.0.65(zod@4.4.3))'` ->
  *   { name: '@objectstack/spec', version: '17.3.0', peers: '(ai@7.0.65(zod@4.4.3))' }
  *
- * A key whose version does not start with a digit (a git or URL dependency) is
- * returned with `version: null`. Such a key still counts as a physical copy —
- * it is a directory like any other — it is only excluded from the ordering
- * comparison in rule 1, which has nothing to compare it with.
+ * A key whose version does not start with a digit (a git or URL dependency, or
+ * the pinned `@objectstack/*` build's `file:` directory) is returned with
+ * `version: null`. Such a key still counts as a physical copy — it is a directory
+ * like any other.
  *
  * @param {string} key
  * @returns {{ name: string, version: string|null, peers: string }}
@@ -231,96 +250,32 @@ export function readDeclaredNames(text) {
 /**
  * @param {string} text
  * @param {string} label
- * @returns {{ label: string, keys: string[], declared: Set<string>, copies: Map<string, string[]>, versions: Map<string, string[]> }}
+ * @returns {{ label: string, keys: string[], declared: Set<string>, copies: Map<string, string[]> }}
  */
 export function indexLockfile(text, label) {
   const keys = readSnapshotKeys(text);
   const declared = readDeclaredNames(text);
   /** @type {Map<string, string[]>} */ const copies = new Map();
-  /** @type {Map<string, string[]>} */ const versions = new Map();
   for (const key of keys) {
-    const { name, version } = parseSnapshotKey(key);
+    const { name } = parseSnapshotKey(key);
     if (!copies.has(name)) copies.set(name, []);
     copies.get(name).push(key);
-    if (version) {
-      if (!versions.has(name)) versions.set(name, []);
-      const seen = versions.get(name);
-      if (!seen.includes(version)) seen.push(version);
-    }
   }
-  return { label, keys, declared, copies, versions };
+  return { label, keys, declared, copies };
 }
 
-// ── version ordering ────────────────────────────────────────────────────────
+// ── the rule ────────────────────────────────────────────────────────────────
 
 /**
- * Compare two semver-ish versions. Numeric segments compare numerically; a
- * prerelease sorts below the release it belongs to. This is an ORDERING only —
- * the gate needs "is head lower than base", never range satisfaction.
- *
- * @param {string} a
- * @param {string} b
- * @returns {number} negative if a < b, 0 if equal, positive if a > b
- */
-export function compareVersions(a, b) {
-  const split = (v) => {
-    const [core, pre = ''] = String(v).split('-', 2);
-    return { core: core.split('.').map((n) => Number.parseInt(n, 10) || 0), pre };
-  };
-  const x = split(a);
-  const y = split(b);
-  for (let i = 0; i < Math.max(x.core.length, y.core.length); i++) {
-    const d = (x.core[i] ?? 0) - (y.core[i] ?? 0);
-    if (d !== 0) return d;
-  }
-  if (x.pre === y.pre) return 0;
-  if (!x.pre) return 1; // a release outranks its own prerelease
-  if (!y.pre) return -1;
-  return x.pre < y.pre ? -1 : 1;
-}
-
-const maxVersion = (list) => list.reduce((hi, v) => (compareVersions(v, hi) > 0 ? v : hi), list[0]);
-
-// ── the two rules ───────────────────────────────────────────────────────────
-
-/**
- * @typedef {{ rule: 'backward', name: string, base: string[], head: string[], baseline: string, regressions: string[] }} BackwardFinding
  * @typedef {{ rule: 'duplicated', name: string, baseCount: number, headCount: number, base: string[], head: string[], added: string[] }} DuplicationFinding
  */
 
 /**
  * @param {ReturnType<typeof indexLockfile>} base
  * @param {ReturnType<typeof indexLockfile>} head
- * @returns {{ findings: Array<BackwardFinding|DuplicationFinding>, backward: BackwardFinding[], duplicated: DuplicationFinding[] }}
+ * @returns {{ findings: DuplicationFinding[], duplicated: DuplicationFinding[] }}
  */
 export function compareLockfiles(base, head) {
-  /** Rule 1 — an `@objectstack/*` identity moved backward. @type {BackwardFinding[]} */
-  const backward = [];
-  for (const [name, headVersions] of head.versions) {
-    if (!name.startsWith(FIRST_PARTY_SCOPE)) continue;
-    const baseVersions = base.versions.get(name);
-    if (!baseVersions?.length) continue;
-    const baseline = maxVersion(baseVersions);
-    // ⚠️ `!baseVersions.includes(v)` is load-bearing, not defensive. Without it an
-    // ALREADY-split base (17.2.0 + 17.3.0, unchanged by this pull request) reports its
-    // own 17.2.0 as a regression on every PR after it — the gate would red on changes
-    // that touched nothing. This is a delta gate: only a version the base did not
-    // resolve can have been introduced here.
-    const regressions = headVersions.filter(
-      (v) => compareVersions(v, baseline) < 0 && !baseVersions.includes(v),
-    );
-    if (regressions.length) {
-      backward.push({
-        rule: 'backward',
-        name,
-        base: baseVersions.slice().sort(compareVersions),
-        head: headVersions.slice().sort(compareVersions),
-        baseline,
-        regressions: regressions.sort(compareVersions),
-      });
-    }
-  }
-
   /**
    * Rule 2 — a package this repository declares gained a physical copy.
    *
@@ -348,9 +303,8 @@ export function compareLockfiles(base, head) {
     });
   }
 
-  backward.sort((a, b) => a.name.localeCompare(b.name));
   duplicated.sort((a, b) => a.name.localeCompare(b.name));
-  return { findings: [...backward, ...duplicated], backward, duplicated };
+  return { findings: [...duplicated], duplicated };
 }
 
 // ── reporting ───────────────────────────────────────────────────────────────
@@ -360,29 +314,16 @@ export function compareLockfiles(base, head) {
  * the incident cost two seats a day each because the red they got named the
  * wrong subject.
  *
- * @param {{ backward: BackwardFinding[], duplicated: DuplicationFinding[] }} reading
+ * @param {{ duplicated: DuplicationFinding[] }} reading
  * @param {{ base: string, head: string, baseKeys: number, headKeys: number }} sources
  * @returns {string}
  */
 export function renderReading(reading, sources) {
   const lines = [];
-  const total = reading.backward.length + reading.duplicated.length;
+  const total = reading.duplicated.length;
   lines.push(
     `base: ${sources.base} (${sources.baseKeys} resolutions)  head: ${sources.head} (${sources.headKeys} resolutions)`,
   );
-
-  for (const f of reading.backward) {
-    lines.push('');
-    lines.push(`✗ ${f.name} moved BACKWARD: ${f.baseline} -> ${f.regressions.join(', ')}`);
-    lines.push(`    base resolved ${f.base.join(', ')}`);
-    lines.push(`    head resolves ${f.head.join(', ')}`);
-    lines.push(
-      '    Every workspace range on this scope is a floating `^17.x`, so no fresh resolution',
-    );
-    lines.push(
-      '    can produce this. It is a stale resolution carried across a rebase (objectui#8326).',
-    );
-  }
 
   for (const f of reading.duplicated) {
     lines.push('');
@@ -394,12 +335,11 @@ export function renderReading(reading, sources) {
   lines.push('');
   if (total === 0) {
     lines.push(
-      `VERDICT clean — no @objectstack/* identity moved backward and no package gained a copy.`,
+      `VERDICT clean — no package gained a copy.`,
     );
   } else {
     lines.push(
-      `VERDICT ${total} lockfile-integrity finding(s): ` +
-        `${reading.backward.length} backward move(s), ${reading.duplicated.length} duplication(s).`,
+      `VERDICT ${total} lockfile-integrity finding(s): ${total} duplication(s).`,
     );
     lines.push(
       'Two physical copies of one package are two real paths, and nothing dedupes those — a',
@@ -536,21 +476,22 @@ export function selfTest() {
   t('the peer suffix survives', parsed.peers === '(ai@7.0.65(zod@4.4.3))');
   t('unscoped key splits', parseSnapshotKey('zod@4.4.3').name === 'zod');
   t('a non-numeric version is not ordered', parseSnapshotKey('pkg@github:o/r#abc').version === null);
+  const pinned = parseSnapshotKey('@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))');
+  t('the pinned build key keeps its name and has no version (objectui#12957)', pinned.name === '@objectstack/spec' && pinned.version === null);
   t('sub-keys are not read as snapshots', readSnapshotKeys("snapshots:\n  zod@4.4.3:\n    dependencies:\n      foo: 1.0.0\n").join() === 'zod@4.4.3');
   t('the section ends at the next top-level key', readSnapshotKeys("snapshots:\n  zod@4.4.3: {}\nother:\n  nope@1.0.0: {}\n").join() === 'zod@4.4.3');
 
-  // ── ordering ──────────────────────────────────────────────────────────────
-  t('17.2.0 < 17.3.0', compareVersions('17.2.0', '17.3.0') < 0);
-  t('17.10.0 > 17.9.0 (numeric, not lexical)', compareVersions('17.10.0', '17.9.0') > 0);
-  t('a prerelease sorts below its release', compareVersions('17.3.0-rc.1', '17.3.0') < 0);
-
-  // ── cause 1: objectui#8326's downgrade ────────────────────────────────────
+  // ── cause 1: what is left of objectui#8326's downgrade (rule 1 retired) ──
   const a = run(
     ['@objectstack/spec@17.3.0', '@objectstack/client@17.3.0'],
     ['@objectstack/spec@17.2.0', '@objectstack/spec@17.3.0', '@objectstack/client@17.2.0'],
   );
-  t('cause 1 — the backward move is named', a.backward.some((f) => f.name === '@objectstack/client' && f.regressions.includes('17.2.0')));
-  t('cause 1 — the duplication is named too', a.duplicated.some((f) => f.name === '@objectstack/spec' && f.headCount === 2));
+  t('cause 1 — the duplication the downgrade left is named', a.duplicated.some((f) => f.name === '@objectstack/spec' && f.headCount === 2));
+  t('cause 1 — a version moving alone is no longer judged (rule 1 retired)', !a.duplicated.some((f) => f.name === '@objectstack/client'));
+  const PIN = '@objectstack/spec@file:node_modules/.cache/objectstack/spec';
+  const p = run([PIN], [PIN, '@objectstack/spec@18.0.0-next.3']);
+  t('pin — a registry copy beside the pinned build is a duplication (objectui#12957)', p.duplicated.some((f) => f.name === '@objectstack/spec' && f.added.includes('@objectstack/spec@18.0.0-next.3')));
+  t('pin — moving from a registry version onto the pinned build is clean', run(['@objectstack/spec@18.0.0-next.3'], [PIN]).findings.length === 0);
 
   // ── cause 2: objectui#8333, no @objectstack/* movement at all ─────────────
   const b = run(
@@ -564,7 +505,6 @@ export function selfTest() {
       'better-auth@1.7.3',
     ],
   );
-  t('cause 2 — no @objectstack/* identity moved (rule 1 is blind here)', b.backward.length === 0);
   t('cause 2 — zod 2 -> 3 is a finding, though it was never single-copy', b.duplicated.some((f) => f.name === 'zod' && f.baseCount === 2 && f.headCount === 3));
   t('cause 2 — the peer-forked spec is a finding at one version', b.duplicated.some((f) => f.name === '@objectstack/spec' && f.headCount === 2));
   t('cause 2 — the gate is red on it', b.findings.length > 0);
@@ -598,7 +538,6 @@ export function selfTest() {
   const sources = { base: 'b', head: 'h', baseKeys: 1, headKeys: 1 };
   t('a clean reading says clean', renderReading(c, sources).includes('VERDICT clean'));
   t('a finding names the package in the report', renderReading(b, sources).includes('zod gained a physical copy: 2 -> 3'));
-  t('a finding names the backward move', renderReading(a, sources).includes('moved BACKWARD'));
 
   const failed = cases.filter((c2) => !c2.ok);
   for (const c2 of failed) console.error(`  ✗ ${c2.name}${c2.detail ? ` — ${c2.detail}` : ''}`);
@@ -608,7 +547,7 @@ export function selfTest() {
   }
   console.log(
     `✓ check-lockfile-integrity self-test: ${cases.length} cases pass ` +
-      "(both incident causes, the peer-fork that moves no version, and the controls a red-on-everything gate would fail).",
+      "(the duplication half of both incident causes, the peer-fork that moves no version, the pinned build, and the controls a red-on-everything gate would fail).",
   );
   return 0;
 }

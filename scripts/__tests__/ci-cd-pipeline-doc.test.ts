@@ -1801,7 +1801,7 @@ const startBackend = fs.readFileSync(startBackendPath, 'utf8');
 
 /** The page's statement of the rule, whitespace-normalised because the source wraps it. */
 const PIN_RULE_SENTENCE =
-  /Backend pins live in `e2e\/live\/ci\/backend\.env` and must match the `@objectstack\/spec` version in `pnpm-lock\.yaml`/;
+  /Backend pins live in `e2e\/live\/ci\/backend\.env` and must match the `@objectstack\/spec` version the pinned build in `pnpm-lock\.yaml` declares/;
 
 const readEnvKey = (key: string): string | null =>
   backendEnv.match(new RegExp('^' + key + '=(.+)$', 'm'))?.[1].trim() ?? null;
@@ -1813,10 +1813,24 @@ const readEnvKey = (key: string): string | null =>
  * `snapshots:` and the bare one under `packages:`; the importer entries carry the same
  * value on their `version:` line. Each is truncated at the first `(` so the three
  * spellings collapse to one comparable number.
+ *
+ * Since objectui#12957 the lockfile resolves the spec to a DIRECTORY of the pinned
+ * build (`'@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@…)'`) and
+ * records no version for it; that resolution is followed to the version the
+ * directory's manifest declares. A directory that is not built answers a value no
+ * `OBJECTSTACK_VERSION` can equal, naming the missing build.
  */
 function resolvedSpecVersions(): string[] {
   const lock = fs.readFileSync(lockfilePath, 'utf8');
   const found = new Set<string>();
+
+  for (const m of lock.matchAll(/^\s{0,4}'?@objectstack\/spec@file:([^'(\s:]+)/gm)) {
+    try {
+      found.add(JSON.parse(fs.readFileSync(path.join(repoRoot, m[1], 'package.json'), 'utf8')).version);
+    } catch {
+      found.add(`(pinned build absent: ${m[1]} — run \`pnpm objectstack:build\`)`);
+    }
+  }
 
   for (const m of lock.matchAll(/^\s{0,4}'?@objectstack\/spec@([0-9][^'(\s:]*)/gm)) {
     found.add(m[1]);
@@ -2804,7 +2818,7 @@ describe('ci-cd-pipeline.md — the vi-mock and shadcn sections', () => {
 
 /**
  * ⭐ Lifted to module scope by objectui#9463, for the reason the alias rule above
- * was: the whole-page sweep below declares the SAME four phantoms at a coarser
+ * was: the whole-page sweep below declares the SAME phantoms at a coarser
  * granularity (per workflow, not per job), and two copies of a declaration are two
  * declarations — the next edit would have corrected one of them and left the other
  * saying the opposite. The sweep re-keys these instead of restating them, so there
@@ -2836,15 +2850,20 @@ const DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
   ],
   [
     'changeset-release.yml `release`: pnpm check:published-dist',
-    'The blocking copy of the Published Dist Gate, reached the same way: it is the first leg of ' +
+    'The blocking copy of the Published Dist Gate, reached the same way: it is the second leg of ' +
       '`pnpm changeset:publish`, which runs through the action input. The section names it to ' +
       'explain why the refresh lane deliberately does NOT run it.',
   ],
   [
     'changeset-release.yml `release`: pnpm check:spec-floors',
-    'The second leg of `pnpm changeset:publish`, same action input, same invisibility. The ' +
+    'The third leg of `pnpm changeset:publish`, same action input, same invisibility. The ' +
       'section quotes that script body verbatim and names this gate to explain why the nightly ' +
       '`spec-range-floors.yml` is an alarm rather than the blocking copy.',
+  ],
+  [
+    'changeset-release.yml `release`: scripts/objectstack-floor.mjs',
+    'The first leg of `pnpm changeset:publish` (objectui#12958), same action input. The section ' +
+      'quotes that script body verbatim and names this step to say what it computes before a publish.',
   ],
 ]);
 
@@ -3749,17 +3768,18 @@ describe('ci-cd-pipeline.md — command parity, every workflow section', () => {
     ).toBeGreaterThan(60);
 
     // And the inherited declarations must actually arrive. An empty re-key would let
-    // four real phantoms read as undeclared — or, worse, silently shrink the exact-set
+    // real phantoms read as undeclared — or, worse, silently shrink the exact-set
     // assertion below to something nobody wrote.
     expect(
       [...inheritedDeclarations().keys()].sort(),
-      'the per-job declarations above no longer re-key onto this block\'s labels, so the four ' +
+      'the per-job declarations above no longer re-key onto this block\'s labels, so the ' +
         'phantoms they explain are about to be reported as undeclared. Check the key format of ' +
         'DECLARED_NON_RUN_COMMANDS against the regex in `inheritedDeclarations`.',
     ).toEqual([
       'changeset-release.yml: pnpm changeset:publish',
       'changeset-release.yml: pnpm check:published-dist',
       'changeset-release.yml: pnpm check:spec-floors',
+      'changeset-release.yml: scripts/objectstack-floor.mjs',
       'performance-budget.yml: pnpm test',
     ]);
   });

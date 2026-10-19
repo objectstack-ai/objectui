@@ -656,27 +656,44 @@ const isDataObjectValue = (key: string, value: unknown): boolean =>
   !PREDICATE_CHAIN_KEYS.has(key) && isConfigBag(value) && !isExpressionEnvelope(value);
 
 /**
- * The scope the evaluation memo in {@link SchemaRenderer} evaluates a node's
- * values against: the ambient host scope, `current_user` aliased to `user`, the
- * page's bound row as `record` (only when there is one), and page variables as
- * `page`. Why each root is (and `data` is not) bound is stated where the memo
- * builds its evaluator from this.
+ * The scope a page node's values are evaluated against: its `visibleWhen`
+ * gate and every other expression the evaluation memo in
+ * {@link SchemaRenderer} evaluates on the node. Four roots, in this order:
  *
- * One function, so the memo and {@link evaluateConfigBagInScope} cannot build
- * two different scopes (objectui#10290).
+ * 1. **the ambient predicate scope**: every root `predicateScope` carries (the
+ *    host scope `usePredicateScope()` publishes, plus a node's API-bound
+ *    `data` once it has answered), spread first;
+ * 2. **`current_user`**: aliased to the ambient `user`, so `user.email` and
+ *    `current_user.email` read the same value;
+ * 3. **`record`**: the page's bound row, ONLY when there is one (a non-array
+ *    object). No row binds nothing, so a `record` the ambient scope supplies
+ *    is not shadowed by an empty one; a row, written after the spread, wins;
+ * 4. **`page`**: the page variables (`PageSchema.variables`) as `page.<var>`.
+ *
+ * Why each root is (and `data` is not) bound is stated where the memo builds
+ * its evaluator from this.
+ *
+ * The ONE builder of this scope. The memo and {@link evaluateConfigBagInScope}
+ * call it, so they cannot build two different scopes (objectui#10290), and it
+ * is exported for the `page:tabs` derived badge in `@object-ui/components`,
+ * which decides the `visibleWhen` gates in front of a related list the way the
+ * tab body decides them (objectui#12987, objectui#12992). A root added here
+ * reaches every one of them.
  */
-const configEvaluationScope = (
+export function buildNodeEvaluationScope(
   predicateScope: Record<string, unknown>,
   boundRecord: unknown,
   pageVariables: unknown,
-): Record<string, unknown> => ({
-  ...predicateScope,
-  current_user: predicateScope?.user,
-  ...(boundRecord && typeof boundRecord === 'object' && !Array.isArray(boundRecord)
-    ? { record: boundRecord }
-    : null),
-  page: pageVariables,
-});
+): Record<string, unknown> {
+  return {
+    ...predicateScope,
+    current_user: predicateScope?.user,
+    ...(boundRecord && typeof boundRecord === 'object' && !Array.isArray(boundRecord)
+      ? { record: boundRecord }
+      : null),
+    page: pageVariables,
+  };
+}
 
 /**
  * Evaluate ONE config value by its key. This is the per-key rule of the
@@ -740,7 +757,7 @@ export function evaluateConfigBagInScope(
 ): unknown {
   if (!isConfigBag(bag)) return bag;
   const evaluator = new ExpressionEvaluator(
-    configEvaluationScope(predicateScope, boundRecord, pageVariables),
+    buildNodeEvaluationScope(predicateScope, boundRecord, pageVariables),
   );
   return evaluateConfigBagWith(evaluator, bag as Record<string, unknown>);
 }
@@ -1268,11 +1285,13 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // no row of its own" into "this surface's row is empty" — only the latter
     // is entitled to shadow.
     //
-    // Built by `configEvaluationScope`, which `useConfigBagEvaluator` shares, so
-    // an action container's members evaluate against this same scope
-    // (objectui#10290).
+    // Built by `buildNodeEvaluationScope`, which `useConfigBagEvaluator`
+    // shares, so an action container's members evaluate against this same
+    // scope (objectui#10290), and which the `page:tabs` badge in
+    // `@object-ui/components` calls for its `visibleWhen` gates
+    // (objectui#12992).
     const evaluator = new ExpressionEvaluator(
-      configEvaluationScope(predicateScope, boundRecord, pageVariables),
+      buildNodeEvaluationScope(predicateScope, boundRecord, pageVariables),
     );
     // Shallow copy: the interpreter's working copy, typed as renderer state
     // rather than as the authoring face (objectui#11349). See

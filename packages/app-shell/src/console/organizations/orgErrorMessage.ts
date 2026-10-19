@@ -39,17 +39,21 @@
  * blank box or a generic "something went wrong", both of which delete the only
  * diagnostic the user has. Never swallow an error.
  *
- * ## Why these eight codes and not better-auth's sixty
+ * ## Why these codes and not better-auth's sixty
  *
  * Every row is a rejection the five console files under
  * `console/organizations/` can actually provoke — the three the card measured,
- * plus five siblings on the same three call paths (the role-cap refusal that
+ * plus siblings on the same three call paths (the role-cap refusal that
  * `invitableOrgRoles` narrows for but the server re-checks; a duplicate invite;
  * the slug collision that is the create dialog's other outcome; the
  * multi-org-disabled refusal `CreateWorkspaceDialog` already comments about; and
  * the expired link `AcceptInvitationPage` already has a hand-written fallback
- * for). The other ~50 are teams, dynamic roles and org surfaces this console has
- * no screen for. Each row costs ten pack translations, and an unlisted code
+ * for), and one objectstack registered code (ADR-0112) on the create path:
+ * `ORGANIZATION_CREATION_DISABLED`, the server's refusal for the same
+ * deployment posture `CreateWorkspaceDialog`'s own guard reads from
+ * `/auth/config` (objectui#12977). The rest are teams, dynamic roles and org
+ * surfaces this console has no screen for. Each row costs ten pack
+ * translations (that one reuses an existing key), and an unlisted code
  * already degrades correctly, so the cost of omitting one is bounded and the
  * cost of speculating is not.
  */
@@ -61,14 +65,18 @@
 export type OrgTranslate = (key: string, options?: Record<string, unknown>) => string;
 
 export interface OrgErrorEntry {
-  /** i18n key in the `organization.errors` namespace. */
+  /**
+   * i18n key — normally in the `organization.errors` namespace; a row reuses a
+   * sentence the console already shows for the same condition elsewhere.
+   */
   key: string;
   /** English fallback, for a pack that does not (yet) define the key. */
   defaultValue: string;
 }
 
 /**
- * better-auth organization error code -> the console's own i18n key.
+ * Organization error code (better-auth's, or an objectstack registered code)
+ * -> the console's own i18n key.
  *
  * Keyed by the code, valued by a key of OUR naming rather than a transliteration
  * of theirs: the pack vocabulary stays camelCase like every other namespace, and
@@ -102,6 +110,14 @@ export const ORG_ERROR_MESSAGE_KEYS: Record<string, OrgErrorEntry> = {
   YOU_ARE_NOT_ALLOWED_TO_CREATE_A_NEW_ORGANIZATION: {
     key: 'organization.errors.notAllowedToCreate',
     defaultValue: 'You are not allowed to create a new organization',
+  },
+  // objectstack's registered code (ADR-0112) for a deployment whose tenancy
+  // posture refuses organization creation for every caller — a deployment
+  // setting, not a missing grant, so it reuses the sentence the dialog's own
+  // `multiOrgEnabled === false` guard shows rather than `notAllowedToCreate`.
+  ORGANIZATION_CREATION_DISABLED: {
+    key: 'workspace.multiOrgDisabled',
+    defaultValue: 'Creating new organizations is disabled on this instance.',
   },
 
   // --- accept path (AcceptInvitationPage) ---

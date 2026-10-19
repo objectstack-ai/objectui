@@ -77,12 +77,24 @@ const OBJECTS_READERS: Record<string, { kind: Kind; why: string }> = {
   'packages/app-shell/src/console/home/HomePage.tsx': { kind: 'off', why: 'the home page, outside any app' },
   'packages/app-shell/src/views/DashboardView.tsx': { kind: 'off', why: "a dashboard route: its widgets' objects" },
   'packages/app-shell/src/views/ReportView.tsx': { kind: 'off', why: "a report route: its columns' objects" },
-  'packages/app-shell/src/views/PageView.tsx': { kind: 'off', why: "a page route: its record actions' objects" },
+  'packages/app-shell/src/views/PageView.tsx': {
+    kind: 'scope',
+    why: 'a page route reads the objects its page binds (objectui#12980), and a block\'s other object by name when it asks; a hand-rolled context reads objects',
+  },
   'packages/app-shell/src/views/RecordFormPage.tsx': { kind: 'off', why: 'a record form route' },
   'packages/app-shell/src/views/SearchResultsPage.tsx': { kind: 'off', why: 'the search route: every searchable object' },
-  'packages/app-shell/src/views/global-search-renderer.tsx': { kind: 'off', why: 'the global search block' },
-  'packages/app-shell/src/views/InterfaceListPage.tsx': { kind: 'off', why: 'the interface list route' },
-  'packages/app-shell/src/views/nav-menu-renderer.tsx': { kind: 'off', why: 'the nav:menu page block' },
+  'packages/app-shell/src/views/global-search-renderer.tsx': {
+    kind: 'action',
+    why: 'the global search block reads every object only once the user types, after ensureType(\'object\') (objectui#12980)',
+  },
+  'packages/app-shell/src/views/InterfaceListPage.tsx': {
+    kind: 'scope',
+    why: 'the interface page reads its source object by name (objectui#12980); a record overlay reads objects once opened',
+  },
+  'packages/app-shell/src/views/nav-menu-renderer.tsx': {
+    kind: 'scope',
+    why: "the nav:menu block's capability gate reads the objects the app's entries require, by name (objectui#12980)",
+  },
   'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx': { kind: 'off', why: 'the metadata admin' },
   'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx': { kind: 'off', why: 'the metadata admin' },
   'packages/app-shell/src/views/metadata-admin/previews/ScreenPreview.tsx': { kind: 'off', why: "the metadata admin's form-screen preview" },

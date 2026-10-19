@@ -62,7 +62,9 @@ const fakeAdapter = {
 };
 vi.mock('../../../providers/AdapterProvider', () => ({ useAdapter: () => fakeAdapter }));
 
-const { useHumanActivityFeed, __resetSharedUserFeeds } = await import('../../../hooks/sharedUserFeeds');
+const { useHumanActivityFeed, __resetSharedUserFeeds, __markFirstPainted } = await import(
+  '../../../hooks/sharedUserFeeds'
+);
 
 const GENERIC_ERROR = 'An unexpected error occurred.';
 const NEUTRAL_DENIED = "You don't have permission to view activity.";
@@ -94,6 +96,8 @@ async function mountHome() {
 beforeEach(() => {
   vi.useFakeTimers();
   __resetSharedUserFeeds();
+  // objectui#12980 — these cases start past the console's first paint.
+  __markFirstPainted();
   readError = null;
 });
 

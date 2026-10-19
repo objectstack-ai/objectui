@@ -57,8 +57,35 @@ import { usePermissions } from '@object-ui/permissions';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { useExpressionContext, evaluateNavigationVisibility } from '../providers/ExpressionProvider.js';
 import { withoutUnreadableObjectEntries, type ObjectReadCheck } from '../utils/navObjectReadGate.js';
+import { filterActiveApps } from '../utils/appRoute.js';
+import { navigationNames } from '../console/appObjectScope.js';
 
 const NO_MISSING: readonly string[] = [];
+
+/** No app requires an object: nothing is gated, and nothing is asked. */
+const NO_REQUIRED_OBJECTS = Object.freeze({ objects: [] as readonly unknown[], missing: NO_MISSING });
+
+/**
+ * Every `requiresObject` name the app list carries (objectui#12980): in the
+ * `navigation` and every `areas[].navigation` of each active app, and of the
+ * app being rendered (a hidden one is not in the active list). These are all
+ * the names any consumer of the gate asks it about. Sorted, so the same list
+ * reads the same names in the same order.
+ */
+function requiredObjectUnion(apps: unknown, current: Record<string, unknown> | undefined): string[] {
+  const out = new Set<string>();
+  const pick = (item: Record<string, unknown>) => item.requiresObject;
+  const listed = filterActiveApps(Array.isArray(apps) ? (apps as Array<Record<string, unknown>>) : []);
+  for (const app of current ? [...listed, current] : listed) {
+    for (const name of navigationNames(app?.navigation, pick)) out.add(name);
+    const areas: unknown[] = Array.isArray(app?.areas) ? app.areas : [];
+    for (const area of areas) {
+      const tree = area && typeof area === 'object' ? (area as { navigation?: unknown }).navigation : undefined;
+      for (const name of navigationNames(tree, pick)) out.add(name);
+    }
+  }
+  return [...out].sort();
+}
 
 /** The member's gates, as the sidebar applies them. */
 export interface NavMemberGates {
@@ -120,11 +147,29 @@ export function useNavMemberGates(): NavMemberGates {
   // cross-app roster does not ask another app's objects one by one. Outside an
   // app (the home page's feeds) there is no package, and the gate reads the
   // whole registry, as it does once anything has loaded it.
+  //
+  // objectui#12980 — inside an app whose served item names NO package (an app
+  // created in the console), on the same condition, the gate reads the
+  // names-only scope over every `requiresObject` the app list carries, in each
+  // app's `navigation` and `areas[].navigation`. That is every name any
+  // consumer gates (the sidebar, the landing, the bell's cross-app roster), so
+  // each is asked by name and answered exactly as the whole registry answers
+  // it. A name not answered yet, or whose read failed (objectui#13009: left
+  // unanswered), shows, as every entry does while the whole list loads or
+  // after it fails.
   const metadata = useMetadata();
   const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
+  const packageless = !packageId && typeof app?.name === 'string' && app.name !== '';
   const readObjectScope =
-    packageId && metadata.getTypeStatus?.('object') === 'idle' ? metadata.readObjectScope : undefined;
-  const scope = readObjectScope ? readObjectScope({ packageId }) : null;
+    (packageId || packageless) && metadata.getTypeStatus?.('object') === 'idle' ? metadata.readObjectScope : undefined;
+  const unionNames = readObjectScope && !packageId ? requiredObjectUnion(metadata.apps, app) : NO_MISSING;
+  const scope: { objects: readonly unknown[]; missing: readonly string[] } | null = !readObjectScope
+    ? null
+    : packageId
+      ? readObjectScope({ packageId })
+      : unionNames.length > 0
+        ? readObjectScope({ names: unionNames })
+        : NO_REQUIRED_OBJECTS;
   const metadataObjects = scope ? scope.objects : metadata.objects;
   const missingObjects = scope ? scope.missing : NO_MISSING;
   const registeredObjectNames = useMemo(

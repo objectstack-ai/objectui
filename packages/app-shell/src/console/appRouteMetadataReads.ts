@@ -60,6 +60,12 @@ export const APP_ROUTE_METADATA_READS: ReadonlyArray<{ path: string; reads: read
   // their widgets, columns and record actions resolve against.
   { path: 'dashboard/:dashboardName', reads: ['dashboard', 'object'] },
   { path: 'report/:reportName', reads: ['report', 'object'] },
+  // AppReportIndexView (objectui#13020): the report list, and the dataset
+  // list its read verdict needs, which it waits for itself; never the objects.
+  { path: 'reports', reads: ['report'] },
+  // A page reads the objects its page binds, through its object scope
+  // (`appObjectScope.ts`, objectui#12980), not the whole registry; `object`
+  // stays for the routes where the scope does not apply (a record overlay).
   { path: 'page/:pageName', reads: ['page', 'object'] },
   // ComponentNavView renders whatever component the registry holds.
   { path: 'component/:ns/:name/*', reads: ALL_LAZY_METADATA_TYPES },

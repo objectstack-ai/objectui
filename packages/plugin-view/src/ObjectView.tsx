@@ -647,8 +647,7 @@ const VIEW_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // ones the console's own list delete resolves, all present in the ten packs.
   // The `objectActions.*` rows are asked for by the shared `recordDelete` core
   // (`@object-ui/core`), which this view hands `tView`, so a provider-less host
-  // reads them here; the ADR-0094 reset rows carry their own inline
-  // `defaultValue` there. The dialog's copy is the core's too
+  // reads them here. The dialog's copy is the core's too
   // (`recordDelete.confirmCopy`, objectui#11695): the title, the
   // `console.objectView.bulkDeleteConfirm` question and the Delete label;
   // `actionConfirm.cancel` is this host's own chrome, in the console's
@@ -1862,8 +1861,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // to (`recordDelete` in `@object-ui/core`, which `app-shell`'s
   // `useObjectActions` registers as its `delete` handler). This host owns only
   // its confirm UI (the AlertDialog below) and the bulk question; the one-row
-  // question — including ADR-0094's reset question for a package-owned
-  // permission set — the delete, the toasts and when to refresh all come from
+  // question, the delete, the toasts and when to refresh all come from
   // that core, so the two paths cannot drift. The requests are shaped the way
   // the console's are: a row as `{ recordId, record }`, a selection as
   // `{ records }`, rows without an `id` skipped first.

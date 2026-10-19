@@ -43,7 +43,6 @@ import type { DetailViewSection as DetailViewSectionType, DetailViewField, Field
 import { applyDetailAutoLayout } from './autoLayout';
 import { useDetailTranslation } from './useDetailTranslation';
 import { useSafeFieldLabel } from '@object-ui/react';
-import { PermissionFacetLink } from './renderers/PermissionFacetLink';
 import { NON_EDITABLE_SYSTEM_FIELDS } from './systemFields';
 import { InlineFieldInput } from './InlineFieldInput';
 import { headerColorClass } from './headerColor';
@@ -454,13 +453,6 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
     const canInlineEditField = fieldEditable && !!onEnterInlineEdit;
 
     const displayValue = (() => {
-      // Per-field widget override (ADR-0056 P1) — a facet designed in Studio
-      // renders read-only as a summary + deep-link, even when empty (so the
-      // admin still sees where to author it), never as raw [Object]/JSON.
-      const displayWidget = (enrichedField as any).widget || (field as any).widget;
-      if (displayWidget === 'permission-facet-link') {
-        return <PermissionFacetLink value={value} field={enrichedField as any} />;
-      }
       const isEmpty = !hasCellValue(value);
       if (isEmpty) {
         // The SHARED placeholder (objectui#8506). The span that stood here

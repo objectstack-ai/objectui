@@ -3647,8 +3647,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                         // useObjectActions.deleteRecord wraps execute() which
                         // already shows a confirmation dialog + success toast
                         // and triggers onRefresh on success.
-                        // Pass the row so sys_permission_set package rows
-                        // get the honest reset copy (ADR-0094).
+                        // Pass the row so the confirmation names the
+                        // record (objectui#11695).
                         actions.deleteRecord(String(record.id), record);
                     }
                 }}

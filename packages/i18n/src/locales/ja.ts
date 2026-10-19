@@ -33,30 +33,6 @@ const ja = {
       other: 'その他',
     },
   },
-  // objectui#3546 slice six — PermissionFacetLink の授権ファセット要約。
-  // 数量ラベルは appDesigner.objectManager.fieldCount と同じ「{{count}} + 単位」形。
-  // 日本語に単複はないため `_one` は基底キーと同値(意図的)。
-  perm: {
-    facet: {
-      none: "なし",
-      more: "+{{count}} 件",
-      objects: "{{count}} オブジェクト",
-      objects_one: "{{count}} オブジェクト",
-      objects_other: "{{count}} オブジェクト",
-      fields: "{{count}} フィールドルール",
-      fields_one: "{{count}} フィールドルール",
-      fields_other: "{{count}} フィールドルール",
-      rls: "{{count}} RLS ポリシー",
-      rls_one: "{{count}} RLS ポリシー",
-      rls_other: "{{count}} RLS ポリシー",
-      tabs: "{{count}} タブルール",
-      tabs_one: "{{count}} タブルール",
-      tabs_other: "{{count}} タブルール",
-      adminScope: "委任管理を設定済み",
-      designInStudio: "Studio でデザイン →",
-      designInStudioHint: "Studio でデザイン",
-    },
-  },
   lookup: {
     recentlyUsed: '最近使用したもの',
     allResults: 'すべての結果',
@@ -583,9 +559,6 @@ const ja = {
       needMatchFields: "照合する項目を 1 つ以上選択してください。",
       matchOnlyField: "（照合のみ）",
       optCreateOptions: "未知の選択肢の値を保持する",
-      optRunAutomations: "自動化とトリガーを実行する",
-      optTreatHistorical: "過去データとしてインポートする",
-      optTreatHistoricalHint: "（完了済みレコードをそのまま取り込みます — ステートマシンの検査を省略し、現在時刻を打刻せずに元のタイムスタンプと作成者を保持します）",
       optSkipBlankKey: "照合値が空の行をスキップする",
       optBackground: "バックグラウンドでインポートする",
       optBackgroundHint: "（取り消し可能なジョブとして実行されます）",
@@ -2081,6 +2054,11 @@ const ja = {
       toggleChatsList: "チャット一覧を切り替え",
       goHome: "ホームに戻る",
     },
+    reportIndex: {
+      title: "レポート",
+      emptyTitle: "レポートはありません",
+      emptyDescription: "このアプリには開けるレポートがありません。",
+    },
     commandPalette: {
       title: "コマンドパレット",
       placeholder: "コマンドを入力または検索…",
@@ -2621,6 +2599,11 @@ const ja = {
     allDocs: 'すべてのドキュメント',
     onlineDocs: 'オンラインドキュメント',
     loadingDocumentation: 'ドキュメントを読み込み中',
+    about: 'バージョン情報',
+    aboutTitle: 'このコンソールについて',
+    aboutDescription: 'このコンソールのコンパイル元となったビルドです。',
+    aboutBuild: 'コンソールのビルド',
+    aboutBuildUnknown: '不明なビルド（このコンソールのビルド時にバージョンが設定されていません）',
   },
   sidebar: {
     packageManagement: "パッケージ管理",
@@ -2637,6 +2620,7 @@ const ja = {
     recent: "最近",
     starred: "スター付き",
     removeFromFavorites: "お気に入りから {{name}} を削除",
+    allReports: "すべてのレポート",
   },
   topbar: {
     openAssistant: "{{name}} アシスタントを開く",
@@ -2919,8 +2903,6 @@ const ja = {
     updateFailed: "ナビゲーションの更新に失敗しました",
   },
   objectActions: {
-    resetPackageSetConfirm: "この権限セットはインストール済みパッケージに含まれているため削除できません。削除を実行すると、パッケージ同梱の初期状態に戻り、この環境でのカスタマイズは破棄されます。続行しますか？",
-    resetPackageSetSuccess: "権限セットをパッケージ同梱の初期状態に戻しました",
     deleteSuccess: "{{label}} を削除しました",
     deleteFailed: "{{label}} の削除に失敗しました",
     noRecordId: "レコードIDが指定されていません",
@@ -3989,6 +3971,9 @@ const ja = {
       publishing: '公開中…',
       exit: 'プレビューを終了',
       changes: '変更',
+      pendingHere: '下書きプレビュー · このページの未公開の変更 {{count}} 件',
+      pendingHere_one: '下書きプレビュー · このページの未公開の変更 {{count}} 件',
+      pendingHere_other: '下書きプレビュー · このページの未公開の変更 {{count}} 件',
     },
     changes: {
       title: '保留中の変更',

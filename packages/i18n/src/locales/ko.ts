@@ -33,30 +33,6 @@ const ko = {
       other: '기타',
     },
   },
-  // objectui#3546 slice six — PermissionFacetLink 의 권한 파셋 요약.
-  // 수량 라벨은 appDesigner.objectManager.fieldCount 와 같은 "{{count}}개 + 단위" 형식.
-  // 한국어에는 단수/복수 구분이 없어 `_one` 은 기본 키와 같은 값(의도적).
-  perm: {
-    facet: {
-      none: "없음",
-      more: "+{{count}} 더보기",
-      objects: "{{count}}개 오브젝트",
-      objects_one: "{{count}}개 오브젝트",
-      objects_other: "{{count}}개 오브젝트",
-      fields: "{{count}}개 필드 규칙",
-      fields_one: "{{count}}개 필드 규칙",
-      fields_other: "{{count}}개 필드 규칙",
-      rls: "{{count}}개 RLS 정책",
-      rls_one: "{{count}}개 RLS 정책",
-      rls_other: "{{count}}개 RLS 정책",
-      tabs: "{{count}}개 탭 규칙",
-      tabs_one: "{{count}}개 탭 규칙",
-      tabs_other: "{{count}}개 탭 규칙",
-      adminScope: "위임 관리가 구성됨",
-      designInStudio: "Studio에서 디자인 →",
-      designInStudioHint: "Studio에서 디자인",
-    },
-  },
   lookup: {
     recentlyUsed: '최근 사용',
     allResults: '모든 결과',
@@ -583,9 +559,6 @@ const ko = {
       needMatchFields: "일치 기준 필드를 하나 이상 선택하세요.",
       matchOnlyField: "(일치 전용)",
       optCreateOptions: "알 수 없는 선택 값 유지",
-      optRunAutomations: "자동화 및 트리거 실행",
-      optTreatHistorical: "과거 데이터로 가져오기",
-      optTreatHistoricalHint: "(완료된 레코드를 그대로 가져옵니다 — 상태 머신 검사를 건너뛰고 현재 시각을 찍는 대신 원래 타임스탬프와 작성자를 유지합니다)",
       optSkipBlankKey: "일치 값이 비어 있는 행 건너뛰기",
       optBackground: "백그라운드에서 가져오기",
       optBackgroundHint: "(되돌릴 수 있는 작업으로 실행됩니다)",
@@ -2079,6 +2052,11 @@ const ko = {
       toggleChatsList: "채팅 목록 전환",
       goHome: "홈으로 돌아가기",
     },
+    reportIndex: {
+      title: "보고서",
+      emptyTitle: "보고서 없음",
+      emptyDescription: "이 앱에는 열 수 있는 보고서가 없습니다.",
+    },
     commandPalette: {
       title: "명령 팔레트",
       placeholder: "명령어를 입력하거나 검색…",
@@ -2619,6 +2597,11 @@ const ko = {
     allDocs: '전체 문서',
     onlineDocs: '온라인 문서',
     loadingDocumentation: '문서 로딩 중',
+    about: '정보',
+    aboutTitle: '이 콘솔 정보',
+    aboutDescription: '이 콘솔이 컴파일된 빌드입니다.',
+    aboutBuild: '콘솔 빌드',
+    aboutBuildUnknown: '알 수 없는 빌드(이 콘솔을 빌드할 때 버전이 설정되지 않음)',
   },
   sidebar: {
     packageManagement: "패키지 관리",
@@ -2635,6 +2618,7 @@ const ko = {
     recent: "최근",
     starred: "즐겨찾기",
     removeFromFavorites: "즐겨찾기에서 {{name}} 제거",
+    allReports: "모든 보고서",
   },
   topbar: {
     openAssistant: "{{name}} 어시스턴트 열기",
@@ -2916,8 +2900,6 @@ const ko = {
     updateFailed: "탐색을 업데이트할 수 없습니다",
   },
   objectActions: {
-    resetPackageSetConfirm: "이 권한 세트는 설치된 패키지에 포함되어 있어 제거할 수 없습니다. 삭제하면 패키지 기본 상태로 초기화되며 이 환경의 커스터마이징은 폐기됩니다. 계속할까요?",
-    resetPackageSetSuccess: "권한 세트를 패키지 기본 상태로 초기화했습니다",
     deleteSuccess: "{{label}} 삭제 성공",
     deleteFailed: "{{label}} 삭제 실패",
     noRecordId: "레코드 ID가 없습니다",
@@ -3986,6 +3968,9 @@ const ko = {
       publishing: '게시 중…',
       exit: '미리보기 종료',
       changes: '변경 사항',
+      pendingHere: '초안 미리보기 · 이 페이지의 게시되지 않은 변경 {{count}}개',
+      pendingHere_one: '초안 미리보기 · 이 페이지의 게시되지 않은 변경 {{count}}개',
+      pendingHere_other: '초안 미리보기 · 이 페이지의 게시되지 않은 변경 {{count}}개',
     },
     changes: {
       title: '대기 중인 변경 사항',

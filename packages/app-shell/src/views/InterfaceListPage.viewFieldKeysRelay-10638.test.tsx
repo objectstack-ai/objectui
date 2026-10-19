@@ -58,6 +58,7 @@ import React from 'react';
 vi.mock('react-router-dom', () => ({
   useSearchParams: () => [new URLSearchParams(), vi.fn()],
   useNavigate: () => vi.fn(),
+  useParams: () => ({}),
 }));
 
 vi.mock('@object-ui/i18n', async (importOriginal) => {

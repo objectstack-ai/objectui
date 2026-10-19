@@ -54,6 +54,8 @@ pnpm run setup
 objectui resolves every `@objectstack/*` package from a build of the objectstack
 commit that `.objectstack-sha` names, not from npm. `scripts/bump-objectstack.sh`
 moves that pin; the dependency and lockfile section of `AGENTS.md` has the whole procedure.
+The build is kept once per machine, in `$OBJECTSTACK_PIN_STORE` (default `~/.cache/objectstack-pin`,
+or `$XDG_CACHE_HOME/objectstack-pin`), and copied into each new checkout; `pnpm objectstack:status` names it.
 
 ### Configure Git Merge Driver for pnpm-lock.yaml
 

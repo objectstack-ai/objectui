@@ -47,6 +47,7 @@ import {
   MessageResponse,
   type MessageProps,
 } from './elements/message';
+import { RecordLinkContext } from './recordLink';
 import {
   PromptInput,
   PromptInputBody,
@@ -4223,7 +4224,16 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                       ) : isEmptyAssistantStreaming ? (
                         <ThinkingDots />
                       ) : hasVisibleProse ? (
-                        <MessageResponse>{message.content}</MessageResponse>
+                        // objectui#13032 — a long answer folds only once its
+                        // stream has ended; the streaming flag tells it when.
+                        // objectui#13037 — a record link in the answer opens
+                        // the record through the same host opener as the
+                        // `open_record` card.
+                        <RecordLinkContext.Provider value={onOpenRecord ?? null}>
+                          <MessageResponse isAnimating={Boolean(message.streaming)}>
+                            {message.content}
+                          </MessageResponse>
+                        </RecordLinkContext.Provider>
                       ) : !message.streaming && !showsActivity && isToolCallPlaceholder(message.content) ? (
                         // #772: a re-hydrated tool-call-only turn is persisted with
                         // an internal placeholder ("(called todo_write,
@@ -5529,6 +5539,23 @@ interface ToolPhaseStep {
   count: number;
 }
 
+/**
+ * objectui#13038 — tools that are the agent's own plumbing, not a step the user
+ * asked for: the phase line neither shows nor counts them. `load_tools` attaches
+ * a deferred tool family to the build agent's call; on build every data question
+ * pays one, so it read as "Load more tools" among the steps and inflated the count.
+ *
+ * A client list because nothing declares the role: the tool definition carries
+ * only name, label, description and parameters, and the stream's tool part
+ * carries no marker either. Module-private on purpose — it is this line's
+ * presentation rule, not a contract another surface may read.
+ */
+const PLUMBING_TOOL_NAMES: ReadonlySet<string> = new Set(['load_tools']);
+
+function isPlumbingTool(tool: ChatbotEnhancedToolInvocation): boolean {
+  return PLUMBING_TOOL_NAMES.has(tool.toolName);
+}
+
 /** Fold a turn's tool calls into one step per tool, in first-call order. */
 function foldToolPhaseSteps(
   tools: ChatbotEnhancedToolInvocation[],
@@ -5536,6 +5563,7 @@ function foldToolPhaseSteps(
 ): ToolPhaseStep[] {
   const steps = new Map<string, ToolPhaseStep>();
   for (const tool of tools) {
+    if (isPlumbingTool(tool)) continue;
     const step = steps.get(tool.toolName);
     if (step) step.count += 1;
     else
@@ -5613,7 +5641,12 @@ function ToolPhaseSummary({
   // 等待确认), so it does not hold the line open. A turn whose every tool has
   // its own card draws no line (the host gates on the summary strip), so a lone
   // card is never named twice.
-  const groups = summarizeTools(summaryTools, translateToolTitle);
+  // A plumbing call (objectui#13038) is no step of the user's: it leaves the
+  // expanded rows as well as the line, so it is shown nowhere in the phase.
+  const groups = summarizeTools(
+    summaryTools.filter((tool) => !isPlumbingTool(tool)),
+    translateToolTitle,
+  );
   const steps = foldToolPhaseSteps(phaseTools, translateToolTitle);
   const has = (state: ToolSummaryState) => groups.some((g) => g.state === state);
   const lineState: ToolSummaryState = has('failed')
@@ -5640,6 +5673,12 @@ function ToolPhaseSummary({
   const stepText = steps
     .map((step) => (step.count > 1 ? `${step.title} ×${step.count}` : step.title))
     .join(' · ');
+  // The host draws this line only when the summary strip has a row; with the
+  // plumbing gone that gate is re-read here. A phase that so far called only
+  // plumbing (or plumbing beside tools with their own card) draws no line,
+  // rather than "0 steps" over an empty step list or a lone card named twice.
+  // Hooks above still ran, so the phase clock started with the turn.
+  if (groups.length === 0) return null;
   return (
     <div className="not-prose mb-2" data-testid="tool-phase">
       <div

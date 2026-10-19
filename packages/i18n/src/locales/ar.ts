@@ -3458,16 +3458,6 @@ const ar = {
     importAction: "استيراد",
     dismiss: "تجاهل",
   },
-  cloudOnboarding: {
-    hintCreate: "البيئة نسخة مستقلة تشغّل تطبيقاتك، ولها رابطها وقاعدة بياناتها وخطتها.",
-    hintReady: "بيئتك جاهزة — نسخة مستقلة تشغّل تطبيقاتك، ولها رابطها وقاعدة بياناتها وخطتها.",
-    createEnvironment: "أنشئ بيئتك",
-    openWorkspace: "فتح",
-    manageEnvironments: "إدارة البيئات",
-  },
-  cloudPlanStatus: {
-    current: "الخطة الحالية",
-  },
   cloudWorkspaceTimezoneNotice: {
     seeded: "تم تعيين المنطقة الزمنية للبيئة إلى {{zone}} وفقًا لمتصفحك عند إنشائها. يمكنك تغييرها من الإعدادات → التوطين.",
   },
@@ -3597,6 +3587,12 @@ const ar = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    answer: {
+      showFull: 'عرض الإجابة كاملة',
+      collapse: 'طي',
+      expandTable: 'توسيع',
+      exitExpandedTable: 'إغلاق',
+    },
     tool: {
       aggregate_data: "تجميع البيانات ذات الصلة",
       get_record: "قراءة هذا السجل",

@@ -96,7 +96,7 @@ describe('green on main — the negative control', () => {
  * keys under one name. Built from the real lockfile by a transformation this file
  * asserts landed.
  */
-const PINNED_SPEC = "  '@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))':";
+const PINNED_SPEC = "  '@objectstack/spec@file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))':";
 function sampleA(): string {
   expect(realLock, 'the pinned spec snapshot key moved — rebuild this sample before trusting it').toContain(PINNED_SPEC);
   return realLock.replace(
@@ -119,7 +119,7 @@ function sampleB(): string {
   let out = realLock;
   const forked = [
     PINNED_SPEC,
-    "  '@objectstack/formula@file:node_modules/.cache/objectstack/formula(ai@7.0.65(zod@4.6.7))':",
+    "  '@objectstack/formula@file:.objectstack-pin/formula(ai@7.0.65(zod@4.6.7))':",
     "  ai@7.0.65(zod@4.6.7):",
   ];
   for (const key of forked) {
@@ -175,7 +175,7 @@ describe('cause 2 — a declared dependency forks with no version moving (object
     // This is #8326's exact bundling mechanism — two real paths, nothing
     // dedupes them — arriving with no version change anywhere: both are the
     // pinned build, under two peer contexts.
-    expect(spec?.head.every((k) => k.startsWith('@objectstack/spec@file:node_modules/.cache/objectstack/spec('))).toBe(true);
+    expect(spec?.head.every((k) => k.startsWith('@objectstack/spec@file:.objectstack-pin/spec('))).toBe(true);
   });
 });
 

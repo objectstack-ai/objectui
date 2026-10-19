@@ -3182,6 +3182,21 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               .map((def) => def!.settledWhen),
           )) addSpeculative(f);
 
+          // [objectui#13036] A shown `referenceVia` pointer column's TYPE
+          // half. The grid draws such a column through `resolveRecordPointer`
+          // (objectui#12608), which reads the sibling the field names off the
+          // ROW and answers null when it is absent, so a list whose columns
+          // show the id half but not its sibling fetched rows without it and
+          // drew the raw record id. Asked of the columns that survived the
+          // FLS gate (`cols`): a pointer the viewer may not read is not drawn.
+          // Through `addSpeculative`, like every binding here: a sibling the
+          // viewer may not read is never requested (that row keeps the stored
+          // text, the half-addressed control), and a name the object does not
+          // declare is never sent. `ObjectGrid`'s `getSelectFields` carries the
+          // same arm for the fetch a grouped grid owns.
+          const pointerDefs = objectDef?.fields as Record<string, { referenceVia?: unknown } | undefined> | undefined;
+          for (const c of cols) addSpeculative(pointerDefs?.[c]?.referenceVia);
+
           for (const f of collectPredicateFieldRefs(listViewPredicates({
             conditionalFormatting: schema.conditionalFormatting as unknown[] | undefined,
             /**

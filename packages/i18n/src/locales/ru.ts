@@ -3350,16 +3350,6 @@ const ru = {
     importAction: "Импорт",
     dismiss: "Скрыть",
   },
-  cloudOnboarding: {
-    hintCreate: "Окружение — это отдельный экземпляр, в котором работают ваши приложения, со своим URL, базой данных и тарифом.",
-    hintReady: "Ваше окружение готово — это отдельный экземпляр, в котором работают ваши приложения, со своим URL, базой данных и тарифом.",
-    createEnvironment: "Создать окружение",
-    openWorkspace: "Открыть",
-    manageEnvironments: "Управление окружениями",
-  },
-  cloudPlanStatus: {
-    current: "Текущий тариф",
-  },
   cloudWorkspaceTimezoneNotice: {
     seeded: "Часовой пояс окружения был задан по вашему браузеру при его создании: {{zone}}. Его можно изменить в разделе «Настройки → Локализация».",
   },
@@ -3485,6 +3475,12 @@ const ru = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    answer: {
+      showFull: 'Показать ответ полностью',
+      collapse: 'Свернуть',
+      expandTable: 'Развернуть',
+      exitExpandedTable: 'Закрыть',
+    },
     tool: {
       aggregate_data: "Агрегировать данные",
       get_record: "Прочитать запись",

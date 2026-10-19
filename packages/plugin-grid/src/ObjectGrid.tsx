@@ -2837,9 +2837,29 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                   .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
                   .filter((f) => passesProjectionGate(f))
               : [];
+            // [objectui#13036] A shown `referenceVia` pointer column's TYPE
+            // half. `recordPointerFace` resolves the record through
+            // `resolveRecordPointer` (objectui#12608), which reads the sibling
+            // off the ROW and answers null when it is absent, so a grid whose
+            // columns show the id half but not its sibling fetched rows
+            // without it and drew the raw record id. `ListView`'s harvest
+            // carries the same arm; this is the projection a grouped grid that
+            // owns its fetch (`gridOwnsGroupedFetch`) and a standalone
+            // `object-grid` send. Asked of the columns this projection keeps (a
+            // pointer the principal may not read is not drawn), then the same
+            // two gates as the harvests above: a sibling the principal may not
+            // read is not asked, and that row keeps the stored text.
+            const referenceViaFields = declared
+              ? shownColumns
+                  .filter(passesProjectionGate)
+                  .map((entry) => (declared as Record<string, { referenceVia?: unknown } | undefined>)[columnIdentity(entry) ?? '']?.referenceVia)
+                  .filter((f): f is string => typeof f === 'string' && f !== '')
+                  .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
+                  .filter((f) => passesProjectionGate(f))
+              : [];
             // A UNION, never an append: a grouping field that IS also a column
             // must not produce a duplicate `$select` entry.
-            const extraFields = [...predicateFields, ...groupingFields, ...concurrencyFields, ...rowColorFields, ...deadlineFields];
+            const extraFields = [...predicateFields, ...groupingFields, ...concurrencyFields, ...rowColorFields, ...deadlineFields, ...referenceViaFields];
             const withHarvestedFields = (list: any[]): any[] => {
               if (extraFields.length === 0) return list;
               const names = new Set(list.map((f: any) => columnIdentity(f)));

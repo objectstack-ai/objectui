@@ -106,7 +106,7 @@ export interface HomeInboxData {
   /**
    * The first `limit` approval requests waiting on the user, newest first as
    * the endpoint serves them (objectui#12602) — the PREVIEW of
-   * `pendingApprovalsCount`, which is the whole list's length.
+   * `pendingApprovalsCount`, which is the read's `total` (objectui#13027).
    */
   pendingApprovals: PendingApprovalRequest[];
   /**
@@ -167,10 +167,12 @@ export function useHomeInbox(limit = 5): HomeInboxData {
   // activity rows: real human actions only, dropping the sys_*/ai_* churn
   // (actor "System"). `useSharedInboxFeed` is the bell's already-joined inbox
   // superset, cut here to what is actually waiting on the user.
-  const { value: approvalRequests, status: pendingApprovalsStatus } = useSharedPendingApprovalRequests();
-  // The count is the list's length — the number the bell badges, from the
-  // same one read (objectui#12602).
-  const pendingApprovalsCount = approvalRequests.length;
+  const { value: approvalPage, status: pendingApprovalsStatus } = useSharedPendingApprovalRequests();
+  // The count is the page's `total` — the number the bell badges, from the
+  // same one read (objectui#12602). Not the rows' length: the read asks for
+  // one page, so the rows are a preview of it (objectui#13027).
+  const pendingApprovalsCount = approvalPage.total;
+  const approvalRequests = approvalPage.requests;
   const pendingApprovals = useMemo(() => approvalRequests.slice(0, limit), [approvalRequests, limit]);
   const { user } = useAuth();
   const perms = usePermissions();

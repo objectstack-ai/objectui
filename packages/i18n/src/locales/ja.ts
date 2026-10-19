@@ -3223,16 +3223,6 @@ const ja = {
     importAction: "インポート",
     dismiss: "閉じる",
   },
-  cloudOnboarding: {
-    hintCreate: "環境は、アプリを実行する専用のインスタンスで、独自の URL・データベース・プランを持ちます。",
-    hintReady: "準備が整った環境は、アプリを実行する専用のインスタンスで、独自の URL・データベース・プランを持ちます。",
-    createEnvironment: "環境を作成",
-    openWorkspace: "開く",
-    manageEnvironments: "環境を管理",
-  },
-  cloudPlanStatus: {
-    current: "現在のプラン",
-  },
   cloudWorkspaceTimezoneNotice: {
     seeded: "環境のタイムゾーンは、作成時にブラウザーに合わせて {{zone}} に設定されました。「設定 → ローカリゼーション」で変更できます。",
   },
@@ -3354,6 +3344,12 @@ const ja = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    answer: {
+      showFull: '全文を表示',
+      collapse: '折りたたむ',
+      expandTable: '展開',
+      exitExpandedTable: '閉じる',
+    },
     tool: {
       aggregate_data: "関連データを集計する",
       get_record: "このレコードを読み込む",

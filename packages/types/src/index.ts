@@ -852,7 +852,7 @@ import type {
 import type { CRUDComponentSchema } from './crud.js';
 import type { ObjectQLComponentSchema, ListViewSchema } from './objectql.js';
 import type { AppComponentSchema, AppSchemaRendererNodeSchema } from './app.js';
-import type { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.js';
+import type { CloudWorkspaceTimezoneNoticeSchema } from './cloud.js';
 import type {
   HeroBlockSchema,
   StatBlockSchema,
@@ -985,9 +985,8 @@ export type {
 } from './ai.js';
 
 export type {
-  // Cloud widgets — the `cloud:plan-status` node's TS twin (objectui#11515)
-  // and the `cloud:workspace-timezone-notice` node's (objectui#11930).
-  CloudPlanStatusSchema,
+  // Cloud widgets — the `cloud:workspace-timezone-notice` node's TS twin
+  // (objectui#11930).
   CloudWorkspaceTimezoneNoticeSchema,
 } from './cloud.js';
 
@@ -1116,10 +1115,10 @@ export type AnySchema =
   | NLQuerySchema
   | ViewComponentSchema
   | ActionBarSchema
-  // objectui#11515 — the TS twins of two zod-only arms; the third,
-  // `DetailSectionNodeSchema`, is a member through `ViewComponentSchema`.
+  // objectui#11515 — the TS twin of a zod-only arm; its sibling
+  // `DetailSectionNodeSchema` is a member through `ViewComponentSchema`. The
+  // third, `cloud:plan-status`, retired with its widget (objectui#12954).
   | AppSchemaRendererNodeSchema
-  | CloudPlanStatusSchema
   // objectui#11930 — landed with its zod arm.
   | CloudWorkspaceTimezoneNoticeSchema
   // objectui#12342 — landed with its zod arm.

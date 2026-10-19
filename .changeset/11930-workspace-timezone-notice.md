@@ -18,7 +18,7 @@ New SDUI widget `cloud:workspace-timezone-notice`: one line on the Cloud welcome
 
 **What changed, in observable terms.**
 
-- A page places the node with no props: `{ "type": "cloud:workspace-timezone-notice" }`. The widget reads the summary through the hook the environment list and `cloud:plan-status` already use, and when the summary carries `workspaceTimezoneSeed` it renders one muted line naming that zone, verbatim. In English: "The workspace timezone was set to Asia/Shanghai from your browser when the workspace was created. You can change it in Settings → Localization."
+- A page places the node with no props: `{ "type": "cloud:workspace-timezone-notice" }`. The widget reads the summary through the hook the environment list already uses, and when the summary carries `workspaceTimezoneSeed` it renders one muted line naming that zone, verbatim. In English: "The environment timezone was set to Asia/Shanghai from your browser when the environment was created. You can change it in Settings → Localization."
 - It renders nothing when the summary carries no seed (workspaces created before the seed existed, and control planes that do not send it yet), while the summary loads, when the request fails or rejects, and when the body is not the `{ success, data }` envelope. A failed request does not throw.
 - The line is text only: no link and no dismissal state.
 - The node's `className` and `responsiveStyles` reach the line.

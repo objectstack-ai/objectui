@@ -422,16 +422,17 @@ describe('the real workspace', () => {
     expect(main([], repoRoot)).toBe(EXIT_OK);
   });
 
-  it('finds the three registrations the 2026-08-29 ruling names as controls', () => {
+  it('finds the registrations the 2026-08-29 ruling names as controls', () => {
     // A FLOOR on the derivation, not a copy of it: the enumeration is derived
-    // from the module bodies, and these three are the modules whose registrations
+    // from the module bodies, and these are the modules whose registrations
     // `"sideEffects": false` was measured to drop to 0 chunks (objectui#6535).
     // If the walk stops seeing them, the array agrees with an empty enumeration.
+    // The ruling named three; `CloudOnboardingNext.tsx` retired with its widget
+    // (objectui#12954).
     const { results } = evaluate(repoRoot);
     const appShell = results.find((r) => r.name === '@object-ui/app-shell');
     expect(appShell, '@object-ui/app-shell must still declare a `sideEffects` array').toBeDefined();
     expect(appShell!.registrars).toContain('src/console/connect/ConnectAgentWidget.tsx');
-    expect(appShell!.registrars).toContain('src/console/home/CloudOnboardingNext.tsx');
     expect(appShell!.registrars).toContain('src/console/diagnostics/CloudAiModelStatus.tsx');
   });
 

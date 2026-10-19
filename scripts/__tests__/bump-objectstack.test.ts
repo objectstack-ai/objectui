@@ -10,7 +10,11 @@
  *     branch it is on — a warning, never a refusal;
  *   - a checkout with no `origin/main` says the question is unanswered rather than
  *     answering it either way;
- *   - re-pinning the same commit writes nothing.
+ *   - re-pinning the same commit writes nothing;
+ *   - the new pin is BUILT with `--write-manifests` (objectui#13008) and its packed
+ *     manifests are committed with it; a build that fails restores the old pin.
+ *     The build itself is objectstack-pin.test.ts's subject: here a stub stands in
+ *     for `scripts/objectstack-pin.mjs` and records how it was called.
  *
  * The cases that pin a commit are the firing controls of the refusal cases: a
  * guard that refused everything would fail them.
@@ -46,12 +50,26 @@ const GIT_ENV = {
   GIT_CONFIG_NOSYSTEM: '1',
 };
 
-/** A fresh objectui-shaped directory holding the REAL script and an old pin. */
+/**
+ * The pin script's stand-in: records its argv and whether OBJECTSTACK_ROOT reached
+ * it, writes a manifest naming the pin it read, and fails when STUB_FAIL is set.
+ */
+const PIN_STUB = `import fs from 'node:fs';
+fs.writeFileSync('build.called', JSON.stringify({ argv: process.argv.slice(2), standIn: 'OBJECTSTACK_ROOT' in process.env }));
+if (process.env.STUB_FAIL) process.exit(1);
+fs.writeFileSync('.objectstack-pin/spec/package.json', JSON.stringify({ name: '@objectstack/spec', pin: fs.readFileSync('.objectstack-sha', 'utf8').trim() }) + '\\n');
+`;
+
+/** A fresh objectui-shaped directory holding the REAL script, a stub pin script, an old pin and its manifest. */
 function makeObjectui(name: string): string {
   const dir = path.join(scratch, name, 'objectui');
   fs.mkdirSync(path.join(dir, 'scripts'), { recursive: true });
   fs.copyFileSync(SCRIPT, path.join(dir, 'scripts/bump-objectstack.sh'));
+  fs.writeFileSync(path.join(dir, 'scripts/objectstack-pin.mjs'), PIN_STUB);
+  fs.writeFileSync(path.join(dir, '.gitignore'), 'build.called\n');
   fs.writeFileSync(path.join(dir, '.objectstack-sha'), `${OLD_PIN}\n`);
+  fs.mkdirSync(path.join(dir, '.objectstack-pin/spec'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.objectstack-pin/spec/package.json'), '{"name":"@objectstack/spec","pin":"old"}\n');
   git(dir, 'init', '-q', '-b', 'main');
   git(dir, 'add', '.');
   git(dir, 'commit', '-q', '-m', 'init');
@@ -86,21 +104,30 @@ function makeObjectstack(name: string, { withOrigin = true } = {}) {
 }
 
 function bump(objectui: string, objectstack: string, ...args: string[]) {
+  return bumpWith({}, objectui, objectstack, ...args);
+}
+
+function bumpWith(env: Record<string, string>, objectui: string, objectstack: string, ...args: string[]) {
   return spawnSync('bash', [path.join(objectui, 'scripts/bump-objectstack.sh'), ...args], {
     cwd: objectui,
     encoding: 'utf8',
-    env: { ...GIT_ENV, OBJECTSTACK_ROOT: objectstack },
+    env: { ...GIT_ENV, OBJECTSTACK_ROOT: objectstack, ...env },
   });
 }
 
 const pinOf = (objectui: string) => fs.readFileSync(path.join(objectui, '.objectstack-sha'), 'utf8');
+/** How the stub pin script was called, or null when the bump never built. */
+const buildCall = (objectui: string) => {
+  const file = path.join(objectui, 'build.called');
+  return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null;
+};
 
 afterAll(() => {
   fs.rmSync(scratch, { recursive: true, force: true });
 });
 
 describe('scripts/bump-objectstack.sh (objectui#12957)', () => {
-  it('pins a readable commit on origin/main, with no warning, and commits only the pin', () => {
+  it('pins a readable commit on origin/main, with no warning, and commits the pin with its built manifests', () => {
     const { checkout, mainTip } = makeObjectstack('on-main');
     const objectui = makeObjectui('on-main');
     const r = bump(objectui, checkout, 'origin/main');
@@ -108,8 +135,23 @@ describe('scripts/bump-objectstack.sh (objectui#12957)', () => {
     expect(pinOf(objectui)).toBe(`${mainTip}\n`);
     expect(r.stdout).toContain('(on origin/main)');
     expect(r.stderr).not.toContain('NOT reachable');
+    // The pin was built, as the pin and not as a stand-in for the checkout read above.
+    expect(buildCall(objectui)).toEqual({ argv: ['build', '--write-manifests'], standIn: false });
     expect(git(objectui, 'log', '-1', '--format=%s')).toBe(`chore: bump objectstack to ${mainTip.slice(0, 12)}`);
-    expect(git(objectui, 'show', '--name-only', '--format=', 'HEAD')).toBe('.objectstack-sha');
+    expect(git(objectui, 'show', '--name-only', '--format=', 'HEAD').split('\n').sort()).toEqual(['.objectstack-pin/spec/package.json', '.objectstack-sha']);
+    expect(git(objectui, 'show', 'HEAD:.objectstack-pin/spec/package.json')).toContain(mainTip);
+  });
+
+  it('REFUSES when the build of the new pin fails, restores the old pin, and commits nothing', () => {
+    const { checkout } = makeObjectstack('build-fails');
+    const objectui = makeObjectui('build-fails');
+    const r = bumpWith({ STUB_FAIL: '1' }, objectui, checkout, 'origin/main');
+    expect(r.status).toBe(1);
+    expect(buildCall(objectui), 'the failure must come from the build, or this case tests nothing').not.toBeNull();
+    expect(r.stderr).toContain('REFUSING to bump');
+    expect(pinOf(objectui)).toBe(`${OLD_PIN}\n`);
+    expect(git(objectui, 'status', '--porcelain')).toBe('');
+    expect(git(objectui, 'log', '-1', '--format=%s')).toBe('init');
   });
 
   it('WARNS, and still pins, a readable commit that is not on origin/main', () => {
@@ -120,8 +162,8 @@ describe('scripts/bump-objectstack.sh (objectui#12957)', () => {
     expect(pinOf(objectui)).toBe(`${featureTip}\n`);
     expect(r.stderr).toContain(`objectstack pin ${featureTip.slice(0, 12)} is NOT reachable from origin/main`);
     expect(r.stderr).toContain('on local branches : feature');
-    expect(r.stdout).toContain('--no-commit: leaving .objectstack-sha unstaged');
-    expect(git(objectui, 'status', '--porcelain')).toBe('M .objectstack-sha');
+    expect(r.stdout).toContain('--no-commit: leaving .objectstack-sha and .objectstack-pin unstaged');
+    expect(git(objectui, 'status', '--porcelain').split('\n').map((l) => l.trim()).sort()).toEqual(['M .objectstack-pin/spec/package.json', 'M .objectstack-sha']);
   });
 
   it('says the question is UNANSWERED when the checkout has no origin/main', () => {
@@ -140,6 +182,7 @@ describe('scripts/bump-objectstack.sh (objectui#12957)', () => {
     const r = bump(objectui, checkout, 'no-such-ref');
     expect(r.status).toBe(1);
     expect(r.stderr).toContain("REFUSING to bump: 'no-such-ref' does not resolve");
+    expect(buildCall(objectui)).toBeNull();
     expect(pinOf(objectui)).toBe(`${OLD_PIN}\n`);
     expect(git(objectui, 'status', '--porcelain')).toBe('');
   });

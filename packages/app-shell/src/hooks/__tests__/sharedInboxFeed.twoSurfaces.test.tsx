@@ -367,13 +367,23 @@ afterEach(() => {
  * `id` before counting), degrading to 0 on 404 — the second addend BOTH badges
  * have always had, and the one rule #4329 deliberately leaves alone.
  */
+/**
+ * What the approvals route answers (objectui#13027): asked for a page
+ * (`limit`), the first `limit` rows plus the exact `total`; unpaged, every row
+ * and no `total` — the route's two shapes, so the fixture is the server's.
+ */
+function approvalsPage(rows: unknown[], url: string): { data: unknown[]; total?: number } {
+  const limit = new URL(url, 'http://localhost').searchParams.get('limit');
+  return limit == null ? { data: rows } : { data: rows.slice(0, Number(limit)), total: rows.length };
+}
+
 const approvalsPending = (ids: string[]) =>
   vi.stubGlobal(
     'fetch',
     vi.fn((url: unknown) =>
       Promise.resolve(
         String(url).includes('/api/v1/approvals/requests')
-          ? new Response(JSON.stringify({ data: ids.map((id) => ({ id })) }), { status: 200 })
+          ? new Response(JSON.stringify(approvalsPage(ids.map((id) => ({ id })), String(url))), { status: 200 })
           : new Response('{}', { status: 404 }),
       ),
     ),

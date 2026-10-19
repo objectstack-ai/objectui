@@ -22,7 +22,8 @@
  *   - `sideEffects: false` -> the bundler drops every module whose exports go
  *                             unused, including three live SDUI widget
  *                             registrations (`mcp:connect-agent`,
- *                             `cloud:onboarding-next`, `cloud:ai-model-status`)
+ *                             `cloud:onboarding-next` -- since retired,
+ *                             objectui#12954 -- `cloud:ai-model-status`)
  *                             that the barrel pulls in through BARE side-effect
  *                             imports. They fall to 0 chunks. Closed by
  *                             measurement in objectui#6535 / PR #6682.

@@ -3277,16 +3277,6 @@ const fr = {
     importAction: "Importer",
     dismiss: "Ignorer",
   },
-  cloudOnboarding: {
-    hintCreate: "Un environnement est une instance privée qui exécute vos applications, avec sa propre URL, sa base de données et son offre.",
-    hintReady: "Votre environnement est prêt — une instance privée qui exécute vos applications, avec sa propre URL, sa base de données et son offre.",
-    createEnvironment: "Créer votre environnement",
-    openWorkspace: "Ouvrir",
-    manageEnvironments: "Gérer les environnements",
-  },
-  cloudPlanStatus: {
-    current: "Offre actuelle",
-  },
   cloudWorkspaceTimezoneNotice: {
     seeded: "Le fuseau horaire de l’environnement a été défini sur {{zone}} d’après votre navigateur lors de sa création. Vous pouvez le modifier dans Paramètres → Localisation.",
   },
@@ -3410,6 +3400,12 @@ const fr = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    answer: {
+      showFull: 'Afficher toute la réponse',
+      collapse: 'Réduire',
+      expandTable: 'Agrandir',
+      exitExpandedTable: 'Fermer',
+    },
     tool: {
       aggregate_data: "Synthétiser les données",
       get_record: "Lire l’enregistrement",

@@ -3360,16 +3360,6 @@ const zh = {
     importAction: '导入',
     dismiss: '忽略',
   },
-  cloudOnboarding: {
-    hintCreate: '环境是运行你的应用的独立实例，有自己的网址、数据库和套餐。',
-    hintReady: '你的环境已就绪——它是运行你的应用的独立实例，有自己的网址、数据库和套餐。',
-    createEnvironment: '创建你的环境',
-    openWorkspace: '打开',
-    manageEnvironments: '管理环境',
-  },
-  cloudPlanStatus: {
-    current: '当前套餐',
-  },
   cloudWorkspaceTimezoneNotice: {
     seeded: '环境时区在创建时已按你的浏览器设为 {{zone}}，可在「设置 → 本地化」中修改。',
   },
@@ -3491,6 +3481,12 @@ const zh = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    answer: {
+      showFull: '展开全文',
+      collapse: '收起',
+      expandTable: '展开',
+      exitExpandedTable: '关闭',
+    },
     tool: {
       aggregate_data: '汇总相关数据',
       get_record: '读取这条记录',

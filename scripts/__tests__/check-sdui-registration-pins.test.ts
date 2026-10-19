@@ -236,7 +236,7 @@ describe('the real workspace', () => {
     expect(modulesRead).toBeGreaterThan(0);
     expect(keys.length, 'an empty key set makes every assertion in this gate vacuous').toBeGreaterThan(0);
     for (const control of RULED_CONTROLS) {
-      expect(keys, `${control} is one of the three registrations the 2026-08-29 ruling pins`).toContain(control);
+      expect(keys, `${control} is one of the registrations the 2026-08-29 ruling pins`).toContain(control);
     }
     // The derivation must point at the module it read the key from, or a drop
     // would be reported without saying which array entry promised it — and it

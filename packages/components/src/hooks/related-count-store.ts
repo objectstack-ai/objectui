@@ -338,6 +338,15 @@ async function fetchCount(
  * for this card's claim, joins a read in flight that asked for enough rows, or
  * reads itself and registers that read in flight for a badge to join.
  * Rejects when the read fails, so the card can show its error state.
+ *
+ * Contract: held rows are a HAND-OFF, not a cache. They are taken once (the
+ * first `fetchRows` that finds them removes them; a second call reads again),
+ * and they are dropped without being taken when the child object is
+ * invalidated (`invalidate` / `invalidateAll`, and the data-change bus that
+ * calls them), when the claim is released (`releaseRows`: the card unmounts or
+ * moves to a new scope), and when the read that fetched them was overtaken by
+ * either. The total is recorded in the store as `fetch` records it. A caller
+ * that must see data newer than the record open (a refresh) does not call this.
  */
 async function fetchRows(
   probe: ProbeFn,
@@ -369,6 +378,13 @@ async function fetchRows(
  * objectui#13010 — a rail card says, while it renders, that it will list the
  * first `limit` rows of this unfiltered related list. Idempotent, so a render
  * React repeats or discards claims nothing new.
+ *
+ * Contract: a claim reads nothing by itself. While it stands, a `fetch` of the
+ * same unfiltered (object, relField, parentId) key asks for the claimed rows
+ * (the largest `limit` claimed) with its count and holds them for one
+ * `fetchRows` to take. A probe with a declared filter never meets a claim. The
+ * claim stands until `releaseRows` (unmount or new scope) or `_reset`; an
+ * invalidation drops held rows but leaves the claim.
  */
 function claimRows(objectName: string, relField: string, parentId: string, limit: number): void {
   const k = key(objectName, relField, parentId);
@@ -379,6 +395,12 @@ function claimRows(objectName: string, relField: string, parentId: string, limit
 /**
  * objectui#13010 — the rail card is gone: its claim, the rows held for it and
  * the read it started itself are dropped, so nothing outlives the record open.
+ *
+ * Contract: call it with the key a `claimRows` named, when the card unmounts
+ * or moves to a new scope (another parent or other entries). Afterwards a
+ * `fetch` of that key asks for one row again, untaken held rows are gone, and
+ * a later `fetchRows` does not join a read the card started itself. A read a
+ * badge started stays in flight for the badges that joined it.
  */
 function releaseRows(objectName: string, relField: string, parentId: string): void {
   const k = key(objectName, relField, parentId);

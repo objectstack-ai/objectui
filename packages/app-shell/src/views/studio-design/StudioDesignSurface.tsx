@@ -1476,7 +1476,11 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       // same sink, renderer and wording every other write door on this surface
       // uses. A bare fetch had nothing to report THROUGH. Same move
       // PR objectui#10038 made for the two sibling call sites.
-      const payload = (await shellClient.publishPackageDrafts(packageId, options)) as {
+      // objectui#12929 — the sheet's options ride only when it gave some, so an
+      // unchecked publish is the very call it was before.
+      const payload = (await (options
+        ? shellClient.publishPackageDrafts(packageId, options)
+        : shellClient.publishPackageDrafts(packageId))) as {
         success?: boolean;
         outcome?: string;
         error?: { message?: string; details?: { issues?: unknown } };

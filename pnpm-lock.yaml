@@ -14,13 +14,13 @@ overrides:
   shell-quote@<1.8.4: ^1.8.4
   tmp@<0.2.6: ^0.2.6
   uuid@<11.1.1: ^11.1.1
-  '@objectstack/client': file:node_modules/.cache/objectstack/client
-  '@objectstack/core': file:node_modules/.cache/objectstack/core
-  '@objectstack/formula': file:node_modules/.cache/objectstack/formula
-  '@objectstack/lint': file:node_modules/.cache/objectstack/lint
-  '@objectstack/sdui-parser': file:node_modules/.cache/objectstack/sdui-parser
-  '@objectstack/spec': file:node_modules/.cache/objectstack/spec
-  '@objectstack/types': file:node_modules/.cache/objectstack/types
+  '@objectstack/client': file:.objectstack-pin/client
+  '@objectstack/core': file:.objectstack-pin/core
+  '@objectstack/formula': file:.objectstack-pin/formula
+  '@objectstack/lint': file:.objectstack-pin/lint
+  '@objectstack/sdui-parser': file:.objectstack-pin/sdui-parser
+  '@objectstack/spec': file:.objectstack-pin/spec
+  '@objectstack/types': file:.objectstack-pin/types
 
 patchedDependencies:
   '@radix-ui/react-focus-scope':
@@ -41,8 +41,8 @@ importers:
         specifier: workspace:*
         version: link:packages/test-support
       '@objectstack/spec':
-        specifier: file:node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       '@playwright/test':
         specifier: ^1.62.1
         version: 1.62.1
@@ -279,14 +279,14 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       '@objectstack/client':
-        specifier: file:../../node_modules/.cache/objectstack/client
-        version: file:node_modules/.cache/objectstack/client(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/client
+        version: file:.objectstack-pin/client(ai@7.0.65(zod@4.6.7))
       '@objectstack/lint':
-        specifier: file:../../node_modules/.cache/objectstack/lint
-        version: file:node_modules/.cache/objectstack/lint(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/lint
+        version: file:.objectstack-pin/lint(ai@7.0.65(zod@4.6.7))
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
@@ -423,8 +423,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       fumadocs-core:
         specifier: 16.15.4
         version: 16.15.4(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.8(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.18)(lucide-react@1.43.0(react@19.2.8))(next@16.3.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@26.2.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react-router@7.18.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(zod@4.6.7)
@@ -781,14 +781,14 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/formula':
-        specifier: file:../../node_modules/.cache/objectstack/formula
-        version: file:node_modules/.cache/objectstack/formula(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/formula
+        version: file:.objectstack-pin/formula(ai@7.0.65(zod@4.6.7))
       '@objectstack/lint':
-        specifier: file:../../node_modules/.cache/objectstack/lint
-        version: file:node_modules/.cache/objectstack/lint(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/lint
+        version: file:.objectstack-pin/lint(ai@7.0.65(zod@4.6.7))
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       '@sentry/react':
         specifier: ^10.70.0
         version: 10.70.0(react@19.2.8)
@@ -878,8 +878,8 @@ importers:
   packages/auth:
     dependencies:
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       better-auth:
         specifier: ^1.7.2
         version: 1.7.2(@opentelemetry/api@1.9.1)(better-sqlite3@12.9.0)(mongodb@7.2.0(socks@2.8.9))(next@16.3.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@26.2.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(vitest@4.1.10)
@@ -909,8 +909,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
@@ -977,8 +977,8 @@ importers:
         version: link:../types
     devDependencies:
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       '@types/react':
         specifier: 19.2.18
         version: 19.2.18
@@ -1013,8 +1013,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       '@radix-ui/react-accordion':
         specifier: ^1.2.20
         version: 1.2.20(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -1197,11 +1197,11 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/formula':
-        specifier: file:../../node_modules/.cache/objectstack/formula
-        version: file:node_modules/.cache/objectstack/formula(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/formula
+        version: file:.objectstack-pin/formula(ai@7.0.65(zod@4.6.7))
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
     devDependencies:
       '@object-ui/test-support':
         specifier: workspace:*
@@ -1256,11 +1256,11 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/client':
-        specifier: file:../../node_modules/.cache/objectstack/client
-        version: file:node_modules/.cache/objectstack/client(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/client
+        version: file:.objectstack-pin/client(ai@7.0.65(zod@4.6.7))
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
     devDependencies:
       '@object-ui/test-support':
         specifier: workspace:*
@@ -1299,8 +1299,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -1403,8 +1403,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -1444,8 +1444,8 @@ importers:
         version: link:../types
     devDependencies:
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       '@types/react':
         specifier: 19.2.18
         version: 19.2.18
@@ -1465,8 +1465,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
     devDependencies:
       '@types/react':
         specifier: 19.2.18
@@ -1628,8 +1628,8 @@ importers:
         specifier: workspace:*
         version: link:../test-support
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       '@types/react':
         specifier: 19.2.18
         version: 19.2.18
@@ -1670,8 +1670,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       '@radix-ui/react-slot':
         specifier: ^1.3.3
         version: 1.3.3(@types/react@19.2.18)(react@19.2.8)
@@ -1761,8 +1761,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -1831,8 +1831,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -1883,8 +1883,8 @@ importers:
         specifier: workspace:*
         version: link:../i18n
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -2008,8 +2008,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -2069,8 +2069,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -2139,8 +2139,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       '@tanstack/react-virtual':
         specifier: ^3.14.9
         version: 3.14.9(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -2276,8 +2276,8 @@ importers:
   packages/plugin-list:
     dependencies:
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -2490,8 +2490,8 @@ importers:
         specifier: workspace:*
         version: link:../test-support
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       '@types/node':
         specifier: ^26.2.0
         version: 26.2.0
@@ -2538,8 +2538,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -2608,8 +2608,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -2681,8 +2681,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -2746,8 +2746,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -2811,8 +2811,8 @@ importers:
         version: 1.0.7(tailwindcss@4.3.3)
     devDependencies:
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
@@ -2853,14 +2853,14 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
 
   packages/test-support:
     devDependencies:
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       '@types/node':
         specifier: ^26.2.0
         version: 26.2.0
@@ -2874,8 +2874,8 @@ importers:
   packages/types:
     dependencies:
       '@objectstack/spec':
-        specifier: file:../../node_modules/.cache/objectstack/spec
-        version: file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+        specifier: file:../../.objectstack-pin/spec
+        version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       zod:
         specifier: ^4.6.1
         version: 4.6.7
@@ -4239,26 +4239,26 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
-  '@objectstack/client@file:node_modules/.cache/objectstack/client':
-    resolution: {directory: node_modules/.cache/objectstack/client, type: directory}
+  '@objectstack/client@file:.objectstack-pin/client':
+    resolution: {directory: .objectstack-pin/client, type: directory}
     engines: {node: '>=22.0.0'}
 
-  '@objectstack/core@file:node_modules/.cache/objectstack/core':
-    resolution: {directory: node_modules/.cache/objectstack/core, type: directory}
+  '@objectstack/core@file:.objectstack-pin/core':
+    resolution: {directory: .objectstack-pin/core, type: directory}
     engines: {node: '>=22.0.0'}
 
-  '@objectstack/formula@file:node_modules/.cache/objectstack/formula':
-    resolution: {directory: node_modules/.cache/objectstack/formula, type: directory}
+  '@objectstack/formula@file:.objectstack-pin/formula':
+    resolution: {directory: .objectstack-pin/formula, type: directory}
 
-  '@objectstack/lint@file:node_modules/.cache/objectstack/lint':
-    resolution: {directory: node_modules/.cache/objectstack/lint, type: directory}
+  '@objectstack/lint@file:.objectstack-pin/lint':
+    resolution: {directory: .objectstack-pin/lint, type: directory}
     engines: {node: '>=22.0.0'}
 
-  '@objectstack/sdui-parser@file:node_modules/.cache/objectstack/sdui-parser':
-    resolution: {directory: node_modules/.cache/objectstack/sdui-parser, type: directory}
+  '@objectstack/sdui-parser@file:.objectstack-pin/sdui-parser':
+    resolution: {directory: .objectstack-pin/sdui-parser, type: directory}
 
-  '@objectstack/spec@file:node_modules/.cache/objectstack/spec':
-    resolution: {directory: node_modules/.cache/objectstack/spec, type: directory}
+  '@objectstack/spec@file:.objectstack-pin/spec':
+    resolution: {directory: .objectstack-pin/spec, type: directory}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       ai: ^7.0.0
@@ -4266,8 +4266,8 @@ packages:
       ai:
         optional: true
 
-  '@objectstack/types@file:node_modules/.cache/objectstack/types':
-    resolution: {directory: node_modules/.cache/objectstack/types, type: directory}
+  '@objectstack/types@file:.objectstack-pin/types':
+    resolution: {directory: .objectstack-pin/types, type: directory}
     engines: {node: '>=22.0.0'}
 
   '@open-draft/deferred-promise@2.2.0':
@@ -12344,33 +12344,33 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
 
-  '@objectstack/client@file:node_modules/.cache/objectstack/client(ai@7.0.65(zod@4.6.7))':
+  '@objectstack/client@file:.objectstack-pin/client(ai@7.0.65(zod@4.6.7))':
     dependencies:
-      '@objectstack/core': file:node_modules/.cache/objectstack/core(ai@7.0.65(zod@4.6.7))
-      '@objectstack/spec': file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+      '@objectstack/core': file:.objectstack-pin/core(ai@7.0.65(zod@4.6.7))
+      '@objectstack/spec': file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
     transitivePeerDependencies:
       - ai
 
-  '@objectstack/core@file:node_modules/.cache/objectstack/core(ai@7.0.65(zod@4.6.7))':
+  '@objectstack/core@file:.objectstack-pin/core(ai@7.0.65(zod@4.6.7))':
     dependencies:
-      '@objectstack/spec': file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
-      '@objectstack/types': file:node_modules/.cache/objectstack/types(ai@7.0.65(zod@4.6.7))
+      '@objectstack/spec': file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
+      '@objectstack/types': file:.objectstack-pin/types(ai@7.0.65(zod@4.6.7))
       zod: 4.6.7
     transitivePeerDependencies:
       - ai
 
-  '@objectstack/formula@file:node_modules/.cache/objectstack/formula(ai@7.0.65(zod@4.6.7))':
+  '@objectstack/formula@file:.objectstack-pin/formula(ai@7.0.65(zod@4.6.7))':
     dependencies:
       '@marcbachmann/cel-js': 8.0.0
-      '@objectstack/spec': file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+      '@objectstack/spec': file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
     transitivePeerDependencies:
       - ai
 
-  '@objectstack/lint@file:node_modules/.cache/objectstack/lint(ai@7.0.65(zod@4.6.7))':
+  '@objectstack/lint@file:.objectstack-pin/lint(ai@7.0.65(zod@4.6.7))':
     dependencies:
-      '@objectstack/formula': file:node_modules/.cache/objectstack/formula(ai@7.0.65(zod@4.6.7))
-      '@objectstack/sdui-parser': file:node_modules/.cache/objectstack/sdui-parser
-      '@objectstack/spec': file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+      '@objectstack/formula': file:.objectstack-pin/formula(ai@7.0.65(zod@4.6.7))
+      '@objectstack/sdui-parser': file:.objectstack-pin/sdui-parser
+      '@objectstack/spec': file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       sucrase: 3.35.1
@@ -12378,18 +12378,18 @@ snapshots:
     transitivePeerDependencies:
       - ai
 
-  '@objectstack/sdui-parser@file:node_modules/.cache/objectstack/sdui-parser': {}
+  '@objectstack/sdui-parser@file:.objectstack-pin/sdui-parser': {}
 
-  '@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))':
+  '@objectstack/spec@file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))':
     dependencies:
       pg-connection-string: 2.14.1
       zod: 4.6.7
     optionalDependencies:
       ai: 7.0.65(zod@4.6.7)
 
-  '@objectstack/types@file:node_modules/.cache/objectstack/types(ai@7.0.65(zod@4.6.7))':
+  '@objectstack/types@file:.objectstack-pin/types(ai@7.0.65(zod@4.6.7))':
     dependencies:
-      '@objectstack/spec': file:node_modules/.cache/objectstack/spec(ai@7.0.65(zod@4.6.7))
+      '@objectstack/spec': file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
     transitivePeerDependencies:
       - ai
 

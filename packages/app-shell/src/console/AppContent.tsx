@@ -45,7 +45,10 @@ import { CommandPalette } from '../chrome/CommandPalette.js';
 import { ErrorBoundary } from '../chrome/ErrorBoundary.js';
 import { LoadingScreen } from '../chrome/LoadingScreen.js';
 import { RedirectWithSplash } from '../chrome/RedirectWithSplash.js';
-import { ObjectNotFoundState, ObjectView } from '../views/ObjectView.js';
+import { ObjectView } from '../views/ObjectView.js';
+// objectui#13052 — on its own line: the line above is the eager-walk control
+// `scripts/__tests__/vite-declared-lazy-views.test.ts` reads verbatim.
+import { ObjectNotFoundState } from '../views/ObjectView.js';
 import { KeyboardShortcutsDialog } from '../chrome/KeyboardShortcutsDialog.js';
 import { OnboardingWalkthrough } from '../chrome/OnboardingWalkthrough.js';
 import { RouteFader } from '../chrome/RouteFader.js';

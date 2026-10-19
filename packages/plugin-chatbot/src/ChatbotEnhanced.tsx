@@ -575,6 +575,16 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
    */
   promptOverlaySlot?: React.ReactNode;
   /**
+   * Optional row rendered IN FLOW at the top of the prompt area, directly
+   * above the prompt input and inside the prompt's column. Unlike
+   * {@link promptOverlaySlot} it takes layout space: the conversation above
+   * shrinks to make room, so the row covers neither the input nor the last
+   * message (objectui#12978 — the host's standing pending-drafts bar, which
+   * used to float over the input's first line). Content that renders nothing
+   * takes no space: the row is hidden while it is empty.
+   */
+  promptHeaderSlot?: React.ReactNode;
+  /**
    * Fired on every keystroke in the prompt textarea (forwarded from the
    * AI Elements `PromptInputTextarea`). Lets callers drive a slash-command
    * palette without owning the textarea state.
@@ -1975,6 +1985,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
       onModelChange,
       headerSlot,
       promptOverlaySlot,
+      promptHeaderSlot,
       onInputChange,
       onToolApprove,
       toolApproveLabel = 'Approve',
@@ -4392,6 +4403,14 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
             isPlainSurface && 'mx-auto w-full max-w-2xl px-4 pb-4 sm:px-0',
           )}
         >
+          {/* objectui#12978 — in flow, so it pushes the conversation up instead
+              of covering the input; `empty:hidden` keeps a slot whose content
+              renders nothing from leaving a gap above the input. */}
+          {promptHeaderSlot ? (
+            <div className="mb-2 flex empty:hidden" data-testid="prompt-header-slot">
+              {promptHeaderSlot}
+            </div>
+          ) : null}
           {surfaceContextLabel ? (
             <div className="mb-1 flex" data-testid="surface-context-chip">
               <span

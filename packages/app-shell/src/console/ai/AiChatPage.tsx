@@ -2504,22 +2504,6 @@ export function ChatPane({
           </div>
         </div>
       ) : null}
-      {/* objectui#5694 — standing unpublished-changes affordance: floats above
-          the composer while the bound package has pending drafts, so the
-          publish entry point survives scrolling (the inline card button does
-          not). Same float idiom as ExcelImportBar above; renders nothing when
-          the count is 0 or the conversation is unbound.
-          objectui#12965 — not drawn in the package's own Studio. In the
-          copilot's right slot it floated over the composer's input line and
-          hid the placeholder, and there the Studio top bar's 变更 and 发布 and
-          the applied card's 查看变更并发布 are the ways to review and publish
-          (objectui#12725's ruled artboard draws no bar). The full-page chat
-          and the console dock keep it as it is. */}
-      {isBuildSurface && !onBoundPackageStudio ? (
-        <div className="pointer-events-none absolute bottom-20 left-0 right-0 z-20 flex justify-center px-4">
-          <PendingDraftsBar packageId={boundPackageId} idle={!isLoading} />
-        </div>
-      ) : null}
       {/* objectui#12725 — `min-w-0`: the column is a flex item, and a flex
           item's automatic minimum width is its content's min-content width.
           A tool card's one-line summary (`truncate`, nowrap) contributes its
@@ -2558,6 +2542,25 @@ export function ChatPane({
         surface="plain"
         maxHeight="100%"
         headerSlot={headerSlot}
+        // objectui#5694 — the standing unpublished-changes affordance: shown
+        // while the bound package has pending drafts, so the publish entry
+        // point survives scrolling (the inline card button does not). It
+        // renders nothing when the count is 0 or the conversation is unbound.
+        // objectui#12978 — a row of the composer's own area, in flow above the
+        // input. It used to float (`absolute bottom-20`) over the chat, and on
+        // the full-page chat that put it over the input's first line, hiding
+        // the placeholder and the first typed line; in flow, the conversation
+        // gives up the room instead, at every width, here and in the console
+        // dock, which mounts this same pane.
+        // objectui#12965 — not drawn in the package's own Studio: there the
+        // Studio top bar's 变更 and 发布 and the applied card's 查看变更并发布
+        // are the ways to review and publish (objectui#12725's ruled artboard
+        // draws no bar).
+        promptHeaderSlot={
+          isBuildSurface && !onBoundPackageStudio ? (
+            <PendingDraftsBar packageId={boundPackageId} idle={!isLoading} />
+          ) : undefined
+        }
         messages={runtimeMessages}
         placeholder={
           activeAgent

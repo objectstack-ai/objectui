@@ -100,7 +100,9 @@ describe('page:tabs probes from the named record, not the loaded row (objectui#1
 
   it('a tab whose item-level visibleWhen decides it waits for the record body', async () => {
     const ds = makeDS();
-    const overview = { visibleWhen: PRO_ONLY, children: [relatedList(OPEN_CHILD)] };
+    // A predicate that reads TRUE while the row is absent (`undefined != 'free'`)
+    // and decides the tab only once it lands.
+    const overview = { visibleWhen: "record.plan != 'free'", children: [relatedList(OPEN_CHILD)] };
     const { rerender } = render(tree(ds, undefined, overview));
     await settle();
     expect(ds.find).not.toHaveBeenCalled();

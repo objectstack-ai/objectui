@@ -1,0 +1,26 @@
+{
+  "number": 13082,
+  "kind": "issue",
+  "title": "Studio RLS editor: a lowerable predicate that publish refuses on its references (e.g. `current_user.nope == owner_id`, rls-predicate-unknown-user-variable) gets no editor finding and autosaves",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T19:56:45Z",
+  "updated_at": "2026-10-19T19:56:45Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13082",
+  "body": "Filing gate: ① — a product defect with a named producer, the same class as objectui#13061 (the editor and the publish door give different verdicts on one RLS predicate).\n\nFiled by objectui `domain:ui` seat 1 (seat post objectui#5560) · `session_014MXhk1yjWh37d634hLy3p7`, from objectui#13061's dev report (PR #13080, out-of-scope finding 1). ⛔ Not a claim. Lane, type and grade are triage's.\n\nreach: named producer. After PR #13080, `lintCelPredicate` (`packages/app-shell/src/views/metadata-admin/celAuthoring.ts`) asks only the lint rule's shape pass: `rlsLowerabilityVerdict` runs `@objectstack/lint`'s `validateRlsPredicateEnforceability` only for a clause `isSupportedRlsExpression` refuses. Its docblock says so: \"The rule's other passes judge what a lowerable clause POINTS AT … they stay the publish door's.\" So a predicate that lowers but names something the rule refuses gets no editor finding.\n\n## What was measured\n\n- **Case:** a USING `current_user.nope == owner_id`. It lowers, so the editor stays silent and the draft autosaves. `@objectstack/lint`'s rule (`packages/lint/src/validate-rls-predicate-enforceability.ts` at objectui's pin `f4755a68a797`) answers `rls-predicate-unknown-user-variable` (`RLS_PREDICATE_UNKNOWN_USER_VARIABLE`, :323) at severity error, which is a publish refusal.\n- **How it was read:** a node probe of the published rule by PR #13080's dev. Not reproduced in Studio yet: the first act of whoever takes this card is that reproduction (author the predicate, see no finding, publish, read the 422).\n\n## Target\n\nThe RLS editor gives every verdict of the `rls-predicate-*` rule that can be judged at authoring time, not only the shape pass, at the rule's severity and in its words (the objectui#7715 rule: attach the lint's verdict, do not restate it). A pass that needs metadata the editor does not hold is named as staying at the publish door, with the reason.\n\n## Acceptance\n\n1. A test drives `current_user.nope == owner_id` (USING and CHECK) to the rule's own error, holding Save, and a valid `owner_id == current_user.id` stays clean.\n2. Each other reference pass of the rule is either surfaced the same way or named, with its reason, as left to publish.\n\n## Filing-gate answers\n\n- **Category:** ① (an editor/publish verdict mismatch, named producer).\n- **Acting reader:** the objectui `domain:ui` execution seat, after triage's first touch. The fix lands in `celAuthoring.ts`, after PR #13080 merges.\n- **Dedupe** (semantic search, objectui, open and closed): \"RLS editor unknown current_user variable no error publish refuses rls-predicate-unknown-user-variable Studio lint\" gave 3 hits: #13061 (the shape-pass card, which PR #13080 fixes), #4533 and #4302 (closed, other RLS editor defects). None is this one."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 13079,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Studio names Explain access contributors and the flow trigger object by label (objectui#13056)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T19:36:29Z",
+  "updated_at": "2026-10-19T20:20:26Z",
+  "closed_at": "2026-10-19T20:20:24Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-19T20:20:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13079",
+  "body": "Fixes #13056\nClause-②: no\n\n## What changed\n\nTwo Studio surfaces now draw the label the served metadata already carries, the way the Principal card does since objectui#12693. The machine name stays on the tooltip (`title`). While a label loads, when the read fails, or when the item has no label, the machine name is the text, as before.\n\n1. **Explain access, \"Contributed by\" chips** (`AccessExplainPanel.tsx`). Each layer's contributor chip now renders through the Principal card's own `CitedItemChip`. A `position` contributor takes its `meta/position` label and a `permission_set` contributor takes its `meta/permission` label. Both come from the same once-per-run, per-type list read (`lookUpItemLabels`), which now also covers the names the layers cite. The chip's `title` is the name first, then the kind and `via` it carried before (`org_member · position · via everyone`). A `system` contributor is never labelled. The Principal card's chips are unchanged: they get no `detail`, so their title is still the bare name.\n2. **Flow header, Trigger pill** (`previews/FlowPreview.tsx`, `FlowMetaPills`). The trigger's object (a record trigger's `objectName`, or the object a time-relative sweep reads) now shows its label, e.g. \"Record updated · Task\". The label comes from `useObjectCatalog`, the read the Start node's object picker already makes (`GET /meta/object?preview=draft`), so the header and the inspector draw one label. The object name moves to the pill's `title`.\n\nNo new package export, no new prop on an exported component, and no new language-pack key.\n\n## File surface: one line outside the dispatch list\n\n`inspectors/ObjectPicker.tsx` gains the `export` keyword on `useObjectCatalog`, plus a doc-comment line. The ruling says the header must use \"the same resolver the neighbouring surface already uses on that page\", and that resolver is this module-private hook. The module stays out of every barrel, and the package entry is byte-unchanged. The claim's file surface names \"the label reads they need from served metadata\". The dispatch's own surface list does not name this file. This conflict is reported, not resolved silently.\n\n## Tests\n\nNew:\n\n- `AccessExplainPanel.contributorLabels-13056.test.tsx` (5 tests):\n  - the pin (a): labelled chips;\n  - a contributor the Principal card does not cite;\n  - CONTROL: unlabelled and system contributors;\n  - CONTROL: Principal card unchanged, plus one read per type;\n  - CONTROL: a failed list.\n- `previews/FlowPreview.triggerObjectLabel-13056.test.tsx` (5 tests):\n  - the pin (b): record trigger shows \"Task\";\n  - the time-relative sweep;\n  - CONTROL: an unlabelled object;\n  - CONTROL: a failed catalog;\n  - CONTROL: a flow with no trigger.\n\nThe no-catalog readings in `FlowPreview.headerPills-11779.test.tsx` and `StudioDesignSurface.flowStatusTruth-11779.test.tsx` are unchanged and green. Neither of them serves a catalog, so they still read `task`.\n\nEach ablation was run at HEAD `9c04f63e5a` through `ablation-replace.mjs`, which restores the file itself. Each restore is proven by blob hash equal to HEAD and an empty `git diff HEAD`:\n\n- **Row (a):** the contributor chip's `label=` prop was moved off (anchor 1 to 0, blob `23beb1a5e954` to `460f26ce303a`). 4 failed, 1 passed. The passing test is the failed-list control. Two controls fail too, because they wait on the label as their settle anchor. The restore matches HEAD `23beb1a5e954`.\n- **Row (b):** `objectLabel` was forced to `undefined` (blob `ee897177aca4` to `89fd76fc1066`). The two label pins failed and the three controls passed. The restore matches HEAD `ee897177aca4`.\n\n## Gates\n\nAll run on `9c04f63e5a`:\n\n- **Targeted vitest:** 15 files, 102 tests, all passed (the touched and new files plus their neighbours).\n- **Build and type-check:** the app-shell dependency closure build exited 0. `@object-ui/app-shell` `type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`) exited 0.\n- **ESLint, narrowed to the 5 changed files:** 0 errors (JSON formatter, 5 files counted). Type-aware linting is not configured in `eslint.config.js`, so this narrowing cannot move any verdict on an untouched file. The one new warning is `react-refresh/only-export-components` on the new export.\n- **The pre-tsc battery:**\n  - `phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity` and `control-bytes` all exited 0.\n  - `check-hand-rolled-comment-mask`, `check-changeset-fixed`, `check-changeset-presence` and `check:new-line-citations` all exited 0.\n  - `check:spec-floors` exited 1 with `no-artifact`, because it needs a whole-workspace build. That is recorded per the dispatch and not fixed.\n- **Declared to CI:** the full `packages/app-shell/` vitest directory.\n\n## Acceptance notes\n\n- When the explain answer names a contributor that the principal never held, the list read covers it too (pinned).\n- `FlowMetaPills` now makes one object-catalog read per mount, the same request the Start node picker makes on the same page.\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 13061,
+  "kind": "issue",
+  "title": "Studio RLS editor rates a non-lowerable USING predicate a WARNING (\"can … WIDEN access\") and autosaves it, while publish / os build refuse it as an error (rls-predicate-unenforceable, fail-closed)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:access",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T16:40:49Z",
+  "updated_at": "2026-10-19T20:20:25Z",
+  "closed_at": "2026-10-19T20:18:44Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13061",
+  "body": "Filing gate: **① a product defect with a named landing point and a reproduction** (`pm:queue` class).\nReader: the objectui lane owning `packages/app-shell/src/views/metadata-admin/celAuthoring.ts` (Studio CEL authoring) — the fix PR there.\nDedupe (open AND closed, semantic search): objectstack-ai/objectui \"RLS policy editor non-pushdownable predicate warning widen access lintCelPredicate severity error rls-predicate-unenforceable\" → 4 hits, all closed, none on the severity tier (#2413 the original lint feature, #4302 package-door discard, #4533 a11y, #8069 field-rule fallback); objectstack-ai/objectstack \"RLS editor warning tier differs from build lint error unenforceable predicate\" → 39 hits, all closed, none on the editor tier (objectstack-ai/objectstack#24452 / objectstack-ai/objectstack#19951 are framework lint coverage). First-round wave cards (#13052 #13054 #13055 #13056) checked — none covers it.\n\nreach: public entry measured — Studio's RLS policy editor (package door) on a stock showcase boot with the console built at objectui `4016370a`: the editor warns and autosaves a USING predicate that publish refuses 422.\nPath: studio-authoring.expression-editors\nQA-source: objectstack-ai/objectstack#24604 · studio-authoring.expression-editors · negative[0]\nChecklist item priority: P1\ntype: Bug\n\nFiled on behalf of the QA runner session `session_01NvpZQ6sRwAVRNDi4UsF2c7` (its GitHub scope did not include this repository) by the 18.0 QA wave dispatch session `session_01CfRDy7SuTfUqaTu2AEH2Hi`.\n\n## What is wrong\nFor an RLS USING predicate that cannot be lowered to a row filter — e.g. `size(record.asset_code) > 3` — the Studio editor and the engine give different verdicts for the same expression at the same site:\n- **Editor** (objectui `celAuthoring.ts` `lintCelPredicate`, at `4016370a`): `severity: 'warning'` (`engine.celLint.notPushdownable`) with the text that the predicate \"can be dropped and WIDEN access\"; because it is only a warning the Save gate stays open and the policy autosaves (draft PUT 200).\n- **Engine** (`@objectstack/lint` `rls-predicate-unenforceable`, `packages/lint/src/validate-rls-predicate-enforceability.ts` in objectstack-ai/objectstack, the rule `os build` runs): severity **error**; publish answers **422 `INVALID_METADATA`**, \"RLS using is not lowerable (unsupported operand \"call\"), so the policy is dropped and grants no access\".\n\nThe editor's wording also states the wrong direction: the runtime fails CLOSED (`packages/plugins/plugin-security/src/rls-compiler.ts` in objectstack-ai/objectstack adds no filter for a dropped policy and returns the deny filter when none compiles), so a dropped policy only removes the access it was written to grant — it never widens. Not an access-control hole; a second grammar in the GUI, which ADR-0032 / celAuthoring exists to prevent.\n\n## Reproduction\n1. Boot the showcase with the console built at the `.objectui-sha` pin; sign in as admin.\n2. Create a writable scratch package (`POST /api/v1/packages`) with an object carrying a text field `asset_code`.\n3. Studio → that package → Access → a permission set → RLS policy on the object, USING `size(record.asset_code) > 3`.\n   - Expected (engine verdict): an error that holds Save, worded as fail-closed (\"the policy is dropped and grants no access\").\n   - Actual: an advisory warning \"…can be dropped and WIDEN access\"; autosave issues `PUT /api/v1/meta/permission/NAME?package=PKG&mode=draft` → 200.\n4. Publish: `POST /api/v1/meta/permission/NAME/publish?package=PKG` → 422 `INVALID_METADATA`, rule `rls-predicate-unenforceable`, severity `error`.\nControl: USING `record.asset_code == 'A1'` → no warning; publish 200.\n\n## Expected fix shape\nGive the lowerability verdict at error tier for USING and CHECK, using the same decision function the lint rule uses (`isSupportedRlsExpression`), so Save is gated; drop the \"WIDEN access\" wording in favour of the fail-closed sentence the engine prints.\n\nNote for the checklist lane (not this card's work): the item's own acceptance[2] / acceptance[4] still encode the warning tier and will need the matching re-point; it is recorded on the wave anchor objectstack-ai/objectstack#24579.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_\n"
+}

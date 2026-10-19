@@ -1,0 +1,37 @@
+{
+  "number": 13058,
+  "kind": "pull_request",
+  "title": "fix(console): seed an option-list default on the public form page",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T15:13:18Z",
+  "updated_at": "2026-10-19T17:14:59Z",
+  "closed_at": "2026-10-19T17:14:57Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-19T17:14:57Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13058",
+  "body": "Fixes #13049\nClause-②: yes (`@object-ui/plugin-form` publishes `optionListDefault`, so the public form reads the one rule objectui#11914 put on the create form instead of a second copy)\n\n## What changed\n\n- **`apps/console` `FormPage.tsx` (`readPrefill`)** — the public `/f/:slug` page now seeds a field's option-list default (`options[].default: true`) by calling `@object-ui/plugin-form`'s `optionListDefault`, the same function the create form's `schemaDefaultValues` calls (objectui#11914). No hand-copied second reading. It reads the served object field (`RenderableField.meta`), whose options still carry the flag; the row's own `options` are normalized to value/label and have dropped it.\n- **Same precedence as the create form:**\n  - only when `defaultValue == null` (the engine's own presence test), so a literal `defaultValue` wins and a runtime `defaultValue` is never replaced by the flag;\n  - only on a create (no `record`), because the create form never seeds an edit form;\n  - a `prefill_FIELD` query value still outranks it;\n  - multi-valued fields (`isMultiValueField`) seed the array of marked options. That logic is inside `optionListDefault`.\n- **`packages/plugin-form`** — `optionListDefault` is exported from `schemaDefaults.ts` and published on the entry, with its parameter type `OptionListFieldLike` (`type` / `multiple` / `options`, all `unknown`), following objectui#7324's rule that a published function's parameter type is nameable. `schemaDefaultValues` / `seedCreateValues` stay withheld: the public page needed only the option-list reading, and the `defaultValue` gate is the caller's. The `index.tsx` note says why this one name is now published, and names its consumer.\n- **Published-surface listings updated:** `packages/plugin-form/README.md` (the entry import list, plus one paragraph under \"What a create form opens with\") and the entry pin `entrySurface-6059.test.tsx` (the `PUBLISHED` list, and a test that a field held under `OptionListFieldLike` flows through the function).\n- `.changeset/13049-public-form-option-default.md` — `@object-ui/plugin-form` `minor` and `@object-ui/console` `patch` (named explicitly per the contract review `6270745821`, following `.changeset/11092-flow-label-reader.md`). Round 2 also merged `main` (`952d6bff54`).\n\nNo server or spec change.\n\n## Pins (`apps/console/src/components/FormPage.optionDefault-13049.test.tsx`)\n\n- **SINGLE** — a required select whose options mark Low `default: true` (no `defaultValue`) renders with Low in the combobox. An untouched submit posts `priority: 'low'` with no \"Required:\" refusal.\n- **MULTI** — `select` + `multiple: true` with two marked options posts `['email', 'chat']`.\n- **CONTROLS**\n  - a literal `defaultValue: 'high'` wins over the flag;\n  - a CEL `defaultValue` is not replaced (the key is absent from the post);\n  - `?prefill_priority=medium` wins;\n  - with no marked option nothing is posted and \"Required: Priority\" fires;\n  - `readPrefill` with a record does not seed from the flag.\n\n## Ablations (on commit 052b82360b, through objectstack `scripts/ablation-replace.mjs`, wrap mode, restore proven by blob hash)\n\n1. Remove the call: `? optionListDefault(f.meta) : undefined;` becomes `? undefined : undefined;`. Blob 18fa75e7669a went to 5e2e42b01383. Red: SINGLE, MULTI, and the edit-form control (its create leg). The 4 other controls stayed green. Restore: blob equals HEAD (18fa75e7669a) and `git diff HEAD` is empty.\n2. Remove the `defaultValue == null` gate: `!record && f.defaultValue == null ? optionListDefault` becomes `!record ? optionListDefault`. Blob went to d990bc68b046. Red: the literal-`defaultValue` control and the runtime-`defaultValue` control. The 5 others stayed green. Restore: blob equals HEAD and `git diff HEAD` is empty.\n\n## Verification (head 052b82360b)\n\n- Closure build: `turbo run build --filter=@object-ui/console^...` → 34/34 successful.\n- `type-check` for `@object-ui/plugin-form` and `@object-ui/console` → exit 0. Both new and edited test files are in their tsc scope (counted with `--listFilesOnly`).\n- Targeted vitest (`--maxWorkers=1`) → 11 files / 187 tests passed. The files are the new pin, plus every `plugin-form` test that imports `schemaDefaults` or the entry (`entrySurface-6059`, `initialRecordMerge-9760`, `optionDefaultSeed-11914`, `parameterTypesNameable-7324`, `sectionGroupResolverPublished-8641`, `serverDefaultHint-12108`, `spec-symbol-4650`), plus the console's `FormPage.serverDefaults`, `FormPage.test.ts` and `FormPage.submit`.\n- Whole package directories are **declared to CI**. `packages/plugin-form/` with `--maxWorkers=1` under the shared lock hit its 500s timeout (exit 124, NOT MEASURED), and `apps/console/` was not run locally.\n- ESLint narrowed to the 5 changed lintable files: 0 errors. `FormPage.tsx` has 20 warnings, the same as its `origin/main` blob. Type-aware linting is not enabled in `eslint.config.js` (no `projectService` / `parserOptions.project`), so this diff cannot move the verdict on any untouched file.\n- Pre-tsc battery: every check below → exit 0.\n  - `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`\n  - `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`\n  - `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`\n  - `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`, `check-changeset-presence.mjs`, `check:new-line-citations`\n- `check:spec-floors` → exit 1 (`no-artifact`: it wants the whole workspace built). Recorded, not fixed, as the dispatch expected.\n\n## Acceptance notes\n\n- `normalizeOptions` in `FormPage.tsx` drops `default` from the row's options. That is why the seed reads `meta`, not `options`. No behaviour change beyond this card.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

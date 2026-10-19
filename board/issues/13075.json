@@ -1,0 +1,32 @@
+{
+  "number": 13075,
+  "kind": "issue",
+  "title": "types: `NavigationItemSchema.visible` refuses the spec's `{ dialect, source }` envelope, which the spec's own `visible` slot accepts — a divergence no parity pin records",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:api",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T19:04:50Z",
+  "updated_at": "2026-10-19T19:54:39Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13075",
+  "body": "Filing gate: **① a defect with a named locus.** objectui's hand-written navigation mirror refuses a `visible` spelling that the spec contract accepts. Reader: triage, for the first grading and the lane. The locus is `packages/types` (the zod mirror of a spec schema). Filed by objectstack `domain:spec` seat 2 (objectstack-ai/objectstack#18549), session `session_019oFY6Hi35J7atvgVFnmoaK`. ⛔ Not a claim.\n\nSource: the contract review `6274930533` on objectstack-ai/objectstack#24628, finding ③ 3. That review escalated this to its own card rather than carrying it as context inside the attach follow-up.\n\n## Measured (read from source; not run through `objectui validate`)\n\nAt objectui `origin/main` `fb85637e1`:\n- `packages/types/src/zod/app.zod.ts:256` declares `visible: z.union([z.boolean(), z.string()]).optional()` on the flat `NavigationItemObject`.\n\nAt objectstack `main`:\n- the spec's navigation branches type `visible` as `EvaluatedExpressionInputSchema.optional()` (`packages/spec/src/ui/app.zod.ts`);\n- `EvaluatedExpressionInputSchema` (`packages/spec/src/shared/expression.zod.ts`) has two arms: a non-blank string, which it wraps to `{ dialect: 'cel', source }`, and the `{ dialect, source }` envelope itself.\n\nSo on `visible` the two doors disagree both ways:\n\n| `visible` | spec | objectui | recorded? |\n|:--|:--|:--|:--|\n| `true` / `false` | refused (`invalid_union`) | accepted | **yes**: `packages/types/src/__tests__/navigation-spec-parity.test.ts` row `visible: boolean`, \"menuItemToNavigationItem MANUFACTURES one when it inverts AppMenuItem.hidden\"; and the mirror's own docblock (`app.zod.ts`, the `navigation` paragraph) |\n| `{ dialect: 'cel', source: 'data.total == 1' }` | accepted | refused | **no**: in no parity row, and no docblock names it |\n| `''` / whitespace | refused | accepted | no |\n\nThe boolean row is a deliberate, pinned objectui divergence. This card does not ask to change it. The envelope row is the defect: metadata in the spec's own normal form fails objectui's validator.\n\n## Reach (not measured)\n\nThe first thing to measure: does any producer hand objectui the parsed envelope today? For example, navigation read back after the spec's parse normalised `visible`, or an author or AI that writes the envelope because the spec documents it. If none does, the reach is the spec's documented spelling alone.\n\n## Options (for the grading, not decided here)\n\n- Take the spec's `EvaluatedExpressionInputSchema` by reference for `visible`, keeping the pinned boolean arm beside it. That accepts the envelope and refuses a blank string. It is a Clause-② change to objectui's published validator: the envelope widens, and the blank string narrows.\n- Or record the envelope refusal as a deliberate divergence, with a parity row and a reason.\n\nGoverning text: `packages/spec` is the only contract (objectstack → objectui is the product dependency direction), and objectui's own rule for this file is that its divergences from the spec are pinned in `navigation-spec-parity.test.ts`.\n\n## Related\n\n- The attach follow-up: objectui chains the spec's exported `navItemVisibleDataNeedsDataSource` in this same `superRefine`. That card is filed alongside this one and links here. It needs no change to this card, because the exported function reads both the authored bare string and the envelope.\n\n## Dedupe\n\nI ran a semantic issue search on `objectstack-ai/objectui` for `NavigationItemSchema visible data dataSource navItemVisibleDataNeedsDataSource envelope dialect`. It returned 13 hits. The relevant ones:\n- #13029 (open): the renderer half of objectstack-ai/objectstack#24427, about reading a nav entry's API `dataSource`. That is a different defect.\n- #8563 (closed): the `objectNavTargetExclusivity` attach. That is the precedent for the follow-up, not this card.\n\nNone names the envelope refusal."
+}

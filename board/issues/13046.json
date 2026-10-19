@@ -14,18 +14,20 @@
     "area:api",
     "bug",
     "domain:ui",
-    "pm:queue",
+    "pm:dispatched",
     "priority:p1"
   ],
-  "assignees": [],
+  "assignees": [
+    "baozhoutao"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-19T12:16:45Z",
-  "updated_at": "2026-10-19T12:36:33Z",
+  "updated_at": "2026-10-19T19:57:49Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 1,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13046",
   "body": "Filed by the `repo:cloud#2` seat (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`) from objectstack-ai/cloud#2914 round 6 (dev report `6266910210`). ⛔ Not a claim: the objectui lane dispatches it.\n\n**How it was measured:**\n- The rig ran cloud `eca60c38` (framework `fb9c22aa`, objectui `47508f3b`) on `run-stack --prod-like --with-ui --seed`.\n- The subject was an ordinary organization owner. Each page got one warm-up, then 8 full warm opens, counted from the page's performance entries.\n- Producers were found from CDP initiator stacks, mapped through a hidden-sourcemap build that is byte-identical to the served console.\n- The maintainer's staging reading `6265264751` shows the same duplicate paths.\n\n## What was measured (8/8 opens)\n\n`GET /api/v1/meta/object`, the whole registry (751,603 bytes, 110 objects), is read before the first paint on two cloud control-plane pages:\n\n- **The 环境 list** (the sidebar's second item; the read spans 921–1030 ms of a 1290 ms splash on the rig).\n  - `console/appObjectScope.ts:292` first asks `meta/object?package=com.objectstack.cloud` (via `console/ConsoleShell.tsx:101` and `providers/MetadataProvider.tsx:950`). That answers 0 objects in 28 bytes, on every page.\n  - So `appObjectScope.ts:294` falls back to the whole registry: `providers/MetadataProvider.tsx:802`, read by `console/AppContent.tsx:420`.\n  - It falls back because the `cloud_control` app's package (cloud `packages/app-cloud/src/index.ts:17`) holds none of the objects it shows. `sys_environment` is in `com.objectstack.service-tenant`; `sys_member`, `sys_organization` and `sys_invitation` are in `com.objectstack.plugin-auth`. That is cloud's one-app-package pattern, not an authoring error.\n- **An environment's record page.** A record route reads the whole registry by design (`appObjectScope.ts`'s header: related lists from every object that points at the record's object).\n\nobjectstack-ai/cloud#2914's Target 3 asks that the whole-registry call is not on the open path. It holds on cloud's page routes (pricing, home, 成员), which scope through `pageObjectNames`. The card's first staging reading had this call at 5.7 s.\n\n## Target\n\nWhen an app's package holds none of its objects, scope an object route by name: the route's object, its lookup targets and `requiresObject` entries. On a record route whose record page is declared, read the objects that page binds, the way page routes already do.\n\nobjectui chose the whole registry for Setup's shape on purpose (by-name reads measured costlier on HotCRM), so the rule needs a measured criterion. ⛔ Do not regress Setup.\n\n## Acceptance\n\n- A full open of cloud's 环境 list and of an environment record reads no `meta/object` without a name before the first paint.\n- Setup's and HotCRM's opens are measured before and after, with no regression.\n- Tests for the scope rule, with an ablation."

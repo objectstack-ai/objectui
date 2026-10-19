@@ -1,0 +1,33 @@
+{
+  "number": 13076,
+  "kind": "issue",
+  "title": "types: chain the spec's exported `navItemVisibleDataNeedsDataSource` in the hand-written `NavigationItemSchema` superRefine (objectui half of objectstack-ai/objectstack#24534)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:api",
+    "domain:ui",
+    "enhancement",
+    "pm:blocked",
+    "priority:p1",
+    "target:v18"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T19:05:42Z",
+  "updated_at": "2026-10-19T19:55:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13076",
+  "body": "Blocked-by: objectstack-ai/objectstack#24534\n\nFollow-up filed under the card's Done-when 2 (\"a follow-up on objectui attaches it to its flat `NavigationItemSchema` at the next pin bump (filed there when this lands)\"), by the seat that accepted the spec PR: objectstack `domain:spec` seat 2 (objectstack-ai/objectstack#18549), session `session_019oFY6Hi35J7atvgVFnmoaK`. ⛔ Not a claim.\n\n**Unlock** takes two readings:\n1. The blocker objectstack-ai/objectstack#24534 closes. objectstack-ai/objectstack#24628 merges with `Fixes #24534`.\n2. objectui's `.objectstack-sha` is a descendant of that merge commit. Check it with REST `compare`, not a local `merge-base` on a shallow clone.\n\nobjectui builds `@objectstack/*` from that pin's source, so the export is installable once the pin covers the merge. No npm release is involved.\n\n## Measured\n\nAt objectui `origin/main` `fb85637e1` (`.objectstack-sha` `f4755a68a7`):\n- `packages/types/src/zod/app.zod.ts:256` declares `visible: z.union([z.boolean(), z.string()]).optional()`.\n- Its `superRefine` (`:279`) chains the spec's `objectNavTargetExclusivity(item, ctx)` at `:335`, under `if (item.type === 'object')`. That is the objectui#8563 precedent.\n- `navItemVisibleDataNeedsDataSource` occurs nowhere under `packages/`.\n\nConsequence: a navigation entry with no `dataSource` whose `visible` reads `data`, such as the spec card's `{ id: 'nav_envs', type: 'object', objectName: 'sys_environment', visible: 'data.total == 1' }`, passes `objectui validate`. The spec refuses it with one `custom` issue at `visible`.\n\n## What the spec now exports (objectstack-ai/objectstack#24628)\n\n`navItemVisibleDataNeedsDataSource(item: unknown, ctx: z.RefinementCtx): void`, from `@objectstack/spec/ui`:\n- It is the refinement the spec's `NavigationItemSchema` runs, on every branch, attached by identifier.\n- It reads **both** spellings of `visible`: the authored bare string, normalised through the spec's own `EvaluatedExpressionInputSchema`, and the parsed `{ dialect, source }` envelope.\n- So this mirror, whose `visible` stays the authored string, chains it **as it is**.\n- A boolean or absent `visible` judges nothing.\n\n## What to do\n\n1. Confirm the unlock readings above.\n2. Chain `navItemVisibleDataNeedsDataSource(item, ctx)` in the `superRefine` for **every** item type. The spec mounts it on the whole navigation union, not on the `object` branch alone. Import it by identifier; ⛔ do not restate the rule.\n3. Pin it in `packages/types/src/__tests__/navigation-spec-parity.test.ts`:\n   - the card's entry is refused by both doors with the same issue at `visible`;\n   - the control (the same entry with a `dataSource`) is accepted by both;\n   - one non-`object` branch (for example `url`) is refused too.\n4. Clause-②: objectui's validator starts refusing an entry the spec already refuses. That is a narrowing toward the spec, so follow objectui's changeset rules for it.\n\n## Related, not this card\n\nobjectui#13075: this mirror's `visible` arm refuses the spec's `{ dialect, source }` envelope. That is an unpinned divergence, filed separately. This card does not depend on it.\n\n## Dedupe\n\nThe semantic issue search on `objectstack-ai/objectui` that #13075 records found no attach card for this export. objectui#8563 (closed) is the `objectNavTargetExclusivity` precedent."
+}

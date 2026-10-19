@@ -2,8 +2,8 @@
   "number": 13052,
   "kind": "issue",
   "title": "console: a deep link to an object of a disabled package hangs forever on the \"Opening your console…\" splash — `isMetaItemAbsentError` does not read `404 OBJECT_PACKAGE_DISABLED` as an answered absence, and the first-paint gate has no exit",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:api",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p1"
   ],
-  "assignees": [],
+  "assignees": [
+    "baozhoutao"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-19T13:44:49Z",
-  "updated_at": "2026-10-19T14:15:58Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-19T19:53:32Z",
+  "closed_at": "2026-10-19T19:42:16Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13052",
   "body": "Filing gate: ① — product defect with a named location and a reproduction (QA-measured).\n\nPath: platform-core.package-lifecycle-enable-disable (objectstack checklist item, priority P1) — the item fails on this clause, so triage inherits its priority.\nType: Bug (prefilled — violates the console's declared \"named not-found inside the shell, never a dead page\" behaviour that the same build honours for an unknown object)\nQA-source: objectstack-ai/objectstack#24557 · platform-core.package-lifecycle-enable-disable · acceptance[5]\n\nreach: measured once through the public UI — `/_console/apps/showcase_app/qaprobe_widget` after `PATCH /api/v1/packages/com.qa.probe/disable` stays on the full-page \"ObjectOS · Opening your console…\" splash for 60 s+ (framework 5b14b7f3, console pin 4016370a); reproduced 2/2 by the runner and 2/2 by an independent verifier.\n\n## What happens\n\nA deep link to an object whose owning package has been **disabled** never leaves the boot splash: no app chrome, no not-found, no error, no retry. The server answers correctly and promptly (`404 OBJECT_PACKAGE_DISABLED`, a registered ADR-0112 code declared for exactly this case), but the console treats that answer as \"no answer obtained\" and its first-paint gate waits forever.\n\nControl in the same build: an object that does not exist (`/_console/apps/showcase_app/no_such_object_xyz`) gets `404 RESOURCE_NOT_FOUND` and renders a named \"Object Not Found\" inside the Showcase shell.\n\n## Reproduction\n\n1. Boot the objectstack showcase (`objectstack dev --ui --seed-admin`); `POST /api/v1/auth/sign-in/email {\"email\":\"admin@objectos.ai\",\"password\":\"admin123\"}`.\n2. `POST /api/v1/packages {\"manifest\":{\"id\":\"com.qa.probe\",\"name\":\"QA Probe\",\"version\":\"0.1.0\",\"type\":\"app\",\"namespace\":\"qaprobe\"}}` → 201.\n3. `PUT /api/v1/meta/object/qaprobe_widget?mode=draft&package=com.qa.probe {\"name\":\"qaprobe_widget\",\"label\":\"QA Widget\",\"sharingModel\":\"public_read_write\",\"fields\":{\"name\":{\"type\":\"text\"}}}` → 200; `POST /api/v1/packages/com.qa.probe/publish-drafts {}` → 200.\n4. `PATCH /api/v1/packages/com.qa.probe/disable {}` → 200. Now `GET /api/v1/meta/object/qaprobe_widget` → `404 {\"error\":\"Object 'qaprobe_widget' belongs to a disabled package and is not being served. …\",\"code\":\"OBJECT_PACKAGE_DISABLED\"}`.\n5. Sign in at `/_console/login`, open `/_console/apps/showcase_app/qaprobe_widget`.\n   - expected: the Showcase shell with a named not-found (ideally \"this object's package is disabled\") state.\n   - actual: the boot splash, indefinitely. Network: two `GET /api/v1/meta/object/qaprobe_widget` → 404 `OBJECT_PACKAGE_DISABLED`, then silence.\n\n## Mechanism (read at the pin 4016370a; objectui main 61ed5ada is identical)\n\n1. The deep link reads the app's object scope; `qaprobe_widget` is not in the scope list, so it is fetched by name via `fetchScopeName` (`packages/app-shell/src/providers/MetadataProvider.tsx`).\n2. `readItem`'s catch returns `failed: !isMetaItemAbsentError(err)`; `isMetaItemAbsentError` (`packages/data-objectstack/src/index.ts`) matches only `RESOURCE_NOT_FOUND`, so `OBJECT_PACKAGE_DISABLED` is classed `failed`.\n3. On a failed read `fetchScopeName` drops the name without a re-render (deliberate, objectui#13009) and the scope stays `settled: false`.\n4. `routeReadsSettled` (`packages/app-shell/src/console/AppContent.tsx`) never becomes true, so the first-paint gate keeps rendering `LoadingScreen` — no exit, no error state.\n\nDiscriminator (Playwright response rewrite, status kept at 404): a wrapped `{\"error\":{\"code\":\"OBJECT_PACKAGE_DISABLED\"}}` body still hangs; a body with code `RESOURCE_NOT_FOUND` (flat or wrapped) renders the named not-found. The **code value** decides, not the envelope shape — so this is not fixable by changing the framework's envelope, and changing the code would contradict the framework's declared `OBJECT_PACKAGE_DISABLED` contract.\n\nFix direction (for the implementer to decide): read `OBJECT_PACKAGE_DISABLED` as an answered absence (best with a named \"package disabled\" state in the shell), and/or give the first-paint gate an exit on a definite 4xx by-name read so no future refusal code can hang it.\n\n## Filing-gate answers\n\n- Category: ① (QA-measured product defect, named location, reproduction above).\n- Acting reader: the objectui console / app-shell lane dev — the change is in `packages/data-objectstack` (`isMetaItemAbsentError`) and/or `packages/app-shell` (`MetadataProvider.tsx` / `AppContent.tsx`).\n- Duplicate search (open AND closed), objectui: \"console stuck on Opening your console splash deep link object of disabled package OBJECT_PACKAGE_DISABLED isMetaItemAbsentError\" → 3 hits (#12285, #12335, #11645 — none this defect); \"first paint splash never ends by-name object read failed fetchScopeName routeReadsSettled loading screen forever\" → 2 hits (#12809, #11331 — none this defect). objectstack: \"OBJECT_PACKAGE_DISABLED error envelope flat body console hangs deep link disabled package object\" → 2 hits (#23505, #22817 — none).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_\n"

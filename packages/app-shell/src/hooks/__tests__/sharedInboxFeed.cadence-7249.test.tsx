@@ -128,6 +128,13 @@ const fakeAdapter = {
     if (object === 'sys_inbox_message') return Promise.resolve({ data: inboxRows });
     return Promise.resolve({ data: [] });
   },
+  // objectui#13044 — the real MetadataProvider reads an object by name through
+  // the adapter's `getObjectSchema`; this double answers it from its own by-name door.
+  getObjectSchema(this: { getClient(): any }, name: string) {
+    return this.getClient()
+      .meta.getItem('object', name)
+      .then((res: any) => (res && typeof res === 'object' && 'item' in res ? res.item : res));
+  },
   getClient: () => undefined,
 };
 vi.mock('../../providers/AdapterProvider', () => ({ useAdapter: () => fakeAdapter }));

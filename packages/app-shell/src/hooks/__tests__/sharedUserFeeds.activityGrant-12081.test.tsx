@@ -64,6 +64,13 @@ const fakeAdapter = {
     // The server narrows the rows per caller, so each user gets their own.
     return readError ? Promise.reject(readError) : Promise.resolve({ data: [rowFor(who)] });
   },
+  // objectui#13044 — the real MetadataProvider reads an object by name through
+  // the adapter's `getObjectSchema`; this double answers it from its own by-name door.
+  getObjectSchema(this: { getClient(): any }, name: string) {
+    return this.getClient()
+      .meta.getItem('object', name)
+      .then((res: any) => (res && typeof res === 'object' && 'item' in res ? res.item : res));
+  },
   getClient: () => undefined,
 };
 vi.mock('../../providers/AdapterProvider', () => ({ useAdapter: () => fakeAdapter }));

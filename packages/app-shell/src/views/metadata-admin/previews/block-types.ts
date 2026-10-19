@@ -240,12 +240,9 @@ export const PALETTE_EXCLUSIONS: Record<string, string> = {
   'record:approvals': 'renders (registered by `@object-ui/app-shell`), not yet offered: `@objectstack/spec` 18 added the type, and offering it in the palette is a Studio decision the version bump does not make',
   'record:attachments': 'renders (registered by `@object-ui/app-shell`), not yet offered: `@objectstack/spec` 18 added the type, and offering it in the palette is a Studio decision the version bump does not make',
   'record:approval_decision': 'renders (registered by `@object-ui/app-shell`), not yet offered: `@objectstack/spec` 18 added the type, and offering it in the palette is a Studio decision its registration does not make',
-  //
-  // `@objectstack/spec` 18.0.0-next.3 added `record:json` (objectstack#23745) for
-  // the approval request page's raw-payload panel. The maintainer dropped that
-  // face before objectui built it (objectui#12490), so nothing here registers
-  // the type, and it is filed for retirement upstream (objectstack#24162).
-  'record:json': 'not rendered by objectui: `@objectstack/spec` 18.0.0-next.3 added it for a raw-payload panel the maintainer dropped (objectui#12490), so nothing registers it, and it is filed for retirement upstream (objectstack#24162)',
+  // `record:json` stood here from 18.0.0-next.3 until the spec retired it
+  // (objectstack#24162): it is no longer a `PageComponentType`, so it needs no
+  // exclusion (objectui#12971).
 };
 
 /**

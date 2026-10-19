@@ -662,6 +662,22 @@ const MINOR_17_6_BLOCKS = ['record:line_items'];
 /** Does the spec this tree resolves carry the 17.6.0 set? `every`, for the reason `specCarriesGaBlocks` gives. */
 const specCarries176Blocks = MINOR_17_6_BLOCKS.every((type) => type in ComponentPropsMap);
 
+/**
+ * The one block the objectstack `main` pin after 18.0.0-next.3 newly carries
+ * (objectui#12971): the map went from 60 entries to 61 when `list-view` gained
+ * its row (objectstack#22444, landed as `194a42d1f7`), the list view's own
+ * schema. `@object-ui/plugin-list` registers it eagerly with `inputs`, so this
+ * file JUDGES it from that pin on.
+ *
+ * Same shape as `MINOR_17_6_BLOCKS`: this repo registered the block with
+ * `inputs` before the spec described it, so what moved at the bump is the
+ * SPEC's side. It enters `covered` the moment the installed spec carries it.
+ */
+const MINOR_18_MAIN_BLOCKS = ['list-view'];
+
+/** Does the spec this tree resolves carry the post-next.3 set? `every`, for the reason `specCarriesGaBlocks` gives. */
+const specCarries18MainBlocks = MINOR_18_MAIN_BLOCKS.every((type) => type in ComponentPropsMap);
+
 const EXPECTED_COVERED = [
   ...PINNED_EXPECTED_COVERED,
   ...LAZY_REGISTERED_BLOCKS,
@@ -670,6 +686,7 @@ const EXPECTED_COVERED = [
   ...(specCarries175Blocks ? MINOR_17_5_BLOCKS : []),
   ...(specCarries175LoadedBlocks ? MINOR_17_5_LOADED_BLOCKS : []),
   ...(specCarries176Blocks ? MINOR_17_6_BLOCKS : []),
+  ...(specCarries18MainBlocks ? MINOR_18_MAIN_BLOCKS : []),
 ].sort();
 
 /**
@@ -974,7 +991,7 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'global:notifications':
     'EMPTY SPEC SHAPE. Same shape and same reasoning as `app:launcher` above: `app-shell/src/views/global-notifications-renderer.tsx` registers it propless because the spec shape is empty, and that registration is not in this file\'s import graph. objectui#8176.',
   'marketplace:installed-list':
-    'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Not registered here since objectui#12733: objectstack#23933 stopped serving the one page that rendered it, and the list that page led to is Setup → Packages filtered to Marketplace, whose rows carry its actions (`MarketplaceRowActions.installedAppsPins.test.tsx`). The empty shape is the load-bearing half either way; the spec retiring the type makes this entry RETIRED UPSTREAM. objectui#7122, objectui#12733, ledger objectui#8176.',
+    'RETIRED UPSTREAM. Retired by name on the objectstack `main` pin after `@objectstack/spec` 18.0.0-next.3 (objectstack#24255, landed as `14a8bd2693`): out of `PageComponentType`, named in `RETIRED_PAGE_COMPONENT_TYPES`, and its row `retiredComponentProps` — a `never` that refuses every props bag, `{}` included, with a message that names Setup → Packages filtered to Marketplace as the Installed Apps list — so there is no authoring surface for either direction to judge. Until that pin it stood here as EMPTY SPEC SHAPE, unregistered since objectui#12733. objectui#12971, ledger objectui#8176.',
   'mcp:connect-agent':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/connect/ConnectAgentWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
   'record:approval_decision':
@@ -984,7 +1001,7 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'record:attachments':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 18 (objectui#12030), which declares it with no top-level key at all. Registered by `@object-ui/app-shell` (`src/views/record-attachments-renderer.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way, exactly as for `app:launcher` above. objectui#12030, ledger objectui#8176.',
   'record:json':
-    'NOT REGISTERED, DELIBERATELY. New in `@objectstack/spec` 18.0.0-next.3 (objectstack#23745, landed as `97b8e7a51d`) for the approval request page\'s raw-payload panel, which objectui#12490 was to render. The maintainer then dropped that face (pointer 6232139151 on objectui#12490: no business need for an approver to read JSON), so no renderer is built, the served-page edit closed unmerged, and the type is filed for retirement upstream (objectstack#24162). Registering it forces this entry out; the spec retiring it makes this entry RETIRED UPSTREAM. objectui#12873, ledger objectui#8176.',
+    'RETIRED UPSTREAM. Retired by name on the objectstack `main` pin after `@objectstack/spec` 18.0.0-next.3 (objectstack#24162, landed as `030a7b83e8`), the only release that declared it: out of `PageComponentType`, named in `RETIRED_PAGE_COMPONENT_TYPES`, and its row `retiredComponentProps` — a `never` that refuses every props bag, `{}` included — so there is no authoring surface for either direction to judge. Until that pin it stood here as NOT REGISTERED, DELIBERATELY: the maintainer dropped the approval request page\'s raw-payload panel it was declared for (pointer 6232139151 on objectui#12490). objectui#12873, objectui#12971, ledger objectui#8176.',
   // The fourth class, and the only one that is not mechanically "unjudgeable":
   // OWED. The 17.5.0 bump booked four blocks here — new in that spec, registered
   // with `registerLazy` by the console (`register-plugins.ts`) and not loaded by
@@ -2701,7 +2718,8 @@ interface MemberPin {
 
 /**
  * The member pins objectui#11168 slice 1 registered for the array/object-armed
- * keys `action:button` and `action:icon` publish. ONE file drives both blocks
+ * keys `action:button` and `action:icon` publish (`patch` left with the input,
+ * which the spec retired on a row, objectui#12971). ONE file drives both blocks
  * through the same rows (`describe.each`), so each key's claim is identical on
  * the two and is written once here; `actionLeafMemberPins` spells it out per
  * block, so every id below still names its block and its key.
@@ -2719,8 +2737,6 @@ const ACTION_LEAF_MEMBER_CLAIMS: Record<string, string> = {
     'Members are request-body fields, merged into the body the runner\'s built-in `api` executor sends, LAST: a member overrides a static `properties.params` value of the same name while the other static values survive; without the key the body is the static values alone (objectui#11168 slice 1).',
   bodyShape:
     'The `object` arm\'s one member is `wrap`: `{ wrap: \'data\' }` nests the static values under `data` with `bodyExtra` riding flat beside it, while `flat` and an absent key send the same flat body — asserted on the body the runner\'s built-in `api` executor sends (objectui#11168 slice 1).',
-  patch:
-    'Members are field values for `operation: update`, merged UNDER the supplied values on the way to the write route (the `script` dispatch the runner hands an update to): a member the user also supplies loses, a member only `patch` carries is written, and the same `patch` without `operation` is merged by nothing (objectui#11168 slice 1).',
   locations:
     'Members are placement names, read at dispatch by `@object-ui/core`\'s `createServerActionHandler` (the console\'s `script` handler is built on it): a list carrying a record-scoped member (`record_header`) refuses to run with no record or selection in scope — an error toast and no request — while an object-level list (`list_toolbar`) runs (objectui#11168 slice 1).',
   toast:
@@ -4602,8 +4618,15 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       // one new block, `record:json`, which this repo deliberately does not
       // register (its ledger entry says why), so it is ledgered (12 -> 13).
       // `judged` and `registeredPropless` do not move. 40 + 7 + 13 = 60.
-      specCarried: 60,
-      judged: 40,
+      //
+      // 60 -> 61 on the objectstack `main` pin after 18.0.0-next.3
+      // (objectui#12971): one new row, `list-view`, registered eagerly with
+      // `inputs`, so it is judged (`MINOR_18_MAIN_BLOCKS`, 40 -> 41). The same
+      // pin retires `record:json` and `marketplace:installed-list`, whose rows
+      // stay as refusal doors and whose ledger entries now read RETIRED
+      // UPSTREAM, so `ledgeredUnjudgeable` does not move. 41 + 7 + 13 = 61.
+      specCarried: 61,
+      judged: 41,
       registeredPropless: 7,
       ledgeredUnjudgeable: 13,
     });
@@ -5285,6 +5308,14 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       ['element:record_picker', 'filter'],
       ['element:record_picker', 'sort'],
       ['element:record_picker', 'limit'],
+      // Two more, harvested at the objectstack `main` pin after 18.0.0-next.3
+      // (objectui#12971): objectstack#24394 retired a page action row's own
+      // `patch` (the row runs the declared action its `name` names, whose
+      // `patch` the route writes). These two were PUBLISHED, not exempted, so
+      // the forward direction is what turned red, and the registry stopped
+      // publishing them in the same change.
+      ['action:button', 'patch'],
+      ['action:icon', 'patch'],
     ];
 
     for (const [type, key] of HARVESTED) {

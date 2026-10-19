@@ -79,10 +79,14 @@ import '../action-icon';
 const BLOCKS = ['action:button', 'action:icon'] as const;
 type Block = (typeof BLOCKS)[number];
 
-/** The spec keys slice 1 published on both blocks. */
+/**
+ * The spec keys slice 1 published on both blocks. `patch` left the list when the
+ * spec retired a row's own `patch` (objectstack#24394) and the registry stopped
+ * publishing it (objectui#12971).
+ */
 const LEAF_KEYS = [
   'visible', 'disabled', 'params', 'description', 'openIn', 'method', 'bodyExtra', 'bodyShape',
-  'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
+  'operation', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
   'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
 ];
 

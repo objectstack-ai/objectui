@@ -98,10 +98,17 @@ export function useObjectPresence(name: string): ObjectPresenceReading {
   // objectui#12811 — inside an app whose served item names its package, and
   // while nothing has asked for the whole registry, the object is asked for by
   // name through the app's object scope, rather than by loading every object.
+  //
+  // objectui#12980 — inside an app whose served item names NO package (an app
+  // created in the console is stored bound to none), on the same condition,
+  // the object is asked for by name through the names-only scope: the one
+  // name this hook is asked about is the whole set it needs. Outside an app
+  // (no app name: the home page) it reads the whole registry, as before.
   const { app } = useExpressionContext();
   const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
-  if (packageId && readObjectScope && getTypeStatus?.('object') === 'idle') {
-    const scope = readObjectScope({ packageId, names: [name] });
+  const inApp = typeof app?.name === 'string' && app.name !== '';
+  if ((packageId || inApp) && readObjectScope && getTypeStatus?.('object') === 'idle') {
+    const scope = readObjectScope(packageId ? { packageId, names: [name] } : { names: [name] });
     const presence: ObjectPresence = !scope.settled
       ? 'unknown'
       : scope.objects.some((o) => (o as { name?: unknown } | null | undefined)?.name === name)

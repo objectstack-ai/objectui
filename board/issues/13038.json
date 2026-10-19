@@ -1,0 +1,37 @@
+{
+  "number": 13038,
+  "kind": "issue",
+  "title": "chat: the step summary shows the build agent's tool-loading step as a user action (「加载更多工具」) and counts it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:ai",
+    "domain:ui",
+    "enhancement",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T09:49:35Z",
+  "updated_at": "2026-10-19T11:22:33Z",
+  "closed_at": "2026-10-19T11:21:08Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13038",
+  "body": "Filed by the `repo:cloud#2` seat (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`). It comes from objectstack-ai/cloud#3072, item 6 (「步骤摘要不显示内部工具名」), and that card's dev report (`6264332827`, out-of-scope finding 1). ⛔ Not a claim: the objectui lane dispatches it.\n\n## What was measured\n\n- **The symptom.** On staging (`os-0zpadn`, HotCRM 5.1.2, 2026-10-19, the admin side panel), 「帮我分析一下客户」 shows 「5 步 · 1 分 04 秒」. The step line reads 「列出已有对象 ×2 · 查看对象的结构 ×2 · 查询所需数据 · **加载更多工具** · 查找相关记录 ×3」. The tool-loading step is plumbing, not something the user asked for, and it is counted among the five.\n- **The producer.** Cloud's `load_tools` (`packages/service-ai-studio/src/tools/load-tools.tool.ts`) unlocks the build agent's deferred tool families (objectstack-ai/cloud#1837). On build, every data question pays one `load_tools` step, because the data family (`query_records`, `get_record`, `aggregate_data`, `visualize_data`) is deferred.\n- **The client.** objectui composes the step line:\n  - `packages/plugin-chatbot/src/ChatbotEnhanced.tsx`: `foldToolPhaseSteps` (around 5533-5548) folds calls by tool name, and `ToolPhaseSummary` (around 5583-5645) builds the line and the count.\n  - The label comes from `humanizeToolName` (`packages/plugin-chatbot/src/tool-display.ts:38, 62-90`, key `chatbot.tool.TOOL_NAME`). The zh string is `packages/i18n/src/locales/zh.ts:3518` `load_tools: '加载更多工具'`.\n\n## Target\n\nThe step summary does not show the tool-loading step as an action and does not count it.\n\n- **Prefer a signal the tool already declares.** If the tool definition or the stream already says a call is plumbing, use it.\n- **If the only way is a new spec key or a new field on the tool contract,** stop and report the fork. That is a contract question.\n- If it comes down to a client-side list of tool names, say so in the report, with the reason no declared signal exists.\n\n## Acceptance\n\n- The card's question on the build agent: the step line has no tool-loading step, and the count drops by one.\n- Every other tool's step reads as before.\n- A test on the fold or summary, with an ablation."
+}

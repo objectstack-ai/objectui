@@ -1,0 +1,37 @@
+{
+  "number": 13037,
+  "kind": "issue",
+  "title": "chat: a record link in an assistant answer opens that record inside the console (today every link is an external-link dialog and a new tab)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:ai",
+    "domain:ui",
+    "enhancement",
+    "priority:p1"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T09:49:03Z",
+  "updated_at": "2026-10-19T11:39:43Z",
+  "closed_at": "2026-10-19T11:38:13Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13037",
+  "body": "Filed by the `repo:cloud#2` seat (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`). It comes from objectstack-ai/cloud#3072's dev report (`6264332827`), open question 1, under the seat's ruling A on that card (the comment that follows this filing). ⛔ Not a claim: the objectui lane dispatches it.\n\n## Why\n\nThe maintainer ordered, on objectstack-ai/cloud#3072, that the points of a data answer link the records they name: 「要点带记录链接（按控制台记录路由）」. Its staging run (`os-0zpadn`, HotCRM 5.1.2, 「帮我分析一下客户」) shows Wayne Enterprises and the other customers as plain text, with no way to reach the record. Cloud cannot honour that today, because the chat does not route a link inside the console. objectstack-ai/cloud PR #3073 therefore ships the answer rules without a link rule. This card is the client half; one cloud rule line follows on objectstack-ai/cloud#3072 once this lands in cloud's `.objectui-sha`.\n\n## What was measured\n\nAt objectui `origin/main` `b014f5ee` (cloud's `.objectui-sha` `47508f3b` carries the same code and `streamdown@2.5.0`), read-only:\n\n- **The renderer.** `MessageResponse` is a bare `Streamdown` (`packages/plugin-chatbot/src/elements/message.tsx:315-326`, rendered at `ChatbotEnhanced.tsx:4226`). Nothing in objectui sets `components.a`, `linkSafety` or `urlTransform`.\n- **streamdown's defaults** (a render probe of `streamdown@2.5.0`): every link renders as a button with no `href` in the DOM. A click opens the link-safety dialog, then `window.open(href, '_blank')`. `rehype-harden@1.1.8` rewrites `./apps/x` to `/apps/x` and blocks a bare `apps/x`.\n- **The route.** The record page is `/apps/:appName/:objectName/record/:recordId` (`packages/app-shell/src/console/AppContent.tsx`, the route table near line 161). The app segment is the owning package id, with the app name as an alias (`packages/app-shell/src/utils/appRoute.ts:46-58`). The router basename comes from the base href the host injects (`apps/console/src/App.tsx:107-121`), and the hosted runtime mounts the console at `/_console/`.\n- **What already works.** The `open_record` tool's action routes inside the console: `AiChatPage.tsx:1711-1729` resolves the package on click and calls `navigate`.\n\n**Verdict:** a relative record link is never routed inside the console. A link to `/apps/...` opens a new tab outside `/_console/`, where nothing serves it.\n\n## Target\n\n1. **The record link form.** The chat renders a record link of ONE fixed form as an in-console navigation, in the same tab and with no external-link dialog. The form carries only the object name and the record id the agent read. The click resolves the app segment and the base the way `open_record`'s click handler already does, so the agent never writes a host mount or a package id.\n2. **Nothing else is loosened.**\n   - The form carries no query string, no fragment and no other path.\n   - ⛔ Every other link, same-origin or not, keeps streamdown's default link safety.\n   - This grants no power `open_record` does not already have: it navigates to one record page. The precedent for keeping the door narrow is objectstack-ai/objectui#12493, where a crafted console URL auto-sent a prompt.\n3. **The form is written where cloud can name it.** Cloud adds one rule line to `data_explorer` after this lands.\n\n**Premise to verify first:** the chat renderer can intercept that one form (through `components.a`, `urlTransform` or an equivalent) without relaxing link safety for any other link. If it cannot, stop and report the fork. ⛔ Do not widen the bypass.\n\n## Acceptance\n\n- A rendered assistant answer that contains the record link form for an existing record: the click lands on that record's console page in the same tab, with no dialog, under both a `/_console/` mount and a root mount.\n- An external link and an arbitrary same-origin path in the same answer still open the link-safety dialog.\n- A record link form carrying a query string or extra path neither navigates nor passes the extra part through.\n- Renderer tests for the three cases, with an ablation (remove the interception, and the first case goes red)."
+}

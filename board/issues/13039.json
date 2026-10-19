@@ -1,0 +1,37 @@
+{
+  "number": 13039,
+  "kind": "issue",
+  "title": "console: one dashboard open fetches the same object's metadata nine times (/meta/object/crm_opportunity ×9 on HotCRM's sales dashboard); team and environment pages repeat /meta reads too",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "area:reports",
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T10:37:32Z",
+  "updated_at": "2026-10-19T14:15:48Z",
+  "closed_at": "2026-10-19T14:13:29Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13039",
+  "body": "**Finding** (measured on cloud staging, 2026-10-19). Reader: the objectui console / app-shell data layer.\n\n## What was measured\n\n**Setup:**\n- Cloud staging after cloud#3071: objectos `8b34956e` serves objectui `47508f3bbb27` over framework `fb9c22aa0929`.\n- HotCRM 5.1 environment `os-6hf1jq`, the maintainer's session in the built-in Chromium pane.\n- Counted from the page's resource timing entries after one open.\n\n| open | URL repeated in that one open |\n|---|---|\n| HotCRM 销售业绩 dashboard (`/apps/app.objectstack.hotcrm/dashboard/sales_dashboard`), full open and in-app open | `GET /api/v1/meta/object/crm_opportunity` **×9**, 2.1–4.3 s each (21.9 s of request time). Beside it: 18–35 `analytics/dataset/query`. |\n| control plane 成员 (`/apps/com.objectstack.cloud/page/team`) | `/meta/object/sys_member`, `/meta/object/sys_organization` and `/meta/object/sys_user` ×2 each |\n| control plane 环境 list (`/apps/com.objectstack.cloud/sys_environment`) | `/meta/view` ×3, `/meta/object` ×2, `/data/sys_environment` ×2 (same path; the queries may differ) |\n| HotCRM accounts list | two `/security/explain` reads at the end of the open, ~5 s each (compare the closed #8014) |\n\nThe dashboard case is not new at this pin. It was measured at objectui `4dfdebdf` too (cloud#2914 comment 6265264751, and the 10-19 baseline).\n\n## Expected\n\nOne open asks for one object's metadata once. The widgets of one dashboard that bind the same object share one in-flight read (a request-key cache in the data layer, the shape #13010 and #12980 moved the record page and the console open toward).\n\n## Why it matters\n\n- On a hosted environment, concurrent reads of one environment queue in the tenant runtime (cloud#3053).\n- Nine copies of the same metadata read sit in the same wave as the dashboard's analytics queries, and the sales dashboard's full open measured 32.2 s (cloud#2914 comment 6265264751).\n\n## Dedupe\n\nSearched objectui issues, all states:\n- `meta/object crm_opportunity dashboard`: 2 hits, #13010 (closed, record page waves) and #4487 (closed, flaky test);\n- `per-object metadata fetched repeatedly`: 6 hits, none on this;\n- `dashboard widgets object metadata in-flight`: 20 hits, none on this;\n- `metadata request dedup`: 20 hits, #8014 (closed, two `/security/explain` per record detail; related to the last row above).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

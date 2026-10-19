@@ -1,0 +1,32 @@
+{
+  "number": 13051,
+  "kind": "pull_request",
+  "title": "fix(app-shell,plugin-detail): ask a record verdict only where a button uses it (objectui#13045)",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T13:39:59Z",
+  "updated_at": "2026-10-19T14:22:22Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13051",
+  "body": "Fixes #13045\nClause-②: no\n\n## What changes\n\nA record page no longer asks `POST /api/v1/security/explain` for a verdict nothing on screen uses.\n\n- **`RecordDetailView` header (`@object-ui/app-shell`).** The `update` verdict is not asked when the object's `userActions.edit` is the static `false`, and the `delete` verdict is not asked when `userActions.delete` is the static `false`. The hook's existing `enabled` argument carries this, read from the same `objectDef.userActions` entry the header gate (`resolveRecordHeaderActionGates`) reads. A per-record predicate form, `true`, or an absent entry still asks, and Edit and Delete still follow the verdict.\n- **`DetailView` (`@object-ui/plugin-detail`).** Seat ruling A (comment 6267444006). Each verdict is asked only when the host shows its button: `update` only with `showEdit`, `delete` only with `showDelete`, read from the same `gatedSchema` the buttons read. The console record page's `record:details` body shows neither button. Its two asks used to join the header's in-flight request (objectui#11699), so with only the header change they went out on their own and the measured count did not drop (os-dev report 6267417403).\n\n`askVerdict`'s fetch, cache and fail-open contract are unchanged. No export, prop or type member is added.\n\n## Pins\n\n- `packages/app-shell/src/views/RecordDetailView.hiddenAffordanceVerdicts-13045.test.tsx` mounts the real page (synthesized, so its `record:details` body is mounted) over the real verdict hook and counts explain requests by operation:\n  - (a) `edit: false, delete: false`: no request.\n  - (b) `delete: false` alone: only `update` is asked, and it still gates Edit, in both the deny and the allow direction.\n  - (c) CONTROL, with `userActions` absent, `true` or in predicate form: both are asked, and a denying or allowing verdict hides or offers both affordances.\n- `packages/plugin-detail/src/__tests__/DetailView.verdictOnlyForShownButton-13045.test.tsx`:\n  - A standalone `DetailView` with `showEdit` / `showDelete` asks both, and its buttons follow the verdict (deny and allow).\n  - With one button shown, only that verdict is asked. With neither shown, nothing is asked.\n- `DetailView.test.tsx` › \"probes the record-level explain endpoint for update and delete, and nothing else\" now sets `showEdit` / `showDelete`, since without them nothing is asked by design.\n\n## Ablation (once per term, each restored and proven by blob hash)\n\nAll files resolve through the vitest `src` alias, so no build sits between a mutation and a run. Each leg checked its anchor on disk before running, then restored with `git checkout HEAD -- ABS_PATH`. After each restore `git diff HEAD` was empty and the disk `hash-object` matched the HEAD blob.\n\n| term removed | red | restore blob |\n|---|---|---|\n| header `&& !editOffByObject` | 1/14: (a) | `f692ac19fc` |\n| header `&& !deleteOffByObject` | 3/14: (a), both (b) | `f692ac19fc` |\n| DetailView `&& !!gatedSchema.showEdit` | 3/14: (a), DetailView \"only showDelete\", \"neither\" | `255743e45a` |\n| DetailView `&& !!gatedSchema.showDelete` | 5/14: (a), both (b), DetailView \"only showEdit\", \"neither\" | `255743e45a` |\n\n## Gates, read at `8c64b0f648`\n\n- Closure builds `turbo run build --filter=@object-ui/plugin-detail^...` and `--filter=@object-ui/app-shell^...`: exit 0.\n- `type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`; the test config includes `src/**/*.test.tsx`) for `@object-ui/plugin-detail` and `@object-ui/app-shell`: exit 0.\n- Vitest, `--maxWorkers=1`, under the shared lock:\n  - The 3 new or edited files: 46/46.\n  - plugin-detail family (every test that imports `DetailView`; 51 files): 50 passed, 1 skipped.\n  - app-shell family (every test that imports `RecordDetailView`; 126 files in three runs): 43 + 42 + 41 files passed, 335 + 295 + 255 tests.\n  - The full `packages/plugin-detail/` directory hit the 10-minute foreground cap at `--maxWorkers=1`. Both package directories in full are left to CI.\n- Lint: `eslint --no-inline-config --format json` over the 5 changed `.ts`/`.tsx` files gave 0 errors. The file count comes from the JSON output. The root `eslint.config.js` sets no `parserOptions.project`, so with no type-aware linting this diff cannot change the verdict on any file it did not touch. Repo-wide `pnpm lint` is left to CI.\n- Pre-tsc battery, all exit 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, and `scripts/check-hand-rolled-comment-mask.mjs`.\n- `scripts/check-changeset-fixed.mjs` and `check-changeset-presence.mjs`: exit 0.\n\nChangeset: `.changeset/13045-skip-hidden-verdicts.md`, with `@object-ui/app-shell` patch and `@object-ui/plugin-detail` patch.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n## Acceptance notes\n\n- The ruling covers the static boolean `false` only. An object-form entry `{ enabled: false }` with no predicate also hides the affordance, but it still asks, as ruled (\"non-boolean still asks\").\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 13042,
+  "kind": "pull_request",
+  "title": "fix(plugin-list,plugin-grid): ask for a referenceVia pointer's type half in $select (objectui#13036)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T11:14:57Z",
+  "updated_at": "2026-10-19T11:41:35Z",
+  "closed_at": "2026-10-19T11:41:33Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-19T11:41:33Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13042",
+  "body": "Fixes #13036\nClause-②: no\n\n## What\n\nA `referenceVia` pointer column (objectui#12608) resolves its record from the row: `resolveRecordPointer` reads the sibling the field names and answers null when it is absent, so the column then draws the stored id. Neither projection builder asked for that sibling, so a list showing `record_id` without `object_name` drew the raw record id.\n\nBoth builders now harvest the `referenceVia` sibling of every **projected** pointer column:\n\n- `ListView` `selectFields`: for each column that survived the FLS gate (`cols`), the declared field's `referenceVia` goes through `addSpeculative`, the same declared-field + FLS-readable gate the grouping, row-colour and deadline harvests take.\n- `ObjectGrid` `getSelectFields`: a new `referenceViaFields` harvest, read from the shown columns that pass `passesProjectionGate`, then `isProjectableField` and `passesProjectionGate`, unioned into `extraFields`. This is the projection a grid-owned grouped fetch (`gridOwnsGroupedFetch`) and a standalone `object-grid` send.\n\nA sibling the viewer may not read is not asked for, and that row keeps the stored text (the half-addressed control). A sibling the object does not declare is not sent. `resolveRecordPointer` and the cell are unchanged; no new export.\n\n## Pins\n\n- `packages/plugin-list/src/__tests__/ListView.referenceViaSelect-13036.test.tsx`: (a) a list whose `columns` omit the type half asks for it on `ListView`'s fetch, and the rows handed to the grid resolve to the record through `resolveRecordPointer` (plugin-list does not depend on plugin-grid, so a stub grid stands in); control: a genuinely blank sibling stays half-addressed; an FLS-unreadable sibling is not selected; an FLS-unreadable pointer column harvests nothing; an undeclared sibling is not sent; a sibling that is a column is sent once.\n- `packages/plugin-grid/src/__tests__/ObjectGrid.referenceViaSelect-13036.test.tsx`: the real grid draws the record (link named `Acme renewal`) on its own fetch and (b) on every group row page of a server-grouped grid; (c) control: a genuinely blank sibling keeps the stored text; an FLS-unreadable sibling is not selected and the row keeps the stored text; plus the same undeclared / denied-pointer / sent-once rows.\n\n## Ablation (once per behaviour, through `ablation-replace.mjs`, restore proven by blob hash)\n\n- `ListView.tsx`: deleting the harvest line turned 2 of 6 red (the (a) pin and the blank-sibling control's `toContain('object_name')`). Restored: blob after restore == HEAD (`81f118cf6701`), `git diff HEAD` empty.\n- `ObjectGrid.tsx`: dropping `...referenceViaFields` from `extraFields` turned 3 of 7 red (own fetch, server-grouped fetch (b), blank-sibling control). Restored: blob == HEAD (`4c2fbdbb6281`), `git diff HEAD` empty.\n\nThe tests import the components from source (`../ListView`, `../ObjectGrid`), so no rebuild sits between the mutation and the run.\n\n## Verification (at `6d2f81b3f3`)\n\n- New tests: plugin-list 6/6, plugin-grid 7/7.\n- Projection-family tests: plugin-grid 13 files / 139 tests pass; plugin-list 13 files / 109 tests pass.\n- `type-check` for `@object-ui/plugin-list` and `@object-ui/plugin-grid` exit 0, after the dependency closure build; `tsc -p tsconfig.test.json --listFiles` lists each new test.\n- `eslint` on the 4 changed files, per package as their `lint` scripts run it: 0 errors; no warning falls on the changed source lines.\n- Exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `check-hand-rolled-comment-mask`, `check-changeset-fixed`, `check-changeset-presence`, `check:new-line-citations`.\n- Declared to CI: the full `packages/plugin-list/` and `packages/plugin-grid/` directory runs. A local `packages/plugin-grid/` run hit the 590s foreground limit before it reported, so it is NOT MEASURED here.\n\n## Acceptance notes\n\n- objectstack-ai/objectstack#24501 stays blocked until a `.objectui-sha` pin carries this change.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

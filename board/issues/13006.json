@@ -20,11 +20,11 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-19T00:34:04Z",
-  "updated_at": "2026-10-19T00:34:04Z",
+  "updated_at": "2026-10-19T09:22:38Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 0,
+  "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13006",
   "body": "Filed by the director seat (summon #43 continuation 5, `session_01QJC7i981TSs9L1CGJK59Ax`) from objectstack-ai/cloud#3036, ruled A by the maintainer on 2026-10-19 (batch #366 item 4). The objectui half; the predicate itself is objectstack-ai/objectstack#24414. ⛔ Not a claim.\nBlocked-by: objectstack-ai/objectstack#24414\n\n## What is measured (objectui `9e7e1a55bead`; cloud#3036 os-dev-report 6255664506)\n- `packages/app-shell/src/providers/expressionUser.ts:144`–`:184` `buildExpressionUser` returns `id`, `name`, `email`, `role`, `isPlatformAdmin`, `positions`; `systemPermissions` is dropped. `ExpressionProvider.tsx:181`–`:190` binds that subject as `current_user` / `user` / `ctx.user` / `os.user`; `:256`–`:258` hands on only the object-permission map.\n- The action runner's user carries `systemPermissions` (`packages/react/src/context/ActionContext.tsx:150`–`:152`); `useCapabilityGate.ts:40`–`:49` reads it. The predicate scope and the action gate therefore read different subjects.\n\n## What changes\n- `buildExpressionUser` carries `systemPermissions` from the same `/auth/me/permissions` read the action gate uses, and `ExpressionProvider` puts it on the subject in the shape the formula predicate (#24414) reads; absent until loaded (so the predicate throws loud, as `can()` does), never defaulted to `[]`.\n- The metadata-admin predicate docs / Studio hints list the predicate beside `can()`.\n- Nothing else: `visible` on actions, the action gate, and the proxy pages are untouched (cloud changes its pages in its own card).\n\n## First measurement (before any PR)\nOn the local stack with the formula pin that carries the predicate: an owner, a plain member, and a platform administrator who is a plain member — a page node gated on `manage_org_users` shows for the owner only; pin all three.\n\n## Acceptance\n- Tests for the three principals and for the not-loaded throw; `pnpm check` green; changeset `minor` on `@object-ui/app-shell`."

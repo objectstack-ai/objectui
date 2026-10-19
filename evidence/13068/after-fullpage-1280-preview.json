@@ -1,0 +1,94 @@
+{
+ "label": "after-fullpage-1280-preview",
+ "mode": "fullpage",
+ "width": 1280,
+ "height": 900,
+ "drafts": true,
+ "draftReads": 2,
+ "errors": [],
+ "textarea": {
+  "left": 450,
+  "top": 769,
+  "right": 1120,
+  "bottom": 833,
+  "width": 670,
+  "height": 64
+ },
+ "pill": null,
+ "pillText": null,
+ "bar": {
+  "left": 449,
+  "top": 706,
+  "right": 1121,
+  "bottom": 760,
+  "width": 672,
+  "height": 54
+ },
+ "conversation": {
+  "left": 289,
+  "top": 97,
+  "right": 1280,
+  "bottom": 706,
+  "width": 991,
+  "height": 609
+ },
+ "pillVsTextarea": null,
+ "barVsTextarea": {
+  "x": 670,
+  "y": 0
+ },
+ "pillVsBar": null,
+ "pillVsConversation": null,
+ "barVsConversation": {
+  "x": 672,
+  "y": 0
+ },
+ "pillTapReachesPill": null,
+ "barTextTruncated": false,
+ "barText": "有 1 项改动尚未发布——用户还看不到。",
+ "barTextWidths": {
+  "scroll": 248,
+  "client": 248
+ },
+ "firstLine": [
+  {
+   "x": 494,
+   "y": 791,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  },
+  {
+   "x": 623,
+   "y": 791,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  },
+  {
+   "x": 785,
+   "y": 791,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  },
+  {
+   "x": 946,
+   "y": 791,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  },
+  {
+   "x": 1075,
+   "y": 791,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  }
+ ],
+ "firstLineClear": true,
+ "placeholder": "问问数据，或让我改改这个应用…",
+ "placeholderWidth": 208,
+ "composerContentWidth": 646,
+ "viewport": {
+  "w": 1280,
+  "h": 900
+ },
+ "tapOpensPreview": null
+}

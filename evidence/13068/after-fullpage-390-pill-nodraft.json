@@ -1,0 +1,91 @@
+{
+ "label": "after-fullpage-390-pill-nodraft",
+ "mode": "fullpage",
+ "width": 390,
+ "height": 844,
+ "drafts": false,
+ "draftReads": 3,
+ "errors": [],
+ "textarea": {
+  "left": 17,
+  "top": 713,
+  "right": 373,
+  "bottom": 777,
+  "width": 356,
+  "height": 64
+ },
+ "pill": {
+  "left": 144,
+  "top": 668,
+  "right": 246,
+  "bottom": 704,
+  "width": 101,
+  "height": 36
+ },
+ "pillText": "预览应用",
+ "bar": null,
+ "conversation": {
+  "left": 0,
+  "top": 97,
+  "right": 390,
+  "bottom": 668,
+  "width": 390,
+  "height": 571
+ },
+ "pillVsTextarea": {
+  "x": 101,
+  "y": 0
+ },
+ "barVsTextarea": null,
+ "pillVsBar": null,
+ "pillVsConversation": {
+  "x": 101,
+  "y": 0
+ },
+ "barVsConversation": null,
+ "pillTapReachesPill": true,
+ "barTextTruncated": null,
+ "barText": null,
+ "barTextWidths": null,
+ "firstLine": [
+  {
+   "x": 46,
+   "y": 737,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  },
+  {
+   "x": 112,
+   "y": 737,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  },
+  {
+   "x": 195,
+   "y": 737,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  },
+  {
+   "x": 278,
+   "y": 737,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  },
+  {
+   "x": 344,
+   "y": 737,
+   "onComposer": true,
+   "top": "ai-chat-panel"
+  }
+ ],
+ "firstLineClear": true,
+ "placeholder": "问问数据，或让我改改这个应用…",
+ "placeholderWidth": 238,
+ "composerContentWidth": 332,
+ "viewport": {
+  "w": 390,
+  "h": 844
+ },
+ "tapOpensPreview": true
+}

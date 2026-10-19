@@ -41,13 +41,63 @@
  *
  * ## An unreadable answer is never a pass
  *
- * A missing token, a 403, a truncated page: all exit 2 and a red context.
+ * A missing token, a 401 or 403, any other 4xx, a truncated page: all exit 2
+ * and a red context. The missing token is refused before any request is sent;
+ * until objectui#13064 this line claimed that and nothing enforced it, and the
+ * request simply went out without an `authorization` header.
  * ⛔ And a verdict is refused entirely over a job list that does not contain
  * the aggregator's OWN job -- the control that the reading reached this run at
  * all. `GET /actions/runs/{id}/attempts/{n}/jobs` answers 200 with an empty
  * list for a run id that does not exist, so "no shards found" is otherwise
  * indistinguishable from "every shard was removed", and the second reading is
  * exactly the breach this gate is for.
+ *
+ * ## A transient read is asked again, bounded and logged (objectui#13064)
+ *
+ * Recorded twice in one hour: pull-request run 39276047959 (attempt 1) and
+ * merge-group run 39276560990 each read `…/attempts/1/jobs` as HTTP 502 once,
+ * exited 2, and the second ejected an all-green merge group. A 5xx, a
+ * connection that fails before any answer, and a request that outlives
+ * `REQUEST_TIMEOUT_MS` are the platform not answering, not an answer, so the
+ * gate's reads ask again, at most `TRANSIENT_RETRY_LIMIT` times and
+ * `TRANSIENT_RETRY_WAIT_MS` apart, logging each retry. ⛔ Nothing else is
+ * retried. A 4xx is an answer and exits 2 at once. A body that does not parse
+ * (a page cut short mid-read) exits 2 at once: it is read outside the retry on
+ * purpose. A transient answer still standing after the last retry exits 2,
+ * exactly as one did before. A retry only ever produces another READING; every
+ * verdict is still taken from a 200 body, so no path here passes on an
+ * unread answer.
+ *
+ * The shapes the classifier keys on were measured on Node 22's `fetch`. A
+ * connection reset before any response rejects with `TypeError: fetch failed`
+ * (cause code `ECONNRESET`). A request cut by `AbortSignal.timeout` rejects
+ * with a `TimeoutError`. A body cut mid-read rejects later, from `res.json()`,
+ * as `TypeError: terminated`, and never reaches the classifier. Retries are
+ * opt-in per call: `scripts/shard-headroom.mjs` reads `fetchRunJobs()` with
+ * no options and keeps its single attempt, now bounded by the request timeout.
+ *
+ * ## A re-run attempt is judged with the attempts before it (objectui#13064)
+ *
+ * "Re-run failed jobs" starts attempt N+1 holding only the jobs it re-runs.
+ * The jobs it does not re-run are copied into it LATER. Measured on run
+ * 39276047959: every attempt-2 copy carries a job id above the attempt-2
+ * `Test` job's, and the two skipped coverage copies a `started_at` after that
+ * job had finished. So when this gate reads `attempts/{N+1}/jobs`, every shard
+ * the re-run left alone is ABSENT, and the one remedy a seat has for a
+ * platform red reds again as "matrix drift".
+ *
+ * A shard absent from the current attempt is therefore looked up in the
+ * earlier attempts, latest first, and judged by the conclusion it had there.
+ * Each earlier attempt is read on its own `attempts/{k}/jobs` route, so where
+ * a record came from is the URL's word; a record whose own `run_attempt`
+ * disagrees with that URL is refused. Read after the fact on the same run, the
+ * two run-level spellings serve this less well. `?filter=all` returns every
+ * attempt mixed together, attributable only by that per-job field.
+ * `?filter=latest`, which is also the run-level default, returns the current
+ * attempt alone, and that attempt is the problem. ⛔ A shard found in no
+ * attempt stays ABSENT and red. A carried `failure`, `cancelled` or `skipped`
+ * stays red. The own-job control is read from the current attempt only, and
+ * nothing is carried into a reading that fails it.
  *
  * ## A present shard with NO conclusion is re-read, and only that shard (objectui#10931)
  *
@@ -72,6 +122,37 @@
  * before. An absent shard is matrix drift, not a late answer, and is not
  * re-read either. The worst-case wait is pinned against the job's own
  * `timeout-minutes` in the test file.
+ *
+ * ## Staleness past that bound, when the rollup reads success (objectui#13064)
+ *
+ * Recorded on merge-group run 39286083342. The first read found nine shards
+ * with no conclusion, three of them reading `queued`, all minutes after their
+ * `completed_at`. Seven settled during the eight re-reads. Two still read
+ * `in_progress` at the last one, 6 min 22 s and 4 min 35 s after their
+ * `completed_at`, and the gate ejected an all-green merge group again. The
+ * rollup printed in the same step read `success`. These readings are the
+ * card's and the job log's, taken by hand; nothing here re-derives them.
+ *
+ * So the re-read gets a second, longer stretch, and only for that case. When
+ * the matrix rollup (`needs.test.result`, handed in by `ci.yml` as
+ * `TEST_MATRIX_ROLLUP`) reads `success`, and the only disagreement left after
+ * `REREAD_LIMIT` re-reads is shards that are present without a conclusion,
+ * the re-read goes on `STALE_REREAD_LIMIT` more times, `STALE_REREAD_WAIT_MS`
+ * apart. ⛔ The rollup decides only whether to wait longer, never whether to
+ * pass: the verdict is still every shard's OWN conclusion. A `completed_at`
+ * without a conclusion is not one. Any shard that answers anything else, or is
+ * absent, ends the extension at once, because there is nothing left for
+ * waiting to fix.
+ *
+ * ## One budget for the whole gate
+ *
+ * Every wait above (a retry, a re-read) starts only if it and one more full
+ * request fit before `GATE_BUDGET_MS` from the gate's start, and each
+ * request's timeout is cut to what is left. So the step cannot outlive its
+ * job. A gate killed by `timeout-minutes` reports `cancelled`, which the queue
+ * reads exactly as it reads a red, while explaining less. The test file pins
+ * the budget, the two re-read stretches and the recorded staleness against the
+ * job's `timeout-minutes`.
  *
  * ## The shard COUNT is passed in, and pinned against the matrix
  *
@@ -104,6 +185,35 @@ export const REREAD_LIMIT = 8;
 export const REREAD_WAIT_MS = 15_000;
 
 /**
+ * The second, longer re-read stretch, taken only when the rollup reads
+ * `success` and the only disagreement is shards without a conclusion. The two
+ * stretches together must outlast the 6 min 22 s recorded on run 39286083342,
+ * even for a shard that completed the moment this gate started, and must
+ * still fit inside `GATE_BUDGET_MS`. The test file pins both directions.
+ */
+export const STALE_REREAD_LIMIT = 9;
+export const STALE_REREAD_WAIT_MS = 30_000;
+
+/**
+ * A transient read (a 5xx, a connection that fails before any answer, a
+ * request past `REQUEST_TIMEOUT_MS`) is asked again at most this many times,
+ * this far apart.
+ */
+export const TRANSIENT_RETRY_LIMIT = 3;
+export const TRANSIENT_RETRY_WAIT_MS = 10_000;
+
+/** One request's own bound; a request that outlives it counts as a transient failure. */
+export const REQUEST_TIMEOUT_MS = 20_000;
+
+/**
+ * The whole gate's wall-clock bound, from its start. No retry or re-read starts
+ * unless it and one more full request fit inside it. The test file pins it,
+ * plus the following report-only step's one request, inside the
+ * `test-aggregate` job's `timeout-minutes` with room for the checkout.
+ */
+export const GATE_BUDGET_MS = 450_000;
+
+/**
  * The check-run names the `test` matrix produces at a given width.
  *
  * One spelling of `Test (shard N/M)` lives here and one lives in `ci.yml`'s
@@ -120,11 +230,71 @@ export function shardContexts(shards) {
 }
 
 /**
+ * The job names in an answer, read the way `evaluate` reads them: a job whose
+ * `name` is not a string is not seen.
+ *
+ * @param {unknown[]} jobs
+ */
+function namesIn(jobs) {
+  const names = new Set();
+  for (const job of jobs) {
+    const name = job && typeof job === 'object' ? /** @type {{ name?: unknown }} */ (job).name : undefined;
+    if (typeof name === 'string') names.add(name);
+  }
+  return names;
+}
+
+/**
+ * The expected shard names an answer does not hold.
+ *
+ * @param {unknown[]} jobs
+ * @param {number} shards
+ */
+export function absentShards(jobs, shards) {
+  const names = namesIn(jobs);
+  return shardContexts(shards).filter((name) => !names.has(name));
+}
+
+/**
+ * Add to `jobs` each expected shard it does not hold that the earlier attempt
+ * `from` does. Pure. Where the record came from is the attempt whose route it
+ * was read on; a record whose own `run_attempt` names another attempt is not
+ * about that attempt, and is refused rather than carried. The current
+ * attempt's records are never replaced: a shard it re-ran is judged by its
+ * re-run.
+ *
+ * @param {{ jobs: unknown[], from: { attempt: number, jobs: unknown }, shards: number }} input
+ * @returns {unknown[]}
+ */
+export function carryForward({ jobs, from, shards }) {
+  if (!Array.isArray(from.jobs)) {
+    throw new Error(`attempt ${from.attempt}'s jobs endpoint answered ${typeof from.jobs}, not an array of jobs`);
+  }
+  const earlier = /** @type {unknown[]} */ (from.jobs);
+  /** @type {unknown[]} */
+  const carried = [];
+  for (const name of absentShards(jobs, shards)) {
+    const record = earlier.find((job) => job && typeof job === 'object' && /** @type {{ name?: unknown }} */ (job).name === name);
+    if (!record) continue;
+    const said = /** @type {{ run_attempt?: unknown }} */ (record).run_attempt;
+    if (said !== undefined && said !== from.attempt) {
+      throw new Error(`attempt ${from.attempt}'s job list answered ${name} as attempt ${JSON.stringify(said)}, which is not that attempt`);
+    }
+    carried.push({ .../** @type {object} */ (record), run_attempt: from.attempt });
+  }
+  return [...jobs, ...carried];
+}
+
+/**
  * Judge one reading. Pure: no clock, no network, no process exit.
  *
- * @param {{ jobs: unknown, shards: number, selfJobName: string }} input
+ * `attempt` is the run attempt the gate is running in, when it knows it; a
+ * shard whose record names an earlier attempt was carried from there by
+ * `carryForward`, and the log line says so. No verdict reads it.
+ *
+ * @param {{ jobs: unknown, shards: number, selfJobName: string, attempt?: number|null }} input
  */
-export function evaluate({ jobs, shards, selfJobName }) {
+export function evaluate({ jobs, shards, selfJobName, attempt = null }) {
   if (!Array.isArray(jobs)) {
     throw new Error(`the jobs endpoint answered ${typeof jobs}, not an array of jobs`);
   }
@@ -132,11 +302,12 @@ export function evaluate({ jobs, shards, selfJobName }) {
     throw new Error('selfJobName is required: it is the control that the reading reached this run');
   }
 
-  /** @type {Map<string, { conclusion: string|null, status: string|null, jobId: number|null }>} */
+  /** @type {Map<string, { conclusion: string|null, status: string|null, jobId: number|null, attempt: number|null }>} */
   const byName = new Map();
   for (const job of jobs) {
     if (!job || typeof job !== 'object') continue;
-    const { name, conclusion, status, id } = /** @type {{ name?: unknown, conclusion?: unknown, status?: unknown, id?: unknown }} */ (job);
+    const { name, conclusion, status, id, run_attempt: runAttempt } =
+      /** @type {{ name?: unknown, conclusion?: unknown, status?: unknown, id?: unknown, run_attempt?: unknown }} */ (job);
     // ⛔ Never fall back to a neighbouring field. A job whose `name` this
     // cannot read is a job this gate did not see, and counting it as seen is
     // how a membership test goes vacuous.
@@ -146,13 +317,22 @@ export function evaluate({ jobs, shards, selfJobName }) {
       // Carried for the re-read and its log line only; no verdict reads them.
       status: typeof status === 'string' ? status : null,
       jobId: typeof id === 'number' ? id : null,
+      attempt: typeof runAttempt === 'number' ? runAttempt : null,
     });
   }
 
   const expected = shardContexts(shards);
   const observed = expected.map((name) => {
     const seen = byName.get(name);
-    return { name, present: seen !== undefined, conclusion: seen?.conclusion ?? null, status: seen?.status ?? null, jobId: seen?.jobId ?? null };
+    const from = seen?.attempt ?? null;
+    return {
+      name,
+      present: seen !== undefined,
+      conclusion: seen?.conclusion ?? null,
+      status: seen?.status ?? null,
+      jobId: seen?.jobId ?? null,
+      carriedFrom: attempt !== null && from !== null && from < attempt ? from : null,
+    };
   });
   const missing = observed.filter((s) => !s.present).map((s) => s.name);
   const notSuccess = observed.filter((s) => s.present && s.conclusion !== 'success').map((s) => `${s.name} (${s.conclusion ?? 'no conclusion'})`);
@@ -160,7 +340,7 @@ export function evaluate({ jobs, shards, selfJobName }) {
   const selfSeen = byName.has(selfJobName);
   const verdict = !selfSeen ? 'unreadable' : missing.length > 0 || notSuccess.length > 0 ? 'breached' : 'intact';
 
-  const reading = { verdict, shards, selfJobName, selfSeen, jobCount: byName.size, observed, missing, notSuccess };
+  const reading = { verdict, shards, selfJobName, selfSeen, attempt, jobCount: byName.size, observed, missing, notSuccess };
   assertGrounded(reading);
   return reading;
 }
@@ -208,6 +388,21 @@ export function unconcludedShards(reading) {
   return reading.observed.filter((s) => s.present && s.conclusion === null);
 }
 
+/**
+ * Whether the only thing between this reading and `intact` is shards that are
+ * present without a conclusion: nothing absent, nothing that answered anything
+ * but `success`. The one case the stale-API extension is for.
+ *
+ * @param {ReturnType<typeof evaluate>} reading
+ */
+export function onlyUnconcluded(reading) {
+  return (
+    reading.verdict === 'breached' &&
+    reading.missing.length === 0 &&
+    reading.observed.every((s) => s.conclusion === 'success' || s.conclusion === null)
+  );
+}
+
 /** @param {number} ms */
 const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -218,6 +413,11 @@ const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * is `evaluate`'s over the patched list, so a shard still null after the last
  * re-read is judged exactly as a null shard always was: not success.
  *
+ * Past `limit`, and only while `rollup` is `success` and `onlyUnconcluded`
+ * holds, the re-read goes on up to `staleLimit` more times, `staleWaitMs`
+ * apart. Every re-read starts only if its wait and one more full request
+ * (`requestTimeoutMs`) fit before `deadline`.
+ *
  * A re-read that answers about a different job, or a shard with no id to
  * re-read it by, throws: the caller reports that as a reading that could not
  * be taken, never as a pass.
@@ -227,10 +427,17 @@ const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  *   shards: number,
  *   selfJobName: string,
  *   rereadJob: (jobId: number) => Promise<unknown>,
+ *   attempt?: number|null,
  *   sleep?: (ms: number) => Promise<unknown>,
+ *   now?: () => number,
+ *   deadline?: number,
  *   log?: (line: string) => void,
  *   limit?: number,
  *   waitMs?: number,
+ *   rollup?: string|null,
+ *   staleLimit?: number,
+ *   staleWaitMs?: number,
+ *   requestTimeoutMs?: number,
  * }} input
  */
 export async function settleReading({
@@ -238,21 +445,46 @@ export async function settleReading({
   shards,
   selfJobName,
   rereadJob,
+  attempt = null,
   sleep = defaultSleep,
+  now = Date.now,
+  deadline,
   log = () => {},
   limit = REREAD_LIMIT,
   waitMs = REREAD_WAIT_MS,
+  rollup = null,
+  staleLimit = STALE_REREAD_LIMIT,
+  staleWaitMs = STALE_REREAD_WAIT_MS,
+  requestTimeoutMs = REQUEST_TIMEOUT_MS,
 }) {
-  let reading = evaluate({ jobs, shards, selfJobName });
+  const end = deadline ?? now() + GATE_BUDGET_MS;
+  let reading = evaluate({ jobs, shards, selfJobName, attempt });
   let current = /** @type {unknown[]} */ (jobs);
   let rereads = 0;
-  for (let pending = unconcludedShards(reading); pending.length > 0 && rereads < limit; pending = unconcludedShards(reading)) {
+  let stale = 0;
+  let budgetSpent = false;
+  for (let pending = unconcludedShards(reading); pending.length > 0; pending = unconcludedShards(reading)) {
+    const base = rereads < limit;
+    const extend = !base && stale < staleLimit && rollup === 'success' && onlyUnconcluded(reading);
+    if (!base && !extend) break;
+    const wait = base ? waitMs : staleWaitMs;
+    if (now() + wait + requestTimeoutMs > end) {
+      budgetSpent = true;
+      log(`not re-reading again: another ${wait / 1000}s wait and one more request would run past the gate's budget`);
+      break;
+    }
     rereads += 1;
-    log(
-      `re-read ${rereads}/${limit} in ${waitMs / 1000}s, only the shard(s) with no conclusion yet: ` +
-        pending.map((s) => `${s.name} (job ${s.jobId ?? 'without an id'}, status ${s.status ?? 'unknown'})`).join(', '),
-    );
-    await sleep(waitMs);
+    const which = pending.map((s) => `${s.name} (job ${s.jobId ?? 'without an id'}, status ${s.status ?? 'unknown'})`).join(', ');
+    if (base) {
+      log(`re-read ${rereads}/${limit} in ${waitMs / 1000}s, only the shard(s) with no conclusion yet: ${which}`);
+    } else {
+      stale += 1;
+      log(
+        `re-read ${rereads} (past the ${limit}-re-read bound, ${stale}/${staleLimit}) in ${staleWaitMs / 1000}s: ` +
+          `needs.test.result reads success and the only disagreement is shard(s) the jobs API still serves without a conclusion: ${which}`,
+      );
+    }
+    await sleep(wait);
 
     /** @type {Map<number, unknown>} */
     const fresh = new Map();
@@ -269,11 +501,16 @@ export async function settleReading({
     }
     current = current.map((job) => {
       const id = job && typeof job === 'object' ? /** @type {{ id?: unknown }} */ (job).id : undefined;
-      return typeof id === 'number' && fresh.has(id) ? fresh.get(id) : job;
+      if (typeof id !== 'number' || !fresh.has(id)) return job;
+      // A carried record keeps the attempt it was carried from: the single-job
+      // answer is about the same job, and that job belongs to that attempt.
+      const said = /** @type {{ run_attempt?: unknown }} */ (job).run_attempt;
+      const answer = /** @type {object} */ (fresh.get(id));
+      return said === undefined ? answer : { run_attempt: said, ...answer };
     });
-    reading = evaluate({ jobs: current, shards, selfJobName });
+    reading = evaluate({ jobs: current, shards, selfJobName, attempt });
   }
-  return { reading, rereads };
+  return { reading, rereads, stale, budgetSpent };
 }
 
 /**
@@ -283,16 +520,27 @@ export async function settleReading({
  *
  * @param {ReturnType<typeof evaluate>} reading
  * @param {number} [rereads] how many re-reads `settleReading` took before this reading
+ * @param {{ stale?: number, budgetSpent?: boolean }} [settled] how many of them were past the first bound, and whether the budget ended them
  */
-export function renderReading(reading, rereads = 0) {
-  const lines = [`read ${reading.jobCount} job(s) from this run; expecting ${reading.shards} test shard(s)`];
+export function renderReading(reading, rereads = 0, { stale = 0, budgetSpent = false } = {}) {
+  const carried = reading.observed.filter((s) => s.carriedFrom !== null).length;
+  const lines = [
+    carried > 0
+      ? `read ${reading.jobCount - carried} job(s) from attempt ${reading.attempt} of this run, and ${carried} shard(s) ` +
+        `it did not re-run from the attempt(s) before it; expecting ${reading.shards} test shard(s)`
+      : `read ${reading.jobCount} job(s) from ${reading.attempt !== null && reading.attempt > 1 ? `attempt ${reading.attempt} of ` : ''}this run; ` +
+        `expecting ${reading.shards} test shard(s)`,
+  ];
   for (const shard of reading.observed) {
     const answer = shard.conclusion ?? `no conclusion (status ${shard.status ?? 'unknown'})`;
-    lines.push(`  ${shard.present ? answer : 'ABSENT'}  ${shard.name}`);
+    const from = shard.carriedFrom !== null ? `  (attempt ${shard.carriedFrom}; not re-run in attempt ${reading.attempt})` : '';
+    lines.push(`  ${shard.present ? answer : 'ABSENT'}  ${shard.name}${from}`);
   }
   if (rereads > 0) {
     const still = unconcludedShards(reading).map((s) => s.name);
-    lines.push(`re-read ${rereads} time(s); still without a conclusion: ${still.length > 0 ? still.join(', ') : 'none'}`);
+    const extended = stale > 0 ? ` (${stale} of them past the first bound, because needs.test.result read success)` : '';
+    const ended = budgetSpent ? '; the gate budget ended the re-reads' : '';
+    lines.push(`re-read ${rereads} time(s)${extended}${ended}; still without a conclusion: ${still.length > 0 ? still.join(', ') : 'none'}`);
   }
   if (reading.verdict === 'unreadable') {
     lines.push(
@@ -301,8 +549,9 @@ export function renderReading(reading, rereads = 0) {
     );
   }
   if (reading.missing.length > 0) {
+    const where = reading.attempt !== null && reading.attempt > 1 ? ` in attempt ${reading.attempt} or any attempt before it` : '';
     lines.push(
-      `::error title=Test::${reading.missing.length} test shard(s) produced no job at all: ` +
+      `::error title=Test::${reading.missing.length} test shard(s) produced no job at all${where}: ` +
         `${reading.missing.join(', ')}. The matrix in ci.yml and the --shards argument to this ` +
         `gate have come apart; a shard nobody ran is a quarter of the suite nothing judged.`,
     );
@@ -319,12 +568,32 @@ export function renderReading(reading, rereads = 0) {
 }
 
 /**
+ * How a read reaches the API, and how hard it tries. Every field is optional;
+ * the defaults are one attempt per request, bounded by `REQUEST_TIMEOUT_MS`,
+ * with no deadline beyond that.
+ *
+ * @typedef {{
+ *   token?: string,
+ *   apiUrl?: string,
+ *   repository?: string,
+ *   fetchImpl?: typeof fetch,
+ *   retries?: number,
+ *   retryWaitMs?: number,
+ *   timeoutMs?: number,
+ *   deadline?: number,
+ *   now?: () => number,
+ *   sleep?: (ms: number) => Promise<unknown>,
+ *   log?: (line: string) => void,
+ * }} ReadOptions
+ */
+
+/**
  * Every job of one workflow run ATTEMPT. The attempt is named explicitly: a
  * re-run creates a second attempt, and the run-level endpoint answers with the
  * jobs of the latest one, which on a re-run of a subset is not the set this
  * job is a member of.
  *
- * @param {{ token?: string, apiUrl?: string, repository?: string, runId?: string, attempt?: string, fetchImpl?: typeof fetch }} input
+ * @param {ReadOptions & { runId?: string, attempt?: string }} [input]
  */
 export async function fetchRunJobs({
   token = process.env.GITHUB_TOKEN ?? '',
@@ -333,6 +602,7 @@ export async function fetchRunJobs({
   runId = process.env.GITHUB_RUN_ID ?? '',
   attempt = process.env.GITHUB_RUN_ATTEMPT ?? '1',
   fetchImpl = globalThis.fetch,
+  ...transport
 } = {}) {
   if (!repository) throw new Error('GITHUB_REPOSITORY is not set');
   if (!runId) throw new Error('GITHUB_RUN_ID is not set');
@@ -341,7 +611,7 @@ export async function fetchRunJobs({
   const all = [];
   for (let page = 1; page <= 10; page += 1) {
     const route = `/repos/${repository}/actions/runs/${runId}/attempts/${attempt}/jobs?per_page=100&page=${page}`;
-    const body = await apiGet(route, { token, apiUrl, fetchImpl });
+    const body = await apiGet(route, { ...transport, token, apiUrl, fetchImpl });
     const jobs = body?.jobs ?? [];
     all.push(...jobs);
     if (jobs.length < 100) break;
@@ -350,12 +620,40 @@ export async function fetchRunJobs({
 }
 
 /**
+ * This run's jobs as the gate judges them: the current attempt's list, plus,
+ * on a re-run attempt, each expected shard the current attempt does not hold,
+ * taken from the LATEST earlier attempt that does (`carryForward`). Earlier
+ * attempts are read only while a shard is still absent, latest first, and not
+ * at all when the current attempt's list does not contain `selfJobName`: a
+ * reading that is not about this run gets nothing carried into it.
+ *
+ * @param {ReadOptions & { runId?: string, attempt?: string, shards: number, selfJobName: string }} input
+ */
+export async function readRunJobs({ shards, selfJobName, attempt = process.env.GITHUB_RUN_ATTEMPT ?? '1', ...read }) {
+  const current = Number(attempt);
+  if (!Number.isInteger(current) || current < 1) {
+    throw new Error(`GITHUB_RUN_ATTEMPT must be a positive integer, got ${JSON.stringify(attempt)}`);
+  }
+  /** @type {unknown[]} */
+  let jobs = await fetchRunJobs({ ...read, attempt: String(current) });
+  /** @type {number[]} */
+  const consulted = [];
+  if (namesIn(jobs).has(selfJobName)) {
+    for (let k = current - 1; k >= 1 && absentShards(jobs, shards).length > 0; k -= 1) {
+      jobs = carryForward({ jobs, from: { attempt: k, jobs: await fetchRunJobs({ ...read, attempt: String(k) }) }, shards });
+      consulted.push(k);
+    }
+  }
+  return { attempt: current, jobs, consulted };
+}
+
+/**
  * One job, by id: the re-read `settleReading` takes of a shard the job list
  * answered without a conclusion. By id, not by name, so the answer is about
  * the very job the first read saw.
  *
  * @param {number} jobId
- * @param {{ token?: string, apiUrl?: string, repository?: string, fetchImpl?: typeof fetch }} [input]
+ * @param {ReadOptions} [input]
  */
 export async function fetchJob(
   jobId,
@@ -364,26 +662,97 @@ export async function fetchJob(
     apiUrl = process.env.GITHUB_API_URL ?? 'https://api.github.com',
     repository = process.env.GITHUB_REPOSITORY ?? '',
     fetchImpl = globalThis.fetch,
+    ...transport
   } = {},
 ) {
   if (!repository) throw new Error('GITHUB_REPOSITORY is not set');
-  return apiGet(`/repos/${repository}/actions/jobs/${jobId}`, { token, apiUrl, fetchImpl });
+  return apiGet(`/repos/${repository}/actions/jobs/${jobId}`, { ...transport, token, apiUrl, fetchImpl });
 }
 
 /**
- * @param {string} route
- * @param {{ token: string, apiUrl: string, fetchImpl: typeof fetch }} input
+ * Why a request got no answer, when the reason is the platform's and asking
+ * again is sound; `null` for anything else, which the caller rethrows. The
+ * shapes are the ones the header records as measured on Node 22's `fetch`.
+ *
+ * @param {unknown} error
+ * @returns {string|null}
  */
-async function apiGet(route, { token, apiUrl, fetchImpl }) {
-  const res = await fetchImpl(`${apiUrl}${route}`, {
-    headers: {
-      accept: 'application/vnd.github+json',
-      'x-github-api-version': '2022-11-28',
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-    },
-  });
-  if (!res.ok) throw new Error(`GET ${route} -> HTTP ${res.status}`);
-  return res.json();
+export function transientFailure(error) {
+  if (!error || typeof error !== 'object') return null;
+  const { name, message, cause } = /** @type {{ name?: unknown, message?: unknown, cause?: unknown }} */ (error);
+  if (name === 'TimeoutError') return 'no answer within the request timeout';
+  if (error instanceof TypeError && message === 'fetch failed') {
+    const code = cause && typeof cause === 'object' ? /** @type {{ code?: unknown }} */ (cause).code : undefined;
+    return `the connection failed before any answer${typeof code === 'string' ? ` (${code})` : ''}`;
+  }
+  return null;
+}
+
+/**
+ * A 5xx is the platform failing to answer. Every other status is an answer.
+ *
+ * @param {number} status
+ */
+export const isTransientStatus = (status) => status >= 500 && status <= 599;
+
+/**
+ * One GET, asked again on a transient failure at most `retries` times. The
+ * body is parsed OUTSIDE the retry: a page cut short is an answer that could
+ * not be read, and it is never asked again.
+ *
+ * @param {string} route
+ * @param {ReadOptions & { token: string, apiUrl: string, fetchImpl: typeof fetch }} input
+ */
+async function apiGet(
+  route,
+  {
+    token,
+    apiUrl,
+    fetchImpl,
+    retries = 0,
+    retryWaitMs = TRANSIENT_RETRY_WAIT_MS,
+    timeoutMs = REQUEST_TIMEOUT_MS,
+    deadline = Number.POSITIVE_INFINITY,
+    now = Date.now,
+    sleep = defaultSleep,
+    log = () => {},
+  },
+) {
+  for (let retry = 0; ; retry += 1) {
+    const left = deadline - now();
+    if (left <= 0) throw new Error(`GET ${route}: the gate's budget was spent before this request`);
+    /** @type {Response|undefined} */
+    let res;
+    /** @type {string} */
+    let failure;
+    try {
+      res = await fetchImpl(`${apiUrl}${route}`, {
+        headers: {
+          accept: 'application/vnd.github+json',
+          'x-github-api-version': '2022-11-28',
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+        signal: AbortSignal.timeout(Math.min(timeoutMs, left)),
+      });
+    } catch (error) {
+      const why = transientFailure(error);
+      if (why === null) throw error;
+      failure = why;
+    }
+    if (res) {
+      if (res.ok) return res.json();
+      if (!isTransientStatus(res.status)) throw new Error(`GET ${route} -> HTTP ${res.status}`);
+      failure = `HTTP ${res.status}`;
+    }
+    if (retry >= retries) {
+      throw new Error(`GET ${route} -> ${failure}${retries > 0 ? `, still after ${retries} retries` : ''}`);
+    }
+    if (now() + retryWaitMs + timeoutMs > deadline) {
+      throw new Error(`GET ${route} -> ${failure}; no further retry fits the gate's budget`);
+    }
+    log(`transient answer to GET ${route}: ${failure}; retry ${retry + 1}/${retries} in ${retryWaitMs / 1000}s`);
+    await sleep(retryWaitMs);
+  }
 }
 
 /**
@@ -398,20 +767,72 @@ export function parseArgs(argv) {
   return { shards, jobName: at('--job-name') ?? 'Test', fixture: at('--fixture') };
 }
 
-/** @param {string[]} argv */
-export async function main(argv) {
+/**
+ * The whole gate, with everything it touches handed in: the environment, the
+ * network, the clock and the two output streams. `main` is this over the real
+ * ones; the test file drives it over scripted ones, so the pins exercise the
+ * same composition CI runs.
+ *
+ * @param {string[]} argv
+ * @param {{
+ *   env?: Record<string, string|undefined>,
+ *   fetchImpl?: typeof fetch,
+ *   sleep?: (ms: number) => Promise<unknown>,
+ *   now?: () => number,
+ *   out?: (line: string) => void,
+ *   err?: (line: string) => void,
+ * }} [deps]
+ */
+export async function run(
+  argv,
+  {
+    env = process.env,
+    fetchImpl = globalThis.fetch,
+    sleep = defaultSleep,
+    now = Date.now,
+    out = (line) => console.log(line),
+    err = (line) => console.error(line),
+  } = {},
+) {
   const { shards, jobName, fixture } = parseArgs(argv);
   if (!Number.isInteger(shards) || shards < 1) {
-    console.error('usage: node scripts/check-test-shard-results.mjs --shards <n> [--job-name <name>] [--fixture <path>]');
+    err('usage: node scripts/check-test-shard-results.mjs --shards <n> [--job-name <name>] [--fixture <path>]');
     return EXIT_CANNOT_RUN;
   }
 
+  const deadline = now() + GATE_BUDGET_MS;
+  /** @type {ReadOptions & { token: string }} */
+  const read = {
+    token: env.GITHUB_TOKEN ?? '',
+    apiUrl: env.GITHUB_API_URL ?? 'https://api.github.com',
+    repository: env.GITHUB_REPOSITORY ?? '',
+    fetchImpl,
+    retries: TRANSIENT_RETRY_LIMIT,
+    deadline,
+    now,
+    sleep,
+    log: out,
+  };
+
   /** @type {unknown} */
   let jobs;
+  /** @type {number|null} */
+  let attempt = null;
   try {
-    jobs = fixture ? JSON.parse(fs.readFileSync(fixture, 'utf8')).jobs : await fetchRunJobs();
+    if (fixture) {
+      jobs = JSON.parse(fs.readFileSync(fixture, 'utf8')).jobs;
+    } else {
+      if (!read.token) throw new Error('GITHUB_TOKEN is not set');
+      ({ jobs, attempt } = await readRunJobs({
+        ...read,
+        runId: env.GITHUB_RUN_ID ?? '',
+        attempt: env.GITHUB_RUN_ATTEMPT ?? '1',
+        shards,
+        selfJobName: jobName,
+      }));
+    }
   } catch (error) {
-    console.error(`::error title=Test::could not read this run's job list: ${error instanceof Error ? error.message : String(error)}`);
+    err(`::error title=Test::could not read this run's job list: ${error instanceof Error ? error.message : String(error)}`);
     return EXIT_CANNOT_RUN;
   }
 
@@ -422,18 +843,30 @@ export async function main(argv) {
       jobs,
       shards,
       selfJobName: jobName,
-      rereadJob: (jobId) => fetchJob(jobId),
+      attempt,
+      rereadJob: (jobId) => fetchJob(jobId, read),
       // A fixture is one recorded answer; there is no later answer to re-read.
       limit: fixture ? 0 : REREAD_LIMIT,
-      log: (line) => console.log(line),
+      staleLimit: fixture ? 0 : STALE_REREAD_LIMIT,
+      // ⛔ Read to decide whether to WAIT longer, never whether to pass.
+      rollup: env.TEST_MATRIX_ROLLUP ?? null,
+      sleep,
+      now,
+      deadline,
+      log: out,
     });
   } catch (error) {
-    console.error(`::error title=Test::could not finish reading this run's job list: ${error instanceof Error ? error.message : String(error)}`);
+    err(`::error title=Test::could not finish reading this run's job list: ${error instanceof Error ? error.message : String(error)}`);
     return EXIT_CANNOT_RUN;
   }
 
-  console.log(renderReading(settled.reading, settled.rereads));
+  out(renderReading(settled.reading, settled.rereads, settled));
   return exitCodeFor(settled.reading);
+}
+
+/** @param {string[]} argv */
+export async function main(argv) {
+  return run(argv);
 }
 
 if (isEntrypoint(import.meta.url)) {

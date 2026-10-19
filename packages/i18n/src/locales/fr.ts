@@ -611,6 +611,10 @@ const fr = {
       undoing: "Annulation…",
       undoConfirm: "Annuler cet import ? Les enregistrements créés seront supprimés et les enregistrements mis à jour seront rétablis à leurs valeurs précédentes.",
       reverted: "Annulé",
+      undoPartial: "{{count}} lignes n'ont pas été annulées. Annuler à nouveau ne réessaie que ces lignes.",
+      undoPartial_one: "{{count}} ligne n'a pas été annulée. Annuler à nouveau ne réessaie que cette ligne.",
+      undoPartial_many: "{{count}} de lignes n'ont pas été annulées. Annuler à nouveau ne réessaie que ces lignes.",
+      undoPartial_other: "{{count}} lignes n'ont pas été annulées. Annuler à nouveau ne réessaie que ces lignes.",
       jobStatus: {
         pending: "En attente",
         running: "En cours",
@@ -2174,6 +2178,7 @@ const fr = {
       objectNotFound: "Objet introuvable",
       objectNotFoundDescription: "L'objet « {{objectName}} » n'existe pas dans la configuration actuelle.",
       objectNotFoundHint: "Vérifiez les paramètres de navigation de votre application ou sélectionnez un autre objet dans la barre latérale.",
+      objectPackageDisabled: "L'objet « {{objectName}} » appartient à un package désactivé et n'est donc pas servi.",
       filterOrNotSavable: "Ce filtre relie les conditions par OU, ce qu'une vue enregistrée ne peut pas encore stocker. Il s'applique toujours à cette liste — supprimez le groupement OU pour l'enregistrer dans la vue.",
       filterNestedNotSavable: "Ce filtre utilise des groupes de conditions imbriqués, qu'une vue enregistrée ne peut pas stocker. Aplatissez-le en une seule liste de conditions pour l'enregistrer dans la vue.",
       allRecords: "Tous les enregistrements",

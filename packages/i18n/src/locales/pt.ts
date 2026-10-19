@@ -611,6 +611,10 @@ const pt = {
       undoing: "Desfazendo…",
       undoConfirm: "Desfazer esta importação? Os registros criados serão excluídos e os registros atualizados voltarão aos valores anteriores.",
       reverted: "Desfeita",
+      undoPartial: "{{count}} linhas não foram desfeitas. Ao desfazer novamente, só essas linhas serão tentadas de novo.",
+      undoPartial_one: "{{count}} linha não foi desfeita. Ao desfazer novamente, só essa linha será tentada de novo.",
+      undoPartial_many: "{{count}} de linhas não foram desfeitas. Ao desfazer novamente, só essas linhas serão tentadas de novo.",
+      undoPartial_other: "{{count}} linhas não foram desfeitas. Ao desfazer novamente, só essas linhas serão tentadas de novo.",
       jobStatus: {
         pending: "Pendente",
         running: "Em execução",
@@ -2173,6 +2177,7 @@ const pt = {
       objectNotFound: "Objeto não encontrado",
       objectNotFoundDescription: "O objeto \"{{objectName}}\" não existe na configuração atual.",
       objectNotFoundHint: "Verifique as configurações de navegação do seu aplicativo ou selecione um objeto diferente na barra lateral.",
+      objectPackageDisabled: "O objeto \"{{objectName}}\" pertence a um pacote desativado e, por isso, não está sendo servido.",
       filterOrNotSavable: "Este filtro une as condições com OU, algo que uma visão salva ainda não consegue armazenar. Ele continua aplicado a esta lista — remova o agrupamento OU para salvá-lo na visão.",
       filterNestedNotSavable: "Este filtro usa grupos de condições aninhados, que uma visão salva não consegue armazenar. Transforme-o em uma única lista de condições para salvá-lo na visão.",
       allRecords: "Todos os registros",

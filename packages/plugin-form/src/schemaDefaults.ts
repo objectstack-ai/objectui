@@ -103,9 +103,10 @@ export { isRuntimeDefault };
  * An object schema as the data source serves it (`{ fields: { [name]: def } }`),
  * narrowed to `defaultValue` and the two members the `current_user` seed reads
  * (`type`, `reference`). The keys the option-list fallback reads
- * (objectui#11914) sit on the package-local `SeedFieldLike` below instead: no
- * published function reads them, and every member added here is published
- * surface somebody then has to keep.
+ * (objectui#11914) sit on the package-local `SeedFieldLike` below instead: the
+ * one published function that reads them, `optionListDefault`, names its own
+ * `OptionListFieldLike` (objectui#13049), and every member added here is
+ * published surface somebody then has to keep.
  *
  * Exported and published (objectui#7324) because `omitServerResolvedDefaults`
  * is published and this is its second parameter: a host with its own form
@@ -149,6 +150,22 @@ type SeedFieldLike = NonNullable<NonNullable<FieldDefaultsSchemaLike['fields']>[
   options?: unknown;
   multiple?: unknown;
 };
+
+/**
+ * One field as {@link optionListDefault} reads it: the option list and the two
+ * arity inputs, nothing else (objectui#13049).
+ *
+ * Published because `optionListDefault` is, and a consumer must be able to
+ * name what it passes (objectui#7324). Its own shape rather than a widening of
+ * {@link FieldDefaultsSchemaLike}, whose members are pinned to what the
+ * published `omitServerResolvedDefaults` / `isRequiredInForm` pair reads. A
+ * served object field is assignable to it as it arrives.
+ */
+export interface OptionListFieldLike {
+  type?: unknown;
+  multiple?: unknown;
+  options?: unknown;
+}
 
 /** An object schema as the seeding half reads it — see {@link SeedFieldLike}. */
 interface SeedSchemaLike {
@@ -322,8 +339,15 @@ export function schemaDefaultValues(
  *
  * Not gated on `type: 'select'`, as the engine's is not: `options` is a
  * field-level key, and a field the server defaults must not open empty here.
+ *
+ * Applies only to a field that declares no `defaultValue` — the caller's gate,
+ * not this function's: {@link schemaDefaultValues} reaches it through
+ * `dv == null`, the engine's own presence test, and so must every other
+ * reader. Published on the package entry for the SECOND form renderer, the
+ * console's public form page (objectui#13049), so both renderers seed from
+ * this one reading instead of two.
  */
-function optionListDefault(field: SeedFieldLike | undefined): unknown {
+export function optionListDefault(field: OptionListFieldLike | null | undefined): unknown {
   const options = field?.options;
   if (!Array.isArray(options)) return undefined;
   const marked: unknown[] = [];

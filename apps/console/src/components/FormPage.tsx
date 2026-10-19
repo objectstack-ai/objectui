@@ -130,7 +130,11 @@ import {
   type FieldRuleFaults,
   type FieldRulePredicate,
 } from '@object-ui/core';
-import { omitServerResolvedDefaults, resolveSectionGroupReferences } from '@object-ui/plugin-form';
+import {
+  omitServerResolvedDefaults,
+  optionListDefault,
+  resolveSectionGroupReferences,
+} from '@object-ui/plugin-form';
 // ADR-0059's published door for a host that renders field widgets OUTSIDE the
 // form renderer: `resolveFormWidgetType` + `getLazyFieldWidget` hand back the
 // very component `@object-ui/fields` registers for the form, so a host built on
@@ -147,6 +151,7 @@ import {
 import { usePredicateScope } from '@object-ui/react';
 import { useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
 import type { FormFieldSpec, FormSectionSpec, FormViewSpec } from '@object-ui/app-shell';
+import type { ObjectFormSection } from '@object-ui/types';
 import { resolveSubmitRedirect } from './submitRedirect';
 
 const API_BASE = (import.meta.env.VITE_SERVER_URL || '') + '/api/v1';
@@ -599,6 +604,14 @@ interface RenderableSection {
    * derives its own from `FormFieldSpec`.
    */
   visibleWhen?: FormSectionSpec['visibleWhen'];
+  /**
+   * The fault direction of {@link visibleWhen} (objectui#13055), carried off
+   * the resolved section: `'hidden'` when the predicate is a field group's
+   * (`{ group }` reference), which `@objectstack/spec` declares fail-closed.
+   * An authored section's own predicate carries none and faults open. See
+   * `ObjectFormSection.visibleWhenFault`.
+   */
+  visibleWhenFault?: ObjectFormSection['visibleWhenFault'];
   fields: RenderableField[];
 }
 
@@ -769,7 +782,7 @@ export function buildSections(
       formType: form.type,
       objectDef: objectSchema,
     },
-  ) ?? []) as unknown as FormSectionSpec[];
+  ) ?? []) as unknown as Array<FormSectionSpec & Pick<ObjectFormSection, 'visibleWhenFault'>>;
   return sections.map((sec) => {
     const cols = normalizeColumns(sec.columns);
     const fields: RenderableField[] = [];
@@ -843,6 +856,7 @@ export function buildSections(
       // The one spelling, as on the field row — see
       // `RenderableSection.visibleWhen` (objectui#5627, objectui#12654).
       visibleWhen: sec.visibleWhen,
+      visibleWhenFault: sec.visibleWhenFault,
       fields,
     };
   });
@@ -933,6 +947,15 @@ export function isSectionVisible(
   previous?: Record<string, unknown> | null,
   predicateScope?: Record<string, unknown>,
 ): boolean {
+  // A field group's predicate is fail-CLOSED (objectui#13055): one that cannot
+  // be evaluated hides the section, and the warning names `false` as the
+  // default taken. Every other section keeps the fail-open answer above.
+  if (section.visibleWhenFault === 'hidden') {
+    if (section.visibleWhen == null) return true;
+    return evalFieldPredicate(section.visibleWhen, values, false, previous ?? undefined, predicateScope, {
+      context: `visibleWhen of field group section '${section.label ?? '(unlabelled)'}' — fail-closed, the section is hidden`,
+    });
+  }
   return evalFieldPredicate(section.visibleWhen, values, true, previous ?? undefined, predicateScope, {
     // The locator is the heading an author can actually find in their own
     // metadata; an unlabelled section says so rather than printing
@@ -1250,6 +1273,29 @@ export function readLoadedRecord(
  * The two later sources are untouched: a stored value and an explicit
  * `prefill_` param are real values a producer supplied, not declarations the
  * server is waiting to resolve, so both still fill a runtime-default field.
+ *
+ * ## An option marked `default: true` is source 1 too (objectui#13049)
+ *
+ * A field that declares no `defaultValue` may still have one: its option list
+ * can mark an option `default: true`, and `ObjectQL.applyFieldDefaults` stores
+ * that option when the field arrives absent. Leaving the control empty here
+ * made a required select refuse the submit on the client that the server would
+ * have accepted and defaulted.
+ *
+ * The reading is `@object-ui/plugin-form`'s {@link optionListDefault}, the very
+ * function the create form's `schemaDefaultValues` calls (objectui#11914) —
+ * imported, not re-derived, so the two renderers cannot disagree about which
+ * option is the default or about a multi-valued field's array. It reads the
+ * served object field ({@link RenderableField.meta}), whose options still carry
+ * the flag; the row's own `options` are normalized to `{ value, label }` and
+ * have dropped it. The create form's precedence carries over whole:
+ *
+ *   - only when `defaultValue == null`, the engine's own presence test, so a
+ *     literal `defaultValue` wins and a RUNTIME one is never replaced by a flag
+ *     the server does not apply to that field;
+ *   - only with no `record`: the create form never seeds an edit form, and a
+ *     column the stored row leaves unset is not this form's to fill;
+ *   - a `prefill_` param still outranks it, as it outranks every default.
  */
 export function readPrefill(
   fields: RenderableField[],
@@ -1260,7 +1306,11 @@ export function readPrefill(
   for (const f of fields) {
     // Runtime defaults are the server's to resolve, so the key is left ABSENT
     // rather than seeded — see the docblock's #5727 section.
-    if (f.defaultValue !== undefined && !isRuntimeDefault(f.defaultValue)) {
+    const fromOptions =
+      !record && f.defaultValue == null ? optionListDefault(f.meta) : undefined;
+    if (fromOptions !== undefined) {
+      out[f.name] = fromOptions;
+    } else if (f.defaultValue !== undefined && !isRuntimeDefault(f.defaultValue)) {
       out[f.name] = f.defaultValue;
     }
     // `hasOwnProperty` rather than a truthiness/undefined test: a stored null

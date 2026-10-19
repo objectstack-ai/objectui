@@ -791,9 +791,12 @@ function isRetiredUpstream(type: string): boolean {
  * (objectstack#22444), so this file judges it:
  *
  *   - objectui#13047 — every entry on `list-view`: the 38 keys its spec row
- *     declares that `inputs` does not publish, and the 6 member pins its
- *     array/object-armed inputs owe. Expires 2026-11-18, thirty days from the
- *     decision, or when that card lands.
+ *     declares that `inputs` did not publish, and the 6 member pins its
+ *     array/object-armed inputs owed. STRUCK by that card's landing, which
+ *     measured each key through the real `SchemaRenderer` and this block's
+ *     registration, published the 33 the renderer honours with a member pin
+ *     for every structured one, and recorded the other five in
+ *     `UNPUBLISHED_EXEMPTIONS` with the measured reason.
  *
  * Each owner card decides every key by its own measurement: declare what the
  * renderer honours, refuse or retire what it does not. ⛔ Batch-declaring an
@@ -889,31 +892,15 @@ const FIELD_SECURITY_TRIPLE = ['enforceFieldSecurity', 'redactFields', 'required
 /** Every entry the ruling books starts with this, so the caps can count them. */
 const OWED_PREFIX = 'OWED TO ';
 
-// The two helpers that write a booked entry: `OWED_TO` (the reason: owner,
+// The two helpers that wrote a booked entry: `OWED_TO` (the reason: owner,
 // what is owed, the booking record and the expiry) and `owedEntries` (one
 // entry per key of a block). They left with `action:button.undoable`, struck by
-// objectui#11168's last slice, and came back with the objectstack `main` pin
-// bump (objectui#12971), whose `list-view` differences the seat booked to
-// objectui#13047 under decision 3 = B (record 6267645900).
-
-/** The reason a booked entry carries: owner, what is owed, the booking record and the expiry. */
-const OWED_TO = (owner: Objectui11111Owner, what: string): string => {
-  const { bump, bookedBy, expires } = OBJECTUI_11111_BOOKINGS[owner];
-  return (
-    `${OWED_PREFIX}${owner}. ${what} Booked by ${bookedBy}: ` +
-    `the ${bump} bump re-pins and declares nothing; ${owner} decides it by its own measurement. ` +
-    `Expires ${expires}, or when ${owner} lands, whichever is first.`
-  );
-};
-
-/** `BLOCK.KEY` entries for every listed key of one block, all with the same owner and reason. */
-const owedEntries = (
-  type: string,
-  keys: readonly string[],
-  owner: Objectui11111Owner,
-  what: string,
-): Record<string, string> =>
-  Object.fromEntries(keys.map((key) => [`${type}.${key}`, OWED_TO(owner, what)]));
+// objectui#11168's last slice, came back with the objectstack `main` pin bump
+// (objectui#12971), whose `list-view` differences the seat booked to
+// objectui#13047 under decision 3 = B (record 6267645900), and left again when
+// objectui#13047 struck the last of those entries. A future bump that books an
+// entry writes them back with its entries; every reason still starts with
+// `OWED_PREFIX`, which the cap test counts.
 
 /** Which owner the ruling routes an entry id to — asserted against every entry's reason. */
 function objectui11111OwnerOf(id: string): Objectui11111Owner {
@@ -944,9 +931,9 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
 const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 0, // objectui#11168 loaded and judged all four: slice 3 object-map and object-tree, slice 4 object-gantt, slice 5 object-timeline
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
-  unpublishedKeys: 38, // objectui#13047: 38 (list-view, booked by the seat decision D1 = A on objectui#12971, record 6267645900); objectui#11168: 0 (its last slice declared action:button undoable, ruling B on objectui#11754; the two `endpoint` entries had left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0, objectui#8649: 0, objectui#11536: 0 and objectui#11068: 0 (each struck by its landing; objectui#11536 declared all ten record:line_items keys, objectui#11068's build published object-grid keyboardNavigation)
+  unpublishedKeys: 0, // objectui#13047: 0 (its landing measured all 38 list-view keys, published the 33 the renderer honours and recorded the other five in UNPUBLISHED_EXEMPTIONS with their reasons); objectui#11168: 0 (its last slice declared action:button undoable, ruling B on objectui#11754; the two `endpoint` entries had left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0, objectui#8649: 0, objectui#11536: 0 and objectui#11068: 0 (each struck by its landing; objectui#11536 declared all ten record:line_items keys, objectui#11068's build published object-grid keyboardNavigation)
   refusedArms: 0, // objectui#11168: slice 2 narrowed element:definition-list.columns, slice 3 object-form.layout
-  memberPins: 6, // objectui#13047: 6 (list-view data, columns, filter, sort, options and dataSource, booked by the same decision); objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3; objectui#11536 pinned record:line_items columns and dataSource
+  memberPins: 0, // objectui#13047 pinned list-view data, columns, filter, sort, options and dataSource, with every structured key it published; objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3; objectui#11536 pinned record:line_items columns and dataSource
 } as const;
 
 /**
@@ -1651,41 +1638,30 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   /*
    * ⚠️ THE OBJECTSTACK `main` PIN BOOKINGS — the seat decision D1 = A on
    * objectui#12971 (record 6267645900), which applies objectui#11111 decision
-   * 3 = B to the pin bump.
+   * 3 = B to the pin bump. STRUCK by objectui#13047.
    *
-   * The spec keys the `list-view` row declares from that pin on (objectstack#22444)
-   * that the registration's `inputs` do not publish. The bump declares nothing:
-   * objectui#13047 measures each key against `ListViewBlock` / `ListView`,
-   * declares what is honoured and leaves the rest out. Capped at
-   * `OBJECTUI_11111_LEDGER_CAPS.unpublishedKeys`.
+   * The bump booked the 38 spec keys the `list-view` row declares from that
+   * pin on (objectstack#22444) that the registration's `inputs` did not
+   * publish, OWED to objectui#13047. That card measured each key through the
+   * real `SchemaRenderer` and the `list-view` registration
+   * (`packages/plugin-list/src/__tests__/ListViewBlock.specInputs-13047.test.tsx`),
+   * published the 33 the renderer honours on a page node, and left the five
+   * below out, each UNPUBLISHED BY MEASUREMENT: the first bar of this map's
+   * header, a key the renderer does not honour, so publishing it would
+   * advertise configuration the platform drops. Each reason names what the
+   * renderer does instead, and each leaves this map the day a reader lands
+   * and the key is published.
    */
-  ...owedEntries(
-    'list-view',
-    [
-      'name', 'label', 'description', 'searchableFields', 'filterableFields', 'userFilters', 'resizable',
-      'compactToolbar', 'selection', 'navigation', 'pagination', 'kanban', 'calendar', 'gantt', 'gallery',
-      'timeline', 'chart', 'map', 'tree', 'sharing', 'requiredPermissions', 'rowHeight', 'grouping',
-      'rowColor', 'hiddenFields', 'fieldOrder', 'rowActions', 'bulkActions', 'bulkActionDefs',
-      'conditionalFormatting', 'inlineEdit', 'exportOptions', 'userActions', 'appearance', 'addRecord',
-      'showRecordCount', 'allowPrinting', 'emptyState',
-    ],
-    'objectui#13047',
-    'A SPEC KEY NOT PUBLISHED: `list-view` entered `covered` with the objectstack `main` pin and its `inputs` omit this key its spec row declares.',
-  ),
-
-  // The seat decision D2 = A on objectui#12971 (record 6267645900), the
-  // objectui#12370 precedent (`record:related_list.parentDataSource`, owner
-  // objectui#12294): `emptyState` on the three bound record blocks
-  // (objectstack#24270) is declared by the spec and drawn by no renderer here
-  // yet, so publishing it would advertise configuration the platform drops.
-  // objectui#12932 owns the renderer and declares the input with it, striking
-  // these three.
-  'record:details.emptyState':
-    'Declared by the spec from the objectstack `main` pin (objectstack#24270): the empty state a bound record block draws when its `dataSource` answers no row. No renderer here draws it yet; objectui#12932 draws it and declares it on the registration.',
-  'record:highlights.emptyState':
-    'Declared by the spec from the objectstack `main` pin (objectstack#24270): the empty state a bound record block draws when its `dataSource` answers no row. No renderer here draws it yet; objectui#12932 draws it and declares it on the registration.',
-  'record:quick_actions.emptyState':
-    'Declared by the spec from the objectstack `main` pin (objectstack#24270): the empty state a bound record block draws when its `dataSource` answers no row. No renderer here draws it yet; objectui#12932 draws it and declares it on the registration.',
+  'list-view.name':
+    'Unpublished by measurement (objectui#13047): read by nothing on a page `list-view` node. The node draws, queries and hands its view the same thing with and without it — the view\'s own `name` is its identity in metadata, which an embedded list has no use for.',
+  'list-view.requiredPermissions':
+    'Unpublished by measurement (objectui#13047): no audience gate on this block. A capability nobody holds still draws and queries the list, where the record blocks put an insufficient-permissions notice in place of the block. The server enforces the key on a served list view; nothing enforces it on an embedded one. A renderer gap the seat cards (objectui#13047\'s report).',
+  'list-view.sharing':
+    'Unpublished by measurement (objectui#13047): `sharing.type` draws a Share button with no click handler, and the sharing config is enforced nowhere in the renderer. Publishing it would advertise a dead control (objectui#13047\'s report).',
+  'list-view.addRecord':
+    'Unpublished by measurement (objectui#13047): `addRecord.enabled` draws an Add button that calls the host\'s `onAddRecord`, and a page node has no host to pass one, so the button does nothing there. A renderer gap the seat cards (objectui#13047\'s report).',
+  'list-view.filterableFields':
+    'Unpublished by measurement (objectui#13047): the row declares it as the legacy shorthand of `userFilters.fields` (end-user quick filters), and the list reads it as something else — the field list of the Filter panel — while it draws no quick-filter bar. Publishing it would advertise the row\'s meaning, which nothing honours; which meaning stands is a contract question for the seat (objectui#13047\'s report).',
 };
 
 /**
@@ -2856,6 +2832,12 @@ const actionLeafMemberPins = (type: 'action:button' | 'action:icon'): Record<str
  * recognising those four, this direction has stopped describing the defect it
  * was built for.
  */
+/**
+ * The one file that measures the `list-view` keys objectui#13047 published, and
+ * pins the members of every structured one but `dataSource`.
+ */
+const LIST_VIEW_PIN_FILE = 'packages/plugin-list/src/__tests__/ListViewBlock.specInputs-13047.test.tsx';
+
 const MEMBER_PINS: Record<string, MemberPin> = {
   ...actionLeafMemberPins('action:button'),
   ...actionLeafMemberPins('action:icon'),
@@ -2943,6 +2925,143 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'element:text_input.placeholder': {
     file: 'packages/components/src/__tests__/text-input-inputs-spec-parity.test.ts',
     pins: 'The I18nLabel trio — see `element:text_input.description` (objectui#5717).',
+  },
+  // objectui#13047 — every array/object-armed input `list-view` publishes,
+  // measured through the real `SchemaRenderer` and the `list-view` registration
+  // in one file (`LIST_VIEW_PIN_FILE`); `dataSource` in the binding's own file.
+  // The six the objectstack `main` pin bump booked (`data`, `columns`, `filter`,
+  // `sort`, `options`, `dataSource`) are among them.
+  'list-view.appearance': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Two members, measured apart. `showDescription: false` hides the description the same node declares (the info control is gone). `allowedVisualizations` narrows the kinds a view SWITCHER offers, and a page node draws no switcher (`showViewSwitcher` is a host prop, not a key of the row), so a node whitelisting `[\'grid\']` still draws its authored kanban: the member is inert on a page node, which the registration\'s description says rather than hides (objectui#13047).',
+  },
+  'list-view.bulkActionDefs': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Members are the spec\'s `BulkActionDef` objects (`of: \'object\'`, the contract\'s single member kind): a definition list reaches the `object-grid` node `ListView` builds unchanged, member for member, and an absent key puts none there. The grid\'s own execution of a definition is `object-grid.bulkActionDefs`\'s pin (objectui#13047).',
+  },
+  'list-view.bulkActions': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Members are action NAMES (`of: \'string\'`): the list reaches the `object-grid` node `ListView` builds as its `batchActions`, in order, and an absent key puts none there. The bar the grid draws from them is `object-grid.bulkActions`\'s pin (objectui#13047).',
+  },
+  'list-view.calendar': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The calendar block\'s binding members `startDateField`, `endDateField` and `titleField`, each reaching the `object-calendar` node `ListView` builds under its own name; with no block, a `type: \'calendar\'` node hands the calendar no start date (objectui#13047).',
+  },
+  'list-view.chart': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The ADR-0021 binding members `dataset`, `values` and `dimensions`, reaching the `object-chart` node `ListView` builds for a `type: \'chart\'` node unchanged (objectui#13047).',
+  },
+  'list-view.columns': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Members are field NAMES in the authored order: they project the query (`$select` carries them and not a field they leave out) and the `object-grid` node `ListView` builds draws them in that order (objectui#13047).',
+  },
+  'list-view.conditionalFormatting': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Members are the list view\'s own `{ condition, style }` rules (`of: \'object\'`): the rule list reaches the `object-grid` node `ListView` builds unchanged, and an absent key puts none there. Painting a matched row is `object-grid.conditionalFormatting`\'s pin (objectui#13047).',
+  },
+  'list-view.data': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The spec\'s `ViewData`, two providers measured apart: `{ provider: \'object\', object }` lists that object (the adapter\'s `find` receives it and the grid is handed its rows), and `{ provider: \'value\', items }` hands the grid those rows and queries nothing (objectui#13047).',
+  },
+  'list-view.dataSource': {
+    file: 'packages/plugin-list/src/__tests__/ListView.elementDataSource.test.tsx',
+    pins: 'The per-element binding\'s members on a page `list-view` node, asserted at the query the adapter receives: `object` is the queried object; a named `view` contributes its columns (`$select`), filter and sort; the binding\'s own `filter` is AND-combined with the view\'s, never replacing it; its own `sort` and `limit` (as `$top`) outrank the view\'s; columns authored on the node win over the view\'s; and an unresolvable `view` renders a configuration error naming the view, the object and the views it has, and queries nothing. The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), so the per-block half is what this pin carries. Pre-existing file (objectstack#5576), read end to end before being cited (objectui#13047).',
+  },
+  'list-view.description': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The I18nLabel arms: a plain string is the toolbar info control\'s accessible name, an inline locale map paints its `zh-CN` entry under a `zh-CN` display locale with `en` listed FIRST so a fallback fails the row, and an absent key draws no info control (objectui#13047).',
+  },
+  'list-view.emptyState': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Two of the strict `EmptyState` members, `title` and `message`, drawn in place of the default empty copy when no record comes back; the same node with no `emptyState` draws neither. `icon` and `link` are this package\'s `ListView.emptyState*` pins on the bare `ListView` (objectui#13047).',
+  },
+  'list-view.exportOptions': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Two members: declaring `{ formats: [\'csv\'] }` offers the toolbar export in that format (an absent key offers none), and `fileNamePrefix` leads the downloaded file\'s name, read off the download anchor (objectui#13047).',
+  },
+  'list-view.fieldOrder': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Members are field NAMES (`of: \'string\'`): they order the columns left after `hiddenFields` on the `object-grid` node `ListView` builds, and a surviving column the list does not name sorts LAST (objectui#13047).',
+  },
+  'list-view.filter': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Members are the spec\'s `ViewFilterRule` objects `{ field, operator, value }`: they reach the query\'s `$filter` carrying the field and the value, and an absent key sends no `$filter` (objectui#13047).',
+  },
+  'list-view.gallery': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The gallery block\'s `coverField` (reaching the `object-gallery` node\'s nested `gallery` config) and `titleField` (its flat title binding); with no block, a `type: \'gallery\'` node hands no cover field (objectui#13047).',
+  },
+  'list-view.gantt': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The gantt block\'s binding members `startDateField`, `endDateField` and `titleField`, each reaching the `object-gantt` node `ListView` builds; with no block, a `type: \'gantt\'` node hands the chart no start date (objectui#13047).',
+  },
+  'list-view.grouping': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Members are `{ field, order }` entries under `fields`: over an adapter that answers the group header query the entry reaches the `object-grid` node `ListView` builds, and over one that cannot, the list draws its refusal instead of grouping one page and mounts no grid (objectui#13047).',
+  },
+  'list-view.hiddenFields': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Members are field NAMES (`of: \'string\'`): each subtracts its column from the `object-grid` node `ListView` builds, and a name the columns never projected subtracts nothing (objectui#13047).',
+  },
+  'list-view.kanban': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The kanban block\'s `groupByField` (the board\'s lane field, handed as `groupBy`), `titleField` and `columns` (handed as the card fields); with no block, the board lanes on a field the list derives rather than the one this row names (objectui#13047).',
+  },
+  'list-view.label': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The I18nLabel arms at the export file name: a plain string names the downloaded file, an inline locale map names it by its `zh-CN` entry under a `zh-CN` display locale with `en` listed FIRST (and never as `[object Object]`), and the same node with no label does not. The record-detail drawer heading carries the string arm in the `navigation` row (objectui#13047).',
+  },
+  'list-view.map': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The map block\'s `latitudeField` and `longitudeField`, each reaching the `object-map` node `ListView` builds; with no block, a `type: \'map\'` node hands no coordinate binding (objectui#13047).',
+  },
+  'list-view.navigation': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The `mode` member: `drawer` opens the clicked row\'s record in a dialog headed by the list\'s `label`, and the same node with no `navigation` opens none (objectui#13047).',
+  },
+  'list-view.options': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The per-kind bag: `options.kanban.groupByField: \'owner\'` lanes the board on `owner` and its `columns` become the card fields, read off the `object-kanban` node `ListView` builds, against a CONTROL bare kanban node that lanes on a field the list derives itself (not `owner`), so the row reads the bag and not the default (objectui#13047).',
+  },
+  'list-view.pagination': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The `pageSize` member caps the query (`$top`), and the same node with no `pagination` sends the default page (objectui#13047).',
+  },
+  'list-view.rowActions': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Members are action NAMES (`of: \'string\'`): the list reaches the `object-grid` node `ListView` builds unchanged, and an absent key puts none there. The row menu the grid draws is `object-grid.rowActions`\'s pin (objectui#13047).',
+  },
+  'list-view.rowColor': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The `field` and `colors` members reach the `object-grid` node `ListView` builds unchanged, and an absent key puts none there. Painting the rows is `object-grid.rowColor`\'s pin (objectui#13047).',
+  },
+  'list-view.searchableFields': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Members are field NAMES (`of: \'string\'`): a term typed into the toolbar search box is sent with `$searchFields` naming exactly them, and the same term on a node with no list sends no `$searchFields` (objectui#13047).',
+  },
+  'list-view.selection': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The `type` member reaches the `object-grid` node `ListView` builds unchanged, and an absent key puts no selection there (objectui#13047).',
+  },
+  'list-view.sort': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Members are `{ field, order }` objects: they reach the query\'s `$orderby` in the order written, each with its own order (objectui#13047).',
+  },
+  'list-view.timeline': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The timeline block\'s `startDateField` (on the `object-timeline` node both flat and in its nested `timeline` config) and `titleField`; with no block, a `type: \'timeline\'` node hands no start date (objectui#13047).',
+  },
+  'list-view.tree': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The tree block\'s `parentField` and `labelField`, each reaching the `object-tree` node `ListView` builds; with no block, a `type: \'tree\'` node hands no parent field (objectui#13047).',
+  },
+  'list-view.userActions': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'Members are per-control toggles: `sort: false` takes the Sort control off the toolbar while the Filter control the same object does not name stays, and an absent key keeps both (objectui#13047).',
+  },
+  'list-view.userFilters': {
+    file: LIST_VIEW_PIN_FILE,
+    pins: 'The `element` and `fields` members: a `dropdown` over `stage` draws the quick-filter bar labelled by that field, and the same node with no `userFilters` draws none (objectui#13047).',
   },
   'object-calendar.calendar': {
     file: 'packages/plugin-calendar/src/__tests__/objectCalendarConfigMembers-8071.test.tsx',
@@ -3414,6 +3533,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-detail/src/renderers/__tests__/recordBinding.appPage-12294.test.tsx',
     pins: 'The per-element binding\'s members as a ONE-RECORD block reads them (objectui#12294), through the REAL registration and `SchemaRenderer` on an `app` page with no record context, asserted at the bound row\'s field value and option label it draws. `object` names the object read; `filter` reaches the read (lowered by `ElementDataSourceGate`, matched by content); `sort` picks the FIRST row and reaches the read as `$orderby`, with a two-row set stored out of order as its control; `limit` is NOT the read\'s cap: one row is always asked for (`$top: 1`), because the first row of the authored cap and of a one-row read are the same row; `view` is resolved by the gate, and an unresolvable one draws the configuration panel and reads no row. Zero rows and a refused read draw the block\'s no-record state; a failed read is reported in the block\'s place. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block, so the declaration lists the five members generically and this pin carries which of them THIS block reads. The record-page half (unbound = the page record; bound on a record page = the bound row, kept out of the page\'s inline-edit session and highlight registry) and the data-invalidation bus are pinned in `recordBinding.recordPageAndBus-12294.test.tsx`.',
   },
+  'record:details.emptyState': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/recordBinding.emptyState-12932.test.tsx',
+    pins: 'The members of the spec\'s `EmptyStateSchema` (by reference on this block\'s row, objectstack#24266) as a BOUND record block draws them (objectui#12932), through the REAL registration and `SchemaRenderer` on an `app` page, with the key in the `properties` bag: with a `dataSource` binding whose read answers no row, `title` and `message` are drawn in the block\'s place, and a read refused as forbidden draws them too. Its controls: with no `emptyState` the block keeps its own default ("Record not found"); a bound row draws the row; a failed read draws the error panel; an unbound block on a record page draws the page\'s record and, with no record, its own default. On `record:details` the same file pins a `title` left out (the heading reads "Record not found"), a `title` as an inline locale map (its `en` entry under the display locale) and `link` (drawn through the shared `EmptyStateLink`); `icon` reaches `resolveIcon`, the grid\'s own resolver.',
+  },
   'record:details.fields': {
     file: 'packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts',
     pins: 'Members are BARE NAMES: the spec rejects the entry-object spelling on its value, the description is asserted non-empty first and then required to teach no entry shape, and the renderer\'s more tolerant read is recorded as unexercised drift rather than a second contract.',
@@ -3441,6 +3564,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'record:highlights.dataSource': {
     file: 'packages/plugin-detail/src/renderers/__tests__/recordBinding.appPage-12294.test.tsx',
     pins: 'The per-element binding\'s members as a ONE-RECORD block reads them (objectui#12294), through the REAL registration and `SchemaRenderer` on an `app` page with no record context, asserted at the bound row\'s field value it draws. `object` names the object read; `filter` reaches the read (lowered by `ElementDataSourceGate`, matched by content); `sort` picks the FIRST row and reaches the read as `$orderby`, with a two-row set stored out of order as its control; `limit` is NOT the read\'s cap: one row is always asked for (`$top: 1`), because the first row of the authored cap and of a one-row read are the same row; `view` is resolved by the gate, and an unresolvable one draws the configuration panel and reads no row. Zero rows and a refused read draw the block\'s no-record state; a failed read is reported in the block\'s place. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block, so the declaration lists the five members generically and this pin carries which of them THIS block reads. The record-page half (unbound = the page record; bound on a record page = the bound row, kept out of the page\'s inline-edit session and highlight registry) and the data-invalidation bus are pinned in `recordBinding.recordPageAndBus-12294.test.tsx`.',
+  },
+  'record:highlights.emptyState': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/recordBinding.emptyState-12932.test.tsx',
+    pins: 'The members of the spec\'s `EmptyStateSchema` (by reference on this block\'s row, objectstack#24266) as a BOUND record block draws them (objectui#12932), through the REAL registration and `SchemaRenderer` on an `app` page, with the key in the `properties` bag: with a `dataSource` binding whose read answers no row, `title` and `message` are drawn in the block\'s place, and a read refused as forbidden draws them too. Its controls: with no `emptyState` the block keeps its own default (nothing); a bound row draws the row; a failed read draws the error panel; an unbound block on a record page draws the page\'s record and, with no record, its own default. On `record:details` the same file pins a `title` left out (the heading reads "Record not found"), a `title` as an inline locale map (its `en` entry under the display locale) and `link` (drawn through the shared `EmptyStateLink`); `icon` reaches `resolveIcon`, the grid\'s own resolver.',
   },
   'record:highlights.fields': {
     file: 'packages/plugin-detail/src/__tests__/recordHighlightsInputs.spec-parity.test.ts',
@@ -3477,6 +3604,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'record:quick_actions.dataSource': {
     file: 'packages/plugin-detail/src/renderers/__tests__/recordBinding.appPage-12294.test.tsx',
     pins: 'The per-element binding\'s members as a ONE-RECORD block reads them (objectui#12294), through the REAL registration and `SchemaRenderer` on an `app` page with no record context, asserted at the record id a declared action runs against. `object` names the object read; `filter` reaches the read (lowered by `ElementDataSourceGate`, matched by content); `sort` picks the FIRST row and reaches the read as `$orderby`, with a two-row set stored out of order as its control; `limit` is NOT the read\'s cap: one row is always asked for (`$top: 1`), because the first row of the authored cap and of a one-row read are the same row; `view` is resolved by the gate, and an unresolvable one draws the configuration panel and reads no row. Zero rows and a refused read draw the block\'s no-record state; a failed read is reported in the block\'s place. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block, so the declaration lists the five members generically and this pin carries which of them THIS block reads. The record-page half (unbound = the page record; bound on a record page = the bound row, kept out of the page\'s inline-edit session and highlight registry) and the data-invalidation bus are pinned in `recordBinding.recordPageAndBus-12294.test.tsx`.',
+  },
+  'record:quick_actions.emptyState': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/recordBinding.emptyState-12932.test.tsx',
+    pins: 'The members of the spec\'s `EmptyStateSchema` (by reference on this block\'s row, objectstack#24266) as a BOUND record block draws them (objectui#12932), through the REAL registration and `SchemaRenderer` on an `app` page, with the key in the `properties` bag: with a `dataSource` binding whose read answers no row, `title` and `message` are drawn in the block\'s place, and a read refused as forbidden draws them too. Its controls: with no `emptyState` the block keeps its own default (no button on a runtime view); a bound row draws the row; a failed read draws the error panel; an unbound block on a record page draws the page\'s record and, with no record, its own default. On `record:details` the same file pins a `title` left out (the heading reads "Record not found"), a `title` as an inline locale map (its `en` entry under the display locale) and `link` (drawn through the shared `EmptyStateLink`); `icon` reaches `resolveIcon`, the grid\'s own resolver.',
   },
   'record:quick_actions.actionNames': {
     file: 'packages/plugin-detail/src/__tests__/recordQuickActionsInputs.actionNamesFallback.test.tsx',
@@ -3686,16 +3817,11 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
 
   // ⚠️ OBJECTSTACK `main` PIN BOOKINGS — the seat decision D1 = A on
   // objectui#12971 (record 6267645900), which applies objectui#11111 decision
-  // 3 = B to the pin bump. The array/object-armed inputs of `list-view`, the
-  // block that pin newly judges, owed a member pin by objectui#13047. Counted
-  // into `MEMBER_PIN_EXEMPTION_CEILING` (0 -> 6) and capped at these six; that
-  // card's pins strike them.
-  ...owedEntries(
-    'list-view',
-    ['data', 'columns', 'filter', 'sort', 'options', 'dataSource'],
-    'objectui#13047',
-    'A MEMBER PIN OWED: this `list-view` input is array/object-armed on a block the objectstack `main` pin newly judges, and no pin states its members.',
-  ),
+  // 3 = B to the pin bump. The six array/object-armed inputs of `list-view`
+  // owed a member pin by objectui#13047 (`data`, `columns`, `filter`, `sort`,
+  // `options`, `dataSource`) stood here. That card pinned all six, and every
+  // structured key it published with them, each registered in `MEMBER_PINS`,
+  // so no booking is left. Header kept as a landmark for a future grep.
 };
 
 /**
@@ -4540,8 +4666,16 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * objectui#13047. 0 + 6 booked = 6, and `the objectui#11111 ledger is capped
  * at exactly the entries it lists` caps the six and routes each to
  * objectui#13047, whose pins take this back to 0.
+ *
+ * ## 6 -> 0 (objectui#13047) — the objectstack `main` pin ruling paid off
+ *
+ * The card registered member pins for all six, measured through the real
+ * `SchemaRenderer` and the `list-view` registration, and deleted their booked
+ * entries. The structured keys it published beside them entered the
+ * population already pinned, so nothing stands in the list and the ceiling
+ * follows it back to 0.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 6;
+const MEMBER_PIN_EXEMPTION_CEILING = 0;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.
@@ -6225,7 +6359,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       'objectui#8649': 0,
       'objectui#11536': 0,
       'objectui#11068': 0,
-      'objectui#13047': 44,
+      'objectui#13047': 0,
     });
   });
 });

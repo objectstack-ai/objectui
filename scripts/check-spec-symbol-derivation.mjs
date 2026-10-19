@@ -1248,7 +1248,6 @@ const CLAIM_DEBT = {
     "PageRegionWidth",
     "RecordActivityComponentProps",
     "RecordChatterComponentProps",
-    "RecordHighlightsComponentProps",
     "SubmitBehavior",
   ],
   "@object-ui/core": [

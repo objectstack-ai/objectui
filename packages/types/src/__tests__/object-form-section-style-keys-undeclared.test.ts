@@ -88,6 +88,7 @@ const DECLARED_KEYS = [
   'fields',
   'group',
   'visibleWhen',
+  'visibleWhenFault',
 ] as const;
 
 describe('objectui#7200 — `ObjectFormSection` does not declare the retired section style keys', () => {
@@ -149,6 +150,10 @@ describe('objectui#7200 — `ObjectFormSection` does not declare the retired sec
       // spec DECLARES it on `FormSectionSchema`, and `ObjectForm` resolves it.
       group: true,
       visibleWhen: true,
+      // objectui#13055 — the fault direction the field-group derivation stamps
+      // beside a group's `visibleWhen`; a runtime hand-off the spec's strict
+      // `FormSectionSchema` refuses in authored metadata (see its docblock).
+      visibleWhenFault: true,
     };
     expect(Object.keys(census).sort()).toEqual([...DECLARED_KEYS].sort());
     expect(DECLARED_KEYS).not.toContain('className');

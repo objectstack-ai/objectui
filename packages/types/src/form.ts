@@ -1736,6 +1736,15 @@ export interface FormFieldTab {
    * without this key keeps the pre-#6237 contract (always drawn).
    */
   visibleWhen?: string | { dialect?: string; source: string };
+  /**
+   * The fault direction of {@link visibleWhen}: `'hidden'` hides the tab
+   * (trigger and panel) when its predicate cannot be evaluated; `'shown'` or
+   * absent keeps the fail-open default described above. A runtime hand-off,
+   * not an authoring key — carried from the section the tab was built from,
+   * where only the field-group derivation writes it
+   * (`ObjectFormSection.visibleWhenFault`, objectui#13055).
+   */
+  visibleWhenFault?: 'hidden' | 'shown';
 }
 
 /**
@@ -1975,6 +1984,21 @@ export interface FormField {
    * non-divider row the key has no meaning and is ignored by the renderer.
    */
   fields?: string[];
+  /**
+   * The fault direction of a `section-divider` row's `visibleWhen` —
+   * `type: 'section-divider'` rows only, ignored on every other row (a
+   * field's own `visibleWhen` keeps the triad's fail-open, ADR-0137 D3).
+   * `'hidden'`: a predicate that cannot be evaluated hides the row and every
+   * claimed field ({@link fields}), exactly as a FALSE verdict does — values
+   * still submit, validation is skipped — and the one-time diagnostic names
+   * `false` as the default taken. `'shown'` or absent: today's fail-open.
+   *
+   * A runtime hand-off, not an authoring key: `projectSectionDivider`
+   * (`@object-ui/plugin-form`) copies it off the section it projects, where
+   * only the field-group derivation writes it
+   * (`ObjectFormSection.visibleWhenFault`, objectui#13055).
+   */
+  visibleWhenFault?: 'hidden' | 'shown';
 
   // ── Field metadata written on the entry itself (objectui#11070) ─────────
   //

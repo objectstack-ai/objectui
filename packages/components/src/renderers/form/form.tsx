@@ -56,6 +56,57 @@ function dividerDrawsRow(label: unknown, description: unknown): boolean {
   return Boolean(label) || Boolean(description);
 }
 
+/**
+ * Is this row a `section-divider` whose `visibleWhen` is FAIL-CLOSED?
+ * (objectui#13055)
+ *
+ * A divider's `visibleWhen` is its section's layout gate, and two origins put a
+ * predicate there that `@objectstack/spec` gives OPPOSITE fault directions: a
+ * field group's (`ObjectFieldGroupSchema.visibleWhen` — "else hidden
+ * (fail-closed)") and an authored form-view section's own
+ * (`FormSectionSchema.visibleWhen`, which faults open). The slot cannot tell
+ * them apart, so the producer says which: `visibleWhenFault: 'hidden'`, stamped
+ * by the field-group derivation and carried by every layout
+ * (`FormField.visibleWhenFault`). Every other row — a field's own
+ * `visibleWhen` (the ADR-0137 D3 triad) and an unstamped divider — keeps the
+ * fail-open answer of `resolveFieldRuleState`.
+ *
+ * A fail-closed gate is taken OFF the triad call (its `visibleWhen` is passed
+ * as absent there) and evaluated by {@link sectionGateVisible} instead, at
+ * every site that judges a divider, so the one-time warning — deduped per
+ * predicate text, first site wins — always names `false` as the default.
+ */
+function isFailClosedSectionGate(f: unknown): boolean {
+  const row = f as { type?: unknown; visibleWhenFault?: unknown; visibleWhen?: unknown } | null | undefined;
+  return row?.type === 'section-divider' && row.visibleWhenFault === 'hidden' && row.visibleWhen != null;
+}
+
+/** The locator the fail-closed gate's warning prints; one spelling for every site. */
+function failClosedGateContext(kind: string, key: string): string {
+  return `visibleWhen of field group ${kind} '${key}' — fail-closed, the group is hidden`;
+}
+
+/**
+ * The verdict of a fail-closed section gate ({@link isFailClosedSectionGate}):
+ * the predicate's own answer when it evaluates, `false` (hidden) when it
+ * faults. Same engine, record assembly and scope as the triad call it replaces.
+ */
+function sectionGateVisible(
+  f: { name?: string; visibleWhen?: unknown },
+  record: Record<string, unknown>,
+  previous: Record<string, unknown> | undefined,
+  scope: Record<string, unknown> | undefined,
+): boolean {
+  return evalFieldPredicate(
+    f.visibleWhen as Parameters<typeof evalFieldPredicate>[0],
+    record,
+    false,
+    previous,
+    scope,
+    { context: failClosedGateContext('section', String(f.name)) },
+  );
+}
+
 /** Inline section header rendered as a virtual field inside a flat SchemaRenderer field list.
  *  Collapsibility is controlled externally (collapsed state lives in DrawerForm). */
 function SectionDivider({ label, description, collapsible, collapsed, onToggle, className }: {
@@ -1790,7 +1841,10 @@ ComponentRegistry.register('form',
         if (!name) continue;
         const st = resolveFieldRuleState(
           {
-            visibleWhen: (f as any).visibleWhen,
+            // A fail-closed section gate is judged by `sectionGateVisible`,
+            // never by the triad (objectui#13055) — and this memo reads only
+            // `readonly`, so it has nothing to evaluate it for.
+            visibleWhen: isFailClosedSectionGate(f) ? undefined : (f as any).visibleWhen,
             readonlyWhen: (f as any).readonlyWhen,
             requiredWhen: (f as any).requiredWhen,
           },
@@ -1861,8 +1915,14 @@ ComponentRegistry.register('form',
         const visibleOn = (f as any).visibleOn;
         if (visibleWhen == null && visibleOn == null) continue;
         if (visibleWhen != null) {
+          // A fail-closed section gate (objectui#13055) is judged off the triad.
+          const gate = isFailClosedSectionGate(f);
           const st = resolveFieldRuleState(
-            { visibleWhen, readonlyWhen: (f as any).readonlyWhen, requiredWhen: (f as any).requiredWhen },
+            {
+              visibleWhen: gate ? undefined : visibleWhen,
+              readonlyWhen: (f as any).readonlyWhen,
+              requiredWhen: (f as any).requiredWhen,
+            },
             ruleRecord,
             {
               required: !!f.required,
@@ -1876,7 +1936,7 @@ ComponentRegistry.register('form',
             `field '${name}'`,
           );
           if (st.faults.visibleWhen !== undefined && f.type !== 'section-divider') faulted.push(name);
-          if (!st.visible) {
+          if (!st.visible || (gate && !sectionGateVisible(f, ruleRecord, previousRecord, predicateScope))) {
             hidden.add(name);
             continue;
           }
@@ -1948,9 +2008,14 @@ ComponentRegistry.register('form',
           }
         }
         if (!dividerHidden) {
+          // A field group's gate is fail-CLOSED (objectui#13055): a predicate
+          // that faults hides the group, header and claimed members, through
+          // this same set — so its members behave exactly as under a FALSE
+          // verdict (values still submit, validation is skipped).
+          const gate = isFailClosedSectionGate(divider);
           const st = resolveFieldRuleState(
             {
-              visibleWhen: (divider as any).visibleWhen,
+              visibleWhen: gate ? undefined : (divider as any).visibleWhen,
               readonlyWhen: (divider as any).readonlyWhen,
               requiredWhen: (divider as any).requiredWhen,
             },
@@ -1965,6 +2030,7 @@ ComponentRegistry.register('form',
             `field '${name}'`,
           );
           if (!st.visible) dividerHidden = true;
+          else if (gate && !sectionGateVisible(divider, ruleRecord, previousRecord, predicateScope)) dividerHidden = true;
         }
         if (!dividerHidden && (divider as any).visibleOn != null) {
           const viewVisible = evalFieldPredicate(
@@ -2034,13 +2100,21 @@ ComponentRegistry.register('form',
       for (const tab of fieldTabs ?? []) {
         const visibleWhen = tab.visibleWhen;
         if (visibleWhen == null) continue;
+        // A tab built from a field group carries its fail-closed direction
+        // (`FormFieldTab.visibleWhenFault`, objectui#13055); every other tab
+        // keeps the fail-open default.
+        const failClosed = tab.visibleWhenFault === 'hidden';
         const visible = evalFieldPredicate(
           visibleWhen,
           ruleRecord,
-          true,
+          !failClosed,
           previousRecord,
           predicateScope,
-          { context: `visibleWhen of fieldTab '${tab.key}'` },
+          {
+            context: failClosed
+              ? failClosedGateContext('tab', tab.key)
+              : `visibleWhen of fieldTab '${tab.key}'`,
+          },
         );
         if (!visible) hidden.add(tab.key);
       }
@@ -3123,8 +3197,11 @@ ComponentRegistry.register('form',
       // and by the "set on save" hint under the control (objectui#12108) — so
       // it is computed once: one classifier, one answer per field.
       const serverOwned = isServerOwnedValue(field, isCreateForm);
+      // A fail-closed section gate (objectui#13055) is judged off the triad —
+      // see `isFailClosedSectionGate`.
+      const failClosedGate = isFailClosedSectionGate(field);
       const ruleState = resolveFieldRuleState(
-        { visibleWhen, readonlyWhen, requiredWhen },
+        { visibleWhen: failClosedGate ? undefined : visibleWhen, readonlyWhen, requiredWhen },
         ruleRecord,
         {
           required: staticRequired,
@@ -3150,6 +3227,7 @@ ComponentRegistry.register('form',
         `field '${name}'`,
       );
       if (!ruleState.visible) return null;
+      if (failClosedGate && !sectionGateVisible(field, ruleRecord, previousRecord, predicateScope)) return null;
 
       // View-level conditional visibility — spec FormField.visibleOn,
       // authored on the form view (not the object field). Same

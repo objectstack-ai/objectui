@@ -9,7 +9,7 @@
  * Studio top bar's 变更 and 发布 and the applied card's 查看变更并发布 are the
  * ways to review and publish, and objectui#12725's ruled artboard draws no
  * bar. Outside Studio — the full-page chat and the console dock — the bar
- * stays as it is.
+ * stays (since objectui#12978 as a row of the composer's area, not a float).
  *
  * Every case has a draft pending for the bound package, so the bar has
  * something to draw. In Studio, the sibling probe reads the same ledger
@@ -33,7 +33,13 @@ vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
-    ChatbotEnhanced: () => <div data-testid="ai-chat-panel" />,
+    // objectui#12978 — the bar is a row of the composer's own area now, handed
+    // in through `promptHeaderSlot`; the stub draws that slot so the bar can be
+    // read. Where it sits against the input is pinned with the real component
+    // in `AiChatPage.draftsBarInFlow-12978.test.tsx`.
+    ChatbotEnhanced: ({ promptHeaderSlot }: { promptHeaderSlot?: React.ReactNode }) => (
+      <div data-testid="ai-chat-panel">{promptHeaderSlot}</div>
+    ),
     useObjectChat: () => ({
       messages: [],
       isLoading: false,

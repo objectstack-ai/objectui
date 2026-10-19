@@ -77,9 +77,11 @@ function pickUp(lang: Lang) {
 
 /**
  * The drag overlay's wrapper: the board's own `aria-live="assertive"` element,
- * not dnd-kit's live region (which is assertive too, and has its own id).
+ * not dnd-kit's live region nor the board's move status region (objectui#13054)
+ * — both assertive too, each with its own id.
  */
-const overlay = () => document.querySelector('[aria-live="assertive"]:not([id^="DndLiveRegion"])')
+const overlay = () =>
+  document.querySelector('[aria-live="assertive"]:not([id^="DndLiveRegion"]):not([id^="KanbanMoveStatus"])')
 
 afterEach(() => {
   // Cancel a drag a failed test left live, so it cannot end in the next board.

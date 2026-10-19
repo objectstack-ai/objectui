@@ -33,6 +33,7 @@ import type {
   ImportJobResultsInfo,
   ImportJobStatus,
   ImportJobSummaryInfo,
+  ImportJobUndoResult,
 } from '@object-ui/types';
 import {
   parseSpreadsheetFile, parseClipboardTable, inferColumnType, isTypeCompatible,
@@ -196,6 +197,11 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.undoing': 'Undoing…',
   'grid.import.undoConfirm': 'Undo this import? Records it created will be deleted and records it updated will be restored to their previous values.',
   'grid.import.reverted': 'Undone',
+  // A partial undo (the answer reads `success: false`): how many rows stayed,
+  // and that undoing again retries only them. Each row's refusal is listed below.
+  'grid.import.undoPartial': '{{count}} rows were not undone. Undo again to retry only those rows.',
+  'grid.import.undoPartial_one': '{{count}} row was not undone. Undo again to retry only that row.',
+  'grid.import.undoPartial_other': '{{count}} rows were not undone. Undo again to retry only those rows.',
   'grid.import.jobStatus.pending': 'Pending',
   'grid.import.jobStatus.running': 'Running',
   'grid.import.jobStatus.succeeded': 'Succeeded',
@@ -1079,17 +1085,29 @@ async function readSettledImportJob(
   return null;
 }
 
+/** What an Undo left for the list that ran it to show: the message of an undo
+ *  that threw, or the answer of one that left rows unreverted. */
+type ImportUndoOutcome =
+  | { kind: 'error'; message: string }
+  | { kind: 'partial'; answer: ImportJobUndoResult };
+
 /** The Undo action, shared by the History list and the cancelled-result
  *  screen: confirm (destructive + irreversible), roll the job back, tell the
  *  object's mounted readers their data changed (the undo deleted and restored
- *  records, so an open list refetches in place), hand a failure to `onError`
- *  (cleared to `null` when an undo starts), then call `onSettled` so the
- *  caller re-reads the job and the Undo button gives way to "Undone". */
+ *  records, so an open list refetches in place), hand anything the user must
+ *  read to `onOutcome` (cleared to `null` when an undo starts), then call
+ *  `onSettled` so the caller re-reads the job and the Undo button gives way to
+ *  "Undone".
+ *
+ *  An answer of `success: false` is not a throw: the server reverted what it
+ *  could, listed every row it did not revert in `failures`, and kept the job
+ *  undoable for those rows only. So the readers still refetch, the outcome
+ *  carries the answer, and the re-read job still offers Undo (objectui#13015). */
 function useImportJobUndo(
   dataSource: unknown,
   objectName: string,
   t: (key: string, vars?: Record<string, unknown>) => string,
-  onError: (message: string | null) => void,
+  onOutcome: (outcome: ImportUndoOutcome | null) => void,
   onSettled: () => void,
 ): { undoingId: string | null; undo: (jobId: string) => Promise<void> } {
   // Job id currently being undone (disables its Undo button + confirm).
@@ -1098,19 +1116,53 @@ function useImportJobUndo(
     const ds = dataSource as Partial<DataSource> | undefined;
     if (typeof ds?.undoImportJob !== 'function') return;
     if (typeof window !== 'undefined' && !window.confirm(t('grid.import.undoConfirm'))) return;
-    setUndoingId(jobId); onError(null);
+    setUndoingId(jobId); onOutcome(null);
     try {
-      await ds.undoImportJob(jobId);
+      const answer = await ds.undoImportJob(jobId);
       notifyDataChanged({ objectName });
+      if (!answer.success) onOutcome({ kind: 'partial', answer });
     } catch (err) {
-      onError(err instanceof Error ? err.message : String(err));
+      onOutcome({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
     } finally {
       setUndoingId(null);
       onSettled();
     }
-  }, [dataSource, objectName, t, onError, onSettled]);
+  }, [dataSource, objectName, t, onOutcome, onSettled]);
   return { undoingId, undo };
 }
+
+/** How many distinct refusal sentences a partial-undo notice lists before it
+ *  counts the rest, as the result screen does for row errors. */
+const UNDO_REFUSAL_LIMIT = 10;
+
+/** What an Undo left, drawn where the list that ran it shows it. A partial
+ *  undo says how many rows stayed and that undoing again retries only them,
+ *  then lists each refusal sentence the answer carries — the app's own words,
+ *  a hook's or a rule's. Rows refused with the same sentence share one line,
+ *  since one hook typically refuses many rows alike; the count above covers
+ *  them all. */
+const ImportUndoOutcomeNotice: React.FC<{
+  outcome: ImportUndoOutcome;
+  t: (key: string, vars?: Record<string, unknown>) => string;
+  errorTestId: string;
+  partialTestId: string;
+}> = ({ outcome, t, errorTestId, partialTestId }) => {
+  if (outcome.kind === 'error') {
+    return <p className="text-xs text-destructive" data-testid={errorTestId}>{outcome.message}</p>;
+  }
+  const refusals = [...new Set(outcome.answer.failures.map((failure) => failure.error))];
+  return (
+    <div className="text-xs text-destructive" role="alert" data-testid={partialTestId}>
+      <p>{t('grid.import.undoPartial', { count: outcome.answer.failed })}</p>
+      <ul className="mt-1 list-disc space-y-0.5 pl-4">
+        {refusals.slice(0, UNDO_REFUSAL_LIMIT).map((refusal) => <li key={refusal}>{refusal}</li>)}
+      </ul>
+      {refusals.length > UNDO_REFUSAL_LIMIT && (
+        <p className="text-muted-foreground">{t('grid.import.moreErrors', { count: refusals.length - UNDO_REFUSAL_LIMIT })}</p>
+      )}
+    </div>
+  );
+};
 
 /** Build a CSV blob of failed rows for re-export: the original mapped columns
  *  plus an `_error` column, so a user can fix and re-import just the failures. */
@@ -1959,9 +2011,12 @@ const ImportHistoryPanel: React.FC<{
 
   // Logical rollback: delete created records + restore updated ones. Confirms
   // first (destructive + irreversible), then reloads so the row flips to
-  // "reverted" and its Undo button disappears.
+  // "reverted" and its Undo button disappears — or, after a partial undo, keeps
+  // offering Undo for the rows that remain. What the undo left lives in its own
+  // slot: the reload clears `error` as it starts, and would wipe it there.
+  const [undoOutcome, setUndoOutcome] = useState<ImportUndoOutcome | null>(null);
   const reload = useCallback(() => { void load(); }, [load]);
-  const { undoingId, undo: handleUndo } = useImportJobUndo(dataSource, objectName, t, setError, reload);
+  const { undoingId, undo: handleUndo } = useImportJobUndo(dataSource, objectName, t, setUndoOutcome, reload);
 
   if (!supported) {
     return (
@@ -1980,6 +2035,14 @@ const ImportHistoryPanel: React.FC<{
         </Button>
       </div>
       {error && <p className="text-xs text-destructive" data-testid="import-history-error">{error}</p>}
+      {undoOutcome && (
+        <ImportUndoOutcomeNotice
+          outcome={undoOutcome}
+          t={t}
+          errorTestId="import-history-undo-error"
+          partialTestId="import-history-undo-partial"
+        />
+      )}
       {jobs && jobs.length === 0 && !loading && (
         <p className="p-6 text-center text-sm text-muted-foreground" data-testid="import-history-empty">
           {t('grid.import.historyEmpty')}
@@ -2087,7 +2150,8 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const jobRunRef = React.useRef(0);
   // The final read of the job the result screen shows, for its Undo button.
   const [finishedJob, setFinishedJob] = useState<ImportJobProgressInfo | null>(null);
-  const [undoError, setUndoError] = useState<string | null>(null);
+  // What the last Undo on the result screen left for the user to read.
+  const [undoOutcome, setUndoOutcome] = useState<ImportUndoOutcome | null>(null);
   // Small-file server dry-run pre-check — validates the exact payload without
   // writing, so the summary/error list reflect real coercion outcomes.
   const [validating, setValidating] = useState(false);
@@ -2575,7 +2639,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     setImporting(true); setProgress(0);
     cancelPollRef.current = false;
     jobRunRef.current += 1;
-    setJobId(null); setAsyncCounts(null); setFinishedJob(null); setUndoError(null);
+    setJobId(null); setAsyncCounts(null); setFinishedJob(null); setUndoOutcome(null);
 
     const request = buildImportRequest();
 
@@ -2750,7 +2814,8 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     setResult(importResult); setImporting(false);
   }, [jobId, dataSource, asyncCounts, rows.length, publishJobOutcome]);
 
-  // Re-read the finished job after an Undo so its button gives way to "Undone".
+  // Re-read the finished job after an Undo so its button gives way to "Undone"
+  // (or, after a partial undo, keeps offering Undo for the rows that remain).
   // A read that lands after the wizard moved to another job is dropped.
   const rereadFinishedJob = useCallback(() => {
     const ds = dataSource as Partial<DataSource> | undefined;
@@ -2761,12 +2826,12 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
       () => { /* keep the last read */ },
     );
   }, [dataSource, finishedJob?.jobId]);
-  const { undoingId, undo: undoFinishedJob } = useImportJobUndo(dataSource, objectName, t, setUndoError, rereadFinishedJob);
+  const { undoingId, undo: undoFinishedJob } = useImportJobUndo(dataSource, objectName, t, setUndoOutcome, rereadFinishedJob);
   const canUndoJob = typeof (dataSource as Partial<DataSource> | undefined)?.undoImportJob === 'function';
 
   const reset = useCallback(() => {
     cancelPollRef.current = false;
-    setFinishedJob(null); setUndoError(null);
+    setFinishedJob(null); setUndoOutcome(null);
     setStep('upload'); setHeaders([]); setRows([]); setMapping({}); setProgress(0); setResult(null);
     setCorrections({}); setSelectedTemplateId(null); setMappingName(null);
     setWriteMode(defaultWriteMode); setMatchFields([]);
@@ -3036,8 +3101,13 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                 {undoingId === finishedJob.jobId ? t('grid.import.undoing') : t('grid.import.undoImport')}
               </Button>
             )}
-            {result.cancelled && undoError && (
-              <p className="text-xs text-destructive" data-testid="import-cancelled-undo-error">{undoError}</p>
+            {result.cancelled && undoOutcome && (
+              <ImportUndoOutcomeNotice
+                outcome={undoOutcome}
+                t={t}
+                errorTestId="import-cancelled-undo-error"
+                partialTestId="import-cancelled-undo-partial"
+              />
             )}
             {result.degraded && !result.cancelled && (
               <div

@@ -845,9 +845,10 @@ describe('ci.yml wires the gate to its own matrix (#9499)', () => {
     // to what is left of it, so it is the gate step's worst case. After it,
     // the report-only headroom step makes one `fetchRunJobs()` read with no
     // retry, bounded by `REQUEST_TIMEOUT_MS`. The two minutes are for set-up,
-    // checkout and post steps, which the three recorded runs spent about ten
-    // seconds on. Past `timeout-minutes` the job reports `cancelled`, which the
-    // merge queue reads exactly as it reads a red.
+    // checkout and post steps (the three runs the card records spent about
+    // ten seconds on them, read by hand once and not re-derived here). Past
+    // `timeout-minutes` the job reports `cancelled`, which the merge queue
+    // reads exactly as it reads a red.
     const timeout = aggregate.match(/^ {4}timeout-minutes: (\d+)$/m);
     expect(timeout, '`test-aggregate` must declare its own `timeout-minutes`').toBeTruthy();
     const job = Number(timeout![1]) * 60_000;

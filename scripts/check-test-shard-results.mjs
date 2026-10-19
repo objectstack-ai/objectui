@@ -186,10 +186,10 @@ export const REREAD_WAIT_MS = 15_000;
 
 /**
  * The second, longer re-read stretch, taken only when the rollup reads
- * `success` and the only disagreement is shards without a conclusion. Both
- * stretches together sleep 6 min 30 s: enough to outlast the 6 min 22 s
- * recorded on run 39286083342 even for a shard that completed the moment this
- * gate started, and still inside `GATE_BUDGET_MS`. The test file pins both.
+ * `success` and the only disagreement is shards without a conclusion. The two
+ * stretches together must outlast the 6 min 22 s recorded on run 39286083342,
+ * even for a shard that completed the moment this gate started, and must
+ * still fit inside `GATE_BUDGET_MS`. The test file pins both directions.
  */
 export const STALE_REREAD_LIMIT = 9;
 export const STALE_REREAD_WAIT_MS = 30_000;
@@ -202,7 +202,7 @@ export const STALE_REREAD_WAIT_MS = 30_000;
 export const TRANSIENT_RETRY_LIMIT = 3;
 export const TRANSIENT_RETRY_WAIT_MS = 10_000;
 
-/** One request's own bound. A normal answer from this endpoint takes well under a second. */
+/** One request's own bound; a request that outlives it counts as a transient failure. */
 export const REQUEST_TIMEOUT_MS = 20_000;
 
 /**

@@ -10,6 +10,8 @@ import {
   type CelLintIssue,
 } from './celAuthoring';
 import { tFormat } from './i18n';
+import { isSupportedRlsExpression } from '@objectstack/formula';
+import { validateRlsPredicateEnforceability } from '@objectstack/lint';
 
 const HINT = { objectName: 'account', fields: ['organization_id', 'owner_id', 'status', 'amount'] };
 
@@ -47,14 +49,21 @@ describe('celAuthoring · lintCelPredicate (real engine)', () => {
     expect(issues.some((i) => i.severity === 'error')).toBe(false);
   });
 
-  it('advises when a USING read filter is not pushdown-able (fail-open blast radius)', async () => {
-    const issues = await lintCelPredicate('upper(status) == "OPEN"', { ...HINT, clause: 'using' });
-    expect(issues.some((i) => i.severity === 'warning' && /push it down|widen/i.test(en(i)))).toBe(true);
-  });
+  // objectui#13061 — an RLS clause the runtime cannot lower is the server's
+  // ERROR, in the server's words. One verdict per clause, both clauses.
+  for (const clause of ['using', 'check'] as const) {
+    it(`rates a ${clause.toUpperCase()} clause the runtime cannot lower an error, worded by @objectstack/lint`, async () => {
+      const source = 'upper(status) == "OPEN"';
+      expect(isSupportedRlsExpression(source)).toBe(false);
+      const [rule] = validateRlsPredicateEnforceability({ permissions: [{ rowLevelSecurity: [{ [clause]: source }] }] });
+      expect(rule?.severity).toBe('error');
+      expect(await lintCelPredicate(source, { ...HINT, clause })).toEqual([{ severity: 'error', message: rule.message }]);
+    });
+  }
 
-  it('does NOT raise the pushdown advisory for a CHECK clause', async () => {
-    const issues = await lintCelPredicate('upper(status) == "OPEN"', { ...HINT, clause: 'check' });
-    expect(issues.some((i) => /push it down/i.test(en(i)))).toBe(false);
+  it('gives no lowerability verdict where no RLS clause is named', async () => {
+    const issues = await lintCelPredicate('upper(status) == "OPEN"', HINT);
+    expect(issues.some((i) => i.severity === 'error')).toBe(false);
   });
 
   it('is clean for empty input', async () => {

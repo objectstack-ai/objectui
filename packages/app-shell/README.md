@@ -690,16 +690,19 @@ behavior (full object list, whole-record save). The scope/merge helpers
 Below the object matrix, `PermissionAdvancedFacets` edits the three advanced
 facets (Row-Level Security, Tab Visibility, Delegated Admin Scope). RLS is the
 highest-risk surface: `USING` (read filter) / `CHECK` (write filter) predicates
-are hand-typed CEL, and a typo silently mis-scopes rows — some paths **fail
-open**, *widening* access with no error. The `USING`/`CHECK` editors therefore
+are hand-typed CEL, and a typo silently mis-scopes rows — a predicate the
+runtime cannot lower to a row filter is **dropped**, so the policy grants (or
+admits) nothing. The `USING`/`CHECK` editors therefore
 run three author-time safeties, all delegated to the framework's canonical CEL
 engine (`@objectstack/formula`) so the GUI reaches the **same verdict as the
 server** instead of maintaining a second grammar:
 
 - **Inline lint** (`CelPredicateField`) — `validateExpression` flags parse
   faults inline (blocking Save) and unknown-field near-misses as non-blocking
-  "did-you-mean" warnings; a non-pushdown-able `USING` filter is flagged as a
-  fail-open blast-radius advisory (`isPushdownableCel`).
+  "did-you-mean" warnings; a `USING` or `CHECK` predicate the runtime cannot
+  lower (`isSupportedRlsExpression`) is an error that blocks Save, carrying
+  `@objectstack/lint`'s `rls-predicate-*` message as written — the verdict
+  publish and `os build` give.
 - **Field autocomplete** — `introspectScope` supplies the target object's
   fields plus scope vars (`current_user`, `record`, …) and stdlib functions as
   you type, so an identifier that would silently never match is caught early.

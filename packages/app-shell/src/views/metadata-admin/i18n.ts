@@ -1721,18 +1721,16 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.translationPreview.more': '+{count} more…',
   'engine.translationPreview.keyCountOne': '{{count} key}',
   'engine.translationPreview.keyCountOther': '{{count} keys}',
-  // objectui#10862 (slice 2) — the two advisories `celAuthoring.lintCelPredicate`
+  // objectui#10862 (slice 2) — the advisory `celAuthoring.lintCelPredicate`
   // words itself, shown beneath the CEL editors: the wrong-layer root (the
   // local instrument's sentence; a slot `@objectstack/lint` covers ships that
-  // package's own message instead) and the non-pushdown-able read filter. The
-  // lint returns them as a `messageKey` plus its values and `CelPredicateField`
-  // reads them through the designer `t` its host binds. `{detail}` is the
-  // engine's own reason and `Unknown variable: …` is the runtime's own fault
-  // text; both stay as written.
+  // package's own message instead). The lint returns it as a `messageKey` plus
+  // its values and `CelPredicateField` reads it through the designer `t` its
+  // host binds. `Unknown variable: …` is the runtime's own fault text and stays
+  // as written. (An RLS clause the runtime cannot lower has no row here: it
+  // ships `@objectstack/lint`'s own message, objectui#13061.)
   'engine.celLint.notTheRow':
     '`{identifier}` is not the row on this surface: a row predicate binds the record as `{canonical}` and nothing else. The CEL scope vocabulary still accepts `{identifier}`, so nothing here blocks the save, but at runtime the expression faults with `Unknown variable: {identifier}` and the rule never fires. Re-root the reference on `{canonical}`.',
-  'engine.celLint.notPushdownable':
-    "This read filter isn't a simple field comparison ({detail}), so the server may be unable to push it down to the query — depending on the evaluation path it can be dropped and WIDEN access. Prefer a pushdown-able predicate (field vs. value or scope variable).",
   // objectui#10862 (slice 3) — the object / data previews (`ObjectPreview`,
   // `DatasetPreview`, `ViewPreview`, `ReportPreview`, `PagePreview`,
   // `PageBlockCanvas` and its add-block picker, `SourcePageEditor`,
@@ -5250,8 +5248,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.translationPreview.keyCountOther': '{{count} 个键}',
   'engine.celLint.notTheRow':
     '`{identifier}` 在此处不是记录行：行条件只把记录绑定为 `{canonical}`，别无其他。CEL 作用域词汇仍接受 `{identifier}`，所以这里不会阻止保存，但运行时表达式会以 `Unknown variable: {identifier}` 报错，规则永远不会触发。请改为以 `{canonical}` 为根引用。',
-  'engine.celLint.notPushdownable':
-    '此读取过滤器不是简单的字段比较（{detail}），服务器可能无法把它下推到查询 —— 视求值路径而定，它可能被丢弃并扩大访问范围。建议使用可下推的条件（字段与值或作用域变量比较）。',
   'engine.objectPreview.renderFailed': '无法渲染表单设计器。请检查“表单”标签页。',
   'engine.datasetPreview.pickObject': '选择一个基础对象',
   'engine.datasetPreview.pickObjectHint': '设置数据集的 `object`，即可用实时数据预览它。',

@@ -16,7 +16,8 @@
  * author-time safeties, all backed by the framework's canonical CEL engine
  * (see {@link file://./celAuthoring.ts}):
  *
- *  - inline LINT — parse faults (blocking) and typo / blast-radius advisories,
+ *  - inline LINT — parse faults and, on an RLS clause, a predicate the
+ *    runtime cannot lower (both blocking), and typo / wrong-layer advisories,
  *    surfaced under the field as you type (debounced);
  *  - as-you-type AUTOCOMPLETE — the target object's fields, the scope roots
  *    (`current_user`, `record`, …) and the stdlib functions, so a mistyped
@@ -30,10 +31,10 @@
  * dry-run against one sample record.
  *
  * Its words read the `t` its host binds to the designer locale. That includes
- * the two advisories the lint words itself (the wrong-layer root, the
- * non-pushdown-able read filter): `lintCelPredicate` hands them back as
- * catalogue keys with their values, and the findings list reads them through
- * the same `t` (objectui#10862). The engine's messages pass through as written.
+ * the advisory the lint words itself (the wrong-layer root): `lintCelPredicate`
+ * hands it back as a catalogue key with its values, and the findings list reads
+ * it through the same `t` (objectui#10862). The engine's and
+ * `@objectstack/lint`'s messages pass through as written.
  */
 
 import * as React from 'react';
@@ -81,7 +82,7 @@ export interface CelPredicateFieldProps {
   objectName?: string;
   /** Known field names of {@link objectName}. */
   fieldNames?: string[];
-  /** Which RLS clause this is (drives the pushdown / fail-open advisory). */
+  /** Which RLS clause this is (turns on the blocking lowerability verdict). */
   clause?: 'using' | 'check';
   /**
    * Evaluation scope of the authoring site (objectui#1582). `'flattened'`

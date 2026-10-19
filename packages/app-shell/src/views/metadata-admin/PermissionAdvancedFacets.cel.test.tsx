@@ -38,6 +38,37 @@ describe('PermissionAdvancedFacets · CEL authoring safety (objectui#2413)', () 
     await waitFor(() => expect(onCelErrorsChange).toHaveBeenCalledWith(1), { timeout: 3000 });
   });
 
+  // objectui#13061 — a clause the runtime cannot lower holds Save the way a
+  // parse fault does: the publish door refuses it as an error, so the editor
+  // gates on the same verdict. The card's own predicate and its control.
+  const policy = (using: string, check: string) => ({
+    draft: { rowLevelSecurity: [{ name: 'p1', object: 'asset', operation: 'all', using, check, enabled: true }] },
+    loadObjectFields: async () => ['asset_code'],
+  });
+  for (const [label, using, check, expected] of [
+    ['a USING clause the runtime cannot lower', 'size(record.asset_code) > 3', '', 1],
+    ['a CHECK clause the runtime cannot lower', "record.asset_code == 'A1'", 'size(record.asset_code) > 3', 1],
+    ['both clauses', 'size(record.asset_code) > 3', 'size(record.asset_code) > 3', 2],
+  ] as const) {
+    it(`reports ${label} up as blocking (objectui#13061)`, async () => {
+      const onCelErrorsChange = vi.fn();
+      const user = userEvent.setup();
+      renderFacets({ ...policy(using, check), onCelErrorsChange });
+      await user.click(screen.getByText('perm.rls.title'));
+      await waitFor(() => expect(onCelErrorsChange).toHaveBeenLastCalledWith(expected), { timeout: 3000 });
+    });
+  }
+
+  it("CONTROL — a lowerable clause (`record.asset_code == 'A1'`) leaves Save open (objectui#13061)", async () => {
+    const onCelErrorsChange = vi.fn();
+    const user = userEvent.setup();
+    renderFacets({ ...policy("record.asset_code == 'A1'", "record.asset_code == 'A1'"), onCelErrorsChange });
+    await user.click(screen.getByText('perm.rls.title'));
+    // Both clauses linted clean — the lint has spoken, so the count below is a reading.
+    await waitFor(() => expect(screen.getAllByText('perm.cel.valid')).toHaveLength(2), { timeout: 3000 });
+    expect(onCelErrorsChange).toHaveBeenLastCalledWith(0);
+  });
+
   it('opens the test-run dialog for a policy', async () => {
     const user = userEvent.setup();
     renderFacets();

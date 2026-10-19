@@ -645,7 +645,16 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   //     `RelatedCountStore.invalidate(objectName, parentId)` and every
   //     subscriber updates with no parent re-render.
   const ctx = useRecordContext();
-  const parentId = ctx?.data?.id;
+  // objectui#13010 — the parent is the record the context NAMES (on a record
+  // page, the route's id), not the id inside the loaded row. Keyed on
+  // `ctx.data.id`, every count probe waited for the record read to land and
+  // went out a full wave behind it, although an ungated probe needs nothing
+  // from the record body: its filter is the relationship field and this id.
+  // `recordId` is a required member of `RecordContextValue` that every
+  // provider fills (`null` when it names no record), so this is the one read,
+  // not a fallback. The probes that DO need the body — the ones behind a
+  // `visibleWhen` — wait for it in `probeTargets` below.
+  const parentId = ctx?.recordId ?? undefined;
   const ds = ctx?.dataSource;
 
   // Conditional tabs (framework#2606): an item-level `visibleWhen` CEL
@@ -778,11 +787,22 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     .map((lists, idx) => lists.map((entry) => (shownListsByItem[idx].includes(entry) ? '1' : '0')).join(''))
     .join('|');
 
+  // objectui#13010 — whether the record BODY is here yet. The probes no longer
+  // wait for it (see `parentId`), except where a verdict reads it: a list
+  // behind a node-level `visibleWhen`, or in a tab whose item-level
+  // `visibleWhen` decides it, is probed once the body has landed, as every
+  // probe was before. Counting it sooner would spend a request on a list the
+  // gate may close the moment its record arrives.
+  const recordLoaded = recordData !== undefined && recordData !== null;
   const probeTargets = React.useMemo(() => {
     const out = new Map<number, Array<Probe>>();
     items.forEach((it, idx) => {
       if (it.count !== undefined && it.count !== null && it.count !== '') return;
-      const lists = shownListsByItem[idx].map((entry) => entry.node);
+      const itemGated = (it as any).visibleWhen !== undefined;
+      if (itemGated && !recordLoaded) return;
+      const lists = shownListsByItem[idx]
+        .filter((entry) => recordLoaded || entry.gates.length === 0)
+        .map((entry) => entry.node);
       const probes: Array<Probe> = [];
       for (const rl of lists) {
         const objectName: string | undefined = rl?.properties?.objectName || rl?.objectName;
@@ -815,7 +835,7 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     return out;
     // `shownListsByItem` is fresh each render; `listGateKey` is its value.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, recordObject, listGateKey]);
+  }, [items, recordObject, listGateKey, recordLoaded]);
   // objectui#6697 — the probe effect below keys on THIS string, not on the
   // `Map` above. `useMemo` is a pure optimisation, not a correctness
   // dependency: React may discard the cache and recompute even when

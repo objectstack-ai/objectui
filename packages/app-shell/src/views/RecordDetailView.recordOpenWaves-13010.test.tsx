@@ -318,21 +318,43 @@ afterEach(() => {
 });
 
 describe('the record page open waves (objectui#13010)', () => {
-  // The measurement harness for the card's part 1. On this tree it reads, in
-  // the wave table this file prints on failure: the record read, both explain
-  // questions (one `update`, one `delete` — two different bodies, not one
-  // question sent twice) and the rail's three `top=3` card reads in wave 1;
-  // the tab strip's three `top=1` badge probes in wave 2, after the record
-  // read, because the probe keys on the record BODY's id.
-  it('the related cards read in the first wave, beside the record read', async () => {
+  // Wave table measured on this file. Before this card: the record read, both
+  // explain questions (one `update`, one `delete` — two different bodies, not
+  // one question sent twice) and the rail's three `top=3` card reads in wave
+  // 1; the tab strip's three `top=1` badge probes in wave 2, because the probe
+  // keyed on the record BODY's id. After it: all thirteen in wave 1.
+  it('the related cards and the tab badge probes go out in the first wave, beside the record read', async () => {
     const { held } = await openRecordPage();
     const table = waveTable(held);
-    const record = held.filter(isRecordRead);
-    expect(record.map((h) => h.wave), table).toEqual([1]);
+    expect(held.filter(isRecordRead).map((h) => h.wave), table).toEqual([1]);
+
     const cards = held.filter((h) => isChildRead(h) && topOf(h) === 3);
     expect(cards.map((h) => objectOf(h)).sort(), table).toEqual([LINE, QUOTE, TASK].sort());
     expect(cards.every((h) => h.wave === 1), table).toBe(true);
-    // Two explain questions, two different bodies.
-    expect(held.filter(isExplain).map((h) => JSON.parse(h.body).operation).sort(), table).toEqual(['delete', 'update']);
+
+    const probes = held.filter((h) => isChildRead(h) && topOf(h) === 1);
+    expect(probes.length, table).toBeGreaterThan(0);
+    expect(probes.every((h) => h.wave === 1), table).toBe(true);
+
+    // One wave in all: nothing waits on the record body any more.
+    expect(Math.max(...held.map((h) => h.wave)), table).toBe(1);
+  });
+
+  it('CONTROL: a badge whose declared filter differs from its card still probes, with its own filter', async () => {
+    const { held } = await openRecordPage();
+    const table = waveTable(held);
+    const taskProbes = held.filter((h) => objectOf(h) === TASK && topOf(h) === 1);
+    expect(taskProbes, table).toHaveLength(1);
+    expect(taskProbes[0].path, table).toContain('not_equals');
+    // The card's read carries no declared scope, so its total answers a
+    // different question and never stands in for the badge's.
+    const taskCard = held.filter((h) => objectOf(h) === TASK && topOf(h) === 3);
+    expect(taskCard, table).toHaveLength(1);
+    expect(taskCard[0].path, table).not.toContain('not_equals');
+  });
+
+  it('two explain questions on a record open, two different bodies', async () => {
+    const { held } = await openRecordPage();
+    expect(held.filter(isExplain).map((h) => JSON.parse(h.body).operation).sort(), waveTable(held)).toEqual(['delete', 'update']);
   });
 });

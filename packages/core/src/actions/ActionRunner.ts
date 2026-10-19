@@ -1341,7 +1341,25 @@ export class ActionRunner {
     this.scripts.delete(scriptName);
   }
 
-  async execute(action: ActionDef): Promise<ActionResult> {
+  /**
+   * Run `action`; with `callContext`, run it against that context for this
+   * one dispatch (objectui#13063).
+   *
+   * The runner's context names the PAGE: its `record` and its `objectName`.
+   * A dispatch that runs against some other record, such as a related-list
+   * row on a record page, which is a record of the CHILD object, hands that
+   * record here as `{ record, objectName }`. Every executor then reads it as
+   * the record the action runs against, the way a dispatch from that record's
+   * own page does: `executeForm` forwards its id and object, and its
+   * boundary check compares the target view against the child object instead
+   * of the page's.
+   *
+   * The runner's own context is not touched: the dispatch runs on a one-shot
+   * runner over the merged context that shares this runner's handlers (see
+   * {@link ActionRunner.scopedTo}).
+   */
+  async execute(action: ActionDef, callContext?: Partial<ActionContext>): Promise<ActionResult> {
+    if (callContext) return this.scopedTo(callContext).execute(action);
     try {
       // `ActionDef` accepts any key of any type, so a typo (`targt`) and a
       // retired key (`execute`) both reach here having type-checked. Neither
@@ -2678,6 +2696,56 @@ export class ActionRunner {
 
   getContext(): ActionContext {
     return this.context;
+  }
+
+  /**
+   * A one-shot runner for {@link ActionRunner.execute}'s `callContext`
+   * (objectui#13063): this runner's context with `callContext` merged over it,
+   * and this runner's handlers, translator and registries, shared rather than
+   * copied, so the dispatch confirms, collects params, toasts and navigates
+   * exactly as this runner does.
+   *
+   * Two keys follow the merge rather than the base:
+   *
+   *  - `ctx`, the `ctx.*` mirror `ActionProvider` publishes beside the flat
+   *    keys. A `${ctx.record.…}` hole has to read the same record as a
+   *    `${record.…}` one.
+   *  - `objectFields` / `objectActions`. A host publishes them BESIDE
+   *    `objectName`, so the pair names one object (objectui#11122,
+   *    objectui#13022). When `callContext` names another object and brings no
+   *    definitions of its own, the base's are dropped: the page object's field
+   *    types and declarations must not answer for the child's record. That is
+   *    what a dispatch with no `callContext` already gets for a retargeted
+   *    action, so the update path's capture sees the same input either way.
+   */
+  private scopedTo(callContext: Partial<ActionContext>): ActionRunner {
+    const objectChanged =
+      'objectName' in callContext &&
+      readContextObjectName(callContext as ActionContext) !== readContextObjectName(this.context);
+    const follow = (bag: Record<string, unknown>): Record<string, unknown> => {
+      const merged: Record<string, unknown> = { ...bag, ...callContext };
+      if (objectChanged) {
+        if (!('objectFields' in callContext)) delete merged.objectFields;
+        if (!('objectActions' in callContext)) delete merged.objectActions;
+      }
+      return merged;
+    };
+    const merged = follow(this.context) as ActionContext;
+    const mirror: unknown = this.context.ctx;
+    if (mirror && typeof mirror === 'object' && !Array.isArray(mirror)) {
+      merged.ctx = follow(mirror as Record<string, unknown>);
+    }
+    const scoped = new ActionRunner(merged);
+    scoped.handlers = this.handlers;
+    scoped.scripts = this.scripts;
+    scoped.confirmHandler = this.confirmHandler;
+    scoped.toastHandler = this.toastHandler;
+    scoped.modalHandler = this.modalHandler;
+    scoped.navigationHandler = this.navigationHandler;
+    scoped.paramCollectionHandler = this.paramCollectionHandler;
+    scoped.resultDialogHandler = this.resultDialogHandler;
+    scoped.translate = this.translate;
+    return scoped;
   }
 
   /**

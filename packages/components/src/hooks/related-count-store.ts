@@ -23,6 +23,37 @@
  *  - We deliberately avoid Zustand here — the surface area is one Map +
  *    an emit() — and the React binding uses the built-in
  *    `useSyncExternalStore` so we don't grow the dependency graph.
+ *
+ * ## One read for a badge and a rail card over the same list (objectui#13010)
+ *
+ * A record page can show the same unfiltered related list twice: as a
+ * `page:tabs` badge, which needs only the total, and as a
+ * `record:reference_rail` card, which needs the total and the first N rows.
+ * Both ask the same question of the same relationship, so the store answers
+ * both with ONE read, whichever of the two asks first:
+ *
+ *  - The rail CLAIMS its entries while it renders (`claimRows`), before any
+ *    effect on the page has run. A badge probe that finds a claim on its key
+ *    asks for the claimed rows (`$top: N`) with the count, rather than
+ *    `$top: 1`, and the store holds those rows until the rail takes them.
+ *  - The rail reads through `fetchRows`. It takes rows the badge's read already
+ *    holds, joins that read while it is in flight, or reads itself and
+ *    registers that read in flight, so a badge probe that comes later joins it
+ *    for the total.
+ *
+ * Nothing here depends on which effect, microtask or frame comes first: the
+ * claim is made in render, and each side either joins the other's read or
+ * makes the read the other joins. Where the claim cannot come first (the
+ * badge's read went out before the rail rendered at all), the badge's read
+ * asked for one row, the rail cannot use it, and the rail reads for itself:
+ * two reads, as before this card, and still the right answer.
+ *
+ * Held rows are a hand-off, not a cache: the rail takes them once; an
+ * invalidation of the child object drops them, and so does the rail's unmount
+ * (`releaseRows`), so no rows outlive the record open that read them. The
+ * rail's own refresh (a bus invalidation) never comes here: it reads again.
+ * A badge whose declared filter differs from the card has a different key, so
+ * it never meets the card's claim and keeps its own probe.
  */
 
 import { useSyncExternalStore } from 'react';
@@ -49,8 +80,30 @@ interface ProbeFn {
   ): Promise<{ total?: number; data?: unknown[] } | unknown[] | { length?: number }>;
 }
 
+/** What one read of a related list answered: the server total and its rows. */
+interface ReadResult {
+  total: number;
+  rows: unknown[];
+}
+
+/**
+ * One read in flight. `top` is the `$top` it asked for, so a rail entry can
+ * tell whether it carries the rows it needs; `fromRows` marks a read the rail
+ * started itself (`fetchRows`), which only the rail's unmount may drop.
+ */
+interface InflightRead {
+  read: Promise<ReadResult>;
+  top: number;
+  fromRows: boolean;
+}
+
 const counts = new Map<string, number>();
-const inflight = new Map<string, Promise<number>>();
+const inflight = new Map<string, InflightRead>();
+// objectui#13010 — rail rows claimed per key (the largest claimed row cap), and
+// the rows a badge's read fetched for that claim, held until the rail takes
+// them. See the file header.
+const claims = new Map<string, number>();
+const heldRows = new Map<string, ReadResult & { top: number }>();
 const listeners = new Set<Listener>();
 // Monotonic store version — the `useSyncExternalStore` snapshot. Bumped on
 // every change so React actually re-renders subscribers (returning the
@@ -122,24 +175,24 @@ function setCount(
 }
 
 /**
- * Probe a count via the supplied finder. Deduplicates concurrent requests
- * for the same key and caches the resulting number until invalidated.
+ * Send ONE read of a related list and record its total. Rejects on a failed
+ * read; the count is not cached then. Shared by the badge's probe
+ * (`fetchCount`) and the rail's read (`fetchRows`), so both put the same
+ * `$filter` on the wire.
  */
-async function fetchCount(
+function startRead(
   probe: ProbeFn,
   objectName: string,
   relField: string | undefined,
   parentId: string | undefined,
-  filter?: CountScopeFilter,
-  fields?: FieldContainerLike,
-): Promise<number> {
+  filter: CountScopeFilter | undefined,
+  fields: FieldContainerLike | undefined,
+  top: number,
+  fromRows: boolean,
+): InflightRead {
   const k = key(objectName, relField, parentId, filter);
-  const cached = counts.get(k);
-  if (cached !== undefined) return cached;
-  const pending = inflight.get(k);
-  if (pending) return pending;
-
-  const promise = (async () => {
+  const entry: InflightRead = { read: Promise.resolve({ total: 0, rows: [] }), top, fromRows };
+  entry.read = (async (): Promise<ReadResult> => {
     // The data source convention across this codebase is `$filter` /
     // `$top` (OData-ish). Earlier versions of this file used `where` /
     // `limit` which most adapters silently ignored, so the probe ended
@@ -152,7 +205,7 @@ async function fetchCount(
     // wire and the only answer available to a caller that cannot see metadata.
     let parentScope: Record<string, unknown> = {};
     if (relField) {
-      if (!parentId) return 0;
+      if (!parentId) return { total: 0, rows: [] };
       parentScope = composeParentScopeFilter(relField, parentId, fields);
     }
     // objectui#4664 — the parent relationship AND the list's own declared
@@ -219,7 +272,10 @@ async function fetchCount(
       // `related-count-store.contractEnvelope-6840.test.ts`; ⛔ do not re-add a
       // tolerant arm, and ⛔ do not widen `QueryResult` to bless `records` or
       // `count` (a published-type change, maintainer's call).
-      const res: any = await probe(objectName, { $filter, $top: 1, $count: true });
+      //
+      // objectui#13010 — `$top` is 1 for a badge alone, and the claimed rail
+      // row cap when a rail card lists the same question (see the header).
+      const res: any = await probe(objectName, { $filter, $top: top, $count: true });
       const total =
         typeof res?.total === 'number'
           ? res.total
@@ -229,17 +285,106 @@ async function fetchCount(
               ? res.length
               : 0;
       const n = typeof total === 'number' ? total : 0;
+      const rows = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
       setCount(objectName, relField, parentId, n, filter);
-      return n;
-    } catch {
-      return 0;
+      // Rows are held only for a claim that still stands, and only from the
+      // read that is still this key's current one: an invalidation or the
+      // rail's unmount while this read was out drops the claim or the entry,
+      // and its rows with them.
+      if (!fromRows && filter === undefined && claims.has(k) && inflight.get(k) === entry) {
+        heldRows.set(k, { total: n, rows, top });
+      }
+      return { total: n, rows };
     } finally {
-      inflight.delete(k);
+      if (inflight.get(k) === entry) inflight.delete(k);
     }
   })();
+  return entry;
+}
 
-  inflight.set(k, promise);
-  return promise;
+/**
+ * Probe a count via the supplied finder. Deduplicates concurrent requests
+ * for the same key and caches the resulting number until invalidated.
+ */
+async function fetchCount(
+  probe: ProbeFn,
+  objectName: string,
+  relField: string | undefined,
+  parentId: string | undefined,
+  filter?: CountScopeFilter,
+  fields?: FieldContainerLike,
+): Promise<number> {
+  const k = key(objectName, relField, parentId, filter);
+  const cached = counts.get(k);
+  if (cached !== undefined) return cached;
+  let pending = inflight.get(k);
+  if (!pending) {
+    // A rail card claims rows only on the unfiltered key, so a badge with a
+    // declared filter never reaches a claim and asks for one row.
+    const claimed = filter === undefined ? claims.get(k) : undefined;
+    pending = startRead(probe, objectName, relField, parentId, filter, fields, claimed ?? 1, false);
+    inflight.set(k, pending);
+  }
+  try {
+    return (await pending.read).total;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * objectui#13010 — the rail card's read: the first `limit` rows of the
+ * unfiltered related list and its total. Takes the rows a badge's read holds
+ * for this card's claim, joins a read in flight that asked for enough rows, or
+ * reads itself and registers that read in flight for a badge to join.
+ * Rejects when the read fails, so the card can show its error state.
+ */
+async function fetchRows(
+  probe: ProbeFn,
+  objectName: string,
+  relField: string,
+  parentId: string,
+  limit: number,
+  fields?: FieldContainerLike,
+): Promise<ReadResult> {
+  const k = key(objectName, relField, parentId);
+  const held = heldRows.get(k);
+  if (held && held.top >= limit) {
+    heldRows.delete(k);
+    return { total: held.total, rows: held.rows.slice(0, limit) };
+  }
+  const pending = inflight.get(k);
+  if (pending && pending.top >= limit) {
+    const result = await pending.read;
+    heldRows.delete(k);
+    return { total: result.total, rows: result.rows.slice(0, limit) };
+  }
+  const own = startRead(probe, objectName, relField, parentId, undefined, fields, limit, true);
+  // A read already out with too few rows stays the one a badge joins.
+  if (!pending) inflight.set(k, own);
+  return own.read;
+}
+
+/**
+ * objectui#13010 — a rail card says, while it renders, that it will list the
+ * first `limit` rows of this unfiltered related list. Idempotent, so a render
+ * React repeats or discards claims nothing new.
+ */
+function claimRows(objectName: string, relField: string, parentId: string, limit: number): void {
+  const k = key(objectName, relField, parentId);
+  const prev = claims.get(k);
+  if (prev === undefined || prev < limit) claims.set(k, limit);
+}
+
+/**
+ * objectui#13010 — the rail card is gone: its claim, the rows held for it and
+ * the read it started itself are dropped, so nothing outlives the record open.
+ */
+function releaseRows(objectName: string, relField: string, parentId: string): void {
+  const k = key(objectName, relField, parentId);
+  claims.delete(k);
+  heldRows.delete(k);
+  if (inflight.get(k)?.fromRows) inflight.delete(k);
 }
 
 /**
@@ -253,9 +398,14 @@ async function fetchCount(
 function invalidate(objectName: string, parentId?: string): void {
   let changed = false;
   const prefix = `${objectName}::`;
+  const matches = (k: string) => k.startsWith(prefix) && (parentId === undefined || k.endsWith(`::${parentId}`));
+  // objectui#13010 — rows held for a rail card, and reads that went out before
+  // the change, answer for data that has changed: neither may be handed to a
+  // reader that asks after it.
+  for (const k of [...heldRows.keys()]) if (matches(k)) heldRows.delete(k);
+  for (const k of [...inflight.keys()]) if (matches(k)) inflight.delete(k);
   for (const k of counts.keys()) {
-    if (!k.startsWith(prefix)) continue;
-    if (parentId !== undefined && !k.endsWith(`::${parentId}`)) continue;
+    if (!matches(k)) continue;
     counts.delete(k);
     changed = true;
   }
@@ -263,6 +413,8 @@ function invalidate(objectName: string, parentId?: string): void {
 }
 
 function invalidateAll(): void {
+  heldRows.clear();
+  inflight.clear();
   if (counts.size === 0) return;
   counts.clear();
   emit();
@@ -320,12 +472,18 @@ export const RelatedCountStore = {
   get: getCount,
   set: setCount,
   fetch: fetchCount,
+  // objectui#13010 — the rail card's half of the shared read (file header).
+  fetchRows,
+  claimRows,
+  releaseRows,
   invalidate,
   invalidateAll,
   // Exposed for test isolation only — production code should never need this.
   _reset: () => {
     counts.clear();
     inflight.clear();
+    claims.clear();
+    heldRows.clear();
     emit();
   },
 };

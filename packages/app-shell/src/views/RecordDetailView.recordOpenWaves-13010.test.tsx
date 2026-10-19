@@ -25,7 +25,7 @@
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, cleanup, act } from '@testing-library/react';
+import { render, cleanup, act, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
@@ -338,6 +338,35 @@ describe('the record page open waves (objectui#13010)', () => {
 
     // One wave in all: nothing waits on the record body any more.
     expect(Math.max(...held.map((h) => h.wave)), table).toBe(1);
+  });
+
+  // objectui#13010 part 4 — the rail claims its rows while it renders, before
+  // the tab strip's probe effect runs, so the badge's read asks for the card's
+  // three rows with the count and the card takes them: one read per unfiltered
+  // relation, whichever side the timing lets ask first. Wave table measured on
+  // this file. Before part 4: 13 requests in wave 1, with quote and line each
+  // read twice (a `top=1` badge probe and a `top=3` card read). After it: 11
+  // requests in wave 1, quote and line each read once with `top=3`; the task
+  // card and its filtered badge probe stay two different questions.
+  it('each unfiltered relation the rail and the tab badge both show is ONE read, and both are drawn', async () => {
+    const { held } = await openRecordPage();
+    const table = waveTable(held);
+    for (const object of [QUOTE, LINE]) {
+      const reads = held.filter((h) => objectOf(h) === object);
+      expect(reads.map((h) => topOf(h)), `${object}\n${table}`).toEqual([3]);
+    }
+    // The badge total is drawn from that read: quote 6 + line 7 + the
+    // filtered task probe's own 4.
+    const relatedTab = screen.getByRole('tab', { name: /Related/ });
+    expect(relatedTab.textContent, table).toContain('17');
+    // The card rows are drawn from the same read: three rows each, and the
+    // card's own total.
+    for (const object of [QUOTE, LINE]) {
+      for (let i = 0; i < 3; i++) expect(screen.getAllByText(`${object} row ${i}`).length, table).toBeGreaterThan(0);
+      expect(screen.queryByText(`${object} row 3`), table).toBeNull();
+    }
+    expect(screen.getAllByText(String(TOTALS[QUOTE])).length, table).toBeGreaterThan(0);
+    expect(screen.getAllByText(String(TOTALS[LINE])).length, table).toBeGreaterThan(0);
   });
 
   it('CONTROL: a badge whose declared filter differs from its card still probes, with its own filter', async () => {

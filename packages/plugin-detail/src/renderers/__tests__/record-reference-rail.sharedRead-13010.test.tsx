@@ -245,6 +245,38 @@ describe('a rail card and a tab badge over the same list share one read (objectu
     expect(await screen.findByText('Contact 9')).toBeInTheDocument();
   });
 
+  it('a parent-record change before the rail is on screen: its first read is fresh, not the rows held before the change', async () => {
+    LaterIO.callbacks = [];
+    vi.stubGlobal('IntersectionObserver', LaterIO as unknown as typeof IntersectionObserver);
+    const ds = heldDataSource(2);
+    // Off screen (below `xl`): the rail claims, the badge's read fetches and
+    // holds the card's rows, the rail reads nothing.
+    mountRail(ds);
+    const count = badgeProbe(ds);
+    await flush();
+    await ds.answerAll();
+    await count;
+    expect(ds.find).toHaveBeenCalledTimes(1);
+
+    // A `refreshAfter: true` action writes a child and posts a PARENT change:
+    // the store's child keys are not invalidated, so its held rows predate it.
+    ds.setRows([
+      { id: 'c0', name: 'Contact 0' },
+      { id: 'c1', name: 'Contact 1' },
+      { id: 'c9', name: 'Contact 9' },
+    ]);
+    act(() => notifyDataChanged({ objectName: PARENT, recordId: REC }));
+    await flush();
+    expect(ds.find).toHaveBeenCalledTimes(1);
+
+    // The rail comes on screen: it reads again and draws the row the action wrote.
+    act(() => LaterIO.show());
+    await flush();
+    expect(ds.find).toHaveBeenCalledTimes(2);
+    await ds.answerAll();
+    expect(await screen.findByText('Contact 9')).toBeInTheDocument();
+  });
+
   it('CONTROL: the rail\'s unmount releases its claim — a badge alone asks for one row again', async () => {
     vi.stubGlobal('IntersectionObserver', HiddenIO as unknown as typeof IntersectionObserver);
     const ds = heldDataSource();

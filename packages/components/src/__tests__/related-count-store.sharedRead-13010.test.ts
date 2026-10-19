@@ -79,6 +79,26 @@ describe('RelatedCountStore shared read (objectui#13010)', () => {
     expect(probe).toHaveBeenCalledTimes(3);
   });
 
+  it('a read an invalidation overtook installs no count over the fresh one', async () => {
+    let release!: () => void;
+    let total = 2;
+    const probe = vi.fn((_o: string, _q: any) => {
+      const answer = { total, data: rowsOf(1) };
+      return probe.mock.calls.length === 1
+        ? new Promise((r) => { release = () => r(answer); })
+        : Promise.resolve(answer);
+    });
+    const stale = RelatedCountStore.fetch(probe as never, 'contact', 'account', 'A1');
+    await Promise.resolve();
+    RelatedCountStore.invalidate('contact');
+    total = 5;
+    expect(await RelatedCountStore.fetch(probe as never, 'contact', 'account', 'A1')).toBe(5);
+    release();
+    await stale;
+    // The pre-change read (it answered 2) landed last and did not overwrite.
+    expect(RelatedCountStore.get('contact', 'account', 'A1')).toBe(5);
+  });
+
   it('a released claim takes its held rows with it', async () => {
     RelatedCountStore.claimRows('contact', 'account', 'A1', 3);
     const probe = vi.fn(async (_o: string, q: any) => ({ total: 4, data: rowsOf(q.$top) }));

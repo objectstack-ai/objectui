@@ -504,10 +504,15 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
       try {
         let total: number;
         let items: unknown[];
-        if (refreshing) {
-          // A refresh (objectui#12110 item 4) reads again, always: the rows a
-          // badge's read holds for this card, or a read already in flight,
-          // may predate the change that triggered it.
+        // A refresh (objectui#12110 item 4) reads again, always: the rows a
+        // badge's read holds for this card, or a read already in flight, may
+        // predate the change that triggered it. So does a FIRST read after any
+        // bus invalidation this rail heard (`invalidationNonce` above zero): a
+        // change to the PARENT record (a `refreshAfter: true` action) marks the
+        // rail stale without invalidating the store's child keys, so rows a
+        // badge read before it, held for a rail that was not yet on screen,
+        // would otherwise be handed over after the action.
+        if (refreshing || invalidationNonce > 0) {
           const res: any = await dataSource.find(entry.objectName, {
             // The parent-relationship condition, compiled to match the field's
             // ARITY by the one seam the rows and the tab badge already use

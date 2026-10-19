@@ -54,6 +54,12 @@
  * rail's own refresh (a bus invalidation) never comes here: it reads again.
  * A badge whose declared filter differs from the card has a different key, so
  * it never meets the card's claim and keeps its own probe.
+ *
+ * The cost of claiming in render: a render React discards without committing
+ * made its claim and has no cleanup to withdraw it, so the claim stands until
+ * a committed rail releases that key or `_reset`. It is bounded by the
+ * (object, relField, parentId) keys rendered, and all it does is make a badge
+ * probe of that same parent's list ask for a few rows instead of one.
  */
 
 import { useSyncExternalStore } from 'react';
@@ -286,7 +292,11 @@ function startRead(
               : 0;
       const n = typeof total === 'number' ? total : 0;
       const rows = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
-      setCount(objectName, relField, parentId, n, filter);
+      // Installed only from the read that is still this key's current one: a
+      // read an invalidation overtook answers for data that has changed, and
+      // must not overwrite the count a fresh read installs (nor install a stale
+      // one into the emptied entry).
+      if (inflight.get(k) === entry) setCount(objectName, relField, parentId, n, filter);
       // Rows are held only for a claim that still stands, and only from the
       // read that is still this key's current one: an invalidation or the
       // rail's unmount while this read was out drops the claim or the entry,
@@ -338,6 +348,12 @@ async function fetchCount(
  * for this card's claim, joins a read in flight that asked for enough rows, or
  * reads itself and registers that read in flight for a badge to join.
  * Rejects when the read fails, so the card can show its error state.
+ *
+ * One exception to the registration: when a read with too FEW rows (a badge's
+ * one-row probe) is already in flight, this card's own read is NOT registered
+ * in flight. The too-small read stays the one a badge joins, and since only the
+ * current in-flight read installs a count, the card's own read installs none:
+ * the badge's read does.
  *
  * Contract: held rows are a HAND-OFF, not a cache. They are taken once (the
  * first `fetchRows` that finds them removes them; a second call reads again),

@@ -15,9 +15,10 @@ import { test, expect, type Page } from '@playwright/test';
  *   F4 — empty picklist row must not trip spec validation
  */
 
-// The object designer is reached through the showcase's own app: no stock
-// boot loads the Studio app (`com.objectstack.studio`, ADR-0048), and the
-// metadata routes resolve under any loaded app.
+// The object designer is reached through the showcase's own app: a stock
+// showcase boot does not serve the Studio app (`com.objectstack.studio`; the
+// served apps are what `GET /api/v1/meta/app` lists), and the metadata routes
+// resolve under any served app.
 const PKG = 'com.example.showcase';
 const NEW_OBJ = `/apps/showcase_app/metadata/object/new?package=${PKG}`;
 
@@ -76,8 +77,9 @@ test('F1: a newly created package appears in the switcher without a reload', asy
   const pkgName = `E2E Dogfood ${stamp}`;
   const pkgIdPattern = pkgId.replace(/\./g, '\\.');
   // The console's Studio surface (`/studio/:packageId/:tab`) carries the
-  // package switcher on a stock boot; the Studio app's sidebar switcher does
-  // not load in one (ADR-0048).
+  // package switcher on a stock boot. The sidebar switcher (`package-switcher`)
+  // renders only for an app that declares `contextSelectors`, and no app a
+  // stock showcase boot serves declares one.
   await page.goto(`/studio/${PKG}/data`);
   const chip = page.getByTestId('studio-pkg-chip');
   await chip.click();
@@ -90,9 +92,10 @@ test('F1: a newly created package appears in the switcher without a reload', asy
   // names it from the refreshed list (a stale list falls back to the raw id)…
   await expect(page).toHaveURL(new RegExp(`/studio/${pkgIdPattern}/`));
   await expect(chip).toContainText(pkgName);
-  // …and the open switcher lists it.
+  // …and the open switcher lists it by its name, which only the refreshed list
+  // carries (each entry's accessible name is its name, then its id).
   await chip.click();
-  await expect(page.getByRole('button', { name: new RegExp(pkgIdPattern) })).toBeVisible();
+  await expect(page.getByRole('button', { name: new RegExp(`${pkgName}\\s*${pkgIdPattern}`) })).toBeVisible();
 
   // Cleanup so we don't pollute the shared dev stack.
   await page.evaluate(async (id) => {

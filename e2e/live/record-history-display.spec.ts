@@ -12,8 +12,11 @@ import { test, expect, type APIRequestContext } from '@playwright/test';
  * the console gates the History tab on that flag. Its audited field mix: two
  * selects (`industry`, and `status` labelled "Lifecycle"), a date
  * (`signed_on`, "Customer Since") and the record owner, a user lookup
- * (`owner_id`). No history-tracked showcase object carries a boolean field,
- * so booleans-as-words is not exercised here.
+ * (`owner_id`). No history-tracked showcase object carries a boolean or a
+ * datetime field, so booleans-as-words and datetime localization are not
+ * exercised here; the unit suite `auditHistoryDisplay.test.ts` in app-shell
+ * pins both ("localizes booleans through t with Yes/No fallback", "localizes
+ * datetime values instead of raw ISO strings").
  */
 const API = process.env.LIVE_API_URL || 'http://localhost:3000';
 const EMAIL = process.env.LIVE_EMAIL || 'admin@objectos.ai';
@@ -82,7 +85,9 @@ test('History tab shows display values (localized dates, option labels, resolved
   expect(text).not.toMatch(/\bprospect\b|\bactive\b|\btechnology\b|\bfinance\b/);
 
   // 5) Dates are localized — no raw ISO payloads anywhere, neither a datetime
-  //    nor the stored YYYY-MM-DD of the date field.
+  //    nor the stored YYYY-MM-DD of the date field. The date's diff line is
+  //    there to read, so the absence below is not vacuous.
+  expect(text).toMatch(/Customer Since/);
   expect(text).not.toMatch(/T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
   expect(text).not.toMatch(/\b\d{4}-\d{2}-\d{2}\b/);
 

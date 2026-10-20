@@ -315,6 +315,7 @@ export const __testables = {
   get jobResultToImportResult() { return jobResultToImportResult; },
   get buildFailedRowsCsv() { return buildFailedRowsCsv; },
   get assembleImportRequest() { return assembleImportRequest; },
+  get sourceRowsToCsv() { return sourceRowsToCsv; },
   get isImportJobActive() { return isImportJobActive; },
   get isImportJobUndoable() { return isImportJobUndoable; },
   get buildSourceRows() { return buildSourceRows; },
@@ -899,6 +900,31 @@ function transformedSourceColumns(m: SavedMapping | null, headers: string[]): Se
   return out;
 }
 
+/** One CSV cell, quoted when it holds a comma, a double quote, a CR or an LF
+ *  (RFC 4180). The import door's CSV parser opens a quoted run at ANY double
+ *  quote and drops a bare CR, so a value carrying either travels quoted too. */
+function csvCell(value: string): string {
+  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+/** CSV text of SOURCE-keyed rows (see buildSourceRows): a header row naming
+ *  every column the rows carry, then one line per row. The cells are the ones
+ *  the JSON rows would carry, so a corrected cell, a pasted table and an .xlsx
+ *  sheet travel exactly as the preview shows them (objectui#13156). The columns
+ *  are read off the rows, so the text and the rows cannot disagree. */
+function sourceRowsToCsv(rows: ReadonlyArray<Record<string, string>>): string {
+  const columns: string[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    for (const column of Object.keys(row)) {
+      if (!seen.has(column)) { seen.add(column); columns.push(column); }
+    }
+  }
+  return [columns, ...rows.map((row) => columns.map((column) => row[column] ?? ''))]
+    .map((line) => line.map(csvCell).join(','))
+    .join('\r\n');
+}
+
 /** Assemble the server `/import` request from mapping-applied raw rows plus the
  *  current write-mode + coercion options. Kept pure (no component state) so the
  *  real import and the dry-run pre-check send byte-identical payloads and it can
@@ -924,12 +950,19 @@ function assembleImportRequest(
      *  column mapping / write-mode are omitted — mutually exclusive per the
      *  server contract. */
     mappingName?: string;
+    /** The `sourceFormat` that named mapping declares, read off the mapping the
+     *  server serves and never inferred from the uploaded file's name. The
+     *  import door judges the declaration against the payload and refuses JSON
+     *  rows for a `csv` mapping (`400 MAPPING_FORMAT_MISMATCH`, objectui#13156),
+     *  so a `csv` mapping's rows travel as CSV text; any other keeps JSON rows. */
+    mappingSourceFormat?: SavedMapping['sourceFormat'];
   },
 ): ImportRequestOptions {
   if (opts.mappingName) {
     return {
-      format: 'json',
-      rows,
+      ...(opts.mappingSourceFormat === 'csv'
+        ? { format: 'csv' as const, csv: sourceRowsToCsv(rows) }
+        : { format: 'json' as const, rows }),
       mappingName: opts.mappingName,
       ...(opts.dryRun ? { dryRun: true } : {}),
     };
@@ -2266,7 +2299,8 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
 
   // Select a registered mapping: the server owns rename + transforms, so we
   // set a read-only display mapping (for the preview grid) and reflect the
-  // artifact's write semantics; submit sends source rows + mappingName.
+  // artifact's write semantics; submit sends source rows + mappingName, as CSV
+  // text when the mapping declares `sourceFormat: 'csv'`.
   const handleSelectSavedMapping = useCallback((name: string) => {
     const m = availableMappings.find((sm) => sm.name === name);
     if (!m) return;
@@ -2623,17 +2657,21 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   // Assemble the server import request from the current mapping + options.
   // `dryRun` reuses the exact same payload the real import will send, so the
   // pre-check validates precisely what would be written.
+  // The format the chosen mapping declares, kept as a string so the callback
+  // below keys on the declaration, not on a memoised object's identity.
+  const mappingSourceFormat = activeMapping?.sourceFormat;
   const buildImportRequest = useCallback((dryRun = false): ImportRequestOptions =>
     assembleImportRequest(
-      // A named mapping is applied server-side over SOURCE-header rows; the
-      // hand-mapped, field-keyed rows are for the manual path only.
+      // A named mapping is applied server-side over SOURCE-header rows, sent in
+      // the format it declares; the hand-mapped, field-keyed rows are for the
+      // manual path only.
       mappingName ? buildSourceRows(headers, rows, corrections) : buildRawRows(),
       {
         writeMode, matchFields, createMissingOptions, skipBlankMatchKey, dryRun,
-        ...(mappingName ? { mappingName } : {}),
+        ...(mappingName ? { mappingName, mappingSourceFormat } : {}),
       },
     ),
-  [buildRawRows, mappingName, headers, rows, corrections, writeMode, matchFields, createMissingOptions, skipBlankMatchKey]);
+  [buildRawRows, mappingName, mappingSourceFormat, headers, rows, corrections, writeMode, matchFields, createMissingOptions, skipBlankMatchKey]);
 
   const handleImport = useCallback(async () => {
     setImporting(true); setProgress(0);

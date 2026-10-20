@@ -10,10 +10,13 @@
  *
  * Modes:
  *   • create → POST /api/v1/packages { manifest }         (409 on duplicate id)
- *   • edit   → PATCH /api/v1/packages/:id { name, description, version }
- *              (the REST surface only persists those three; `id` / `type` /
- *              `namespace` / `scope` / … are `immutable` in the form and lock
- *              automatically once `createMode` is false)
+ *   • edit   → PATCH /api/v1/packages/:id { name, description, version,
+ *              dependencies? } — `dependencies` only when the author changed
+ *              it (objectui#13121); the door persists those four keys and
+ *              judges `dependencies` by `ManifestSchema`'s row
+ *              (objectstack#24670). `id` / `type` / `namespace` / `scope` / …
+ *              are `immutable` in the form and lock automatically once
+ *              `createMode` is false.
  *   • view   → read-only render of the manifest
  *
  * Create mode's Package ID is not the spec form's text field but the shared
@@ -183,6 +186,31 @@ function deriveCreatePackageId(name: string, orgSlug: string | null | undefined)
   const orgSegment = orgSlug ? toIdSegment(orgSlug) : '';
   const candidate = ['com', orgSegment, nameSegment].filter(Boolean).join('.');
   return isSpecPackageId(candidate) ? candidate : null;
+}
+
+/**
+ * Does the edit draft's `dependencies` row differ from the one the dialog
+ * loaded (objectui#13121)? Compared by entries, not by key order: the door
+ * replaces the stored row whole, so an unchanged map in another order is no
+ * edit. An absent row reads as the empty map on both sides — the dialog's own
+ * form state, not a producer's value — so an author who empties a non-empty
+ * row has changed it, and a row that was never declared and is still empty
+ * has not. A value that is not a plain map (an editor mid-edit) counts as
+ * changed, so it reaches the door and is judged there rather than dropped.
+ */
+function dependenciesChanged(loaded: unknown, now: unknown): boolean {
+  const asMap = (v: unknown): Record<string, unknown> | null =>
+    v === undefined || v === null
+      ? {}
+      : typeof v === 'object' && !Array.isArray(v)
+        ? (v as Record<string, unknown>)
+        : null;
+  const a = asMap(loaded);
+  const b = asMap(now);
+  if (!a || !b) return true;
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return true;
+  return keys.some((k) => !Object.prototype.hasOwnProperty.call(b, k) || a[k] !== b[k]);
 }
 
 /** Which filled-in create fields the author has edited (objectui#12512). */
@@ -491,17 +519,28 @@ export function PackageFormDialog({
         result = { id, mode, package: created };
       } else {
         const id = String((manifest?.id as string) ?? draft.id ?? '');
-        // The REST PATCH only persists name/description/version.
+        // The REST PATCH persists name / description / version / dependencies
+        // (objectstack#24670). `dependencies` is sent only when the author
+        // changed it, in the flat shape, and whole: the door replaces the
+        // stored row with it, so an emptied editor sends `{}`, which clears
+        // the declaration (objectui#13121). The row is judged by the door
+        // (`400 VALIDATION_ERROR`); a read-only package is refused before the
+        // body is read (`422 WRITABLE_PACKAGE_REQUIRED`). Both reach the
+        // banner below like any other refusal.
+        const patchBody: Record<string, unknown> = {
+          name: String(draft.name ?? '').trim(),
+          description: String(draft.description ?? '').trim(),
+          version: versionStr,
+        };
+        if (dependenciesChanged(manifest?.dependencies, draft.dependencies)) {
+          patchBody.dependencies = draft.dependencies ?? {};
+        }
         const updated = await apiJson<{ manifest: ManifestRecord } & Record<string, unknown>>(
           `${API}/${encodeURIComponent(id)}`,
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: String(draft.name ?? '').trim(),
-              description: String(draft.description ?? '').trim(),
-              version: versionStr,
-            }),
+            body: JSON.stringify(patchBody),
           },
         );
         result = { id, mode, package: updated };

@@ -30,6 +30,9 @@ import {
   // as such in `../__tests__/imported-defaults-8317.test.ts` rather than left
   // to this paragraph.
   objectNavTargetExclusivity,
+  // RAW for the same reason: the spec's own refinement function, chained on
+  // every navigation arm below (objectui#13076).
+  navItemVisibleDataNeedsDataSource,
 } from '@objectstack/spec/ui';
 import {
   EvaluatedExpressionInputSchema as SpecEvaluatedExpressionInputSchema,
@@ -383,6 +386,15 @@ const NavigationItemObject = z.object({
   if (item.type === 'object') {
     objectNavTargetExclusivity(item, ctx);
   }
+
+  // The spec's own `visible`-reads-`data` rule, CHAINED for EVERY type
+  // (objectui#13076, objectstack#24534): an entry whose `visible` reads `data`
+  // must declare the `dataSource` that binds it. `@objectstack/spec` mounts this
+  // function on its whole navigation union, not on one branch, so it is called
+  // here outside the `object` branch above, and again on the `doc` arm below.
+  // `visible` is handed over as authored: the function reads the bare string
+  // and the `{ dialect, source }` envelope alike, and a boolean judges nothing.
+  navItemVisibleDataNeedsDataSource(item, ctx);
 });
 
 /**
@@ -446,6 +458,10 @@ const NavigationDocItemObject = z.looseObject({
     for (const issue of verdict.error.issues) ctx.addIssue({ ...issue, message: issue.message });
   }
   refuseEmptyNavLabel(item, ctx);
+  // The judge above is the spec's `doc` ARM, which does not carry the rule the
+  // spec mounts on its whole union, so it is chained here as on the flat arm
+  // (objectui#13076).
+  navItemVisibleDataNeedsDataSource(item, ctx);
 }, { when: (payload) => payload.issues.length === 0 });
 
 /**

@@ -1974,6 +1974,7 @@ const ja = {
     },
     title: "ObjectStack コンソール",
     initializing: "コンソールを開いています…",
+    skipToContent: "コンテンツへスキップ",
     breadcrumb: {
       system: "システム",
       marketplace: "マーケットプレイス",

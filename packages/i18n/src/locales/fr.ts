@@ -2014,6 +2014,7 @@ const fr = {
     },
     title: "Console ObjectStack",
     initializing: "Ouverture de votre console…",
+    skipToContent: "Aller au contenu",
     breadcrumb: {
       system: "Système",
       marketplace: "Marketplace",

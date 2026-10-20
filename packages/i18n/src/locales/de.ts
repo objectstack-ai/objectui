@@ -1972,6 +1972,7 @@ const de = {
     },
     title: "ObjectStack Konsole",
     initializing: "Ihre Konsole wird geöffnet…",
+    skipToContent: "Zum Inhalt springen",
     breadcrumb: {
       system: "System",
       marketplace: "Marktplatz",

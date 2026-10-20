@@ -8,10 +8,11 @@
  * @module
  */
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppShell } from '@object-ui/layout';
 import { useIsMobile } from '@object-ui/components';
+import { useObjectTranslation } from '@object-ui/i18n';
 
 // Lightweight FAB stub — the heavy chat chunk graph (plugin-chatbot,
 // shiki, streamdown, mermaid, @ai-sdk, ~20MB) only downloads on first
@@ -76,6 +77,46 @@ const TOGGLE_SIDEBAR_SHORTCUT: AdvertisedShortcut = {
   label: (t: ShortcutLabelTranslate) => t('console.shortcuts.toggleSidebar'),
 };
 
+/**
+ * The id of the console's route slot, the element that holds the page: the
+ * skip link's target (objectui#13130).
+ */
+const CONSOLE_MAIN_CONTENT_ID = 'console-main-content';
+
+/**
+ * objectui#13130 — the shell's first Tab stop: "Skip to content", hidden until
+ * it has keyboard focus. Without it a keyboard user walked the whole app bar
+ * and every sidebar entry (two stops each: the link and its "More actions"
+ * button) before reaching anything on the page.
+ *
+ * It moves focus to the route slot rather than navigating to the fragment:
+ * the console is a routed app, and a hash written into the URL would be a
+ * history entry and URL state nobody asked for (objectui AGENTS.md §5 #8). The
+ * `href` keeps it a link, and is the fallback when the slot is not mounted.
+ *
+ * The target is the route slot, not the `<main>` around it: `<main>` belongs
+ * to `@object-ui/layout`'s `AppShell`, which takes no id or ref for it, while
+ * the slot is this layout's own element and is the one holding the page.
+ */
+function SkipToContentLink({ targetRef }: { targetRef: React.RefObject<HTMLDivElement | null> }) {
+  const { t } = useObjectTranslation();
+  return (
+    <a
+      href={`#${CONSOLE_MAIN_CONTENT_ID}`}
+      data-testid="console-skip-to-content"
+      onClick={(event) => {
+        const target = targetRef.current;
+        if (!target) return;
+        event.preventDefault();
+        target.focus();
+      }}
+      className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-md focus:outline-none focus:ring-2 focus:ring-ring"
+    >
+      {t('console.skipToContent')}
+    </a>
+  );
+}
+
 /** Inner component that can access SidebarProvider context */
 function ConsoleLayoutInner({ children }: { children: React.ReactNode }) {
   useResponsiveSidebar();
@@ -103,6 +144,8 @@ export function ConsoleLayout({
   // `app.defaultAgent` below. This was the special case that existed nowhere
   // else; it now lives in exactly one place.
   const { setContext, setCurrentAppName } = useNavigationContext();
+  // objectui#13130 — the skip link's target (see `SkipToContentLink`).
+  const mainContentRef = useRef<HTMLDivElement>(null);
 
   // ADR-0057 P3 — the right-docked chat rail, the console's canonical chat
   // presentation (rollout complete; the FAB below is its launcher). Gated on
@@ -160,6 +203,8 @@ export function ConsoleLayout({
     // AppHeader trigger (navbar) and the CommandPalette (children) — ADR-0054.
     <CommandPaletteProvider>
     <MobileViewSwitcherProvider>
+    {/* objectui#13130 — first in the DOM, so it is the first Tab stop. */}
+    <SkipToContentLink targetRef={mainContentRef} />
     <AppShell
       sidebar={
          <UnifiedSidebar
@@ -243,8 +288,16 @@ export function ConsoleLayout({
             exactly as before, and a `sticky` element inside the page still has
             the whole page to stick within. ⛔ Never force `min-h-0` on every
             inset child instead: a page root placed directly in a flex column
-            with `min-h-0` is squeezed to the inset's height. */}
-        <div data-testid="console-route" className="h-full lg:min-h-0">
+            with `min-h-0` is squeezed to the inset's height.
+            objectui#13130 — the skip link's target: focusable by script
+            (`tabIndex={-1}`), never a Tab stop of its own. */}
+        <div
+          id={CONSOLE_MAIN_CONTENT_ID}
+          ref={mainContentRef}
+          tabIndex={-1}
+          data-testid="console-route"
+          className="h-full lg:min-h-0 focus:outline-none"
+        >
         {children}
         </div>
       </ConsoleLayoutInner>

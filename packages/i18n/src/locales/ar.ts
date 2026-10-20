@@ -2147,6 +2147,7 @@ const ar = {
     },
     title: "وحدة تحكم ObjectStack",
     initializing: "جارٍ فتح وحدة التحكم…",
+    skipToContent: "الانتقال إلى المحتوى",
     breadcrumb: {
       system: "النظام",
       marketplace: "السوق",

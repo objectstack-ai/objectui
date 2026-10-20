@@ -2018,6 +2018,7 @@ const es = {
     },
     title: "Consola ObjectStack",
     initializing: "Abriendo su consola…",
+    skipToContent: "Saltar al contenido",
     breadcrumb: {
       system: "Sistema",
       marketplace: "Marketplace",

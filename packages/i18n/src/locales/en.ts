@@ -2032,6 +2032,7 @@ const en = {
     savedViewsUnreadable: 'This list is empty because it could not be read, not because this object has no saved views. Try again, and report this if it keeps happening.',
     title: 'ObjectOS',
     initializing: 'Opening your console…',
+    skipToContent: 'Skip to content',
     search: 'Search…',
     breadcrumb: {
       system: 'System',

@@ -80,6 +80,7 @@ import {
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 import { useRecordInvalidation } from './recordInvalidation';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
+import { useInitialFieldFocus } from './initialFieldFocus';
 
 // Localized strings for the unsaved-changes guard and, since objectui#11039,
 // the form's own chrome (the default submit and cancel labels and the
@@ -374,6 +375,11 @@ export const ModalForm: React.FC<ModalFormProps> = ({
 
   // Stable form id for linking the external submit button to the form element
   const formId = useId();
+
+  // objectui#13130 — the dialog opens on its first editable field, not on its
+  // Close button: the body loads after the content mounts, so Radix's own
+  // first-tabbable pick found only Close. See `initialFieldFocus.ts`.
+  const initialFieldFocus = useInitialFieldFocus();
 
   // `form.sections[].group` (objectui#11542): a section that points `group` at
   // one of the object's `fieldGroups` becomes the section that group declares,
@@ -1100,7 +1106,12 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   if (subforms?.length && schema.mode !== 'view') {
     return (
       <Dialog open={isOpen} onOpenChange={schema.onOpenChange}>
-        <MobileDialogContent showCloseButton={showCloseButton} className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
+        <MobileDialogContent
+          showCloseButton={showCloseButton}
+          onOpenAutoFocus={initialFieldFocus.onOpenAutoFocus}
+          onCloseAutoFocus={initialFieldFocus.onCloseAutoFocus}
+          className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}
+        >
           {(schema.title || schema.description) && (
             <DialogHeader className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6 pb-2 border-b">
               {schema.title && <DialogTitle>{schema.title}</DialogTitle>}
@@ -1154,7 +1165,12 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         attemptClose(false);
       }}
     >
-      <MobileDialogContent showCloseButton={showCloseButton} className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
+      <MobileDialogContent
+        showCloseButton={showCloseButton}
+        onOpenAutoFocus={initialFieldFocus.onOpenAutoFocus}
+        onCloseAutoFocus={initialFieldFocus.onCloseAutoFocus}
+        className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}
+      >
         {(schema.title || schema.description) && (
           <DialogHeader className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6 pb-2 border-b">
             {schema.title && <DialogTitle>{schema.title}</DialogTitle>}

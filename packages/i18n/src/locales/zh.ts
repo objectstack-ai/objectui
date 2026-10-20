@@ -1728,6 +1728,7 @@ const zh = {
     savedViewsUnreadable: "该列表为空是因为读取失败，而不是因为该对象没有已保存的视图。请重试；如果反复出现，请反馈此问题。",
     title: 'ObjectStack 控制台',
     initializing: '正在打开你的控制台…',
+    skipToContent: '跳到主要内容',
     search: '搜索…',
     breadcrumb: {
       system: '系统',

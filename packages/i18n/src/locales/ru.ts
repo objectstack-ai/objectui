@@ -2066,6 +2066,7 @@ const ru = {
     },
     title: "Консоль ObjectStack",
     initializing: "Открытие консоли…",
+    skipToContent: "Перейти к содержимому",
     breadcrumb: {
       system: "Система",
       marketplace: "Маркетплейс",

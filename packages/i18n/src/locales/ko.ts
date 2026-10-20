@@ -1972,6 +1972,7 @@ const ko = {
     },
     title: "ObjectStack 콘솔",
     initializing: "콘솔을 여는 중…",
+    skipToContent: "본문으로 건너뛰기",
     breadcrumb: {
       system: "시스템",
       marketplace: "마켓플레이스",

@@ -2013,6 +2013,7 @@ const pt = {
     },
     title: "Console ObjectStack",
     initializing: "Abrindo seu console…",
+    skipToContent: "Pular para o conteúdo",
     breadcrumb: {
       system: "Sistema",
       marketplace: "Marketplace",

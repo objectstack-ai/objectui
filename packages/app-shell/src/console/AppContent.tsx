@@ -1636,20 +1636,17 @@ function AppRootLanding({
   const gates = useNavMemberGates();
   const navigation = navEntriesShownToMember(app?.navigation || [], gates);
   const landing = resolveLandingRoute(navigation, ctx);
+  const areas = (app?.areas || []) as Array<{ navigation?: NavigationItem[] } | null | undefined>;
   const shownApp = {
     navigation,
-    areas: (app?.areas || []).map((area: any) => ({
-      navigation: navEntriesShownToMember(area?.navigation || [], gates),
-    })),
+    areas: areas.map((area) => ({ navigation: navEntriesShownToMember(area?.navigation || [], gates) })),
   };
   // objectui#13097 — the same questions, as if every pending read showed its
   // entry. A different answer means a pending read is still deciding it.
   const undecided = navEntriesShownOncePendingReadsShow(app?.navigation || [], gates);
   const undecidedApp = {
     navigation: undecided,
-    areas: (app?.areas || []).map((area: any) => ({
-      navigation: navEntriesShownOncePendingReadsShow(area?.navigation || [], gates),
-    })),
+    areas: areas.map((area) => ({ navigation: navEntriesShownOncePendingReadsShow(area?.navigation || [], gates) })),
   };
   if (
     resolveLandingRoute(undecided, ctx) !== landing ||

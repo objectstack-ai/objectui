@@ -633,12 +633,17 @@ family for them: it uses the same metadata-admin list and editors at
   of the affordance-to-grant map in `@object-ui/core`, asked of the assignment
   object (`sys_user_permission_set`, `sys_user_position`): Add reads
   `relatedNew` (the create grant) and Remove `relatedRowDelete` (the delete
-  grant). Reaching Setup is not that grant. The Setup app asks `setup.access`,
-  and objectstack's shipped organization administrator set holds it while it is
-  read-only on both assignment objects (objectstack's own pin for that is the
-  test `organization_admin is read-only on global RBAC tables to prevent
-  privilege escalation`), so that administrator sees the holders with no Add and
-  no Remove. When the server refuses the holders read itself, each section
+  grant). Reaching Setup is not that grant: the Setup app asks `setup.access`,
+  and a caller can hold it without either grant, so that caller sees the
+  holders with no Add and no Remove. objectstack's shipped organization
+  administrator set (`organization_admin`, and `organization_admin_no_bypass`)
+  creates and removes rows on both assignment objects and never edits them, so
+  that administrator sees Add and Remove. What it may create or remove is
+  bounded on the server by the delegated-administration gate (its own
+  organization, its own members, in-boundary sets only). objectstack's own pin
+  for that grant is the test `organization_admin creates and removes assignment
+  rows, never edits them — both variants`. When the server refuses the holders
+  read itself, each section
   says the refusal in the server's words and draws neither its count nor its
   empty copy: the empty copy follows only a read that succeeded and came back
   empty (objectui#12706).

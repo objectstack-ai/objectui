@@ -130,12 +130,15 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
    *
    * Setup's own gate is not this one. The Setup app asks `setup.access`, and
    * a caller can hold it while the server refuses their write of an assignment
-   * row at its object CRUD step — objectstack's shipped organization
-   * administrator set is such a caller (that repo's pin `organization_admin is
-   * read-only on global RBAC tables to prevent privilege escalation`). So a
-   * closed row withholds its affordance: the Add button and the picker it
-   * feeds, each row's Remove. With no permission provider every grant reads
-   * open, as before.
+   * row at its object CRUD step. So a closed row withholds its affordance: the
+   * Add button and the picker it feeds, each row's Remove. With no permission
+   * provider every grant reads open, as before. objectstack's shipped
+   * organization administrator set (and its `_no_bypass` variant) holds both
+   * rows open — it creates and removes assignment rows, never edits them (that
+   * repo's pin `organization_admin creates and removes assignment rows, never
+   * edits them — both variants`) — so it is offered Add and Remove; what it may
+   * create or remove is bounded on the server by the delegated-administration
+   * gate.
    */
   const { objects } = useMetadata();
   const perms = usePermissions();

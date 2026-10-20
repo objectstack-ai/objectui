@@ -87,7 +87,6 @@ import {
   addedArrayElements,
   copilotDraftMarkOf,
   DraftChip,
-  DraftElementList,
   DraftSourceLine,
   type CopilotDraftMark,
 } from './StudioDraftMark.js';
@@ -576,7 +575,6 @@ interface KanbanCardMarks {
   title: CopilotDraftMark | null;
   open: CopilotDraftMark | null;
   groupBy: CopilotDraftMark | null;
-  labelOf: (name: string) => string;
 }
 
 const SORT_ID = 'studio-list-view-sort';
@@ -701,10 +699,8 @@ function KanbanCardSection({
           onChange={(next) => {
             if (kanban && Array.isArray(next)) writeKanban({ ...kanban, columns: next.map(String) });
           }}
+          copilotAdded={marks.addedFields.length > 0 ? new Set(marks.addedFields) : undefined}
         />
-        {marks.addedFields.length > 0 && (
-          <DraftElementList names={marks.addedFields} labelOf={marks.labelOf} locale={locale} testId="list-view-kanban-draft-fields" />
-        )}
       </div>
       <div className="space-y-1.5" data-testid="list-view-kanban-title">
         <Label htmlFor={KANBAN_TITLE_ID} className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -879,7 +875,6 @@ export function ObjectListViewInspector({
     title: markOf('kanban', 'titleField'),
     open: markOf('navigation', 'mode'),
     groupBy: markOf('kanban', 'groupByField'),
-    labelOf,
   };
   const columnsMark = markOf('columns');
   const addedColumns = addedNames(columnsMark, columns, publishedBody?.columns);
@@ -982,13 +977,11 @@ export function ObjectListViewInspector({
                   if (isPlainObject(patch.config)) writeBody(patch.config);
                 }}
                 onSelectionChange={selectColumn}
+                copilotAdded={addedColumns.length > 0 ? new Set(addedColumns) : undefined}
               />
-              {columnsMark &&
-                (addedColumns.length > 0 ? (
-                  <DraftElementList names={addedColumns} labelOf={labelOf} locale={locale} testId="list-view-draft-columns" />
-                ) : (
-                  <DraftChip locale={locale} of="columns" />
-                ))}
+              {/* A copilot change to `columns` that added no column (a reorder,
+                  a removal) has no row to mark: the setting carries the chip. */}
+              {columnsMark && addedColumns.length === 0 && <DraftChip locale={locale} of="columns" />}
               {selectedIndex != null && selectedIndex < columns.length && (
                 <div className="flex items-center justify-end">
                   <InspectorReorderButtons

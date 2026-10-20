@@ -160,8 +160,14 @@ async function openPanel(): Promise<HTMLElement> {
 const layersAsked = () => server.requests.filter((r) => r.method === 'GET' && r.path === `/api/v1/meta/view/${VIEW}/layers`).length;
 const chipsOf = (panel: HTMLElement) =>
   within(panel).queryAllByTestId('studio-draft-chip').map((c) => c.getAttribute('data-draft-of'));
+// objectui#12725 (the remainder) — the element marks moved from a chip list
+// under each widget into the widgets' own rows (`copilotAdded`), so an element
+// mark is read as the chip in a row, named by the element it marks.
 const markedElements = (panel: HTMLElement) =>
-  within(panel).queryAllByTestId('studio-draft-element').map((e) => e.getAttribute('data-element'));
+  within(panel).queryAllByTestId('studio-draft-element-chip').map((e) => e.getAttribute('data-draft-of'));
+/** The row drawing the element stored as `name`, inside the section `testId`. */
+const rowIn = (panel: HTMLElement, testId: string, name: string): HTMLElement =>
+  within(within(panel).getByTestId(testId)).getByText(name, { selector: 'code' }).closest('div')!;
 
 beforeEach(() => {
   server.active.clear();
@@ -184,6 +190,12 @@ describe('ObjectListViewInspector — the copilot’s draft marks (objectui#1272
 
     expect(chipsOf(panel)).toEqual(['kanban.columns']);
     expect(markedElements(panel)).toEqual(['reader', 'due_date']);
+    // Each mark sits in its element's row of the card-field widget; the
+    // published element's row carries none.
+    for (const name of ['reader', 'due_date']) {
+      expect(within(rowIn(panel, 'list-view-kanban-fields', name)).getByTestId('studio-draft-element-chip')).toHaveAttribute('data-draft-of', name);
+    }
+    expect(within(rowIn(panel, 'list-view-kanban-fields', 'book')).queryByTestId('studio-draft-element-chip')).toBeNull();
     expect(within(panel).getByTestId('studio-draft-source')).toHaveTextContent(
       tFormat('engine.studio.draftMark.sourceItems', 'en-US', {
         items: '"Reader", "Due date"',
@@ -244,10 +256,12 @@ describe('ObjectListViewInspector — the copilot’s draft marks (objectui#1272
       draftChanges: [{ path: [], by: 'copilot', actor: 'usr_1', at: minutesAgo(3) }],
     });
     const panel = await openPanel();
+    // Re-pointed (objectui#12725, the remainder): the marks are read in the
+    // widgets' sections, where their rows now carry them.
     const elementsIn = (testId: string) =>
-      within(within(panel).getByTestId(testId)).getAllByTestId('studio-draft-element').map((e) => e.getAttribute('data-element'));
-    expect(elementsIn('list-view-kanban-draft-fields')).toEqual(['book', 'reader']);
-    expect(elementsIn('list-view-draft-columns')).toEqual(['book', 'status']);
+      within(within(panel).getByTestId(testId)).getAllByTestId('studio-draft-element-chip').map((e) => e.getAttribute('data-draft-of'));
+    expect(elementsIn('list-view-kanban-fields')).toEqual(['book', 'reader']);
+    expect(elementsIn('list-view-columns')).toEqual(['book', 'status']);
     expect(layersAsked()).toBe(0);
   });
 

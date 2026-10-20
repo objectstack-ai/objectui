@@ -27,6 +27,7 @@ import {
 import { resolveFieldTypeMeta, resolveCategoryTone } from './field-types.js';
 import type { ObjectFieldInfo } from './useObjectFields.js';
 import { useMetadataLocale, t, tFormat } from '../i18n.js';
+import { DraftChip } from '../../studio-design/StudioDraftMark.js';
 
 const DND_MIME = 'text/x-objectui-viewcol';
 
@@ -167,6 +168,7 @@ export function FieldListRow({
   onDragEnd,
   onDragOverRow,
   onDropRow,
+  copilotAdded,
 }: {
   index: number;
   label: string;
@@ -182,6 +184,11 @@ export function FieldListRow({
   onDragEnd: () => void;
   onDragOverRow: () => void;
   onDropRow: () => void;
+  /**
+   * objectui#12725 — the AI copilot added this column in the pending draft:
+   * the row carries the copilot's draft chip. Absent, the row is unchanged.
+   */
+  copilotAdded?: boolean;
 }) {
   // The designer locale, read as this file's `AddFieldPopover` reads it
   // (objectui#10862): both hosts (`FieldsListEditor`, `ReportDefaultInspector`)
@@ -243,6 +250,9 @@ export function FieldListRow({
         >
           {label}
         </span>
+        {copilotAdded && (
+          <DraftChip locale={locale} testId="studio-draft-element-chip" of={fieldName} />
+        )}
         {fieldName && fieldName !== label && (
           <code className="max-w-[7rem] shrink-0 truncate text-[10px] text-muted-foreground">
             {fieldName}

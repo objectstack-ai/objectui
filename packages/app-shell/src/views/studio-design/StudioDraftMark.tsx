@@ -114,7 +114,7 @@ export function DraftChip({ locale, className, testId = 'studio-draft-chip', of 
   locale: string;
   className?: string;
   testId?: string;
-  /** What the chip marks (a setting's name), as `data-draft-of`. */
+  /** What the chip marks (a setting's name, or an added element's value), as `data-draft-of`. */
   of?: string;
 }): React.ReactElement {
   return (
@@ -144,28 +144,5 @@ export function DraftSourceLine({ at, locale, items, className, testId = 'studio
       <p className="text-xs font-medium text-muted-foreground">{t('engine.studio.draftMark.sourceLabel', locale)}</p>
       <p className="text-xs leading-relaxed text-muted-foreground">{draftSourceText(at, locale, items)}</p>
     </div>
-  );
-}
-
-/**
- * The elements of an array setting the copilot added, each with the 草稿 chip:
- * the rows the artboard marks (a kanban card's copilot-added fields).
- */
-export function DraftElementList({ names, labelOf, locale, testId = 'studio-draft-elements' }: {
-  names: readonly string[];
-  labelOf: (name: string) => string;
-  locale: string;
-  testId?: string;
-}): React.ReactElement {
-  return (
-    <ul data-testid={testId} className="space-y-1">
-      {names.map((name) => (
-        <li key={name} data-testid="studio-draft-element" data-element={name} className="flex items-center gap-1.5 text-xs">
-          <span className="truncate">{labelOf(name)}</span>
-          <DraftChip locale={locale} testId="studio-draft-element-chip" />
-          <code className="ml-auto truncate text-[11px] text-muted-foreground">{name}</code>
-        </li>
-      ))}
-    </ul>
   );
 }

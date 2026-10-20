@@ -237,7 +237,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   // whole function under the compiler — every other read below is a declared
   // `ActionDef` field, and the one that was not is the reason objectui#4282
   // backed the narrowing out.
-  const paramCollectionHandler = useCallback<ParamCollectionHandler>((params: ActionParamDef[], action?: ConsoleActionDispatch, interpolate?: (text: string) => string) => {
+  const paramCollectionHandler = useCallback<ParamCollectionHandler>((params: ActionParamDef[], action?: ConsoleActionDispatch, interpolate?: (text: string) => string, run?: Parameters<ParamCollectionHandler>[3]) => {
     return new Promise<Record<string, any> | null>((resolve) => { void (async () => {
       // ⭐ Ask the store for the object type BEFORE resolving (`6cc910b6d`).
       // `ensureType` is idempotent and answers from cache in a microtask once
@@ -329,6 +329,9 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
           : declaredDescription,
         interpolate,
         resolve,
+        // The runner's `run`, so Confirm runs the action from inside the
+        // dialog and a refusal keeps what the user typed (objectui#13161).
+        run,
       });
     })(); });
   }, [objectName, objectDef, objects, metadata, fieldLabel, fieldOptionLabel, actionParamText, actionParamOptionLabel]);

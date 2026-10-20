@@ -44,7 +44,7 @@ import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // Both sets are derived, not restated — see record-detail-system-fields.ts.
 import { deriveRecordDetailSections } from './recordDetailSections.js';
 import type { DataSource, FeedItem, Reaction } from '@object-ui/types';
-import type { ActionDef, ActionParamDef, ConfirmationHandler } from '@object-ui/core';
+import type { ActionDef, ActionParamDef, ConfirmationHandler, ParamCollectionHandler } from '@object-ui/core';
 import type { ConsoleActionDispatch } from '../consoleActionDispatch.js';
 import { useRecordApprovals, recordLockedByApproval, isSubmitterOf } from '../hooks/useRecordApprovals.js';
 import { RecordAttachmentsPanel } from './RecordAttachmentsPanel.js';
@@ -1050,7 +1050,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // not read `overrideNotice` itself — it takes the envelope so the two
   // handlers on this seam cannot drift apart from each other, and so a reader
   // added here later has the key declared rather than reaching for a cast.
-  const paramCollectionHandler = useCallback((params: ActionParamDef[], action?: ConsoleActionDispatch, interpolate?: (text: string) => string) => {
+  const paramCollectionHandler = useCallback((params: ActionParamDef[], action?: ConsoleActionDispatch, interpolate?: (text: string) => string, run?: Parameters<ParamCollectionHandler>[3]) => {
     return new Promise<Record<string, any> | null>((resolve) => {
       // Related-list row actions retarget a CHILD object (e.g. sys_member rows
       // on an org record page) and stash the clicked row under
@@ -1108,6 +1108,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         description: interpolate && declaredDescription ? interpolate(declaredDescription) : declaredDescription,
         interpolate,
         resolve,
+        // The runner's `run`, as `useConsoleActionRuntime` forwards it: a
+        // refused run keeps what the user typed (objectui#13161).
+        run,
       });
     });
   }, [objectName, objectDef, objects, fieldLabel, fieldOptionLabel, actionParamText, actionParamOptionLabel]);

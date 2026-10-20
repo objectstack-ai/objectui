@@ -646,11 +646,31 @@ export type NavigationHandler = (url: string, options?: {
  * call: the handler localizes that copy AFTER it receives it (a translation
  * bundle entry or an inline per-locale map), so the hole has to be filled on
  * the text the user will actually read (objectui#12967).
+ *
+ * `run` lets the handler keep its dialog open until the run its values start
+ * has an outcome (objectui#13161). Called with the collected values, it
+ * dispatches the action with them and resolves with that run's
+ * {@link ActionResult} (a dispatch that throws resolves as a refused run, the
+ * way `execute` reports one). A refused run has already had its
+ * post-execution (the error toast, `onFailure`), so the handler can show the
+ * refusal beside the values the user typed and call `run` again with the
+ * edited values. A successful run's post-execution (success toast, result
+ * dialog, chain, `onSuccess`) waits until the handler settles its promise,
+ * so the dialog is closed before any of it shows. A call made while an
+ * earlier one is still in flight returns that earlier run, and dispatches
+ * nothing new.
+ *
+ * Once `run` has been called, the handler's own promise only ends the
+ * session: the runner never dispatches the values it resolves with. `null`
+ * after a refused run is a cancel, reported exactly as a cancel before any
+ * run. A handler that never calls `run` keeps the old contract: the runner
+ * dispatches once with the values it resolves.
  */
 export type ParamCollectionHandler = (
   params: ActionParamDef[],
   action?: ActionDef,
   interpolate?: (text: string) => string,
+  run?: (values: Record<string, any>) => Promise<ActionResult>,
 ) => Promise<Record<string, any> | null>;
 
 /**
@@ -1466,24 +1486,89 @@ export class ActionRunner {
           : (Array.isArray(action.params) ? (action.params as unknown as ActionParamDef[]) : undefined);
       if (paramDefs && paramDefs.length > 0) {
         if (this.paramCollectionHandler) {
+          // Merge collected params into action.params as a values map for downstream consumers.
+          // Preserve any pre-attached row context (`_rowRecord`) used by list_item
+          // actions so downstream handlers (apiHandler) can inject the row id.
+          // Read ONCE, before any run: a second `run` after a refusal merges
+          // its values over the same base, not over the first run's values.
+          const priorParams: Record<string, any> = Array.isArray(action.params) ? {} : (action.params as Record<string, any> || {});
+          const rowRecord = priorParams._rowRecord;
+          const applyCollected = (collected: Record<string, any>) => {
+            action.params = { ...priorParams, ...collected };
+            if (rowRecord !== undefined) (action.params as Record<string, any>)._rowRecord = rowRecord;
+          };
+          const cancelled: ActionResult = { success: false, error: 'Action cancelled by user (params)' };
+
+          // The handler-driven session (objectui#13161) — see `ParamCollectionHandler`.
+          // The dialog that collected the values stays open until it hears
+          // how the run went, so a refusal lands beside what the user typed
+          // instead of on a closed dialog.
+          let lastRun: Promise<ActionResult> | undefined;
+          let inFlight = false;
+          const run = (values: Record<string, any>): Promise<ActionResult> => {
+            if (inFlight && lastRun) return lastRun;
+            inFlight = true;
+            lastRun = (async () => {
+              try {
+                let attempt: ActionResult;
+                try {
+                  applyCollected(values);
+                  attempt = await this.dispatchCollected(action, actionType);
+                } catch (error) {
+                  // A dispatch that throws is a refused run, exactly as the
+                  // `catch` at the end of `execute` reports one.
+                  attempt = { success: false, error: (error as Error).message };
+                }
+                // A refused attempt gets its post-execution now, as a lone run
+                // would; a successful one waits for the session to end below.
+                if (!attempt.success) await this.handlePostExecution(action, attempt);
+                return attempt;
+              } finally {
+                inFlight = false;
+              }
+            })();
+            return lastRun;
+          };
+
           const collected = await this.paramCollectionHandler(
             paramDefs,
             action,
             (text: string) => String(templates.evaluate(text) ?? ''),
+            run,
           );
-          if (collected === null) {
-            return { success: false, error: 'Action cancelled by user (params)' };
+          if (lastRun) {
+            const last = await lastRun;
+            if (last.success) {
+              await this.handlePostExecution(action, last);
+              return last;
+            }
+            return collected === null ? cancelled : last;
           }
-          // Merge collected params into action.params as a values map for downstream consumers.
-          // Preserve any pre-attached row context (`_rowRecord`) used by list_item
-          // actions so downstream handlers (apiHandler) can inject the row id.
-          const priorParams: Record<string, any> = Array.isArray(action.params) ? {} : (action.params as Record<string, any> || {});
-          const rowRecord = priorParams._rowRecord;
-          action.params = { ...priorParams, ...collected };
-          if (rowRecord !== undefined) (action.params as Record<string, any>)._rowRecord = rowRecord;
+          if (collected === null) {
+            return cancelled;
+          }
+          applyCollected(collected);
         }
       }
 
+      const result = await this.dispatchCollected(action, actionType);
+      await this.handlePostExecution(action, result);
+      return result;
+    } catch (error) {
+      const result: ActionResult = { success: false, error: (error as Error).message };
+      await this.handlePostExecution(action, result);
+      return result;
+    }
+  }
+
+  /**
+   * Dispatch an action whose params are collected, and answer what it
+   * returned — WITHOUT post-execution, which each caller runs itself:
+   * `execute` right after a lone run, and the param-collection session
+   * (`ParamCollectionHandler`'s `run`, objectui#13161) once per refused attempt
+   * and once for the successful one when the session ends.
+   */
+  private async dispatchCollected(action: ActionDef, actionType: string): Promise<ActionResult> {
       // ── `operation` is read BEFORE `type`, and this is the only order that
       // can work ────────────────────────────────────────────────────────────
       //
@@ -1509,46 +1594,32 @@ export class ActionRunner {
       // and never run. Reading `operation` first is what makes all of those
       // impossible.
       if (isUpdateOperationAction(action)) {
-        const result = await this.executeUpdateOperation(action);
-        await this.handlePostExecution(action, result);
-        return result;
+        return this.executeUpdateOperation(action);
       }
 
       // Check for a registered custom handler first
       if (actionType && this.handlers.has(actionType)) {
         const handler = this.handlers.get(actionType)!;
-        const result = await handler(action, this.context);
-        await this.handlePostExecution(action, result);
-        return result;
+        return handler(action, this.context);
       }
 
       // Built-in action execution by type.
-      let result: ActionResult;
       const builtin = actionType
         ? this.builtinExecutors[actionType as RunnableActionType]
         : undefined;
 
       if (builtin) {
-        result = await builtin(action);
+        return builtin(action);
       } else if (action.navigate) {
         // Legacy fallback: check for navigate, api, or onClick
-        result = await this.executeNavigation(action);
+        return this.executeNavigation(action);
       } else if (action.api || action.endpoint) {
-        result = await this.executeAPI(action);
+        return this.executeAPI(action);
       } else if (action.onClick) {
         await action.onClick();
-        result = { success: true };
-      } else {
-        result = await this.executeActionSchema(action);
+        return { success: true };
       }
-
-      await this.handlePostExecution(action, result);
-      return result;
-    } catch (error) {
-      const result: ActionResult = { success: false, error: (error as Error).message };
-      await this.handlePostExecution(action, result);
-      return result;
-    }
+      return this.executeActionSchema(action);
   }
 
   /**

@@ -369,6 +369,16 @@ interface PackageListRow {
   install: LocalInstallEntry | null;
 }
 
+/**
+ * The marketplace entry a row's Actions cell acts on, or `null` when the cell
+ * has nothing to draw: only a marketplace row with an install entry carries
+ * row actions. The Actions header reads this same answer over the rows in view
+ * (objectui#13166), so a header never stands over a column of empty cells.
+ */
+function rowActionEntry(row: PackageListRow): LocalInstallEntry | null {
+  return row.source === 'marketplace' ? row.install : null;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Create-package dialog                                                       */
 /* -------------------------------------------------------------------------- */
@@ -402,11 +412,16 @@ export function CreatePackageDialog({
 /* Detail sheet — manifest + lifecycle actions                                 */
 /* -------------------------------------------------------------------------- */
 
+// The value wraps at word boundaries first (objectui#13166): `break-all` let the
+// browser break between any two letters, so a Description read "marketplac / e"
+// and "Con / tracts". `break-words` still breaks inside a token, but only one
+// that alone is wider than the line (a long version or URL); `min-w-0` lets
+// this flex item shrink below such a token, so it wraps instead of overflowing.
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4 py-1.5">
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-right break-all">{children}</span>
+      <span className="min-w-0 text-sm font-medium text-right break-words">{children}</span>
     </div>
   );
 }
@@ -1352,6 +1367,15 @@ export function PackagesPage() {
     });
   }, [rows, query, showKernel, sourceFilter.value]);
 
+  // objectui#13166 — the Actions column follows the cells it sits over: it is
+  // drawn only when a row IN VIEW carries an action. Gating it on the page-level
+  // capability alone drew an Actions header over an empty cell in every row of
+  // an install with no marketplace rows. "In view" is the filtered rows, so a
+  // filter that hides every marketplace row hides the column with them; the
+  // column moves only when the last such row leaves or the first returns, the
+  // same moment its cells do.
+  const showActionsColumn = showMarketplaceActions && filtered.some((r) => rowActionEntry(r) !== null);
+
   const clearSourceFilter = () => {
     const next = new URLSearchParams(searchParams);
     next.delete(PACKAGES_SOURCE_PARAM);
@@ -1567,54 +1591,58 @@ export function PackagesPage() {
                 <TableHead className="w-24">{t('engine.packages.col.scope', locale)}</TableHead>
                 <TableHead className="w-24">{t('engine.packages.col.status', locale)}</TableHead>
                 <TableHead className="w-28">{t('engine.packages.col.source', locale)}</TableHead>
-                {showMarketplaceActions && (
+                {showActionsColumn && (
                   <TableHead className="text-right">{t('engine.packages.col.actions', locale)}</TableHead>
                 )}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(({ id: rowId, pkg: p, source, install }) => (
-                <TableRow
-                  key={rowId}
-                  className={p ? 'cursor-pointer' : undefined}
-                  onClick={p ? () => openDetail(p) : undefined}
-                  data-testid={`pkg-row-${rowId}`}
-                >
-                  <TableCell className="font-medium">{p?.manifest.name || rowId}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {rowId}
-                  </TableCell>
-                  <TableCell>{p?.manifest.version || install?.version || '—'}</TableCell>
-                  <TableCell>
-                    {p ? <ScopeBadge pkg={p} /> : '—'}
-                  </TableCell>
-                  <TableCell>
-                    {install?.notLoaded ? (
-                      <MarketplaceNotLoaded marker={install.notLoaded} />
-                    ) : p ? (
-                      <StatusBadge pkg={p} />
-                    ) : (
-                      '—'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <SourceBadge source={source} />
-                  </TableCell>
-                  {showMarketplaceActions && (
-                    <TableCell className="text-right">
-                      {source === 'marketplace' && install && (
-                        <MarketplaceRowActions
-                          entry={install}
-                          listSource={marketplaceList}
-                          basePath={appBase}
-                          onResult={setMarketplaceMsg}
-                          onChanged={() => void load()}
-                        />
+              {filtered.map((row) => {
+                const { id: rowId, pkg: p, source, install } = row;
+                const actionEntry = rowActionEntry(row);
+                return (
+                  <TableRow
+                    key={rowId}
+                    className={p ? 'cursor-pointer' : undefined}
+                    onClick={p ? () => openDetail(p) : undefined}
+                    data-testid={`pkg-row-${rowId}`}
+                  >
+                    <TableCell className="font-medium">{p?.manifest.name || rowId}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {rowId}
+                    </TableCell>
+                    <TableCell>{p?.manifest.version || install?.version || '—'}</TableCell>
+                    <TableCell>
+                      {p ? <ScopeBadge pkg={p} /> : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {install?.notLoaded ? (
+                        <MarketplaceNotLoaded marker={install.notLoaded} />
+                      ) : p ? (
+                        <StatusBadge pkg={p} />
+                      ) : (
+                        '—'
                       )}
                     </TableCell>
-                  )}
-                </TableRow>
-              ))}
+                    <TableCell>
+                      <SourceBadge source={source} />
+                    </TableCell>
+                    {showActionsColumn && (
+                      <TableCell className="text-right">
+                        {actionEntry && (
+                          <MarketplaceRowActions
+                            entry={actionEntry}
+                            listSource={marketplaceList}
+                            basePath={appBase}
+                            onResult={setMarketplaceMsg}
+                            onChanged={() => void load()}
+                          />
+                        )}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}

@@ -533,6 +533,197 @@ export function edgeMidpoint(from: Point, to: Point): Point {
   return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
 }
 
+/** A node's box on the canvas: what a forward edge must not be drawn through. */
+export interface NodeBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** A forward edge as drawn: its SVG path, and the point on it where its branch pill sits. */
+export interface ForwardEdgeRoute {
+  d: string;
+  label: Point;
+  /** The side it detours on to clear a node it would cross; absent when drawn as {@link edgePath}. */
+  detour?: 'left' | 'right';
+}
+
+/**
+ * How far a detour lane runs from the box it passes. At most {@link PADDING}, so
+ * a detour past a node in the outermost column stays inside the diagram's frame.
+ */
+export const DETOUR_LANE_GAP = 24;
+/** Clear space a detour lane keeps from every other box it runs beside. */
+const DETOUR_LANE_CLEAR = 8;
+/** Height of the turn out of the source and into the target, before the lane's own room limits it. */
+const DETOUR_TURN = 28;
+const DETOUR_MIN_TURN = 8;
+/** Room on the lane, below the first turn, that the branch pill (22px tall) is centred in. */
+const DETOUR_LABEL_BAND = 28;
+/** Distance between the samples a path is checked at against the node boxes. */
+const ROUTE_SAMPLE_STEP = 6;
+
+type RouteSegment = { c1: Point; c2: Point; to: Point } | { to: Point };
+
+function cubicAt(p0: Point, c1: Point, c2: Point, p3: Point, t: number): Point {
+  const u = 1 - t;
+  const a = u * u * u;
+  const b = 3 * u * u * t;
+  const c = 3 * u * t * t;
+  const d = t * t * t;
+  return { x: a * p0.x + b * c1.x + c * c2.x + d * p3.x, y: a * p0.y + b * c1.y + c * c2.y + d * p3.y };
+}
+
+/** Points along a path every {@link ROUTE_SAMPLE_STEP}px or closer (a cubic's polygon bounds its length). */
+function samplePath(start: Point, segments: RouteSegment[]): Point[] {
+  const out: Point[] = [start];
+  let at = start;
+  for (const seg of segments) {
+    const hull =
+      'c1' in seg
+        ? Math.hypot(seg.c1.x - at.x, seg.c1.y - at.y) +
+          Math.hypot(seg.c2.x - seg.c1.x, seg.c2.y - seg.c1.y) +
+          Math.hypot(seg.to.x - seg.c2.x, seg.to.y - seg.c2.y)
+        : Math.hypot(seg.to.x - at.x, seg.to.y - at.y);
+    const n = Math.max(1, Math.ceil(hull / ROUTE_SAMPLE_STEP));
+    for (let i = 1; i <= n; i++) {
+      const t = i / n;
+      out.push(
+        'c1' in seg
+          ? cubicAt(at, seg.c1, seg.c2, seg.to, t)
+          : { x: at.x + (seg.to.x - at.x) * t, y: at.y + (seg.to.y - at.y) * t },
+      );
+    }
+    at = seg.to;
+  }
+  return out;
+}
+
+function inBox(p: Point, b: NodeBox): boolean {
+  return p.x > b.x && p.x < b.x + b.width && p.y > b.y && p.y < b.y + b.height;
+}
+
+function countHits(samples: Point[], boxes: readonly NodeBox[]): number {
+  let hits = 0;
+  for (const p of samples) if (boxes.some((b) => inBox(p, b))) hits += 1;
+  return hits;
+}
+
+/** True when a box spans some x in `[lo, hi]`, widened by `pad` on both sides. */
+function spansX(b: NodeBox, lo: number, hi: number, pad: number): boolean {
+  return b.x < hi + pad && b.x + b.width > lo - pad;
+}
+
+/**
+ * A forward edge that leaves `from` downward, turns aside onto a vertical lane
+ * clear of `blockers`, runs down it, and turns back into `to` from above.
+ */
+function detourRoute(
+  from: Point,
+  to: Point,
+  obstacles: readonly NodeBox[],
+  blockers: readonly NodeBox[],
+  side: 'left' | 'right',
+): { route: ForwardEdgeRoute; hits: number; travel: number } {
+  const left = side === 'left';
+  // The lane: DETOUR_LANE_GAP outside the boxes the straight path crosses, then
+  // pushed past any other box beside the edge's span that it would run through.
+  let lane = left
+    ? Math.min(...blockers.map((b) => b.x)) - DETOUR_LANE_GAP
+    : Math.max(...blockers.map((b) => b.x + b.width)) + DETOUR_LANE_GAP;
+  const beside = obstacles.filter((b) => b.y < to.y && b.y + b.height > from.y);
+  for (let i = 0; i < beside.length; i++) {
+    const hit = beside.find((b) => spansX(b, lane, lane, DETOUR_LANE_CLEAR));
+    if (!hit) break;
+    lane = left ? hit.x - DETOUR_LANE_GAP : hit.x + hit.width + DETOUR_LANE_GAP;
+  }
+
+  // The turn out of the source takes half the open room below it (at most
+  // DETOUR_TURN); the pill sits on the lane in the rest of that room, before the
+  // first box it would draw over. A pill is at most a node card wide.
+  const roomBelow =
+    Math.min(
+      to.y,
+      ...obstacles
+        .filter((b) => b.y >= from.y && spansX(b, Math.min(from.x, lane), Math.max(from.x, lane), NODE_W / 2))
+        .map((b) => b.y),
+    ) - from.y;
+  // The turn into the target takes the open room above it, up to two turns' height.
+  const roomAbove =
+    to.y -
+    Math.max(
+      from.y,
+      ...obstacles
+        .filter((b) => b.y + b.height <= to.y && spansX(b, Math.min(to.x, lane), Math.max(to.x, lane), DETOUR_LANE_CLEAR))
+        .map((b) => b.y + b.height),
+    );
+  let t1 = Math.min(DETOUR_TURN, Math.max(DETOUR_MIN_TURN, roomBelow / 2));
+  let t2 = Math.min(DETOUR_TURN * 2, Math.max(DETOUR_MIN_TURN, roomAbove));
+  const span = to.y - from.y;
+  if (t1 + t2 > span) {
+    const k = span / (t1 + t2);
+    t1 *= k;
+    t2 *= k;
+  }
+  const laneTop = from.y + t1;
+  const laneBottom = to.y - t2;
+  const segments: RouteSegment[] = [
+    { c1: { x: from.x, y: from.y + t1 / 2 }, c2: { x: lane, y: from.y + t1 / 2 }, to: { x: lane, y: laneTop } },
+    { to: { x: lane, y: laneBottom } },
+    { c1: { x: lane, y: to.y - t2 / 2 }, c2: { x: to.x, y: to.y - t2 / 2 }, to },
+  ];
+  const d =
+    `M ${from.x},${from.y} C ${from.x},${from.y + t1 / 2} ${lane},${from.y + t1 / 2} ${lane},${laneTop}` +
+    ` L ${lane},${laneBottom} C ${lane},${to.y - t2 / 2} ${to.x},${to.y - t2 / 2} ${to.x},${to.y}`;
+  const band = Math.min(DETOUR_LABEL_BAND, Math.max(0, Math.min(roomBelow, laneBottom - from.y) - t1));
+  const label = { x: lane, y: laneTop + band / 2 };
+  return {
+    route: { d, label, detour: side },
+    hits: countHits(samplePath(from, segments), obstacles),
+    travel: Math.abs(lane - from.x) + Math.abs(lane - to.x),
+  };
+}
+
+/**
+ * objectui#13144 — the path of a forward (non-back) edge, routed so it is never
+ * drawn through a node it skips.
+ *
+ * {@link edgePath} is a vertical curve from the source's bottom to the target's
+ * top, so an edge that skips a rank (a Decision's branch straight to End past
+ * the Notify between them) ran through every card in that column: the line hid
+ * under the cards, its branch pill landed under one of them, and neither could
+ * be clicked. When that curve crosses one of `obstacles` (every node box but the
+ * edge's own two), the edge instead turns aside onto a vertical lane
+ * {@link DETOUR_LANE_GAP} clear of the boxes it would cross, runs down past them
+ * and turns back into the target from above. The side whose path crosses the
+ * fewest boxes wins, then the one with the shorter way across to its lane and
+ * back; a tie goes left, away from the right-hand lane {@link backEdgePath} draws
+ * revise loops in. The pill sits on the lane, below the first turn and above the
+ * first box, where no card covers it.
+ *
+ * An edge whose curve crosses no box is returned exactly as before:
+ * {@link edgePath} and {@link edgeMidpoint}. So is one with no room to detour
+ * downward (a target that is not below its source), and one no detour improves.
+ */
+export function forwardEdgeRoute(from: Point, to: Point, obstacles: readonly NodeBox[]): ForwardEdgeRoute {
+  const straight: ForwardEdgeRoute = { d: edgePath(from, to), label: edgeMidpoint(from, to) };
+  if (obstacles.length === 0) return straight;
+  const dy = Math.max(Math.abs(to.y - from.y) * 0.5, 24);
+  const samples = samplePath(from, [{ c1: { x: from.x, y: from.y + dy }, c2: { x: to.x, y: to.y - dy }, to }]);
+  const blockers = obstacles.filter((b) => samples.some((p) => inBox(p, b)));
+  if (blockers.length === 0 || to.y - from.y < 2 * DETOUR_MIN_TURN) return straight;
+  const straightHits = countHits(samples, obstacles);
+  let best: { route: ForwardEdgeRoute; hits: number; travel: number } | null = null;
+  for (const side of ['left', 'right'] as const) {
+    const candidate = detourRoute(from, to, obstacles, blockers, side);
+    if (!best || candidate.hits < best.hits || (candidate.hits === best.hits && candidate.travel < best.travel)) {
+      best = candidate;
+    }
+  }
+  return best && best.hits < straightHits ? best.route : straight;
+}
+
 /** True for an ADR-0044 declared back-edge (a revise/rework loop's return). */
 export function isBackEdge(edge: Pick<FlowDesignerEdge, 'type'>): boolean {
   return edge.type === 'back';

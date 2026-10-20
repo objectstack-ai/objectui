@@ -46,7 +46,7 @@ import {
   topAnchor,
   rightAnchor,
   edgePath,
-  edgeMidpoint,
+  forwardEdgeRoute,
   backEdgePath,
   backEdgeLabelAnchor,
   isBackEdge,
@@ -335,6 +335,15 @@ export function FlowCanvas({
     },
     [dragPos, layout],
   );
+
+  // objectui#13144 — every card's box as drawn (a dragged card where it is
+  // being dragged), so a forward edge is routed around a card it would cross.
+  const nodeBoxes = nodes.map((n) => {
+    const p = positionOf(n.id);
+    return { id: n.id, x: p.x, y: p.y, width: NODE_W, height: heights.get(n.id) ?? NODE_H };
+  });
+  const forwardRoute = (source: string, target: string, from: Point, to: Point) =>
+    forwardEdgeRoute(from, to, nodeBoxes.filter((b) => b.id !== source && b.id !== target));
 
   // ── Mutations ────────────────────────────────────────────────────────────
 
@@ -792,8 +801,9 @@ export function FlowCanvas({
     } else if (t.kind === 'edge') {
       const s = layout.get(t.source);
       const d = layout.get(t.target);
-      // Midpoint of the edge as actually drawn (source bottom → target top).
-      if (s && d) pt = edgeMidpoint(bottomAnchor(s, heights.get(t.source) ?? NODE_H), topAnchor(d));
+      // The edge's pill point as actually drawn (source bottom → target top,
+      // around any card it would cross — objectui#13144).
+      if (s && d) pt = forwardRoute(t.source, t.target, bottomAnchor(s, heights.get(t.source) ?? NODE_H), topAnchor(d)).label;
     }
     if (pt) setPan({ x: vp.clientWidth / 2 - pt.x * zoom, y: vp.clientHeight / 2 - pt.y * zoom });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -846,8 +856,11 @@ export function FlowCanvas({
     // the header band via rightAnchor, so toggling never swings arcs.
     const from = back ? rightAnchor(sPos) : bottomAnchor(sPos, heights.get(edge.source) ?? NODE_H);
     const to = back ? rightAnchor(tPos) : topAnchor(tPos);
-    const labelPos = back ? backEdgeLabelAnchor(from, to) : edgeMidpoint(from, to);
-    return { back, from, to, labelPos };
+    if (back) return { back, from, to, d: backEdgePath(from, to), labelPos: backEdgeLabelAnchor(from, to) };
+    // objectui#13144 — a forward edge that would cross a card it skips detours
+    // around it; its pill, insert handle and wide hit path all follow the route.
+    const route = forwardRoute(edge.source, edge.target, from, to);
+    return { back, from, to, d: route.d, labelPos: route.label };
   };
   // objectui#12507 — each edge's branch pill: its text, its full wording, and
   // how wide it may draw before it would reach a neighbouring pill.
@@ -1035,7 +1048,7 @@ export function FlowCanvas({
             {edges.map((edge, i) => {
               const ends = edgeEnds(edge);
               if (!ends) return null;
-              const { back, from, to, labelPos } = ends;
+              const { back, d, labelPos } = ends;
               // Structural-validation error (e.g. part of an un-declared cycle).
               // Back-edges are excluded from cycle detection, so they're never invalid.
               const invalid = !back && !!invalidEdges?.has(`${edge.source}->${edge.target}`);
@@ -1044,7 +1057,6 @@ export function FlowCanvas({
               const edgeBadge = edgeBadges.get(edgeProblemKey(edge.source, edge.target));
               const traversed = traversedSet.has(eid);
               const selected = selectedEdgeId === eid;
-              const d = back ? backEdgePath(from, to) : edgePath(from, to);
               // Edges are selectable in design mode; the host opens the edge
               // inspector. A wide transparent hit-path widens the click target
               // beyond the 1.5px visible stroke without altering the visuals.

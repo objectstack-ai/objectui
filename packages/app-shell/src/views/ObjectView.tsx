@@ -9,7 +9,7 @@
  * - ListView delegation for non-grid view types (kanban, calendar, chart, etc.)
  */
 
-import { useMemo, useState, useCallback, useEffect, useRef, lazy, Suspense, createElement, type ComponentType } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef, lazy, Suspense, createElement, type ComponentType, type ReactNode } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation, useHref } from 'react-router-dom';
 import { resolveFilterPlaceholders, DENSITY_MODE_TO_ROW_HEIGHT, normalizeListViewSchema, leadWithNameField, resolveAffordance, isRecordScopedAction, type FilterTokenScope, type SchemaLike } from '@object-ui/core';
 import {
@@ -2989,6 +2989,18 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         />
     ) : null;
 
+    // objectui#13114 — the strip as a row of its own, for the faces that have
+    // no `ListView` toolbar to carry it: a view the server refused (drawn
+    // page-level below) and a `type: 'chart'` view (drawn above the chart in
+    // `renderListView`'s chart branch, which returns before `ListView`). Every
+    // other face gets the strip in the list's toolbar row instead, so no face
+    // ever draws two. Gated on `viewTabBar`, so below `sm` it is absent too.
+    const viewTabRow = viewTabBar ? (
+        <div className="border-b px-3 sm:px-4 bg-background overflow-x-auto shrink-0" data-testid="view-tab-row">
+            {viewTabBar}
+        </div>
+    ) : null;
+
     // Render multi-view content via ListView plugin (for kanban, calendar, etc.)
     const renderListView = useCallback(({ schema: listSchema, dataSource: ds, onEdit: editHandler, className, refreshKey: pluginRefreshKey }: any) => {
         // Combine local refreshKey with the plugin ObjectView's refreshKey for full propagation
@@ -3079,6 +3091,16 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
          */
         if (viewDef.type === 'chart') {
             const chartConfig = viewDef.chart || {};
+            // objectui#13114 — this branch returns before `ListView`, the
+            // carrier of the view tabs on every other face, so it draws them
+            // itself (`viewTabRow`) above the chart: without them a chart view
+            // is a dead end with no way back to the grid.
+            const withViewTabs = (chartFace: ReactNode) => (
+                <div className="h-full flex flex-col min-w-0">
+                    {viewTabRow}
+                    {chartFace}
+                </div>
+            );
             // Both chart branches below are keyed on `identityKey` alone
             // (objectui#10035): `ObjectChart` runs its own query and refetches
             // in place on the data-invalidation bus (see `refreshData`).
@@ -3089,7 +3111,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             if (chartConfig.dataset) {
                 const dims: string[] = Array.isArray(chartConfig.dimensions) ? chartConfig.dimensions : [];
                 const vals: string[] = Array.isArray(chartConfig.values) ? chartConfig.values : [];
-                return (
+                return withViewTabs(
                     <Suspense key={identityKey} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
                         <ObjectChart
                             dataSource={ds}
@@ -3121,7 +3143,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             // no category, which `ObjectChart` refuses on screen (objectui#8168,
             // `chart-missing-category-axis`) instead of aggregating on a name
             // nobody wrote. ⛔ Do not restore a floor here.
-            return (
+            return withViewTabs(
                 <Suspense key={identityKey} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
                     <ObjectChart
                         dataSource={ds}
@@ -3741,7 +3763,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 dataSource={ds}
             />
         );
-    }, [inSetup, activeView, activeViewDeclaresColumns, activeViewIsSaved, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listAddRecordOpensCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar]);
+    }, [inSetup, activeView, activeViewDeclaresColumns, activeViewIsSaved, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listAddRecordOpensCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar, viewTabRow]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).
@@ -4135,14 +4157,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                  objectui#12440). The one exception is a view the server
                  refused: no list is drawn, so no toolbar can carry the strip,
                  and the tabs are the way off that view — they keep a row of
-                 their own there. Below `sm` the mobile view switcher is
+                 their own there (`viewTabRow`, which a chart view draws
+                 above its chart too, objectui#13114). Below `sm` the mobile
+                 view switcher is
                  rendered by AppHeader via MobileViewSwitcherContext
                  (registered above). */}
-             {refusedViewFace && viewTabBar && (
-               <div className="border-b px-3 sm:px-4 bg-background overflow-x-auto shrink-0" data-testid="view-tab-row">
-                 {viewTabBar}
-               </div>
-             )}
+             {refusedViewFace && viewTabRow}
              {isAdmin && views.length >= 1 && (
                <ManageViewsDialog
                  open={manageViewsOpen}

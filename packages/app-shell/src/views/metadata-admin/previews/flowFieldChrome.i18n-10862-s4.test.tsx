@@ -238,19 +238,20 @@ describe('FlowCanvas reads the locale FlowPreview hands it (objectui#10862, slic
   for (const lang of LANGS) {
     pin(`${lang}: an un-declared cycle's and a back-edge's hover titles`, async () => {
       await mountFlow(lang);
-      const cycle = ['board', 'hold'].flatMap((a, i, ids) => {
+      // Each end by its author label, the rule the canvas names nodes by (objectui#13242).
+      const cycle = ['Board', 'Hold'].flatMap((a, i, ids) => {
         const b = ids[1 - i];
         return [row(lang, 'engine.flowCanvas.edge.undeclaredCycle', { source: a, target: b })];
       });
       if (!cycle.some(svgTitle)) misses.push(`engine.flowCanvas.edge.undeclaredCycle (title): one of ${JSON.stringify(cycle)}`);
-      const back = row(lang, 'engine.flowCanvas.edge.backEdge', { source: 'lead', target: 'route' });
+      const back = row(lang, 'engine.flowCanvas.edge.backEdge', { source: 'Lead', target: 'Route' });
       if (!svgTitle(back)) misses.push(`engine.flowCanvas.edge.backEdge (title): ${JSON.stringify(back)}`);
       if (lang === 'zh') {
         zhRow('engine.flowCanvas.edge.undeclaredCycle');
         zhRow('engine.flowCanvas.edge.backEdge');
       }
-      // A plain edge's title is notation (two ids and an arrow), the same in every locale.
-      if (!svgTitle('start → route')) misses.push('as written (title): "start → route"');
+      // A plain edge's title is its ends' author labels and an arrow, the same in every locale.
+      if (!svgTitle('Start → Route')) misses.push('as written (title): "Start → Route"');
     });
 
     pin(`${lang}: a node card's branch count, approver counts with the unanimous marker, and code`, async () => {

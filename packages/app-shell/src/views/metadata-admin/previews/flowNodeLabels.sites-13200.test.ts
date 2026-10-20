@@ -14,9 +14,10 @@
  *    by `scripts/js-comment-mask.mjs`) for the shapes that print a node by its
  *    id instead: `label || id`, `label ? label : id`, `${source} → ${target}`,
  *    a `join(' → ')` of ids, and a message parameter set to an id. Every hit
- *    must be in `ID_SITES` with the reason the id is right there, or with
- *    `open` — a site this card's file surface did not reach, reported on
- *    objectui#13200. A new id-shaped site fails until it is converted or
+ *    must be in `ID_SITES` with the reason the id is right there (among them
+ *    `own-title`, a node's own title beside its type, ruled on objectui#13200),
+ *    or with `open` — a site this card's file surface did not reach, reported
+ *    on objectui#13200. A new id-shaped site fails until it is converted or
  *    listed; a listed site that is gone fails until its entry is deleted, so
  *    the list only shrinks.
  *
@@ -145,6 +146,11 @@ const RESOLVER_SITES: ResolverSite[] = [
     pattern: /return n \? flowNodeDisplayName\(\{ \.\.\.n, id \}, locale\) : id;/,
   },
   {
+    file: 'inspectors/FlowNodeConfigField.tsx',
+    what: 'the designer locale handed to a branch card’s target',
+    pattern: /decisionEdgeBranches\(\s*context\.node\.id,\s*draftEdges,\s*draftNodes,\s*unpairedDecisionEdges\(context\.node\.id, value, draftEdges\),\s*locale,\s*\)/,
+  },
+  {
     file: 'inspectors/FlowObjectListField.tsx',
     what: 'the selection label "Edit connection" writes',
     pattern: /label: flowEdgeDisplayName\(\s*\{ source: String\(context\?\.node\?\.id \?\? ''\), target: b\.target \},/,
@@ -171,6 +177,11 @@ type Verdict =
   | 'not-a-node'
   /** Shows a selection's label, which the rule wrote; the id only for a selection with none. */
   | 'selection-label'
+  /**
+   * A node's own title, where its type is shown beside it: author label, else
+   * id. The resolver would repeat the type (ruled B on objectui#13200).
+   */
+  | 'own-title'
   /** Names an existing node by its id, outside this card's file surface — reported on objectui#13200. */
   | 'open';
 
@@ -189,20 +200,21 @@ const ID_SITES: Record<string, Verdict> = {
   "previews/FlowCanvas.tsx · id-param · ? tFormat('engine.flowCanvas.edge.undeclaredCycle', locale, { source: edge.source, target: edge.target })": 'open',
   "previews/FlowCanvas.tsx · id-param · ? tFormat('engine.flowCanvas.edge.backEdge', locale, { source: edge.source, target: edge.target })": 'open',
   'previews/FlowCanvas.tsx · edge-ends · : `${edge.source} → ${edge.target}`}': 'open',
-  'previews/FlowCanvas.tsx · label-or-id · label={node.label || node.id}': 'open',
-  // The host header's node title mirrors the node inspector's own header (`FlowNodeInspector`, open below).
-  "previews/FlowPreview.tsx · label-or-id · title: (typeof node.label === 'string' && node.label) || node.id,": 'open',
+  // ── own-title: own title beside the type eyebrow; resolver would repeat the type (ruled B on objectui#13200) ──
+  'previews/FlowCanvas.tsx · label-or-id · label={node.label || node.id}': 'own-title',
+  "previews/FlowPreview.tsx · label-or-id · title: (typeof node.label === 'string' && node.label) || node.id,": 'own-title',
+  'previews/flow-region-view.tsx · label-or-id · <div className="truncate text-[12px] font-semibold leading-tight text-foreground" title={node.label || node.id}>': 'own-title',
+  'previews/flow-region-view.tsx · label-or-id · {node.label || node.id}': 'own-title',
+  'inspectors/FlowNodeInspector.tsx · label-or-id · title={node.label || node.id}': 'own-title',
+  // ── open (continued) ──
   'previews/FlowSimulatorPanel.tsx · label-or-id · out.push({ id: n.id, label: n.label || n.id, type: n.type, outputs });': 'open',
   "previews/FlowSimulatorPanel.tsx · edge-ends · <span className=\"truncate\">{ed.isDefault ? 'else' : (ed.condition ?? `→ ${ed.target}`)}</span>": 'open',
   "previews/flow-node-refs.ts · edge-ends · const where = site.holder.kind === 'node' ? site.holder.id : `${site.holder.source} → ${site.holder.target}`;": 'open',
   "previews/flow-problems.ts · id-param · message: tFormat('engine.flowProblems.repeatedEdge', locale, { source: edge.source, target: edge.target }),": 'open',
-  'previews/flow-region-view.tsx · label-or-id · <div className="truncate text-[12px] font-semibold leading-tight text-foreground" title={node.label || node.id}>': 'open',
-  'previews/flow-region-view.tsx · label-or-id · {node.label || node.id}': 'open',
   "previews/simulator/flow-sim-validate.ts · id-join · message: tFormat('engine.flowValidate.cycleDetected', locale, { cycle: cycle.join(' → ') }),": 'open',
   "previews/simulator/flow-sim-validate.ts · id-param · diag = { level: 'error', nodeId: p.nodeId, message: tFormat('engine.flowValidate.boundaryHostMissing', locale, { id: p.nodeId, host: p.id }) };": 'open',
   'previews/simulator/flow-simulator.ts · label-or-id · const step: SimStep = { seq: this.seq++, nodeId, type, label: label || nodeId, status, ...extra };': 'open',
   "inspectors/FlowNodeInspector.tsx · label-or-id · onSelectionChange?.({ kind: 'node', id: nextId, label: node.label || nextId });": 'open',
-  'inspectors/FlowNodeInspector.tsx · label-or-id · title={node.label || node.id}': 'open',
   'inspectors/FlowNodeInspector.tsx · label-or-id · <span className="max-w-[45%] truncate font-medium">{loc?.container?.label || loc?.container?.id}</span>': 'open',
   'inspectors/FlowNodeInspector.tsx · label-or-id · <span className="max-w-[45%] truncate font-medium text-foreground">{node.label || node.id}</span>': 'open',
 };

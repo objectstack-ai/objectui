@@ -711,6 +711,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
                     draftEdges,
                     draftNodes,
                     unpairedDecisionEdges(context.node.id, value, draftEdges),
+                    locale,
                   )
                 : undefined
             }

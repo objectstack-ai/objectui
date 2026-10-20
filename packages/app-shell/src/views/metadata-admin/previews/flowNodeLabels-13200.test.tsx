@@ -12,12 +12,15 @@
  *     `name → name`; the cell's `title` keeps the ids;
  * (c) the selection label a problem click writes reads by name.
  *
- * (d) is the control: an unlabelled node falls back as the rule says. The
+ * (d) is the control: an unlabelled node falls back as the rule says.
+ * (e) a decision's branch card names an unlabelled target by its palette
+ *     label in the designer locale: the inspector hands `decisionEdgeBranches`
+ *     its locale. The
  * enumeration of every site is `flowNodeLabels.sites-13200.test.ts`.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
 
 // The engine palette / config-schema reads are stubbed to their offline answer
 // and the trigger field catalog to an empty one (the shape
@@ -38,6 +41,8 @@ import { validateFlowDraft } from './simulator/flow-sim-validate';
 import { ProblemsPanel } from './ProblemsPanel';
 import { FlowPreview } from './FlowPreview';
 import type { FlowProblem } from './flow-problems';
+import { FlowNodeInspector } from '../inspectors/FlowNodeInspector';
+import type { MetadataSelection } from '../preview-registry';
 
 vi.stubGlobal(
   'fetch',
@@ -160,5 +165,35 @@ describe('flow Problems and selection labels name nodes by label (objectui#13200
     expect(nodeCell.textContent).toBe('Decision');
     // An end naming no node of the flow reads as its id.
     expect(edgeCell.textContent).toBe('Decision → gone');
+  });
+
+  it('(e) a branch card names an unlabelled target by its palette label in the designer locale', () => {
+    const edgeRouted = {
+      nodes: [
+        { id: 'route', type: 'decision', label: 'Route' },
+        { id: 'node_7', type: 'decision' },
+        { id: 'big', type: 'end', label: 'Big deal' },
+      ],
+      edges: [
+        { id: 'e1', source: 'route', target: 'node_7', type: 'conditional', condition: 'amount > 10' },
+        { id: 'e2', source: 'route', target: 'big', type: 'conditional', condition: 'amount <= 10' },
+      ],
+    };
+    render(
+      <FlowNodeInspector
+        type="flow"
+        name="probe"
+        draft={edgeRouted}
+        selection={{ kind: 'node', id: 'route' } as MetadataSelection}
+        onPatch={vi.fn()}
+        onClearSelection={vi.fn()}
+        readOnly={false}
+        locale="zh-CN"
+      />,
+    );
+    const [first, second] = screen.getAllByTestId('flow-branch-card');
+    // The zh palette label of a decision, not the English one, and not the id.
+    expect(within(first).getByTitle('node_7').textContent).toBe('条件分支');
+    expect(within(second).getByTitle('big').textContent).toBe('Big deal');
   });
 });

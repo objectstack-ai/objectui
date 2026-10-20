@@ -37,6 +37,11 @@ import '../../../renderers';
 
 afterEach(() => cleanup());
 
+// Resolved once, at module scope, after the renderers above have registered:
+// `SectionedForm` below is a component, and a component resolved inside its
+// render would be a new component type on every render.
+const Form = ComponentRegistry.get('form')!;
+
 const field = (name: string, extra: Record<string, unknown> = {}) => ({
   name,
   label: name.toUpperCase(),
@@ -50,7 +55,6 @@ const field = (name: string, extra: Record<string, unknown> = {}) => ({
  */
 function SectionedForm({ onSubmit }: { onSubmit: (data: unknown) => void }) {
   const [collapsed, setCollapsed] = React.useState(true);
-  const Form = ComponentRegistry.get('form')!;
   return (
     <Form
       schema={{

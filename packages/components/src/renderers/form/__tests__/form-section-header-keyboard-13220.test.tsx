@@ -22,13 +22,14 @@
  * `collapsed` and `onToggle`, and a collapsed group's member is handed over
  * `hidden`, so it is not drawn.
  *
- * Every row reads the page through the keyboard: `user.tab()` and
- * `user.keyboard()`, never a click.
+ * Every row drives the page through the keyboard (`user.tab()`,
+ * `user.keyboard()`, and `fireEvent.keyDown` where a row needs a key event's
+ * `repeat` flag or its default-prevented answer), never a click.
  */
 
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, cleanup, screen, waitFor } from '@testing-library/react';
+import { render, cleanup, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ComponentRegistry } from '@object-ui/core';
 // Module-scope import (not `beforeAll`) — objectui#3010/#3021.
@@ -175,6 +176,30 @@ describe('objectui#13220 — a collapsible form section header is keyboard-opera
     expect(moneyHeader().getAttribute('aria-expanded')).toBe('false');
 
     expect(onSubmit, 'Space on the header never submits the form').not.toHaveBeenCalled();
+  });
+
+  it("Space's default (scrolling the dialog) is prevented, and a held key's auto-repeat does not toggle again", async () => {
+    setup();
+    const header = moneyHeader();
+    header.focus();
+    expect(document.activeElement).toBe(header);
+
+    // `fireEvent` returns false when a handler called `preventDefault`.
+    expect(fireEvent.keyDown(header, { key: ' ', code: 'Space' })).toBe(false);
+    await waitFor(() => expect(input('budget')).not.toBeNull());
+
+    // The auto-repeat keydowns a held key sends after the first one. One key
+    // per reading: two toggles would cancel out and read as none.
+    expect(fireEvent.keyDown(header, { key: ' ', code: 'Space', repeat: true })).toBe(false);
+    expect(moneyHeader().getAttribute('aria-expanded')).toBe('true');
+    expect(input('budget')).not.toBeNull();
+    fireEvent.keyDown(header, { key: 'Enter', code: 'Enter', repeat: true });
+    expect(moneyHeader().getAttribute('aria-expanded')).toBe('true');
+    expect(input('budget')).not.toBeNull();
+
+    // Any other key is left alone: not prevented, no toggle.
+    expect(fireEvent.keyDown(header, { key: 'a', code: 'KeyA' })).toBe(true);
+    expect(moneyHeader().getAttribute('aria-expanded')).toBe('true');
   });
 
   it('control: Enter in a field still submits, so the no-submit rows above can fail', async () => {

@@ -80,6 +80,7 @@ describe('flow designer names nodes by label (objectui#13143)', () => {
         onPatch={vi.fn()}
         onClearSelection={vi.fn()}
         locale="en-US"
+        readOnly={false}
       />,
     );
     expect(screen.getByText('Check budget → Notify team')).toBeTruthy();

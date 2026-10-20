@@ -6687,8 +6687,25 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       return { label: /^[a-z0-9]+(_[a-z0-9]+)+$/.test(str) ? humanizeLabel(str) : str };
     };
 
+    // objectui#13134 — the card list scrolls in a box of its own, as the
+    // table does in its own body. Its host bounds it (`ListView`'s view area
+    // is `overflow-hidden`), so without this box a list taller than the
+    // screen was clipped with nothing to scroll, and a host could not leave
+    // room at its end: padding inside a clipping box makes no scroll room.
+    //
+    // `data-fab-clearance` marks it as the scroller whose end a host's
+    // floating button can cover. The host that draws such a button pads it
+    // from outside (the console object page does, for its phone create
+    // button), so this component learns nothing about buttons it does not
+    // draw: a DOM attribute, the same posture as `data-fab-yield`, rather
+    // than a prop or an export. With no such host it is unpadded.
     return (
       <>
+        <div
+          className="h-full overflow-y-auto overflow-x-hidden"
+          data-fab-clearance=""
+          data-testid="object-grid-card-scroller"
+        >
         {gridDescription}
         <div className="space-y-2 p-2" {...anchorCaptureProps}>
           {data.map((row, idx) => {
@@ -6865,6 +6882,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               </div>
             );
           })}
+        </div>
         </div>
         {navigation.isOverlay && (
           <NavigationOverlay

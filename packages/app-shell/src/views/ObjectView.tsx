@@ -1414,6 +1414,25 @@ function keepInlineEditModeForTheSession(): void {
     // Deliberately empty: see the docblock.
 }
 
+/**
+ * objectui#13134 — the room the list leaves at its end for the phone create
+ * button (`mobile-fab-create`), so the last card can be scrolled clear of it.
+ *
+ * The button is `fixed`, `bottom-36` (9rem) and `h-12` (3rem): its top edge
+ * stands 12rem above the bottom of the screen, so 12rem (`pb-48`) at the end
+ * of a scroller that ends at or above the screen's bottom lifts the last card
+ * above it. `max-sm:` is the button's own `sm:hidden`, read the other way: the
+ * room exists exactly where the button is drawn.
+ *
+ * It lands on the scroller that marks itself `data-fab-clearance` (the card
+ * list `ObjectGrid` draws at phone width): the list's own scroll box, which
+ * is the only box there that scrolls. Padding a box above it would add no
+ * scroll room, since every box between this page and the cards clips.
+ * `ObjectView.mobileFabListClearance-13134.test.tsx` derives the 12rem from
+ * the button's classes, so moving the button without this fails there.
+ */
+const MOBILE_FAB_LIST_CLEARANCE = 'max-sm:[&_[data-fab-clearance]]:pb-48';
+
 export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const { objectName } = useParams();
 
@@ -3809,6 +3828,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // of it. Greyed, not gone, is the `disabledWhen` case. Same pair drives the
     // phone FAB below, so the two render points cannot disagree.
     const showCreate = objectCanCreate && createVisible;
+    // objectui#13134 — the list's end-of-scroll room for the phone FAB, on the
+    // list host below, exactly while the FAB is drawn (see
+    // `MOBILE_FAB_LIST_CLEARANCE`).
+    const listFabClearance = showCreate ? MOBILE_FAB_LIST_CLEARANCE : undefined;
     const createButton = showCreate ? (
         <Button
             size="sm"
@@ -4066,8 +4089,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                  `disabled` — which is what conveys the state to assistive tech
                  — plus the same `disabled:opacity-50
                  disabled:pointer-events-none` utilities `Button` itself uses,
-                 so the visual affordance matches the header button's. */}
-             {objectCanCreate && createVisible && (
+                 so the visual affordance matches the header button's.
+
+                 objectui#13134 — the list it floats over leaves room at its
+                 end while it is drawn (`listFabClearance`), and only then: the
+                 same `showCreate` decides both. */}
+             {showCreate && (
                <button
                  type="button"
                  onClick={actions.create}
@@ -4172,7 +4199,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                         mainContent={
                             <div className="flex-1 min-w-0 relative h-full flex flex-col">
                                 <div className="flex-1 relative overflow-hidden">
-                                    <div className="h-full overflow-auto">
+                                    <div className={['h-full overflow-auto', listFabClearance].filter(Boolean).join(' ')}>
                                         {refusedViewFace ?? (viewAccess.checking ? null : (
                                         <PluginObjectView
                                             schema={objectViewSchema}
@@ -4219,7 +4246,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 ) : (
                 <div className="flex-1 min-w-0 relative h-full flex flex-col">
                     <div className="flex-1 relative overflow-hidden">
-                        <div className="h-full overflow-auto">
+                        {/* objectui#13134 — `listFabClearance`: room at the
+                            end of the card list's scroller for the phone FAB. */}
+                        <div className={['h-full overflow-auto', listFabClearance].filter(Boolean).join(' ')}>
                             {refusedViewFace ?? (viewAccess.checking ? null : (
                             <PluginObjectView
                                 schema={objectViewSchema}

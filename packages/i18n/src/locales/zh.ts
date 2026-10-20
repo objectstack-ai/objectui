@@ -1100,6 +1100,7 @@ const zh = {
     writeStrippedByState: '以下字段在记录当前状态下不可编辑，未生效：{{fields}}',
     writeStrippedPrimaryKey: '以下字段是记录的标识符，保存时无法修改，未生效：{{fields}}',
     writeStrippedComputed: '以下字段由服务端按公式计算，提交的值未生效：{{fields}}',
+    writeStrippedStoredExpression: '以下字段的值由记录计算得出，已保存计算值而非提交的值：{{fields}}',
     writeStrippedUnknownReason: '以下字段未被服务端写入：{{fields}}',
     approvalPendingEditable: '审批中 · 可编辑',
     approvalPendingTooltip: '该记录有待审批的请求，但当前审批节点仍允许编辑',

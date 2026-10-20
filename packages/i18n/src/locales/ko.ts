@@ -1207,6 +1207,7 @@ const ko = {
     writeStrippedByState: "다음 필드는 이 레코드의 현재 상태에서 편집할 수 없으므로 적용되지 않았습니다: {{fields}}",
     writeStrippedPrimaryKey: "다음 필드는 레코드의 식별자이며 저장으로 변경할 수 없으므로 적용되지 않았습니다: {{fields}}",
     writeStrippedComputed: "다음 필드는 서버가 수식으로 계산하므로 보낸 값이 적용되지 않았습니다: {{fields}}",
+    writeStrippedStoredExpression: "다음 필드는 레코드에서 계산되므로 보낸 값 대신 계산된 값이 저장되었습니다: {{fields}}",
     writeStrippedUnknownReason: "다음 필드는 서버에서 적용되지 않았습니다: {{fields}}",
     approvalPendingEditable: "승인 진행 중 · 편집 가능",
     approvalPendingTooltip: "이 레코드에 대기 중인 승인 요청이 있지만 이 단계에서는 편집할 수 있습니다",

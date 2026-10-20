@@ -1241,6 +1241,7 @@ const pt = {
     writeStrippedByState: "Não editável no estado atual deste registro, portanto não foi aplicado: {{fields}}",
     writeStrippedPrimaryKey: "O identificador do registro não pode ser alterado ao salvar, portanto não foi aplicado: {{fields}}",
     writeStrippedComputed: "Calculado pelo servidor a partir de uma fórmula, portanto o valor enviado não foi aplicado: {{fields}}",
+    writeStrippedStoredExpression: "Calculado a partir do registro, portanto o valor calculado foi salvo no lugar do enviado: {{fields}}",
     writeStrippedUnknownReason: "Não aplicado pelo servidor: {{fields}}",
     approvalPendingEditable: "Em aprovação · editável",
     approvalPendingTooltip: "Este registro tem uma solicitação de aprovação pendente; esta etapa ainda permite a edição",

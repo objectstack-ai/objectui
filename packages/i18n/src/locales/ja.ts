@@ -1219,6 +1219,7 @@ const ja = {
     writeStrippedByState: "次の項目はこのレコードの現在の状態では編集できないため反映されませんでした: {{fields}}",
     writeStrippedPrimaryKey: "次の項目はレコードの識別子で、保存では変更できないため反映されませんでした: {{fields}}",
     writeStrippedComputed: "次の項目はサーバーが数式で計算するため、送信した値は反映されませんでした: {{fields}}",
+    writeStrippedStoredExpression: "次の項目はレコードから計算されるため、送信した値ではなく計算値が保存されました: {{fields}}",
     writeStrippedUnknownReason: "次の項目はサーバーで反映されませんでした: {{fields}}",
     approvalPendingEditable: "承認中 · 編集可能",
     approvalPendingTooltip: "このレコードには承認待ちのリクエストがありますが、このステップでは編集できます",

@@ -1328,6 +1328,7 @@ const en = {
     writeStrippedByState: "Not editable in this record's current state, so it did not take effect: {{fields}}",
     writeStrippedPrimaryKey: "The record's identifier cannot be changed by a save, so it did not take effect: {{fields}}",
     writeStrippedComputed: 'Calculated by the server from a formula, so the value sent did not take effect: {{fields}}',
+    writeStrippedStoredExpression: 'Computed from the record, so the computed value was saved instead of the one sent: {{fields}}',
     writeStrippedUnknownReason: 'Not applied by the server: {{fields}}',
     approvalPendingEditable: 'In approval · editable',
     approvalPendingTooltip: 'This record has a pending approval request; this step still allows editing',

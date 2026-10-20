@@ -1241,6 +1241,7 @@ const fr = {
     writeStrippedByState: "Non modifiable dans l'état actuel de cet enregistrement, donc non appliqué : {{fields}}",
     writeStrippedPrimaryKey: "L'identifiant de l'enregistrement ne peut pas être modifié lors d'un enregistrement, donc non appliqué : {{fields}}",
     writeStrippedComputed: "Calculé par le serveur à partir d'une formule, donc la valeur envoyée n'a pas été appliquée : {{fields}}",
+    writeStrippedStoredExpression: "Calculé à partir de l'enregistrement, donc la valeur calculée a été enregistrée à la place de celle envoyée : {{fields}}",
     writeStrippedUnknownReason: "Non appliqué par le serveur : {{fields}}",
     approvalPendingEditable: "En approbation · modifiable",
     approvalPendingTooltip: "Cet enregistrement a une demande d'approbation en attente ; cette étape autorise encore la modification",

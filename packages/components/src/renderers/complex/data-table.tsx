@@ -954,6 +954,20 @@ const STICKY_ROW_TINT =
  * auto-pinned row-actions column, and an author's `pinned: 'right'`, both
  * from `ObjectGrid`).
  */
+/**
+ * objectui#13188 — whether the viewer has selected text that touches `el`.
+ * A drag that selects text ends in a `click` on the row or cell it started
+ * in, so the row's open-record and the cell's start-edit read this first
+ * and stand down: the gesture was a selection, not an activation. A plain
+ * click collapses any earlier selection on mousedown, so it still activates.
+ */
+function hasTextSelectionIn(el: Element): boolean {
+  const selection = typeof window !== 'undefined' ? window.getSelection() : null;
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return false;
+  if (selection.toString().trim() === '') return false;
+  return selection.getRangeAt(0).intersectsNode(el);
+}
+
 function isPinnedRightColumn(col: { className?: unknown }): boolean {
   return typeof col.className === 'string'
     && /\bsticky\b/.test(col.className)
@@ -2744,6 +2758,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
     // Copy cell value with Ctrl+C / Cmd+C
     if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !editingCell) {
+      // objectui#13188 — text the viewer selected in this cell is what they
+      // copy: the browser's own copy runs. A masked cell never gets here
+      // with its default intact — the mask rule below goes first.
+      if (!columns.find((col) => col.accessorKey === columnKey)?.masked && hasTextSelectionIn(e.currentTarget)) return;
       e.preventDefault();
       // A MASKED column copies NOTHING (objectui#10583) — the producer drew a
       // mask, so the keyboard must not hand out what the cell hides. The
@@ -3429,7 +3447,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       )}
                       style={rowStyle ? rowStyle(row, rowIndex) : undefined}
                       onClick={(e) => {
-                        if (schema.onRowClick && !e.defaultPrevented) {
+                        // objectui#13188 — a drag that selected text in the
+                        // row is a copy gesture, not an open.
+                        if (schema.onRowClick && !e.defaultPrevented && !hasTextSelectionIn(e.currentTarget)) {
                            // Heuristic to avoid triggering on interactive elements if they didn't stop propagation.
                            // Note: Radix overlays (DropdownMenu, Popover, Dialog, etc.) render their content in a
                            // Portal but React events still bubble up through the virtual tree to this row. So we
@@ -3654,13 +3674,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                               // onRowClick (record-detail drawer). The row heuristic
                               // can't see the editor yet (the <input> only renders
                               // next frame), so stop propagation here explicitly.
-                              if (isEditable && !singleClickEdit) {
+                              // objectui#13188 — selecting text is not an edit.
+                              if (isEditable && !singleClickEdit && !hasTextSelectionIn(e.currentTarget)) {
                                 e.stopPropagation();
                                 startEdit(row, col.accessorKey);
                               }
                             }}
                             onClick={(e) => {
-                              if (isEditable && singleClickEdit) {
+                              if (isEditable && singleClickEdit && !hasTextSelectionIn(e.currentTarget)) {
                                 e.stopPropagation();
                                 startEdit(row, col.accessorKey);
                               }

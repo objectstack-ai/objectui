@@ -337,8 +337,8 @@ type FieldOptionLabel = (objectName: string, fieldName: string, value: string, f
  *
  * The ONE place this file maps an enum value to its label. Two readers call
  * it: the `{token}` interpolation below (`page:header`'s `title` /
- * `subtitle`), and the record copy the `titleFormat` rung hands to core's
- * `formatTitleTemplate` ({@link withOptionLabels}, objectui#10447).
+ * `subtitle`), and the record copy the H1's `titleFormat` and declared-pointer
+ * rungs read ({@link withOptionLabels}, objectui#10447, objectui#13103).
  */
 const optionLabelFor = (
   objectSchema: any,
@@ -2593,10 +2593,12 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // unresolved token. The one thing the H1 adds is the translated option
     // label for a select value, applied to a copy of the record
     // (`withOptionLabels`) so the formatter's signature does not move.
-    const interpolatedTitleFormat = formatTitleTemplate(
-      objSchema?.titleFormat,
-      withOptionLabels(data, objSchema, fieldOptionLabel, rawObjectName),
-    );
+    //
+    // The same labelled copy feeds the declared-pointer rung below
+    // (objectui#13103): a select `nameField` heads the page with its option
+    // label, exactly as the same field does through the template.
+    const labelledData = withOptionLabels(data, objSchema, fieldOptionLabel, rawObjectName);
+    const interpolatedTitleFormat = formatTitleTemplate(objSchema?.titleFormat, labelledData);
     // Unified resolver (ADR-0079): honours the object's declared
     // `nameField`/`displayNameField` and falls back to type-aware field
     // derivation. `deriveFromRecordKeys: false` keeps bare record-key
@@ -2658,9 +2660,12 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // WITHOUT a `titleFormat` this rung answers exactly what `unifiedTitle`
     // answered before it; only the template's rank moved. A blank value here
     // falls through to the template, just as `getRecordDisplayName` walks from
-    // a blank step 1+2 to step 3.
+    // a blank step 1+2 to step 3. It reads the record through the same
+    // `withOptionLabels` copy the template rung reads (objectui#13103), so a
+    // select pointer shows its option label, not its stored value; a non-
+    // select pointer reads the same value it reads on the raw record.
     const declaredTitle = (() => {
-      const resolved = recordDisplayValueAt(data, declaredNameField(objSchema));
+      const resolved = recordDisplayValueAt(labelledData, declaredNameField(objSchema));
       return resolved && !isResolverFloor(resolved) ? resolved : '';
     })();
     const titleCandidate =

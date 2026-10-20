@@ -235,9 +235,15 @@ export const KNOWN_LIMITS = [
 ];
 
 const SCANNED_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
+// In step with `body-dialect-census.mjs`'s list, which says why each entry is
+// there. `.objectstack-pin` (objectui#13210) is the pinned `@objectstack/*`
+// build: git-ignored, another repository's packed output, present only after
+// `pnpm run setup`. Its files fell in the `other` bucket here, so they never
+// reached C2 or the producer table — walking them only cost time.
 const SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.turbo', 'out',
   '.pnpm-store', 'playwright-report', 'test-results', '.objectui-tmp',
+  '.objectstack-pin',
 ]);
 
 /**

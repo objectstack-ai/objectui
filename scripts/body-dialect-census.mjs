@@ -246,9 +246,25 @@ const SCANNED_EXT = new Set([
 // so before this entry a planted file under `.objectui-tmp/` was reported as a
 // census hit. See objectui#9201 for the sibling sweep where the same omission
 // made a gate crash rather than merely over-report.
+//
+// `.objectstack-pin` is the same class one level up (objectui#13210): the
+// pinned `@objectstack/*` build that `scripts/objectstack-pin.mjs build` links
+// beside the committed manifests (objectui#12957, objectui#13008). It is
+// git-ignored, it is ANOTHER repository's packed output (the spec packs its
+// TypeScript `src/`, its JSON Schema and its CHANGELOG), and it exists only
+// after `pnpm run setup` — so walking it made this census answer differently on
+// the same commit depending on whether a build had run, and summed objectstack's
+// population into objectui's, which "Populations are reported SEPARATELY and
+// never summed" above forbids. It also made the walk's cost grow with
+// objectstack's tree: from the pin's arrival it was the largest single
+// directory this walk read, and the in-tree pin of this census then hit its
+// 60s budget under coverage. ESLint ignores it for the same reason
+// (`eslint.config.js`, objectui#13008). The two instruments keep this list in
+// step (`body-dialect-producer-scan.mjs`).
 const SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.turbo', 'out',
   '.pnpm-store', 'playwright-report', 'test-results', '.objectui-tmp',
+  '.objectstack-pin',
 ]);
 
 // ── Scanner ────────────────────────────────────────────────────────────────
@@ -504,6 +520,40 @@ export function resolvePopulation(keys) {
 }
 
 /**
+ * ⭐ The cheap NECESSARY CONDITION for a file to yield a hit (objectui#13210).
+ *
+ * ⛔ Not a narrowing of the corpus: every file is still walked, read and
+ * counted in `filesScanned`. What it skips is `scanNodes`, the per-character
+ * walk, and only for a text in which no counted node could exist — so the hit
+ * set is unchanged BY CONSTRUCTION. Same shape as the producer scan's
+ * `CANDIDATE_FILE`.
+ *
+ * The superset argument, read off `scanNodes`. A node is a hit only when its
+ * `type` is in the population, and `scanNodes` sets `type` in one place: at a
+ * key token `"type"`, `'type'` or `type`, followed by optional space and `:`,
+ * whose value then matches optional space and a quoted string. That string IS
+ * the type, so the text holds `type`, an optional closing quote, space, `:`,
+ * space, a quote, a population key, a quote — the pattern below, which is
+ * laxer on every point (either quote on either side, no word boundary, no
+ * 200-character window).
+ *
+ * ⚠️ It is tested on the text `scanNodes` reads, never on the raw file: for
+ * Markdown that is `keepFencedCodeOnly`'s output, where blanked prose between
+ * two fences becomes plain space that `\s*` can cross. A raw-text test would
+ * miss a `type:` closing one fence whose value opens the next.
+ *
+ * @param {string[]} keys the resolved population
+ * @returns {RegExp}
+ */
+export function mayHoldWantedNode(keys) {
+  if (keys.length === 0) return /(?!)/;
+  const escaped = [...keys]
+    .sort((a, b) => b.length - a.length)
+    .map((key) => key.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&'));
+  return new RegExp(`type["']?\\s*:\\s*["'](?:${escaped.join('|')})["']`);
+}
+
+/**
  * @param {string} root
  * @param {{ keys?: string[] }} [options] population to count over; omitted =
  *   `ALL_KEYS`. The resolved population is returned with the hits and ⛔ never
@@ -512,6 +562,7 @@ export function resolvePopulation(keys) {
 export function census(root, options = {}) {
   const population = resolvePopulation(options.keys);
   const wanted = new Set(population.keys);
+  const mayHold = mayHoldWantedNode(population.keys);
   /** @type {Array<{file:string,line:number,type:string,body:boolean,children:boolean,bucket:string}>} */
   const hits = [];
   let filesScanned = 0;
@@ -527,6 +578,9 @@ export function census(root, options = {}) {
     if (!/\btype\b/.test(text)) continue;
     const isMarkdown = /\.mdx?$/.test(file);
     const scanText = isMarkdown ? keepFencedCodeOnly(text) : text;
+    // The necessary condition for a HIT — see `mayHoldWantedNode`. Tested on
+    // the text `scanNodes` reads, so the hit set is unchanged by construction.
+    if (!mayHold.test(scanText)) continue;
     let nodes;
     try {
       nodes = scanNodes(scanText);

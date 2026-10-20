@@ -18,13 +18,13 @@
  *   (d) the door's 400 and 422 render in the dialog, which stays open;
  *   (e) CONTROL — every other `immutable` row stays read-only in edit mode.
  *
- * The row renders through the spec form's JSON editor (the `dependencies`
- * JSONSchema is a string map), driven by its label.
+ * The row renders through the dialog's key/value editor for the
+ * `dependencies` string map (objectui#13278), found by its group name.
  */
 
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { PackageFormDialog, type ManifestRecord } from './PackageFormDialog';
 
@@ -70,11 +70,38 @@ function openEdit(manifest: ManifestRecord = MANIFEST) {
   return { onSaved, onOpenChange };
 }
 
-/** The Advanced section is collapsed; open it and return the dependencies editor. */
-async function dependenciesEditor(): Promise<HTMLTextAreaElement> {
+/** The dependencies editor (objectui#13278), found by its group name. */
+async function dependenciesEditor(): Promise<HTMLElement> {
   await screen.findByTestId('package-form-submit');
-  fireEvent.click(screen.getByText('Advanced'));
-  return (await screen.findByLabelText('Dependencies')) as HTMLTextAreaElement;
+  return screen.getByRole('group', { name: 'Dependencies' });
+}
+
+/** The editor's package-name inputs, in row order. */
+function nameInputs(editor: HTMLElement): HTMLInputElement[] {
+  return within(editor).queryAllByLabelText('Package') as HTMLInputElement[];
+}
+
+/** Set the range of the row whose package is `name`. */
+function setRange(editor: HTMLElement, name: string, range: string) {
+  const i = nameInputs(editor).findIndex((el) => el.value === name);
+  expect(i, name).toBeGreaterThanOrEqual(0);
+  fireEvent.change(within(editor).getAllByLabelText('Version range')[i], { target: { value: range } });
+}
+
+/** Remove the row whose package is `name`. */
+function removeRow(editor: HTMLElement, name: string) {
+  const i = nameInputs(editor).findIndex((el) => el.value === name);
+  expect(i, name).toBeGreaterThanOrEqual(0);
+  fireEvent.click(within(editor).getAllByRole('button', { name: 'Remove dependency' })[i]);
+}
+
+/** Append a row. */
+function addRow(editor: HTMLElement, name: string, range: string) {
+  fireEvent.click(screen.getByRole('button', { name: 'Add dependency' }));
+  const names = nameInputs(editor);
+  fireEvent.change(names[names.length - 1], { target: { value: name } });
+  const ranges = within(editor).getAllByLabelText('Version range');
+  fireEvent.change(ranges[ranges.length - 1], { target: { value: range } });
 }
 
 function sentBody(): Record<string, unknown> {
@@ -98,8 +125,9 @@ describe('PackageFormDialog edit — `dependencies` is editable and sent on chan
     stubFetch(200, OK);
     const { onSaved } = openEdit();
     const editor = await dependenciesEditor();
-    expect(editor.readOnly).toBe(false);
-    fireEvent.change(editor, { target: { value: '{ "com.acme.core": "^2.0.0" }' } });
+    expect(nameInputs(editor)[0].readOnly).toBe(false);
+    removeRow(editor, 'com.acme.billing');
+    setRange(editor, 'com.acme.core', '^2.0.0');
     fireEvent.click(screen.getByTestId('package-form-submit'));
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(sentBody()).toEqual({
@@ -123,9 +151,9 @@ describe('PackageFormDialog edit — `dependencies` is editable and sent on chan
     stubFetch(200, OK);
     const { onSaved } = openEdit();
     const editor = await dependenciesEditor();
-    fireEvent.change(editor, {
-      target: { value: '{ "com.acme.billing": "~2.1.0", "com.acme.core": "^1.0.0" }' },
-    });
+    // Remove the first row and add it back last: same entries, other order.
+    removeRow(editor, 'com.acme.core');
+    addRow(editor, 'com.acme.core', '^1.0.0');
     fireEvent.click(screen.getByTestId('package-form-submit'));
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(sentBody()).not.toHaveProperty('dependencies');
@@ -145,8 +173,9 @@ describe('PackageFormDialog edit — `dependencies` is editable and sent on chan
     stubFetch(200, OK);
     const { onSaved } = openEdit();
     const editor = await dependenciesEditor();
-    expect(editor.readOnly).toBe(false);
-    fireEvent.change(editor, { target: { value: '' } });
+    removeRow(editor, 'com.acme.core');
+    removeRow(editor, 'com.acme.billing');
+    expect(nameInputs(editor)).toHaveLength(0);
     fireEvent.click(screen.getByTestId('package-form-submit'));
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(sentBody()).toEqual({ name: 'Acme CRM', description: 'old', version: '1.0.0', dependencies: {} });
@@ -177,7 +206,7 @@ describe('PackageFormDialog edit — the door refusals render in the dialog (obj
     stubFetch(status, body);
     const { onSaved, onOpenChange } = openEdit();
     const editor = await dependenciesEditor();
-    fireEvent.change(editor, { target: { value: '{ "com.acme.core": "^2.0.0" }' } });
+    setRange(editor, 'com.acme.core', '^2.0.0');
     fireEvent.click(screen.getByTestId('package-form-submit'));
     const banner = await screen.findByTestId('package-form-error');
     expect(banner.textContent).toBe(`${body.error.message} (${code})`);
@@ -192,6 +221,9 @@ describe('PackageFormDialog edit — CONTROL: the other immutable rows stay lock
     stubFetch(200, OK);
     openEdit();
     const editor = await dependenciesEditor();
+    // The immutable rows sit in the collapsed Advanced section.
+    fireEvent.click(screen.getByText('Advanced'));
+    await screen.findByLabelText('Default datasource');
     // The spec form gives each row the control id `mdf-FIELD`.
     for (const id of ['mdf-id', 'mdf-namespace', 'mdf-defaultDatasource']) {
       expect((document.getElementById(id) as HTMLInputElement).readOnly, id).toBe(true);
@@ -204,6 +236,6 @@ describe('PackageFormDialog edit — CONTROL: the other immutable rows stay lock
     for (const id of ['mdf-name', 'mdf-version']) {
       expect((document.getElementById(id) as HTMLInputElement).readOnly, id).toBe(false);
     }
-    expect(editor.readOnly).toBe(false);
+    for (const input of nameInputs(editor)) expect(input.readOnly).toBe(false);
   });
 });

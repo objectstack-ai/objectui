@@ -2364,6 +2364,14 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.packages.form.defaultDatasource': 'Default datasource',
   'engine.packages.form.scope': 'Scope',
   'engine.packages.form.dependencies': 'Dependencies',
+  // objectui#13278 — the Dependencies row's key/value editor.
+  'engine.packages.dependencies.package': 'Package',
+  'engine.packages.dependencies.range': 'Version range',
+  'engine.packages.dependencies.add': 'Add dependency',
+  'engine.packages.dependencies.remove': 'Remove dependency',
+  'engine.packages.dependencies.empty': 'No dependencies.',
+  'engine.packages.dependencies.nameRequired': 'Enter a package name.',
+  'engine.packages.dependencies.duplicate': 'This package is already listed.',
   'engine.packages.view.title': 'Package info',
   'engine.packages.detail.viewInfo': 'View info',
   'engine.packages.detail.type': 'Type',
@@ -5838,6 +5846,14 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.packages.form.defaultDatasource': '默认数据源',
   'engine.packages.form.scope': '范围',
   'engine.packages.form.dependencies': '依赖',
+  // objectui#13278 — the Dependencies row's key/value editor.
+  'engine.packages.dependencies.package': '软件包',
+  'engine.packages.dependencies.range': '版本范围',
+  'engine.packages.dependencies.add': '添加依赖',
+  'engine.packages.dependencies.remove': '移除依赖',
+  'engine.packages.dependencies.empty': '暂无依赖。',
+  'engine.packages.dependencies.nameRequired': '请输入软件包名称。',
+  'engine.packages.dependencies.duplicate': '该软件包已在列表中。',
 
   // `add10d8f9` — help text for the package manifest form.
   //

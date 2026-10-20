@@ -50,6 +50,7 @@ import { useMetadataLocale, t, tFormat, tOptional } from './i18n.js';
 import { SchemaForm, type SchemaFormIssue } from './SchemaForm.js';
 import type { FormFieldSpec, FormViewSpec } from './form-spec.js';
 import { getPackageSchema, getPackageForm } from './package-schema.js';
+import { PackageDependenciesEditor, type DependencyMap } from './PackageDependenciesEditor.js';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 
 const API = '/api/v1/packages';
@@ -59,7 +60,15 @@ const API = '/api/v1/packages';
  * text field for it is hidden (still preserved on save). Edit and view keep
  * the form's locked id field (objectui#11792).
  */
-const CREATE_HIDDEN_FIELDS = ['id'];
+const CREATE_HIDDEN_FIELDS = ['id', 'dependencies'];
+
+/**
+ * The `dependencies` row is a `package name → version range` map the spec
+ * form has no renderer for: it fell back to a raw JSON box under a developer
+ * hint (objectui#13278). Every mode hides it from the spec form and hosts
+ * {@link PackageDependenciesEditor} instead, labelled from the form's own row.
+ */
+const HIDDEN_FIELDS = ['dependencies'];
 
 /**
  * The fields create mode lays out itself, in one Basics card and in this
@@ -73,6 +82,17 @@ const CREATE_HOSTED_FIELDS: readonly string[] = ['name', 'id', 'namespace', 'ver
 
 function fieldName(f: string | FormFieldSpec): string {
   return typeof f === 'string' ? f : f.field;
+}
+
+/** The row named `name` in `form`, if the form declares one. */
+function findFormField(form: FormViewSpec, name: string): FormFieldSpec | undefined {
+  for (const s of form.sections ?? []) {
+    if (!s.fields) continue;
+    for (const f of s.fields) {
+      if (fieldName(f) === name) return typeof f === 'string' ? { field: f } : f;
+    }
+  }
+  return undefined;
 }
 
 /** A one-section form view holding `names` from `form`, in that order. */
@@ -357,6 +377,9 @@ export function PackageFormDialog({
   });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // objectui#13278 — false while a dependencies row has an empty or duplicate
+  // package name; the editor flags the row and save waits for it.
+  const [dependenciesValid, setDependenciesValid] = React.useState(true);
 
   React.useEffect(() => {
     if (!open) return;
@@ -374,7 +397,13 @@ export function PackageFormDialog({
     }
     setError(null);
     setBusy(false);
+    setDependenciesValid(true);
   }, [open, createMode, manifest]);
+
+  const handleDependenciesChange = React.useCallback((dependencies: DependencyMap, valid: boolean) => {
+    setDependenciesValid(valid);
+    setForm((prev) => ({ ...prev, draft: { ...prev.draft, dependencies } }));
+  }, []);
 
   // On create, keep `namespace` in sync with the id (deriveNamespaceFromPackageId)
   // until the user edits the namespace field themselves — mirroring the old
@@ -464,7 +493,7 @@ export function PackageFormDialog({
   // Namespace is required on create (framework#2694): every object name is
   // prefixed with it. On edit it's immutable and not resubmitted.
   const nsOk = !createMode || NAMESPACE_RE.test(String(draft.namespace ?? '').trim());
-  const canSubmit = !readOnly && nameOk && versionOk && idOk && nsOk && !busy;
+  const canSubmit = !readOnly && nameOk && versionOk && idOk && nsOk && dependenciesValid && !busy;
 
   // objectui#12512 — every field that keeps Create disabled says why under its
   // row. The spec form already does for the name and the version, and the id
@@ -603,10 +632,26 @@ export function PackageFormDialog({
     value: draft,
     onChange: handleChange,
     issues,
-    hiddenFields: createMode ? CREATE_HIDDEN_FIELDS : undefined,
+    hiddenFields: createMode ? CREATE_HIDDEN_FIELDS : HIDDEN_FIELDS,
     readOnly,
     createMode,
   };
+
+  // The hosted dependencies row, labelled from the spec form's own row; its
+  // help line falls back to the spec's `.describe()` as the form's would.
+  const dependenciesRow = findFormField(form, 'dependencies');
+  const dependenciesEditor = dependenciesRow ? (
+    <section className="rounded-md border border-border/40 bg-card/30 p-4">
+      <PackageDependenciesEditor
+        label={dependenciesRow.label ?? dependenciesRow.field}
+        help={dependenciesRow.helpText ?? ManifestSchema.shape.dependencies.description}
+        value={draft.dependencies}
+        onChange={handleDependenciesChange}
+        readOnly={readOnly}
+        locale={locale}
+      />
+    </section>
+  ) : null;
 
   const title =
     mode === 'create'
@@ -701,9 +746,13 @@ export function PackageFormDialog({
                 </div>
               </section>
               <SchemaForm {...formProps} form={createForms.rest} />
+              {dependenciesEditor}
             </div>
           ) : (
-            <SchemaForm {...formProps} form={form} />
+            <div className="space-y-4">
+              <SchemaForm {...formProps} form={form} />
+              {dependenciesEditor}
+            </div>
           )}
         </div>
 

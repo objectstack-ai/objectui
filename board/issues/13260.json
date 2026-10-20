@@ -11,13 +11,17 @@
     "type": "Bot"
   },
   "labels": [
-    "pm:queue"
+    "area:devpath",
+    "domain:devx",
+    "pm:queue",
+    "priority:p3",
+    "tooling"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-20T13:29:19Z",
-  "updated_at": "2026-10-20T14:09:31Z",
+  "updated_at": "2026-10-20T14:53:08Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,

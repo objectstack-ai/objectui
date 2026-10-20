@@ -1,0 +1,35 @@
+{
+  "number": 13269,
+  "kind": "pull_request",
+  "title": "fix(components): recompile a react page on its content, not its schema identity",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T15:54:31Z",
+  "updated_at": "2026-10-20T16:23:24Z",
+  "closed_at": "2026-10-20T16:23:22Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T16:23:21Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13269",
+  "body": "Fixes #13268\nClause-②: no\n\n## What changed\n\n`ReactKindPage` (`packages/components/src/renderers/layout/react-page.tsx`) built its compile scope in a `useMemo` keyed on `[schema, adapter]`. `ReactRunner` recompiles whenever the scope identity changes, and every compile mints a new `Page` function, so a new schema object with the same content remounted the page and wiped its `useState`. The console's `PageView` hands `SchemaRenderer` a fresh spread of the page on every render, so any `PageView` re-render reset a react page (measured on the showcase Task Desk: `editId` reset and the open record drawer vanished).\n\nThe scope is now rebuilt only when what it is compiled from changes:\n\n- the schema's **content**, compared structurally by a file-local `sameContent` helper (plain objects and arrays by their own keys, everything else by `Object.is`, cycle-safe). `page` in the scope carries the whole schema, so this covers `source`, `data`, `variables`, and every other page value the page can read (`context.params` included);\n- the adapter, by identity (unchanged; the reason it stays a recompile trigger is kept in the comment).\n\nThe cached scope lives in `useState` and is replaced during render when the content moves (React's documented shape for state derived from props), not in a `useMemo`: React may discard a memo, and here a new object is a remount (AGENTS.md #10). A first draft held it in a ref; `react-hooks/refs` flags reading a ref during render, so it moved to state.\n\n## Seam chosen, and why\n\n`ReactKindPage`, not `PageView`. The defect is that the page keys its compile on identity; any host can hand it a fresh object, and `PageView` is only the one measured. Stabilising `PageView`'s spread would fix that host and leave the contract identity-sensitive for every other. `PageView.tsx` is untouched; StrictMode is untouched; `PageView` re-renders are not suppressed. No new export or prop.\n\n## Pins (`packages/components/src/__tests__/react-page-content-identity.test.tsx`, all under `React.StrictMode`)\n\n- (a) a react page with `useState` set by a click keeps it across two host re-renders that each hand it a new but equal schema object;\n- (b) CONTROL: a changed `source` recompiles and the page resets;\n- (c) CONTROL: a changed declared scope value (`variables.greeting`) recompiles, the new value reaches the page, and the page resets. Measured: scope values are compiled in, not passed as props, so a value change reaches the page only through a recompile;\n- (c2) CONTROL: a changed nested page value (`context.params`) recompiles too.\n\n`react-page-state.test.tsx` already had \"survives a parent re-render\", but its host re-renders with a module-scope schema, the one shape a real host does not produce; its header comment is updated to the new keying.\n\n## Evidence\n\n- Red on the unfixed tree (base `1ca759a16f`): (a) failed, `Tests 1 failed | 3 passed (4)`; the three controls passed.\n- Ablation on the final implementation (head `c016ba798f`), via `ablation-replace.mjs`: `!sameContent(compiled.schema, schema)` replaced by `compiled.schema !== schema` (anchor x1 to x0, blob `149963d2927e` to `16dddb7d4244`); (a) went red, `Tests 1 failed | 3 passed (4)`. Restored by the tool's trap: blob after restore `149963d2927e6dc51a1ff183e1ca24863ab6e077` equals the HEAD blob, `git diff HEAD` empty. The test imports the renderer through `../renderers` (source), so no build was in the path.\n- Test family naming the touched file (20 existing files that name `react-page` / `ReactKindPage` across components, console, plugin-charts, plugin-list, sdui-parser, types, core, plus the new file), `--maxWorkers=1`, at `c016ba798f`: `Test Files 21 passed (21)`, `Tests 764 passed (764)`.\n- `pnpm --filter @object-ui/components type-check` (after `pnpm --filter '@object-ui/components^...' build`) exit 0 at `c016ba798f`; `tsconfig.test.json --listFiles` includes the new test.\n- `eslint --no-inline-config` on the 3 changed TS files: 0 errors. `react-page.tsx` warnings: the same six pre-existing `no-explicit-any` as base, minus the base's `react-hooks/exhaustive-deps` (the memo it sat on is gone).\n- Pre-tsc battery: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`, `check-changeset-presence.mjs`, `check:new-line-citations` all exit 0. `check:spec-floors` exit 1 with \"no-artifact: Build the workspace before running this gate\": NOT MEASURED (it reads built artifacts, and no full workspace build was run here).\n\nDeclared to CI: the full `packages/components/` directory (no whole-directory run here; the container's test lock is shared).\n\n## Acceptance notes\n\n- `PageView.tsx` still hands a fresh spread every render. That is now harmless to react pages; other blocks under it are not in this card's scope.\n- A host that puts a non-plain value (a function, a `Date`) in the page schema and hands a new one every render will still recompile each time: `sameContent` compares such values by identity, the conservative answer. Whether any producer of page metadata does that was not searched.\n\nChangeset: `.changeset/13268-react-page-identity.md` (patch, `@object-ui/components`).\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

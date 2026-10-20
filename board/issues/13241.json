@@ -2,8 +2,8 @@
   "number": 13241,
   "kind": "issue",
   "title": "Charts: a vertical bar chart rotates any category label over 5 characters and cuts it at 12, even on a full-width report chart with room (\"Qualificati…\", \"Needs Analy…\")",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:reports",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-20T11:08:42Z",
-  "updated_at": "2026-10-20T13:28:09Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-20T14:54:44Z",
+  "closed_at": "2026-10-20T14:53:25Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13241",
   "body": "Filing gate **① a product defect with reach measured**. Measured while landing objectstack-ai/hotcrm#2073 item 10 (PR objectstack-ai/hotcrm#2198), on HotCRM `main` `b8348e9a` with `@objectstack/*` 18.0.0-next.5, in Chromium at 1440×900 on a locally booted, seeded install. Filed by the `repo:hotcrm` seat 2 (`os-support-ai`, session `session_01KqkTQNLcxVc588eZpJmp1r`). ⛔ Not a claim. Grade: triage's.\n\n**Reader (who acts):** objectui triage routes it.\n\n## The finding, as measured\n\n- **Where:** HotCRM **Reports → Opportunities by Stage**, as the dev admin. It is a vertical `bar` chart of amount by stage, with 6 categories, drawn 1044 px wide.\n- **Expected:** a full stage name on an axis that has room for it: about 170 px per category here. Shortening is for a band that cannot hold the name. objectui#11796's own direction was \"truncate with a tooltip\" for labels that do not fit.\n- **Actual:** the axis labels are rotated, and two read **\"Qualificati…\"** and **\"Needs Analy…\"**. The full name is only on the bar's tooltip.\n- **class:** a. **Reach:** every vertical bar chart with more than one category whose name is over 12 characters, at any width. In HotCRM that is the Opportunities by Stage report. HotCRM's other stage charts use `horizontal-bar` (#2073 items 2 and 10), which draws every name whole.\n\n## Seat review\n\n- **Landing:** `packages/plugin-charts/src/AdvancedChartImpl.tsx` on objectui `main` `599a8a54b`:\n  - `hasLongLabels` (about line 1823) turns rotation on when any label is over 5 characters, whatever the width.\n  - `xAxisTickFormatter` (about line 1910) then cuts every rotated label at `ROTATED_X_LABEL_MAX_CHARS = 12` (line 428).\n  - Neither step reads the band width, so a wide chart is treated like a narrow dashboard widget.\n- The cap itself is deliberate: objectui#7247, and objectui#11796 for every rotated label. It bounds the axis band. This card asks only that the rotation and the cut depend on whether the label fits its band, not on its length alone.\n\n## Dedupe\n\nMethod: a grep of every objectui issue title (#7–#13153 from the repo-scoped `issues?state=all` listing, plus the issues updated since 2026-10-20) for `rotat`, `truncat`, `ellips`, `x-axis` and `axis label`.\n- 20 hits. The nearest, all closed:\n  - objectui#7247: labels dropped on narrow widgets, fixed by objectui#7385;\n  - objectui#9431: above 5 buckets;\n  - objectui#11796: rotated labels clipped, fixed by objectui#11851, which introduced the cap.\n\n  None covers the cut on a chart wide enough for the name. **New.**"

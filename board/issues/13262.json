@@ -2,26 +2,33 @@
   "number": 13262,
   "kind": "pull_request",
   "title": "fix(console): block a settings save while a visible required field is empty",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
-  "draft": true,
+  "draft": false,
   "author": {
     "login": "objectstack-fleet[bot]",
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
+  "labels": [
+    "apps",
+    "tests"
+  ],
   "assignees": [
     "baozhoutao"
   ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-20T13:51:27Z",
-  "updated_at": "2026-10-20T13:51:31Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
-  "comments": 0,
+  "updated_at": "2026-10-20T15:36:48Z",
+  "closed_at": "2026-10-20T15:36:46Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T15:36:46Z",
+  "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/13262",
   "body": "Fixes #13239\nClause-②: no\n\n## What\n\nSettings pages now refuse a save while a visible `required` setting is empty. The spec declares `required` as \"renderer + server-side validation\" (`settings-manifest.zod.ts`, the `required` member of the specifier schema). The server's TOUCH gate judges only the keys a save changes, and the console sends only edited keys, so nobody judged an untouched required key. Measured: Setup → Email, Host and From email empty, change From name → 200.\n\n`SettingsView.onSave` runs `emptyRequiredKeys` before any request:\n\n- Every specifier with a `key` and `required: true`, except the layout and display types (`group`, `info_banner`, `child_pane`, `title_value`, `action_button`).\n- Visible by the page's own `evalVisibility` over the live values (draft over stored). Hidden keys are not checked (ruling 3).\n- The value judged is the effective one: the draft's when the key was edited, the stored value otherwise (ruling 1).\n- \"Empty\" is the settings service's own predicate in `validatePatch`: null, undefined, or a string that is blank after trim. `false` and `0` are values. A set secret reads back as the ADR-0100 mask, so it counts as filled.\n- Locked rows are skipped (ruling 4, measured). The service resolves an env lock as `locked: true` with `lockedReason: \"Set via env: NAME\"` and the environment's value in `value`. The row's control is disabled. So the page reads `resolved.locked`: a locked row with a value is filled, and a locked row is never something the admin could fill here.\n\nIf any are empty, no request is sent (ruling 2). Each row gets `form.fieldRequired` (\"This field is required\", an existing key in every pack) through the same `fieldErrors` slot that a server `SETTINGS_VALIDATION` refusal uses (`aria-invalid` + `aria-describedby` + `role=\"alert\"`). Focus moves to the first one. The error toast reuses `console.settingsView.fieldErrorsToast` with the row labels, as the server-refusal path does. No success toast.\n\n`SettingsField`: rows carry `data-settings-key` so the page can find the row to focus. The `toggle` row, the one input row that did not go through `wrapper`, now shows a field error the same way. Without that, a required toggle with no value would block with nothing marked.\n\nThe server contract is unchanged (ruling 5). No new export, prop or language-pack key.\n\n## Tests\n\nNew `apps/console/src/pages/settings/__tests__/SettingsView.requiredCheck-13239.test.tsx` (mail-manifest shape):\n\n- (a) Host empty, only From name changed: `saveSettingsNamespace` not called, Host `aria-invalid` with the alert message, focus on Host.\n- (b) Host filled, From email whitespace-only: blocked on From email.\n- (c) control: all visible required filled → API called with `{ from_name }`, success toast.\n- (d) control: `api_key` required, empty, hidden by `visible` → does not block.\n- An env-locked Host carrying the env value counts as filled. Clearing a stored Host in the draft blocks.\n\nRuns, all at source commit `ac2e0e6a91`. The head `74419a69a7` adds only the changeset `.md`.\n\n- New file: `Test Files 1 passed (1)`, `Tests 6 passed (6)`, lock VERDICT command-exit 0.\n- Family, every test file naming `SettingsView` or `SettingsField` plus the two `WorkspaceTimezonePrompt` suites (28 files, including the three app-shell ones): `Test Files 28 passed (28)`, `Tests 232 passed (232)`, VERDICT command-exit 0.\n- Ablation via `ablation-replace.mjs`: anchor `if (missing.length > 0) {` → `if (false && missing.length > 0) {`. Anchor 1→0, blob `3a3e4640187d` → `c0af13347bb1`. (a), (b) and the draft-clear case went red (3 failed / 3 passed). The controls stayed green. Restore: blob after `3a3e4640187d` == HEAD blob, `git diff HEAD` empty.\n- `pnpm --filter @object-ui/console run type-check` after the `@object-ui/console^...` closure build (34/34 tasks): exit 0, 0 `error TS`.\n- eslint on the 3 changed source and test files (`--format json`: 3 files): 0 errors, 6 warnings. Every warning is on a line this diff did not write (`err: any`, `value as any`, the existing `load` effect). Narrowing is by file. The console's eslint config has no type-aware parser options (`--print-config` has no `project`/`projectService`), so this diff cannot move a verdict on an untouched file. Whole-directory lint is left to CI.\n- Pre-tsc battery, each exit 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `check-hand-rolled-comment-mask.mjs`. Also `check-changeset-fixed.mjs`, `check-changeset-presence.mjs` and `check:new-line-citations` (0 new).\n- Declared to CI: the full `apps/console/` test directory.\n\n## Acceptance notes\n\n- The empty predicate follows the server's, so an empty `multiselect` array counts as a value on both sides.\n- Pressing Save while blocked replaces the previous `fieldErrors` set with the required set, the same way each server refusal re-derives the set.\n\nThe fix was written in session `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"

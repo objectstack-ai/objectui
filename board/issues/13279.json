@@ -1,0 +1,36 @@
+{
+  "number": 13279,
+  "kind": "pull_request",
+  "title": "fix(app-shell): offer switch-source-off and open-in-Studio on the packaged flow clone result",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T18:08:46Z",
+  "updated_at": "2026-10-20T18:56:33Z",
+  "closed_at": "2026-10-20T18:56:31Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T18:56:31Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13279",
+  "body": "Fixes #13270\nClause-②: no\n\n## What changed\n\nSetup › Packaged automation: after a successful clone, the result keeps the server's notice verbatim and now offers the two next steps the sharing-rule clone dialog (`SharingRuleCloneDialog`, `Switch \"{source}\" off`) already offers at the same moment:\n\n- **Switch \"SOURCE\" off** — calls the SAME packaged-flow toggle the row's switch calls (`POST /api/v1/automation/NAME/toggle` with `enabled: false`), for the flow the admin cloned from. The toggle request is factored into one `requestToggle` that both the row switch and this offer use; on success the row reads off (and the runtime states are re-read, as after any toggle), and the result reads \"The packaged flow \"LABEL\" is switched off.\" A refusal renders the server's message verbatim beside the button, and the button stays offered. When the source is already off, no switch-off is offered (the done sentence shows instead).\n- **Open the clone in Studio** — a router `Link` to the package-less Studio scope, built by `studioOrgScopePath({ type: 'flow', name })`, i.e. `/studio/~org/automations` opened on the clone (objectui#11553). Measured on `main` before linking: `studioRoutes` in `apps/console/src/components/StudioRoute.tsx` declares the `~org` leg and the generic `:packageId/:tab` leg serves the pillar; `StudioDesignSurface` already navigates to this same path after a save.\n\nThe clone itself, its `draft` status and its server behaviour are unchanged (ADR-0126: clone and disable stay independent primitives; the offer is the page's own knowledge of the row that was clicked, not lineage).\n\nThree new pack keys in all ten locales: `packagedAutomation.cloneSwitchSourceOff`, `.cloneSourceOff`, `.cloneOpen`. The `de` values carry no quote pair, so the `de-quote-pairing-3876` span counts do not move.\n\n## Tests\n\nNew `describe` in `PackagedAutomationPage.test.tsx` (the page's `renderPage` now mounts in a `MemoryRouter`):\n\n- (a) after a clone the notice stays and `Switch \"Notify owner\" off` is offered; pressing it sends exactly one `POST .../automation/pkg_notify/toggle` with `{ enabled: false }`; the source row's switch reads unchecked and the done sentence replaces the offer.\n- (b) the open link's href starts with `/studio/~org/automations` and names the clone.\n- (c) a 403 `PERMISSION_DENIED` on the switch-off renders the server's sentence (role alert) inside the next-steps area; the offer stays enabled and the source stays on.\n- (d) CONTROL: cloning the already-off `pkg_escalate` offers no switch-off and sends no toggle.\n\nAblation (one-shot, through `ablation-replace.mjs`, anchor `) : cloneSourceRow ? (` → `) : false ? (`, i.e. the offer is never rendered): blob `f4aa90e11d32` → `d16b14152301`, run: `Tests 2 failed | 23 passed (25)` — (a) and (c) red, (d) green; restore: blob after restore == blob at HEAD `f4aa90e11d32`, `git diff HEAD` empty.\n\n## Local verification at `ba93526a19`\n\n- Closure build `turbo run build --filter='@object-ui/app-shell^...' --concurrency=2`: 28/28 tasks, exit 0.\n- `type-check` for `@object-ui/i18n` and `@object-ui/app-shell` (both run `tsc --noEmit` and `tsc -p tsconfig.test.json`; the latter includes `src/**/*.test.tsx`): exit 0.\n- Targeted vitest, `--maxWorkers=1`, under the shared lock: the three `views/setup` packaged files (46 passed); ten `packages/i18n/src/__tests__` pack scans (key parity, en/zh parity, de quote pairing, untranslated identity, machine-locale census, aria-label census, ellipsis glyph, placeholder spelling, ar orthography, i18n) (152 passed); `scripts/__tests__` i18n dead-keys, call-site-keys, en-drift (323 passed).\n- Declared to CI: the full `packages/app-shell/` and `packages/i18n/` directories (not run whole here: shared container lock).\n- `eslint --no-inline-config` on the 12 changed TS files: 0 errors, 1 warning (`react-hooks/set-state-in-effect` on the unchanged `setLoadError(null)` in the load effect, present on the base too). Narrowing proof: population = the changed files; count 12 read from the JSON output; the config enables no type-aware linting, so this diff cannot move a verdict on an untouched file.\n- Pre-tsc battery, exit 0 each: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`, `check-changeset-presence.mjs`.\n- `check:spec-floors`: exit 1, `no-artifact` for packages outside the built closure (expected on a partial build; recorded, not fixed).\n\n## Acceptance notes\n\n- The switch-off offer names the source by its LABEL (as the row's switch aria-label does), not its machine name; the existing ancestry pin that the status region never shows `pkg_notify` stays green unchanged. The offer lives outside the `role=\"status\"` region so the announcement stays the server's notice.\n- Using the row's own switch on the source still clears the clone result, as before this change.\n\nChangeset: `.changeset/13270-clone-switch-source-off.md` (patch: `@object-ui/app-shell`, `@object-ui/i18n`).\n\nImplemented under session `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

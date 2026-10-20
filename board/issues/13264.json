@@ -1,0 +1,36 @@
+{
+  "number": 13264,
+  "kind": "pull_request",
+  "title": "fix(plugin-charts): rotate and cut an x-axis label only when its band cannot hold it",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T14:26:56Z",
+  "updated_at": "2026-10-20T14:53:25Z",
+  "closed_at": "2026-10-20T14:53:22Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T14:53:21Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13264",
+  "body": "Fixes #13241\nClause-②: no\n\n## What changed\n\n`AdvancedChartImpl` decided rotation from label LENGTH alone (`hasLongLabels`: any label over 5 characters), and every rotated label was cut at `ROTATED_X_LABEL_MAX_CHARS` (12). A 1044px report chart with six stages therefore read \"Qualificati…\" and \"Needs Analy…\" with about 164px of band per stage.\n\nNow:\n\n- The chart measures its own SVG surface with a `ResizeObserver` (a `ref` on the cartesian root, `BarChart`/`LineChart`/`AreaChart` and the combo's `ComposedChart`). Plot width = surface width minus recharts' default 5+5px side margins minus the 48px value axes drawn beside the plot (two for a combo or a dual-axis chart, one otherwise).\n- `categoryLabelsFitBand` asks whether the widest drawn label, estimated with the same per-glyph upper estimate the rotated band is already sized from (`estimateLabelWidthPx`), plus an 8px gap, fits `plotWidth / categories`.\n- A long label rotates only when the measured band cannot hold it. When it fits, it is drawn whole and horizontal.\n- When it does not fit, nothing changes: the objectui#11796 cap still applies, and the full name is still on the bar's tooltip. The cap is not raised. Narrow dashboard widgets (objectui#7247) whose labels do not fit behave as before.\n- Before a width is measured (first render, SSR, a DOM with no layout engine) the length rule applies unchanged. The width only decides rotation, and rotation changes the axis HEIGHT, never the surface width, so a measurement cannot feed back into itself. The last width is kept across the container's settle re-mount, so nothing flickers.\n\nNo new export, prop or type member. The change touches only `packages/plugin-charts/src/AdvancedChartImpl.tsx`, one test file beside it, and `.changeset/13241-bar-label-fit.md` (patch).\n\n## Evidence\n\nNew pin `AdvancedChartImpl.labelFitBand-13241.test.tsx`. happy-dom has no layout, so the test hands the width to `ResponsiveContainer` the way the sibling axis tests do. It also stubs a `ResizeObserver` that reports that width for the SVG surface.\n\n- (a) Six stages up to 19 characters at 1044px: the labels are the full names, and no tick carries a `rotate(` transform.\n- (b) The same data at 360px: every tick is rotated and cut at the cap (\"Qualificati…\", \"Needs Analy…\"). Hovering the third bar opens the tooltip, which reads \"Needs Analysis\" in full.\n- (c) Unmeasured at 1044px: the length rule still applies (rotated, cut).\n\n**Ablation** (at `42c2a13`, via `ablation-replace.mjs` with an anchor that must hit). It forces rotation on length again by replacing `const labelsWantRotation = hasLongLabels && xLabelsFitBand !== true;` with `const labelsWantRotation = hasLongLabels;`.\n- The marker grep on disk counted 1, and the blob went from 453da94 to 2f756f7.\n- Pin (a) went red (`1 failed | 2 passed`). (b) and (c) stayed green, as expected, because they rotate either way.\n- Restore: the blob after restore equals the HEAD blob (453da94), and `git diff HEAD` on the file is empty.\n\n**Controls:** the objectui#11796 pins (`AdvancedChartImpl.rotatedLabelBand-11796.test.tsx`) and the objectui#7247 / #7386 pins (`AdvancedChartImpl.categoricalAxisDensity.test.tsx`) stay green. They render at 320px / 200px with no measured width, so they take the unchanged length path.\n\n## Local verification\n\nEach run below is a separate command under the shared lock, with its exit recorded.\n\n- At `1e1578c` (final head): `vitest run --maxWorkers=1` on the new pin plus the 11796, 7247 and 13129 axis pins: 4 files, 27 tests, exit 0. `pnpm --filter @object-ui/plugin-charts run type-check` (source + `tsconfig.test.json`, which includes the new test): exit 0. The closure build `--filter '@object-ui/plugin-charts^...' build` ran first: exit 0.\n- At `42c2a13`: every test file that names `AdvancedChartImpl`, one package directory at a time.\n  - `plugin-charts`: 61 files, 1046 passed, 9 skipped.\n  - `plugin-dashboard`: 15 files, 217 passed.\n  - `plugin-report`: 1 file, 19 passed.\n  - `core`: 2 files, 78 passed.\n  - `types`: 2 files, 53 passed.\n  - `scripts/__tests__`: 1 file, 29 passed.\n  - All exit 0. The only change after that commit makes the band-fit verdict a plain expression instead of a `useMemo` (same logic) and types the test's recharts stand-in.\n- Lint was narrowed to the two changed source files: `eslint --no-inline-config --format json`, 2 files, 0 errors. `AdvancedChartImpl.tsx` has 42 warnings, which equals the count on its base blob. The new test has 0. Type-aware linting is not configured, so this diff cannot move the verdict on any file it does not touch. The full `pnpm lint` and the full test directories of `packages/plugin-charts` (and of the packages that import it) are left to CI.\n- The pre-tsc battery (`check:phantom-deps` … `check:control-bytes`, the comment-mask check, `check-changeset-fixed`, `check-changeset-presence`, `check:new-line-citations`) all exited 0.\n- `check:spec-floors` exited 1 with `no-artifact` because the workspace was not built here. That is recorded, not fixed, as the dispatch directs.\n\n## Acceptance notes\n\n- The dispatch assumed objectui#7385 measures the container width. It does not. objectui#7385 derived its five-bucket bound \"with nothing measured at runtime\", so this change adds the measurement inside `AdvancedChartImpl`. `ChartContainer` is not touched, and passing it a `ref` would replace its own settle-observer ref.\n- The dispatch's ruling 2 mentions \"the tick's tooltip or `title`, as today\". Today the full name is on the bar's tooltip only; no tick carries a `title`. This change keeps that as it is and adds no tick `title`.\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

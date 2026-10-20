@@ -1,0 +1,35 @@
+{
+  "number": 13282,
+  "kind": "pull_request",
+  "title": "fix(app-shell): retire the permission-set clone notice once the copy is held or saved",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T18:58:36Z",
+  "updated_at": "2026-10-20T19:26:17Z",
+  "closed_at": "2026-10-20T19:26:15Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T19:26:15Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13282",
+  "body": "Fixes #13272\nClause-②: no\n\n## What changed\n\nThe permission-set editor showed the server's clone notice on a copy for as long as the copy was open. The notice ends \"The copy is held by nobody yet: add it to a position, or assign it to users.\" It kept saying that after a user was assigned and the copy was saved. The notice is a point-in-time answer, so it now stays only while it is true.\n\n- **A holder retires it.** `AssignedUsersSection` gains one optional prop, `onHoldersRead(count, permissionSetName)`. The section calls it after each successful holders read with the count it lists, one per person, covering direct grants and holders via a position that distributes the set. It also passes the set that read was for. The editor clears the notice when a read for the copy lists anyone. A late read of another set cannot clear it, because the editor keys on the reported set name. A failed read reports nothing: a refused read is not \"held by nobody\". The component is not exported from the package entry and keeps its single consumer.\n- **A save of the copy retires it.** This happens in `doSave`, after a successful outcome that is not `reloaded`. A refused save keeps the notice. On an embedded host the notice sits on the base set and names the copy, and saving the base keeps it.\n- **The notice goes whole.** It is one server string, shown verbatim while it shows. Cutting out its last sentence would key the editor on the server's prose. The first two sentences (no link to the source; `adminScope` and `isDefault` were not copied) describe the clone moment, so nothing in the notice is kept once the moment is over.\n- Navigating to another set and back does not bring the notice back: the load effect already drops it for any other name, and the holders and save paths only remove it.\n\n## Pins\n\nIn `PermissionMatrixEditor.cloneToCustomize.test.tsx`, describe \"the clone notice is point-in-time\":\n\n- (c) CONTROL: right after the clone, the notice's text equals the server string.\n- (b) Clone, then Save the copy: the notice is gone. CONTROLs: a refused save keeps it, and on an embedded host saving the base keeps it.\n- (a) Clone, then add a holder through the holders section (a stub that reports each read the way the section does): the notice is gone. CONTROLs: a copy read that reports 0 keeps it, and the base's holders do not retire it.\n\nIn `AssignedUsersSection.test.tsx`, describe \"reports each holders read to its host\": the listed union count with the set name; 0 for a set nobody holds (control); a second report after an Add; no report on a failed read.\n\n## Ablations\n\nAll were run with `scripts/ablation-replace.mjs` from the objectstack checkout. Restore was proven by blob hash equal to HEAD and an empty `git diff HEAD`.\n\n1. Delete the `setCloned` line in `doSave`: `Tests 1 failed | 23 passed (24)`. Only \"clone, then Save the copy: the notice is gone\" failed. Blob 5080253daf3f went to 413e728c280a and was restored to 5080253daf3f.\n2. Drop the editor's prop (`onHoldersRead={undefined}`): `Tests 1 failed | 38 passed (39)`. Only \"clone, then add a holder through the holders section: the notice is gone\" failed. Blob 5afa76e8dd39 went to b569fbf6683f and was restored to 5afa76e8dd39. A first attempt replaced the anchor with a string that was already in the file 49 times. The tool refused it before running anything (\"a rise of 0, not the declared 1\") and restored the file, so that attempt was a no-op and was re-run with a unique replacement.\n3. Delete the section's call: `Tests 3 failed | 36 passed (39)`. The three section report pins failed; the failed-read pin stays green, as it should. Blob 3db1559a1b78 went to 01eab631b35f and was restored to 3db1559a1b78.\n\n## Verification, at 3d9a508739 (after merging origin/main, which brought objectui#13280)\n\n- vitest, under the shared lock, with `--maxWorkers=1`: the 42 test files that name `PermissionMatrixEditor` or `AssignedUsersSection` gave `Test Files 42 passed (42)`, `Tests 337 passed (337)`. The full `packages/app-shell` directory is declared to CI and was not run here.\n- `pnpm --filter @object-ui/app-shell run type-check` (both tsconfigs) exited 0, after the closure build `turbo run build --filter='@object-ui/app-shell^...'` exited 0.\n- eslint with `--no-inline-config` on the 4 changed TS files: 0 errors. Lint config has no type-aware rules, so this narrowing cannot move a verdict on untouched files. There are 2 new warnings. One is `react-hooks/refs` on the new callback ref, the same pattern as the `metadataStoreRef` beside it. The other is `react-hooks/exhaustive-deps` in the test stub's once-per-set effect.\n- All exited 0: check:phantom-deps, self-import, unreferenced-sources, doc-example-readers, handler-key-reads, side-effects-array, element-data-source-declaration, spec-symbols, action-forward-parity, designer-field-key-parity, icon-record-names, i18n-keys, i18n-drift, i18n-designer-parity, control-bytes, new-line-citations; scripts/check-hand-rolled-comment-mask.mjs; check-changeset-fixed; check-changeset-presence.\n\nChangeset: `.changeset/13272-clone-notice-stale.md` (`@object-ui/app-shell` patch).\n\nImplemented by session `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

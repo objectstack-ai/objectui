@@ -1,0 +1,35 @@
+{
+  "number": 13275,
+  "kind": "pull_request",
+  "title": "feat(types): chain the spec's navItemVisibleDataNeedsDataSource on every navigation arm",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T17:48:02Z",
+  "updated_at": "2026-10-20T18:16:04Z",
+  "closed_at": "2026-10-20T18:16:01Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T18:16:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13275",
+  "body": "Fixes #13076\nClause-②: yes — the published `NavigationItemSchema` in `@object-ui/types` starts refusing a navigation entry whose `visible` reads `data` without a `dataSource`, which the spec's `NavigationItemSchema` already refuses (a narrowing toward the spec).\n\n## What\n\n`packages/types/src/zod/app.zod.ts` imports `@objectstack/spec/ui`'s exported `navItemVisibleDataNeedsDataSource` by identifier and chains it on every navigation arm. The rule is not restated.\n\n- **Flat arm:** in the `superRefine`, outside the `type: 'object'` branch, so it covers every type that arm parses. The separator branch returns earlier, and the spec separator declares no `visible`.\n- **`doc` arm:** in its `superRefine`, beside `refuseEmptyNavLabel`. That arm's judge is the spec's `DocNavItemSchema` member, and the spec mounts this rule on its whole union, not on the member. Without this second call a `doc` entry would escape.\n\n`visible` is passed as authored. The spec function reads the bare string and the `{ dialect, source }` envelope alike, and a boolean or absent `visible` judges nothing.\n\nAlso in this PR:\n\n- `imported-defaults-8317.test.ts`: the new raw spec refinement joins the `REFINEMENT_EXCEPTIONS` ledger beside `objectNavTargetExclusivity`. The PM amended the claim's file surface to add this file.\n- `.changeset/13076-nav-visible-data.md`: `@object-ui/types` at `minor`. objectui marks its own narrowing changes minor, never major.\n\n## Pins (`navigation-spec-parity.test.ts`)\n\nEvery refusal is read off both schemas and compared issue for issue (code, path and message).\n\n- (a) The card's entry `{ id: 'nav_envs', type: 'object', objectName: 'sys_environment', visible: 'data.total == 1' }`: `custom` at `visible` on both.\n- (c) A `url` entry is refused the same way on both, and so are a `doc` entry and a `url` child of a group (`children.0.visible`).\n- (b) CONTROL: the card's entry with a `dataSource` is accepted by both, and the mirror keeps it.\n- (d) CONTROL: an absent `visible` passes both. A boolean `visible` passes the mirror; that is the existing `visible: boolean` divergence.\n\n## Evidence (head `6931b9c4de`)\n\n- **Unlock:** objectstack#24534 reads state completed. REST `compare/35450f0732...06cab4849a` (the merge of objectstack PR 24628 against the pin) answers `ahead`, `behind_by: 0`. The installed `@objectstack/spec/ui` exports the function.\n- **Types family under the lock:** 23 `packages/types` test files that name `zod/app.zod` or `NavigationItemSchema`, run with `--maxWorkers=1`: `Test Files 23 passed (23)`, `Tests 765 passed (765)`, `VERDICT command-exit 0`. The full package directory is left to CI.\n- **Ablation:** `ablation-replace.mjs --delete --expect 2` removed both chain calls (anchor 2 to 0, blob `31d00ce63f50` to `dd5095036d88`). The four refusal rows went red (`Tests 4 failed | 53 passed (57)`) and both controls stayed green. Restore: blob `31d00ce63f50` equals the HEAD blob, and `git diff HEAD` is empty.\n- **`pnpm --filter @object-ui/types type-check`:** exit 0. The test tsconfig's `--listFiles` includes both edited test files.\n- **Pre-tsc battery:** all exit 0 — `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, and `check-hand-rolled-comment-mask`. `check-changeset-fixed` and `check-changeset-presence` also exit 0.\n- **Lint, narrowed:** `eslint --no-inline-config --format json` on the 3 changed `.ts` files gave 3 files, 0 errors and 1 warning. The warning is the existing `z.ZodType` of `any` on the `NavigationItemSchema` export, which this diff does not touch. `eslint.config.js` sets no `parserOptions.project` or `projectService`, so the linting is not type-aware and this diff cannot change the verdict on any untouched file.\n- **`check:spec-floors`:** exit 1 (`no-artifact`: it needs a workspace build). This is recorded, not fixed. The floor is computed from the pin at publish time.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

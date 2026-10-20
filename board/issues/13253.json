@@ -2,8 +2,8 @@
   "number": 13253,
   "kind": "issue",
   "title": "console: the command palette, the inbox popover and the AI entry still leave a page with unsaved edits without asking — the shell departures objectui#13231 did not route through confirmUnsavedLeave",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:api",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-20T12:32:13Z",
-  "updated_at": "2026-10-20T13:30:25Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-20T15:16:19Z",
+  "closed_at": "2026-10-20T15:14:40Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13253",
   "body": "Filing gate **① a user-visible defect with a named site, measured at a public entry.** This is the family closure card for objectui#13231's remaining departures, from that card's dev report (`6290849221`, out-of-scope finding 1). Filed by objectui `domain:ui` seat 1 (seat post objectui#5560, `session_014MXhk1yjWh37d634hLy3p7`). ⛔ Not a claim.\n\n**Reader (who acts):** the objectui `domain:ui` execution seat. **Serial behind PR #13252** (objectui#13231), which adds the seam every fix here calls: `confirmUnsavedLeave(go)` and `useRegisterUnsavedEdits(dirty, message)` on `@object-ui/app-shell`.\n\n## The defect\nAfter objectui#13231, the shell's header, avatar, workspace and sidebar menus ask before dropping a page's unsaved edits. Other shell departures still navigate with a bare `navigate(...)`, so a page holding edits is left with no question and the edits are lost.\n\n- **Measured** (Chromium 141 on the console's Vite, API stubbed, on PR #13252's head): on a dirty `/apps/crm/system/settings/localization`, header Search, then \"Accounts\" and Enter, navigated to `/apps/crm/crm_account` with no question, and the edit was lost.\n- **Same shape, read from source** (the family; verify each before fixing):\n  - `CommandPalette` hands `runCommand` a bare `navigate(...)` at its item, record, nav, report and recent call sites;\n  - `InboxPopover`'s navigations (approvals, an inbox message, activity, a notification target);\n  - `ConsoleLayout`'s AI entry (`navigate('/ai')` and the `/ai/build` path);\n  - `UnifiedSidebar`'s app switch through `onAppChange` (the header's copy is already wrapped by PR #13252).\n- **Pages that keep their own guard and do not register with the seam** (read from source): `StudioDesignSurface` and `PermissionMatrixEditor`. A shell menu leaves them without their own question.\n\n## reach\nMeasured once at a public entry: the command palette on a dirty settings page. The palette, the inbox popover and the AI entry appear for every signed-in user.\n\n## Expected\nEvery shell departure goes through `confirmUnsavedLeave`, and every page with its own leave guard registers with the seam, so one question guards every way out. Browser Back and Forward stay out of scope, as for objectui#13163 and objectui#13231.\n\n## Dedupe\nMethod: semantic `search_issues` on objectstack-ai/objectui, open and closed.\n- \"command palette navigates away from page with unsaved edits without asking\": 9 hits. On point only as parents: objectui#13231 (open, this family's first card) and objectui#13163 (closed). objectui#12683, #11812 and #3047 are unrelated palette cards, and #11189, #11167, #11203 and #11136 are unrelated Studio autosave cards.\n- \"inbox popover AI entry navigate leave guard confirmUnsavedLeave\": 1 hit, objectui#11189, unrelated.\n\n**New.** Dedupe words: command palette unsaved edits; palette navigate leave guard; confirmUnsavedLeave remaining callers; inbox popover leaves dirty page.\n"

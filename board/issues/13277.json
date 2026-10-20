@@ -1,0 +1,35 @@
+{
+  "number": 13277,
+  "kind": "pull_request",
+  "title": "feat(app-shell): the package edit dialog edits `dependencies`",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T17:59:57Z",
+  "updated_at": "2026-10-20T18:27:16Z",
+  "closed_at": "2026-10-20T18:27:14Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T18:27:14Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13277",
+  "body": "Fixes #13121\nClause-②: no\n\n## What changed\n\nThe package edit dialog (Studio / Setup) can now edit a package's `dependencies`. `PATCH /api/v1/packages/:id` has accepted that row since objectstack-ai/objectstack#24670.\n\n- `package-schema.ts`: the `dependencies` row is no longer `immutable`. It is still read from `ManifestSchema`; nothing is restated. `id`, `type`, `namespace`, `defaultDatasource` and `scope` stay `immutable`. The header now says which rows the PATCH door persists.\n- `PackageFormDialog.tsx`: edit mode sends `dependencies` next to `name`, `description` and `version` only when the row changed. The check (`dependenciesChanged`) compares entries, not key order. The row is sent flat and whole. If the author empties the editor, the dialog sends `{}`, which clears the row. The stale comments in the module header and above the PATCH are corrected.\n- How refusals show: the door's `400 VALIDATION_ERROR` and `422 WRITABLE_PACKAGE_REQUIRED` already reach the dialog's `else` arm. Each one renders in the `package-form-error` banner as `message (CODE)`, the same way the dialog's other refusals do, and the dialog stays open. No server-meaning mapping was added.\n- About the field path: the door's dependencies 400 is `deps.error(msg, 400)`. It carries no structured field path (no `details.fields`), and the path appears only in the prose. Because the envelope does not name one, this PR does not put the error on the control. Parsing the prose would be the server-meaning mapping the ruling forbids. Malformed rows that the client can see are already flagged inline by the form's own `ManifestSchema.safeParse` issues.\n- `EditPackageDialog.test.tsx`: only its header comment changed. Its fixture declares no `dependencies`, so its exact three-key body still holds.\n- `.changeset/13121-package-edit-dependencies.md`: `@object-ui/app-shell` `patch`.\n\n## Pins (`PackageFormDialog.editDependencies-13121.test.tsx`)\n\n- (a) Change the row: the PATCH body is `{ name, description, version, dependencies }`, flat.\n- (b) Leave the row untouched: the body has no `dependencies`. Two more cases also send none: the same entries in another order, and a package with no row that stays untouched.\n- (c) Empty the editor: the dialog sends `dependencies: {}`.\n- (d) For both `400 VALIDATION_ERROR` and `422 WRITABLE_PACKAGE_REQUIRED`, the banner reads `message (CODE)`, `onSaved` is not called and the dialog does not close.\n- (e) CONTROL: `mdf-id`, `mdf-namespace` and `mdf-defaultDatasource` are readonly, and `mdf-type` and `mdf-scope` are disabled. `mdf-name`, `mdf-version` and the dependencies editor are editable.\n\n## Ablation (one-off; the fix was committed first; restores proved by blob hash)\n\n- Leg 1, putting `immutable: true` back on the `dependencies` row: (a), (c) and (e) go red, 3 failed and 5 passed. The restore of `package-schema.ts` matches the HEAD blob `9b717ed095ed`, and `git diff HEAD` is empty.\n- Leg 2, dropping `patchBody.dependencies = …`: (a), (c) and both (d) cases go red, 4 failed and 4 passed. The restore of `PackageFormDialog.tsx` matches the HEAD blob `8f77a860b889`, and `git diff HEAD` is empty.\n- After both legs, `git grep` for the ablation marker finds nothing (exit 1).\n\n## Verification (head `0743cecc51`)\n\n- Closure build `pnpm --filter '@object-ui/app-shell^...' build`: exit 0.\n- `pnpm --filter @object-ui/app-shell run type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`; the test project includes the tests): exit 0.\n- vitest, `--maxWorkers=1`, run on every app-shell test file that names `PackageFormDialog`, `package-schema`, `EditPackageDialog` or `PackagesPage`: 38 files and 433 tests passed. The full `packages/app-shell/` directory is left to CI.\n- ESLint, `--no-inline-config`, on the 4 changed source and test files: 0 errors and 4 warnings, all on lines this PR did not touch. The config has no type-aware linting (no `parserOptions.project` or `projectService` in `eslint.config.js`), so this diff cannot change the verdict on any file it did not touch.\n- Pre-tsc battery, all exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs`, `scripts/check-changeset-presence.mjs` and `check:new-line-citations` (0 new).\n\n## Acceptance notes\n\n- `PackagesPage.tsx`'s `EditPackageDialog` doc comment still says the dialog \"submits only name / description / version\". That file is outside this claim's file surface, so it is left as is and the report names it.\n- The `dependencies` row renders through the spec form's JSON fallback, which shows the hint \"widget object-fields — falling back to JSON until a custom renderer is registered\". This happened before this PR in create mode too. It is noted here and not changed.\n- Whether a read-only package should offer Edit at all is out of scope, as the card says.\n\nNot browser-verified: there is no running backend at the pin in this container. The pins drive the real dialog with a stubbed `fetch`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

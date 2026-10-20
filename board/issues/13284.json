@@ -1,0 +1,35 @@
+{
+  "number": 13284,
+  "kind": "pull_request",
+  "title": "fix(app-shell): give the package dialog's Dependencies row a key/value editor",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T19:27:58Z",
+  "updated_at": "2026-10-20T19:54:35Z",
+  "closed_at": "2026-10-20T19:54:33Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T19:54:33Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13284",
+  "body": "Fixes #13278\nClause-②: no\n\n## What\n\nThe package dialog's **Dependencies** row (Studio and Setup, create, edit and view) is now an author-facing editor: one line per dependency with a **Package** input and a **Version range** input, **Add dependency** and a per-row remove button. The developer hint \"widget object-fields — falling back to JSON until a custom renderer is registered\" and the raw JSON box are gone from this row.\n\n- It emits the same flat `package name → version range` map the dialog already sends, so `dependenciesChanged` and the PATCH body are unchanged: edit mode sends `dependencies` only when the entries changed, and removing every row sends `{}` (the objectui#13121 clear).\n- An empty or duplicate package name is flagged under its row (`role=\"alert\"`) and keeps save disabled, so nothing with such a row is sent. Version ranges are left to the server: its `400 VALIDATION_ERROR` renders in the dialog banner as before.\n- The label comes from the form's own `dependencies` row (`getPackageForm`), and the help line from that row or `ManifestSchema`'s own `.describe()`, the same way the dialog reads the id's help. Nothing about the row is restated.\n\n## How it is mounted\n\n`SchemaForm` has no per-form renderer map or override hook. Its only widget lookup is the app-wide `WIDGETS` registry, which this PR does not change. So the dialog mounts the editor the same way it already mounts `PackageIdInput` for the id: `dependencies` joins the dialog's `hiddenFields` in every mode, and the dialog hosts `PackageDependenciesEditor` beside the spec form.\n\nLayout consequence, for review: the row is no longer inside the collapsed **Advanced** section. It renders as its own card under the spec form, visible without expanding anything. That card is where a save refusal's \"declare a dependency\" remedy now leads.\n\nWhy not reuse the flow inspectors' `FlowKeyValueField`: it smart-parses values (a range typed as `1` becomes a number, which `ManifestSchema` refuses), commits `undefined` for an emptied map where the edit door clears only on `{}`, and silently skips empty or duplicate keys where this row has to flag them. The new module is one file in `metadata-admin`, with no package export.\n\n## Files\n\n- `packages/app-shell/src/views/metadata-admin/PackageDependenciesEditor.tsx` (new)\n- `packages/app-shell/src/views/metadata-admin/PackageFormDialog.tsx` (hide the row, host the editor, save waits on a valid row set)\n- `packages/app-shell/src/views/metadata-admin/i18n.ts` (seven `engine.packages.dependencies.*` keys, en and zh)\n- `PackageFormDialog.dependenciesEditor-13278.test.tsx` (new), `PackageFormDialog.editDependencies-13121.test.tsx` (now drives the rows instead of the JSON box, same five pins)\n- `.changeset/13278-dependencies-editor.md` (patch, `@object-ui/app-shell`)\n\n`package-schema.ts` is unchanged: it declares no widget for the row. `object-fields` is what `SchemaForm` infers for any `type: 'object'` schema.\n\n## Pins (`PackageFormDialog.dependenciesEditor-13278.test.tsx`)\n\n- (a) the row renders package / version-range rows, no textarea labelled Dependencies, and no \"falling back to JSON\" text on the page (Advanced expanded too);\n- (b) edit mode, adding `@acme/core` → `^1.2.0` and saving sends `dependencies: { '@acme/core': '^1.2.0' }`;\n- (c) removing every row sends `dependencies: {}`;\n- (d) a duplicate package name shows \"This package is already listed.\", save is disabled, and no request is sent;\n- (e) CONTROL: create mode shows the same editor.\n\n## Verification (final union at `aa5e67b30a`)\n\n- Ablation (one-shot, not kept): `HIDDEN_FIELDS = ['dependencies']` → `[]` through `ablation-replace.mjs` (anchor 1 → 0, blob `8490d5d65e42` → `6463b99bb332`). Pin (a) went red, `expected [ textarea ] to have a length of +0 but got 1`, and the other four stayed green. Restore was proven by blob: after restore, `8490d5d65e42` equals the HEAD blob and `git diff HEAD` is empty.\n- vitest (`--maxWorkers=1`, under the shared lock): 21 files naming `PackageFormDialog` / `PackageDependenciesEditor` / `package-schema`: `Test Files 21 passed (21)`, `Tests 166 passed (166)`. The full `packages/app-shell/` directory is left to CI.\n- `pnpm --filter @object-ui/app-shell run type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`, which includes `src/**/*.test.tsx`), after a closure build `--filter '@object-ui/app-shell^...'`: exit 0.\n- eslint `--no-inline-config` on the 5 changed `.ts`/`.tsx` files (count from `--format json`): 0 errors and 3 warnings, all in `PackageFormDialog.tsx`. The same 3 rules fire on the base version of that file. No type-aware linting is configured, so this diff cannot change the verdict for any untouched file.\n- Gates, each exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`, `check-changeset-presence.mjs`, `check:new-line-citations`.\n\nNot browser-verified. All renders above are happy-dom.\n\n## Acceptance notes\n\n- In view mode the row renders read-only (no add or remove buttons) and shows \"No dependencies.\" for a package that declares none.\n- A stored range that is not a string (a malformed producer value) is shown as its JSON text and sent back as that string if the author edits the map. The server then judges it, as it did the JSON box.\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 13273,
+  "kind": "issue",
+  "title": "console: the app's \"All reports\" index keeps only reports owned by the app's own package, so a contributing module's reports are missing (HotCRM: the 3 case reports)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:reports",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T17:19:31Z",
+  "updated_at": "2026-10-20T19:49:23Z",
+  "closed_at": "2026-10-20T19:47:56Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13273",
+  "body": "Filing gate **③ a task the maintainer set**: objectstack-ai/hotcrm#2207, the maintainer's browser round on ObjectStack 18.0.0 (「hotcrm 升级到 objectstack 18.0 然后重新安排一轮浏览器测试」). Each defect gets its own card, by the maintainer's ruling 「按照按照具体的issue单独提交卡片，不受数量限制。」 (recorded on objectstack-ai/hotcrm#2188, `6283467378`). This is finding **F-03** of track 1 (the full functional pass), by the cloud tester `session_019R3C7cvMNrmxf1AwtEt7N2`. It was measured on HotCRM `main` `16c28664` with `@objectstack/*` 18.0.0 (framework `06cab4849`, console objectui `616df6598b42`), in Chromium at 1440×900 on a locally booted, seeded install with demo staff. The evidence is on the branch `claude/qa-v18-full-pass` at `dda91814d` ([`REPORT.md`](https://github.com/objectstack-ai/hotcrm/blob/dda91814dfe304ec48e616f5886491ecd7e8ade3/qa/2026-10-20-v18-full/REPORT.md)), which is never merged. Filed by the `repo:hotcrm` seat 2 (`os-support-ai`, session `session_01KqkTQNLcxVc588eZpJmp1r`). ⛔ Not a claim. Grade: triage's.\n\n**Reader (who acts):** objectui triage routes it.\n\n## The finding, as measured\n\n- **Persona / URL / steps:** the admin, then service.agent: sidebar Reports → **All reports** (`/_console/apps/app.objectstack.hotcrm/reports`).\n- **Expected:** the index lists the app's shipped reports, as the sidebar group above it does. `GET /api/v1/meta/report` returns all 10, three of them with package `app.objectstack.hotcrm.service`.\n- **Actual:**\n  - **Admin:** the index lists 7. Cases by Status and Priority, SLA Performance and Cases Opened by Day are missing, though the sidebar lists all 10 and each opens by URL.\n  - **Service agent:** the index lists 2. The agent's sidebar lists those 2 plus the 3 case reports, which are the agent's main reports.\n- **Evidence:** [`91-RPT-00-admin-all-reports.png`](https://github.com/objectstack-ai/hotcrm/blob/dda91814dfe304ec48e616f5886491ecd7e8ade3/qa/2026-10-20-v18-full/shots/91-RPT-00-admin-all-reports.png), [`91-RPT-00-agent-all-reports.png`](https://github.com/objectstack-ai/hotcrm/blob/dda91814dfe304ec48e616f5886491ecd7e8ade3/qa/2026-10-20-v18-full/shots/91-RPT-00-agent-all-reports.png), [`91-RPT-00-agent-reports-index-and-nav.png`](https://github.com/objectstack-ai/hotcrm/blob/dda91814dfe304ec48e616f5886491ecd7e8ade3/qa/2026-10-20-v18-full/shots/91-RPT-00-agent-reports-index-and-nav.png).\n- **Reach:** every app composed of more than one package (an app plus modules that contribute through `navigationContributions`).\n\n## Seat review (source at the console pin `616df6598b42`)\n\n- `packages/app-shell/src/views/appReportIndex.ts:90-98` `appShippedReports` keeps a report only when `report._packageId === packageOf(app)` (`if (pkg !== owner) continue;`). Its docblock (`:21-25`) says \"the reports whose `_packageId` is the app's own\". It then applies the dataset read gate (`:175-176`).\n- The served navigation merges a module's contributed items into the app's groups without a package stamp (objectstack `packages/objectql/src/registry.ts:6315-6342`). HotCRM's service module contributes its 3 `type: 'report'` entries this way (`src/service/index.ts:204-209`).\n- The command palette already unions the served nav's report entries (`packages/app-shell/src/chrome/CommandPalette.tsx:171-181`), which is why ⌘K finds these reports and the index does not.\n- The index came with objectui#13026 (merge `47508f3`, in the pin), for objectstack-ai/objectui#13020, which asked for \"the reports the app's packages ship\". No later commit touches `appReportIndex.ts`.\n- Not this card: the agent's 5 missing owner reports are the dataset read gate working.\n\n## Dedupe\n\nMethod: every objectstack-ai/objectstack issue title (every state, #1–#24940) and every objectstack-ai/objectui issue title (#7–#13272), listed through the repo-scoped `issues?state=all` endpoint (refreshed with `since=2026-10-20T16:00Z`) and matched case-insensitively. The search API is refused for this session.\n- Related, closed: objectstack-ai/objectui#13020 (the request); objectstack-ai/objectstack#14122 (the module split that put these reports in the service package).\n- **New.**\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

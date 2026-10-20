@@ -1,0 +1,36 @@
+{
+  "number": 13274,
+  "kind": "pull_request",
+  "title": "fix(fields): seed a relation-backed defaultFromRow param with the stored id",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: fields",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T17:45:09Z",
+  "updated_at": "2026-10-20T18:12:35Z",
+  "closed_at": "2026-10-20T18:12:33Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T18:12:33Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13274",
+  "body": "Fixes #13271\nClause-②: no\n\n## What changed\n\nA `defaultFromRow` param whose row field is a relation (`lookup`, `master_detail`, `user`, `tree`) is now seeded with the stored id, and with the array of ids for a `multiple` one. Before this, `resolveActionParam()` copied `row[field]` verbatim. Related-list rows carry their relations expanded, so Setup → Teams → Remove from Team sent the whole `sys_user` record as `userId` and got the measured 400.\n\n- `packages/fields/src/resolveActionParams.ts`: the seed reads the row through a new module-private `storedRow()`. It calls `toPredicateRecord` from `@object-ui/core` with the row object's field definitions. That is the same rule the predicate paths and the Undo path (`captureUpdateUndoData`, objectui#11122) use, so the three paths cannot disagree. The decision is made by the object's field types, never by checking for an `id` key.\n- The row is a record of `ctx.objectName`, which is the action's own object (both callers resolve against it). That object's fields name the relations. `objectOverride` changes where a param's field metadata is read; it does not change what object the row belongs to.\n- **No schema threading was needed (ruling 2).** Both callers already pass the object list that holds the row's object. `useConsoleActionRuntime` passes `withKnownObjects(objects, metadata.objects)` after `ensureType('object')`. `RecordDetailView` passes the app's `objects`, which is the list it derives related lists from. If the row's object is absent, nothing is collapsed and the seed is the row's value, exactly as before. A caller that cannot name the relations must not guess.\n- Display is unchanged (ruling 3): `LookupField` hydrates the id to the record, and the pin below shows the picker displaying \"QA Plain\".\n- Non-relational fields are seeded exactly as before (ruling 4). This includes a `json` value that has an `id` key.\n- `.changeset/13271-default-from-row-id.md`: patch for `@object-ui/fields`. No new export, and no change to the action declaration contract.\n\n## Pins (`packages/app-shell/src/views/ActionParamDialog.defaultFromRowId-13271.test.tsx`)\n\nThe fixture is `sys_team_member`'s `{ name: 'userId', field: 'user_id', required: true, defaultFromRow: true }` param, with the row shaped the way a related list delivers it.\n\n- (a) A lookup-backed param seeds `'u1'`. The dialog, rendered and confirmed, resolves `{ userId: 'u1' }`, and the picker still shows \"QA Plain\".\n- (b) A `multiple` lookup seeds `['u2', 'u3']`.\n- (c) CONTROL: a `json` field whose value has an `id` key is seeded verbatim, by identity.\n- (d) CONTROL: a text field is seeded as before.\n- CONTROL: if the row's object is not in the metadata, the row's value is seeded unchanged. Also checked: the row record is not mutated.\n\n## Ablation (on committed `94b6881ff1`)\n\nThis used `node ../objectstack/scripts/ablation-replace.mjs`, anchored on `storedRow(ctx.row, ctx)[rowKey]` and replaced with `ctx.row[rowKey]`, which is the old verbatim seed.\n\n- Anchor count went 1 to 0, and the replacement count went 0 to 1. The blob went from `e9acb2230f0c` to `f0202e2e306f`.\n- `Tests 3 failed | 4 passed (7)`. Both (a) pins and (b) went red. The submit leg received `{ userId: { id: 'u1', name: 'QA Plain', email: … } }`, which is the card's measured request body. The controls (c) and (d) stayed green.\n- Restore: the blob after restore is `e9acb2230f0c`, which equals the HEAD blob, and `git diff HEAD` is empty.\n- `@object-ui/fields` and `@object-ui/core` are source-aliased in `vitest.config.mts`, so the ablation ran against `src/` with no build involved.\n\n## Verification (all on head `94b6881ff1`)\n\n- Targeted vitest, `--maxWorkers=1`, under the shared lock: 31 files that name `resolveActionParams`, `defaultFromRow` or `toPredicateRecord`, or read the resolver's source. Result: `Test Files 31 passed (31)`, `Tests 446 passed (446)`.\n- Closure build `pnpm --workspace-concurrency=2 --filter '@object-ui/app-shell^...' build` exited 0. After it, `pnpm --filter @object-ui/fields type-check` and `pnpm --filter @object-ui/app-shell type-check` both exited 0. Each runs `tsc --noEmit` and `tsc -p tsconfig.test.json`, so the new test file is type-checked.\n- Lint, narrowed to the 2 changed source files with `eslint --no-inline-config --format json`, reported 2 files, 0 errors and 0 warnings. There is one root `eslint.config.js` and no package-level config, and that config enables no type-aware linting, so this diff cannot move the verdict on any untouched file. The full `pnpm lint` is left to CI.\n- The pre-tsc battery all exited 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs` and `check-changeset-presence.mjs`.\n- Left to CI: the full `packages/fields/` and `packages/app-shell/` test directories. No whole-directory runs were done locally because the box is shared.\n\n## Acceptance notes\n\n- A `carryOver` param backed by a relation also carries the id now. The spec says the row value is submitted verbatim, and a relation's stored row value is its id, so this follows the same contract.\n- objectui#11122's Undo path and this seed now share one rule, but they have two call sites. Any other surface that seeds a value from an expanded row should call `toPredicateRecord` the same way.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 13271,
+  "kind": "issue",
+  "title": "console: a defaultFromRow param backed by a lookup is seeded with the row's expanded record instead of its id — Setup → Teams → Remove from Team answers 400 \"User is not a member of the organization\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:identity",
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T16:41:46Z",
+  "updated_at": "2026-10-20T18:14:29Z",
+  "closed_at": "2026-10-20T18:12:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13271",
+  "body": "Filing gate **③ a task the maintainer set**: objectstack-ai/hotcrm#2207, the maintainer's browser round on ObjectStack 18.0.0 (「hotcrm 升级到 objectstack 18.0 然后重新安排一轮浏览器测试」). Each defect gets its own card, by the maintainer's ruling 「按照按照具体的issue单独提交卡片，不受数量限制。」 (recorded on objectstack-ai/hotcrm#2188, `6283467378`). This is finding **F-05** of track 2 (the Setup pass as the system administrator), by the cloud tester `session_01BkRPwuAufrFwoEEfuigDm9`. It was measured on HotCRM `main` `16c28664` with `@objectstack/*` 18.0.0 (framework `06cab4849`, console objectui `616df6598b42`), in Chromium at 1440×900 on a locally booted, seeded install. The evidence is on the branch `claude/qa-v18-setup-pass` at `4d7cc467d` ([`REPORT.md`](https://github.com/objectstack-ai/hotcrm/blob/4d7cc467dcb08226fea5b8a1b2ea89ee05d6353b/qa/2026-10-20-v18-setup/REPORT.md)), which is never merged. Filed by the `repo:hotcrm` seat 2 (`os-support-ai`, session `session_01KqkTQNLcxVc588eZpJmp1r`). ⛔ Not a claim. Grade: triage's.\n\n**Reader (who acts):** objectui triage routes it. The objectstack action declaration is correct per the value contract (below).\n\n## The finding, as measured\n\n- **Persona / URL:** dev admin, Setup → Teams → QA Team → Related → Team Members → row menu → **Remove from Team** → Confirm.\n- **Expected:** the dialog's own text: \"Remove this user from the team? They will lose any team-scoped access.\"\n- **Actual:**\n  - `400 POST /api/v1/auth/organization/remove-team-member` with \"User is not a member of the organization\", in the dialog and twice as a toast. QA Plain *is* a member (`sys_member` row, role member).\n  - The request body carries `\"userId\": {…the whole sys_user record…}`, not the id.\n  - The same endpoint called with `userId: \"<id>\"` answers `200` \"Team member removed successfully.\", and the user's team-scoped access ended at once (2 → 0 accounts).\n- **Evidence:** [`10-F05-teams-remove-member-dialog.png`](https://github.com/objectstack-ai/hotcrm/blob/4d7cc467dcb08226fea5b8a1b2ea89ee05d6353b/qa/2026-10-20-v18-setup/shots/10-F05-teams-remove-member-dialog.png), [`10-F05-teams-remove-member-not-org-member.png`](https://github.com/objectstack-ai/hotcrm/blob/4d7cc467dcb08226fea5b8a1b2ea89ee05d6353b/qa/2026-10-20-v18-setup/shots/10-F05-teams-remove-member-not-org-member.png); the request body captured from the network.\n- **Reach:** every admin removing a team member through Setup. The failure is loud, so the admin knows the removal did not happen. It also reaches any related-list row action whose `defaultFromRow` param is backed by a lookup field.\n\n## Seat review (source at the tested pins)\n\n- **objectstack (correct):** `packages/platform-objects/src/identity/sys-team-member.object.ts:93` declares `{ name: 'userId', field: 'user_id', required: true, defaultFromRow: true }`. Per `packages/spec/src/data/field-value.zod.ts:15` and `:669`, a lookup's stored and wire form is the record id, and \"the expanded record is the READ shape … and is never stored\".\n- **objectui (the defect):**\n  - `packages/fields/src/resolveActionParams.ts:550-553` seeds the param with `ctx.row[rowKey]` verbatim.\n  - The related-list row it reads is the fetched row with lookups expanded (`packages/app-shell/src/views/RelatedRecordActionsBridge.tsx:464`, `params: { _rowRecord: record }`).\n  - The dialog's serializer reduces only file and image values to ids (`packages/app-shell/src/views/ActionParamDialog.tsx:287`).\n- **Same mechanism already fixed elsewhere:** objectui#11122 fixed it for the Undo path only (`toPredicateRecord`).\n- No commit after the pin touches `resolveActionParams.ts` or `RelatedRecordActionsBridge.tsx`.\n\n## Dedupe\n\nMethod: every objectstack-ai/objectstack issue title (every state, #1–#24932) and every objectstack-ai/objectui issue title (#7–#13268), listed through the repo-scoped `issues?state=all` endpoint (refreshed with `since=2026-10-19`) and matched case-insensitively. The search API is refused for this session.\n- Related, closed: objectui#11122 (an expanded row copied as a lookup value, on Undo).\n- Different: objectui#10277 (`$select` harvest of `defaultFromRow` seed fields); objectstack#22908 (the server admitting an embedded record in a multi-valued reference).\n- **New.**\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

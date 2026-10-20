@@ -682,6 +682,8 @@ const fr = {
       showingRows: "Affichage de {{shown}} sur {{total}} lignes",
       importing: "Importation… {{progress}}%",
       importComplete: "Importation terminée",
+      importPartial: "Importation terminée avec des erreurs",
+      importFailed: "Échec de l'importation",
       imported: "{{count}} importé(s)",
       skippedCount: "{{count}} ignoré(s)",
       moreErrors: "…et {{count}} erreur(s) de plus",

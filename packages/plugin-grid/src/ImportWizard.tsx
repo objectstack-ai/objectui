@@ -10,7 +10,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@object-ui/components';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, ArrowRight, ArrowLeft, Save, Trash2, ClipboardPaste, Download, Undo2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, XCircle, X, ArrowRight, ArrowLeft, Save, Trash2, ClipboardPaste, Download, Undo2 } from 'lucide-react';
 import { useObjectTranslation, notifyDataChanged } from '@object-ui/react';
 import { resolveAffordance, sanitizeFileNameBase } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
@@ -130,6 +130,8 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.resultsTruncated_one': 'Showing the first {{count}} row result (of {{total}}).',
   'grid.import.resultsTruncated_other': 'Showing the first {{count}} row results (of {{total}}).',
   'grid.import.importComplete': 'Import Complete',
+  'grid.import.importPartial': 'Import finished with errors',
+  'grid.import.importFailed': 'Import failed',
   'grid.import.imported': '{{count}} imported',
   'grid.import.createdCount': '{{count}} created',
   'grid.import.createdCount_one': '{{count}} created',
@@ -467,6 +469,37 @@ type WizardStep = 'upload' | 'mapping' | 'preview';
  * text-muted-foreground` so the headline looks as it did as a plain paragraph.
  */
 const RESULT_HEADLINE_CLASS = 'text-lg font-semibold text-foreground';
+
+/**
+ * What a finished import amounts to, read from the result the wizard already
+ * holds (objectui#13230). Every failure path — a refused (405) or thrown
+ * request, every row rejected — publishes a result with zero imported rows,
+ * so the count alone separates them from a success; a background job that
+ * ended `failed` is read from the job's own final status, since a worker can
+ * crash after committing some rows.
+ * - `success`: at least one row imported, nothing skipped or errored.
+ * - `partial`: at least one row imported, at least one skipped or errored.
+ * - `failed`: zero rows imported, or the background job ended `failed`.
+ * - `cancelled`: the user cancelled the job.
+ */
+type ImportOutcome = 'success' | 'partial' | 'failed' | 'cancelled';
+
+function importResultOutcome(
+  result: Pick<ImportResult, 'importedRows' | 'skippedRows' | 'errors' | 'cancelled'>,
+  jobStatus?: ImportJobStatus | null,
+): ImportOutcome {
+  if (result.cancelled) return 'cancelled';
+  if (jobStatus === 'failed' || result.importedRows <= 0) return 'failed';
+  if (result.skippedRows > 0 || result.errors.length > 0) return 'partial';
+  return 'success';
+}
+
+const RESULT_HEADLINE_KEY: Record<ImportOutcome, string> = {
+  success: 'grid.import.importComplete',
+  partial: 'grid.import.importPartial',
+  failed: 'grid.import.importFailed',
+  cancelled: 'grid.import.importCancelled',
+};
 
 /** Maximum number of rows to show in the preview step */
 const PREVIEW_ROW_COUNT = 10;
@@ -2915,6 +2948,13 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
 
   const handleClose = useCallback(() => { reset(); onOpenChange?.(false); onCancel?.(); }, [reset, onOpenChange, onCancel]);
 
+  // The result screen's headline, icon and imported-count badge follow what
+  // the import amounted to, not merely that it finished (objectui#13230).
+  // `finishedJob` is published together with the result by the background
+  // path and cleared by every new run, so it is the job behind this result.
+  const resultOutcome: ImportOutcome = result ? importResultOutcome(result, finishedJob?.status) : 'success';
+  const importedBadgeVariant = resultOutcome === 'failed' ? 'outline' : 'default';
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange?.(v); }}>
       <DialogContent
@@ -3108,17 +3148,18 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
           </>
         ) : (
           <div className="flex flex-col items-center gap-3 py-4">
-            {result.cancelled ? (
-              <>
-                <X className="h-10 w-10 text-muted-foreground" />
-                <DialogDescription className={RESULT_HEADLINE_CLASS}>{t('grid.import.importCancelled')}</DialogDescription>
-              </>
+            {resultOutcome === 'cancelled' ? (
+              <X className="h-10 w-10 text-muted-foreground" />
+            ) : resultOutcome === 'failed' ? (
+              <XCircle className="h-10 w-10 text-destructive" data-testid="import-result-failed-icon" />
+            ) : resultOutcome === 'partial' ? (
+              <AlertCircle className="h-10 w-10 text-muted-foreground" data-testid="import-result-partial-icon" />
             ) : (
-              <>
-                <CheckCircle2 className="h-10 w-10 text-green-500" />
-                <DialogDescription className={RESULT_HEADLINE_CLASS}>{t('grid.import.importComplete')}</DialogDescription>
-              </>
+              <CheckCircle2 className="h-10 w-10 text-green-500" />
             )}
+            <DialogDescription className={RESULT_HEADLINE_CLASS} data-testid="import-result-headline" data-outcome={resultOutcome}>
+              {t(RESULT_HEADLINE_KEY[resultOutcome])}
+            </DialogDescription>
             <div className="flex flex-wrap justify-center gap-2">
               {/* Prefer the finer created/updated breakdown when the server
                   reports it; otherwise fall back to a single "imported" count.
@@ -3129,11 +3170,11 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                   {(result.createdRows ?? 0) > 0 && <Badge variant="default">{t('grid.import.createdCount', { count: result.createdRows })}</Badge>}
                   {(result.updatedRows ?? 0) > 0 && <Badge variant="default">{t('grid.import.updatedCount', { count: result.updatedRows })}</Badge>}
                   {(result.createdRows ?? 0) === 0 && (result.updatedRows ?? 0) === 0 && (
-                    <Badge variant="default">{t('grid.import.imported', { count: result.importedRows })}</Badge>
+                    <Badge variant={importedBadgeVariant}>{t('grid.import.imported', { count: result.importedRows })}</Badge>
                   )}
                 </>
               ) : !result.cancelled && (
-                <Badge variant="default">{t('grid.import.imported', { count: result.importedRows })}</Badge>
+                <Badge variant={importedBadgeVariant}>{t('grid.import.imported', { count: result.importedRows })}</Badge>
               )}
               {result.skippedRows > 0 && <Badge variant="destructive">{t('grid.import.skippedCount', { count: result.skippedRows })}</Badge>}
             </div>

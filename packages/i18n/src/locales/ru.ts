@@ -703,6 +703,8 @@ const ru = {
       showingRows: "Отображено {{shown}} из {{total}} строк",
       importing: "Импорт… {{progress}}%",
       importComplete: "Импорт завершён",
+      importPartial: "Импорт завершён с ошибками",
+      importFailed: "Импорт не выполнен",
       imported: "{{count}} импортировано",
       skippedCount: "{{count}} пропущено",
       moreErrors: "…ещё {{count}} ошибок",

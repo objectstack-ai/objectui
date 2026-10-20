@@ -664,6 +664,8 @@ const de = {
       showingRows: "{{shown}} von {{total}} Zeilen angezeigt",
       importing: "Importiere… {{progress}}%",
       importComplete: "Import abgeschlossen",
+      importPartial: "Import mit Fehlern abgeschlossen",
+      importFailed: "Import fehlgeschlagen",
       imported: "{{count}} importiert",
       skippedCount: "{{count}} übersprungen",
       moreErrors: "…und {{count}} weitere Fehler",

@@ -552,6 +552,8 @@ const zh = {
       showingRows: '显示第 {{shown}} 行，共 {{total}} 行',
       importing: '导入中… {{progress}}%',
       importComplete: '导入完成',
+      importPartial: '导入完成，但有错误',
+      importFailed: '导入失败',
       imported: '已导入 {{count}} 条',
       skippedCount: '已跳过 {{count}} 条',
       moreErrors: '…还有 {{count}} 个错误',

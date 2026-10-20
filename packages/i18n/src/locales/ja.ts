@@ -664,6 +664,8 @@ const ja = {
       showingRows: "{{total}} 行中 {{shown}} 行を表示",
       importing: "インポート中… {{progress}}%",
       importComplete: "インポート完了",
+      importPartial: "インポートは完了しましたが、エラーがあります",
+      importFailed: "インポートに失敗しました",
       imported: "{{count}} 件インポートされました",
       skippedCount: "{{count}} 件スキップされました",
       moreErrors: "…他 {{count}} 件のエラー",

@@ -664,6 +664,8 @@ const ko = {
       showingRows: "{{total}}개 중 {{shown}}개 행 표시",
       importing: "가져오는 중… {{progress}}%",
       importComplete: "가져오기 완료",
+      importPartial: "가져오기가 완료되었지만 오류가 있습니다",
+      importFailed: "가져오기에 실패했습니다",
       imported: "{{count}}개 가져옴",
       skippedCount: "{{count}}개 건너뜀",
       moreErrors: "…{{count}}개 오류 더",

@@ -806,6 +806,8 @@ const en = {
       resultsTruncated_one: 'Showing the first {{count}} row result (of {{total}}).',
       resultsTruncated_other: 'Showing the first {{count}} row results (of {{total}}).',
       importComplete: 'Import Complete',
+      importPartial: 'Import finished with errors',
+      importFailed: 'Import failed',
       imported: '{{count}} imported',
       createdCount: '{{count}} created',
       createdCount_one: '{{count}} created',

@@ -742,6 +742,8 @@ const ar = {
       showingRows: "عرض {{shown}} من {{total}} صف",
       importing: "جارٍ الاستيراد… {{progress}}%",
       importComplete: "اكتمل الاستيراد",
+      importPartial: "اكتمل الاستيراد مع وجود أخطاء",
+      importFailed: "فشل الاستيراد",
       imported: "{{count}} مُستورَد(ة)",
       skippedCount: "{{count}} مُتخطَّى(ة)",
       moreErrors: "…و{{count}} خطأ(أخطاء) أخرى",

@@ -61,7 +61,7 @@ import {
   toast,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, isDeadlineSettled, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
+import { resolveConditionalFormatting, isDeadlineSettled, leadWithNameField, declaredNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -2857,9 +2857,23 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                   .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
                   .filter((f) => passesProjectionGate(f))
               : [];
+            // [objectui#13107] The object's DECLARED name field. The bulk
+            // confirm step names each affected record from the row this
+            // projection fetched (`getRecordDisplayName`, ADR-0079), so a
+            // `nameField` no column shows arrived absent and the step listed
+            // another text field in its place (a contact's job title). Asked
+            // by name whatever its type: the server serves a formula field
+            // like any other. Fetched, never drawn: it joins the projection,
+            // not the columns. The same two gates as the harvests above.
+            const declaredName = declaredNameField(resolvedSchema);
+            const nameFields = declared && typeof declaredName === 'string' && declaredName !== ''
+              ? [declaredName]
+                  .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
+                  .filter((f) => passesProjectionGate(f))
+              : [];
             // A UNION, never an append: a grouping field that IS also a column
             // must not produce a duplicate `$select` entry.
-            const extraFields = [...predicateFields, ...groupingFields, ...concurrencyFields, ...rowColorFields, ...deadlineFields, ...referenceViaFields];
+            const extraFields = [...predicateFields, ...groupingFields, ...concurrencyFields, ...rowColorFields, ...deadlineFields, ...referenceViaFields, ...nameFields];
             const withHarvestedFields = (list: any[]): any[] => {
               if (extraFields.length === 0) return list;
               const names = new Set(list.map((f: any) => columnIdentity(f)));

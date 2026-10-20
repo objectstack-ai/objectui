@@ -28,7 +28,7 @@ import { getLazyFieldWidget } from '@object-ui/fields';
 // Their TSDoc carries the rationale that used to be repeated in each copy.
 // See `paramNeedsDependentValues` below for why this surface ORs them;
 // ⛔ never copied into a local literal, and ⛔ never merged into one set.
-import { CASCADE_OPTION_WIDGET_TYPES, EXPANDABLE_FIELD_TYPES, getRecordDisplayName } from '@object-ui/core';
+import { CASCADE_OPTION_WIDGET_TYPES, EXPANDABLE_FIELD_TYPES, declaredNameField, getRecordDisplayName, recordDisplayValueAt } from '@object-ui/core';
 import type { BulkActionDef, BulkActionParam } from '@object-ui/types';
 import { useBulkExecutor, type BulkExecutorOptions, type BulkResult } from '../hooks/useBulkExecutor';
 import { hasMultiValueShape, type MultiValueFieldDef } from '../hooks/multiValueFields';
@@ -39,6 +39,25 @@ import {
   lookupTargetObject,
 } from './bulkParamToField';
 import { unresolvedFieldOf } from '../resolveBulkActions';
+
+/**
+ * The name the confirm step lists an affected record by (objectui#13107).
+ *
+ * The resolver's own ladder (`getRecordDisplayName`, ADR-0079) for an object
+ * that declares no `nameField`. For one that does, the declared field or the
+ * resolver's `Record #<id>` floor, never a derived one: when the row lacks
+ * the declared value (a projection that did not ask for it, a value the
+ * principal may not read), the derive steps would name the record by another
+ * text field, and a contact's job title is not the record a write targets.
+ * The floor is the resolver's own, reached with nothing left to derive from.
+ */
+function affectedRecordName(objectDef: unknown, row: Record<string, unknown>, fallback: string): string {
+  const nameField = declaredNameField(objectDef);
+  if (typeof nameField !== 'string' || nameField === '' || recordDisplayValueAt(row, nameField)) {
+    return getRecordDisplayName(objectDef, row, { fallback });
+  }
+  return getRecordDisplayName(undefined, { id: row.id ?? row._id }, { fallback, deriveFromRecordKeys: false });
+}
 
 export interface BulkActionDialogProps {
   /** The action being executed. */
@@ -475,9 +494,7 @@ export const BulkActionDialog: React.FC<BulkActionDialogProps> = ({
               <ul className="text-xs space-y-1">
                 {previewRows.map((r, i) => (
                   <li key={String(r.id ?? i)} className="break-words">
-                    • {getRecordDisplayName(objectDef, r, {
-                      fallback: t('grid.bulk.rowFallback', { index: i + 1, defaultValue: `Row ${i + 1}` }),
-                    })}
+                    • {affectedRecordName(objectDef, r, t('grid.bulk.rowFallback', { index: i + 1, defaultValue: `Row ${i + 1}` }))}
                   </li>
                 ))}
                 {restCount > 0 && (

@@ -1,0 +1,35 @@
+{
+  "number": 13202,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Home's pending-drafts row names the package as Studio does (objectui#13136)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T09:02:35Z",
+  "updated_at": "2026-10-20T09:32:12Z",
+  "closed_at": "2026-10-20T09:32:10Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T09:32:10Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13202",
+  "body": "Fixes #13136\n\nClause-②: no\n\n## What was wrong\n\nHome's pending-drafts row (\"2 unpublished changes · Visit Created, Visit Readers waiting to publish in com.default.ux-walk-pkg\") named the package its drafts share by its id, where Studio's top bar names the same package \"UX Walk Pkg\".\n\n## Where the id came from (measured against main c209c93)\n\n- `HomeRail.tsx`'s `HomePendingDraftsRow` interpolates whatever `packageName` it is handed into `home.pendingDrafts.inPackage`. The id was handed in by `HomePage.tsx`'s `usePendingDraftsRow`, which passed the drafts' shared `packageId` as `packageName`. So the fix lands in `HomePage.tsx`, the same package (`@object-ui/app-shell`); `HomeRail.tsx` only gets its prop doc.\n- `_drafts` carries no package name: `ListDraftsResponseSchema` in `@objectstack/spec` (`api/protocol.zod.ts` at the pinned `f4755a68a797`) declares `type`, `name`, `member`, `label` (the draft body's own label), `packageId`, `updatedAt` and `updatedBy`.\n- Home held no package data: `useStudioDesignGate`'s module doc says \"no provider holds the package list outside Studio\", and Home calls `useRecentItemLabel()` without a package list.\n- The name Studio shows is `PkgEntry.name` from `fetchPackages()` (`GET /api/v1/packages`): the top bar renders `current?.name ?? packageId`, and `parsePackages` already hands back the id as `name` for a package whose producer declared none.\n\n## The change\n\n- A `usePackageName(packageId)` hook in `HomePage.tsx` reads `fetchPackages()`, the existing Studio read with its in-flight sharing (no new endpoint, no new fetch path), and answers that package's `name`.\n- It reads only while every draft is in one package. `null` sends no request, so a Home with no drafts, or with drafts spread over several packages, reads nothing new.\n- It keys on the id string (AGENTS.md commandment 10) and reads once per id.\n- The id stands in exactly where Studio's top bar shows it: a package with no declared name (through `parsePackages`), a package the list does not carry, and a failed read.\n- Until the list answers for that id, the row names no package (the `home.pendingDrafts.waiting` copy) rather than show the id first.\n- The `home.pendingDrafts.inPackage` key, its `{{package}}` placeholder and every locale's text are unchanged. No export, prop or type member is added.\n\n## Tests\n\n- New `HomePage.pendingDraftsPackageName-13136.test.tsx`. Both reads go over a recording `fetch` double (the real `usePendingDrafts` and the real `fetchPackages`). Six cases: a named package reads its name and never the id; a package with no declared name reads the id; a package the list does not carry reads the id; a 403 on the package read reads the id; no package is named while the list is still on the wire; drafts spread over two packages send no package-list request.\n- `HomePage.myWork-12602.test.tsx`: its \"sits under the My-work heading\" case pinned `[package=studio_test]`, the id this card retires. The file now mocks `fetchPackages` (inheriting the rest of the module), and that case asserts the package's name. By default the mocked list stays on the wire, so the other cases settle nothing they did not ask about.\n\nAblation, one leg, with the fix committed first, through `ablation-replace.mjs` in wrap mode (restore proven: blob equals HEAD and `git diff HEAD` is empty). The row was handed the id again (`packageName={packages.size === 1 && onlyPackage ? onlyPackage : undefined}`). Result: `Tests 3 failed | 18 passed (21)`, exactly the three cases that name the package, each receiving `[package=com.default.ux-walk-pkg]` or `[package=studio_test]`. The three id-fallback cases and the spread case stayed green, as they should.\n\n## Local gates, all on HEAD 7113b82\n\n- `pnpm exec vitest run --reporter=verbose packages/app-shell/src/console/home/`: exit 0, `Test Files 27 passed (27)`, `Tests 176 passed (176)`.\n- `pnpm --filter @object-ui/app-shell type-check` (echoed `tsc --noEmit && tsc -p tsconfig.test.json`): exit 0. `tsc -p tsconfig.test.json --listFilesOnly` lists both touched test files.\n- `node scripts/check-changeset-presence.mjs`: exit 0, \"4 source file(s) of 1 released package(s) changed, and this change declares 1 changeset(s)\".\n- `pnpm check:new-line-citations`: exit 0, \"0 new citation(s)\".\n- `pnpm check:control-bytes`, `pnpm check:vi-mock-inherit`, `pnpm check:vi-mock-specifiers`, `pnpm check:vi-mock-override-shape`: exit 0 each.\n- `pnpm exec eslint --no-inline-config` over the four touched files: exit 0, 0 errors (three `no-explicit-any` warnings, all on lines this PR does not change).\n- Not run locally, left to CI: repo-wide lint and the full test farm. Not owed: the i18n gates (no key and no locale text changed) and the doc gates (no README or `content/docs` fence touched).\n\n## Acceptance notes\n\n- Browser selector for the banner: `[data-testid=\"home-pending-drafts\"]` inside `[data-testid=\"home-my-work\"]`; the text after the middle dot is the `inPackage` or `waiting` detail. This run did no browser reading.\n- The row reads the package list when Home mounts and when the shared package changes. A rename made in Studio shows on the next Home visit, not live.\n- Cost: one `GET /api/v1/packages` per Home visit while drafts share a package. A caller who may read `_drafts` but not the package list gets a 403 there, and the row keeps naming the id, as it does today.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GL347th7aWQUnY2k8diSLG)_\n"
+}

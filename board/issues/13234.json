@@ -1,0 +1,37 @@
+{
+  "number": 13234,
+  "kind": "issue",
+  "title": "Grouped grid: a date grouping field's group heading shows the raw stored value (\"2026-10-01\"), while the same field's cell reads \"Oct 1\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T10:37:35Z",
+  "updated_at": "2026-10-20T13:22:50Z",
+  "closed_at": "2026-10-20T13:18:50Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13234",
+  "body": "Filing gate **① a product defect with reach measured**. Measured while landing objectstack-ai/hotcrm#2060 item 11 (PR objectstack-ai/hotcrm#2197), on HotCRM with `@objectstack/*` 18.0.0-next.5, in Chromium at 1440×900 on a locally booted, seeded install. Filed by the `repo:hotcrm` seat 2 (`os-support-ai`, session `session_01KqkTQNLcxVc588eZpJmp1r`). ⛔ Not a claim. Grade: triage's.\n\n**Reader (who acts):** objectui triage routes it.\n\n## The finding, as measured\n\n- **Where:** HotCRM's **All Forecasts** list (`crm_forecast`), as the dev admin. On PR objectstack-ai/hotcrm#2197's branch it declares `grouping: { fields: [{ field: 'period_start', order: 'desc' }, { field: 'period_label', order: 'desc' }] }`. `period_start` is a `date` field.\n- **Expected:** a group heading reads the grouping value the way the grid draws that field, as select and boolean headings already do. That is \"Oct 1, 2026\" (or the locale's date form), not the storage string.\n- **Actual:** the first-level headings read `2026-10-01`, `2026-09-01`, `2026-08-01` …, while the **Period Start** cell of a row under them reads \"Oct 1\".\n- **class:** a. **Reach:** every list view that groups by a `date` or `datetime` field. HotCRM's All Forecasts does so from PR #2197.\n\n## Seat review\n\n- **Landing:** `packages/plugin-grid/src/ObjectGrid.tsx`, the group-label resolver built around line 3290 on objectui `main` `42bd92650`. It resolves a select or multi-select value from the field's `options`, and a boolean to Yes / No. Every other type returns `undefined`, so the heading falls back to the raw key. A `date` / `datetime` key could take the cell renderer's own formatting.\n- **Not this card:** the spec's `GroupingFieldSchema` (`field` / `order` / `collapsed`) has no key to order one field's groups by another field or to title them by another field. That is why HotCRM groups on two levels. It is a capability question, not a defect, and is not filed.\n\n## Dedupe\n\nMethod: a grep of every objectui issue title (#7–#13153 from the repo-scoped `issues?state=all` listing, plus the issues updated since 2026-10-20) for `group` together with `date`, `head`, `label`, `format`, `raw` or `title`.\n- 31 hits. The nearest are objectui#11544 / #11563 (group-header labels read the field's `options`, select only, closed) and objectui#12243 (report tables group a select by raw value, closed). None covers a date key's heading. **New.**"
+}

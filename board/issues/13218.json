@@ -1,0 +1,36 @@
+{
+  "number": 13218,
+  "kind": "pull_request",
+  "title": "fix(app-shell,i18n): the Pending changes summary agrees each type with its count",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T09:48:57Z",
+  "updated_at": "2026-10-20T10:15:34Z",
+  "closed_at": "2026-10-20T10:15:32Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T10:15:32Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13218",
+  "body": "Fixes #13147\nClause-②: no\n\n## What\n\nThe Studio's Pending changes summary read \"2 items · 2 flow\". Each type segment went through `preview.changes.summaryType` (`{{n}} {{type}}`), which takes the raw metadata type and no `count`, so i18next never chose a plural form.\n\n- `DraftChangesPanel` now builds each segment with `summaryTypeSegment`. A known type reads through its own i18next count family, `preview.changes.typeCount.TYPE`, called with `count`. The keys are spelled out in a static `TYPE_COUNT` table, not built from the type, so no new dynamic key family is added.\n- Known types: object, view, page, dashboard, app, action, report, flow, permission, agent, email_template.\n- A type with no row keeps today's `summaryType` segment with its raw name, unpluralised (ruling 2).\n- Each of the ten packs carries the families in the shape `all-locales-key-parity`, `plural-categories-11432` and `count-families-11445` already enforce. That means a base key plus `_one` / `_other`, `_many` in es, fr and pt, `_few` / `_many` in ru, and all six categories in ar. ja, ko and zh repeat one string across their slots.\n- Every pack keeps its own word order: \"2 flows\" in en, \"流程 2\" in zh, \"Потоки: 2\" in ru, \"تدفقات 2\" in ar.\n- The leading \"N items\" segment is unchanged.\n\n## Tests\n\n- New: `DraftChangesPanel.summaryPlural-13147.test.tsx`. It renders the panel against a real i18next instance and the shipped packs, with no `vi.mock`.\n  - (a) Two flow drafts: \"2 items · 2 flows\".\n  - (b) One flow and three views: \"4 items · 1 flow · 3 views\".\n  - (c) zh, two flows: \"2 项 · 流程 2\".\n  - (d) CONTROL: an unknown type `st_unknown_kind` reads \"2 items · 2 st_unknown_kind\".\n- Updated: the confirm-posture pin in `DraftChangesPanel.posture-12517.test.tsx`. Its stubbed `t()` cannot plural-select, so it now pins the shape: \"3 items\", then one counted segment per type group. The words are pinned by the new file.\n- Targeted run under the shared lock, `--maxWorkers=1`, at `2950dafcb4`: 19 files, 146 passed. The files are the 15 `DraftChangesPanel*.test.tsx` files plus `all-locales-key-parity`, `count-families-11445`, `plural-categories-11432` and `en-zh-key-parity`.\n- Ablation via `ablation-replace.mjs`, with a trap restore. The anchor `summaryTypeSegment(t, type, items.length)` was swapped back to the count-blind `summaryType` call (anchor 1 to 0, blob `cd28897ee045` to `c1b04cca98d0`).\n  - (a) went red: it received \"2 items · 2 flow\".\n  - (b) went red: it received \"4 items · 1 flow · 3 view\".\n  - (c) went red: it received \"2 项 · flow 2\".\n  - The CONTROL (d) stayed green.\n  - The restore was proven by blob hash: after restore `cd28897ee045` equals HEAD's `cd28897ee045`, and `git diff HEAD` is empty.\n\n## Gates (at `2950dafcb4`)\n\n- Closure build `@object-ui/app-shell^...`: exit 0.\n- Type-check: `@object-ui/i18n` and `@object-ui/app-shell` `type-check` exit 0 (`tsc --noEmit` and `tsconfig.test.json`).\n- Lint, narrowed to the 13 changed `.ts` / `.tsx` files (count read from `eslint --format json`): 0 errors, 6 warnings. The same 6 warnings are on `origin/main`'s `DraftChangesPanel.tsx`, shifted by the inserted lines. Type-aware linting is not enabled, so this diff cannot move any untouched file's verdict.\n- Pre-tsc battery: all exit 0. That covers `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `i18n-dead-keys`, plus `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs` and `check-changeset-presence.mjs`.\n- Declared to CI: the full `packages/app-shell/` and `packages/i18n/` test directories.\n\n## Acceptance notes\n\n- The order's ruling 1 says to name the type the way the per-type headings do. On `origin/main` those headings print the raw `type` (uppercased by CSS), not a display name, so there was no display name to reuse. The count families add the display names. The headings themselves are not changed here.\n- The translations follow each pack's existing nouns where the pack has them (the `commandPalette` rows); the rest are new wording a translator may refine.\n\n## Changeset\n\n`.changeset/13147-draft-summary-plural.md`: `@object-ui/app-shell` and `@object-ui/i18n`, `patch`.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

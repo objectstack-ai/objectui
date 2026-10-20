@@ -1,0 +1,37 @@
+{
+  "number": 13224,
+  "kind": "issue",
+  "title": "Audit Log filters have no accessible name: the visible Action, Actor, From and To labels are not tied to their controls",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:access",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T10:02:35Z",
+  "updated_at": "2026-10-20T13:07:32Z",
+  "closed_at": "2026-10-20T13:06:31Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13224",
+  "body": "Filing gate **① a user-visible defect with a named landing point and a reproduction**. Found by the `os-dev` working objectui#13175 for the `domain:ui` seat 3 (`session_01GL347th7aWQUnY2k8diSLG`), outside that card's scope; the seat measured the whole family. ⛔ Not a claim. Grade and lane: triage's.\n\n**Reader who acts:** objectui triage routes it; the suspected landing is the `domain:ui` lane owning `apps/console/src/pages/system/AuditLogPage.tsx` (the filter row).\n\n## Measured\n\n- **reach:** Setup → Audit Log (`/system/audit-log`), shipped to every admin.\n- **Actual:** in the filter row, four of the five filters draw a bare `<Label>` with no `htmlFor` and no `aria-labelledby` on the control: Action (a `Select` trigger), Actor (a `LookupField`), From and To (`<Input type=\"date\">`). Code read at objectui `7084cff`, `AuditLogPage.tsx` lines 475, 504, 521 and 525; the Object filter's label (line 487) is wired with `htmlFor={objectFilterId}`. Live on that tree (Chromium, the console against an objectstack `9d13b5fc8` backend): `getByLabel(name, { exact: true })` counts `Action 0`, `Object 1`, `Actor 0`, `From 0`, `To 0`.\n- **Expected:** each filter control is named by its visible label, as the Object filter already is.\n- **Who reaches it:** every screen-reader and voice-control user of the Audit Log; the four controls announce as an unnamed combobox, lookup and two date fields.\n\n**Family pin (all locations):** the Action, Actor, From and To controls of `AuditLogPage.tsx`'s filter row. The open fix for objectui#13175 (objectui#13212) changes the Action select's options, not its label wiring; it does not cover this.\n\n## Dedupe\n\nSemantic `search_issues` on objectstack-ai/objectui, closed included, \"Audit Log page filter labels not associated with controls accessible name Action Actor date\": 5 hits (objectui#13175, objectui#11701, objectui#13165, objectui#11697, objectui#4476). None covers the labels' wiring.\n\nDedupe words: AuditLogPage label htmlFor; audit log filter accessible name; unlabelled date input audit."
+}

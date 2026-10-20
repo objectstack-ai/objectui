@@ -1,0 +1,35 @@
+{
+  "number": 13247,
+  "kind": "pull_request",
+  "title": "fix(app-shell): flow designer names nodes by label in the last 13 id-named sites (objectui#13242)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T12:00:44Z",
+  "updated_at": "2026-10-20T12:31:41Z",
+  "closed_at": "2026-10-20T12:31:39Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T12:31:39Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13247",
+  "body": "Fixes #13242\nClause-②: no\n\n## What changed\n\nThe flow designer named nodes by id in 13 places that #13200's ledger (`previews/flowNodeLabels.sites-13200.test.ts`) still listed as `open`. 12 of them now use the shared rule, `flowNodeDisplayName` / `flowEdgeDisplayName`. The 13th gets a reasoned verdict. All paths are under `packages/app-shell/src/views/metadata-admin/`.\n\n| # | Site | Now |\n|---|---|---|\n| 1-3 | `FlowCanvas.tsx` edge hover titles (undeclared cycle, back-edge, plain) | each end named by the rule; plain edge = `flowEdgeDisplayName` (`Check budget → Notify team`) |\n| 4 | `FlowSimulatorPanel.tsx` mockable node list | `flowNodeDisplayName(n, locale)` |\n| 5 | `FlowSimulatorPanel.tsx` unguarded edge row | `→ ` + the target's name |\n| 6 | `flow-node-refs.ts` `describeExprSite` | **reasoned verdict `id-path`**, unchanged (see below) |\n| 7 | `flow-problems.ts` `repeatedEdge` | `Connection \"Check budget\" (node_1) → \"Notify team\" (node_2) is repeated; …` |\n| 8 | `flow-sim-validate.ts` `cycleDetected` | names joined by ` → `; an id in parentheses only after a name two distinct nodes of the cycle share |\n| 9 | `flow-sim-validate.ts` `boundaryHostMissing` | `Boundary event \"Timeout guard\" (b1) is attached to node \"gone\", …` |\n| 10 | `flow-simulator.ts` `SimStep.label` | `flowNodeDisplayName({ id, type, label }, locale)` |\n| 11-13 | `FlowNodeInspector.tsx` rename selection label, nested breadcrumb container and node crumbs | `flowNodeDisplayName` |\n\n- **Message templates.** Only `repeatedEdge` and `boundaryHostMissing` change, in both en and zh, and their keys stay. `repeatedEdge` gains `{sourceName}` and `{targetName}`. `boundaryHostMissing` gains `{name}`. `cycleDetected` keeps its template, and only the `{cycle}` value changes.\n- **Boundary-host position.** The `boundary-host` position in `nodeIdPositions` now carries the boundary event (`node`), so the Problem names it at any depth without a second lookup. No export was added or moved, and the resolver's rule is untouched.\n- **Ledger.** The ledger has no `open` verdict any more, and `'open'` is gone from the `Verdict` type. The 14 new `RESOLVER_SITES` entries pin each converted site.\n- **`id-join` shape.** The shape is narrowed to a join straight on a named list (`\\w.join(' → ')`), so the join of the names the rule mapped no longer matches. Its control pins both spellings.\n- **Why site 6 keeps the id.** `describeExprSite` is a locator into the stored flow, written in no language's words (`d › config.conditions[0].expression: …`). Its root is the holder's id followed by a key path. The removal refusal's `nodeId › boundaryConfig.attachedToNodeId` row uses the same shape. It is shown when a node-id rename is refused, so the id is the address. A label, which two nodes may share, would not locate the key.\n\n## Tests (head 17c54000db)\n\n- **New pin `previews/flowNodeLabels-13242.test.tsx`:**\n  - (a) A cycle of labelled nodes reads in order, and a shared label gets its id.\n  - (b) `repeatedEdge` and `boundaryHostMissing` read names with the id.\n  - (c) Edge hover titles read `name → name`, and so does the back-edge.\n  - (d) Simulator steps and the nested breadcrumb read names.\n  - (f) Control: unlabelled nodes fall back to the palette label. Two unlabelled decisions in a cycle keep their ids.\n- **Ledger pin (e).** No entry is `open`. A population control checks that the scan finds 15 sites, 5 of them `own-title`.\n- **Updated neighbours.** These pins expected the id text and now expect the names: `FlowPreview.nodeIdPositions-11838`, `flow-node-refs.renameExprRefs-11838`, `flow-problems.repeatedEdge-11772`, `FlowPreview.removeNode-11772`, `FlowCanvas.skipEdgeRoute-13144`, `FlowSimulatorPanel.test`, `flowFieldChrome.i18n-10862-s4`.\n- **Family runs.** All 109 test files that name a touched module ran under the shared lock with `--maxWorkers=1`, in four parts. All are green: 373, 356, 323 and 290 tests.\n- **Type-check.** `pnpm --filter @object-ui/app-shell type-check` exit 0, after the closure build `--filter '@object-ui/app-shell^...' build` exit 0.\n- **Ablation.** Two sites were pointed back at ids: the cycle join (`{ cycle: cycle.join(' → ') }`) and the plain tooltip. Both mutations went through `ablation-replace.mjs`, and each was confirmed on disk (anchor 1 to 0, blob moved). Result: 9 red out of 45, covering (a) ×2, (c), (f) ×2, the two `RESOLVER_SITES` entries, the id-shaped listing and the no-`open` pin. Restore was proven by blob hash: both files match their HEAD blobs (`aab45291a9ed`, `963c227a8266`) and `git diff HEAD` is empty. The tests import the source directly, so no `dist/` is involved.\n- **Gates.** These all exit 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `check-hand-rolled-comment-mask.mjs` and `check-changeset-fixed.mjs`.\n- **Lint.** `eslint --format json` on the 17 changed app-shell `.ts`/`.tsx` files gives 17 files, 0 errors and 4 warnings. All 4 warnings are on lines this PR does not touch. Type-aware linting is off (no `project`/`projectService` in the resolved config), so this diff cannot change the lint verdict of any untouched file. The full `packages/app-shell/` directory is left to CI.\n\n## Acceptance notes\n\n- **Simulator rows next to a type.** Per the ruling, the mock list and the step timeline read the rule's name. Both rows also show the node's type beside it, so an unlabelled node reads its palette label next to its type: for example `Script` beside `SCRIPT`.\n- **Canvas back-edge title.** The tooltip keeps its `↩` template (`Notify team ↩ Check budget (back-edge)`). Both of its ends are names now.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

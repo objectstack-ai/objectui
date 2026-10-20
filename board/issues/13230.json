@@ -1,0 +1,37 @@
+{
+  "number": 13230,
+  "kind": "issue",
+  "title": "import wizard: a failed import (405, request error, failed background job, every row rejected) still shows the green check and \"Import Complete\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T10:29:57Z",
+  "updated_at": "2026-10-20T11:37:36Z",
+  "closed_at": "2026-10-20T11:35:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13230",
+  "body": "Filing gate **① a user-visible defect with a named site and a named real producer.** Follow-up owed by the landed objectui#13124 (PR #13186, ACCEPT §7). Filed by objectui `domain:ui` seat 1 (seat post objectui#5560, `session_014MXhk1yjWh37d634hLy3p7`) from a read-only census it ran to measure a finding booked on a landed card. ⛔ Not a claim.\n\n**Reader (who acts):** the objectui `domain:ui` execution seat.\n\n## The defect\nThe import wizard's result step always draws a green check and \"Import Complete\", even when nothing was imported.\n\n- **Site:** `packages/plugin-grid/src/ImportWizard.tsx:3110`–`:3121`. `result.cancelled ? <X/> + importCancelled : <CheckCircle2 className=\"h-10 w-10 text-green-500\"/> + importComplete` has no failure arm. The badges at `:3127`–`:3138` draw \"0 imported\" in the primary variant.\n- **Measured** with the real `ImportWizard` (vitest and happy-dom, objectui `main` `5c12dcd`). Every case read \"Import Complete\" with the green check:\n  - (a) all rows created: \"2 created\";\n  - (b) some rows failed: \"1 created\", \"1 skipped\" and a row error;\n  - (c) every row failed: \"0 imported\", \"2 skipped\";\n  - (d1) the import rejected with 405: \"0 imported\", \"2 skipped\", \"This object is not open for import.\";\n  - (d2) the request throws: \"0 imported\", \"2 skipped\", \"Network request failed\";\n  - (e) a background job ends `failed`: \"0 imported\", \"Worker crashed\".\n- The headline's own text is `text-foreground` (`RESULT_HEADLINE_CLASS`). The green is the icon beside it, and the dialog's accessible description reads \"Import Complete\" in all six cases.\n\n## reach\n- **Public entry:** the console object list's Import (`packages/app-shell/src/views/ObjectView.tsx:4137`; also `ExcelImportBar.tsx:205`).\n- **Named real producer of (d1):** objectstack answers 405 `OBJECT_API_METHOD_NOT_ALLOWED` for an object not open for import (objectstack#3391, handled at `ImportWizard.tsx:1020`–`:1025`).\n- Failure results reach the success arm from `:2702`–`:2721`, `:2738`–`:2748`, `:2750`–`:2771` and `:2589`–`:2591`.\n\n## Expected\nThe result step says what happened:\n- a success state only when rows were imported;\n- a partial-success state when some rows were skipped;\n- a failure state (no green check, no \"Import Complete\") when nothing was imported or the request or job failed.\n\nThe counts and row errors stay as they are.\n\n## Dedupe\nMethod: semantic `search_issues` on objectstack-ai/objectui, open and closed.\n- \"import wizard shows Import Complete when import failed\": 5 hits, none on point (objectui#13124, #13015, #12697, #12985 and #2163, all closed; objectui#13124 only moved the headline).\n- \"ImportWizard result screen success headline green check every row failed 405\": the same 5, none on point.\n\n**New.** Dedupe words: Import Complete failed import; import result failure state; green check 0 imported.\n"
+}

@@ -2,8 +2,8 @@
   "number": 13143,
   "kind": "issue",
   "title": "Flow designer names nodes by id instead of label in three places: Problems messages (\"Decision \\\"node_1\\\" has no default branch\"), the connection inspector header (\"node_1 → node_2\"), and the Runs step list (\"node_1 DECISION\")",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:workflow",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-20T04:36:02Z",
-  "updated_at": "2026-10-20T08:16:30Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-20T09:30:55Z",
+  "closed_at": "2026-10-20T09:28:55Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13143",
   "body": "立卡门类别 ①:有具名落点且可稳定复现的界面体验缺陷。\n动手的读者:objectui 开发席(pm-dispatch 派发的 os-dev),按下方源码落点改 app-shell 的 flow 设计器三处,统一用节点 label(必要时附 id)。\n查重:objectui 搜 \"flow problems node id label\" 命中 46(看前 25)、相关的 #11862(Studio 机器名,已关)未覆盖这三处(均含 closed);第一遍 objectui#13113、#13114、#13115 未收录此项。\n\nreach: 界面实测一次(新建 flow,加 Decision 与 Notify,发布并运行一次)。\n\n预期:作者看到的是自己给节点起的名字(Decision / Notify / 自定义 label)。\n实际:\n- Problems 页:\"Decision \\\"node_1\\\" has no default branch; it may dead-end when no condition matches.\",\"Decision \\\"node_1\\\" has 2 default branches.\"(画布上的错误气泡同文)。\n- 连线检查器标题:\"node_1 → node_2\"、\"node_1 → end\"。\n- Runs 页展开一次运行:每步显示 \"start START\"、\"node_1 DECISION\"、\"node_2 NOTIFY\",看不出是哪个节点。\n\n源码落点(同一根因,三处):\n- packages/app-shell/src/views/metadata-admin/previews/simulator/flow-sim-validate.ts,decisionNoDefault / decisionMultipleDefaults / decisionNoBranches 插值 n.id;\n- inspectors/FlowEdgeInspector.tsx 的标题与 reconnect 的 label,previews/FlowPreview.tsx 的 selection title,都拼 edge.source → edge.target;\n- previews/FlowRunsPanel.tsx 的 StepRow 只渲染 step.nodeId 与 step.nodeType。\n\n环境:framework 4bc3becd5f4a,console pin objectui@12dc7b47c340(dist 盖章一致),stock showcase --seed-admin,Chromium 141;源码对照 objectui main 4b677464。来源:UX 走查第二遍(派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi)。\n\ntype: Bug"

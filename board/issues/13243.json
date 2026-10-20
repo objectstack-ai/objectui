@@ -1,0 +1,35 @@
+{
+  "number": 13243,
+  "kind": "pull_request",
+  "title": "fix(app-shell): datasource Test and Sync draw a refusal as a refusal",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T11:35:58Z",
+  "updated_at": "2026-10-20T12:03:53Z",
+  "closed_at": "2026-10-20T12:03:51Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T12:03:51Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13243",
+  "body": "Fixes #13207\nClause-②: no\n\n## What changed\n\n`packages/app-shell/src/views/metadata-admin/datasource/DatasourceResourcePage.tsx`, the Setup → Datasources page:\n\n- **Test.** A test that answers 200 `{ ok: false, error }` now raises `toast.error` with the server's text, as given (`NAME: ERROR`). It used to raise `toast.success` with that text, so a failed probe showed a green check. `ok: true` still raises `toast.success`. A refused request (non-2xx) was already an error toast with the envelope's message and is unchanged.\n- **Sync objects.** When the remote-tables read is refused, the open Sync dialog shows the envelope's message (`role=\"alert\"`, destructive text) instead of \"No remote tables found on this datasource.\". That copy now appears only for a successful read that returns zero tables. The page raises the error toast only when the dialog was closed before the refusal arrived, so an open dialog does not report the refusal twice. `openSync` draws the refusal in the dialog only when that dialog is still open for the same datasource and no later introspection has started since (a name ref kept in step with `syncName`, plus a request counter); otherwise the refusal goes to the toast.\n- No server meaning is mapped: the page shows the message the server sent (the existing `api()` envelope reader, unchanged).\n\nNew test: `DatasourceResourcePage.refusals-13207.test.tsx` pins (a) `ok: false` gives an error toast with the server text and no success toast; (b) CONTROL `ok: true` gives a success toast; (c) a 400 refusal envelope shows its message in the dialog, the empty copy is absent, and no toast is raised; (d) CONTROL zero tables gives the empty copy and no alert; (e) a refusal that arrives after the dialog was closed raises an error toast.\n\nChangeset: `.changeset/13207-datasource-refusals.md`, `@object-ui/app-shell` patch. No export, prop, type member or language-pack key is added.\n\n## Verification (head `f99da16294`)\n\n- Targeted vitest, `pnpm exec vitest run --maxWorkers=1 packages/app-shell/src/views/metadata-admin/datasource/` (the three files that name the page), under the shared lock: `Test Files 3 passed (3)`, `Tests 23 passed (23)`, lock VERDICT command-exit 0.\n- Ablation, with the fix committed: the Test branch put back to `toast.success` for `ok: false`, and the refusal branch put back to `toast.error` plus `setTables([])`. On-disk proof by count of each anchor: fixed lines 1 and 1 before, 0 and 0 after, ablation marker 0 then 2. Result: `Tests 2 failed | 3 passed (5)`, the failures being exactly (a) and (c). Restore by `git checkout HEAD -- PATH` in an EXIT trap; restored blob hash `95a55b9292` equals the HEAD blob, and `git diff HEAD` is empty.\n- Closure build `turbo run build --filter='@object-ui/app-shell^...' --concurrency=2`: exit 0. `@object-ui/app-shell` `type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`): exit 0. The new test is in the test tsconfig's file list (`--listFiles`, one hit).\n- Lint narrowed to the two changed source files, `eslint --no-inline-config --format json`: 2 files, 0 errors, 2 warnings, both on lines this branch does not touch (`no-explicit-any` in `api()`, `set-state-in-effect` on the existing `load()` effect). The repo eslint config enables no type-aware linting (no `parserOptions.project` / `projectService` on the file's printed config), so this diff cannot move the verdict of any untouched file.\n- Pre-tsc battery, each exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`, `check-changeset-presence.mjs`.\n- Declared to CI: the full `packages/app-shell/` vitest directory (not run here; the container's test lock is shared).\n\n## Acceptance notes\n\n- The success path of `openSync` is unchanged: a slow successful read that settles after the dialog was reopened still fills the reopened dialog, as before this change. Only the refusal path gained the counter.\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

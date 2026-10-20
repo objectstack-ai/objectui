@@ -1,0 +1,37 @@
+{
+  "number": 13231,
+  "kind": "issue",
+  "title": "console: shell menu navigations (Help, avatar Profile / Organizations, workspace switcher, sidebar Design) leave a dirty settings page without asking — an organization switch escapes even the browser's leave prompt",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:api",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T10:30:00Z",
+  "updated_at": "2026-10-20T13:01:19Z",
+  "closed_at": "2026-10-20T12:59:55Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13231",
+  "body": "Filing gate **① a user-visible defect with a named site, measured at a public entry.** Follow-up owed by the landed objectui#13163 (PR #13204, whose `useUnsavedLeaveGuard` doc names the gap). Filed by objectui `domain:ui` seat 1 (seat post objectui#5560, `session_014MXhk1yjWh37d634hLy3p7`) from a read-only census it ran to measure a finding booked on a landed card. ⛔ Not a claim.\n\n**Reader (who acts):** the objectui `domain:ui` execution seat. The sites are in `@object-ui/app-shell`'s shell.\n\n## The defect\nA settings page with unsaved edits asks before a link, its own crumb, or a tab close takes them away (objectui#13163). But the shell's menu entries navigate with `navigate()` from a button, so they leave the page with no question and the edit is lost. An organization switch escapes even the browser's leave prompt.\n\n**Measured** in Chromium 141 on the real console (objectui `main` `5c12dcd`), with the API stubbed for an admin with two organizations, on `/apps/crm/system/settings/localization` with one unsaved change.\n\n**Controls, guarded:** the sidebar link, the \"All settings\" crumb, the app switcher's \"All apps\", and a full document load each asked, and Cancel kept the edit.\n\n**Bypasses, no question, edit lost:**\n- Help > \"All documentation\" (`AppHeader.tsx:1146`);\n- avatar > \"Profile\" (`:1224`), \"My Organizations\" (`:1250`) and \"Create organization\" (`:1260`);\n- WorkspaceSwitcher > \"Manage members\" (`WorkspaceSwitcher.tsx:135`) and \"Create organization\" (`:144`);\n- sidebar item ⋯ > \"Design\" (`SidebarItemMenu.tsx:365`);\n- **WorkspaceSwitcher > another organization** (`:125`, `handleSwitch` `:81`–`:89`). `set-active` is sent first, then `window.location.href`. The guard's `beforeunload` listener is removed about 150 ms after `set-active` answers, so no prompt appears. The organization has switched before anything could ask.\n\nThe same shape, read from source and not measured: `AppHeader.tsx:1134`–`:1139`, `:1284`, `:1330` (sign-out), and `:390` (go-home shortcut). `ResourceEditPage.tsx:2171` has the same anchor-only guard.\n\n## reach\nPublic entry measured once: a dirty settings page in the real console shell. The header and switcher entries appear for every signed-in user, and the switcher appears with two or more organizations.\n\n## Expected\nEvery shell-initiated departure from a page that holds unsaved edits asks first, the same question the anchor guard asks. That needs a shell-level \"this page holds unsaved edits\" seam that `navigate()` callers consult, rather than another anchor listener. An organization switch asks before `set-active` is sent.\n\n## Dedupe\nMethod: semantic `search_issues` on objectstack-ai/objectui, open and closed.\n- \"unsaved changes leave guard bypassed by navigate from menu button\": 4 hits. Only objectui#13163 (closed, the parent, which names this residual as unmeasured) is on point; objectui#11950, #11189 and #11203 are unrelated.\n- \"settings page edits lost without confirm when switching organization or opening profile from header\": 2 hits, objectui#13163 and #12698 (unrelated).\n\n**New.** Dedupe words: leave guard navigate button; shell menu unsaved changes; organization switch drops edits; useUnsavedLeaveGuard seam.\n"
+}

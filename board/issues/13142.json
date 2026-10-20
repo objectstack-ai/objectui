@@ -2,8 +2,8 @@
   "number": 13142,
   "kind": "issue",
   "title": "Grid empty state says \"No results found / Try adjusting your filters or search query.\" for an object that simply has no records and no filter",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "baozhoutao"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-20T04:35:59Z",
-  "updated_at": "2026-10-20T05:53:04Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-20T10:52:34Z",
+  "closed_at": "2026-10-20T10:51:22Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13142",
   "body": "立卡门类别 ①:有具名落点且可稳定复现的界面体验缺陷。\n动手的读者:objectui 开发席(pm-dispatch 派发的 os-dev),按下方源码落点改 app-shell / components 的 DataTable 空状态,区分\"没有记录\"与\"被筛空\"。\n查重:objectui 搜 \"Try adjusting your filters\" 命中 0(均含 closed);第一遍 objectui#13113、#13114、#13115 未收录此项。\n\nreach: 界面实测一次(Studio → Interfaces 画布的列表预览,对象刚发布、0 条记录、没有任何筛选或搜索)。\n\n预期:没有记录时说没有记录并给出新建入口(同一对象在 Studio Data 栏显示 \"Nothing here yet / Create your first record to get started.\");只有存在筛选或搜索时才提示调整筛选。\n实际:显示 \"No results found\" 和 \"Try adjusting your filters or search query.\",但并没有筛选可调。\n\n源码落点:packages/components/src/renderers/complex/data-table.tsx 空行(table.noResults / table.noResultsHint),条件只有 paginatedData.length === 0;packages/plugin-grid/src/ObjectGrid.tsx 只在视图声明了 emptyState 时替换它。对照:packages/plugin-list/src/ListEmptyState.tsx 已经按 hasActiveQuery 区分 list.noMatches 与 list.firstRunTitle。\n\n环境:framework 4bc3becd5f4a,console pin objectui@12dc7b47c340(dist 盖章一致),stock showcase --seed-admin,Chromium 141;源码对照 objectui main 4b677464。来源:UX 走查第二遍(派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi)。\n\ntype: Bug"

@@ -1,0 +1,37 @@
+{
+  "number": 13219,
+  "kind": "issue",
+  "title": "DrawerForm opens with focus on the drawer Close button, not the first field (the drawer half of objectui#13130)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:api",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T09:49:29Z",
+  "updated_at": "2026-10-20T11:18:07Z",
+  "closed_at": "2026-10-20T11:16:33Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13219",
+  "body": "Filing gate **① a product defect with a named landing point and a reproduction**. This card carries the **drawer** half of objectui#13130's defect class (a record create/edit form opens with focus on Close); objectui#13130 keeps the modal (`ModalForm`) half and the skip link, in PR objectstack-ai/objectui#13213.\n\n**Reader who acts:** the `domain:ui` seat 3 (`session_01GL347th7aWQUnY2k8diSLG`), as an in-flight derived sub-issue of objectui#13130: it carries that card's lane and grade and is dispatched directly. Filed by that seat from its dev's report on objectui#13130. ⛔ Not a claim.\n\n## Measured\n\n- **Where:** `packages/plugin-form/src/DrawerForm.tsx`, the `SheetContent` it opens (objectui `main` `7d497de`).\n- **reach:** named real producer: the showcase task form view `quick` (`type: 'drawer'`, `examples/app-showcase/src/ui/views/task.view.ts` in objectstack).\n- **Actual:** a probe on the objectui#13130 branch (`7084cff`) rendering `ObjectForm` with `formType: 'drawer'` read `document.activeElement` as the sheet's Close button (`absolute right-4 top-4`) after the body loaded, not the first field.\n- **Expected:** the drawer opens with focus on its first editable field, as the modal form does after objectui#13130.\n- **Why:** `DrawerForm` loads its body after the focus scope mounts, the same async shape objectui#13130 measured in `ModalForm`. The fix is the same `useInitialFieldFocus` pair (`packages/plugin-form/src/initialFieldFocus.ts`, added by PR objectstack-ai/objectui#13213) on `DrawerForm`'s `SheetContent`.\n\n**Blocked-by note:** the pair lands with PR objectstack-ai/objectui#13213; this card's PR builds on it once merged.\n\n## Dedupe\n\nSemantic `search_issues` on objectstack-ai/objectui, closed included, \"DrawerForm drawer form initial focus Close button instead of first field\": 7 hits, all closed (the nearest: objectui#10190, the drawer's editable-while-loading race; objectui#4774 / #4755, field-group parity). None covers initial focus. Control: \"keyboard skip link dialogs focus Close first\" returns objectui#13130.\n\nDedupe words: DrawerForm initial focus Close; drawer form first field focus; SheetContent onOpenAutoFocus."
+}

@@ -2,8 +2,8 @@
   "number": 13140,
   "kind": "issue",
   "title": "Draft preview hint \"Sample data appears once you publish … Publish to load example records\" shows whenever a change is pending, even when the package has no sample data and its records already show",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-support-ai"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-20T04:35:53Z",
-  "updated_at": "2026-10-20T05:51:00Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-20T10:37:30Z",
+  "closed_at": "2026-10-20T10:31:46Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13140",
   "body": "立卡门类别 ①:有具名落点且可稳定复现的界面体验缺陷。\n动手的读者:objectui 开发席(pm-dispatch 派发的 os-dev),按下方源码落点改 app-shell 的 DraftPreviewBar 提示带显示条件或文案。\n查重:objectui 搜 \"Sample data appears\" 命中 0(均含 closed);第一遍 objectui#13113、#13114、#13115 未收录此项。\n\nreach: 界面实测一次。\n\n预期:只有当发布确实会加载示例数据(包里有 seed)、或预览里确实因此为空时,才说 \"Sample data appears once you publish\"。\n实际:一个没有任何 seed、已经发布过、列表里已有 3 条真实记录的包,只要有一处待发布改动(新建了一个 Kanban 视图),预览条下方就出现 \"Sample data appears once you publish / You're previewing your app's structure. Publish to load example records and make it live.\" 和 \"Publish to see it live\" 按钮。看板上的记录就在下面,这句话与屏幕内容矛盾。\n\n复现:Studio 新建包 → 建对象并发布 → 用 API 或表单建几条记录 → 在运行时列表页点 + 新建一个视图(进入 ?preview=draft)。\n\n源码落点:packages/app-shell/src/preview/DraftPreviewBar.tsx,data-testid=\"draft-preview-sample-hint\" 那段,条件只有 !noChanges;文案键 preview.draftBar.sampleDataTitle / sampleDataBody。\n\n环境:framework 4bc3becd5f4a,console pin objectui@12dc7b47c340(dist 盖章一致),stock showcase --seed-admin,Chromium 141;源码对照 objectui main 4b677464。来源:UX 走查第二遍(派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi)。\n\ntype: Bug"

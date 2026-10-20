@@ -1,0 +1,36 @@
+{
+  "number": 13237,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): the import result screen says what happened — success, partial or failed",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: i18n",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T11:00:47Z",
+  "updated_at": "2026-10-20T11:35:55Z",
+  "closed_at": "2026-10-20T11:35:53Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T11:35:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13237",
+  "body": "Fixes #13230\nClause-②: no\n\n## What changed\n\nThe import wizard's result step had a cancelled arm and a success arm only, so every non-cancelled result drew the green check and \"Import Complete\". It now reads the outcome from the result it already holds:\n\n| Outcome | When | Icon | Headline |\n|---|---|---|---|\n| Success | at least one row imported, nothing skipped or errored | green check (unchanged) | \"Import Complete\" (unchanged) |\n| Partial | at least one row imported, at least one skipped or errored | `AlertCircle`, `text-muted-foreground` (neutral) | \"Import finished with errors\" |\n| Failed | zero rows imported, or the background job ended `failed` | `XCircle`, `text-destructive` | \"Import failed\" |\n| Cancelled | the user cancelled the job | unchanged | unchanged |\n\n- The headline is one `DialogDescription` with `RESULT_HEADLINE_CLASS`, so the dialog's accessible description reads the outcome's headline in every state.\n- In the Failed state the \"0 imported\" badge uses the `outline` variant instead of the primary one. The counts and row errors are unchanged, and how the result is computed is unchanged.\n- New copy: `grid.import.importPartial` and `grid.import.importFailed`, in `IMPORT_DEFAULT_TRANSLATIONS` and in all ten locales.\n- Changeset `.changeset/13230-import-result-state.md` (`@object-ui/plugin-grid`, `@object-ui/i18n`, patch).\n\n## Acceptance notes\n\n- **The result does not carry the job status or the request error.** `ImportResult` has `importedRows`, `skippedRows`, `errors`, `createdRows`/`updatedRows` and `cancelled`, but no job-status or request-error field. Every request-failure path (405, thrown request) and the every-row-rejected case publish `importedRows: 0`, so the count alone classifies them. For a background job that ends `failed`, the step also reads the finished job's status (`finishedJob.status`). The wizard publishes that state together with the result, and every new run clears it. Without it, a worker that crashed after committing a row would read Partial, not Failed. The result's shape and computation are untouched.\n- **A deliberately skipped row reads Partial.** The ruling's Success needs \"nothing skipped\", and `skippedRows` counts both `ok: true, action: skipped` rows (for example, an update with no matching record) and rejected rows. So the 13124 pin's \"1 created, 1 skipped\" fixture now reads \"Import finished with errors\". That test's expected key moved from `importComplete` to `importPartial`. What it pins (the result headline is the dialog's description) is unchanged.\n- **Warning token.** The wizard has no warning design token today. Its warning surfaces use the raw amber palette. Per the ruling's \"neutral or warning\", Partial uses the neutral `text-muted-foreground` the wizard already uses, and no raw palette colour is added.\n\n## Verification (head `f8f81e0e23`)\n\n- New pins `packages/plugin-grid/src/ImportWizard.resultOutcome-13230.test.tsx`: (a) Success; (b) Partial; (c) Failed and the \"0 imported\" badge is not `bg-primary`; (d1) 405 refused reads Failed and the refusal message still shows; (d2) a thrown request reads Failed; (e) a failed job reads Failed, including one that committed a row first; CONTROL: cancelled still reads \"Import cancelled\". Each asserts the headline, that \"Import Complete\" is absent where it does not apply, and the accessible description. 8/8 pass; with the 13124 file, `Test Files 2 passed (2) · Tests 11 passed (11)`.\n- **Ablation** (via `scripts/ablation-replace.mjs`, which needs the anchor to hit and checks the result on disk). The `failed` line of the outcome function is replaced with `return 'success'`. Result: (b), (c), (d1), (d2) and both (e) cases fail; (a) and CONTROL still pass (`Tests 6 failed | 2 passed (8)`). Restore was checked by blob hash: the blob after restore equals the HEAD blob `c2d97a9e4e69`, and `git diff HEAD` is empty. The first attempt was a no-op: the tool refused it before running anything, because the replacement contained its own anchor. It was rerun with a new anchor.\n- Families naming the touched files: every plugin-grid test that names `ImportWizard` (`Test Files 25 passed (25) · Tests 173 passed (173)`), and every i18n test that names `locales` or `grid.import` (`Test Files 60 passed (60) · Tests 1075 passed (1075)`). The full `packages/plugin-grid/` and `packages/i18n/` directories are left to CI.\n- `type-check` for `@object-ui/i18n` and `@object-ui/plugin-grid`, after a closure build (`--filter '@object-ui/plugin-grid^...'`): exit 0. `--listFilesOnly` confirms that the test project compiles both test files.\n- `eslint --no-inline-config` on the 13 changed `.ts`/`.tsx` files (count from `--format json`): 0 errors. The 9 warnings are all on unchanged lines of `ImportWizard.tsx`. Type-aware linting is not enabled in `eslint.config.js`, so this diff cannot change any verdict on an untouched file.\n- Pre-tsc battery: phantom-deps, self-import, unreferenced-sources, doc-example-readers, handler-key-reads, side-effects-array, element-data-source-declaration, spec-symbols, action-forward-parity, designer-field-key-parity, icon-record-names, i18n-keys, i18n-drift, i18n-designer-parity, control-bytes, hand-rolled-comment-mask, changeset-fixed, changeset-presence and new-line-citations all exit 0. `check:spec-floors` exits 1 with `no-artifact` because the workspace is unbuilt. That is the known state on main, recorded and not fixed.\n\nThe PM-loop dispatch session for this run is `session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

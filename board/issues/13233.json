@@ -1,0 +1,36 @@
+{
+  "number": 13233,
+  "kind": "pull_request",
+  "title": "fix(app-shell,i18n): word the stored_expression strip reason ahead of the spec pin (objectui#13178)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T10:35:42Z",
+  "updated_at": "2026-10-20T11:02:12Z",
+  "closed_at": "2026-10-20T11:02:09Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T11:02:09Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13233",
+  "body": "Fixes #13178\nClause-②: no\n\n## What\n\nobjectstack-ai/objectstack#24778 (draft) adds a fifth arm, `stored_expression`, to `DroppedFieldsEvent['reason']`: a stored field whose declared expression the engine computes on every write keeps the computed value, not the one the caller sent (the field IS written, unlike `computed`). `STRIPPED_LINE` in `packages/app-shell/src/providers/writeWarningToast.ts` is keyed by that union, so the objectstack Console Pin Gate, which builds the pinned objectui against objectstack's own spec, would fail on a missing key once #24778 lands. This lands the row first, in the objectui#11206 shape.\n\n- `STRIPPED_LINE`'s key type is a `Record` keyed by `DroppedFieldsEvent['reason'] | 'stored_expression'`. Against the published pin (which does not declare the arm) the required key set is the pin's four plus the literal; against #24778's spec it is the five it declares. No excess-key error on either side, and the next arm upstream adds is still a missing key here. The docblock records why, and the tripwire: delete the widening at the pin bump that declares the value.\n- One row, `stored_expression`, through a new key `detail.writeStrippedStoredExpression` with `{{fields}}`. English: \"Computed from the record, so the computed value was saved instead of the one sent: FIELDS\". A real translation in all ten packs under `packages/i18n/src/locales/`, never \"read-only\".\n- Changeset `.changeset/13178-stripped-stored-expression.md`: `@object-ui/app-shell` and `@object-ui/i18n` patch.\n\n## Pins (`writeWarningToast.test.ts`)\n\n- (a) New case `words reason stored_expression as a computed value saved in place of the one sent, in en and zh (objectui#13178)`. It drives `emitWriteWarning` through a real `createI18n` instance in `en` and in `zh` (zh catalogue loaded with `loadBuiltInLocale`), asserts the key `detail.writeStrippedStoredExpression` was asked for, and asserts both full lines with the field labels.\n- (b) The #3935 test `gives every reason the pinned spec declares its own wording` stays green against today's pin. It now drives the installed spec's reasons plus `stored_expression`, because today's pin does not declare it.\n- (c) CONTROL: `names the fields and claims no cause for a reason ahead of the spec pin (#3935)` is unchanged and green. An undeclared value still takes the skew arm.\n- Tripwire, the objectui#11206 shape: `reminds the pin bump that carries stored_expression to retire the widening (objectui#13178)` asserts the installed spec does not declare `stored_expression`. When it does, the message names both edits: delete `| 'stored_expression'`, and make `_ReasonIsTheEnum` in `spec-symbol-batch6.test.ts` the five-member union.\n\n## Ablation (one-shot, nothing kept)\n\nThe fix was committed first (`fbb8c133e4`). `node scripts/ablation-replace.mjs` (objectstack checkout) renamed the row's key `stored_expression` to `stored_expression_ablated`, keeping the widened type, so the table's lookup misses. Anchor 1 to 0, blob `5e4d1f9dd772` to `c1abca187de5`. The run was `writeWarningToast.test.ts` under the lock: `Tests 2 failed | 19 passed (21)`. The two that failed were (a) and (b); (c) stayed green. The restore was `git checkout HEAD -- PATH` under an EXIT/INT/TERM trap. Proof: `git hash-object` after restore = `5e4d1f9dd772f1ccdc6c21c37fcb3f847530a0e3` = the HEAD blob, and `git diff HEAD` is empty.\n\n## Tests and gates (head `fbb8c133e4`, worktree root, exit captured before any pipe)\n\n- `pnpm exec vitest run --maxWorkers=1` over `writeWarningToast.test.ts` and `saveAdvisoryToast.test.ts` (the files naming the module): 2 files, 37 tests passed.\n- The same over the i18n locale families that read every pack: `all-locales-key-parity`, `en-zh-key-parity`, `de-quote-pairing-3876`, `ar-participle-orthography-6610`, `ellipsis-glyph-3878`, `fallback-placeholder-spelling-3512` and `machineLocaleCensus-9909`. Result: 7 files, 93 tests passed.\n- `pnpm --filter '@object-ui/app-shell^...' build` exit 0. Then `pnpm --filter @object-ui/app-shell --filter @object-ui/i18n run type-check` exit 0. Both scripts run `tsc --noEmit && tsc -p tsconfig.test.json`. `tsc -p tsconfig.test.json --listFilesOnly` lists `writeWarningToast.test.ts`.\n- ESLint, `--no-inline-config --format json`, over the 12 changed `.ts` files: exit 0, 0 errors, 0 warnings, 12 files in the JSON. `eslint.config.js` enables no type-aware linting, so this diff cannot change the verdict on any file it does not touch. The repo-wide `pnpm lint` runs in CI.\n- These exited 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `check:new-line-citations`, `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs` and `scripts/check-changeset-presence.mjs`.\n- `check:spec-floors`: NOT MEASURED. It exited 1 with `no-artifact`, because it needs a whole-workspace build, which was not run here.\n- Full package directories `packages/app-shell/` and `packages/i18n/` are left to CI. Only the files above ran here.\n\n## Acceptance notes\n\n- **Where the card's two failures surface.** The objectstack Console Pin Gate (`scripts/build-console.sh`) only runs builds: the console dependency closure, then the console. So the missing key is a type error in the app-shell `tsc` build, and that is what this unblocks. The #3935 test and `_ReasonIsTheEnum` (`packages/data-objectstack/src/spec-symbol-batch6.test.ts`, a type-level pin of the exact union) are not reached by that gate. Both go red only on objectui's own spec bump to a release that declares the arm. At that bump, the tripwire above names both edits. `spec-symbol-batch6.test.ts` is outside this claim's file surface and is not touched.\n- **When a user first sees the sentence.** The adapter judges a reported reason against the installed spec's enum. Until the pin declares `stored_expression`, such a report from a newer server is still shown on the skew arm: \"Not applied by the server: FIELDS\". The changeset says so.\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

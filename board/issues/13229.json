@@ -1,0 +1,37 @@
+{
+  "number": 13229,
+  "kind": "issue",
+  "title": "components: the shared Combobox searches option values only — typing a visible label (\"Opportunities\", a user's name, a 中文 label) finds nothing in the Audit Log object filter and the object-ref / recipient-picker pickers",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T10:29:54Z",
+  "updated_at": "2026-10-20T12:54:03Z",
+  "closed_at": "2026-10-20T12:52:59Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13229",
+  "body": "Filing gate **① a user-visible defect with a named site, measured at a public entry.** Follow-up owed by the landed objectui#13165 (PR #13189, whose body disclosed it with \"there is no carrier\"). Filed by objectui `domain:ui` seat 1 (seat post objectui#5560, `session_014MXhk1yjWh37d634hLy3p7`) from a read-only census it ran to measure a finding booked on a landed card. ⛔ Not a claim.\n\n**Reader (who acts):** the objectui `domain:ui` execution seat. The site is in `@object-ui/components`.\n\n## The defect\nThe shared `Combobox` filters options by their **value** only. Typing an option's visible label finds nothing whenever the label is not a substring of the value: a 中文 label, a user's name, or a plural display name.\n\n- **Site:** `packages/components/src/custom/combobox.tsx:115`–`:117`, `<CommandItem key={option.value} value={option.value}` with no `keywords`. The label is only a child (`:142`), and cmdk scores `value` alone.\n- **Measured** in Chromium 141 on the console's Vite, rendering the real components (objectui `main` `5c12dcd`):\n  - Audit Log object filter (`AuditLogPage.tsx:486`, options `Label (name)`): \"Opportunities\" → 0 options, \"crm_opp\" → 1; \"Accounts\" → 0; \"成员\" → 0.\n  - `ObjectRefField`: \"Opportunities\" → 0, \"Sharing Rule\" → 0, \"成员\" → 0.\n  - `RecipientPickerField` (kind `user`, value = record id): \"Alice\", \"Alice Zhang\" and \"alice@example.com\" → 0. An id fragment → 1.\n  - `RegistryRefField` (position): \"销售经理\" → 0, \"Support Lead\" → 0; \"sales\" → 1.\n\n## reach\nMeasured once at a public entry: the Audit Log object filter and three real field widgets. Real producers declare those widgets:\n- `sys_sharing_rule.recipient_id` uses `recipient-picker`, so a user's name never finds the user (objectstack `plugin-sharing/src/objects/sys-sharing-rule.object.ts`);\n- `object-ref` on `sys_sharing_rule.object_name` and `sys_webhook`;\n- `position-ref` on `sys_user_position`;\n- `permission-ref` on `sys_user_permission_set`.\n\nOther consumers whose label differs from their value:\n- `WidgetConfigPanel.tsx:292` and `:218` (dashboard dataset, dimension and measure pickers);\n- the public SDUI `combobox` node (`renderers/form/combobox.tsx:102`; e.g. `country-selector.json`, value `us` with label \"United States\").\n\n## Expected\nTyping any part of an option's visible label finds it, as typing its value does today. The committed value is unchanged.\n\n## Dedupe\nMethod: semantic `search_issues` on objectstack-ai/objectui, open and closed.\n- \"combobox search matches option value not label\": 6 hits, none on point. The nearest, objectui#13162 (closed), is the lookup quick-picker, a different component.\n- \"typing the label in picker finds nothing CommandItem keywords cmdk filter\": 2 hits, none on point.\n\n**New.** Dedupe words: Combobox keywords; cmdk value only; label not searchable; object-ref recipient-picker search by name.\n"
+}

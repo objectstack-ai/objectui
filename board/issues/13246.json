@@ -1,0 +1,37 @@
+{
+  "number": 13246,
+  "kind": "issue",
+  "title": "Opening a collapsed form group the first time drops keyboard focus to the dialog: ModalForm's body-wide Suspense unmounts the section header while the group's field widgets load",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T11:51:53Z",
+  "updated_at": "2026-10-20T13:32:44Z",
+  "closed_at": "2026-10-20T13:31:28Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13246",
+  "body": "Filing gate **① a user-visible defect with a named landing point and a reproduction**. A derived sub-issue of objectui#13220 (in flight with the `domain:ui` seat 3, `session_01GL347th7aWQUnY2k8diSLG`, PR objectstack-ai/objectui#13244): it carries that card's lane and grade and is dispatched by this seat after that PR lands. Measured by the seat during that PR's live reading. ⛔ Not a claim.\n\nBlocked-by: #13220\n\n## Measured\n\n- **reach:** named real producer: the showcase `showcase_semantic_zoo` Create dialog, field group `money` (`collapse: 'collapsed'`; `examples/app-showcase/src/data/objects/semantic-zoo.object.ts` in objectstack). Console at objectui `cc91445` (PR objectstack-ai/objectui#13244's head, which makes the header a tab stop), objectstack showcase backend at `9d13b5fc8`, Chromium 1440x900, vite started fresh on that tree.\n- **Steps:** Showcase → Semantic Zoo → New; Tab from the first field until the \"Money\" header holds focus; press Enter.\n- **Actual:** the group opens (`amount` and `budget` appear, `aria-expanded=\"true\"`), but focus is now on the dialog's own `role=\"dialog\"` element, not the header. The next Tab starts again at the dialog's first field (`status`). Every later toggle keeps focus on the header: Space closes the group with focus on the header, Enter opens it again with focus on the header, and the next Tab lands on `amount`.\n- **Why (read from source, not instrumented):** `packages/plugin-form/src/ModalForm.tsx` wraps the whole form body in one `<Suspense fallback={<ModalFormBodyPending />}>` (both arms). The first expansion mounts the group's field widgets, which are `React.lazy`; the body suspends, the fallback replaces it, the header unmounts with it, and Radix's focus scope moves focus to the dialog. Once the widget chunks are loaded nothing suspends, which is why only the first toggle loses focus. `DrawerForm.tsx` may share the shape: not measured.\n- **Expected:** opening a group keeps focus on its header, as every later toggle already does; the next Tab reaches the group's first field.\n- **Who reaches it:** every keyboard user opening a collapsed group whose widgets are not yet loaded, the first time in a page session (the keyboard path exists once objectui#13220 lands).\n\n## Dedupe\n\nSemantic `search_issues` on objectstack-ai/objectui, closed included, \"expanding collapsed form section loses focus Suspense remount lazy field widgets ModalForm body fallback\": 13 hits. The nearest is objectui#12559 (closed): a click on a collapsed header remounted the whole dialog and the section stayed collapsed. Its fix keeps the dialog mounted; this card is the body's fallback still unmounting the header and its focus. None of the others covers focus.\n\nDedupe words: section header focus lost on first expand; ModalForm body Suspense fallback unmounts header; collapsed group lazy widget suspend focus."
+}

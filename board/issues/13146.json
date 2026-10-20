@@ -2,8 +2,8 @@
   "number": 13146,
   "kind": "issue",
   "title": "Settings pages: a refused save shows the server message verbatim in the toast — namespace and field keys plus the word \"incomplete\" (\"Settings for 'localization' are incomplete: timezone — …\"), and for Authentication the whole help paragraph",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:api",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-support-ai"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-20T04:36:11Z",
-  "updated_at": "2026-10-20T05:55:06Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-20T10:47:31Z",
+  "closed_at": "2026-10-20T10:46:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13146",
   "body": "立卡门类别 ①:有具名落点且可稳定复现的界面体验缺陷。\n动手的读者:objectui 开发席(pm-dispatch 派发的 os-dev),按下方源码落点改 app-shell 外的 apps/console 设置页 onSave 的错误 toast。\n查重:objectui 搜 \"are incomplete\" 命中 0、\"settings toast server message\" 无同题(均含 closed);第一遍 objectui#13113、#13114、#13115 未收录此项。\n\nreach: 界面实测两次(Localization 填 Mars/Olympus;Authentication 改 Key policy started at)。\n\n预期:字段下方已经有可读的错误,toast 用产品语言概括(\"1 setting needs attention: Default timezone\"),不出现 namespace 与字段机器名;值不合法时不说 \"incomplete\"。\n实际:\n- Localization:toast \"Settings for 'localization' are incomplete: timezone — Default timezone must be a valid IANA time zone identifier, e.g. Europe/Zurich (got \"Mars/Olympus\")\"。\n- Authentication:toast 是 \"Settings for 'auth' are incomplete: api_key_policy_started_at — Key policy started at does not match the expected format. Recorded automatically (UTC, ISO 8601) the first time …\" 一整段帮助文字。\n\n源码落点:apps/console/src/pages/settings/SettingsView.tsx 的 onSave,通用分支 toast.error(err?.message ?? …),而 extractFieldErrors 已拿到带 label 的 fields[]。服务端句子出自 objectstack packages/services/service-settings/src/settings-service.types.ts 的 SettingsValidationError(该类注释已说明 fields 带 label 与 constraint,供表单自行组句)。\n\n环境:framework 4bc3becd5f4a,console pin objectui@12dc7b47c340(dist 盖章一致),stock showcase --seed-admin,Chromium 141;源码对照 objectui main 4b677464。来源:UX 走查第二遍(派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi)。\n\ntype: Bug"

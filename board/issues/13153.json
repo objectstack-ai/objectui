@@ -1,9 +1,9 @@
 {
   "number": 13153,
   "kind": "issue",
-  "title": "Console: a member following a deep link into a Setup sub-page — detail withheld pending maintainer",
-  "state": "open",
-  "state_reason": null,
+  "title": "decision: a member who types a Setup sub-page address sees it inside another app's frame — gate the whole Setup subtree (and move member pages out first), keep a member-route list, or leave it (A/B/C)",
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,19 +13,22 @@
   "labels": [
     "area:access",
     "bug",
-    "domain:ui",
-    "pm:awaiting-maintainer"
+    "domain:ui"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-20T04:36:32Z",
-  "updated_at": "2026-10-20T05:58:46Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-20T10:55:46Z",
+  "closed_at": "2026-10-20T10:54:09Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13153",
-  "body": "立卡门类别 ①:有具名落点且可稳定复现的界面体验缺陷。\n动手的读者:objectui 开发席,待维护者看过复现后定落点。\n查重:objectui 搜 \"access denied capability setup\" 无同题(均含 closed);第一遍 objectui#13113、#13114、#13115 未收录此项。\n\n位置:console 对 /apps/setup 下子路由的应用访问处理,以及 apps/console/src/pages/settings/SettingsView.tsx 拒绝时的错误呈现。\n\ndetail withheld pending maintainer。复现已发给派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi。\n\n环境:framework 4bc3becd5f4a,console pin objectui@12dc7b47c340(dist 盖章一致),stock showcase --seed-admin,Chromium 141;源码对照 objectui main 4b677464。来源:UX 走查第二遍(派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi)。\n\ntype: Bug"
+  "body": "Ruled: 6289263031 · letter A · 2026-10-20T10:55Z\n\n## 维护者速读\n\n没有 Setup 权限的成员，直接在地址栏输入 Setup 的子页面（比如设置里的「邮件」，或用户列表），页面会套在别的应用外壳里显示：设置页只露出一行红字「Access denied…」，用户列表照常列出本组织的同事。服务端权限是守住的，没有越权数据外泄；问题在于控制台的「应用门」只挡了 Setup 的首页和元数据页。\n\n没挡整个 Setup，是因为成员本来就要用三个挂在 Setup 路径下的页面：自己的审批收件箱、个人资料、从审批里打开的记录。整块挡住，会把他们挡在自己的审批外面。objectui#12706 当时就把这一点留给您定。\n\n三个选项：\n- **A**：维持现状，不改。\n- **B**：整个 Setup 都挡，控制台另维护一份「成员可进的页面」白名单。改一个 PR 就能好，但以后在 Setup 下新增成员页面，每次都要记得加进白名单。\n- **C（推荐）**：先把成员要用的页面（审批收件箱、个人资料、记录链接）挪出 Setup 路径，再用一条规则挡住整个 Setup，不留例外。需要 2～3 个 PR，全在 objectui 内。这也是主流平台的做法：Salesforce 的 Setup 只给管理员，「待我审批」放在用户自己的主页。\n\n选 A、B 还是 C？\n\nos-decision-facets\n- ① 项目长远合理性：C 把「整个应用按应用的访问裁决把门」收敛成一条无例外规则；B 在控制台新增第二套访问名单（特例增生）；A 保留现状特例。\n- ② 实际业务拉动：今天撞上的是手输 Setup 子页地址的成员（UX 走查实测），没有生产者把成员链进其余子树；拉动低，只影响时序不翻字母。\n- ③ 防 AI 犯错：C 之后新页面默认受 Setup 裁决（响亮拒绝）；B 的名单漏登记即静默锁人或静默放行，AI 加页面时最易漏；A 继续在错的外壳里渲染。\n- ④ 创业阶段不扩散：C 不新增任何声明面或名单，只搬路由；B 新增一份需永久维护的名单。\n\nPrior rulings read: \"Setup app access gate subtree member approvals inbox under setup segment\" → 11 hits; objectui#12706 (closed, the subtree question explicitly left open), objectui#12438 ruling C (the inbox opens the served `sys_approval_request` page); ADR-0124 D1; thread: 6220857048.\n\nGoverning text: `packages/app-shell/src/console/AppContent.tsx`, the comment above `appSurfaceAwaitsVerdict`: \"whether they wait on Setup's verdict is a product decision, left open on objectui#12706\". ADR-0124 D1: the console's app gate is a courtesy layer, and the server holds every read. No spec or protocol surface changes under any option.\n\n### Options, effort and the recommendation\n\n| | What is done | Effort |\n|:--|:--|:--|\n| **A** | Stop at today's gate (Setup's root and metadata pages). | none |\n| **B** | Gate every `/apps/setup/*` route on Setup's verdict, except a console list of member routes. | objectui `domain:ui` · 1 PR · precedent PR #12739 (+758 / −64) |\n| **C** | Move the member pages off the Setup segment at their producers (`SystemRedirect`, `ConsoleShell.tsx:506`, for `/system/approvals` and `/system/profile`; `ApprovalsInboxPage`'s `recordHref`, `:1045`, which falls back to `setup`), then gate the whole Setup subtree with one rule. | objectui `domain:ui` · 2–3 PRs · the gate half per #12739; the route move has no precedent |\n\n**Recommendation: C**. The seat's full analysis, with the confidence gap, the self-check and the after-ruling steps, is comment `6288742485`.\n- **After C:** the seat files the route-move card, dispatches it, and keeps this card as the gate half, serial behind it.\n- **After B:** this card is dispatched as one PR on #12739's pattern.\n- **After A:** this card is closed `not_planned`.\n\nDecision card converted by objectui `domain:ui` seat 1 (`session_014MXhk1yjWh37d634hLy3p7`) at the maintainer's 「13153 转决策卡」. The original finding follows, unchanged.\n\n---\n\n## Original finding (as filed)\n\n立卡门类别 ①:有具名落点且可稳定复现的界面体验缺陷。\n动手的读者:objectui 开发席,待维护者看过复现后定落点。\n查重:objectui 搜 \"access denied capability setup\" 无同题(均含 closed);第一遍 objectui#13113、#13114、#13115 未收录此项。\n\n位置:console 对 /apps/setup 下子路由的应用访问处理,以及 apps/console/src/pages/settings/SettingsView.tsx 拒绝时的错误呈现。\n\ndetail withheld pending maintainer。复现已发给派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi。\n\n环境:framework 4bc3becd5f4a,console pin objectui@12dc7b47c340(dist 盖章一致),stock showcase --seed-admin,Chromium 141;源码对照 objectui main 4b677464。来源:UX 走查第二遍(派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi)。\n\ntype: Bug\n\n"
 }

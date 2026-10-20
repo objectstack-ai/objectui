@@ -1,0 +1,35 @@
+{
+  "number": 13256,
+  "kind": "pull_request",
+  "title": "fix(console): Audit Log filter labels name their controls (objectui#13224)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T12:41:49Z",
+  "updated_at": "2026-10-20T13:06:32Z",
+  "closed_at": "2026-10-20T13:06:30Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T13:06:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13256",
+  "body": "Fixes #13224\n\nClause-②: no\n\n## What changed\n\nIn the Audit Log filter row (`apps/console/src/pages/system/AuditLogPage.tsx`), the Action, Actor, From and To labels named nothing. Each label now names its control's own `id` through `htmlFor`, the way the Object filter's label already did (`htmlFor={objectFilterId}`):\n\n| Filter | Control that now carries the `id` |\n|---|---|\n| Action | the Radix `SelectTrigger`, a button and so a labelable element |\n| Actor | the `LookupField` trigger `Button`: `id` is declared in the DOM pass-through block of `FieldWidgetComponentProps` and forwarded by `toDomProps` |\n| From / To | the two date `Input`s |\n\nFour `useId()` ids sit beside the filter state, next to `objectFilterId`. The filters' options, the query they send, and the classes and DOM structure of the row are unchanged.\n\n## Mechanism hypotheses, measured\n\n- **H1 (producer): confirmed.** Each of the four was a bare `Label` over a control with no `id` and no `aria-labelledby`. Id plumbing per control:\n  - `SelectTrigger` spreads its props onto `SelectPrimitive.Trigger`, so `id` reaches the button. Radix puts `aria-labelledby` only on groups and item text, never on the trigger.\n  - `LookupField` forwards `id` (listed in `DOM_PASS_THROUGH_KEYS`, `toDomProps.ts`) onto its trigger `Button`, the one element both of its render paths mount (the classic popover and the search-first `PeoplePicker`). It does not forward `aria-labelledby`, so `id` is its only labelling route.\n  - `Input` spreads `id` onto the native input.\n- **H2 (fix shape): confirmed, the `id` route for all four.** No control needed `aria-labelledby`, and `@object-ui/fields` is untouched, so no published prop was added.\n- **H3 (controls): held.** The five existing `AuditLogPage*` suites, which pin the queries the filters send, stay green. The new suite's second and third tests drive the Action select and the two date fields found **by their labels** and assert the same `action` and `created_at` filters as before. Visual layout: the diff adds only `id` and `htmlFor` attributes; it was not measured in a browser.\n- **H4 (acceptance): met, with the ablation below.**\n\n## Tests\n\nNew: `AuditLogPage.filterLabels-13224.test.tsx`\n- Action, Object, Actor, From and To each name exactly one control (`queryAllByLabelText(label, { exact: true })` has length 1), and it is that filter's own control: the Action select's trigger, the Object combobox, the Actor lookup's trigger (`lookup-trigger-user_id`) and two `type=\"date\"` inputs, five distinct elements. The role queries by accessible name (`combobox` Action and Object, `button` Actor) resolve to the same elements.\n- The Action control found by its label drives the `action` filter, and the From and To fields found by their labels drive `created_at` `$gte` and `$lte`.\n\nRun at HEAD `a00e6154f`, clean tree, under the shared verify lock: `pnpm exec vitest run apps/console/src/pages/system/AuditLogPage apps/console/src/pages/system/auditLogActions.test.ts` gave `Test Files 7 passed (7)` and `Tests 42 passed (42)`.\n\n**Ablation (fix reverted, test kept)**, after committing the fix as `5bf9258e4`: objectstack's `scripts/ablation-replace.mjs` replaced the filter-row region with its `878a4af38` text (anchor 1 to 0, blob `3d71fbd1744b` to `3f69af83817c`) and ran the new suite. Result: `Tests 3 failed (3)`. Each test failed with `the \"Action\" label names exactly one control: expected [] to have a length of 1 but got +0`, except the date test, which failed on the From label. Restore proven: blob equals HEAD (`3d71fbd1744b`) and `git diff HEAD` is empty.\n\n## Gates (local, at `a00e6154f`)\n\nEach exit code was captured before any pipe.\n- `pnpm --filter @object-ui/console lint`: exit 0 (0 errors).\n- `pnpm --filter @object-ui/console type-check`: exit 0. `tsc --listFiles` lists the new test file once, so the run covers it. The `@object-ui/console` dependency closure was built first.\n- Changeset and citation gates, all exit 0:\n  - `node scripts/check-changeset-presence.mjs`: \"2 source file(s) of 1 released package(s) changed, and this change declares 1 changeset(s)\".\n  - `node scripts/check-changeset-no-major.mjs`.\n  - `pnpm check:new-line-citations`: \"0 new citation(s)\".\n  - `pnpm check:control-bytes`.\n- Hand-derived families that read this diff, all exit 0: `check:vi-mock-specifiers`, `check:vi-mock-inherit`, `check:vi-mock-override-shape`, `check:test-path-roots`, `check:changeset-claims`, `check:pending-changeset-literals`, `check:i18n-keys`, `check:shell-escape-residue`, `check:unreferenced-sources` and `check:handler-key-reads`.\n- `node scripts/check-governed-queue-guard.mjs --test` on the three paths: NOT GOVERNED.\n- The full `check:*` farm and the full test shards run in CI.\n\n## Acceptance notes\n\n- Not measured: the card's live Chromium probe (`getByLabel(name, { exact: true })` against a running console) was not re-run. The happy-dom label query and the accessible-name role queries stand in for it.\n- `lint` reports two warnings in this file: an explicit `any` in the load path, and the setState-in-effect warning on the effect that calls `load()`. Both are on lines this diff does not touch.\n\nImplemented by the dispatched `os-dev` for session `https://claude.ai/code/session_014MXhk1yjWh37d634hLy3p7`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_014MXhk1yjWh37d634hLy3p7)_"
+}

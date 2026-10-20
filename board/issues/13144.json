@@ -2,8 +2,8 @@
   "number": 13144,
   "kind": "issue",
   "title": "Flow canvas: a Decision out-edge that skips a node (Decision → End past Notify) is drawn straight through that node; its condition label sits under the node and the edge cannot be picked",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:workflow",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-20T04:36:05Z",
-  "updated_at": "2026-10-20T08:26:12Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-20T08:41:22Z",
+  "closed_at": "2026-10-20T08:40:19Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13144",
   "body": "立卡门类别 ①:有具名落点且可稳定复现的界面体验缺陷。\n动手的读者:objectui 开发席(pm-dispatch 派发的 os-dev),按下方源码落点改 app-shell 的 flow 画布布局,给跨层边绕行或错开标签。\n查重:objectui 搜 \"flow canvas edge overlaps node\" 命中 6,无同题(均含 closed);第一遍 objectui#13113、#13114、#13115 未收录此项。\n\nreach: 界面实测一次。\n\n预期:Decision 的每条出边都看得见、点得到,条件标签不被节点盖住。\n实际:Start → Decision → Notify → End 竖排,另有一条 Decision → End 的出边(条件 record.status != 'done')。这条边被画成穿过 Notify 节点的竖线,和 Decision→Notify→End 的线重合;它的标签落在 Notify 节点下面看不见;点击中间的 \"else\" 标签选中的是哪条边无从判断。作者在画布上看不出这个 flow 有两条分支。\n\n源码落点:packages/app-shell/src/views/metadata-admin/previews/flow-canvas-layout.ts 的 edgePath(源点底部到目标顶部的竖向三次曲线)与 edgeMidpoint(两锚点平均);previews/FlowCanvas.tsx 用 edgeMidpoint 放分支标签。只有 back edge 走 backEdgePath 绕开。\n\n环境:framework 4bc3becd5f4a,console pin objectui@12dc7b47c340(dist 盖章一致),stock showcase --seed-admin,Chromium 141;源码对照 objectui main 4b677464。来源:UX 走查第二遍(派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi)。\n\ntype: Bug"

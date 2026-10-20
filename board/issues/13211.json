@@ -1,0 +1,35 @@
+{
+  "number": 13211,
+  "kind": "pull_request",
+  "title": "fix(app-shell): a blocked Create View type card says why on its face (objectui#13141)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T09:39:08Z",
+  "updated_at": "2026-10-20T10:05:03Z",
+  "closed_at": "2026-10-20T10:05:01Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T10:05:01Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13211",
+  "body": "Fixes #13141\nClause-②: no\n\n## What changed\n\n`packages/app-shell/src/views/CreateViewDialog.tsx`, the type grid (`data-testid=\"create-view-type-grid\"`):\n\n- **The reason is on the card.** A type the object cannot support now shows the specific reason as its visible text: the existing `console.objectView.viewTypeUnavailable` sentence with the blocking pick interpolated (for example `This object has no field that can serve as \"Image field\".`), or `console.objectView.viewTypeUnavailableDataset` for a chart blocked on its dataset. `viewTypeUnavailableShort` is no longer rendered. The `title` on the disabled button is gone: it carried nothing the card does not now say.\n- **Reachable without hover.** Every card points `aria-describedby` at its text line (the reason on a blocked card, the description on a selectable one) and `aria-labelledby` at its type label, so a screen reader reads name = type label, description = reason. A disabled card stays disabled and unfocusable.\n- **No mid-word clamp.** `line-clamp-2` is dropped from the text line. The grid is `grid-cols-2 sm:grid-cols-3` instead of a fixed `grid-cols-4`: the nine types make three rows of three at dialog width, so a description or reason reads in full. The dialog keeps `sm:max-w-[560px]`.\n- Selection behaviour, the set of types and the availability logic are unchanged. No i18n row moved: both reason strings already exist in every locale.\n\n## Tests\n\nNew: `CreateViewDialog.typeReason-13141.test.tsx`, under a real English `I18nProvider` on an object with only text / date / picklist fields:\n\n- (a) Gallery shows `This object has no field that can serve as \"Image field\".` as visible text, and it is the card's accessible description (`toHaveAccessibleDescription`); the accessible name is `Gallery`; the short text is absent.\n- (b) the dataset-blocked Chart card shows `This object exposes no dataset to chart.` the same way. The dataset case on a real catalog wire in `CreateViewDialog.chartBinding-11576.test.tsx` (`disables the chart type when the object exposes no dataset`) is updated from the old `title` + short-text assertion to visible reason + accessible description.\n- (c) the Kanban description carries no `line-clamp-*` class and its text is the whole sentence.\n- (d) CONTROL: clicking Kanban selects it (`aria-pressed=\"true\"`); clicking the disabled Gallery card leaves it unpressed and Kanban still selected.\n\nRuns (repo-root vitest, `--maxWorkers=1`, through the shared lock), head `936268b42c` (source unchanged since `dabd98e7c4`):\n\n- the six `CreateViewDialog.*.test.tsx` files: `Test Files 6 passed (6)`, `Tests 126 passed (126)`;\n- `ObjectView.createChartView-11576`, `ObjectView.createKanbanView-11581`, plus the two edited files: `Test Files 4 passed (4)`, `Tests 19 passed (19)`.\n- `pnpm --filter @object-ui/app-shell run type-check` (both `tsc --noEmit` and `tsc -p tsconfig.test.json`, which includes the tests), after the closure build `turbo run build --filter='@object-ui/app-shell^...'` (28/28 tasks): exit 0.\n\n**Ablation** (committed first; mutation under a `trap` restore): body text put back to `t('console.objectView.viewTypeUnavailableShort')` and `aria-describedby` dropped. On-disk check: injected text count 1, removed-attribute count 0, reason expression count 0. Result `Tests 4 failed | 12 passed (16)`: (a), (b), the updated chartBinding dataset case went red, and (c) went red too (it also asserts the description is the accessible description); the control (d) stayed green. Restore proved by blob hash: `876fba6c88` on disk equals the HEAD blob; `git diff HEAD` empty.\n\nGates (exit codes): `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs`, `scripts/check-changeset-presence.mjs`: all 0. `check:spec-floors`: 1, `no-artifact` (it needs a whole-workspace build), NOT MEASURED here.\n\nLint, narrowed: eslint on the three changed source/test files (the root `eslint.config.js` covers them; `--format json` reports 3 files, 0 errors; the 13 warnings are all on lines this diff does not touch). The config enables no type-aware linting (no `parserOptions.project` / `projectService`), so this diff cannot change the verdict on any untouched file. The full `@object-ui/app-shell` test directory and repo-wide lint are left to CI.\n\n## Acceptance notes\n\n- `console.objectView.viewTypeUnavailableShort` now has no call site; its rows stay in every locale (dead row, outside this card's surface; no follow-up filed).\n- A blocked card keeps its `opacity-50`, which dims the reason text with the rest of the card. Readable in the dialog, but lower contrast than the description of a selectable card.\n- The visual layout (three columns, no clamp) was not checked in a browser in this run.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

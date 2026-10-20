@@ -1,0 +1,35 @@
+{
+  "number": 13245,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid, plugin-list): $select asks for a shown column's dependsOn siblings (objectui#13214)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T11:50:14Z",
+  "updated_at": "2026-10-20T12:19:18Z",
+  "closed_at": "2026-10-20T12:19:16Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T12:19:16Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13245",
+  "body": "Fixes #13214\nClause-②: no\n\n## What changed\n\nA list's `$select` now asks for a shown column's declared `dependsOn` siblings. A faced column reads those siblings off the row it draws (`dependentValues={row}`): the `recipient-picker` face names a stored id by the row's `recipient_type`, and draws the stored text when the kind is absent. Neither projection builder asked for them, so the four Record Shares views that show `recipient_id` without `recipient_type` drew the raw user id.\n\nOne declaration-driven arm, in both hosts, beside the `referenceVia` type-half arm of objectui#13036 (PR #13042 put that arm inline in each host; there is no shared helper, so this follows the same shape):\n\n- `ObjectGrid` `getSelectFields` (the fetch a standalone grid and a grouped grid that owns its fetch send): `dependsOnFields`, unioned into `extraFields`.\n- `ListView` data-fetch projection: one loop over `cols` into `addSpeculative`.\n\nRules, per the dispatch rulings:\n\n1. Every sibling the shown column's field names in `dependsOn` (read through `resolveDependsOnFields` from `@object-ui/core`, so the `{ field, param }` form contributes its `field`). No name mapped here; nothing is added to the views' columns.\n2. Only real fields of the object: the same known-field gate the other arms take (`isProjectableField` in the grid, `addSpeculative` in the list), plus the same FLS gate. An unknown name is never sent.\n3. A column authored `hidden: true` pulls nothing; a column the viewer may not read pulls nothing. The harvest stays a deduplicated union.\n\n## Tests (at `9d6a4ef795`)\n\nNew pins:\n\n- `packages/plugin-grid/src/__tests__/ObjectGrid.dependsOnSelect-13214.test.tsx`: (a) `recipient_type` in `$select` with only `recipient_id` shown, and (b) end to end: a face registered under the `recipient-picker` key for this file, reading the kind off `dependentValues` against a stubbed directory, draws \"Ada Lovelace\", not `usr_1`. Controls: (c) a `hidden: true` column pulls nothing, (d) an undeclared `dependsOn` name is not sent, a denied sibling is not asked for, and a sibling that is also a column is sent once.\n- `packages/plugin-list/src/__tests__/ListView.dependsOnSelect-13214.test.tsx`: (a) for `ListView`'s own fetch, plus the same controls and a denied column pulling nothing. plugin-list does not depend on plugin-grid, so a stub grid stands in, as in the objectui#13036 file.\n\nAblation (each run through `ablation-replace.mjs` with a trap restore; the restore was proven by blob hash equal to the HEAD blob and an empty `git diff HEAD`):\n\n- Grid arm dropped from the `extraFields` union: the (a)+(b) case goes red (`Unable to find an element with the text: Ada Lovelace`), 1 failed and 4 passed. Restored blob `9d04784f1ca8` equals HEAD.\n- List arm's `addSpeculative` loop replaced: the (a) case goes red, 1 failed and 5 passed. Restored blob `0333a4d59106` equals HEAD.\n- Hidden filter removed in both hosts: both (c) controls go red, 2 failed and 9 passed. Both restored to the HEAD blobs.\n- The (d) control was not ablated.\n\nLocal gates (every exit was recorded to a file):\n\n- Closure build `pnpm --filter \"@object-ui/plugin-grid^...\" --filter \"@object-ui/plugin-list^...\" run build`: 0. `type-check` for plugin-grid and plugin-list: 0. Both new tests are in each `tsconfig.test.json`, checked with `--listFilesOnly`.\n- vitest, under the shared lock, with `--maxWorkers=1`: the two new files gave 11 passed. Every test file in the two packages that names `$select`: plugin-grid 24 files, 202 passed; plugin-list 27 files, 436 passed.\n- eslint on the four changed source and test files: 0 errors (warnings only, none on the added source lines). This is a narrowed run, not the package `eslint .`. Both packages' full directories (tests and lint) are left to CI.\n- Pre-tsc battery, all 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`, `check-changeset-presence.mjs`, and `check:new-line-citations` (0 new).\n\n## Acceptance notes\n\n- `ListView`'s view-level `hiddenFields` (the toolbar's hide toggle) does not stop a column from pulling its siblings. The fetch effect does not re-run on that toggle, and the hidden column's own value is still fetched. So unhiding a column draws it whole without a refetch. Only a column entry authored `hidden: true` counts as hidden here, in both hosts.\n- Changeset: `.changeset/13214-select-dependson.md`, a `patch` for `@object-ui/plugin-grid` and `@object-ui/plugin-list`. No export, prop or type member moves.\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

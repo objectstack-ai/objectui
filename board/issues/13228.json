@@ -1,0 +1,35 @@
+{
+  "number": 13228,
+  "kind": "pull_request",
+  "title": "fix(app-shell): name the Studio landing \"Studio\", as its breadcrumb does",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T10:15:01Z",
+  "updated_at": "2026-10-20T11:13:44Z",
+  "closed_at": "2026-10-20T11:13:44Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13228",
+  "body": "Fixes #13137\nClause-②: no\n\n## What changed\n\nThe Studio landing (the page Home's \"Build an app\" chip opens at `/studio`) titled itself \"App Builder\" (zh 「应用构建」) under a header crumb that reads \"Studio\" in every pack (`console.studio.title`). Per the claim's ruling 1 the surface is named Studio, so the landing's title row now reads the crumb's name in each locale:\n\n| row | locale | before | after |\n|---|---|---|---|\n| `engine.studio.landing.title` | en | App Builder | Studio |\n| `engine.studio.landing.title` | zh | 应用构建 | Studio (the zh crumb already reads Studio) |\n\nValues only: no key, route or export renamed.\n\n**Census of the engine table** (`packages/app-shell/src/views/metadata-admin/i18n.ts`, both `ENGINE_STRINGS_EN` and `ENGINE_STRINGS_ZH`): the title row was the ONLY row naming the surface \"App Builder\" / 「应用构建」, in either table. After the change, zero rows do (pinned below).\n\n**Home (ruling 2): no change.** \"Build an app\" is a call to action and stays. Its chip (`BuilderChip` in `packages/app-shell/src/console/home/HomePage.tsx`) has no description line and no accessible name of its own: its only `aria-describedby` is the withheld-chip reason, set only when the chip is disabled, and that reason is about permission, not the destination. So no slot exists to say \"Opens Studio\", and per the ruling no UI is added.\n\n## Tests\n\nNew `packages/app-shell/src/views/metadata-admin/studioSurfaceName-13137.test.ts` (6 tests):\n- (a) en and zh: `t('engine.studio.landing.title')` equals the pack's `console.studio.title` (en \"Studio\"), and never matches the old name.\n- (b) census over every row of both engine tables, read from source with comments masked by `scripts/js-comment-mask.mjs`, single- and double-quoted values alike. Positive control: rows captured equal the count of key lines in the table (en 2975, zh 3029), and the fixed row is among them. A further control checks that the old-name pattern matches in both scripts.\n- (c) CONTROL: the en pack's `home.build.title` is still \"Build an app\".\n\n**Ablation** (via `ablation-replace.mjs`, WRAP mode, after the fix was committed at 52efabd123):\n- en leg: restoring the old en title row turned exactly 2 red, \"en: the landing title reads the header crumb\" and \"census: no ENGINE_STRINGS_EN value…\" (2 failed, 4 passed).\n- zh leg: restoring the old zh row turned the zh title test and the ZH census red (2 failed, 4 passed).\n- Restore was proven after each leg by blob hash: `0f2c56c2a8f5…` == HEAD blob, and `git diff HEAD` was empty.\n\n## Verification (head 52efabd123)\n\n- `@object-ui/app-shell` closure build (`--filter '@object-ui/app-shell^...'`) + `type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`; `--listFilesOnly` shows the new test is in the test project): exit 0.\n- Targeted vitest, run under the shared lock with `--maxWorkers=1`:\n  - app-shell: the new test, `zh-base-term.i18n-13131`, `AppContent.studioRootLanding-12113`, `UnifiedSidebar.studioNoHome-12113` and all 7 `BuilderLanding.*` tests. 11 files, 47 passed.\n  - console: `StudioRoute.landingI18n`, `StudioRoute.lazyBuilder-11798`, `StudioRoute`, `registerStudioComponents.builderLazy-11798`. 4 files, 30 passed.\n  - The full `packages/app-shell/` and `apps/console/` directories are left to CI.\n- eslint narrowed to the 2 changed .ts files (`--no-inline-config --format json`): 2 files, 0 errors, 0 warnings. The repo eslint config enables no type-aware linting (no `parserOptions.project` / `projectService`), so this diff cannot change the verdict on any file it does not touch.\n- Pre-tsc battery, all exit 0: phantom-deps, self-import, unreferenced-sources, doc-example-readers, handler-key-reads, side-effects-array, element-data-source-declaration, spec-symbols, action-forward-parity, designer-field-key-parity, icon-record-names, i18n-keys, i18n-drift (\"Every changed designer-table en value was followed by its zh row\"), i18n-designer-parity, control-bytes, `check-hand-rolled-comment-mask`, `check-changeset-fixed` and `check-changeset-presence`.\n- `check:spec-floors`: exit 1, `no-artifact`, because the whole workspace was not built. Recorded as NOT MEASURED, not fixed (the dispatch order notes this).\n\nChangeset: `.changeset/13137-studio-one-name.md` (`@object-ui/app-shell` patch). `@object-ui/i18n` rows did not move.\n\n## Acceptance notes\n\nThese are outside the file surface and were left alone. None is filed.\n- The framework's Studio app navigation entry `nav_app_builder` is still labelled \"App Builder\" (zh 应用构建器) in objectstack `packages/platform-objects/src/apps/studio.app.ts` and its translations. That is the sidebar label for this same landing inside the Studio app. I did not measure whether it reaches a user. Carrier: none.\n- `apps/console/src/registerStudioComponents.tsx` registers `studio:builder` with `label: '应用构建'`, a raw zh literal in the component registry. I did not measure where that label is drawn. Carrier: none.\n- Boundary call: `engine.studio.landing.dupGo` (\"Duplicate and open the builder\" / 「复制并进入构建器」) describes going into the package builder. It does not name the surface \"App Builder\", so it is left as it is.\n- The header comment of `packages/app-shell/src/views/studio-design/BuilderLanding.tsx` still says \"the App Builder landing\". That file is outside the file surface. It is a comment, not copy.\n\nImplemented by session `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

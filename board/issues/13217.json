@@ -1,0 +1,35 @@
+{
+  "number": 13217,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): an empty grid with no query draws the first-run state, not \"Try adjusting your filters\"",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T09:45:33Z",
+  "updated_at": "2026-10-20T10:51:22Z",
+  "closed_at": "2026-10-20T10:51:20Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T10:51:20Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13217",
+  "body": "Fixes #13142\nClause-②: no\n\n## What changed\n\n`ObjectGrid` (plugin-grid) now tells \"this object has no record\" from \"your query found nothing\" when no authored `emptyState` is declared. Before, an empty grid always fell through to DataTable's own empty row, \"No results found / Try adjusting your filters or search query.\", even when nothing was searched or filtered.\n\nThe split sits where the query state is known, in the grid's existing empty-state replacement path (the `emptyState` block). It reuses the `list.*` keys `ListEmptyState` already reads, so no new key, prop or schema member:\n\n- no search term and no declared filter: `DataEmptyState` with `list.firstRunTitle` / `list.firstRunMessage` (\"Nothing here yet / Create your first record to get started.\");\n- a search term (the grid's own box, or the host's `search` prop): the table stays, with its \"No results found\" row, its hint and its search box, so the term can be cleared;\n- a declared `filter` alone: `list.noMatches` / `list.viewFilterNoMatchesMessage` (\"No matching records / No records match this view's filter.\"). This is the `ListEmptyState` precedent: it never shows the first-run invitation over a view that may hold records.\n- an authored `emptyState` still wins wherever it was drawn before. That includes a host search term. The one exception is unchanged: a term in the grid's own server-side search box keeps the table.\n\nThe four `list.*` rows were added to `GRID_DEFAULT_TRANSLATIONS` for provider-less hosts. With a provider they resolve to the locale packs; the zh row is pinned.\n\n`data-table.tsx` is not touched.\n\n## Tests\n\nNew: `packages/plugin-grid/src/__tests__/ObjectGrid.firstRunEmptyState-13142.test.tsx`. Pins:\n- (a) 0 rows, no query: the first-run title shows, \"Try adjusting your filters\" does not. Checked plain, host-driven and under the zh pack.\n- (b) a search term: \"No results found\" and the hint show, for both a host `search` term and a term in the grid's own server-side box.\n- (c) see the Acceptance notes.\n- (d) CONTROL: an authored `emptyState` wins in (a) and under a host search term.\n\nEdited: `ObjectGrid.declaredKeys-11068.test.tsx`. Its \"LIT CONTROL, without the key\" row pinned the defect (the table's \"No results found\" row on an unsearched empty grid). It now pins the first-run state.\n\nAblation: `const userQueryEmptiedRows = querySearchTerm.trim() !== '';` was replaced by `= true` through `ablation-replace.mjs` (anchor x1 to x0, blob 817693dd260f to 92642afcaf73). That made 4 rows red: (a) x3 and the (c) filter-alone row. Restore verified: blob after restore = blob at HEAD = 817693dd260f, and `git diff HEAD` was empty.\n\nAll runs below are at 700c5b98d0, with vitest `--maxWorkers=1` under the shared lock:\n- 4 grid empty-state files: 36/36 passed.\n- Every test file in plugin-grid, plugin-view, plugin-list, app-shell and apps/console that both names `object-grid`/`ObjectGrid` and builds an empty fixture: plugin-grid 18 files 147/147, plugin-view 34 files 339/339, app-shell + plugin-list + console 15 files 246/246.\n- `registry-inputs-spec-parity`: 260/260.\n- `pnpm --filter @object-ui/plugin-grid type-check` exit 0, after building the closure with `--filter '@object-ui/plugin-grid^...' build`. `--listFiles` shows both test files are compiled by `tsconfig.test.json`.\n- eslint (package semantics) over the 3 changed source files: 0 errors and 223 warnings, the same 223 warnings as `ObjectGrid.tsx` at base.\n- Pre-tsc battery, all exit 0: phantom-deps, self-import, unreferenced-sources, doc-example-readers, handler-key-reads, side-effects-array, element-data-source-declaration, spec-symbols, action-forward-parity, designer-field-key-parity, icon-record-names, i18n-keys, i18n-drift, i18n-designer-parity, control-bytes, check-hand-rolled-comment-mask, check-changeset-fixed and check-changeset-presence.\n- Not run locally, declared to CI: the full `packages/plugin-grid/` directory and the other touched packages' full directories.\n\n## Acceptance notes\n\n- **Pin (c), \"0 rows with a user filter\".** `ObjectGrid` has no user-filter or quick-filter control of its own. The only host that hands it a user's filter is `ListView`, for a grid grouping on the server, and `ListView` merges it into `filter` (`selfQueryFilter`). On that path `ListView` fetches its window under the same filter and draws its own `ListEmptyState` before it mounts the grid. So on every surface where the grid's empty state is visible, `filter` is the view's own filter.\n  - The rows pin (c) as \"a filter plus a term: same as (b)\" and \"the filter alone: never the first-run invitation, never 'adjust your filters'\".\n  - The literal \"user filter shows 'Try adjusting your filters'\" cannot be expressed at the grid. On the `ListView` door, `ListEmptyState` says it as `list.noMatchesMessage`.\n- **Declared filter with 0 rows.** This uses the `ListEmptyState` view-filter copy, not the first-run copy. It is a judgement beyond the dispatch rulings, and the report flags it.\n- **Create entry.** The first-run message points at the host's existing create control. No button was added. NOT MEASURED: whether the reporter's surface (the Studio Interfaces list preview) draws a create control. No browser run was made.\n- **Out of scope:** `data-table.tsx`'s own empty row still says \"Try adjusting your filters\" wherever DataTable is used without this grid. That file is not touched.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

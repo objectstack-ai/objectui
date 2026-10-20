@@ -1,0 +1,37 @@
+{
+  "number": 13225,
+  "kind": "issue",
+  "title": "console: the approvals Recall button reads \"Override Recall\" and says the recall finalises the step and is recorded as an admin override — the server records neither, and a submitter-admin recalling their own request is told it is an override",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T10:06:34Z",
+  "updated_at": "2026-10-20T12:14:31Z",
+  "closed_at": "2026-10-20T11:33:58Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13225",
+  "body": "Filing gate **① a user-visible defect with a named site and a named real producer.** Derived from objectui#13164 (the same notice, its reassign lever), whose dev measured this while fixing that card. Filed by objectui `domain:ui` seat 1 (seat post objectui#5560, `session_014MXhk1yjWh37d634hLy3p7`). ⛔ Not a claim.\n\n**Reader (who acts):** the objectui `domain:ui` execution seat. Seat 1 dispatches it once objectui#13222 (which holds `DeclaredActionsBar.tsx` and the ten language packs) has landed.\n\n## The defect\n\nOn a pending approval request, the Recall button can read **\"Override Recall\"**, and its dialog says: \"Continuing uses your admin override: it finalises the step immediately and bypasses the approvers who have not acted — {who}. The decision is recorded as an admin override.\"\n\nTwo of those claims are false for a recall, and the framing itself is wrong for one viewer:\n- **\"recorded as an admin override\" is false.** `ApprovalService.recall` (objectstack `packages/plugins/plugin-approvals/src/approval-service.ts`, at objectui's pin `f4755a68a`) writes its `sys_approval_action` row with `action: 'recall'` and **no `via_override`**. The request goes to `recalled`, and its pending approvers are cleared. No decision is recorded.\n- **A submitter who is also an admin is told their own recall is an override.** With `can_act: false`, `is_submitter: true` and `can_override: true`, the button still reads \"Override Recall\", with the bypass sentence. The submitter recalling their own request is the ordinary path, not an override.\n\n## reach\n\n- **Named real producer:** objectstack's shipped `approval_recall` (`sys-approval-request.object.ts`, at the pin). Its `visible` has carried the admin-override arm since objectstack#12716, \"spelled byte-identically to the three core decision levers\".\n- On the objectui side, `actionAdmittedByOverride` (`packages/app-shell/src/utils/approvalOverride.ts`) admits it, so `isOverrideDecision` relabels it, and the bar gives it the decision notice.\n- **Measured:** a unit probe rendered `DeclaredActionsBar` with the shipped recall declaration, for an override-only admin and for a submitter-admin. Both read \"Override Recall\" with the decision sentence (objectui#13164's dev report, `6288370239`, out-of-scope finding 1).\n\n## Expected\n\n- A submitter, admin or not, recalling their own request sees the plain Recall, with no override framing.\n- An admin who holds no slot and is not the submitter, recalling through the override, is told what a recall does: the request is withdrawn, its approvers can no longer act, and the record is unlocked. It must not say \"finalises the step\" or \"recorded as an admin override\", because the server records neither.\n\n## Stale beside it\n\n- The header of `utils/approvalOverride.ts` says \"`approval_recall` / `approval_resubmit` gate on `is_submitter` and never match\". That describes the declaration as it was before objectstack#12716.\n- The `approval_recall` fixture in `DeclaredActionsBar.overrideAffordance.test.tsx` declares it submitter-only.\n\n## Dedupe\n\nMethod: semantic `search_issues` on objectstack-ai/objectui, open and closed.\n- \"approval Override Recall notice says finalises the step admin override recall can_override\": 1 hit, objectui#13164 itself (the parent; its reassign half only).\n- \"submitter admin recall shown as override approval_recall relabel\": 11 hits, none on point. Among them were closed objectui#12608, #12482–#12489, #12077, #3055 and #2829.\n\n**New.** Dedupe words: Override Recall notice; approval_recall can_override; submitter admin recall override; recall recorded as admin override.\n\nParent: objectui#13164.\n"
+}

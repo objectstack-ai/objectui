@@ -6,7 +6,7 @@
  * Env-locked fields are read-only and show <EnvLockBadge>.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ConsolePageHeader } from '@object-ui/app-shell';
@@ -145,7 +145,12 @@ export function SettingsView() {
   const [payload, setPayload] = useState<SettingsNamespacePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  /**
+   * The last load's failure, or null. `message` is the server's own sentence
+   * when it sent one; without one the card shows `console.settingsView.loadError`,
+   * translated at render so the fetch below reads no `t` (objectui#13254).
+   */
+  const [error, setError] = useState<{ message?: string } | null>(null);
   /** Live edit map keyed by spec.key. Falls back to resolved value when undefined. */
   const [draft, setDraft] = useState<Record<string, unknown>>({});
   /**
@@ -169,25 +174,31 @@ export function SettingsView() {
    */
   const [cryptoRefusal, setCryptoRefusal] = useState<CryptoRefusal | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const p = await getSettingsNamespace(namespace);
-      setPayload(p);
-      setDraft({});
-      setFieldErrors({});
-      setCryptoRefusal(null);
-    } catch (err: any) {
-      setError(err?.message ?? t('console.settingsView.loadError'));
-    } finally {
-      setLoading(false);
-    }
-  }, [namespace, t]);
-
+  // objectui#13254 — the load is keyed on the namespace and nothing else. It
+  // was a `useCallback` over `[namespace, t]` that this effect depended on, so
+  // every new `t` re-ran it and the success path below dropped the draft in
+  // place: i18next hands out a new `t` on a language switch and on every write
+  // to its store. AGENTS.md #10: an effect never keys on a memoised identity.
+  // The draft resets when the namespace changes, on save and on discard.
   useEffect(() => {
-    if (namespace) void load();
-  }, [namespace, load]);
+    if (!namespace) return;
+    const loadNamespace = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const p = await getSettingsNamespace(namespace);
+        setPayload(p);
+        setDraft({});
+        setFieldErrors({});
+        setCryptoRefusal(null);
+      } catch (err: any) {
+        setError({ message: err?.message });
+      } finally {
+        setLoading(false);
+      }
+    };
+    void loadNamespace();
+  }, [namespace]);
 
   /** Effective live values for visibility expressions. */
   const liveValues = useMemo(() => {
@@ -237,7 +248,9 @@ export function SettingsView() {
           <ArrowLeft className="h-4 w-4 mr-1" /> {t('console.settingsView.back')}
         </Button>
         <Card className="mt-3">
-          <CardContent className="py-8 text-center text-sm text-destructive">{error}</CardContent>
+          <CardContent className="py-8 text-center text-sm text-destructive">
+            {error.message ?? t('console.settingsView.loadError')}
+          </CardContent>
         </Card>
       </div>
     );

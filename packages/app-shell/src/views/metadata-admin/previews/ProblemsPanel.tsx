@@ -14,6 +14,7 @@ import * as React from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, CircleDot, CircleSlash, GitBranch } from 'lucide-react';
 import { cn } from '@object-ui/components';
 import { describeFlowRunStatus, type FlowProblem, type FlowRunStatus } from './flow-problems.js';
+import { flowEdgeDisplayName, flowNodeDisplayName } from './flow-canvas-parts.js';
 import { t as tr } from '../i18n.js';
 
 export interface ProblemsPanelProps {
@@ -31,15 +32,40 @@ export interface ProblemsPanelProps {
    * verdict below it stands as it is.
    */
   runStatus?: FlowRunStatus;
+  /**
+   * The flow's nodes, so the target column names each node as the rest of the
+   * designer does (objectui#13200): by `flowNodeDisplayName`. A target naming
+   * no node here reads as its id.
+   */
+  nodes?: ReadonlyArray<{ id: string; type?: unknown; label?: unknown }>;
 }
 
-function targetLabel(p: FlowProblem): string {
-  if (p.target.kind === 'node') return p.target.nodeId;
-  if (p.target.kind === 'edge') return `${p.target.source} → ${p.target.target}`;
-  return 'flow';
+/**
+ * The target column of a problem row (objectui#13200): the node's name, or the
+ * connection's `source → target` by its nodes' names — through the designer's
+ * one naming rule. `title` keeps the ids, which stay apart where two nodes
+ * share a label.
+ */
+function targetLabel(
+  p: FlowProblem,
+  nodes: ReadonlyArray<{ id: string; type?: unknown; label?: unknown }>,
+  locale?: string,
+): { text: string; title?: string } {
+  if (p.target.kind === 'node') {
+    const { nodeId } = p.target;
+    const node = nodes.find((n) => n.id === nodeId);
+    return { text: node ? flowNodeDisplayName(node, locale) : nodeId, title: nodeId };
+  }
+  if (p.target.kind === 'edge') {
+    return {
+      text: flowEdgeDisplayName(p.target, nodes, locale),
+      title: `${p.target.source} → ${p.target.target}`,
+    };
+  }
+  return { text: 'flow' };
 }
 
-export function ProblemsPanel({ problems, selectedKey, onSelectProblem, locale, runStatus }: ProblemsPanelProps) {
+export function ProblemsPanel({ problems, selectedKey, onSelectProblem, locale, runStatus, nodes = [] }: ProblemsPanelProps) {
   const errorCount = problems.filter((p) => p.level === 'error').length;
   const warningCount = problems.length - errorCount;
   const runNote = runStatus?.kind === 'not-running' ? describeFlowRunStatus(runStatus, locale) : null;
@@ -91,6 +117,7 @@ export function ProblemsPanel({ problems, selectedKey, onSelectProblem, locale, 
             const active = !!key && key === selectedKey;
             const Icon = p.level === 'error' ? AlertCircle : AlertTriangle;
             const TargetIcon = isEdge ? GitBranch : CircleDot;
+            const target = targetLabel(p, nodes, locale);
             return (
               <li key={p.id}>
                 <button
@@ -113,7 +140,9 @@ export function ProblemsPanel({ problems, selectedKey, onSelectProblem, locale, 
                     <span className="block leading-snug text-foreground">{p.message}</span>
                     <span className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
                       <TargetIcon className="h-2.5 w-2.5 shrink-0" />
-                      <span className="truncate font-mono">{targetLabel(p)}</span>
+                      <span className="truncate" title={target.title} data-testid="flow-problem-target">
+                        {target.text}
+                      </span>
                       {p.source === 'server' && <span className="uppercase tracking-wide">· {tr('engine.flowProblems.sourceSchema', locale)}</span>}
                       {p.source === 'expression' && <span className="uppercase tracking-wide">· {tr('engine.flowProblems.sourceExpression', locale)}</span>}
                     </span>

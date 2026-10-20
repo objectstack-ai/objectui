@@ -38,6 +38,7 @@ import {
 import { flagUnknownValue, RequiredMarker, uniqueId, useInspectorShellHost } from './_shared.js';
 import type { FlowConfigColumn } from './flow-node-config.js';
 import { conditionText, edgeKey, type FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
+import { flowEdgeDisplayName, flowNodeDisplayName } from '../previews/flow-canvas-parts.js';
 import { t, useMetadataLocale } from '../i18n.js';
 import { ReferenceCombobox, resolveRefKind, type FlowReferenceContext } from './FlowReferenceField.js';
 import { FlowStringListField } from './FlowStringListField.js';
@@ -181,7 +182,7 @@ function rowsToList(rows: Row[], columns: FlowConfigColumn[]): Array<Record<stri
 export interface EdgeBranch {
   /** The edge's selection key (`edgeKey`), which the connection inspector opens by. */
   key: string;
-  /** The target node's id, and its label (the id when it has none). */
+  /** The target node's id, and its name by `flowNodeDisplayName` (objectui#13200). */
   target: string;
   targetLabel: string;
   /** The edge's authored branch label, if any. */
@@ -201,13 +202,17 @@ export interface EdgeBranch {
 export function decisionEdgeBranches(
   decisionId: string,
   edges: readonly FlowDesignerEdge[],
-  nodes: ReadonlyArray<{ id?: unknown; label?: unknown } | null | undefined>,
+  nodes: ReadonlyArray<{ id?: unknown; type?: unknown; label?: unknown } | null | undefined>,
   /** objectui#13138 — only these edge indices (the out-edges no branch row is paired with). */
   only?: ReadonlySet<number>,
+  /** The designer locale a palette label is read in (objectui#13200). */
+  locale?: string,
 ): EdgeBranch[] {
+  // The target named by the designer's one rule (objectui#13200); a target
+  // naming no node of the flow reads as its id.
   const labelOf = (id: string): string => {
     const n = nodes.find((x) => x?.id === id);
-    return typeof n?.label === 'string' && n.label ? n.label : id;
+    return n ? flowNodeDisplayName({ ...n, id }, locale) : id;
   };
   const out: EdgeBranch[] = [];
   edges.forEach((e, i) => {
@@ -645,8 +650,19 @@ export function FlowObjectListField({
                   variant="ghost"
                   size="sm"
                   className="h-7 px-2 text-xs"
-                  // The canvas's own edge selection: its key, labelled `source → target`.
-                  onClick={() => host.onSelectionChange?.({ kind: 'edge', id: b.key, label: `${String(context?.node?.id ?? '')} → ${b.target}` })}
+                  // The canvas's own edge selection: its key, labelled `source → target`
+                  // by the nodes' names, as the canvas labels it (objectui#13200).
+                  onClick={() =>
+                    host.onSelectionChange?.({
+                      kind: 'edge',
+                      id: b.key,
+                      label: flowEdgeDisplayName(
+                        { source: String(context?.node?.id ?? ''), target: b.target },
+                        Array.isArray(context?.draft?.nodes) ? context.draft.nodes : [],
+                        locale,
+                      ),
+                    })
+                  }
                 >
                   {t('engine.inspector.flowNode.branch.openEdge', locale)}
                 </Button>

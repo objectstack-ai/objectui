@@ -2005,7 +2005,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowValidate.decisionMultipleDefaults': 'Decision "{name}" ({id}) has {count} default branches.',
   'engine.flowValidate.decisionNoBranches': 'Decision "{name}" ({id}) has no outgoing branches.',
   'engine.flowValidate.decisionNoDefault': 'Decision "{name}" ({id}) has no default branch; it may dead-end when no condition matches.',
-  'engine.flowValidate.nodeUnreachable': 'Node "{id}" is unreachable from the entry.',
+  'engine.flowValidate.nodeUnreachable': 'Node "{name}" ({id}) is unreachable from the entry.',
   'engine.flowValidate.cycleDetected': 'Cycle detected ({cycle}). Mark the connection that closes the loop as a back-edge (Connection type → Back-edge) to declare an intentional revise/rework loop.',
   // Unknown-reference (scope) warnings (flow-ref-check) — Problems panel + the
   // inline expression-field warnings.
@@ -5539,7 +5539,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowValidate.decisionMultipleDefaults': '条件分支 “{name}”（{id}）有 {count} 个默认分支。',
   'engine.flowValidate.decisionNoBranches': '条件分支 “{name}”（{id}）没有出向分支。',
   'engine.flowValidate.decisionNoDefault': '条件分支 “{name}”（{id}）没有默认分支;当无条件匹配时可能走入死路。',
-  'engine.flowValidate.nodeUnreachable': '节点 “{id}” 从入口不可达。',
+  'engine.flowValidate.nodeUnreachable': '节点 “{name}”（{id}）从入口不可达。',
   'engine.flowValidate.cycleDetected': '检测到环({cycle})。将闭合该环的连线标记为回边(连接类型 → 回边)以声明这是有意的退回 / 返工环。',
   // 未知引用(作用域)告警(flow-ref-check)—— 问题面板 + 表达式字段内联提示。
   'engine.flowRef.unknownWithSuggestion': '未知引用 `{token}` —— 是否想用 `{suggestion}`?',

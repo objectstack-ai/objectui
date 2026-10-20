@@ -41,7 +41,7 @@ import { appendArray } from '../inspectors/_shared.js';
 import { useObjectCatalog, type ObjectCatalogEntry } from '../inspectors/ObjectPicker.js';
 import { t as tr, translateFlowMeta } from '../i18n.js';
 import { FlowCanvas } from './FlowCanvas.js';
-import { defaultNodeLabel, flowEdgeDisplayName } from './flow-canvas-parts.js';
+import { defaultNodeLabel, flowEdgeDisplayName, flowNodeDisplayName } from './flow-canvas-parts.js';
 import { edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
 import { NESTED_NODE_KIND, parseNestedNodeId, encodeNestedNodeId, locateFlowNode } from '../inspectors/flow-nested-selection.js';
 import { FlowSimulatorPanel } from './FlowSimulatorPanel.js';
@@ -400,13 +400,14 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
         // of `p.target` inside a nested callback, so capture nodeId as a string.
         const { nodeId } = p.target;
         const node = nodes.find((n) => n.id === nodeId);
-        onSelectionChange?.({ kind: 'node', id: nodeId, label: node?.label || nodeId });
+        // Named by the designer's one rule (objectui#13200), as the canvas and inspectors name it.
+        onSelectionChange?.({ kind: 'node', id: nodeId, label: node ? flowNodeDisplayName(node, locale) : nodeId });
       } else if (p.target.kind === 'edge') {
-        onSelectionChange?.({ kind: 'edge', id: p.target.edgeKey, label: `${p.target.source} → ${p.target.target}` });
+        onSelectionChange?.({ kind: 'edge', id: p.target.edgeKey, label: flowEdgeDisplayName(p.target, nodes, locale) });
       }
       setReveal((r) => ({ target: p.target, nonce: (r?.nonce ?? 0) + 1 }));
     },
-    [nodes, onSelectionChange],
+    [nodes, onSelectionChange, locale],
   );
 
   // objectui#11772 — this editing session's memory of node ids: every id it
@@ -443,7 +444,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
     const newNode: FlowNode = { id: mintNodeId(), type: 'start', label: defaultNodeLabel('start', locale) };
     const next = appendArray(nodes, newNode);
     onPatch!({ nodes: next });
-    onSelectionChange?.({ kind: 'node', id: newNode.id, label: newNode.label || newNode.id });
+    onSelectionChange?.({ kind: 'node', id: newNode.id, label: flowNodeDisplayName(newNode, locale) });
   }, [canEdit, nodes, onPatch, onSelectionChange, locale, mintNodeId]);
 
   // Run history needs the published flow name (the engine keys runs by it).
@@ -491,12 +492,12 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
       revealSignal={reveal}
       onSelect={(n) =>
         n
-          ? onSelectionChange?.({ kind: 'node', id: n.id, label: n.label || n.id })
+          ? onSelectionChange?.({ kind: 'node', id: n.id, label: flowNodeDisplayName(n, locale) })
           : onSelectionChange?.(null)
       }
       onSelectEdge={(e, key) =>
         e
-          ? onSelectionChange?.({ kind: 'edge', id: key, label: `${e.source} → ${e.target}` })
+          ? onSelectionChange?.({ kind: 'edge', id: key, label: flowEdgeDisplayName(e, nodes, locale) })
           : onSelectionChange?.(null)
       }
       selectedNestedPath={selectedNestedPath}
@@ -505,7 +506,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
           ? onSelectionChange?.({
               kind: NESTED_NODE_KIND,
               id: encodeNestedNodeId(path),
-              label: node?.label || path.nodeId,
+              label: node ? flowNodeDisplayName(node, locale) : path.nodeId,
             })
           : onSelectionChange?.(null)
       }
@@ -567,6 +568,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
               <div className="mx-auto h-full max-w-3xl px-3 py-2">
                 <ProblemsPanel
                   problems={problems}
+                  nodes={nodes}
                   selectedKey={selectedKey}
                   onSelectProblem={(p) => {
                     handleSelectProblem(p);
@@ -673,6 +675,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
             <div className="border-l bg-muted/20">
               <ProblemsPanel
                 problems={problems}
+                nodes={nodes}
                 selectedKey={selectedKey}
                 onSelectProblem={handleSelectProblem}
                 locale={locale}

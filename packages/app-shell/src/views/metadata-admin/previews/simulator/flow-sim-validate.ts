@@ -400,7 +400,9 @@ export function validateFlowDraft(nodes: SimNode[], edges: SimEdge[], locale?: s
     }
     for (const n of nodes) {
       if (!reachable.has(n.id)) {
-        warnings.push({ level: 'warning', nodeId: n.id, message: tFormat('engine.flowValidate.nodeUnreachable', locale, { id: n.id }) });
+        // Named as the decision messages name a node: the label, the id beside it (objectui#13200).
+        const name = flowNodeDisplayName(n, locale);
+        warnings.push({ level: 'warning', nodeId: n.id, message: tFormat('engine.flowValidate.nodeUnreachable', locale, { name, id: n.id }) });
       }
     }
   }

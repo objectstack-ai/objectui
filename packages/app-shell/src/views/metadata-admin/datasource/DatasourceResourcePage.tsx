@@ -255,7 +255,10 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
     setBusy(`test:${name}`);
     try {
       const r = await api(`/api/v1/datasources/${encodeURIComponent(name)}/test`, { method: 'POST', body: '{}' });
-      toast.success(r?.ok === false ? `${name}: ${r?.error ?? 'failed'}` : `${name}: connection ok${r?.latencyMs != null ? ` (${r.latencyMs}ms)` : ''}`);
+      // A 200 `{ ok: false, error }` is a failed probe, so it is reported as a
+      // failure with the server's text as given (objectui#13207).
+      if (r?.ok === false) toast.error(`${name}: ${r?.error ?? 'failed'}`);
+      else toast.success(`${name}: connection ok${r?.latencyMs != null ? ` (${r.latencyMs}ms)` : ''}`);
       void load();
     } catch (err) {
       toast.error(`${name}: ${(err as Error).message}`);
@@ -436,19 +439,30 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
   // ── Sync dialog ──────────────────────────────────────────────────────────
   const [syncName, setSyncName] = React.useState<string | null>(null);
   const [tables, setTables] = React.useState<RemoteTable[] | null>(null);
+  /** The refused remote-tables read's message, drawn in the dialog instead of the empty-datasource copy. */
+  const [syncError, setSyncError] = React.useState<string | null>(null);
+  /** Which datasource's Sync dialog is open now, read when a slow introspection settles. */
+  const syncNameRef = React.useRef<string | null>(null);
+  React.useEffect(() => { syncNameRef.current = syncName; }, [syncName]);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [syncing, setSyncing] = React.useState(false);
 
   const openSync = async (name: string) => {
     setSyncName(name);
+    syncNameRef.current = name;
     setTables(null);
+    setSyncError(null);
     setSelected(new Set());
     try {
       const data = await api(`/api/v1/datasources/${encodeURIComponent(name)}/remote-tables`);
       setTables(Array.isArray(data?.tables) ? data.tables : []);
     } catch (err) {
-      toast.error(`Introspect ${name}: ${(err as Error).message}`);
-      setTables([]);
+      // A refusal is not an empty datasource (objectui#13207): the open dialog
+      // shows the envelope's message; a toast reports it only when the dialog
+      // was closed before the refusal arrived.
+      const message = (err as Error).message;
+      if (syncNameRef.current === name) setSyncError(message);
+      else toast.error(`Introspect ${name}: ${message}`);
     }
   };
 
@@ -697,7 +711,9 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
             <DialogTitle>Sync objects from “{syncName}”</DialogTitle>
             <DialogDescription>Pick the remote tables to import as objects. Each becomes an object definition.</DialogDescription>
           </DialogHeader>
-          {tables == null ? (
+          {syncError != null ? (
+            <div role="alert" className="py-8 text-center text-sm text-destructive">{syncError}</div>
+          ) : tables == null ? (
             <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Introspecting…</div>
           ) : tables.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No remote tables found on this datasource.</p>

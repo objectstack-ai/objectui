@@ -7,11 +7,14 @@
  * dialog open on every mount — an unrequested modal, duplicating the guidance
  * the empty-state panel already gives. Now the dialog stays closed and the
  * empty state carries its own create CTA instead.
+ *
+ * The rail beside it says the same thing in one sentence, and that sentence
+ * points at the rail's own "+" (objectui#13127).
  */
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 // ── mocks ──────────────────────────────────────────────────────────────────
@@ -48,6 +51,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 });
 
 import { DataPillar } from './StudioDesignSurface';
+import { t } from '../metadata-admin/i18n';
 
 afterEach(cleanup);
 
@@ -78,6 +82,23 @@ describe('DataPillar — empty package', () => {
     fireEvent.click(cta);
 
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+  });
+
+  // objectui#13127 — the rail's empty sentence used to send the author
+  // "below", where the rail draws nothing; its only create control is the
+  // "+" in the heading row above the list. The sentence names that control,
+  // as the Automations and Access rails' empty sentences do (objectui#12514).
+  it('the rail’s empty sentence names the “+” it points at, and the rail draws that “+” above it', async () => {
+    renderPillar();
+    await screen.findByTestId('empty-state-new-object');
+
+    const rail = screen.getByTestId('studio-rail-data');
+    const sentence = within(rail).getByText(t('engine.studio.data.noObjects', 'en'));
+    const add = within(rail).getByTestId('studio-rail-add');
+
+    expect(t('engine.studio.data.noObjects', 'en')).toContain('“+”');
+    expect(t('engine.studio.data.noObjects', 'zh-CN')).toContain('「+」');
+    expect(add.compareDocumentPosition(sentence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('hides the CTA on a read-only package', async () => {

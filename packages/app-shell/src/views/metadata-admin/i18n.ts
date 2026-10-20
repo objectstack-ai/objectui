@@ -3511,7 +3511,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.data.pickObject': 'Select an object',
   'engine.studio.data.objects': 'Objects',
   'engine.studio.data.searchObjects': 'Search objects…',
-  'engine.studio.data.noObjects': 'No objects yet — create one below to start',
+  'engine.studio.data.noObjects': 'No objects yet — click “+” above to create one',
   'engine.studio.data.labelPlaceholder': 'Display name (e.g. Repair Ticket)',
   'engine.studio.data.idPlaceholder': 'Identifier (e.g. repair_ticket)',
   // [`7a90afdf9`] The create dialog's third field. `新建对象` used to ask for
@@ -6842,7 +6842,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.data.pickObject': '选择一个对象',
   'engine.studio.data.objects': '对象',
   'engine.studio.data.searchObjects': '搜索对象…',
-  'engine.studio.data.noObjects': '还没有对象 — 在下方新建一个开始',
+  'engine.studio.data.noObjects': '还没有对象 — 点上方的「+」新建',
   'engine.studio.data.labelPlaceholder': '显示名(如:报修工单)',
   'engine.studio.data.idPlaceholder': '标识符(如:repair_ticket)',
   // [`7a90afdf9`] 新建对象对话框的第三项。此前只问两项,产出的对象会被发布门拒绝。

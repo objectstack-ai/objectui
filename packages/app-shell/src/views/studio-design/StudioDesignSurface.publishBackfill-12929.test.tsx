@@ -160,7 +160,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** Open the sheet the way the author does: the header's Publish, which opens it to confirm. */
+/**
+ * Open the sheet the way the author does: the header's Publish, which opens it to confirm.
+ *
+ * Resolves once the backfill option is drawn, NOT once its count is: the drill-in
+ * asks the adapter for the record count only after the option renders, and names
+ * no number until that read lands. A read of the counted name (N) is therefore a
+ * waiting `findByRole`, never a synchronous `getByRole`, which races the count.
+ */
 async function openSheet(): Promise<HTMLElement> {
   render(
     <MemoryRouter initialEntries={[`/studio/${PACKAGE_ID}/interfaces`]}>
@@ -228,7 +235,8 @@ describe('Studio publish with the default backfill (objectui#12929)', () => {
 
   it('unchecked: the publish names no field, so nothing is written into existing rows', async () => {
     const sheet = await openSheet();
-    expect(within(sheet).getByRole('checkbox', { name: new RegExp(`\\b${N}\\b`) })).not.toBeChecked();
+    // Waited for, like the cases above: the count lands after the option draws.
+    expect(await within(sheet).findByRole('checkbox', { name: new RegExp(`\\b${N}\\b`) })).not.toBeChecked();
 
     fireEvent.click(within(sheet).getByTestId('draft-changes-publish'));
 

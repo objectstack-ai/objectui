@@ -174,7 +174,7 @@ type _KeyofStillResolvesOnThisInterface = Expect<
 /**
  * The contract's face, untouched by this removal: the tombstone accepts nothing.
  * Its type is the spec's retired-key type — the branded `[REMOVED]` mark at the
- * pinned 18.0.0-next.5 and on objectstack `main`,
+ * pinned 18.0.0 and on objectstack `main`,
  * bare `undefined` through 17.5.0 — and the helper accepts
  * exactly those two spellings (objectui#11330).
  */

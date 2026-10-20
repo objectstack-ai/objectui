@@ -39,9 +39,10 @@
  * each held out of `inputs` with its reason in the console's repo-wide parity
  * gate: `name` (read by nothing here), `sharing` (draws a button that does
  * nothing on a page node), and `filterableFields` (read as the Filter panel's
- * field list, not as the quick-filter shorthand the row declares it to be,
+ * field list, not as the quick-filter shorthand the row declared it to be,
  * until objectui#13118 removed that reader with the spec's retirement of the
- * key; it is read as nothing now). `requiredPermissions` was measured
+ * key; it is read as nothing now, and since the pin at `@objectstack/spec`
+ * 18.0.0 the row refuses it by name, objectui#13261). `requiredPermissions` was measured
  * here too, until objectui#13074 honoured it on a page node; its pins now live
  * in `ListViewBlock.inertKeys-13074.test.tsx`, beside the `addRecord` routing
  * rows under a provider that serves `onCreate`. `addRecord` was held out too,
@@ -779,18 +780,24 @@ describe('objectui#13047 — measured NOT honoured on a page `list-view` node (h
     expect(document.body.innerHTML).toBe(before);
   });
 
-  it('`filterableFields`: the row calls it the shorthand of `userFilters.fields`, yet it draws no quick-filter bar', async () => {
-    const { dataSource } = mount({ filterableFields: ['stage'] });
-    await loaded(dataSource);
-    expect(screen.queryByTestId('user-filters')).toBeNull();
+  // objectui#13261 — these rows mounted `filterableFields` as a key the row
+  // accepted and the list ignored (objectui#13047, then objectui#13118). The pin
+  // at `@objectstack/spec` 18.0.0 carries the spec's retirement tombstone
+  // (objectstack#24640, ruling C), so the row now refuses the key by name and no
+  // page node the save gate accepts can carry it. The renderer half stays
+  // measured, on a node built past the row on purpose.
+  it('`filterableFields`: RETIRED by the spec — the `list-view` row refuses it by name, with the spec\'s prescription', () => {
+    const row = (ComponentPropsMap as Record<string, { safeParse: (v: unknown) => { success: boolean; error?: { issues: Array<{ path: PropertyKey[]; message: string }> } } }>)['list-view'];
+    // The accept leg first, on the same row: without it the refusal reads a row that refuses everything.
+    expect(row.safeParse(BASE).success).toBe(true);
+    const parsed = row.safeParse({ ...BASE, filterableFields: ['stage'] });
+    expect(parsed.success).toBe(false);
+    const issues = parsed.error?.issues ?? [];
+    expect(issues.map((i) => i.path.join('.'))).toEqual(['filterableFields']);
+    expect(issues[0]?.message).toContain('was removed in @objectstack/spec 18');
   });
 
-  // objectui#13118 — this row read "what the list reads it as instead — the
-  // Filter panel's field list", and the second mount's first filter field was
-  // `Amount`, the key's first member. `@objectstack/spec` 18 retires the key
-  // (objectstack#24640, ruling C) and no per-view whitelist replaces it, so the
-  // list reads it as nothing: both mounts start "Add filter" on the same field.
-  it('`filterableFields`: RETIRED (objectui#13118) — the list no longer reads it as the Filter panel\'s field list, so "Add filter" starts where it does without the key', async () => {
+  it('`filterableFields`: RETIRED (objectui#13118) — the list does not read it as the Filter panel\'s field list, so "Add filter" starts where it does without the key', async () => {
     const firstFilterField = async (): Promise<string> => {
       fireEvent.click(screen.getByRole('button', { name: /^filter/i }));
       await screen.findByText('Filter Records');
@@ -809,7 +816,14 @@ describe('objectui#13047 — measured NOT honoured on a page `list-view` node (h
     expect(await firstFilterField()).toBe('Name');
     cleanup();
 
-    const { dataSource } = mount({ filterableFields: ['amount', 'owner'] });
+    // Built past `node()`: the spec's row refuses this key (the row above), so
+    // only a node no save gate judged can still carry it to the renderer.
+    const dataSource = makeDataSource(ROWS);
+    render(
+      <SchemaRendererProvider dataSource={dataSource as never}>
+        <SchemaRenderer schema={{ type: 'list-view', properties: { ...BASE, filterableFields: ['amount', 'owner'] } } as never} />
+      </SchemaRendererProvider>,
+    );
     await loaded(dataSource);
     expect(await firstFilterField()).toBe('Name');
   });

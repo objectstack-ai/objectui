@@ -222,9 +222,12 @@ describe('control: a served schema with top-level properties renders as before (
     );
     expect(inputValue(`${SCOPE}name`)).toBe('crm_lead.compact');
     expect(inputValue(`${SCOPE}label`)).toBe('Compact');
-    for (const field of ['type', 'filter', 'searchableFields', 'filterableFields']) {
+    for (const field of ['type', 'filter', 'searchableFields']) {
       expect(byId(`${SCOPE}${field}`), field).not.toBeNull();
     }
+    // `@objectstack/spec` 18.0.0 retired `filterableFields` (objectstack#24640)
+    // and the served `viewForm` stopped offering it (objectui#13261).
+    expect(byId(`${SCOPE}filterableFields`)).toBeNull();
     expect(screen.getByRole('button', { name: /^#1 — name$/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^#2 — status$/ })).toBeInTheDocument();
   });

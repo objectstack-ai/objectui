@@ -519,7 +519,7 @@ function loadRowCanon(): Promise<RowCanonModule | null> {
  * not re-derived — and the engine's own message ships with it.
  *
  * ⚠️ The reason is NOT that the engine's message refuses a `record.<root>`
- * rewrite. Measured against the installed 18.0.0-next.5 (objectui#12030, objectui#12370, objectui#12626, objectui#12873, objectui#12971), it mostly PRESCRIBES one: the
+ * rewrite. Measured against the installed 18.0.0 (objectui#12030, objectui#12370, objectui#12626, objectui#12873, objectui#12971, objectui#13261), it mostly PRESCRIBES one: the
  * `current_user` text CONTAINS "To gate on record state, rewrite the predicate
  * against `record`." — one of the three remedies it offers, and NOT where it
  * ends (measured: `includes` true, `endsWith` false; every covered slot's text

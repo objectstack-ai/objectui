@@ -281,7 +281,6 @@ const SPEC_COUNTERPART: Record<string, { schema: unknown; key: string; note: str
   defaultViewType: { schema: SpecListViewSchema, key: 'type', note: 'spec is a superset (adds chart, tree); ListViewSchema already imports this enum by reference' },
   navigation: { schema: SpecListViewSchema, key: 'navigation', note: 'DONE (objectui#7779): the zod mirror is this very slot by reference (`SpecListViewSchema.shape.navigation`); the TS face is the spec\'s `NavigationConfig` (objectui#4588)' },
   searchableFields: { schema: SpecListViewSchema, key: 'searchableFields', note: 'DONE (objectui#7779): the zod mirror is this slot by reference' },
-  filterableFields: { schema: SpecListViewSchema, key: 'filterableFields', note: 'DONE (objectui#7779): the zod mirror is this slot by reference, and so inherits the spec\'s "legacy shorthand for userFilters.fields" deprecation. Read by nothing since objectui#13118, and deprecated on the TS face, which reads the same slot by reference: `@objectstack/spec` 18 retires the key (objectstack#24640, ruling C), so this anchor reads RETIRED at the pin bump that takes it, and the key is re-triaged there, not renamed' },
   showSearch: { schema: SpecUserActionsConfigSchema, key: 'search', note: 'scope A step 3, same fold' },
   showFilters: { schema: SpecUserActionsConfigSchema, key: 'filter', note: 'scope A step 3, same fold' },
   showSort: { schema: SpecUserActionsConfigSchema, key: 'sort', note: 'scope A step 3, same fold' },
@@ -337,6 +336,16 @@ const SANCTIONED_LOCAL = new Set<string>([
   // list on this node, so the refusal is objectui-only surface, as `viewTabBar`'s is.
   'body',
   'children',
+  // RE-TRIAGED at the pin move to `@objectstack/spec` 18.0.0 (objectui#13261),
+  // out of SPEC_COUNTERPART, as that entry's note said it would be: the spec
+  // retired the list view's `filterableFields` (objectstack#24640, ruling C: no
+  // per-view Filter-panel whitelist replaces it), so its counterpart is a
+  // tombstone and there is nothing to rename onto. Both faces still DECLARE the
+  // key — the zod mirror and the TS face are the spec's slot by reference, which
+  // is now the spec's `never` — so an authored value is refused by name with the
+  // spec's own prescription, the footing `viewTabBar` stands on. Read by
+  // nothing since objectui#13118.
+  'filterableFields',
 ]);
 
 // ── the suite ────────────────────────────────────────────────────────────────

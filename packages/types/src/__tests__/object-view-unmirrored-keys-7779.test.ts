@@ -81,6 +81,11 @@
  * reference carries the tombstone in at that bump) and is READ no longer
  * ({@link SPEC_RETIRED_UNREAD}).
  *
+ * ⭐ objectui#13261 was that bump: the pin moved to `@objectstack/spec` 18.0.0,
+ * which carries the tombstone. The sixth bucket emptied into the
+ * protocol-retired ones, and the node's mirror now refuses the key by name with
+ * the spec's own prescription.
+ *
  * ⚠️ BOTH FIGURES WERE RE-TAKEN at objectui#8980 and are NOT the ones this file
  * was written with. It measured 47 declared / 6 read / 41 unread, plus a
  * SEVENTH read, `data`, that was declared nowhere and reached the renderer
@@ -305,9 +310,9 @@ const NAMED_VIEW_READ_UNDECLARED = [] as const;
  * 44 of objectui#7928 minus bucket ①'s twenty-three, which objectui#10758 made
  * the host delegation read off the named view, plus `requiredPermissions`
  * (objectui#12341), plus `filterableFields`, read no longer since objectui#13118
- * ({@link BUCKET_SPEC_RETIRED_AHEAD_OF_PIN}). What is left is bucket ② (the legacy `show*` spellings),
- * bucket ③ (objectui-only members), the two members `@objectstack/spec` 17.5.0
- * retired ({@link BUCKET_PROTOCOL_RETIRED_TOMBSTONED}) and the one LIVE
+ * and retired by the installed protocol since objectui#13261. What is left is
+ * bucket ② (the legacy `show*` spellings), bucket ③ (objectui-only members), the
+ * three protocol-retired members ({@link BUCKET_PROTOCOL_RETIRED_TOMBSTONED}) and the one LIVE
  * protocol member the SERVER enforces ({@link BUCKET_SERVER_ENFORCED_UNREAD}) —
  * no other live protocol member is on it.
  *
@@ -371,7 +376,7 @@ const NAMED_VIEW_ABSENT_CONTROL = 'stickyHeader';
 
 /**
  * The protocol's own member set for a named list view — `ObjectListViewSchema`'s
- * shape, off `@objectstack/spec` as installed (18.0.0-next.5). ⛔ Not a copy of the
+ * shape, off `@objectstack/spec` as installed (18.0.0). ⛔ Not a copy of the
  * objectui face and ⛔ not a hand list: it is read off the schema object, so a
  * spec bump that moves a key moves this.
  */
@@ -386,14 +391,16 @@ const PROTOCOL_LIST_VIEW_KEYS = [
 ] as const;
 
 /**
- * Seven of those 51 are RETIREMENT TOMBSTONES, refused by name with the
- * protocol's own `[REMOVED]` text (five until `@objectstack/spec` 17.5.0 retired
- * `pageName` and `tabs`, objectui#11073). ⚠️ They are why a raw key-count diff reads
+ * Eight of those 51 are RETIREMENT TOMBSTONES, refused by name with the
+ * protocol's own `[REMOVED]` text (seven until the pin move to
+ * `@objectstack/spec` 18.0.0 took the retirement of `filterableFields`,
+ * objectui#13261; five until `@objectstack/spec` 17.5.0 retired `pageName` and
+ * `tabs`, objectui#11073). ⚠️ They are why a raw key-count diff reads
  * objectui as "narrower" and is wrong to: not declaring a key the protocol
  * refuses is agreement, not a gap. Derived by the tombstone's own marker, not
  * listed by hand.
  */
-const PROTOCOL_RETIRED_KEYS = ['bordered', 'pageName', 'performance', 'responsive', 'striped', 'tabs', 'virtualScroll'] as const;
+const PROTOCOL_RETIRED_KEYS = ['bordered', 'filterableFields', 'pageName', 'performance', 'responsive', 'striped', 'tabs', 'virtualScroll'] as const;
 
 /**
  * The FIFTH bucket — LIVE protocol members DECLARED here and read off no named view BY
@@ -431,8 +438,11 @@ const BUCKET_SERVER_ENFORCED_UNREAD = ['requiredPermissions'] as const;
  * carry the tombstone yet, so the pin bump that takes the retirement reddens
  * it, and the member moves to {@link PROTOCOL_RETIRED_KEYS} and
  * {@link BUCKET_PROTOCOL_RETIRED_TOMBSTONED} in that same bump.
+ *
+ * EMPTY since objectui#13261: the pin move to `@objectstack/spec` 18.0.0 took
+ * the retirement, and `filterableFields` moved to both lists in that bump.
  */
-const BUCKET_SPEC_RETIRED_AHEAD_OF_PIN = ['filterableFields'] as const;
+const BUCKET_SPEC_RETIRED_AHEAD_OF_PIN = [] as const;
 
 /** The marker every protocol tombstone's description opens with. */
 const PROTOCOL_TOMBSTONE_MARKER = '[REMOVED]';
@@ -582,8 +592,20 @@ const NAMED_LIST_VIEW_TOMBSTONES = [
  * and the seat's Q4 ruling on objectui#11073 retired them on objectui's face as
  * `?: never` tombstones: the one bucket of protocol keys objectui still names,
  * named only to refuse them.
+ *
+ * `filterableFields` joined at the pin move to `@objectstack/spec` 18.0.0
+ * (objectui#13261), out of {@link BUCKET_SPEC_RETIRED_AHEAD_OF_PIN}: objectui#13118
+ * had tombstoned it on objectui's face ahead of the pin, and the installed
+ * protocol now retires it too (objectstack#24640).
  */
-const BUCKET_PROTOCOL_RETIRED_TOMBSTONED = ['pageName', 'tabs'] as const;
+const BUCKET_PROTOCOL_RETIRED_TOMBSTONED = ['filterableFields', 'pageName', 'tabs'] as const;
+
+/** The marker each protocol-retired member's `?: never` docblock carries: the card that tombstoned it here. */
+const PROTOCOL_RETIRED_TOMBSTONE_DOC: Readonly<Record<(typeof BUCKET_PROTOCOL_RETIRED_TOMBSTONED)[number], string>> = {
+  filterableFields: 'RETIRED (objectui#13118)',
+  pageName: 'RETIRED (objectui#11073)',
+  tabs: 'RETIRED (objectui#11073)',
+};
 
 /**
  * The one objectui-only member that WAS read off a named view, until
@@ -641,6 +663,16 @@ const ACCEPTED: Record<Mirrored, unknown> = {
   defaultListView: 'all',
   showViewSwitcher: true,
 };
+
+/**
+ * {@link ACCEPTED} without the key whose spec slot is a retirement tombstone at
+ * the installed pin (objectui#13261): the value the accept legs below parse.
+ * `filterableFields` is still MIRRORED — its slot is the spec's by reference —
+ * but that slot is now the spec's `never`, so its leg is the refusal one.
+ */
+const ACCEPTED_LIVE = Object.fromEntries(
+  Object.entries(ACCEPTED).filter(([key]) => key !== SPEC_RETIRED_UNREAD),
+) as Record<ReadMirrored, unknown>;
 
 /* ── Type-level pins (invariant equality, house form) ─────────────────────── */
 
@@ -1166,9 +1198,14 @@ describe('objectui#7779 — the three spec-modelled keys are the spec\'s own slo
     expect(SpecNavigationConfigSchema.safeParse({ mode: 'page', bogus: 1 }).success).toBe(false);
   });
 
-  it('the spec describes `filterableFields` as the legacy shorthand — the deprecation the mirror now inherits by reference', () => {
+  // Inverted at objectui#13261: this row read "the spec describes
+  // `filterableFields` as the legacy shorthand". The pin at `@objectstack/spec`
+  // 18.0.0 carries the retirement, and the mirror inherits the tombstone by
+  // reference — the flip the by-reference slot was kept for.
+  it('the spec describes `filterableFields` as RETIRED — the tombstone the mirror now inherits by reference', () => {
     const slot = shapeMember(ObjectViewSchema, 'filterableFields') as { description?: string };
-    expect(slot.description).toMatch(/legacy shorthand for userFilters\.fields/i);
+    expect(slot.description?.startsWith(PROTOCOL_TOMBSTONE_MARKER)).toBe(true);
+    expect(slot.description).not.toMatch(/legacy shorthand for userFilters\.fields/i);
   });
 });
 
@@ -1190,30 +1227,44 @@ describe('objectui#7779 — `allowCreateView` / `viewActions` are the sibling `V
 /* ── The accept leg and the refusal leg, per key ──────────────────────────── */
 
 describe('objectui#7779 — each mirrored key is accepted with its declared value and the value SURVIVES the parse', () => {
-  it('the documented node with all eight keys parses green, directly and through the union door', () => {
-    const doc = { ...NODE, ...ACCEPTED };
+  it('the documented node with the seven live keys parses green, directly and through the union door', () => {
+    // Seven since objectui#13261: the eighth, `filterableFields`, is the spec's
+    // tombstone at the installed pin, and its leg is the refusal below.
+    const doc = { ...NODE, ...ACCEPTED_LIVE };
     const r = ObjectViewSchema.safeParse(doc);
     expect(r.success, JSON.stringify(r.error?.issues)).toBe(true);
     const u = safeValidateSchema(doc);
     expect(u.success, u.success ? '' : JSON.stringify(u.error.issues)).toBe(true);
   });
 
-  it.each(MIRRORED)('`%s` survives the parse with its value (spec defaults may be added, nothing is dropped)', (key) => {
-    const r = ObjectViewSchema.safeParse({ ...NODE, [key]: ACCEPTED[key] });
+  it('`filterableFields` is REFUSED by name on both entry paths — the mirrored slot is the spec\'s retirement tombstone (objectui#13261)', () => {
+    const doc = { ...NODE, ...ACCEPTED_LIVE, [SPEC_RETIRED_UNREAD]: ACCEPTED[SPEC_RETIRED_UNREAD] };
+    const r = ObjectViewSchema.safeParse(doc);
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      const issues = r.error.issues as readonly Issue[];
+      expect(refusedAt(issues, SPEC_RETIRED_UNREAD)).toBe(true);
+      expect(issues.some((i) => (i.message ?? '').includes('was removed in @objectstack/spec 18'))).toBe(true);
+    }
+    expect(safeValidateSchema(doc).success).toBe(false);
+  });
+
+  it.each(READ_MIRRORED)('`%s` survives the parse with its value (spec defaults may be added, nothing is dropped)', (key) => {
+    const r = ObjectViewSchema.safeParse({ ...NODE, [key]: ACCEPTED_LIVE[key] });
     expect(r.success, JSON.stringify(r.error?.issues)).toBe(true);
     if (!r.success) return;
     const out = (r.data as Record<string, unknown>)[key];
     if (key === 'navigation') {
       // `NavigationConfigSchema` fills its defaults on parse; the authored
       // members are still there and unchanged.
-      expect(out).toMatchObject(ACCEPTED.navigation as Record<string, unknown>);
+      expect(out).toMatchObject(ACCEPTED_LIVE.navigation as Record<string, unknown>);
     } else {
-      expect(out).toEqual(ACCEPTED[key]);
+      expect(out).toEqual(ACCEPTED_LIVE[key]);
     }
   });
 
-  it.each(MIRRORED)('`%s` is optional: the node without it parses green on both entry paths', (key) => {
-    const doc: Record<string, unknown> = { ...NODE, ...ACCEPTED };
+  it.each(READ_MIRRORED)('`%s` is optional: the node without it parses green on both entry paths', (key) => {
+    const doc: Record<string, unknown> = { ...NODE, ...ACCEPTED_LIVE };
     delete doc[key];
     expect(ObjectViewSchema.safeParse(doc).success).toBe(true);
     expect(safeValidateSchema(doc).success).toBe(true);
@@ -1743,11 +1794,11 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(keys).not.toContain(NAMED_VIEW_ABSENT_CONTROL);
   });
 
-  it('seven of the 51 are RETIREMENT TOMBSTONES, refused BY NAME — so objectui not declaring them LIVE is agreement, not narrowness', () => {
+  it('eight of the 51 are RETIREMENT TOMBSTONES, refused BY NAME — so objectui not declaring them LIVE is agreement, not narrowness', () => {
     expect(protocolRetiredKeys()).toEqual([...PROTOCOL_RETIRED_KEYS]);
     const base = { label: 'Directory', columns: ['name', 'email'] };
     // The accept leg first: without it every refusal below is a schema that
-    // refuses everything rather than a reading of these seven keys.
+    // refuses everything rather than a reading of these eight keys.
     expect(SpecObjectListViewSchema.safeParse(base).success).toBe(true);
     for (const key of PROTOCOL_RETIRED_KEYS) {
       const r = SpecObjectListViewSchema.safeParse({ ...base, [key]: true });
@@ -1761,9 +1812,10 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
           || (i.message ?? '').includes('was removed in @objectstack/spec'))).toBe(true);
       }
     }
-    // …and none of the seven is declared LIVE on the objectui face. Five were
+    // …and none of the eight is declared LIVE on the objectui face. Five were
     // never declared; the two objectui#8980 declared are `?: never` tombstones
-    // since objectui#11073, refused by name on this face as on the protocol's.
+    // since objectui#11073, and `filterableFields` since objectui#13118, each
+    // refused by name on this face as on the protocol's.
     const { names, tombstones } = namedListViewMembers();
     const declaredLive = names.filter((n) => !tombstones.includes(n));
     expect(PROTOCOL_RETIRED_KEYS.filter((k) => declaredLive.includes(k))).toEqual([]);
@@ -1773,7 +1825,8 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
   it('objectui declares every LIVE protocol key on this surface — the narrower-than-protocol direction is EMPTY (inverted from "but the one pending its ruling" at objectui#12341)', () => {
     const declared = new Set(namedListViewMembers().names);
     const live = protocolListViewKeys().filter((k) => !protocolRetiredKeys().includes(k));
-    expect(live).toHaveLength(44);
+    // 43 since objectui#13261 took the retirement of `filterableFields`.
+    expect(live).toHaveLength(43);
     const missing = live.filter((k) => !declared.has(k));
     // ⭐ objectui#8979 measured SEVENTEEN live protocol keys missing here; the
     // objectui#8980 ruling declared them (PR #9534) and this is the zero that
@@ -1834,7 +1887,7 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     }
   });
 
-  it('the 23 unread members partition SIX ways — 0 + 8 + 11 + 2 + 1 + 1 since objectui#13118 (0 + 8 + 11 + 2 + 1 before it, 0 + 8 + 11 + 2 before objectui#12341, 23 + 8 + 11 + 2 before objectui#10758) — disjoint and exhaustive', () => {
+  it('the 23 unread members partition SIX ways — 0 + 8 + 11 + 3 + 1 + 0 since objectui#13261 (0 + 8 + 11 + 2 + 1 + 1 since objectui#13118, 0 + 8 + 11 + 2 + 1 before it, 0 + 8 + 11 + 2 before objectui#12341, 23 + 8 + 11 + 2 before objectui#10758) — disjoint and exhaustive', () => {
     const unread = new Set(NAMED_LIST_VIEW_UNREAD as readonly string[]);
     const protocolKeys = new Set(protocolListViewKeys());
     const retiredTombstoned = new Set<string>(BUCKET_PROTOCOL_RETIRED_TOMBSTONED);
@@ -1860,9 +1913,9 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(protocolDeclared).toHaveLength(0);
     expect(legacy).toHaveLength(8);
     expect(inventedOnly).toHaveLength(11);
-    expect(BUCKET_PROTOCOL_RETIRED_TOMBSTONED).toHaveLength(2);
+    expect(BUCKET_PROTOCOL_RETIRED_TOMBSTONED).toHaveLength(3);
     expect(BUCKET_SERVER_ENFORCED_UNREAD).toHaveLength(1);
-    expect(BUCKET_SPEC_RETIRED_AHEAD_OF_PIN).toHaveLength(1);
+    expect(BUCKET_SPEC_RETIRED_AHEAD_OF_PIN).toHaveLength(0);
     // Exhaustive and disjoint against the census's own unread set: a member that
     // lands in no bucket, or in two, fails here — which is the event that makes
     // the 2026-09-16 disposition ruling stale.
@@ -1925,7 +1978,8 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(deriveNamedViewReads().reads).not.toContain(member);
     expect(NAMED_VIEW_READ_DECLARED as readonly string[]).not.toContain(member);
     expect(NAMED_LIST_VIEW_UNREAD as readonly string[]).toContain(member);
-    expect(BUCKET_SPEC_RETIRED_AHEAD_OF_PIN as readonly string[]).toContain(member);
+    // In the protocol-retired bucket since objectui#13261 (the sixth until then).
+    expect(BUCKET_PROTOCOL_RETIRED_TOMBSTONED as readonly string[]).toContain(member);
   });
 
   it.each(BUCKET_LEGACY_SHOW_SPELLINGS)('BUCKET ② — `%s` is a legacy SPELLING: the protocol declares it nowhere, and the runtime already folds it onto its canonical twin', (member) => {
@@ -1953,32 +2007,27 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(r.success).toBe(false);
   });
 
-  it.each(BUCKET_PROTOCOL_RETIRED_TOMBSTONED)('RETIRED BY THE PROTOCOL — `%s` is a protocol tombstone at 17.5.0 and a `?: never` tombstone here, read nowhere (objectui#11073)', (member) => {
+  it.each(BUCKET_PROTOCOL_RETIRED_TOMBSTONED)('RETIRED BY THE PROTOCOL — `%s` is a protocol tombstone (spec 17.5.0 retired the objectui#11073 pair, spec 18.0.0 retired `filterableFields`) and a `?: never` tombstone here, read nowhere', (member) => {
     const { names, tombstones, docs } = namedListViewMembers();
     expect(names).toContain(member);
     expect(tombstones).toContain(member);
-    expect(docs[member]).toContain('RETIRED (objectui#11073)');
+    expect(docs[member]).toContain(PROTOCOL_RETIRED_TOMBSTONE_DOC[member]);
     expect(protocolRetiredKeys()).toContain(member);
     expect(deriveNamedViewReads().reads).not.toContain(member);
     expect(NAMED_LIST_VIEW_UNREAD as readonly string[]).toContain(member);
   });
 
-  it.each(BUCKET_SPEC_RETIRED_AHEAD_OF_PIN)('RETIRED AHEAD OF THE PIN — `%s` is live at the installed spec, retired on objectstack `main`, a `?: never` tombstone here, and read nowhere (objectui#13118)', (member) => {
-    const { names, tombstones, docs } = namedListViewMembers();
-    expect(names).toContain(member);
-    expect(tombstones).toContain(member);
-    expect(docs[member]).toContain('RETIRED (objectui#13118)');
-    expect(protocolListViewKeys()).toContain(member);
-    // The self-expiry: this goes red at the pin bump that takes the spec's
-    // retirement, and the bump moves the member into the protocol-retired
-    // buckets rather than editing this row.
-    expect(
-      protocolRetiredKeys(),
-      `the installed spec now carries \`${member}\`'s tombstone: move it to PROTOCOL_RETIRED_KEYS and `
-        + 'BUCKET_PROTOCOL_RETIRED_TOMBSTONED, and empty BUCKET_SPEC_RETIRED_AHEAD_OF_PIN, in the bump that took it',
-    ).not.toContain(member);
-    expect(deriveNamedViewReads().reads).not.toContain(member);
-    expect(NAMED_LIST_VIEW_UNREAD as readonly string[]).toContain(member);
+  // The sixth bucket's self-expiry fired at objectui#13261: the row that read
+  // "RETIRED AHEAD OF THE PIN — live at the installed spec" went red there, as
+  // written, and its member moved into the protocol-retired buckets.
+  it('RETIRED AHEAD OF THE PIN is EMPTY since objectui#13261 — the installed spec carries the tombstone objectui#13118 put here first', () => {
+    expect([...BUCKET_SPEC_RETIRED_AHEAD_OF_PIN]).toEqual([]);
+    for (const member of RETIRED_BY_13118) {
+      expect(protocolRetiredKeys()).toContain(member);
+      expect(BUCKET_PROTOCOL_RETIRED_TOMBSTONED as readonly string[]).toContain(member);
+      expect(namedListViewMembers().tombstones).toContain(member);
+      expect(deriveNamedViewReads().reads).not.toContain(member);
+    }
   });
 });
 

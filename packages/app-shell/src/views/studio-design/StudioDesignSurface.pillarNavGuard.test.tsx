@@ -19,6 +19,13 @@
  *   • re-clicking the open pillar never prompts (nothing unmounts),
  *   • a confirmed discard clears the guard (the pillar resets on unmount).
  *
+ * objectui#13253 — a dirty pillar also registers with the shell's
+ * unsaved-edits seam, so a shell departure (a header menu, the palette, the
+ * inbox, the AI entry) asks too. The seam's capture-phase link guard now asks
+ * before a pillar link leaves, so the pillar links ask once, not twice. The
+ * window's URL is kept at the router's, as `BrowserRouter` keeps it, because
+ * that guard reads the window's URL to skip a link to the page already shown.
+ *
  * Rendered through the real StudioDesignSurface + AccessPillar +
  * PermissionMatrixEditPage stack (mocking only data I/O and heavy rail
  * siblings), so the dirty report crosses every real seam.
@@ -74,6 +81,7 @@ vi.mock('../../preview/DraftChangesPanel', () => ({
 
 import { t } from '../metadata-admin/i18n';
 import { StudioDesignSurface } from './StudioDesignSurface';
+import { confirmUnsavedLeave } from '../../chrome/unsavedEdits';
 
 // jsdom has no matchMedia — useIsMobile / useIsWideViewport need a stub.
 window.matchMedia = ((query: string) => ({
@@ -165,9 +173,11 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  window.history.replaceState(null, '', '/');
 });
 
 async function renderSurfaceOnAccess() {
+  window.history.replaceState(null, '', '/studio/app.a/access');
   render(
     <MemoryRouter initialEntries={['/studio/app.a/access']}>
       <Routes>
@@ -199,6 +209,17 @@ const inSetHeader = () => within(screen.getByTestId('access-item-header'));
 // The header is re-queried on each retry: the pillar's own header stands in
 // while no set is open, and the set's header replaces it once the page loads.
 const findInSetHeader = (text: string) => waitFor(() => inSetHeader().getByText(text));
+
+/** Swap the main panel to the (real) OWD overview and edit a row. */
+async function dirtyTheOwdOverview() {
+  fireEvent.click(screen.getByRole('button', { name: 'Record sharing (OWD)' }));
+  await screen.findByTestId('owd-internal-a_account');
+  const owdPrivate = t('engine.studio.settings.sharingPrivate', 'en-US');
+  fireEvent.keyDown(screen.getByTestId('owd-internal-a_account'), { key: 'ArrowDown' });
+  const listbox = await screen.findByRole('listbox');
+  fireEvent.click(within(listbox).getByRole('option', { name: owdPrivate }));
+  return owdPrivate;
+}
 
 /** Flip a cell in the open matrix so the editor reports dirty. */
 function dirtyTheMatrix() {
@@ -339,5 +360,40 @@ describe('Studio header — unsaved pillar edits guard (#2600)', () => {
     await waitFor(() =>
       expect(screen.getByTestId('studio-pkg-chip')).toHaveTextContent('App B'),
     );
+  });
+});
+
+describe('a dirty pillar registers with the shell seam (objectui#13253)', () => {
+  it('dirty OWD rows (only the surface registers them): a shell departure asks once; Cancel keeps the edit', async () => {
+    await renderSurfaceOnAccess();
+    const owdPrivate = await dirtyTheOwdOverview();
+
+    confirmSpy.mockReturnValueOnce(false);
+    const go = vi.fn();
+    confirmUnsavedLeave(go);
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(confirmSpy).toHaveBeenCalledWith(t('engine.edit.unsavedLeaveConfirm', 'en-US'));
+    expect(go).not.toHaveBeenCalled();
+    expect(screen.getByTestId('owd-internal-a_account').textContent).toBe(owdPrivate);
+  });
+
+  it('a dirty matrix: a shell departure asks once, though the matrix and the surface both register', async () => {
+    await renderSurfaceOnAccess();
+    dirtyTheMatrix();
+
+    confirmSpy.mockReturnValueOnce(true);
+    const go = vi.fn();
+    confirmUnsavedLeave(go);
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(go).toHaveBeenCalledTimes(1);
+  });
+
+  it('CONTROL: a clean pillar registers nothing — a shell departure goes at once', async () => {
+    await renderSurfaceOnAccess();
+
+    const go = vi.fn();
+    confirmUnsavedLeave(go);
+    expect(go).toHaveBeenCalledTimes(1);
+    expect(confirmSpy).not.toHaveBeenCalled();
   });
 });

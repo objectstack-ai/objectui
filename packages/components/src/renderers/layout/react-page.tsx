@@ -154,7 +154,7 @@ function buildComponentScope(): Record<string, React.ComponentType<any>> {
  * they render, the hooks are module functions) or read off `schema`, so equal
  * schema content yields an equivalent scope.
  */
-function buildPageScope(schema: any): Record<string, unknown> {
+function buildPageScope(schema: { data?: unknown; variables?: unknown } | null | undefined): Record<string, unknown> {
   return {
     ...buildComponentScope(),
     // Live data access — `const adapter = useAdapter()` inside the page, then
@@ -251,9 +251,10 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
   // off it) or the adapter. Not the schema object's identity — the console's
   // `PageView` hands a fresh spread of the page on every render, and any host
   // may, so keying on identity remounted the page on every host re-render
-  // (objectui#13268). The cache lives in a ref, not a `useMemo`: React may
-  // discard a memo and hand back a new object, and here a new object IS a
-  // remount (AGENTS.md #10).
+  // (objectui#13268). The scope is held in state, not in a `useMemo`: React
+  // may discard a memo and hand back a new object, and here a new object IS a
+  // remount (AGENTS.md #10). When the content does change, the new scope is
+  // stored during render, React's pattern for state derived from props.
   //
   // `adapter` stays a rebuild trigger although the scope no longer carries it
   // (objectui#11070). The blocks follow a swapped adapter through the
@@ -263,15 +264,13 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
   // host connecting one) is what re-runs it. Dropping the trigger would keep
   // the page's state across a swap, but it would also leave such a page empty.
   // That is a separate behaviour change, not made here.
-  const compiled = React.useRef<{ schema: any; adapter: unknown; scope: Record<string, unknown> } | null>(null);
-  if (
-    compiled.current === null ||
-    compiled.current.adapter !== adapter ||
-    !sameContent(compiled.current.schema, schema)
-  ) {
-    compiled.current = { schema, adapter, scope: buildPageScope(schema) };
+  const [compiled, setCompiled] = React.useState(() => ({ schema, adapter, scope: buildPageScope(schema) }));
+  let scope = compiled.scope;
+  if (compiled.adapter !== adapter || !sameContent(compiled.schema, schema)) {
+    const next = { schema, adapter, scope: buildPageScope(schema) };
+    setCompiled(next);
+    scope = next.scope;
   }
-  const scope = compiled.current.scope;
 
   // Capability gate — returned after all hooks above so hook order stays stable.
   if (!capabilityEnabled) {

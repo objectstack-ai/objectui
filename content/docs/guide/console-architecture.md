@@ -243,14 +243,14 @@ metadata editor) registers them with the shell through
 anything is registered, a tab close or reload raises the browser's leave prompt,
 and an in-app link to another page asks `message` first. The shell's own
 departures that start from a button (the header's help, avatar and app menus,
-the go-home shortcut, the workspace switcher, a sidebar entry's Design) go
-through `confirmUnsavedLeave(go)`, which asks the same question before it runs
+the go-home shortcut, the workspace switcher, a sidebar entry's Design, the
+command palette, the inbox popover and the AI entry) go through `confirmUnsavedLeave(go)`, which asks the same question before it runs
 `go`. An organization switch asks before it is sent, so Cancel keeps the
 organization as well as the edits. The prompt is the browser's `confirm`.
 
 Not guarded: browser Back and Forward, which `BrowserRouter` gives a page no
-way to hold, and any departure that does not go through
-`confirmUnsavedLeave` yet, such as picking a page in the command palette. The
+way to hold, and any departure a component starts with `navigate()` without
+going through `confirmUnsavedLeave`. The
 `@object-ui/app-shell` README describes the two exports under "Unsaved edits".
 
 ## Development Mode

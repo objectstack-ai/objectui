@@ -302,16 +302,16 @@ and every departure the shell can see asks before dropping them (objectui#13231)
 - `confirmUnsavedLeave(go)` — how a departure that starts from a button leaves.
   It runs `go` at once when nothing is registered, and otherwise only after
   `window.confirm(message)` answers OK; on Cancel `go` never runs. The shell's
-  header menus and go-home shortcut, its workspace switcher and a sidebar
-  entry's ⋯ menu go through it, and an organization switch asks before it is
-  sent. A `go` that returns a promise keeps the browser's leave prompt quiet
+  header menus and go-home shortcut, its workspace switcher, a sidebar entry's
+  ⋯ menu, the command palette, the inbox popover and the AI entry go through it
+  (objectui#13253), and an organization switch asks before it is sent. A `go` that returns a promise keeps the browser's leave prompt quiet
   until it settles, so the user is asked once.
 
 While anything is registered, the seam also holds a tab close or reload with the
 browser's own leave prompt, and asks before an in-app link to another page. It
 does not guard browser Back and Forward, which `BrowserRouter` gives a page no
-way to hold, nor a departure that does not go through `confirmUnsavedLeave` yet,
-such as picking a page in the command palette.
+way to hold, nor a departure a component starts with `navigate()` without going
+through `confirmUnsavedLeave`.
 
 ## Components
 

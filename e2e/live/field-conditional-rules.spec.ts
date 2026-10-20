@@ -41,18 +41,24 @@ test('header fields react to Status via CEL visibleWhen / readonlyWhen / require
 
   const paidOn = dialog.locator('[name="paid_on"]');
   const taxRate = dialog.locator('[name="tax_rate"]');
+  // A read-only field renders its value as text inside the form's read-only
+  // field group, in place of the editor — so "locked" is: the input is gone
+  // and that group is shown.
+  const taxRateReadonly = dialog.locator('[data-field="tax_rate"] [data-slot="readonly-field-group"]');
 
   // --- Initial (status unset / draft): paid_on hidden, tax_rate editable,
   //     issued_on not yet required. ---
   await expect(paidOn).toHaveCount(0);
   await expect(taxRate).toBeEnabled();
+  await expect(taxRateReadonly).toHaveCount(0);
   expect(await isRequired(dialog, 'Issued On')).toBe(false);
 
   // --- Paid: tax_rate locks (readonlyWhen), paid_on appears + required,
   //     issued_on required. ---
   await selectOption(dialog, 'status', 'paid');
   await expect(paidOn).toHaveCount(1);
-  await expect(taxRate).toBeDisabled();
+  await expect(taxRate).toHaveCount(0);
+  await expect(taxRateReadonly).toBeVisible();
   expect(await isRequired(dialog, 'Paid On')).toBe(true);
   expect(await isRequired(dialog, 'Issued On')).toBe(true);
 
@@ -61,6 +67,7 @@ test('header fields react to Status via CEL visibleWhen / readonlyWhen / require
   await selectOption(dialog, 'status', 'sent');
   await expect(paidOn).toHaveCount(0);
   await expect(taxRate).toBeEnabled();
+  await expect(taxRateReadonly).toHaveCount(0);
   expect(await isRequired(dialog, 'Issued On')).toBe(true);
 
   // --- Draft: everything relaxes — tax_rate editable, paid_on hidden,
@@ -68,5 +75,6 @@ test('header fields react to Status via CEL visibleWhen / readonlyWhen / require
   await selectOption(dialog, 'status', 'draft');
   await expect(paidOn).toHaveCount(0);
   await expect(taxRate).toBeEnabled();
+  await expect(taxRateReadonly).toHaveCount(0);
   expect(await isRequired(dialog, 'Issued On')).toBe(false);
 });

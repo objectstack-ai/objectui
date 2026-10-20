@@ -114,7 +114,9 @@ describe('the backfill choice is offered only where the batch door would honour 
     await settled();
     const options = await screen.findAllByTestId('draft-backfill-option');
     expect(options).toHaveLength(1);
-    const box = screen.getByRole('checkbox', { name: 'Backfill default (12 existing records)' });
+    // Waited for: the drill-in reads the count only after the option draws, so the
+    // name carries no number until that read lands.
+    const box = await screen.findByRole('checkbox', { name: 'Backfill default (12 existing records)' });
     expect(box).not.toBeChecked();
     // The literal the door would write is shown beside it.
     expect(options[0]).toHaveTextContent('= false');

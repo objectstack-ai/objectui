@@ -9,15 +9,20 @@ import { join } from 'node:path';
  *   1. $expand-ed lookup values pass through to the picker — the Account chip
  *      shows "Northwind" with ZERO hydration findOne fetches;
  *   2. approval-lock preflight — saving a budget change fires
- *      `showcase_budget_approval`, and the re-read lock state hides the inline
- *      edit affordances (enter() no-ops);
+ *      `showcase_budget_approval`. Its first step (`manager_review`) declares
+ *      `lockRecord: false`, so the re-read approval state reads "In approval ·
+ *      editable" and the inline edit affordances stay live. Approving that step
+ *      routes a budget above 500k to `exec_review` (`lockRecord: true`), and
+ *      the re-read lock state hides the inline edit affordances (enter()
+ *      no-ops);
  *   3. currency edits in a real number input carrying metadata min/step;
  *   4. the header Edit CTA is disabled while the inline session is live;
  *   5. Esc cancels / Ctrl+Enter saves the shared session.
  *
  * Prereqs: showcase backend + console dev server (see playwright.live.config.ts;
- * override via LIVE_APP_URL / LIVE_API_URL). The budget mutation intentionally
- * locks the record — run against a throwaway database.
+ * override via LIVE_APP_URL / LIVE_API_URL). The test creates its own project;
+ * its budget change opens an approval request on it, and the test approves the
+ * first step so the record ends locked — run against a throwaway database.
  */
 
 const APP = process.env.SHOWCASE_APP || 'com.example.showcase';
@@ -63,21 +68,42 @@ function authToken(): string {
 test('record inline-edit polish (#2572) — showcase Project end-to-end', async ({ page, request }) => {
   test.setTimeout(240_000);
 
-  // ── Resolve the "Website Relaunch" record id via the API (authoritative). ──
+  // ── A project of its own, created through the API (authoritative). The
+  //    budget change below opens an approval request and moves the budget, so
+  //    driving the seeded "Website Relaunch" spent it: a second run met a
+  //    different budget and an already-pending request. Same shape as that
+  //    seed row — Northwind's account, a 150k budget, 60k spent — and born
+  //    `planned`, the status flow's only entry state. ──
   const token = authToken();
-  const listRes = await request.get(`${API}/api/v1/data/showcase_project?$top=50`, {
-    headers: { Authorization: `Bearer ${token}` },
+  const authHeader = { Authorization: `Bearer ${token}` };
+  const accountsRes = await request.get(`${API}/api/v1/data/showcase_account?$top=50`, {
+    headers: authHeader,
   });
-  expect(listRes.ok()).toBeTruthy();
-  const listBody = await listRes.json();
-  const rows: any[] = listBody?.records ?? listBody?.data ?? [];
-  const record = rows.find((r) => r.name === 'Website Relaunch');
-  expect(record, 'seeded "Website Relaunch" project exists').toBeTruthy();
-  const recordId = record.id ?? record._id;
+  expect(accountsRes.ok()).toBeTruthy();
+  const accountsBody = await accountsRes.json();
+  const accounts: any[] = accountsBody?.records ?? accountsBody?.data ?? [];
+  const northwind = accounts.find((r) => r.name === 'Northwind');
+  expect(northwind, 'seeded "Northwind" account exists').toBeTruthy();
+  const projectName = `Inline Polish ${Date.now()}`;
+  const createRes = await request.post(`${API}/api/v1/data/showcase_project`, {
+    headers: authHeader,
+    data: {
+      name: projectName,
+      account: northwind.id ?? northwind._id,
+      status: 'planned',
+      health: 'green',
+      budget: 150000,
+      spent: 60000,
+    },
+  });
+  expect(createRes.ok(), await createRes.text()).toBeTruthy();
+  const created = await createRes.json();
+  const recordId = created?.id ?? created?.record?.id ?? created?.data?.id;
+  expect(recordId, 'created project id').toBeTruthy();
 
   // ── Open the record page. ──
   await page.goto(`/apps/${APP}/showcase_project/record/${recordId}`);
-  await expect(page.getByRole('heading', { name: /Website Relaunch/ }).first()).toBeVisible({
+  await expect(page.getByRole('heading', { name: projectName }).first()).toBeVisible({
     timeout: 30_000,
   });
 
@@ -126,7 +152,9 @@ test('record inline-edit polish (#2572) — showcase Project end-to-end', async 
   await budgetGroup.locator(`[title="${EDIT_HINT}"]`).dblclick();
   await expect(saveBtn).toBeVisible();
   const budgetInput2 = page.locator('input[type="number"][min="0"][step="0.01"]').first();
-  await budgetInput2.fill('160000');
+  // Above the flow's 500k decision edge, so approving `manager_review` routes
+  // the request on to the locking `exec_review` step (item 2).
+  await budgetInput2.fill('600000');
   const patchPromise = page.waitForResponse(
     (res) =>
       res.request().method() === 'PATCH' &&
@@ -137,41 +165,79 @@ test('record inline-edit polish (#2572) — showcase Project end-to-end', async 
   await page.keyboard.press('Control+Enter');
   const patchRes = await patchPromise;
   const patchBody = patchRes.request().postDataJSON?.() ?? {};
-  expect(Number(patchBody.budget), 'PATCH carries the edited budget').toBe(160000);
+  expect(Number(patchBody.budget), 'PATCH carries the edited budget').toBe(600000);
   expect(patchBody, 'PATCH carries ONLY the edited key').not.toHaveProperty('spent');
   await expect(saveBtn, 'session ends after a successful save').toBeHidden({ timeout: 15_000 });
 
-  // ── Item 2: the budget change (>100k, changed) fires showcase_budget_approval →
-  //    a pending request opens and the re-read approval state locks the session:
-  //    every pencil/double-click affordance disappears. (This backend does NOT
-  //    materialize `approval_status` on the record — the lock signal is the
-  //    pending request from the approvals API, which is exactly the second
-  //    branch of RecordDetailView's `approvalLocked`.) ──
-  const authHeader = { Authorization: `Bearer ${token}` };
+  // ── Item 2: the budget change (>100k, changed) fires showcase_budget_approval.
+  //    (This backend does NOT materialize `approval_status` on the record — the
+  //    lock signal is the pending request from the approvals API, the second
+  //    branch of RecordDetailView's approval state, and its `lock_record` flag
+  //    carries the step's `lockRecord` policy.) ──
+  /** The approvals API's request row, as far as this test reads it. */
+  type ApprovalRequestRow = { id: string; status: string; flow_node_id?: string; lock_record?: boolean };
+  const pendingRequests = async () => {
+    const res = await request.get(
+      `${API}/api/v1/approvals/requests?object=showcase_project&recordId=${recordId}`,
+      { headers: authHeader },
+    );
+    expect(res.ok(), await res.text()).toBeTruthy();
+    const body = await res.json();
+    return ((body?.data ?? []) as ApprovalRequestRow[]).filter((r) => r.status === 'pending');
+  };
+  const budgetGroupOnPage = () =>
+    page.locator('div.group').filter({ has: page.getByText('Budget', { exact: true }) }).last();
+
+  // 2a. The request opens on its first step, `manager_review`, which declares
+  //     `lockRecord: false` — the showcase's unlocked-step fixture
+  //     (objectui#2902). The re-read approval state reads "In approval ·
+  //     editable" and the inline edit affordances stay live.
+  let managerReview: ApprovalRequestRow | undefined;
   await expect
     .poll(
       async () => {
-        const res = await request.get(
-          `${API}/api/v1/approvals/requests?object=showcase_project&recordId=${recordId}`,
-          { headers: authHeader },
-        );
-        const body = await res.json();
-        return (body?.data ?? []).some((r: any) => r.status === 'pending');
+        managerReview = (await pendingRequests()).find((r) => r.flow_node_id === 'manager_review');
+        return managerReview?.lock_record;
       },
+      { timeout: 60_000, intervals: [2_000] },
+    )
+    .toBe(false);
+
+  await page.reload();
+  await page.getByRole('heading', { name: projectName }).first().waitFor({ timeout: 20_000 });
+  await expect(
+    page.getByRole('status').filter({ hasText: 'In approval · editable' }),
+    'an unlocked approval step reads "In approval · editable"',
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Locked for approval')).toHaveCount(0);
+  // A double-click on the budget still opens an inline-edit session.
+  await budgetGroupOnPage().locator(`[title="${EDIT_HINT}"]`).dblclick();
+  await expect(saveBtn, 'inline editing stays live during an unlocked approval').toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(saveBtn).toBeHidden();
+
+  // 2b. Approve `manager_review` through the approvals API (the seeded admin
+  //     holds the `manager` position). The budget is above 500k, so the run
+  //     moves on to `exec_review`, which declares `lockRecord: true`.
+  const approveRes = await request.post(`${API}/api/v1/approvals/requests/${managerReview!.id}/approve`, {
+    headers: authHeader,
+    data: { comment: 'e2e: route the request on to exec_review' },
+  });
+  expect(approveRes.ok(), await approveRes.text()).toBeTruthy();
+  await expect
+    .poll(
+      async () => (await pendingRequests()).find((r) => r.flow_node_id === 'exec_review')?.lock_record,
       { timeout: 60_000, intervals: [2_000] },
     )
     .toBe(true);
 
-  // Fresh mount reads the pending request → locked → zero inline-edit
+  // Fresh mount reads the locking request → locked → zero inline-edit
   // affordances anywhere on the page…
   await expect
     .poll(
       async () => {
         await page.reload();
-        await page
-          .getByRole('heading', { name: /Website Relaunch/ })
-          .first()
-          .waitFor({ timeout: 20_000 });
+        await page.getByRole('heading', { name: projectName }).first().waitFor({ timeout: 20_000 });
         // Editable-record pages render the hint; wait a beat for hydration
         // so an empty count means "locked", not "not yet rendered".
         await page.waitForTimeout(1_500);
@@ -180,12 +246,9 @@ test('record inline-edit polish (#2572) — showcase Project end-to-end', async 
       { timeout: 60_000, intervals: [2_000] },
     )
     .toBe(0);
+  await expect(page.getByText('Locked for approval').first()).toBeVisible();
 
   // …and a double-click on the (former) budget field must NOT open a session.
-  const lockedBudgetGroup = page
-    .locator('div.group')
-    .filter({ has: page.getByText('Budget', { exact: true }) })
-    .last();
-  await lockedBudgetGroup.dblclick();
+  await budgetGroupOnPage().dblclick();
   await expect(saveBtn).toBeHidden();
 });

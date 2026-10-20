@@ -2491,6 +2491,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.rls.checkPlaceholder': 'optional — defaults to USING',
   'perm.rls.empty': 'No row-level policies.',
   'perm.rls.add': 'Add policy',
+  'perm.rls.nameNeeded': 'Give the policy a name to save it.',
+  'perm.rls.nameRefused': 'Not saved. Policy name, on row {row}: {problem}',
   // CEL authoring safety for RLS predicates (objectui#2413).
   'perm.cel.valid': 'Valid CEL',
   'perm.cel.suggestions': 'Field and scope suggestions',
@@ -5984,6 +5986,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.rls.checkPlaceholder': '可选 — 默认同 USING',
   'perm.rls.empty': '暂无行级策略。',
   'perm.rls.add': '新增策略',
+  'perm.rls.nameNeeded': '为策略填写名称后即可保存。',
+  'perm.rls.nameRefused': '未保存。第 {row} 行的策略名称：{problem}',
   // 行级安全 CEL 编写安全 (objectui#2413)。
   'perm.cel.valid': 'CEL 有效',
   'perm.cel.suggestions': '字段与作用域建议',

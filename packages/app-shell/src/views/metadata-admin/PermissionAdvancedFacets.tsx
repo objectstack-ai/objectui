@@ -151,6 +151,19 @@ function asArray<T = unknown>(v: unknown): T[] {
   return [];
 }
 
+/**
+ * objectui#13113 — whether a policy as the draft holds it has a name at all
+ * (blank counts as none). "Add policy" inserts a row without one: it is
+ * INCOMPLETE, not wrong, so the row says beside itself what it needs, and the
+ * host's autosave holds while any row is in that state (`rlsUnnamedCount` in
+ * `PermissionMatrixEditor`, the same emptiness test). ⛔ The spec's name format
+ * is not restated here: a non-empty name the server refuses is sent, and the
+ * host renders that refusal in the author's words (objectui#7715's rule).
+ */
+function policyNamed(policy: RlsPolicy | null | undefined): boolean {
+  return typeof policy?.name === 'string' && policy.name.trim() !== '';
+}
+
 /** Tolerantly coerce a facet value (parsed value or JSON string) to an object. */
 function asObject<T extends object = Record<string, unknown>>(v: unknown): T {
   if (v && typeof v === 'object' && !Array.isArray(v)) return v as T;
@@ -522,6 +535,12 @@ export function PermissionAdvancedFacets({
                   </Button>
                 )}
               </div>
+              {/* objectui#13113 — an unnamed row is held unsent; say what it needs. */}
+              {writable && !policyNamed(pol) && (
+                <p className="text-xs text-muted-foreground" data-testid={`rls-name-needed-${i}`}>
+                  {t('perm.rls.nameNeeded')}
+                </p>
+              )}
               <div className="grid gap-2 sm:grid-cols-2">
                 <CelPredicateField
                   label={t('perm.rls.using')}

@@ -92,12 +92,19 @@ import { useDraftAutoSave, type DraftSend } from '../studio-design/useDraftAutoS
 import { StudioItemHeader, StudioTab } from '../studio-design/StudioItemHeader.js';
 import { STUDIO_KIND_CHIP } from '../studio-design/studio-tokens.js';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { t as translate, tFormat, translateMetadataType, useMetadataLocale } from './i18n.js';
+import {
+  t as translate,
+  tFormat,
+  translateMetadataType,
+  translateValidationMessage,
+  useMetadataLocale,
+} from './i18n.js';
 import { PermissionAdvancedFacets } from './PermissionAdvancedFacets.js';
 import { AssignedUsersSection } from './AssignedUsersSection.js';
 import { isEnvironmentScope, useWalledCatalogReadOnly } from './catalog-scope.js';
 import { useCanAuthorMetadata, useCanReadAuthoringTrail } from '../../hooks/useCanAuthorMetadata.js';
 import { errorCodeIs } from '@object-ui/types';
+import type { MetadataError } from '@object-ui/data-objectstack';
 import { PermissionSetCloneDialog } from './PermissionSetCloneDialog.js';
 import type { PermissionSetCloned } from './permission-set-clone.js';
 import {
@@ -107,6 +114,50 @@ import {
   type FieldPerm,
   type PermissionSetDraft,
 } from './permission-slice.js';
+
+/**
+ * objectui#13113 — a refused save, in the author's words where the refusal
+ * names an RLS policy's name.
+ *
+ * The server's message lists its issues by schema path and zod code
+ * (`rowLevelSecurity.0.name [invalid_format]`), which the author cannot map to
+ * the form. This reads the refusal's OWN issue paths (`MetadataError.issues`)
+ * and words each `rowLevelSecurity.N.name` one as the input the editor shows:
+ * the policy name, on row N + 1, with the door's message for what is wrong.
+ * It is a display mapping of the door's answer, ⛔ not a second validator: no
+ * rule of the spec is restated, and the problem text is the server's own.
+ *
+ * `null` when no issue names a policy name: the caller keeps today's text. When
+ * other issues come with it, today's text follows the mapped lines, so nothing
+ * the strip printed before is lost.
+ */
+const RLS_NAME_ISSUE_PATH = /^rowLevelSecurity\.(\d+)\.name$/;
+
+function rlsNameRefusal(err: unknown, locale: string): string | null {
+  const issues = (err as Partial<MetadataError> | null | undefined)?.issues;
+  if (!Array.isArray(issues) || issues.length === 0) return null;
+  const lines: string[] = [];
+  let unmapped = 0;
+  for (const issue of issues) {
+    const at = RLS_NAME_ISSUE_PATH.exec(String(issue?.path ?? ''));
+    if (!at) {
+      unmapped += 1;
+      continue;
+    }
+    lines.push(
+      tFormat('perm.rls.nameRefused', locale, {
+        row: Number(at[1]) + 1,
+        problem: translateValidationMessage(issue.message, locale),
+      }),
+    );
+  }
+  if (lines.length === 0) return null;
+  if (unmapped > 0) {
+    const raw = (err as { message?: unknown } | null | undefined)?.message;
+    lines.push(typeof raw === 'string' ? raw : String(err));
+  }
+  return lines.join('\n');
+}
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Domain shapes                                                      */
@@ -807,6 +858,20 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // (objectui#2413): a malformed predicate silently mis-scopes rows, so we
   // don't let it persist.
   const [celErrorCount, setCelErrorCount] = React.useState(0);
+  // objectui#13113 — RLS rows with no name yet ("Add policy" inserts one
+  // blank). Incomplete, not wrong: like a CEL error, they hold the save, and
+  // each row says beside itself what it needs (`policyNamed` in
+  // `PermissionAdvancedFacets`, the same emptiness test). Read from the draft
+  // itself, so the hold moves with the very edit that adds or names a row.
+  // Emptiness only: ⛔ the spec's name format is not restated; a non-empty name
+  // the server refuses is sent, and its refusal worded (`rlsNameRefusal`).
+  const rlsUnnamedCount = (Array.isArray(draft.rowLevelSecurity) ? draft.rowLevelSecurity : []).filter(
+    (p) => {
+      const n = (p as { name?: unknown } | null)?.name;
+      return !(typeof n === 'string' && n.trim() !== '');
+    },
+  ).length;
+  const saveHeld = celErrorCount > 0 || rlsUnnamedCount > 0;
 
   // Dirty detection — cheap JSON snapshot comparison against the last
   // loaded/saved baseline (same approach as ResourceEditPage). Every mutation
@@ -1107,7 +1172,9 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         // different meaning there (the package is not writable).
         setSaveRefusedAsLocked(err?.message ?? String(err));
       } else {
-        setError(err?.message ?? String(err));
+        // objectui#13113 — a refusal naming a policy name reads in the
+        // author's words; any other keeps the transport's text.
+        setError(rlsNameRefusal(err, locale) ?? err?.message ?? String(err));
       }
     } finally {
       setSaving(false);
@@ -1131,7 +1198,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     target: autosaveTarget,
     loadedFor: loading ? '' : autosaveTarget,
     dirty: isDirty,
-    blocked: !packageId || !writable || saving || celErrorCount > 0 || destructive !== null,
+    blocked: !packageId || !writable || saving || saveHeld || destructive !== null,
     snapshot: draft,
     save: (sent) => doSave(false, undefined, sent),
   });
@@ -1214,8 +1281,14 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         <Button
           size="sm"
           onClick={() => doSave(false)}
-          disabled={saving || celErrorCount > 0}
-          title={celErrorCount > 0 ? t('perm.cel.saveBlocked') : undefined}
+          disabled={saving || saveHeld}
+          title={
+            celErrorCount > 0
+              ? t('perm.cel.saveBlocked')
+              : rlsUnnamedCount > 0
+                ? t('perm.rls.nameNeeded')
+                : undefined
+          }
         >
           {saving ? (
             <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -1245,6 +1318,11 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         ) : celErrorCount > 0 && isDirty ? (
           <span className="text-[11px] text-destructive" data-testid="perm-autosave-held">
             {t('perm.cel.saveBlocked')}
+          </span>
+        ) : rlsUnnamedCount > 0 && isDirty ? (
+          // objectui#13113 — held, not refused: a neutral line, no error tone.
+          <span className="text-[11px] text-muted-foreground" data-testid="perm-autosave-held">
+            {t('perm.rls.nameNeeded')}
           </span>
         ) : savedAt && !isDirty ? (
           <span className="text-[11px] text-muted-foreground" data-testid="perm-saved-at">

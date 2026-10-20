@@ -24,10 +24,18 @@ test('Studio: a new record page is created bound to its object and seeded from t
   await page.getByLabel(/^Label/i).first().waitFor({ state: 'visible', timeout: 20_000 });
 
   const uniq = Date.now().toString().slice(-6);
-  // Label slugifies into Name; type defaults to 'record'; bind the object.
+  // Label slugifies into Name; bind the object. Page type defaults to 'list'
+  // (the interface page, the most-built type), so a record page is picked.
   await page.getByLabel(/^Label/i).first().fill(`Invoice Page ${uniq}`);
-  await page.getByLabel(/^Object/i).first().fill('showcase_invoice');
-  await page.waitForTimeout(500);
+  await page.getByLabel(/^Page type/i).click();
+  await page.getByRole('option', { name: 'record', exact: true }).click();
+  await expect(page.getByLabel(/^Page type/i)).toContainText('record');
+  // The Object control is a select (`role=combobox`) listing the objects, not a
+  // text input. Anchored on the whole label: `/^Object/` also matches the app
+  // bar's "ObjectOS home" link.
+  await page.getByLabel(/^Object$/i).click();
+  await page.getByRole('option', { name: 'showcase_invoice', exact: true }).click();
+  await expect(page.getByLabel(/^Object$/i)).toContainText('showcase_invoice');
 
   await Promise.all([
     page.waitForRequest((r) => r.method() === 'PUT' && /\/meta\/page\//.test(r.url()), { timeout: 15_000 }).catch(() => null),

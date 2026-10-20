@@ -32,7 +32,7 @@ import { useDensityMode, resolveInlineAriaProps } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { type ListViewVisualization, resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveAffordance, type SchemaLike, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, applyNonGridRowCeiling, type NonGridCeilingResult, resolveNameField } from '@object-ui/core';
+import { type ListViewVisualization, resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveAffordance, type SchemaLike, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, applyNonGridRowCeiling, type NonGridCeilingResult, resolveNameField, declaredNameField } from '@object-ui/core';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -3196,6 +3196,21 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           // same arm for the fetch a grouped grid owns.
           const pointerDefs = objectDef?.fields as Record<string, { referenceVia?: unknown } | undefined> | undefined;
           for (const c of cols) addSpeculative(pointerDefs?.[c]?.referenceVia);
+
+          // [objectui#13116] The object's DECLARED name field. The bulk
+          // confirm step names each affected record from the rows this fetch
+          // hands the grid (`BulkActionDialog`, objectui#13107), so a
+          // `nameField` no column shows arrived absent and the step fell to
+          // the `Record #ID` floor. Read through `declaredNameField`, the
+          // resolver's single spelling of the pointer, and asked by name
+          // whatever its type: the server serves a formula field like any
+          // other. Fetched, never drawn: it joins the projection, not the
+          // columns. Through `addSpeculative`, like every binding here: a name
+          // field the viewer may not read is never requested, and a pointer
+          // the object does not declare is never sent. `ObjectGrid`'s
+          // `getSelectFields` carries the same arm for the fetch a grouped
+          // grid owns.
+          addSpeculative(declaredNameField(objectDef));
 
           for (const f of collectPredicateFieldRefs(listViewPredicates({
             conditionalFormatting: schema.conditionalFormatting as unknown[] | undefined,

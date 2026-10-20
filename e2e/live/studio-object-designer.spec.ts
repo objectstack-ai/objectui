@@ -15,9 +15,12 @@ import { test, expect, type Page } from '@playwright/test';
  *   F4 — empty picklist row must not trip spec validation
  */
 
-const STUDIO = '/apps/com.objectstack.studio';
+// The object designer is reached through the showcase's own app: a stock
+// showcase boot does not serve the Studio app (`com.objectstack.studio`; the
+// served apps are what `GET /api/v1/meta/app` lists), and the metadata routes
+// resolve under any served app.
 const PKG = 'com.example.showcase';
-const NEW_OBJ = `${STUDIO}/metadata/object/new?package=${PKG}`;
+const NEW_OBJ = `/apps/showcase_app/metadata/object/new?package=${PKG}`;
 
 /** Add a field of the given palette type into the open object designer. */
 async function addField(page: Page, typeName: string) {
@@ -53,6 +56,11 @@ test('F4: adding a picklist + an empty option row does not trip spec validation'
   await page.goto(NEW_OBJ);
   await page.getByTestId('object-name-input').fill('asset');
   await addField(page, 'Picklist');
+  // Give the picklist its option source first: a select with no options is a
+  // real spec error (it needs `options` or `picklist`), and its banner is not
+  // the one this test is about.
+  await page.getByPlaceholder('Label', { exact: true }).first().fill('Open');
+  await page.getByPlaceholder('value', { exact: true }).first().fill('open');
   await page.getByRole('button', { name: /Add value/i }).click();
   // Live spec validation is debounced, so settle before a NEGATIVE assertion:
   // the empty option row must NOT surface the developer-oriented
@@ -64,17 +72,30 @@ test('F4: adding a picklist + an empty option row does not trip spec validation'
 });
 
 test('F1: a newly created package appears in the switcher without a reload', async ({ page }) => {
-  const pkgId = `com.e2e.dogfood${Date.now()}`;
-  const pkgName = `E2E Dogfood ${Date.now()}`;
-  await page.goto(`${STUDIO}/component/developer/packages`);
-  await page.getByRole('button', { name: /New Package/i }).click();
-  await page.getByTestId('package-id-input').fill(pkgId);
-  await page.getByTestId('package-name-input').fill(pkgName);
-  await page.getByRole('button', { name: /Create package/i }).click();
+  const stamp = Date.now();
+  const pkgId = `com.e2e.dogfood${stamp}`;
+  const pkgName = `E2E Dogfood ${stamp}`;
+  const pkgIdPattern = pkgId.replace(/\./g, '\\.');
+  // The console's Studio surface (`/studio/:packageId/:tab`) carries the
+  // package switcher on a stock boot. The sidebar switcher (`package-switcher`)
+  // renders only for an app that declares `contextSelectors`, and no app a
+  // stock showcase boot serves declares one.
+  await page.goto(`/studio/${PKG}/data`);
+  const chip = page.getByTestId('studio-pkg-chip');
+  await chip.click();
+  await page.getByRole('button', { name: /New package/i }).click();
+  await page.getByRole('dialog').getByLabel(/^Display name/).first().fill(pkgName);
+  await page.getByTestId('package-form-id-input').fill(pkgId);
+  await page.getByTestId('package-form-submit').click();
 
-  // No reload: open the sidebar package switcher and expect the new package.
-  await page.getByTestId('package-switcher').click();
-  await expect(page.getByRole('option', { name: pkgName })).toBeVisible();
+  // No reload: the surface moves into the new package, and the switcher's chip
+  // names it from the refreshed list (a stale list falls back to the raw id)…
+  await expect(page).toHaveURL(new RegExp(`/studio/${pkgIdPattern}/`));
+  await expect(chip).toContainText(pkgName);
+  // …and the open switcher lists it by its name, which only the refreshed list
+  // carries (each entry's accessible name is its name, then its id).
+  await chip.click();
+  await expect(page.getByRole('button', { name: new RegExp(`${pkgName}\\s*${pkgIdPattern}`) })).toBeVisible();
 
   // Cleanup so we don't pollute the shared dev stack.
   await page.evaluate(async (id) => {

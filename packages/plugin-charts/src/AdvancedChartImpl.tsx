@@ -476,6 +476,34 @@ function estimateLabelWidthPx(label: string): number {
   return ems * AXIS_TICK_FONT_PX;
 }
 
+/** recharts' default chart margin, left plus right (5px each side). */
+const CHART_MARGIN_X_PX = 10;
+
+/** The width every value axis of the vertical cartesian families draws (`YAxis width={48}`). */
+const VALUE_AXIS_WIDTH_PX = 48;
+
+/**
+ * Clear space a horizontal x-axis label keeps inside its band, so two
+ * neighbouring names never touch (objectui#13241).
+ */
+const X_LABEL_BAND_GAP_PX = 8;
+
+/**
+ * Whether every drawn category label fits its band unrotated (objectui#13241).
+ *
+ * A band axis gives each category `plotWidth / categories` px. A label fits
+ * when its estimated width (the same upper estimate the rotated band is sized
+ * from, {@link estimateLabelWidthPx}) plus {@link X_LABEL_BAND_GAP_PX} is no
+ * wider than that. Rotation and the 12-character cut are for a band that
+ * cannot hold the name — not for a long name on a chart wide enough for it.
+ */
+function categoryLabelsFitBand(labels: readonly string[], plotWidthPx: number): boolean {
+  if (labels.length === 0 || plotWidthPx <= 0) return false;
+  const band = plotWidthPx / labels.length;
+  const widest = labels.reduce((max, label) => Math.max(max, estimateLabelWidthPx(label)), 0);
+  return widest + X_LABEL_BAND_GAP_PX <= band;
+}
+
 /**
  * The height the x axis reserves for its rotated labels (objectui#11796),
  * derived from the longest label it draws.
@@ -1576,6 +1604,26 @@ function AdvancedChartImplInner({
   };
   const [isMobile, setIsMobile] = React.useState(false);
 
+  // objectui#13241 — the drawn width of the cartesian chart surface, so the x
+  // axis rotates only labels that do not fit their band. `undefined` until a
+  // real box is measured (first render, SSR, a layout-less test DOM): the
+  // rotation decision then keeps its length-only rule, and switches to the fit
+  // rule once a width arrives. The width only decides rotation, which changes
+  // the axis HEIGHT, never the surface width, so a measurement cannot feed back
+  // into itself. The surface element survives the container's settle re-mount
+  // as a new node; the last width is kept across it, so nothing flickers.
+  const [chartSurface, setChartSurface] = React.useState<SVGSVGElement | null>(null);
+  const [measuredChartWidth, setMeasuredChartWidth] = React.useState<number | undefined>(undefined);
+  React.useEffect(() => {
+    if (chartSurface == null || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width != null && width > 0) setMeasuredChartWidth(Math.round(width));
+    });
+    observer.observe(chartSurface);
+    return () => observer.disconnect();
+  }, [chartSurface]);
+
   // Recharts' top-level onClick payload: { activeLabel, activeTooltipIndex, … }
   // — `MouseHandlerDataParam`, which carries an INDEX into this chart's `data`
   // and no row of its own. So the clicked bucket's row (and with it the
@@ -1829,11 +1877,6 @@ function AdvancedChartImplInner({
   // categorical axis draws every label instead of thinning like a time axis.
   const labelEveryBucket = data.length > 0 && data.length <= X_AXIS_ALL_LABELS_MAX_BUCKETS;
 
-  // Rotation is what BUYS the complete axis, so in the forced branch it applies
-  // on mobile too: drawing every label without rotating is the horizontal
-  // overlap the old thinning avoided. Above the bound the trigger is unchanged.
-  const rotateXLabels = labelEveryBucket ? hasLongLabels : (!isMobile && hasLongLabels);
-
   // Helper function to get color palette. An explicit `colors` prop (set by the
   // page/dashboard) wins; otherwise fall back to the theme's --chart-1..5 vars.
   const getPalette = () => (Array.isArray(colors) && colors.length > 0 ? colors : [
@@ -1902,6 +1945,28 @@ function AdvancedChartImplInner({
     () => formatterFor(xAxisSpec?.format, displayLocale) ?? formatTick,
     [xAxisSpec?.format, displayLocale, formatTick],
   );
+
+  // objectui#13241 — whether the drawn labels fit their bands unrotated, read
+  // only once the surface width is measured (`undefined` before). The plot is
+  // the surface less recharts' side margins and the value axes drawn beside
+  // it: two for a combo or a dual-axis chart, one otherwise.
+  const xLabelsFitBand = React.useMemo(() => {
+    if (measuredChartWidth === undefined) return undefined;
+    const valueAxes = chartType === 'combo' || hasDualAxis ? 2 : 1;
+    const plotWidth = measuredChartWidth - CHART_MARGIN_X_PX - valueAxes * VALUE_AXIS_WIDTH_PX;
+    return categoryLabelsFitBand(
+      data.map((d: any) => String(xTickFormatter(d?.[xAxisKey]) ?? '')),
+      plotWidth,
+    );
+  }, [measuredChartWidth, chartType, hasDualAxis, data, xAxisKey, xTickFormatter]);
+
+  // Rotation is what BUYS the complete axis, so in the forced branch it applies
+  // on mobile too: drawing every label without rotating is the horizontal
+  // overlap the old thinning avoided. Above the bound the trigger is unchanged.
+  // A long label rotates only when the measured band cannot hold it
+  // (objectui#13241); before a width is measured, its length alone decides.
+  const labelsWantRotation = hasLongLabels && xLabelsFitBand !== true;
+  const rotateXLabels = labelEveryBucket ? labelsWantRotation : (!isMobile && labelsWantRotation);
 
   /**
    * The x-axis formatter, plus the ellipsis step a rotated label owes
@@ -2766,7 +2831,7 @@ function AdvancedChartImplInner({
             happens at chart level because that is the only place the CATEGORY
             is known — a line/area item handler is handed the curve's props and
             no datum. */}
-        <ComposedChart data={data} {...comboClickProps}>
+        <ComposedChart ref={setChartSurface} data={data} {...comboClickProps}>
           <CartesianGrid {...gridProps} {...valueAxisIdFor(valueAxesHaveIds, categoriesRunDown)} />
           <XAxis dataKey={xAxisKey} {...xAxisCommonProps} />
           {/* A combo always draws both value axes (an authored combo binds an
@@ -2854,7 +2919,7 @@ function AdvancedChartImplInner({
     <ChartFrame title={title} subtitle={subtitle}>
     <ChartFootnote note={joinNotes(xPositionNote, yPositionNote)}>
     <ChartContainer config={config} className={className} {...containerProps}>
-      <ChartComponent data={data} layout={isHorizontal ? 'vertical' : 'horizontal'} {...cartesianClickProps}>
+      <ChartComponent ref={setChartSurface} data={data} layout={isHorizontal ? 'vertical' : 'horizontal'} {...cartesianClickProps}>
         <defs>
           {gradColors.map((c) => (
             <React.Fragment key={gslug(c)}>

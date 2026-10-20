@@ -2,8 +2,8 @@
   "number": 12982,
   "kind": "issue",
   "title": "Setup → Sharing Rules lists only stored rules once declared rules leave sys_sharing_rule (objectstack C3 stage 9)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:ui",
-    "pm:dispatched",
     "pm:epic",
     "priority:p1",
     "target:v18"
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-18T17:49:23Z",
-  "updated_at": "2026-10-19T13:27:58Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-19T20:28:20Z",
+  "closed_at": "2026-10-19T20:28:20Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12982",
   "body": "Filing gate **④**: a coordination node, the objectui half of objectstack-ai/objectstack C3 stage 9 (objectstack-ai/objectstack#23952, PR objectstack-ai/objectstack#24376), filed by the objectstack epic seat (`epic:#15194`, `session_01Y5583bs2RDd53MH6kM1ca3`) as its cross-repo follow-up. ⛔ Not a claim. Reader who acts: the epic seat dispatches it once stage 9 has merged. Dedupe: semantic search on objectstack-ai/objectui, \"Setup sharing rules list declared rules package rules not shown registry\" → 0 hits.\n\n\n<sub>Unblocked by the epic seat at 2026-10-19T12:11Z: objectstack-ai/objectstack#24421's guard and ledger switch landed in PR objectstack-ai/objectstack#24428 (merged `964a2370`). #24421 stays open only for 9c (the 18.x ceremony), which this page does not need. Dispatched in parallel to the 18.x line (ruling record 6266750393 on objectstack-ai/objectstack#15194); ships in 18.1.</sub>\n\n<sub>Re-pointed by the epic seat when objectstack-ai/objectstack#23952 closed (PR objectstack-ai/objectstack#24376 merged `5e979073`): stage 9's half is done. Re-pointed again when C9's PR #12998 merged (`78b07f4`): that file-surface serialization is cleared, and #7611 stays open only for its objectstack-side remainder. This card now waits on objectstack-ai/objectstack#24421, the server's guard and ledger switch under ruling A (below). Setup's New and Edit on a sharing rule exercise both, and building the page before they land would mean building it twice.</sub>\n\n## Ruling A on objectstack-ai/objectstack#24378 (6258883445) sets this card's shape — it supersedes B′\n\nThe maintainer re-ruled the card 「24378 同意 A」: `sharing_rule` moves to **regime C**, read-only and clonable, and switched through the activation ledger. The B′ section this card carried before is withdrawn. The original **Wanted** and **Acceptance** below (\"declared rules read-only\") stand again, with these additions:\n- **Declared (vendor) rules** are listed read-only with their provenance and carry two actions:\n  - **Disable / Enable.** The rule's `sys_metadata_activation` `active` bit is deployment-level and operator-gated under a wall. Show the server's refusal to a caller who is not allowed.\n  - **Clone.** Pre-fill New from the declared rule under a **new** name. The page then offers to disable the base.\n- **Organization-authored rules** stay editable as before.\n- **New** never offers a declared rule's name. If the server refuses one (`409 RESOURCE_CONFLICT`, naming the vendor rule; objectstack-ai/objectstack#24421), the page shows that refusal.\n- The one-list rule and 「**There is no merged two-source list.**」 still bind. Measure which server read answers \"declared, and is it switched off\" for each row. If none does, report the gap to the server; the client does not merge two sources to fill it.\n\n<sub>Re-pointed by the epic seat at 2026-10-19T03:3xZ under ruling A. It still waits on objectstack-ai/objectstack#24421 (PR objectstack-ai/objectstack#24428, reworked to regime C).</sub>\n\n## What changes on the objectstack side\n\nStage 9 retires `bootstrapDeclaredSharingRules`. A sharing rule a package declares is read from the registry at enforcement, and the ownership ceremony deletes the `sys_sharing_rule` rows that mirrored it. A fresh boot writes zero `sys_sharing_rule` rows for declared rules. Organization-authored rules stay rows.\n\nThe objectstack dev and the contract reviewer both measured the consequence (os-dev-report on objectstack-ai/objectstack#23952, `out_of_scope_findings`; record 6253094552 on PR objectstack-ai/objectstack#24376):\n- Setup's Sharing Rules page is the generic `sys_sharing_rule` object view. Once the PR lands, it lists organization-authored rules only, and a package's declared rules disappear from Setup while they still grant access.\n- `GET /api/v1/sharing/rules` (the sharing service) lists both declared and stored rules.\n- Reach: every deployment whose packages declare sharing rules (showcase 2; the maintainer's hotcrm 11).\n\n## Wanted\n\nSetup shows the declared rules again, without a client-side merge of two sources. objectui#7611's rule binds here too: 「**There is no merged two-source list.**」. The two shapes that rule leaves:\n- **A.** The Sharing Rules page reads one server list, `GET /api/v1/sharing/rules`, which already answers both kinds. Declared rules render read-only with a provenance badge; stored rules stay editable. Search, sort and paging are the server's.\n- **B.** Declared rules get their own read-only catalog page from `/api/v1/meta/sharing_rule`, as C9 built for positions and permission sets. The data page stays the `sys_sharing_rule` view for organization rules.\n\nMeasure first which shape the existing console code supports with the least new surface, and say why in the PR. The pick has to keep native search, sort and paging.\n\n## Acceptance\n\n- On a showcase boot that carries stage 9 and objectstack-ai/objectstack#24421, Setup lists the showcase's two declared sharing rules read-only, with their provenance and with Disable and Clone, and lists any organization-authored rule as editable. Disable switches the vendor rule off through the ledger, and Clone creates a new-named rule. New with a declared rule's name shows the server's refusal.\n- No request fetches and merges two lists in the client.\n- objectstack's `.objectui-sha` pin moves after this lands; the objectstack epic seat dispatches that.\n"

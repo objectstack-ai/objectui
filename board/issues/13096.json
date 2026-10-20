@@ -1,0 +1,35 @@
+{
+  "number": 13096,
+  "kind": "pull_request",
+  "title": "fix(app-shell): pin a metadata list row's controls and say an unreadable activation state in words (#13091)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T23:10:56Z",
+  "updated_at": "2026-10-19T23:43:31Z",
+  "closed_at": "2026-10-19T23:43:29Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-19T23:43:29Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13096",
+  "body": "Fixes #13091\n\nClause-②: no. This is a console layout and display fix.\n\n## What changed\n\n**Controls in reach.** On Setup's metadata list (`ResourceListPage.tsx`), the table now scrolls inside the shared `HorizontalOverflowBox` (the objectui#12708 affordance) with `seam=\"pinned\"`. In the environment scope, the Active switch, and Clone on the declared sharing rules, are pinned to the right edge (`sticky`). The first pinned cell draws `PINNED_RIGHT_SEAM_SHADOW_CLASSES`, the objectui#12463 right-edge shadow, while columns remain to the right.\n- Clone is pinned at `right-0` with a fixed `w-28 min-w-28`. Its label truncates (`max-w-[88px]`, full label in `title`), so Active's `right-28` offset holds in any locale.\n- The Source column moved ahead of Active so the pinned pair is the row's last two cells.\n- Pinned cells paint `bg-background` with the row's fill layered on top through `--os-row-tint`, the convention `data-table` keeps for its sticky cells. Invalid, warning and hover fills therefore reach them.\n- The table uses `border-separate border-spacing-0`, and the row dividers moved from `divide-y` on the rows to `border-t` on the cells. Measured live at 1024: in a collapsed-border table, Chrome let the Object column's text, scrolling beneath the pinned Active cell, show through that cell's right edge.\n\n**Unreadable Active state.** When the activation ledger read is refused or fails, the cell reads \"Not visible to you\" (new key `engine.catalog.active.notVisible`, en and zh) instead of `?`. Its `title` is the existing \"Activation state could not be read.\" followed by the server's own sentence, as `actionErrorDetail` reads it, or `HTTP` and the status when the server sent none. No switch is drawn.\n\n## Measured (local live stack: objectstack at this repo's `.objectstack-sha` pin f4755a68, `objectstack dev --fresh` showcase, console dev server)\n\nBefore / after, first row, table unscrolled:\n- 1440x1000: Clone 1516–1592 → 1327–1403; Active switch 1384–1428 (box ends 1416, so cut) → 1247–1291; box 280–1416, scrollWidth 1323 vs 1134.\n- 1024x1000: Clone 1516–1592 → 911–987; Active 1384–1428 → 831–875; box ends 999/1000.\n- As the showcase `ops` principal (a user created holding the `ops` position): the ledger read answers `403 PERMISSION_DENIED`, \"You do not have permission to perform this action. Contact your administrator if you need access.\" The cell reads \"Not visible to you\", with that sentence in its tooltip. `ops` has no Clone, so Active alone is pinned at `right-0` with the seam.\n\n## Tests\n\n- `ResourceListPage.declaredSharingRules-12982.test.tsx`: 6 new pins.\n  - Refused ledger read: plain words plus the server sentence, and no `?`.\n  - Refusal without a sentence: words plus `HTTP 403`.\n  - Control: a readable ledger draws the switch.\n  - Pinned Active + Clone cells and headers, and the separated table.\n  - The seam on the first pinned cell, and no edge overlay.\n  - Without Clone, Active holds `right-0`.\n  - Reverse-verified: with the page and i18n reverted to base, the 5 non-control pins went red and the control stayed green.\n- `e2e/live/declared-sharing-rules-reach-13091.spec.ts`: at 1440x1000, the first Clone and Active lie inside the viewport and inside the table's scroll box (found as the table's parent, so it reads the same element before and after), and the box reports `data-overflow-right`.\n  - Green on the fix; red on base for the measured reason (\"Clone ends inside the viewport\", received 1592.3).\n  - It is a local live-lane spec, not added to the `test:e2e:live:ci` allowlist.\n- `@object-ui/app-shell` whole suite: 1608 files passed, 1 skipped, 1 failed. The failure is `buildIdentity-12970.test.ts` > \"reads null under this test setup\", which received the checkout's short sha. The diff does not touch it, and it passes 11/11 alone. The value is the git short sha `apps/console/vite.config.ts` bakes as `VITE_APP_VERSION`. Not re-run on base.\n- `turbo type-check --filter=@object-ui/app-shell`: 30/30 tasks. ESLint on the changed files: 0 errors; the 21 warnings in `ResourceListPage.tsx` equal base's count.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n<sub>Opened by the objectstack epic seat (`session_01Y5583bs2RDd53MH6kM1ca3`) through the fleet relay, verbatim from dev session `session_016ixQuukBQtUAZdo8ih3w9Z`, whose harness has no PR-create tool.</sub>\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_016ixQuukBQtUAZdo8ih3w9Z\n"
+}

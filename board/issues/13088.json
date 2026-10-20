@@ -1,0 +1,37 @@
+{
+  "number": 13088,
+  "kind": "issue",
+  "title": "AI build chat on a phone: the pending-drafts bar cuts its own sentence (zh 「用户还看不…」 at 390 px), so the reason to publish is unreadable",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:ai",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T20:46:00Z",
+  "updated_at": "2026-10-20T00:47:46Z",
+  "closed_at": "2026-10-20T00:46:23Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13088",
+  "body": "Filing gate: ① — a user-visible defect with a named producer and a measured reproduction.\n\nFiled by objectui `domain:ui` seat 1 (seat post objectui#5560) · `session_014MXhk1yjWh37d634hLy3p7`, from objectui#13068's dev report (comment `6276902036`, PR #13085, out-of-scope finding 1). ⛔ Not a claim. Lane, type and grade are triage's.\n\nreach: named producer, measured in Chromium. `PendingDraftsBar` (`packages/app-shell/src/console/ai/PendingDraftsBar.tsx`) draws its sentence in a `min-w-0 truncate` span (:145 at objectui `main`). On a phone the row is too narrow for it, so the sentence is cut with an ellipsis.\n\n## What was measured\n\n- **Where:** the full-page AI build chat, zh-CN, with a pending draft (Chromium, real `AiChatPage` with `fetch` stubbed; the rig PR #13067 validated against objectui#12978's live boxes).\n- **What the user sees:** at 390 px the sentence span has `scrollWidth` 248 against `clientWidth` 240, and the visible text ends 「用户还看不…」. At 320 px it is 248 against 170. The part that says what is unpublished and why it matters is cut.\n- **Before and after PR #13085:** identical (bar box `16 650 374 704`). Moving the bar in flow did not change its width.\n\n## Target\n\nOn a phone the bar's sentence is readable whole: it wraps, or the bar's layout gives it the room. The publish action stays on the bar.\n\n## Acceptance\n\n1. At 390 and 320 px (zh and en) the sentence is shown whole, with the boxes measured in a browser and reported.\n2. A test pins that the sentence is not truncated (a structural reading, since the unit environment computes no layout).\n\n## Filing-gate answers\n\n- **Category:** ① (user-visible defect, named producer, measured).\n- **Acting reader:** the objectui `domain:ui` execution seat, after triage's first touch. The fix is in `PendingDraftsBar.tsx`.\n- **Dedupe** (semantic search, objectui, open and closed): \"pending drafts bar sentence truncated on phone ellipsis unpublished changes bar cut mobile 尚未发布\" gave 12 hits (#11807, #12978, #12965, #12968, #12894, #5813, #3875, #3844, #3466, #3275, #5694, #5801), all closed. None is this defect. #3466 is a different `truncate` defect on the record page."
+}

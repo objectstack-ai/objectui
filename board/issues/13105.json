@@ -1,0 +1,35 @@
+{
+  "number": 13105,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the app landing waits on its nav entries' pending API reads",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T00:59:03Z",
+  "updated_at": "2026-10-20T01:26:31Z",
+  "closed_at": "2026-10-20T01:26:29Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T01:26:29Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13105",
+  "body": "Fixes #13097\nClause-②: no\n\n## What\n\n`AppRootLanding` (`packages/app-shell/src/console/AppContent.tsx`) now waits on the API reads of the nav entries it would choose between. This is direction (A), as triage `6279966884` set it.\n\nA nav entry whose `dataSource` read is pending is hidden (objectui#13029). The landing used to choose from the trees with those entries already gone. Now it also asks the same two questions over the trees as they would be if every pending entry were shown once it answers. Those two questions are: which route does the landing pick, and does the app show this member nothing. If either answer differs, a pending read ahead of the first decided entry could still change the landing. The root then holds on the existing `SkeletonGrid` (test id `app-landing-pending`): it does not navigate and does not show `AppNoAccessEmptyState`. When the reads answer, it lands on the first entry the member is shown (objectui#12426). A failed read hides its entry, so the landing moves on. An app with no bound entry gets the same answer twice and lands on its first render.\n\nThere are no extra reads. `useNavMemberGates` now also returns `readEntry`, the read state its `visible` evaluator is already built on (`NavMemberGatesWithReads`). `navEntriesShownOncePendingReadsShow` reuses `navEntriesShownToMember` with one change: a pending entry's `visible` is treated as not yet decided, so the entry is kept. Every other gate applies unchanged. Both live in the hook module. Nothing is added to the package entry, and the `NavMemberGates` shape that other call sites build is unchanged.\n\n## Measured on base (`d11174ad10`), before the fix\n\nThese come from the new test file, run against the base sources through the real `AppContent`, with a stubbed `apiFetch` held pending:\n- (i) all-bound app, reads pending: the DOM held `app-no-access-empty-state` at `/apps/crm`.\n- (ii) first entry bound and pending, second plain: on first render the pathname was already `/apps/crm/crm_case` (the plain entry). The failing assertion was \"expected '/apps/crm/crm_case' to be '/apps/crm'\".\n\nI took no browser reading because no backend was booted for this run. That gap is listed under Acceptance notes.\n\n## Pins (`AppContent.landingWaitsReads-13097.test.tsx`)\n\n- (a) All bound, pending: no no-access state and no navigation. Answering only the second read still holds, because the first is pending ahead of it. Answering the first lands on `/apps/crm/crm_env`.\n- (b) First bound and pending, second plain: no navigation while pending. If the read is `ready` and shown, it lands on the bound entry. If the read fails (HTTP 500), it lands on the plain entry.\n- (c) All bound, every read failed: the no-access state, as before.\n- (d) CONTROL: with no bound entry, it lands on the plain first entry. No read is made, and the hold never draws. A `MutationObserver` watches every node the document receives.\n\n## Ablation\n\nThe hold condition was replaced by `false` through `ablation-replace.mjs` (anchor 1 to 0, blob `9667c66bf4a0` to `5c960f6b8053`). Result: (a) and both (b) cases went red, and (c) and (d) stayed green (3 failed, 2 passed). Restore was proven by blob hash: after the restore the file equals the HEAD blob `9667c66bf4a0`, and `git diff HEAD` is empty.\n\n## Gates (final head `0b5e5b4b15` unless stated)\n\n- `pnpm --filter \"@object-ui/app-shell^...\" build` (closure): exit 0.\n- `pnpm --filter @object-ui/app-shell type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`; the test config includes `src/**/*.test.tsx`): exit 0 on `0b5e5b4b15`.\n- Targeted vitest on `0b5e5b4b15`: the new file plus the 12426, 12079 and 13029 files. 4 files, 42 tests passed.\n- Family run on `49f45565fc`: every test under `packages/**/__tests__` and `apps/**/__tests__` that names `useNavMemberGates`, `navEntriesShownToMember` or `AppContent`. 42 files (172 + 199 tests) passed. The only later commit is a type-only change (the area list is typed instead of `any`).\n- ESLint on the 3 changed source and test files (`--no-inline-config`; `--format json` counted 3 files): 0 errors. `AppContent.tsx` has 43 warnings against 44 on base, and `useNavMemberGates.ts` has 2 against 2. The flat config enables no type-aware linting, so this diff cannot move the verdict on any file it does not touch.\n- Battery, exit 0 each: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `check:new-line-citations`, `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs` and `scripts/check-changeset-presence.mjs`.\n- `check-governed-queue-guard --test` on the 4 paths: NOT GOVERNED.\n- Declared to CI: the full `packages/app-shell` directory (whole-package runs were not allowed by the dispatch lock rules) and `pnpm lint`.\n\n## Acceptance notes\n\n- **No browser reading.** The card's acceptance asks for one measured browser reading of an app whose first nav entry is bound. The named consumer is cloud#3002's 环境 row. That reading was not taken here, so it is NOT MEASURED. The reason: no backend was booted in this run.\n- **A read that never settles holds forever.** The landing holds as long as a deciding read is pending. A request that never resolves keeps the skeleton up, in the same way the permissions provider's fallback stays up while `/me/permissions` is unanswered. Nothing in this PR adds a timeout.\n- **Test-harness note, no product change.** The new file's `useAuth` mock hands back one stable value. `AppContent` re-reads the auth config whenever `getAuthConfig`'s identity changes. A mock that returns a fresh function on every render (as the 12426 file's mock does) sends `AppContent` into an endless re-render once anything re-renders it. In this file, that showed up as a 15 s timeout as soon as a held read answered. The shipped provider is not affected.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

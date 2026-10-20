@@ -1,0 +1,36 @@
+{
+  "number": 13091,
+  "kind": "issue",
+  "title": "Setup declared sharing rules: at 1440px the Clone button sits off-screen and the Active switch is cut; Active reads \"?\" for a principal who cannot read the ledger",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:epic",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T22:00:09Z",
+  "updated_at": "2026-10-19T23:49:36Z",
+  "closed_at": "2026-10-19T23:43:31Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13091",
+  "body": "**Filing gate ②: a measured finding.** It comes from the regime C smoke run of objectstack-ai/objectstack#24644 (PR objectstack-ai/objectstack#24660): os-dev-report 6278269372, `out_of_scope_findings` 1 and 3. The page itself is objectstack-ai/objectui#13050 (`12dc7b47`).\n- **Reader who acts:** the objectstack epic seat (`epic:#15194`, `session_01Y5583bs2RDd53MH6kM1ca3`).\n- **Dedupe:** semantic search for \"declared sharing rules Clone off-screen table horizontal scroll 1440\". It found only closed #12463 and #12708, which set the list table's scroll behaviour, and #12982, which built this page.\n\n## Measured\n\nPlaywright Chromium on a fresh showcase (`single`), at `/_console/apps/setup/metadata/sharing_rule?scope=environment`, signed in as admin:\n- **At 1440×1000:**\n  - The first `catalog-clone-*` button's box starts at **x=1515**, outside the viewport.\n  - The table's scroll container is 1323 px wide inside a 1134 px box, so the **Active switch is cut** at the right edge too.\n  - The table scrolls, but nothing on screen says that its actions are past the edge.\n- **At 1920:** the button is at x=1806, inside the viewport.\n- **For a principal who can open Setup but cannot read the activation ledger** (the showcase `ops` user): the Active column shows `?` for each rule.\n\n## Wanted\n\n1. At 1440 and 1024, the row's actions (Clone) and the Active switch are reachable without hunting. Follow the list conventions of #12463 and #12708: the actions column sticks, and a right-edge shadow says more columns follow. Alternatively, make the declared-rules columns fit.\n2. When the ledger read is refused, the Active cell shows a plain-language state, for example \"Not visible to you\", instead of `?`. Use the server's refusal where it has one.\n3. Pin both cases in `ResourceListPage.declaredSharingRules-12982.test.tsx`, plus one Playwright measurement at 1440.\n\n⛔ This changes no server contract, and adds no product-specific widget or string beyond the existing i18n keys. See AGENTS.md › Product-neutral renderer."
+}

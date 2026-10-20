@@ -1,0 +1,35 @@
+{
+  "number": 13094,
+  "kind": "pull_request",
+  "title": "fix(app-shell): record form and modal form bind systemPermissions, so hasCapability answers on object fields (objectui#13083)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-19T22:48:39Z",
+  "updated_at": "2026-10-19T23:15:04Z",
+  "closed_at": "2026-10-19T23:15:03Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-19T23:15:03Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13094",
+  "body": "Fixes #13083\nClause-②: no\n\n## What changed\n\nAn object field whose `visibleWhen` names `current_user.hasCapability('NAME')` is now answered on the record form page and in the console's global record-form modal.\n\nThe two surfaces build their field-list evaluator by hand, because each sits above the `ExpressionProvider` it mounts. Each passed `permissions` but not `systemPermissions`, so the engine refused every `hasCapability` call on a field, and the fail-open field gate showed the field to holders and non-holders alike, with a diagnostic. Page nodes, navigation and actions already answered through the provider (objectui#13006).\n\nEach site now reads `useExpressionSystemPermissions()` beside `useExpressionPermissions()` and passes it to `createExpressionEvaluator` as `systemPermissions`, with the same name and shape the provider uses:\n\n- `packages/app-shell/src/views/RecordFormPage.tsx` (the record form page's `expressionEvaluator`);\n- `packages/app-shell/src/console/AppContent.tsx` (the modal form's `expressionEvaluator`).\n\nNothing is re-derived from `MePermissionsProvider` a second way. A not-loaded answer stays `undefined`, so the predicate still faults loudly; it is never turned into `false` or `true`. No export, key or prop moves, and `@object-ui/core`'s evaluator is unchanged.\n\n### Every hand-built evaluator under `packages/app-shell/src`\n\n`createExpressionEvaluator(` call sites outside tests, read at the branch base `6058bf8b71`:\n\n- `ExpressionProvider` itself (the provider's own scope): already passes `systemPermissions`.\n- `useExpressionContext()`'s no-provider default: binds only `user` and `features`, deliberately; outside the provider there is no loaded answer, so leaving both permission inputs unbound is the documented \"not loaded\" state.\n- `RecordFormPage` and `AppContent`: the two sites this PR changes.\n\nNo third site carries the omission.\n\n## Tests\n\nTwo new suites drive the real components under a real `MePermissionsProvider` with a payload, reading the field list the page hands to `ObjectForm` and the modal hands to `ModalForm`:\n\n- `packages/app-shell/src/views/RecordFormPage.hasCapability-13083.test.tsx`\n- `packages/app-shell/src/console/__tests__/AppContent.hasCapability-13083.test.tsx`\n\nEach has three arms on a field gated on `current_user.hasCapability('manage_org_users')`:\n\n- HOLDER: the field is shown and nothing is reported.\n- NON-HOLDER: the field is hidden and nothing is reported.\n- CONTROL, NOT LOADED (no provider): the predicate still faults loudly. The fault is reported naming the predicate, and the fail-open field gate shows the field.\n\nAppContent mounts in a unit test, as `AppContent.declaredVisibilityKeys.test.tsx` already does, so the modal arms go through the real component rather than a copy of its evaluator.\n\n### Reverse verification\n\nThe direction was predicted before running. The fix was committed first (`0ae227d904`). Each site's hand-off line was then deleted with `scripts/ablation-replace.mjs` (objectstack checkout), whose anchor must hit once. Both suites ran each time.\n\n- Without the hand-off in `RecordFormPage`: anchor 1 to 0, blob `7358a6fba6d4` to `d8e9897a7276`. The record-form HOLDER and NON-HOLDER arms went red. The other 4 tests stayed green: the modal suite and the not-loaded control. Restored by blob hash: `7358a6fba6d4` equals HEAD, and `git diff HEAD` is empty.\n- Without the hand-off in `AppContent`: anchor 1 to 0, blob `787a250edc4d` to `3587782483d2`. The modal HOLDER and NON-HOLDER arms went red. The other 4 tests stayed green. Restored by blob hash: `787a250edc4d` equals HEAD, and `git diff HEAD` is empty.\n\nThe HOLDER arm goes red through its silence assertion: the field is shown, but the fault is reported. The NON-HOLDER arm goes red because the field is shown.\n\n## Local verification (final head `73bc2d5e84`)\n\n- `pnpm --filter '@object-ui/app-shell^...' build` (the dependency closure), then `pnpm --filter @object-ui/app-shell type-check`, which runs `tsc --noEmit` and `tsc -p tsconfig.test.json`: exit 0. `--listFilesOnly` confirms that both new test files are inside `tsconfig.test.json`.\n- The new suites: 2 files, 6 tests passed.\n- The test family that imports or reads the two touched files, plus `hasCapability-13006` and `currentUserCan-4421`: 50 files in three batches, 413 tests passed, `--maxWorkers=1`, under the shared lock.\n- `eslint --no-inline-config` on the 4 changed source and test files: 0 errors. The new test files have 0 warnings. The 2 production files have only warnings that were already there, none of them on a changed line.\n- `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity` and `check:control-bytes`: each exited 0.\n- `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs`, `scripts/check-changeset-presence.mjs` and `check:new-line-citations` (0 new citations): each exited 0.\n\nLeft to CI: the full `packages/app-shell` test directory. The dispatch kept the lock clear of whole-package runs.\n\nChangeset: `.changeset/13083-form-evaluator-capabilities.md` (`@object-ui/app-shell` patch).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

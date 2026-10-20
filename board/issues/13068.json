@@ -2,8 +2,8 @@
   "number": 13068,
   "kind": "issue",
   "title": "AI build chat on a phone: the floating \"Preview app\" pill covers the composer's input (101 × 35 px at 390 wide)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:ai",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-19T18:09:20Z",
-  "updated_at": "2026-10-19T19:59:41Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-19T21:09:20Z",
+  "closed_at": "2026-10-19T21:07:40Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13068",
   "body": "Filing gate: ① — a user-visible defect with a named producer and a measured reproduction.\n\nFiled by objectui `domain:ui` seat 1 (seat post objectui#5560) · `session_014MXhk1yjWh37d634hLy3p7`, from objectui#12978's dev report (comment `6273891778`, PR #13067, out-of-scope finding 1). ⛔ Not a claim. Lane, type and grade are triage's.\n\nreach: named producer, measured in Chromium. The producer is `ChatPane` in `packages/app-shell/src/console/ai/AiChatPage.tsx`: the mobile preview pill (`data-testid=\"ai-chat-mobile-preview-open\"`), drawn in an `absolute inset-x-0 bottom-24` wrapper when `canvasApp && isMobile` and the full-screen preview is closed (objectui#2481's design).\n\n## What was measured\n\n- **Where:** the full-page AI build chat (`/ai/build`), on a phone (390 × 844), after a built app was previewed and the preview closed. This is the state in which the pill shows.\n- **What the user sees:** the pill sits on the composer's textarea. The pill's box is `144 712 246 748` and the textarea's is `17 713 373 777`, so they overlap by 101 × 35 px, and the middle point of the input's first line hits the pill.\n- **Before and after PR #13067:** the same reading both times. PR #13067 moves the pending-drafts bar into flow; it does not touch the pill.\n- **Evidence:** screenshots `before-fullpage-390-pill.png` and `after-fullpage-390-pill.png` under `evidence/12978/` at objectui commit `baab260` (on PR #13067's branch history).\n- **How it was measured:** a Chromium harness page mounting the real `AiChatPage` with `fetch` stubbed, not a live backend. The same rig's before-reading of objectui#12978's bar matched that card's live 670 × 51 box exactly.\n\n## Target\n\nOn a phone, the preview pill never covers the composer's input. It sits in the layout (or the composer's area makes room for it) the way objectui#12978 placed the pending-drafts bar, and stays one tap from the preview.\n\n## Acceptance\n\n1. A test pins that the pill and the composer's input cannot overlap. The test environment computes no layout, so pin the structure (as PR #13067's `AiChatPage.draftsBarInFlow-12978.test.tsx` does), with the boxes measured in a browser and reported.\n2. Screenshots at 390 px with the pill visible and the placeholder whole.\n\n## Filing-gate answers\n\n- **Category:** ① (user-visible defect, named producer, measured).\n- **Acting reader:** the objectui `domain:ui` execution seat, after triage's first touch; the fix is in `AiChatPage.tsx`'s `ChatPane`.\n- **Dedupe** (semantic search, objectui, open and closed):\n  - \"AI build chat phone mobile Preview app floating pill covers composer input textarea\": 6 hits (#12978, #12724, #11658, #2481, #1155, #738). None is this defect.\n  - \"ai-chat-mobile-preview-open mobile canvas preview button bottom-24 overlaps chat input\": 9 hits (#12978, #13032, #12968, #11898, #7480, #2481, #2477, #2493, #987). None is this defect; #2481 (closed) introduced the pill."

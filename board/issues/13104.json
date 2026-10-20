@@ -1,0 +1,34 @@
+{
+  "number": 13104,
+  "kind": "issue",
+  "title": "e2e(live): eleven live specs are stale or red at the console pin against the shipped showcase — the 18.0 sweep's Tier 1 run (#24598) read them as non-defects, and no card holds their repair",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T00:39:15Z",
+  "updated_at": "2026-10-20T02:20:12Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13104",
+  "body": "**Filing gate ①, class (a): a measured defect with a named producer, carried from the 18.0 release sweep.** The maintainer directed the sweep's filing rule (wave anchor objectstack-ai/objectstack#24579, filing gate ③; 「测试出的问题应该使用 pm-dispatch 技能创建 issue」).\n\nFiled by objectstack `domain:devx` seat 1 (`os-warren`, `session_01FM29ZqLTrnPNXxijioZwMp`). Source: the round-6 dev report on #24579 and PR objectstack-ai/objectstack#24697. ⛔ Not a claim. The lane is self-labelled under rule B (`domain:ui`: objectui's console live specs). Grade and `area:*` are triage's.\n\n## Measured\n\nTier 1 run objectstack-ai/objectstack#24598 ran at the sweep's console pin `4016370af3c9`; the causes come from round-1 records #24572 and #24571. Each spec was then re-read at the shipped pin `12dc7b47c340` (objectstack-ai/objectstack#24660) and at objectui `main` `90518cdb84`. `git diff 4016370af3c9 12dc7b47c340 -- e2e/live/` touches only `e2e/live/ci/backend.env`. The spec bytes are identical, and every cause below still holds.\n\n| spec | at the pin | cause (the spec is stale against the current surface or the shipped showcase, not a product defect) |\n|:--|:--|:--|\n| `e2e/live/studio-object-designer.spec.ts` | F1, F4 red | F1 opens `/apps/com.objectstack.studio`, which no stock boot loads. F4 expects no banner for a picklist with no option source |\n| `e2e/live/studio-record-page.spec.ts` | 0 / 1 | fills the Object control as an input, but it is a `role=combobox` button |\n| `e2e/live/user-filters.spec.ts` | 2 / 4 | the filter-tabs, visualization-switcher and lookup-quick-filter cases expect pre-ADR-0053 showcase metadata. The hollow-view case asks for `cell` where the grid exposes `gridcell` |\n| `e2e/live/inline-edit-polish-2572.spec.ts` | 0 / 1 | expects an approval lock that `manager_review`'s `lockRecord: false` never applies, and consumes its own fixture |\n| `e2e/live/field-conditional-rules.spec.ts` | 0 / 1 | expects a disabled input where a `readonlyWhen` field renders read-only text |\n| `e2e/live/grid-file-upload.spec.ts` | 0 / 1 | `getByText('Line Items')` collides in strict mode with the sr-only DialogDescription \"Enter the record and its line items, then save.\" |\n| `e2e/live/form-view-subforms.spec.ts` | 0 / 1 | the same `Line Items` collision |\n| `e2e/live/cascading-options.spec.ts` | re-filter case red | waits for `md-form-submit`, which only MasterDetailForm renders, on `showcase_cascade`'s flat ModalForm |\n| `e2e/live/detail-related-list.spec.ts` | 0 / 1 | waits for `?recordId=` where a row opens `/record/ID` |\n| `e2e/live/record-history-display.spec.ts` | skipped | skips unless app-todo is the backend, on the stale premise that the showcase has no `enable.trackHistory` object (`showcase_account` carries it) |\n| `e2e/live/screen-flow.spec.ts` | red | measured red at the pin by #24598; its cause was not re-read |\n\nobjectui's own Live E2E CI lane runs only four specs (`test:e2e:live:ci`: screen-flow, action-modal, master-detail and saved-view-filter), against published packages. So nothing in CI reads the other specs red.\n\n## Wanted\n\n- Each spec is brought back to the current surface and the shipped showcase, or deliberately retired, so the live suite is green at the next console pin. The table is the acceptance list, one conclusion per row.\n- ⛔ A spec is not weakened to pass. Where a spec's assertion is right and the product is wrong, that is a product card instead; none of the eleven is, on this evidence.\n- When a spec is repaired, the objectstack checklist items that carry it as `automated.stale` (PR #24697: 11 items in `records-forms.json` and `studio-authoring.json`) can drop the marker. That edit is the objectstack `domain:devx` seat's; name it on the objectstack card #24579 when a repair lands.\n\n## Dedupe\n\nThe round-6 dev scanned all 5257 objectui issues (#7–#13097, every state). It searched for each spec name and for the cause terms (DialogDescription, md-form-submit, recordId=, pre-ADR-0053, e2e/live, live e2e, 4016370, combobox), and nothing matched.\n\nDedupe words:\n- objectui live e2e stale spec console pin\n- e2e/live user-filters pre-ADR-0053 showcase metadata\n- strict mode Line Items DialogDescription sr-only\n- md-form-submit flat ModalForm cascading\n- detail-related-list recordId record page\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -67,7 +67,7 @@ describe('the create entry uses the `create` form view when declared (objectui#1
     expect(resolveFormViewLayout(contact, 'create')).toStrictEqual({ sections: QUICK, modalSize: 'sm' });
     // The console's create modal (AppContent) goes through this resolver.
     expect(resolveRecordFormModalLayout(contact, 'auto', 'create')).toStrictEqual({ sections: QUICK, modalSize: 'sm' });
-    expect(selectRecordFormView(contact, 'create')?.name).toBe('showcase_contact.create');
+    expect(selectRecordFormView(contact, 'create')).toBe(contact.formViews['showcase_contact.create']);
   });
 
   it('(b) an edit of the same object keeps the default form view, unchanged', () => {
@@ -75,7 +75,7 @@ describe('the create entry uses the `create` form view when declared (objectui#1
     expect(resolveRecordFormModalLayout(contact, 'auto', 'edit')).toStrictEqual({ sections: IDENTITY, contentLayout: 'tabbed' });
     // A caller that names no flow gets the default form view, as before.
     expect(resolveFormViewLayout(contact)).toStrictEqual(resolveFormViewLayout(contact, 'edit'));
-    expect(selectRecordFormView(contact, 'edit')?.name).toBe('showcase_contact.form');
+    expect(selectRecordFormView(contact, 'edit')).toBe(contact.form);
   });
 
   it('(c) CONTROL: no `create` form view — a create takes `form ?? formViews.default`, as before', () => {

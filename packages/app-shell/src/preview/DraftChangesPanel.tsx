@@ -465,6 +465,38 @@ export function backfillCandidates(
   return out;
 }
 
+type Translate = ReturnType<typeof useObjectTranslation>['t'];
+
+/**
+ * objectui#13147 — one summary segment per type group, in the count's form:
+ * "1 flow", "2 flows". Each known type is an i18next count family
+ * (`preview.changes.typeCount.*`), so every pack picks its own CLDR slot and
+ * word order. The keys are spelled out, not built from `type`: a type with no
+ * row keeps the raw-name `summaryType` segment rather than a guessed plural.
+ */
+const TYPE_COUNT: Readonly<Record<string, (t: Translate, count: number) => string>> = {
+  object: (t, count) => t('preview.changes.typeCount.object', { count, defaultValue: '{{count}} objects' }),
+  view: (t, count) => t('preview.changes.typeCount.view', { count, defaultValue: '{{count}} views' }),
+  page: (t, count) => t('preview.changes.typeCount.page', { count, defaultValue: '{{count}} pages' }),
+  dashboard: (t, count) => t('preview.changes.typeCount.dashboard', { count, defaultValue: '{{count}} dashboards' }),
+  app: (t, count) => t('preview.changes.typeCount.app', { count, defaultValue: '{{count}} apps' }),
+  action: (t, count) => t('preview.changes.typeCount.action', { count, defaultValue: '{{count}} actions' }),
+  report: (t, count) => t('preview.changes.typeCount.report', { count, defaultValue: '{{count}} reports' }),
+  flow: (t, count) => t('preview.changes.typeCount.flow', { count, defaultValue: '{{count}} flows' }),
+  permission: (t, count) =>
+    t('preview.changes.typeCount.permission', { count, defaultValue: '{{count}} permission sets' }),
+  agent: (t, count) => t('preview.changes.typeCount.agent', { count, defaultValue: '{{count}} agents' }),
+  email_template: (t, count) =>
+    t('preview.changes.typeCount.email_template', { count, defaultValue: '{{count}} email templates' }),
+};
+
+function summaryTypeSegment(t: Translate, type: string, count: number): string {
+  const counted = Object.prototype.hasOwnProperty.call(TYPE_COUNT, type) ? TYPE_COUNT[type] : undefined;
+  return counted
+    ? counted(t, count)
+    : t('preview.changes.summaryType', { n: count, type, defaultValue: '{{n}} {{type}}' });
+}
+
 /** A backfill choice's identity: object and field, as a JSON tuple so no spelling collides. */
 function backfillKey(entry: DraftBackfillEntry): string {
   return JSON.stringify([entry.object, entry.field]);
@@ -1031,9 +1063,7 @@ export function DraftChangesPanel({
           <p data-testid="draft-changes-summary" className="mt-3 px-4 text-xs font-medium text-foreground">
             {[
               t('preview.changes.summaryItems', { count: entries.length, defaultValue: '{{count}} items' }),
-              ...[...byType.entries()].map(([type, items]) =>
-                t('preview.changes.summaryType', { n: items.length, type, defaultValue: '{{n}} {{type}}' }),
-              ),
+              ...[...byType.entries()].map(([type, items]) => summaryTypeSegment(t, type, items.length)),
             ].join(' · ')}
           </p>
         ) : null}

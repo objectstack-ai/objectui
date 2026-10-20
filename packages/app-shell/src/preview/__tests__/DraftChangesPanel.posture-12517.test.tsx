@@ -109,7 +109,10 @@ describe('objectui#12517 — the pending-changes sheet opens in a posture', () =
     for (const toggle of toggles()) expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await waitFor(() => expect(screen.getAllByTestId('draft-entry-detail')).toHaveLength(DRAFT_ROWS.length));
     expect(screen.getByTestId('draft-changes-publish')).toHaveFocus();
-    expect(screen.getByTestId('draft-changes-summary')).toHaveTextContent(/^3 items · 2 object · 1 page$/);
+    // One segment per type group, counted. The stubbed `t()` cannot
+    // plural-select, so the words' number is pinned against the real packs in
+    // `DraftChangesPanel.summaryPlural-13147.test.tsx`, not here.
+    expect(screen.getByTestId('draft-changes-summary')).toHaveTextContent(/^3 items · 2 \S+ · 1 \S+$/);
   });
 
   it('review: rows collapsed, focus on the list, Publish all present but not focused', async () => {

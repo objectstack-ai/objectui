@@ -1478,6 +1478,11 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                 // desktop, and a derived `'full'` (the phone posture) stays full.
                 // The precedence lives in `resolveRecordFormModalLayout`, not in
                 // spread order. Child tasks size to the CHILD object's def.
+                //
+                // The form view: a create uses the object's `create` form view
+                // when it declares one (objectui#13099), an edit its default.
+                // The flow is the same `editingRecord` test the `mode` above
+                // reads, so the selected view always matches the form's mode.
                 ...resolveRecordFormModalLayout(
                   formObjectDef as any,
                   deriveRecordFlowSurface(
@@ -1486,6 +1491,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                       ? (editingRecord ? 'child-edit' : 'child-create')
                       : (editingRecord ? 'edit' : 'create'),
                   ).size,
+                  editingRecord ? 'edit' : 'create',
                 ),
                 title: editingRecord
                   ? t('form.editTitle', { object: objectLabel(formObjectDef as any) })

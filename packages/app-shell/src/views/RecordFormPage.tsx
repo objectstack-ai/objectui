@@ -47,6 +47,7 @@ import {
 import { buildExpressionUser } from '../providers/expressionUser.js';
 import { SkeletonDetail } from '../skeletons/index.js';
 import { ManagedByBadge } from '../components/ManagedByBadge.js';
+import { selectRecordFormView } from '../utils/recordFormNavigation.js';
 import { useAuth } from '@object-ui/auth';
 
 export interface RecordFormPageProps {
@@ -294,7 +295,10 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
   // already renders each variant. Page-level layouts only — `drawer`/`modal`
   // are presentation/open-modes, not record-page layouts, so they fall back to
   // `simple` here (see the form-layout-vs-presentation modelling note in objectstack-ai/objectstack#1890).
-  const formDef: any = (objectDef as any).form ?? (objectDef as any).formViews?.default ?? {};
+  // The form view is the one the record flow selects (objectui#13099): a
+  // create uses the object's `create` form view when it declares one, an edit
+  // the default form view — the same selection the New/Edit modal makes.
+  const formDef: any = selectRecordFormView(objectDef as any, mode) ?? {};
   const pageFormType: 'simple' | 'tabbed' | 'wizard' | 'split' =
     ['tabbed', 'wizard', 'split'].includes(formDef.type) ? formDef.type : 'simple';
   // Curated `sections` are wired through for EVERY layout family — a `simple`

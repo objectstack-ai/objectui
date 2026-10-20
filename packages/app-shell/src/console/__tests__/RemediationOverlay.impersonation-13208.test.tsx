@@ -20,7 +20,7 @@
  * a case knows the impersonated session has resolved before the gate arrives.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthProvider, TokenStorage, createAuthenticatedFetch } from '@object-ui/auth';
@@ -88,8 +88,14 @@ async function raiseGate() {
 /** Records whether the change-password form was EVER in the document, not only at the end. */
 function watchForPasswordForm(): () => boolean {
   let seen = false;
-  const observer = new MutationObserver(() => {
-    if (document.getElementById('rem-cur')) seen = true;
+  // Read off the ADDED nodes, not the document: the form can be added and
+  // removed again before this callback runs.
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of Array.from(record.addedNodes)) {
+        if (node instanceof Element && (node.id === 'rem-cur' || node.querySelector('#rem-cur'))) seen = true;
+      }
+    }
   });
   observer.observe(document.body, { childList: true, subtree: true });
   return () => {
@@ -123,11 +129,11 @@ async function heldWhileImpersonating(gateCode: string, stop: () => Response = (
 }
 
 describe('RemediationOverlay on an impersonation session (objectui#13208)', () => {
-  let reload: ReturnType<typeof vi.fn>;
+  let reload: Mock<() => void>;
 
   beforeEach(() => {
     TokenStorage.clear();
-    reload = vi.fn();
+    reload = vi.fn<() => void>();
     vi.spyOn(window.location, 'reload').mockImplementation(reload);
   });
 

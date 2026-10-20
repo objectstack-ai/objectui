@@ -120,11 +120,13 @@ describe('object-grid — the no-data-source gate and a bare `data` array (objec
     const { container } = renderWithoutAdapter({ ...BASE, bind: 'accounts' });
 
     // No panel: the placement has somewhere to look, even with nothing bound in
-    // this render. The BLOCK renders instead — its column header is on screen —
-    // which is what tells "the gate stayed silent" apart from "nothing rendered
-    // at all". Without this row the repair could have collapsed into "anything
-    // without an adapter is a defect".
-    expect(await screen.findByText('Name')).toBeTruthy();
+    // this render. The BLOCK renders instead — its own empty state is on screen
+    // (objectui#13142: an unsearched grid with no row draws that in place of the
+    // table, so the column header is no longer the probe) — which is what tells
+    // "the gate stayed silent" apart from "nothing rendered at all". Without
+    // this row the repair could have collapsed into "anything without an
+    // adapter is a defect".
+    expect(await screen.findByTestId('object-grid-empty-state')).toBeTruthy();
     expect(panelOf(container)).toBeNull();
   });
 

@@ -279,11 +279,11 @@ function sectionPredicateVisible(
  * Only the row goes. The record still carries the value, so the card still
  * resolves the pair from the row, and every other reader still reads it.
  */
-function foldPointerTypeHalves(
-  fields: any[] | undefined,
-  sections: any,
-  objectFields: Record<string, any> | undefined,
-): { fields: any[] | undefined; sections: any } {
+function foldPointerTypeHalves<S>(
+  fields: unknown[] | undefined,
+  sections: S,
+  objectFields: Readonly<Record<string, { readonly referenceVia?: unknown } | null | undefined>> | undefined,
+): { fields: unknown[] | undefined; sections: S } {
   if (!objectFields) return { fields, sections };
   // id half -> type half, for every pair the object declares.
   const typeHalfOf = new Map<string, string>();
@@ -295,10 +295,17 @@ function foldPointerTypeHalves(
   }
   if (typeHalfOf.size === 0) return { fields, sections };
 
-  const lists: any[][] = [];
+  const sectionFields = (s: unknown): unknown[] | undefined => {
+    const list = s && typeof s === 'object' ? (s as { fields?: unknown }).fields : undefined;
+    return Array.isArray(list) ? list : undefined;
+  };
+  const lists: unknown[][] = [];
   if (Array.isArray(fields)) lists.push(fields);
   if (Array.isArray(sections)) {
-    for (const s of sections) if (Array.isArray(s?.fields)) lists.push(s.fields);
+    for (const s of sections) {
+      const list = sectionFields(s);
+      if (list) lists.push(list);
+    }
   }
   const drawn = new Set<string>();
   for (const list of lists) {
@@ -313,18 +320,19 @@ function foldPointerTypeHalves(
   }
   if (folded.size === 0) return { fields, sections };
 
-  const drop = (list: any[] | undefined): any[] | undefined =>
-    Array.isArray(list)
-      ? list.filter((e) => {
-          const n = fieldName(e);
-          return !(n && folded.has(n));
-        })
-      : list;
+  const drop = (list: unknown[]): unknown[] =>
+    list.filter((e) => {
+      const n = fieldName(e);
+      return !(n && folded.has(n));
+    });
   return {
-    fields: drop(fields),
-    sections: Array.isArray(sections)
-      ? sections.map((s: any) => (Array.isArray(s?.fields) ? { ...s, fields: drop(s.fields) } : s))
-      : sections,
+    fields: Array.isArray(fields) ? drop(fields) : fields,
+    sections: (Array.isArray(sections)
+      ? sections.map((s: unknown) => {
+          const list = sectionFields(s);
+          return list ? { ...(s as object), fields: drop(list) } : s;
+        })
+      : sections) as S,
   };
 }
 

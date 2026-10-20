@@ -22,6 +22,12 @@
  * only its page: its nearest boundary is the route's. The fix is a boundary
  * around the dialog's body (`ModalFormBodyPending` in `ModalForm.tsx`).
  *
+ * Since objectui#13246 the toggle itself is a transition, so a header click
+ * keeps the drawn body on screen and reaches neither boundary: hiding the body
+ * hid the focused header too (`sectionOpenKeepsFocus-13246.test.tsx`). The
+ * dialog's boundary still owns every wait an ordinary update starts; the last
+ * case below pins it on the body's first draw.
+ *
  * NOT the producer, read off the code: the collapse state lives in
  * `ModalForm`'s own `useState` (not above the dialog's key), and the console's
  * key for the dialog is the object name plus the record id or `new`, which a
@@ -164,12 +170,15 @@ describe('ModalForm — a collapsed section opens in place (objectui#12559)', ()
 
     fireEvent.click(sectionHeader('Company Information')!);
 
-    // Mid-load: the dialog's body waits; nothing above the dialog does.
+    // Mid-load: nothing above the dialog waits, and since objectui#13246 its
+    // body does not either — the toggle is a transition, so the drawn body,
+    // typed value included, stays on screen until the section can be drawn.
     expect(counts.hostFallbackMounts).toBe(fallbacksBefore);
     expect(screen.queryByTestId('host-fallback')).toBeNull();
     expect(dialogShown()).toBe(true);
     expect(screen.getByRole('dialog').textContent).toContain('Create Lead');
-    expect(screen.getByRole('dialog').querySelector('[data-testid="modal-form-body-pending"]')).not.toBeNull();
+    expect(screen.getByRole('dialog').querySelector('[data-testid="modal-form-body-pending"]')).toBeNull();
+    expect(firstNameInput()!.closest('[style*="display: none"]')).toBeNull();
 
     release();
     await screen.findByTestId('deferred-url-widget');
@@ -213,6 +222,26 @@ describe('ModalForm — a collapsed section opens in place (objectui#12559)', ()
 
     expect(sectionHeader('Company Information')?.getAttribute('aria-expanded')).toBe('false');
     expect(drawnFields()).not.toContain('website');
+  });
+
+  it('the dialog still owns the wait of an ordinary update: the body\'s first draw waits inside the dialog', async () => {
+    const { release } = deferUrlWidget();
+    const ds = makeDataSource();
+    // Open from the start, so the first draw after the load renders `website`.
+    const { counts } = mountConsoleShaped(ds, {});
+
+    await waitFor(() =>
+      expect(screen.getByRole('dialog').querySelector('[data-testid="modal-form-body-pending"]')).not.toBeNull(),
+    );
+    expect(counts.hostFallbackMounts).toBe(0);
+    expect(screen.queryByTestId('host-fallback')).toBeNull();
+    expect(dialogShown()).toBe(true);
+
+    release();
+    await screen.findByTestId('deferred-url-widget');
+    expect(screen.queryByTestId('modal-form-body-pending')).toBeNull();
+    expect(counts.hostFallbackMounts).toBe(0);
+    expect(counts.hostMounts).toBe(1);
   });
 
   it('control: the full-page form (ObjectForm, simple) still expands a collapsed section', async () => {

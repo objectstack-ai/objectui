@@ -459,6 +459,15 @@ export interface ImportResult {
 
 type WizardStep = 'upload' | 'mapping' | 'preview';
 
+/**
+ * The result screen's headline ("Import Complete" / "Import cancelled") is
+ * rendered as the dialog's `DialogDescription`, so the finished state is what
+ * `aria-describedby` names and the header shows no stale subtitle above it
+ * (objectui#13124). These classes override the primitive's `text-sm
+ * text-muted-foreground` so the headline looks as it did as a plain paragraph.
+ */
+const RESULT_HEADLINE_CLASS = 'text-lg font-semibold text-foreground';
+
 /** Maximum number of rows to show in the preview step */
 const PREVIEW_ROW_COUNT = 10;
 
@@ -2934,13 +2943,21 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
               </Button>
             )}
           </div>
-          <DialogDescription>
-            {showHistory
-              ? t('grid.import.historyDescription')
-              : step === 'upload' ? t('grid.import.uploadDescription')
-              : step === 'mapping' ? t('grid.import.mappingDescription')
-              : t('grid.import.previewDescription')}
-          </DialogDescription>
+          {/* A finished import keeps `step === 'preview'`, so this subtitle used
+              to read "Review data before importing." on the result screen
+              (objectui#13124). The result screen's own headline is the dialog's
+              description there instead (see `RESULT_HEADLINE_CLASS`), so the
+              header carries none and exactly one description is mounted in
+              every state: Radix wires `aria-describedby` only while one is. */}
+          {(showHistory || !result) && (
+            <DialogDescription>
+              {showHistory
+                ? t('grid.import.historyDescription')
+                : step === 'upload' ? t('grid.import.uploadDescription')
+                : step === 'mapping' ? t('grid.import.mappingDescription')
+                : t('grid.import.previewDescription')}
+            </DialogDescription>
+          )}
         </DialogHeader>
 
         {/* Step indicators */}
@@ -3094,12 +3111,12 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
             {result.cancelled ? (
               <>
                 <X className="h-10 w-10 text-muted-foreground" />
-                <p className="text-lg font-semibold">{t('grid.import.importCancelled')}</p>
+                <DialogDescription className={RESULT_HEADLINE_CLASS}>{t('grid.import.importCancelled')}</DialogDescription>
               </>
             ) : (
               <>
                 <CheckCircle2 className="h-10 w-10 text-green-500" />
-                <p className="text-lg font-semibold">{t('grid.import.importComplete')}</p>
+                <DialogDescription className={RESULT_HEADLINE_CLASS}>{t('grid.import.importComplete')}</DialogDescription>
               </>
             )}
             <div className="flex flex-wrap justify-center gap-2">

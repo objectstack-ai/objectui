@@ -7,10 +7,10 @@
  * A permission set's holders (`AssignedUsersSection`) and a position's holders
  * (`PositionHoldersSection`) each offered Add and a per-row Remove to whoever
  * reached the page, and read no grant. Reaching the page is not the grant: the
- * Setup app asks `setup.access`, and objectstack's shipped organization
- * administrator set holds it while it is read-only on both assignment objects,
- * so that caller was offered writes the server refuses at its object CRUD
- * step. Now each write reads its row, asked of the object it writes:
+ * Setup app asks `setup.access`, and a caller can hold it while the server
+ * refuses their write of an assignment row at its object CRUD step, so that
+ * caller was offered writes the server refuses. Now each write reads its row,
+ * asked of the object it writes:
  *
  *  - Add (a junction row created): `relatedNew`, the create grant;
  *  - Remove (a junction row deleted): `relatedRowDelete`, the delete grant.
@@ -93,6 +93,7 @@ const metadataStore = {
 /** The grant shapes on one assignment object, as `/me/permissions` carries them. */
 const SHAPE = {
   readOnly: { allowRead: true, allowCreate: false, allowEdit: false, allowDelete: false },
+  createAndDelete: { allowRead: true, allowCreate: true, allowEdit: false, allowDelete: true },
   createOnly: { allowRead: true, allowCreate: true, allowEdit: false, allowDelete: false },
   deleteOnly: { allowRead: true, allowCreate: false, allowEdit: false, allowDelete: true },
   full: { allowRead: true, allowCreate: true, allowEdit: true, allowDelete: true },
@@ -110,21 +111,39 @@ function answer(objects: MePermissionsResponse['objects']): MePermissionsRespons
   } as MePermissionsResponse;
 }
 
+/** A super-user wildcard, as the organization administrator set carries one. */
+const WILDCARD = {
+  allowRead: true,
+  allowCreate: true,
+  allowEdit: true,
+  allowDelete: true,
+  viewAllRecords: true,
+  modifyAllRecords: true,
+};
+
 /**
- * An organization administrator's answer: a super-user wildcard beside the
- * explicit read-only entries its set names for both assignment objects. The
- * explicit entry is the set's whole answer for the object, on the server's
- * evaluator and in the map it hands the client alike.
+ * An organization administrator's answer, the shape objectstack ships
+ * (`organization_admin` and `organization_admin_no_bypass`; that repo's pin
+ * `organization_admin creates and removes assignment rows, never edits them —
+ * both variants`): a super-user wildcard beside the explicit entries its set
+ * names for both assignment objects, which create and delete and never edit.
+ * The explicit entry is the set's whole answer for the object, on the server's
+ * evaluator and in the map it hands the client alike. What it may create or
+ * remove is bounded on the server by the delegated-administration gate, which
+ * the client does not draw.
  */
 const ORG_ADMIN = answer({
-  '*': {
-    allowRead: true,
-    allowCreate: true,
-    allowEdit: true,
-    allowDelete: true,
-    viewAllRecords: true,
-    modifyAllRecords: true,
-  },
+  '*': WILDCARD,
+  [GRANT_OBJECT]: SHAPE.createAndDelete,
+  [HOLDING_OBJECT]: SHAPE.createAndDelete,
+} as MePermissionsResponse['objects']);
+
+/**
+ * CONTROL: the same wildcard beside explicit entries with neither create nor
+ * delete. The explicit entry still governs, so the wildcard opens nothing.
+ */
+const WILDCARD_BESIDE_READ_ONLY = answer({
+  '*': WILDCARD,
   [GRANT_OBJECT]: SHAPE.readOnly,
   [HOLDING_OBJECT]: SHAPE.readOnly,
 } as MePermissionsResponse['objects']);
@@ -168,8 +187,13 @@ afterEach(() => {
 });
 
 describe.each(SECTIONS)("Setup's $name reads relatedNew / relatedRowDelete on its assignment object (objectui#12082)", (section) => {
-  it('an organization administrator — read-only on the assignment object beside a super-user wildcard — sees the holders and is offered no write', async () => {
+  it('an organization administrator — create and delete, never edit, on the assignment object beside a super-user wildcard — sees the holders and is offered Add and Remove', async () => {
     await mount(section, ORG_ADMIN);
+    expect(offered(section)).toEqual({ add: true, picker: true, remove: true });
+  });
+
+  it('CONTROL — a holder whose explicit entry grants neither create nor delete is offered neither, a super-user wildcard beside it or not', async () => {
+    await mount(section, WILDCARD_BESIDE_READ_ONLY);
     expect(offered(section)).toEqual({ add: false, picker: false, remove: false });
   });
 

@@ -62,7 +62,7 @@ import { matchesPaletteQuery } from './paletteMatch.js';
 import { fetchPackages, type PkgEntry } from '../views/studio-design/packages-io.js';
 import { isPackageLessItem, studioOrgScopePath } from '../views/studio-design/studioScope.js';
 import { DESIGNER_SURFACE_PARAM, formatSurfaceParam } from '../views/metadata-admin/nav-selection.js';
-import { useAppReportEntries } from '../views/appReportIndex.js';
+import { flattenNavigation, useAppReportEntries } from '../views/appReportIndex.js';
 
 /** The palette of the active app: the frame `ConsoleLayout` draws for `/apps/APP`. */
 interface AppCommandPaletteProps {
@@ -794,17 +794,4 @@ function StudioPaletteItem({
       )}
     </CommandItem>
   );
-}
-
-/** Flatten nested navigation groups into a flat list of leaf items */
-function flattenNavigation(items: any[]): any[] {
-  const result: any[] = [];
-  for (const item of items) {
-    if (item.type === 'group' && item.children) {
-      result.push(...flattenNavigation(item.children));
-    } else {
-      result.push(item);
-    }
-  }
-  return result;
 }

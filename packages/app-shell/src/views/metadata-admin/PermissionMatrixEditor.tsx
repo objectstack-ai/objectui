@@ -1162,6 +1162,14 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         // when it was saved under the name this page lists holders for.
         if (payload.name === name) setExistsOnServer(true);
       }
+      // objectui#13272 — the clone notice is the server's point-in-time answer
+      // to the clone, and a saved copy is past that moment: the copy is now
+      // customised and saved, so the notice goes. Only a save OF THE COPY
+      // ends it — an embedded host announces the copy on its base, and saving
+      // the base changes nothing about the copy. The notice is one server
+      // string shown verbatim and goes whole: cutting out one sentence would
+      // key the editor on the server's prose.
+      setCloned((c) => (c && c.name === payload.name ? null : c));
       setDestructive(null);
     } catch (err: any) {
       if (err?.status === 409 && errorCodeIs(err, 'DESTRUCTIVE_CHANGE')) {
@@ -1239,6 +1247,17 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         { relative: 'path' },
       );
     }
+  }
+
+  /**
+   * objectui#13272 — the clone notice ends "The copy is held by nobody yet",
+   * which stops being true once the copy has a holder. The holders section
+   * reports every read; one that lists anybody for the copy retires the
+   * notice, whole (the server's string is never cut into sentences). Keyed on
+   * the set the read was FOR, so a late read of another set cannot retire it.
+   */
+  function onHoldersRead(count: number, setName: string) {
+    if (count > 0) setCloned((c) => (c && c.name === setName ? null : c));
   }
 
   /* ── Render helpers ──────────────────────────────────────── */
@@ -1416,7 +1435,9 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           once the routed hop opens it, or, on an embedded host (no route to
           open it on), announced by name on this set. The server's notice
           (what was not copied, and that the copy is held by nobody yet) is
-          shown as sent (advisory, like the re-read notice below). */}
+          shown as sent (advisory, like the re-read notice below), and only
+          until the copy is saved or held (objectui#13272: `doSave`,
+          `onHoldersRead`). */}
       {cloned !== null && (embedded || cloned.name === name) && (cloned.name !== name || !!cloned.notice) && (
         <div
           role="status"
@@ -2010,7 +2031,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
             set's holders render under its definition, by name. */}
         {showAssignments && (
           <div className="mx-4 mb-4 shrink-0 max-h-[35vh] overflow-y-auto rounded-md border" data-testid="perm-assignments">
-            <AssignedUsersSection permissionSetName={name} />
+            <AssignedUsersSection permissionSetName={name} onHoldersRead={onHoldersRead} />
           </div>
         )}
       </div>

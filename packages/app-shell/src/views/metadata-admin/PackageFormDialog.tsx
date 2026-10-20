@@ -10,10 +10,13 @@
  *
  * Modes:
  *   • create → POST /api/v1/packages { manifest }         (409 on duplicate id)
- *   • edit   → PATCH /api/v1/packages/:id { name, description, version }
- *              (the REST surface only persists those three; `id` / `type` /
- *              `namespace` / `scope` / … are `immutable` in the form and lock
- *              automatically once `createMode` is false)
+ *   • edit   → PATCH /api/v1/packages/:id { name, description, version,
+ *              dependencies? } — `dependencies` only when the author changed
+ *              it (objectui#13121); the door persists those four keys and
+ *              judges `dependencies` by `ManifestSchema`'s row
+ *              (objectstack#24670). `id` / `type` / `namespace` / `scope` / …
+ *              are `immutable` in the form and lock automatically once
+ *              `createMode` is false.
  *   • view   → read-only render of the manifest
  *
  * Create mode's Package ID is not the spec form's text field but the shared
@@ -47,6 +50,7 @@ import { useMetadataLocale, t, tFormat, tOptional } from './i18n.js';
 import { SchemaForm, type SchemaFormIssue } from './SchemaForm.js';
 import type { FormFieldSpec, FormViewSpec } from './form-spec.js';
 import { getPackageSchema, getPackageForm } from './package-schema.js';
+import { PackageDependenciesEditor, type DependencyMap } from './PackageDependenciesEditor.js';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 
 const API = '/api/v1/packages';
@@ -56,7 +60,15 @@ const API = '/api/v1/packages';
  * text field for it is hidden (still preserved on save). Edit and view keep
  * the form's locked id field (objectui#11792).
  */
-const CREATE_HIDDEN_FIELDS = ['id'];
+const CREATE_HIDDEN_FIELDS = ['id', 'dependencies'];
+
+/**
+ * The `dependencies` row is a `package name → version range` map the spec
+ * form has no renderer for: it fell back to a raw JSON box under a developer
+ * hint (objectui#13278). Every mode hides it from the spec form and hosts
+ * {@link PackageDependenciesEditor} instead, labelled from the form's own row.
+ */
+const HIDDEN_FIELDS = ['dependencies'];
 
 /**
  * The fields create mode lays out itself, in one Basics card and in this
@@ -70,6 +82,17 @@ const CREATE_HOSTED_FIELDS: readonly string[] = ['name', 'id', 'namespace', 'ver
 
 function fieldName(f: string | FormFieldSpec): string {
   return typeof f === 'string' ? f : f.field;
+}
+
+/** The row named `name` in `form`, if the form declares one. */
+function findFormField(form: FormViewSpec, name: string): FormFieldSpec | undefined {
+  for (const s of form.sections ?? []) {
+    if (!s.fields) continue;
+    for (const f of s.fields) {
+      if (fieldName(f) === name) return typeof f === 'string' ? { field: f } : f;
+    }
+  }
+  return undefined;
 }
 
 /** A one-section form view holding `names` from `form`, in that order. */
@@ -183,6 +206,31 @@ function deriveCreatePackageId(name: string, orgSlug: string | null | undefined)
   const orgSegment = orgSlug ? toIdSegment(orgSlug) : '';
   const candidate = ['com', orgSegment, nameSegment].filter(Boolean).join('.');
   return isSpecPackageId(candidate) ? candidate : null;
+}
+
+/**
+ * Does the edit draft's `dependencies` row differ from the one the dialog
+ * loaded (objectui#13121)? Compared by entries, not by key order: the door
+ * replaces the stored row whole, so an unchanged map in another order is no
+ * edit. An absent row reads as the empty map on both sides — the dialog's own
+ * form state, not a producer's value — so an author who empties a non-empty
+ * row has changed it, and a row that was never declared and is still empty
+ * has not. A value that is not a plain map (an editor mid-edit) counts as
+ * changed, so it reaches the door and is judged there rather than dropped.
+ */
+function dependenciesChanged(loaded: unknown, now: unknown): boolean {
+  const asMap = (v: unknown): Record<string, unknown> | null =>
+    v === undefined || v === null
+      ? {}
+      : typeof v === 'object' && !Array.isArray(v)
+        ? (v as Record<string, unknown>)
+        : null;
+  const a = asMap(loaded);
+  const b = asMap(now);
+  if (!a || !b) return true;
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return true;
+  return keys.some((k) => !Object.prototype.hasOwnProperty.call(b, k) || a[k] !== b[k]);
 }
 
 /** Which filled-in create fields the author has edited (objectui#12512). */
@@ -329,6 +377,9 @@ export function PackageFormDialog({
   });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // objectui#13278 — false while a dependencies row has an empty or duplicate
+  // package name; the editor flags the row and save waits for it.
+  const [dependenciesValid, setDependenciesValid] = React.useState(true);
 
   React.useEffect(() => {
     if (!open) return;
@@ -346,7 +397,13 @@ export function PackageFormDialog({
     }
     setError(null);
     setBusy(false);
+    setDependenciesValid(true);
   }, [open, createMode, manifest]);
+
+  const handleDependenciesChange = React.useCallback((dependencies: DependencyMap, valid: boolean) => {
+    setDependenciesValid(valid);
+    setForm((prev) => ({ ...prev, draft: { ...prev.draft, dependencies } }));
+  }, []);
 
   // On create, keep `namespace` in sync with the id (deriveNamespaceFromPackageId)
   // until the user edits the namespace field themselves — mirroring the old
@@ -436,7 +493,7 @@ export function PackageFormDialog({
   // Namespace is required on create (framework#2694): every object name is
   // prefixed with it. On edit it's immutable and not resubmitted.
   const nsOk = !createMode || NAMESPACE_RE.test(String(draft.namespace ?? '').trim());
-  const canSubmit = !readOnly && nameOk && versionOk && idOk && nsOk && !busy;
+  const canSubmit = !readOnly && nameOk && versionOk && idOk && nsOk && dependenciesValid && !busy;
 
   // objectui#12512 — every field that keeps Create disabled says why under its
   // row. The spec form already does for the name and the version, and the id
@@ -491,17 +548,28 @@ export function PackageFormDialog({
         result = { id, mode, package: created };
       } else {
         const id = String((manifest?.id as string) ?? draft.id ?? '');
-        // The REST PATCH only persists name/description/version.
+        // The REST PATCH persists name / description / version / dependencies
+        // (objectstack#24670). `dependencies` is sent only when the author
+        // changed it, in the flat shape, and whole: the door replaces the
+        // stored row with it, so an emptied editor sends `{}`, which clears
+        // the declaration (objectui#13121). The row is judged by the door
+        // (`400 VALIDATION_ERROR`); a read-only package is refused before the
+        // body is read (`422 WRITABLE_PACKAGE_REQUIRED`). Both reach the
+        // banner below like any other refusal.
+        const patchBody: Record<string, unknown> = {
+          name: String(draft.name ?? '').trim(),
+          description: String(draft.description ?? '').trim(),
+          version: versionStr,
+        };
+        if (dependenciesChanged(manifest?.dependencies, draft.dependencies)) {
+          patchBody.dependencies = draft.dependencies ?? {};
+        }
         const updated = await apiJson<{ manifest: ManifestRecord } & Record<string, unknown>>(
           `${API}/${encodeURIComponent(id)}`,
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: String(draft.name ?? '').trim(),
-              description: String(draft.description ?? '').trim(),
-              version: versionStr,
-            }),
+            body: JSON.stringify(patchBody),
           },
         );
         result = { id, mode, package: updated };
@@ -564,10 +632,26 @@ export function PackageFormDialog({
     value: draft,
     onChange: handleChange,
     issues,
-    hiddenFields: createMode ? CREATE_HIDDEN_FIELDS : undefined,
+    hiddenFields: createMode ? CREATE_HIDDEN_FIELDS : HIDDEN_FIELDS,
     readOnly,
     createMode,
   };
+
+  // The hosted dependencies row, labelled from the spec form's own row; its
+  // help line falls back to the spec's `.describe()` as the form's would.
+  const dependenciesRow = findFormField(form, 'dependencies');
+  const dependenciesEditor = dependenciesRow ? (
+    <section className="rounded-md border border-border/40 bg-card/30 p-4">
+      <PackageDependenciesEditor
+        label={dependenciesRow.label ?? dependenciesRow.field}
+        help={dependenciesRow.helpText ?? ManifestSchema.shape.dependencies.description}
+        value={draft.dependencies}
+        onChange={handleDependenciesChange}
+        readOnly={readOnly}
+        locale={locale}
+      />
+    </section>
+  ) : null;
 
   const title =
     mode === 'create'
@@ -662,9 +746,13 @@ export function PackageFormDialog({
                 </div>
               </section>
               <SchemaForm {...formProps} form={createForms.rest} />
+              {dependenciesEditor}
             </div>
           ) : (
-            <SchemaForm {...formProps} form={form} />
+            <div className="space-y-4">
+              <SchemaForm {...formProps} form={form} />
+              {dependenciesEditor}
+            </div>
           )}
         </div>
 

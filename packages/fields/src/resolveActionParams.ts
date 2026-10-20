@@ -47,7 +47,7 @@
  * rejects it, the server's `.strict()` parse rejects it, and this resolver
  * names it via {@link RESOLVED_ONLY_PARAM_KEYS} rather than reading it.
  */
-import { EXPANDABLE_FIELD_TYPES } from '@object-ui/core';
+import { EXPANDABLE_FIELD_TYPES, toPredicateRecord } from '@object-ui/core';
 import type { ActionParamDef, ActionParamOption } from '@object-ui/core';
 // The form's widget fold. Imported from the barrel this module is re-exported
 // by — a cycle in the SOURCE graph only, and a call-time one: nothing at this
@@ -531,6 +531,42 @@ function normaliseVisible(visible: RawActionParam['visible']): string | undefine
 }
 
 /**
+ * The row a `defaultFromRow` param is seeded from, in its STORED form
+ * (objectui#13271).
+ *
+ * A list surface reads its rows with `$expand` on the relations it shows, and
+ * the server replaces a relation's id IN PLACE with the related record. Copied
+ * verbatim, that record became the param's value and went out on the wire: a
+ * `lookup` param submitted a whole `sys_user` record where the endpoint expects
+ * its id, which is what Setup → Teams → Remove from Team answered 400 to. The
+ * value contract is the id (`@objectstack/spec` `field-value.zod.ts`: the
+ * expanded record is the READ shape and is never stored).
+ *
+ * So the row goes through `toPredicateRecord`, the one rule that binds a
+ * fetched record the way the server stores it, and the rule the predicate and
+ * Undo paths (`captureUpdateUndoData`, objectui#11122) already use: a field the
+ * row's object DECLARES relational collapses to its id, element-wise for a
+ * `multiple` one, and every other field is left exactly as the row carries it.
+ * It is decided by the object's field types, never by the value's shape: a
+ * `json` field may hold an object with an `id`, and that object is its value.
+ *
+ * The row is a record of `ctx.objectName` (the action's own object — both
+ * callers resolve against it), so that object's fields name the relations; an
+ * `objectOverride` names where a param's field METADATA is read, not what the
+ * row is. Without that object in `ctx.objects` nothing is collapsed — a caller
+ * that cannot name the relations must not guess — and the seed is the row's
+ * value as before. Display is unaffected: the picker hydrates an id to its
+ * record's name.
+ */
+function storedRow(
+  row: Record<string, unknown>,
+  ctx: ResolveActionParamsContext,
+): Record<string, unknown> {
+  const rowObject = ctx.objects.find((o) => o?.name === ctx.objectName);
+  return toPredicateRecord(row, rowObject?.fields);
+}
+
+/**
  * Resolve a single raw param against object metadata. Inline params pass
  * through (with safe defaults); field-backed params inherit from the
  * referenced field and accept inline overrides on top.
@@ -545,11 +581,11 @@ export function resolveActionParam(
   warnResolvedOnlyKeys(param);
 
   /** Row-context default: when `defaultFromRow` and a row is present, the
-   *  param's defaultValue is the row's value at {@link rowValueKey}. */
+   *  param's defaultValue is the row's STORED value at {@link rowValueKey}. */
   const rowKey = rowValueKey(param);
   const rowDefault =
     param.defaultFromRow && ctx.row && rowKey != null && Object.prototype.hasOwnProperty.call(ctx.row, rowKey)
-      ? ctx.row[rowKey]
+      ? storedRow(ctx.row, ctx)[rowKey]
       : undefined;
 
   /**

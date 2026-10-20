@@ -125,12 +125,38 @@ vi.mock('../../hooks/useCanAuthorMetadata', async (importOriginal) => ({
   useCanAuthorMetadata: () => canAuthor,
 }));
 
-// The holders section reads grants of its own; here it only says which set it
-// was handed, so the scope the copy opens in is visible.
+// The holders section reads grants of its own; here it says which set it was
+// handed, so the scope the copy opens in is visible, and reports each read the
+// way the real one does (`onHoldersRead`, objectui#13272): once on mount with
+// `holdersByName`'s count, and again after its "Add" (a grant, then a re-read).
+let holdersByName: Record<string, number> = {};
 vi.mock('./AssignedUsersSection', () => ({
-  AssignedUsersSection: ({ permissionSetName }: { permissionSetName: string }) => (
-    <div data-testid="assigned-users-stub">{permissionSetName}</div>
-  ),
+  AssignedUsersSection: ({
+    permissionSetName,
+    onHoldersRead,
+  }: {
+    permissionSetName: string;
+    onHoldersRead?: (count: number, setName: string) => void;
+  }) => {
+    React.useEffect(() => {
+      onHoldersRead?.(holdersByName[permissionSetName] ?? 0, permissionSetName);
+      // Once per set, as the real section's load is keyed on the set name.
+    }, [permissionSetName]);
+    return (
+      <div>
+        <div data-testid="assigned-users-stub">{permissionSetName}</div>
+        <button
+          type="button"
+          onClick={() => {
+            holdersByName[permissionSetName] = (holdersByName[permissionSetName] ?? 0) + 1;
+            onHoldersRead?.(holdersByName[permissionSetName], permissionSetName);
+          }}
+        >
+          Stub add holder
+        </button>
+      </div>
+    );
+  },
 }));
 
 import { PermissionMatrixEditPage } from './PermissionMatrixEditor';
@@ -238,6 +264,7 @@ beforeEach(() => {
   localeFixture = 'en-US';
   canAuthor = true;
   doorAnswer = okAnswer();
+  holdersByName = {};
   calls.length = 0;
   stubFetch();
 });
@@ -525,5 +552,119 @@ describe('PermissionMatrixEditPage — a save the server refuses as a packaged s
     await screen.findByText(SERVER_TEXT, undefined, { timeout: 4000 });
     expect(screen.queryByRole('alert')).toBeNull();
     expect(cloneButtons()).toHaveLength(0);
+  });
+});
+
+describe('PermissionMatrixEditPage — the clone notice is point-in-time: a saved copy is past it (objectui#13272)', () => {
+  it('control: right after the clone, with no save, the copy shows the server\'s notice verbatim', async () => {
+    await renderRouted();
+    await fillDialog();
+    fireEvent.click(createCopy());
+
+    await screen.findByRole('button', { name: /^Save$/ });
+    const notice = screen.getByTestId('perm-clone-notice');
+    // Verbatim: the whole server string, not a rewording or an excerpt.
+    expect(notice.textContent).toBe(NOTICE);
+  });
+
+  it('clone, then Save the copy: the notice is gone', async () => {
+    const saved: string[] = [];
+    saveImpl = async (_t, name, payload) => {
+      saved.push(name);
+      return payload;
+    };
+    await renderRouted();
+    await fillDialog();
+    fireEvent.click(createCopy());
+
+    const save = await screen.findByRole('button', { name: /^Save$/ });
+    expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
+    fireEvent.click(save);
+
+    await waitFor(() => expect(saved).toEqual([CLONE_NAME]));
+    await waitFor(() => expect(screen.queryByTestId('perm-clone-notice')).toBeNull());
+  });
+
+  it('control: a refused save of the copy keeps the notice — the copy is not saved', async () => {
+    await renderRouted();
+    await fillDialog();
+    fireEvent.click(createCopy());
+
+    const save = await screen.findByRole('button', { name: /^Save$/ });
+    saveImpl = async () => {
+      throw Object.assign(new Error('[Security] Access denied'), { status: 403, code: 'PERMISSION_DENIED' });
+    };
+    fireEvent.click(save);
+
+    await screen.findByText('[Security] Access denied');
+    expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
+  });
+
+  it('control: on an embedded host the notice sits on the base, and saving the BASE keeps it', async () => {
+    // The base reads writable; its first save is refused as packaged, which
+    // offers the clone (the only way onto the clone dialog from a writable set).
+    codeLayerByName = {};
+    const saved: string[] = [];
+    saveImpl = async () => {
+      throw Object.assign(new Error('packaged'), { status: 403, code: 'NOT_OVERRIDABLE' });
+    };
+    await renderPlain({ embedded: true });
+    fireEvent.click(saveButton()!);
+    const alert = await screen.findByRole('alert');
+    fireEvent.click(within(alert).getByRole('button', { name: CLONE_EN }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('New machine name'), { target: { value: CLONE_NAME } });
+    fireEvent.change(within(dialog).getByLabelText('New label'), { target: { value: CLONE_LABEL } });
+    fireEvent.click(createCopy());
+    const notice = await screen.findByTestId('perm-clone-notice');
+    expect(notice).toHaveTextContent(new RegExp(`Cloned as ${CLONE_NAME}`));
+
+    saveImpl = async (_t, name, payload) => {
+      saved.push(name);
+      return payload;
+    };
+    fireEvent.click(saveButton()!);
+
+    await waitFor(() => expect(saved).toEqual([BASE_SET]));
+    // The base's save says nothing about the copy, which is still unsaved and unheld.
+    expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
+  });
+
+  it('clone, then add a holder through the holders section: the notice is gone', async () => {
+    // The Setup catalog's scope, where the holders section renders.
+    await renderRouted('?scope=environment');
+    await fillDialog();
+    fireEvent.click(createCopy());
+
+    await screen.findByRole('button', { name: /^Save$/ });
+    expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
+    expect(screen.getByTestId('assigned-users-stub')).toHaveTextContent(CLONE_NAME);
+    fireEvent.click(screen.getByRole('button', { name: 'Stub add holder' }));
+
+    await waitFor(() => expect(screen.queryByTestId('perm-clone-notice')).toBeNull());
+  });
+
+  it('control: the copy\'s holders read reporting 0 keeps the notice', async () => {
+    // The Setup catalog's scope, where the holders section renders.
+    await renderRouted('?scope=environment');
+    await fillDialog();
+    fireEvent.click(createCopy());
+
+    await screen.findByRole('button', { name: /^Save$/ });
+    // The stub reported the copy's mount read (0 holders) before Save showed.
+    expect(screen.getByTestId('assigned-users-stub')).toHaveTextContent(CLONE_NAME);
+    expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
+  });
+
+  it('control: the base\'s holders do not retire the copy\'s notice', async () => {
+    holdersByName = { [BASE_SET]: 3 };
+    // The Setup catalog's scope, where the holders section renders.
+    await renderRouted('?scope=environment');
+    await fillDialog();
+    fireEvent.click(createCopy());
+
+    await screen.findByRole('button', { name: /^Save$/ });
+    expect(screen.getByTestId('assigned-users-stub')).toHaveTextContent(CLONE_NAME);
+    expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
   });
 });

@@ -6,8 +6,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { EditPackageDialog, type InstalledPackageRow } from './PackagesPage';
 
 // EditPackageDialog is now a thin wrapper over the spec-driven PackageFormDialog
-// (edit mode). It renders the manifest form via SchemaForm and PATCHes only the
-// three fields the REST surface persists (name / description / version).
+// (edit mode). It renders the manifest form via SchemaForm and PATCHes name /
+// description / version, plus `dependencies` only when the author changed it
+// (objectui#13121, pinned in PackageFormDialog.editDependencies-13121.test.tsx).
+// The fixture below declares no `dependencies`, so the body holds the three.
 // PackageFormDialog's apiJson uses the raw global fetch (fetch → res.text() →
 // JSON.parse), so we stub global fetch and mirror the runtime's { success, data }
 // envelope — exactly what `PATCH /api/v1/packages/:id` returns.

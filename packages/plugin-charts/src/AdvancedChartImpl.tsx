@@ -1950,15 +1950,13 @@ function AdvancedChartImplInner({
   // only once the surface width is measured (`undefined` before). The plot is
   // the surface less recharts' side margins and the value axes drawn beside
   // it: two for a combo or a dual-axis chart, one otherwise.
-  const xLabelsFitBand = React.useMemo(() => {
-    if (measuredChartWidth === undefined) return undefined;
-    const valueAxes = chartType === 'combo' || hasDualAxis ? 2 : 1;
-    const plotWidth = measuredChartWidth - CHART_MARGIN_X_PX - valueAxes * VALUE_AXIS_WIDTH_PX;
-    return categoryLabelsFitBand(
-      data.map((d: any) => String(xTickFormatter(d?.[xAxisKey]) ?? '')),
-      plotWidth,
+  const xLabelsFitBand = measuredChartWidth === undefined
+    ? undefined
+    : categoryLabelsFitBand(
+      data.map((d) => String(xTickFormatter(d?.[xAxisKey]) ?? '')),
+      measuredChartWidth - CHART_MARGIN_X_PX
+        - (chartType === 'combo' || hasDualAxis ? 2 : 1) * VALUE_AXIS_WIDTH_PX,
     );
-  }, [measuredChartWidth, chartType, hasDualAxis, data, xAxisKey, xTickFormatter]);
 
   // Rotation is what BUYS the complete axis, so in the forced branch it applies
   // on mobile too: drawing every label without rotating is the horizontal

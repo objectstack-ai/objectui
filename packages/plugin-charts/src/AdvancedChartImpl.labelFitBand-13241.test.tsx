@@ -25,10 +25,10 @@ import { render, cleanup, fireEvent, act } from '@testing-library/react';
 let containerWidth = 1044;
 
 vi.mock('recharts', async () => {
-  const actual = await vi.importActual<any>('recharts');
+  const actual = await vi.importActual<typeof import('recharts')>('recharts');
   return {
     ...actual,
-    ResponsiveContainer: ({ children }: any) =>
+    ResponsiveContainer: ({ children }: { children: React.ReactElement<{ width: number; height: number }> }) =>
       React.cloneElement(children, { width: containerWidth, height: 260 }),
   };
 });

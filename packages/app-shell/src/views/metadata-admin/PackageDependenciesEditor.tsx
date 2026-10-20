@@ -44,8 +44,12 @@ interface Row {
 
 type RowProblem = 'empty' | 'duplicate' | null;
 
+/** Row ids only need to be unique among one editor's rows; one sequence serves all. */
+let rowSeq = 0;
+const nextId = (): number => ++rowSeq;
+
 /** Read the stored row into editable rows; a non-string range shows as its JSON. */
-function toRows(value: unknown, nextId: () => number): Row[] {
+function toRows(value: unknown): Row[] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
   return Object.entries(value as Record<string, unknown>).map(([name, range]) => ({
     id: nextId(),
@@ -107,9 +111,7 @@ export function PackageDependenciesEditor({
   locale,
 }: PackageDependenciesEditorProps) {
   const labelId = React.useId();
-  const idCounter = React.useRef(0);
-  const nextId = React.useCallback(() => ++idCounter.current, []);
-  const [rows, setRows] = React.useState<Row[]>(() => toRows(value, nextId));
+  const [rows, setRows] = React.useState<Row[]>(() => toRows(value));
 
   // Resync only on a change that did not come from this editor (the dialog
   // reseeding its draft on open). Decided by the value's signature string,
@@ -119,9 +121,9 @@ export function PackageDependenciesEditor({
   React.useEffect(() => {
     if (external !== lastEmitted.current) {
       lastEmitted.current = external;
-      setRows(toRows(value, nextId));
+      setRows(toRows(value));
     }
-  }, [external, value, nextId]);
+  }, [external, value]);
 
   const problems = rowProblems(rows);
 

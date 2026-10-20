@@ -76,24 +76,41 @@ describe('DraftPreviewBar', () => {
     expect(screen.getByTestId('draft-preview-bar')).toHaveTextContent(/Nothing here is live until you publish/i);
   });
 
-  it('explains the empty preview and elevates Publish to the dominant CTA when drafts are pending', async () => {
-    mockDrafts([{ type: 'object', name: 'a' }]);
+  it('explains the empty preview and elevates Publish to the dominant CTA when a seed draft is pending', async () => {
+    mockDrafts([{ type: 'object', name: 'a' }, { type: 'seed', name: 'a' }]);
     renderBar();
-    // The magic-moment hint names WHY the preview looks empty (seed data loads
-    // on publish), so a hollow-looking draft never reads as a broken build…
+    // The magic-moment hint names WHY the preview looks empty (the pending
+    // seed's rows load on publish), so a hollow-looking draft never reads as a
+    // broken build…
     const hint = await screen.findByTestId('draft-preview-sample-hint');
     expect(hint).toHaveTextContent(/sample data appears once you publish/i);
     // …and the Publish button is the prominent, action-oriented next step.
     expect(screen.getByTestId('draft-preview-publish')).toHaveTextContent(/publish to see it live/i);
   });
 
-  it('keeps Publish + the sample-data hint visible when the draft count is unknown (fetch failed) — only a known zero relaxes', async () => {
+  // objectui#13140 — publishing loads rows only for a pending `seed` draft, so
+  // a pending change in a package with no sample data (its records already
+  // show) must not promise sample data on publish.
+  it('offers Publish without the sample-data hint when no seed draft is pending (objectui#13140)', async () => {
+    mockDrafts([{ type: 'view', name: 'account.kanban' }]);
+    renderBar();
+    await waitFor(() => {
+      expect(screen.getByTestId('draft-preview-publish')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('draft-preview-publish')).toHaveTextContent(/publish to see it live/i);
+    expect(screen.queryByTestId('draft-preview-sample-hint')).not.toBeInTheDocument();
+    expect(screen.getByTestId('draft-preview-bar')).not.toHaveTextContent(/sample data|example records/i);
+  });
+
+  it('keeps Publish visible but promises no sample data when the draft count is unknown (fetch failed) — only a known zero relaxes', async () => {
     global.fetch = vi.fn(async () => ({ ok: false, json: async () => null })) as unknown as typeof fetch;
     renderBar();
     // pendingCount stays null → not known-zero → safe default keeps the publish path.
     await waitFor(() => {
       expect(screen.getByTestId('draft-preview-publish')).toBeInTheDocument();
     });
-    expect(screen.getByTestId('draft-preview-sample-hint')).toBeInTheDocument();
+    // objectui#13140 — an unknown count read no entries, so nothing says a
+    // seed is pending: the sample-data promise is not made.
+    expect(screen.queryByTestId('draft-preview-sample-hint')).not.toBeInTheDocument();
   });
 });

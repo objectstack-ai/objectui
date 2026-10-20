@@ -74,7 +74,7 @@ import { failed, loaded, type LoadState } from '../metadata-admin/loadState.js';
 import { readDraftForSave, useDraftSaveGuard } from '../metadata-admin/DraftConflictDialog.js';
 import { t, tFormat } from '../metadata-admin/i18n.js';
 import { defaultListColumnsFromObject } from '../ObjectView.js';
-import { findByName } from '../../hooks/useNavTargetLabel.js';
+import { findByName, useNavTargetLabel } from '../../hooks/useNavTargetLabel.js';
 import {
   listViewsOf,
   navEntryListTarget,
@@ -590,6 +590,23 @@ export function listViewIsKanban(listView: ObjectListViewDraft): boolean {
 
 const noop = (): void => {};
 
+/**
+ * objectui#13151 — what the panel calls the view, in its header and in its
+ * not-created and not-list sentences: the item's own `label`, as authored;
+ * without one, the object's display name (`objectText`) and the view's role —
+ * "Default view" for the object's default list view, else the key the nav
+ * entry names it by. Never the item's qualified name (`<object>.<key>`): the
+ * panel shows that beneath, as the machine name, the way the Studio's rows do.
+ */
+function listViewTitle(target: ListViewTarget, item: Row, objectText: string, locale: string): string {
+  const own = resolveI18nLabel(item.label as I18nLabel | undefined, locale);
+  if (own) return own;
+  if (target.isDefault) return tFormat('engine.studio.inspector.listView.defaultTitle', locale, { object: objectText });
+  const prefix = `${target.objectName}.`;
+  const key = target.viewId.startsWith(prefix) ? target.viewId.slice(prefix.length) : target.viewId;
+  return tFormat('engine.studio.inspector.listView.namedTitle', locale, { object: objectText, view: key });
+}
+
 /** objectui#12725 — the copilot's marks on the kanban card section's settings. */
 interface KanbanCardMarks {
   fields: CopilotDraftMark | null;
@@ -852,6 +869,10 @@ export function ObjectListViewInspector({
     );
   }, [fieldState.fields, heldKey]);
   const [ownSelected, setOwnSelected] = React.useState<{ key: string; index: number | null }>({ key: '', index: null });
+  // objectui#13151 — the object's display name, as the nav rail names a
+  // label-less entry that opens it: the published label, else its pending
+  // draft's, through the app's bundle. No read of its own.
+  const navTargetLabel = useNavTargetLabel();
   if (!target) return null;
   const hostHeld = !!onSelectionChange;
   const selectColumn = (sel: ListViewColumnSelection | null) => {
@@ -865,6 +886,12 @@ export function ObjectListViewInspector({
       ? issueRefusal(failure.error, locale)
       : plainRefusal(failure.error);
   const working = row ?? newListViewItem(target, seedColumns);
+  const title = listViewTitle(
+    target,
+    working,
+    navTargetLabel({ kind: 'object', objectName: target.objectName }) ?? target.objectName,
+    locale,
+  );
   const body = listBodyOf(working);
   const columns = Array.isArray(body.columns) ? (body.columns as unknown[]) : [];
   const allStrings = columns.length > 0 && columns.every((c) => typeof c === 'string');
@@ -933,7 +960,7 @@ export function ObjectListViewInspector({
   return (
     <InspectorShell
       kindLabel={t('engine.studio.inspector.listView.kind', locale)}
-      title={resolveI18nLabel(working.label as I18nLabel | undefined, locale) || target.viewId}
+      title={title}
       // The panel is the leaf's own, not a selection's: nothing to close.
       hideClose
       onClose={noop}
@@ -951,6 +978,13 @@ export function ObjectListViewInspector({
       }
     >
       <div data-testid="studio-list-view-inspector" className="space-y-3">
+        {/* objectui#13151 — the machine name, secondary to the title, as a
+            Studio row shows it (smaller, monospace, only where it differs). */}
+        {target.viewId !== title && (
+          <p className="truncate font-mono text-[10px] leading-tight text-muted-foreground" data-testid="list-view-name">
+            {target.viewId}
+          </p>
+        )}
         {readOnly ? (
           <p className="rounded-md border bg-muted/40 px-2 py-1.5 text-[11px] leading-snug text-muted-foreground" data-testid="list-view-read-only">
             {t('engine.studio.inspector.listView.readOnly', locale)}
@@ -979,13 +1013,13 @@ export function ObjectListViewInspector({
           )
         ) : notList ? (
           <p className="rounded-md border border-dashed px-2 py-1.5 text-[11px] leading-snug text-muted-foreground" data-testid="list-view-not-list">
-            {tFormat('engine.studio.inspector.listView.notList', locale, { view: target.viewId })}
+            {tFormat('engine.studio.inspector.listView.notList', locale, { view: title })}
           </p>
         ) : (
           <>
             {!row && (
               <p className="rounded-md border border-dashed px-2 py-1.5 text-[11px] leading-snug text-muted-foreground" data-testid="list-view-not-created">
-                {tFormat('engine.studio.inspector.listView.notCreated', locale, { view: target.viewId })}
+                {tFormat('engine.studio.inspector.listView.notCreated', locale, { view: title })}
               </p>
             )}
             {body.type === 'kanban' && (

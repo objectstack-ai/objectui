@@ -3420,10 +3420,15 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.inspector.listView.kind': 'List view',
   'engine.studio.inspector.listView.intro':
     'The list on the canvas. Its columns, filter and sort save to this package\'s draft and show on the canvas at once.',
+  // objectui#13151 — a view with no label is named by its object's display
+  // name and its role, never by its qualified name (`{view}` below is the
+  // panel's title, the same string).
+  'engine.studio.inspector.listView.defaultTitle': '{object} · Default view',
+  'engine.studio.inspector.listView.namedTitle': '{object} · {view}',
   'engine.studio.inspector.listView.notCreated':
-    'There is no list view {view} yet. Your first change here creates it in this package\'s draft.',
+    'There is no list view “{view}” yet. Your first change here creates it in this package\'s draft.',
   'engine.studio.inspector.listView.readOnly': 'This package is read-only: the list view is shown here, not edited.',
-  'engine.studio.inspector.listView.notList': '{view} is not a list view, so it is not edited here.',
+  'engine.studio.inspector.listView.notList': '“{view}” is not a list view, so it is not edited here.',
   'engine.studio.inspector.listView.filter': 'Filter',
   'engine.studio.inspector.listView.sort': 'Sort',
   'engine.studio.inspector.listView.addSort': '+ Add sort…',
@@ -6763,9 +6768,11 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
     '此画布渲染的是运行态应用，而不是积木树 —— 这里没有可选中的积木，也没有可在本面板编辑的内容。',
   'engine.studio.inspector.listView.kind': '列表视图',
   'engine.studio.inspector.listView.intro': '画布上的就是这个列表。它的列、筛选与排序保存到本包的草稿,并立即显示在画布上。',
-  'engine.studio.inspector.listView.notCreated': '还没有列表视图 {view}。在这里做的第一次修改会在本包的草稿中创建它。',
+  'engine.studio.inspector.listView.defaultTitle': '{object} · 默认视图',
+  'engine.studio.inspector.listView.namedTitle': '{object} · {view}',
+  'engine.studio.inspector.listView.notCreated': '还没有列表视图「{view}」。在这里做的第一次修改会在本包的草稿中创建它。',
   'engine.studio.inspector.listView.readOnly': '本包只读:这里展示列表视图,不能编辑。',
-  'engine.studio.inspector.listView.notList': '{view} 不是列表视图,因此不在这里编辑。',
+  'engine.studio.inspector.listView.notList': '「{view}」不是列表视图,因此不在这里编辑。',
   'engine.studio.inspector.listView.filter': '筛选',
   'engine.studio.inspector.listView.sort': '排序',
   'engine.studio.inspector.listView.addSort': '+ 添加排序…',

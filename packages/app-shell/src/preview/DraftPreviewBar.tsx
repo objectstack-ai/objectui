@@ -83,6 +83,15 @@ export function DraftPreviewBar() {
   // preview indicator. An UNKNOWN count (null — still loading or the fetch
   // failed) keeps the publish path: we only relax when we KNOW the count is zero.
   const noChanges = pendingCount === 0;
+  // objectui#13140 — "Sample data appears once you publish" is a claim about
+  // what Publish will do, and publishing loads rows only for a `seed` draft it
+  // promotes (the publish response's `seedApplied` receipt rides on a seed's
+  // promotion and nothing else). So the sentence shows only while a pending
+  // `seed` draft is in the list this bar read — the same env-wide `_drafts`
+  // list `usePublishAllDrafts` publishes. A package with no sample data, whose
+  // records already show, gets the Publish button alone; so does an unknown
+  // count, which read no entries and so cannot back the promise.
+  const seedPending = pendingEntries.some((entry) => entry.type === 'seed');
 
   return (
     <div
@@ -132,36 +141,40 @@ export function DraftPreviewBar() {
         </Button>
       </div>
 
-      {/* Magic-moment hint band — shown only while changes are pending. A
-          freshly-built draft renders empty (dashboards at 0, lists "Nothing
-          here yet") because seed/sample rows load only on publish. Naming that
-          plainly, and elevating Publish to the dominant CTA, keeps an empty
-          preview from ever reading as a broken or hollow build. */}
+      {/* Publish band — shown only while changes are pending, with Publish as
+          the dominant CTA. Its magic-moment hint shows only while a `seed`
+          draft is pending (`seedPending` above): a freshly-built draft renders
+          empty (dashboards at 0, lists "Nothing here yet") because its seed
+          rows load only on publish, and naming that keeps an empty preview
+          from reading as a broken or hollow build. Without a pending seed,
+          publishing loads no rows, and the hint would contradict the records
+          already on screen. */}
       {!noChanges && (
         <>
-          <div
-            className="flex items-center gap-3 border-t border-amber-300/50 px-4 py-2.5 dark:border-amber-700/40"
-            data-testid="draft-preview-sample-hint"
-          >
-            <Sparkles className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" aria-hidden="true" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold leading-tight">
-                {t('preview.draftBar.sampleDataTitle', {
-                  defaultValue: 'Sample data appears once you publish',
-                })}
-              </p>
-              <p className="text-xs leading-snug text-amber-800/80 dark:text-amber-200/70">
-                {t('preview.draftBar.sampleDataBody', {
-                  defaultValue:
-                    'You’re previewing your app’s structure. Publish to load example records and make it live.',
-                })}
-              </p>
-            </div>
+          <div className="flex items-center gap-3 border-t border-amber-300/50 px-4 py-2.5 dark:border-amber-700/40">
+            {seedPending && (
+              <div className="flex min-w-0 flex-1 items-center gap-3" data-testid="draft-preview-sample-hint">
+                <Sparkles className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold leading-tight">
+                    {t('preview.draftBar.sampleDataTitle', {
+                      defaultValue: 'Sample data appears once you publish',
+                    })}
+                  </p>
+                  <p className="text-xs leading-snug text-amber-800/80 dark:text-amber-200/70">
+                    {t('preview.draftBar.sampleDataBody', {
+                      defaultValue:
+                        'You’re previewing your app’s structure. Publish to load example records and make it live.',
+                    })}
+                  </p>
+                </div>
+              </div>
+            )}
             <Button
               onClick={publish}
               disabled={publishing}
               data-testid="draft-preview-publish"
-              className="shrink-0 shadow-sm"
+              className="ml-auto shrink-0 shadow-sm"
             >
               <Rocket className="mr-1.5 h-4 w-4" />
               {publishing

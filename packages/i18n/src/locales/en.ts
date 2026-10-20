@@ -2116,6 +2116,13 @@ const en = {
       unsavedCount: '{{count}} unsaved changes',
       unsavedCount_one: '{{count}} unsaved change',
       unsavedCount_other: '{{count}} unsaved changes',
+      // The toast of a save the server refused field by field (objectui#13146).
+      // `{{settings}}` is the refused settings' labels, as their rows draw them,
+      // joined with `validation.formInvalidJoiner`; each row shows its own
+      // reason, so the toast names the settings and gives no reason.
+      fieldErrorsToast: '{{count}} settings need attention: {{settings}}',
+      fieldErrorsToast_one: '{{count}} setting needs attention: {{settings}}',
+      fieldErrorsToast_other: '{{count}} settings need attention: {{settings}}',
       // The fail-closed crypto refusal (objectstack#8396). objectui#4579 added
       // these as English literals on purpose — routing one string through i18n
       // would have left a single translated string among a dozen hardcoded

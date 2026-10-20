@@ -145,6 +145,7 @@ describe('PackageFormDialog edit — `dependencies` is editable and sent on chan
     stubFetch(200, OK);
     const { onSaved } = openEdit();
     const editor = await dependenciesEditor();
+    expect(editor.readOnly).toBe(false);
     fireEvent.change(editor, { target: { value: '' } });
     fireEvent.click(screen.getByTestId('package-form-submit'));
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));

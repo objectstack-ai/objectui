@@ -202,6 +202,8 @@ export function decisionEdgeBranches(
   decisionId: string,
   edges: readonly FlowDesignerEdge[],
   nodes: ReadonlyArray<{ id?: unknown; label?: unknown } | null | undefined>,
+  /** objectui#13138 — only these edge indices (the out-edges no branch row is paired with). */
+  only?: ReadonlySet<number>,
 ): EdgeBranch[] {
   const labelOf = (id: string): string => {
     const n = nodes.find((x) => x?.id === id);
@@ -210,6 +212,7 @@ export function decisionEdgeBranches(
   const out: EdgeBranch[] = [];
   edges.forEach((e, i) => {
     if (!e || e.source !== decisionId || e.type === 'fault' || e.type === 'back') return;
+    if (only && !only.has(i)) return;
     out.push({
       key: edgeKey(e, i),
       target: e.target,
@@ -270,8 +273,10 @@ export interface FlowObjectListFieldProps {
   variant?: 'branches';
   /**
    * objectui#12488 — with `variant="branches"`: the decision's out-edge
-   * branches, shown read-only while the list holds no rows, each with a link
-   * that opens its connection when the host can move the selection.
+   * branches, shown read-only, each with a link that opens its connection
+   * when the host can move the selection. objectui#13138 — drawn beside the
+   * rows too, not only while the list is empty: the host passes the
+   * connections no row is paired with, so adding a branch never hides one.
    */
   edgeBranches?: EdgeBranch[];
 }
@@ -592,7 +597,7 @@ export function FlowObjectListField({
   if (variant === 'branches') {
     const targetCol = columns.find((c) => c.key === 'target');
     const bodyCols = columns.filter((c) => c !== targetCol);
-    const readOnlyBranches = rows.length === 0 ? (edgeBranches ?? []) : [];
+    const readOnlyBranches = edgeBranches ?? [];
     const conditionLabel = t('engine.inspector.flowEdge.condition', locale);
     return (
       <div className="space-y-2.5" data-testid="flow-branch-list">

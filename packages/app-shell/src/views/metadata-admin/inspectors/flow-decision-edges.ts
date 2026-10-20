@@ -251,6 +251,26 @@ export function withBranchTargets(
 }
 
 /**
+ * objectui#13138 — the decision's plain out-edges (indices into `edges`) that
+ * no branch of `conditions` is paired with, by the same pairing the Target
+ * column reads. These are connections the branch list does not show: the
+ * Branches editor lists them beside its rows so the author still sees what
+ * the decision routes after adding a branch.
+ */
+export function unpairedDecisionEdges(
+  decisionId: string,
+  conditions: unknown,
+  edges: DecisionEdge[],
+): Set<number> {
+  const paired = new Set(pairBranchesWithEdges(decisionId, asBranchArray(conditions), edges).values());
+  const out = new Set<number>();
+  edges.forEach((e, i) => {
+    if (isCandidate(decisionId)(e) && !paired.has(i)) out.add(i);
+  });
+  return out;
+}
+
+/**
  * Apply a Branches-editor commit: returns the spec-clean `conditions` to store
  * (the virtual `target` column stripped) and the reconciled `edges`.
  *

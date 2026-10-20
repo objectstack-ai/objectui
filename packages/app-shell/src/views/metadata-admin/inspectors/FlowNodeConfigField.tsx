@@ -40,6 +40,7 @@ import {
 import { FlowStringListField } from './FlowStringListField.js';
 import { FlowRecipientsField } from './FlowRecipientsField.js';
 import { decisionEdgeBranches, FlowObjectListField } from './FlowObjectListField.js';
+import { unpairedDecisionEdges } from './flow-decision-edges.js';
 import type { FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
 import { FlowReferenceField, type FlowReferenceContext } from './FlowReferenceField.js';
 import { validateExpressionClient } from './expression-validate.js';
@@ -682,8 +683,9 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
         );
       case 'objectList': {
         // objectui#12488 — a top-level decision's Branches (the list that
-        // carries the virtual Target column) draw as branch cards; while the
-        // list is empty, the decision's out-edge branches show read-only.
+        // carries the virtual Target column) draw as branch cards, and the
+        // decision's out-edges no branch is paired with show read-only beside
+        // them (objectui#13138 — adding a branch never hides a connection).
         const decisionBranches =
           context?.node?.type === 'decision' &&
           field.path.length === 2 &&
@@ -704,7 +706,12 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             variant={decisionBranches ? 'branches' : undefined}
             edgeBranches={
               decisionBranches && typeof context?.node?.id === 'string'
-                ? decisionEdgeBranches(context.node.id, draftEdges, draftNodes)
+                ? decisionEdgeBranches(
+                    context.node.id,
+                    draftEdges,
+                    draftNodes,
+                    unpairedDecisionEdges(context.node.id, value, draftEdges),
+                  )
                 : undefined
             }
             addLabel={t(decisionBranches ? 'engine.inspector.flowNode.branch.add' : 'engine.inspector.flowNode.list.add', locale)}

@@ -440,6 +440,19 @@ const X_AXIS_TICK_MARGIN = 10;
  */
 const RECHARTS_TICK_SIZE = 6;
 
+/**
+ * The tick text style every axis this file draws shares (objectui#13129): the
+ * theme's muted foreground, as `ChartImpl` paints its ticks. Without a `tick`
+ * fill recharts paints tick text in the axis `stroke` default, #666, which on
+ * a dark card is about 3:1. The container's
+ * `[&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground` class does
+ * not reach it: recharts 3 renders the text under
+ * `.recharts-cartesian-axis-tick-label`, not under
+ * `.recharts-cartesian-axis-tick`, and polar axes match neither. Only the
+ * fill: the font size stays `ChartContainer`'s `text-xs`.
+ */
+const AXIS_TICK_STYLE = { fill: 'hsl(var(--muted-foreground))' };
+
 /** The axis tick text's font size: `ChartContainer`'s `text-xs`. */
 const AXIS_TICK_FONT_PX = 12;
 
@@ -2096,6 +2109,7 @@ function AdvancedChartImplInner({
   // 180-point daily series at 800px still thinned to 11 ticks with zero
   // overlap, unchanged in kind from before this change.
   const xAxisCommonProps = React.useMemo(() => ({
+    tick: AXIS_TICK_STYLE,
     tickLine: false as const,
     tickMargin: X_AXIS_TICK_MARGIN,
     axisLine: false as const,
@@ -2524,8 +2538,8 @@ function AdvancedChartImplInner({
       <ChartContainer config={config} className={className} {...containerProps}>
         <RadarChart data={data}>
           <PolarGrid />
-          <PolarAngleAxis dataKey={xAxisKey} />
-          <PolarRadiusAxis />
+          <PolarAngleAxis dataKey={xAxisKey} tick={AXIS_TICK_STYLE} />
+          <PolarRadiusAxis tick={AXIS_TICK_STYLE} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <ChartLegend
             content={<ChartLegendContent />}
@@ -2641,6 +2655,7 @@ function AdvancedChartImplInner({
             type="number"
             dataKey={xAxisKey}
             name={String(config[xAxisKey]?.label || xAxisKey)}
+            tick={AXIS_TICK_STYLE}
             tickLine={false}
             axisLine={false}
             minTickGap={isMobile ? 32 : 48}
@@ -2656,6 +2671,7 @@ function AdvancedChartImplInner({
             type="number"
             dataKey={scatterYKey}
             name={String(config[series[0]?.dataKey]?.label || series[0]?.dataKey)}
+            tick={AXIS_TICK_STYLE}
             tickLine={false}
             axisLine={false}
             tickFormatter={yTickFormatter}
@@ -2758,8 +2774,8 @@ function AdvancedChartImplInner({
               `placeYAxes` drew in its slot, or no spec config when none was —
               so a lone entry at `position: 'right'` configures the right axis
               only, and its title is not drawn on both sides (objectui#10654). */}
-          <YAxis yAxisId="left" tickLine={false} axisLine={false} tickFormatter={leftYTickFormatter} width={48} {...yAxisSpecProps(leftY, 'left')} />
-          <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tickFormatter={rightYTickFormatter} width={48} {...yAxisSpecProps(rightY, 'right')} />
+          <YAxis yAxisId="left" tick={AXIS_TICK_STYLE} tickLine={false} axisLine={false} tickFormatter={leftYTickFormatter} width={48} {...yAxisSpecProps(leftY, 'left')} />
+          <YAxis yAxisId="right" orientation="right" tick={AXIS_TICK_STYLE} tickLine={false} axisLine={false} tickFormatter={rightYTickFormatter} width={48} {...yAxisSpecProps(rightY, 'right')} />
           {tooltipsEnabled ? <ChartTooltip content={<ChartTooltipContent />} /> : null}
           {legendVisible ? (
             <ChartLegend
@@ -2867,12 +2883,13 @@ function AdvancedChartImplInner({
                 carries none. */}
             {hasDualAxis ? (
               <>
-                <XAxis xAxisId="left" type="number" tickLine={false} axisLine={false} tickFormatter={leftYTickFormatter} {...yAxisSpecProps(leftY, 'left', X_AXIS_TITLE_LAYOUT)} />
-                <XAxis xAxisId="right" orientation="top" type="number" tickLine={false} axisLine={false} tickFormatter={rightYTickFormatter} {...yAxisSpecProps(rightY, 'right', X_AXIS_TOP_TITLE_LAYOUT)} />
+                <XAxis xAxisId="left" type="number" tick={AXIS_TICK_STYLE} tickLine={false} axisLine={false} tickFormatter={leftYTickFormatter} {...yAxisSpecProps(leftY, 'left', X_AXIS_TITLE_LAYOUT)} />
+                <XAxis xAxisId="right" orientation="top" type="number" tick={AXIS_TICK_STYLE} tickLine={false} axisLine={false} tickFormatter={rightYTickFormatter} {...yAxisSpecProps(rightY, 'right', X_AXIS_TOP_TITLE_LAYOUT)} />
               </>
             ) : (
               <XAxis
                 type="number"
+                tick={AXIS_TICK_STYLE}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={yTickFormatter}
@@ -2887,6 +2904,7 @@ function AdvancedChartImplInner({
             <YAxis
               type="category"
               dataKey={xAxisKey}
+              tick={AXIS_TICK_STYLE}
               tickLine={false}
               axisLine={false}
               width={Math.min(140, Math.max(60, Math.max(...data.map(d => String(d[xAxisKey] ?? '').length)) * 7))}
@@ -2905,6 +2923,7 @@ function AdvancedChartImplInner({
               <>
                 <YAxis
                   yAxisId="left"
+                  tick={AXIS_TICK_STYLE}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={leftYTickFormatter}
@@ -2914,6 +2933,7 @@ function AdvancedChartImplInner({
                 <YAxis
                   yAxisId="right"
                   orientation="right"
+                  tick={AXIS_TICK_STYLE}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={rightYTickFormatter}
@@ -2923,6 +2943,7 @@ function AdvancedChartImplInner({
               </>
             ) : (
               <YAxis
+                tick={AXIS_TICK_STYLE}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={yTickFormatter}

@@ -1,0 +1,37 @@
+{
+  "number": 13113,
+  "kind": "issue",
+  "title": "Studio RLS editor: \"Add policy\" autosaves the blank row it inserts, so a 422 lands as a raw spec-validation banner (rowLevelSecurity.0.name [invalid_format]) before the author types anything, and the row is lost on reload",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:access",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T02:33:39Z",
+  "updated_at": "2026-10-20T06:02:43Z",
+  "closed_at": "2026-10-20T06:01:47Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13113",
+  "body": "Filing gate: ① user-visible UX defect (Studio write feedback is wrong). Reader: the objectui dev seat that takes this card from the pm-dispatch queue; fix lands in packages/app-shell/src/views/metadata-admin (PermissionAdvancedFacets / PermissionMatrixEditor). Dedupe: objectui issues, open+closed, semantic queries \"RLS Add policy autosave empty policy spec validation error rowLevelSecurity name\" (4 hits: #13082, #13061, #4302, #2413) and \"permission set editor new RLS row saved before name entered 422 error banner\" (4 hits: #13082, #13061, #4302, #4533) — none covers an incomplete NEW row being autosaved; this wave's #13061 / #13082 are about CEL predicates that publish refuses, not about the blank row.\n\nreach: Studio (package door) → Access → a writable permission set → Row-level security tab → click \"Add policy\". Measured on stock showcase (--seed-admin), framework 54159fd742e5, console pin objectui@12dc7b47c340, dist stamp equal to the pin. Within ~1.5 s, with nothing typed, the page shows a red banner: \"permission/visit_readers failed spec validation: 2 issues — rowLevelSecurity.0.name [invalid_format]; rowLevelSecurity.0 [custom]\". The network shows PUT /api/v1/meta/permission/visit_readers?mode=draft&package=... answered 422. Reloading the page shows \"No row-level policies\" — the row the author was about to fill in is gone.\n\nExpected: a freshly inserted policy row is local, incomplete state. Nothing is sent until it is complete enough to pass the protocol (a name in the accepted format at least), and while it is held the editor says, next to the row, what is missing (\"Give the policy a name to save it\"). If the server does refuse a save, the message names the field in the author's words (Policy name), not a schema path.\nActual: the autosave sends the blank row immediately, and the refusal is rendered as the raw protocol string with spec paths and zod codes (rowLevelSecurity.0.name [invalid_format]; rowLevelSecurity.0 [custom]). The author has done nothing wrong yet and sees an error they cannot map to the form; the unsaved row is then lost on reload.\n\nRepro:\n1. Boot stock showcase with --seed-admin, sign in as admin@objectos.ai.\n2. Home → \"Build an app\" → \"New package (writable base)\" → any name → Create package.\n3. Access → \"New permission set\" → any name → create it.\n4. Row-level security tab → \"Add policy\". Do not type anything. Wait 2 s.\n5. Observe the banner above; reload and observe the policy row is gone.\n\nSource (objectui main df943a2a1af3, re-read before filing):\n- packages/app-shell/src/views/metadata-admin/PermissionAdvancedFacets.tsx — the \"Add policy\" button's onClick appends { name: '', object: '*', operation: 'all', using: '', enabled: true } straight into the draft via setPolicies.\n- packages/app-shell/src/views/metadata-admin/PermissionMatrixEditor.tsx — useDraftAutoSave's `blocked` is `!packageId || !writable || saving || celErrorCount > 0 || destructive !== null`; an incomplete row (empty name) does not hold the autosave, only a CEL lint error does.\n- The banner prints the server's refusal string as-is (setError with the raw message).\n\nGeneric blocks / contract: no new widget. The fix is a hold condition on the existing shared autosave (an RLS row with no valid name is \"incomplete\", same as a CEL error) plus a per-row inline hint; the protocol's accepted name format is the gate (PermissionSet rowLevelSecurity[].name in packages/spec).\n\ntype: Bug\n"
+}

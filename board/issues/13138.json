@@ -1,0 +1,37 @@
+{
+  "number": 13138,
+  "kind": "issue",
+  "title": "Flow designer: \"Add branch\" on a Decision overwrites the condition of its existing connection — the author's CEL condition is silently deleted",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T04:35:47Z",
+  "updated_at": "2026-10-20T07:37:13Z",
+  "closed_at": "2026-10-20T07:28:15Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13138",
+  "body": "立卡门类别 ①:有具名落点且可稳定复现的界面体验缺陷。\n动手的读者:objectui 开发席(pm-dispatch 派发的 os-dev),按下方源码落点改 app-shell 的 decision 分支编辑器与 flow-decision-edges 对账。\n查重:objectui 搜 \"Add branch\" 命中 5、\"decision branch condition edge\" 命中 107(看前 25),无同题(均含 closed);第一遍 objectui#13113、#13114、#13115 未收录此项。\n\nreach: Studio 界面实测一次,保存后的草稿经 GET /api/v1/meta/flow/{name}?state=draft 读回确认。\n\n预期:在 Decision 的 Branches 里新增一个分支,只新增分支;已经在连线上写好的条件保持不变。\n实际:Decision 只有一条带条件的出边(条件 1 == 1,在连线检查器里写的)时,点 Add branch 填 Label=Otherwise、Expression=true(不选 Target),提交后那条出边的 condition 被删除,变成 label=Otherwise、isDefault=true 的默认边。没有提示,作者写的条件丢了。另一次先选了 Target=End 再填 Label/Expression:新建了一条到 End 的无条件出边,而 Label 和 isDefault 写到了原来那条带条件的出边上,原条件同样丢失。\n\n复现:\n1. Studio → 任一可写包 → Automations → New automation,选 \"When a button or another automation starts it\",Save as draft。\n2. 在 Start→End 的连线上点 + 加一个 Decision。\n3. 点 Decision → Branches 里的 Edit connection,Condition 填 1 == 1,失焦。读回草稿:edge_1 带 condition {dialect: cel, source: \"1 == 1\"}。\n4. 再点 Decision → Add branch,Label 填 Otherwise,Expression 填 true,失焦。\n5. 读回草稿:edge_1 变成 {label: \"Otherwise\", isDefault: true},condition 没了。\n\n另外:第 3 步之后 Branches 区显示的是\"连线卡片\"(End / Condition / Edit connection);第 4 步一加分支,列表切换成节点本地的 conditions 列表,原连线不再列出,作者看不出这条连线会被改写。\n\n源码落点:packages/app-shell/src/views/metadata-admin/inspectors/flow-decision-edges.ts 的分支↔出边对账(没有任何分支带 target 时退回 #1927 的按顺序镜像,把第 0 个分支写到第 0 条出边上);分支编辑器在 inspectors/flow-node-config.ts 的 conditions 配置与 FlowNodeInspector.tsx。\n\n环境:framework 4bc3becd5f4a,console pin objectui@12dc7b47c340(dist 盖章一致),stock showcase --seed-admin,Chromium 141;源码对照 objectui main 4b677464。来源:UX 走查第二遍(派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi)。\n\ntype: Bug"
+}

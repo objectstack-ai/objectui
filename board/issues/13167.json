@@ -1,0 +1,35 @@
+{
+  "number": 13167,
+  "kind": "pull_request",
+  "title": "fix(app-shell): hold an unnamed RLS policy instead of autosaving it, and word a refused policy name",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T05:35:15Z",
+  "updated_at": "2026-10-20T06:01:47Z",
+  "closed_at": "2026-10-20T06:01:45Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T06:01:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13167",
+  "body": "Fixes #13113\nClause-②: no\n\n## What changed\n\nStudio's row-level security editor no longer autosaves the blank row that \"Add policy\" inserts.\n\n- **Hold, don't send (ruling 1).** `PermissionMatrixEditPage` counts RLS rows whose `name` is empty or blank in the draft itself (`rlsUnnamedCount`). Any such row holds the shared `useDraftAutoSave` (`blocked`), the same way a CEL lint error does. It also disables the environment-door Save button. The row says beside itself \"Give the policy a name to save it.\" (`rls-name-needed-N`), and the status line says the same in a neutral tone. The test is emptiness only: the spec's `^[a-z_][a-z0-9_]*$` is not restated in the client.\n- **Name the field (ruling 2).** When a save is refused, `rlsNameRefusal` reads the refusal's own `MetadataError.issues`. Each issue at `rowLevelSecurity.N.name` renders as \"Not saved. Policy name, on row N+1: PROBLEM\", where PROBLEM is the server's message passed through `translateValidationMessage`. Any other issue path keeps today's text, appended after the mapped lines. With no mapped issue, the strip text is unchanged. This only changes how the door's answer is displayed. It is not a second validator.\n- **The draft keeps the row (ruling 3).** The held row stays in the in-memory draft. A reload discards the unsaved draft, because nothing was persisted, so the row is gone after a reload. This is the same for any held edit, such as a CEL error. Ruling 3 explicitly allows this.\n- Copy: `perm.rls.nameNeeded` and `perm.rls.nameRefused` in the metadata-admin designer table, en and zh.\n- No package export, prop, type member or language-pack key is added. Changeset: `@object-ui/app-shell` patch.\n\n## Verification (at `9a6cdafe39`)\n\n- New pins `PermissionMatrixEditor.rlsAddPolicyHold-13113.test.tsx`, driving the real `PermissionMatrixEditPage` against a fake client that refuses the way the door does: (a) an unnamed row sends no PUT within the autosave window, shows the hint, and shows no banner. (b) Naming it sends the save. (c) A 422 with `rowLevelSecurity.0.name [invalid_format]` reads as the policy-name message, with no raw path or zod code. (d) Controls: a CEL error still holds, and a refusal on another path keeps the transport's text. 5/5 passed.\n- Targeted family: `vitest run --maxWorkers=1` over `metadata-admin/PermissionMatrixEditor*` and `PermissionAdvancedFacets*`: 28 files, 196 tests passed. The metadata-admin i18n family (`CelPredicateField.i18n*`, `studio-locale.i18n`, `metadata-form-i18n`): 3 files, 22 tests passed.\n- `pnpm --filter @object-ui/app-shell type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`): exit 0. The test project's `--listFilesOnly` includes the new test file. The closure build `--filter '@object-ui/app-shell^...' build` ran first and exited 0.\n- Ablation 1 (drop the hold: `saveHeld = celErrorCount > 0`): (a) and (b) went red, 2 failed and 3 passed. Ablation 2 (drop the mapping: `setError(err?.message ?? String(err))`): (c) went red, 1 failed and 4 passed. Each mutation was landed and proven on disk by `ablation-replace.mjs` (anchor count 1 to 0, blob changed). Each restore was proven by blob hash: after restore, blob `864d2df7b5b3` equals the HEAD blob, and `git diff HEAD` is empty.\n- Lint, narrowed to the 4 changed `.ts`/`.tsx` files (`eslint --no-inline-config --format json`): 4 files, 0 errors, 23 warnings. All 23 sit on lines this PR does not add (`no-explicit-any` and others). The config enables no type-aware linting, so this diff cannot change a verdict on an untouched file. The whole-repo `pnpm lint` is left to CI.\n- Battery, all exit 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`. `check:spec-floors` exited 1 as a prerequisite failure (\"no-artifact: build the workspace first\"), so it is NOT MEASURED, as the dispatch expected on main.\n- Declared to CI: the full `packages/app-shell` directory test run. The shared lock was in use, so no whole-package run was done locally.\n\n## Acceptance notes\n\n- `studio-design/metadataError.ts` already has a general `issueRefusal(e, locale, locate)` with an `IssueLocator`. It needs a `MetadataSelection` target and a `StudioRefusal` strip, which this permission editor's plain-string error strip does not have. So the mapping here is local to the editor. Moving the editor onto the `StudioRefusal` strip would be a larger change than this card covers.\n- Today, a nameless row the server refuses also carries a second issue (`rowLevelSecurity.0 [custom]`). With the hold in place, such a row is no longer sent. If a non-empty name is refused together with a row-level issue, the row-level issue keeps the raw text, appended after the mapped line.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

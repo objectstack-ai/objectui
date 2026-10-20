@@ -1,0 +1,36 @@
+{
+  "number": 13179,
+  "kind": "pull_request",
+  "title": "fix(console): settings text boxes clear to unset; Reset to default beside Overrides",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T07:15:21Z",
+  "updated_at": "2026-10-20T07:52:04Z",
+  "closed_at": "2026-10-20T07:52:02Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T07:52:02Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13179",
+  "body": "Fixes #13145\nClause-②: no\n\n## What changed\n\nSettings pages (Setup, Configuration) can now take a value back to unset, and an override back to the inherited value. No server change: the settings door already reads `{\"key\": null}` as \"clear this layer's value\" (measured on the card).\n\n- `apps/console/src/pages/settings/SettingsField.tsx`\n  - An emptied text-like box (text, email, url, phone, password, textarea, and the free-text box of a `valueDomain` select) now puts `null` in the draft, never `\"\"` (helper `textOrUnset`). The number control already did this and is unchanged. The closed Radix select cannot be emptied, so it is unchanged.\n  - A row whose source badge reads \"Overrides\" (`console.settingsView.sourceBadgeOverrides`) shows one small \"Reset to default\" button beside the badge. It calls the row's `onChange(null)`: the key goes into the draft as `null`, the page turns dirty, and the existing Save sends it. After the save the badge is whatever the server's read-back for that row says. The client sets no source state of its own. The badge choice moved from `InheritanceBadges` into `sourceBadgeOf` (pure, same rules) so the header can tell an Overrides row from the rest. The button hides once the draft already holds `null` for that key, and it is disabled while saving.\n- `packages/i18n/src/locales/*.ts`: `console.settingsView.resetToDefault` in all ten packs.\n- `.changeset/13145-settings-unset-and-reset.md`: patch for `@object-ui/console` and `@object-ui/i18n`.\n\nThe API client was re-read: `saveSettingsNamespace` sends `JSON.stringify(patch)`, which keeps `null` values (only `undefined` is dropped). The new pins read the PUT body as it leaves `fetch`, so a dropped `null` would turn them red.\n\n## Pins\n\nNew `apps/console/src/pages/settings/__tests__/SettingsView.unsetAndReset-13145.test.tsx`. It drives the whole page over a stubbed `fetch` through the real `../api`:\n- (a) clearing a text field and saving sends exactly `{\"smtp_host\":null}`. A cleared password box sends `{\"smtp_password\":null}`.\n- (b) \"Reset to default\" on an Overrides row sends `{\"default_country\":null}`. The row then shows the server answer's \"Inherited from\" badge, with no Overrides badge and no reset button.\n- (c) CONTROLS: a typed value still sends the string. The number control sends `2525` as a number. An Inherited row and an unbadged row offer no reset, and the page has exactly one reset button.\n\n`SettingsField.sourceBadgeLocale-12694.test.tsx`: the badge matcher now skips text inside a `button`. The zh copy of the new action (\"恢复默认\") contains the default layer's word, so the matcher would otherwise count it as a second badge. The badge assertions are unchanged.\n\n## Ablations (one-shot, through `ablation-replace.mjs`, wrapped and restored)\n\n1. `return raw === '' ? null : raw;` replaced with `return raw;`. Result: the (a) cases go red: \"a cleared text field is sent as null\" and \"a cleared password box is sent as null\". `Tests 2 failed | 4 passed (6)`. Restore: blob f98737e29511 == HEAD, and `git diff HEAD` is empty.\n2. The reset render guarded with `false &&`. Result: (b) goes red, and so does the CONTROL's \"exactly one reset\" count. `Tests 2 failed | 4 passed (6)`. Restore: blob f98737e29511 == HEAD, and `git diff HEAD` is empty.\n\n## Verification (head 70c30d495f)\n\n- Closure build `pnpm --filter '@object-ui/console^...' build`: exit 0.\n- `pnpm --filter @object-ui/console --filter @object-ui/i18n type-check`: exit 0. The console's tsconfig includes `src`, so it covers the tests.\n- vitest `apps/console/src/pages/settings/`: 22 files, 180 tests passed. Ran at the final head.\n- vitest `packages/i18n/src/__tests__/` plus the app-shell product-neutral ratchet: passed, at ed7baec5cc. The later commit touched only the badge-pin test.\n- eslint on the 12 changed `.ts`/`.tsx` files, as the package `lint` scripts run it: 0 errors. Type-aware linting is not configured, so these files cannot move the verdict on files they do not touch. With `--no-inline-config`, one `react-hooks/static-components` error shows on an existing, already-disabled line that this PR does not touch. The base version shows the same error.\n- Gates, each exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `check:new-line-citations`, `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs`, `scripts/check-changeset-presence.mjs`.\n- Declared to CI, not run in full locally: the whole `apps/console` and `packages/i18n` test directories, and the repo-wide `pnpm lint`.\n\n## Acceptance notes\n\n- After a reset, the badge follows the server's `cascadeChain`. If only the manifest default is left, the effective scope is `default`. Today's badge rules draw no badge for that case, not an \"Inherited\" one. This PR does not change those rules.\n- Password: the box never shows the stored secret. Typing into it and then emptying it now sends `null`, which clears the stored secret. Before this PR it sent `\"\"`. Per the ruling, emptied means unset.\n- The `color` row's hex text box and the `json` textarea still send what is typed. They are outside the ruling's text-like list.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

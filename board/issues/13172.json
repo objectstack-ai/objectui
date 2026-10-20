@@ -1,0 +1,35 @@
+{
+  "number": 13172,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the app-missing screen offers the way home beside Retry",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T06:32:02Z",
+  "updated_at": "2026-10-20T06:57:59Z",
+  "closed_at": "2026-10-20T06:57:57Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T06:57:57Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13172",
+  "body": "Fixes #13122\nClause-②: no\n\n## What\n\nThe console's app-missing branch in `packages/app-shell/src/console/AppContent.tsx` (`requestedAppMissing`) draws three verdict screens — `app-not-found` (\"This app can't be opened\"), `app-unreachable` and `app-not-available`. All three return above the `ConsoleLayout` mount, so they carry no app bar, and they offered only Retry: a stale bookmark or an uninstalled app's link was a full-screen dead end.\n\nEach of the three now draws \"Back to home\" beside Retry. The button is the access-denied screen's own, factored into one render helper (`renderBackHomeButton`) that both screens call: same copy key (`empty.appAccessDeniedHome`), same navigation (`navigate(homePath)`, the declared home). Test ids follow the existing pattern: `app-not-found-home`, `app-unreachable-home`, `app-not-available-home`. The access-denied screen keeps its `app-access-denied-home` test id and renders the identical button. No new i18n key, no export, no chrome change.\n\n## Pins (in `AppContent.deniedVsUnpublished.test.tsx`)\n\n- (a) `the $testId screen offers the way home beside Retry, and it goes home` — one case per verdict: the home button is drawn with the text \"Back to home\", Retry is drawn beside it, clicking home lands on `/home`.\n- (b) CONTROL `Retry on the $testId screen is still drawn and still re-checks` — one case per verdict: clicking Retry calls `refreshMetadata` again and the verdict screen comes back. Written independently of the home button on purpose.\n- (b) the access-denied screen is unchanged: the existing cases `the denial screen offers a way back to /home` and the declared-landing case stay green.\n\n## Ablation (one-off, no permanent file)\n\nFix committed first; mutation through `ablation-replace.mjs` deleting the `renderBackHomeButton(...-home)` line from the missing branch only (anchor 1 to 0, blob 9343ae560f74 to bcd2e851e811), trap-guarded restore:\n\n- mutated: `Tests  3 failed | 22 passed (25)` — exactly the three (a) cases red; the three Retry CONTROLs and the denied-screen home case green.\n- restored: blob after restore == HEAD blob `9343ae560f748d669af602aed68ce6e9649104b2`, `git diff HEAD` empty.\n- green on HEAD `ada1ba4e01`: `Test Files  1 passed (1)`, `Tests  25 passed (25)`.\n\n## Gates (local, at `ada1ba4e01`)\n\n- `@object-ui/app-shell` closure build (`--filter '@object-ui/app-shell^...'`, 29 projects) exit 0, then `pnpm --filter @object-ui/app-shell type-check` (echoes `tsc --noEmit && tsc -p tsconfig.test.json`; the test config includes `src/**/*.test.tsx`) exit 0 — under the shared verify lock.\n- Targeted vitest on the edited test file, `--maxWorkers=1`: 25/25. Declared narrowing: this one-file, one-worker run (and the ablation) ran outside the shared lock after about 30 minutes queued behind a sibling full-directory run.\n- eslint narrowed to the two changed files: 0 errors (warnings are pre-existing lines). Population read from the root `eslint.config.js`; `--format json` counted 2 files; that config enables no type-aware linting (no `projectService` / `parserOptions.project`), so this diff cannot move a verdict on any untouched file.\n- Pre-tsc battery all exit 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`, `check-changeset-presence.mjs`.\n- `check:spec-floors` exit 1 — recorded as known on main per dispatch, not touched.\n- Declared to CI: the full `packages/app-shell/` directory run (a sibling's full-directory run held the shared lock for over 35 minutes at one worker; it does not fit the foreground cap).\n\n## Acceptance notes\n\n- The reused copy key is named for the access-denied screen (`empty.appAccessDeniedHome`). Reused as ruled rather than renamed; a rename would touch all ten packs for no user-visible change.\n- Changeset: `.changeset/13122-app-missing-way-home.md`, `@object-ui/app-shell` patch.\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

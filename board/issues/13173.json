@@ -1,0 +1,35 @@
+{
+  "number": 13173,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Add branch on a Decision never overwrites a connection it does not name",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T06:37:00Z",
+  "updated_at": "2026-10-20T07:28:16Z",
+  "closed_at": "2026-10-20T07:28:14Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T07:28:14Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13173",
+  "body": "Fixes #13138\nClause-②: no\n\nPin (c) is in this PR, under seat ruling `6285028835` (claim surface amended to `FlowObjectListField.tsx` and `FlowNodeConfigField.tsx`):\n- `unpairedDecisionEdges` in `flow-decision-edges.ts` returns the Decision's plain out-edges that no branch is paired with.\n- `FlowNodeConfigField` passes the edge branches filtered to them.\n- `FlowObjectListField` draws those read-only connection cards beside the branch rows, not only while the list is empty.\n- A paired connection is never listed twice.\n\nPin: `FlowObjectListField.addBranchKeepsEdges-13138.test.tsx` (2 tests). Ablation: restoring the rows-empty gate turns it red, with the control green.\n\n\n## What changed\n\n`packages/app-shell/src/views/metadata-admin/inspectors/flow-decision-edges.ts` — the Decision branch to out-edge reconciliation:\n\n- Every fallback pairing (the objectui#1927 by-order mirror, the derived Target column, and the \"same target node\" tier when a target is picked) now pairs a branch only with an out-edge that carries no routing of its own (no `condition`, `label` or `isDefault`), or with an edge the stored branch list owned before this commit. An edge no branch owns — a connection whose routing was written in the connection inspector — is driven only by a branch that binds it.\n- `applyDecisionBranches` and `syncDecisionEdgesByOrder` take a required `prior` argument: the node's stored `config.conditions` that the commit replaces. It tells \"this branch's own edge, edited one cell at a time\" apart from \"a connection no branch has routed\". Without it, a label-less branch whose expression is edited would lose its own edge and a duplicate with the stale guard would be created (measured on the first pass of this branch).\n- The detach path (a target-less branch removes the edge bound to it) now only removes an edge the branch list owned: a new, empty branch binds the default edge by the objectui#1930 matcher, and on base that deleted a connection-inspector default edge outright.\n\n`FlowNodeInspector.tsx` passes `getFieldValue(node, field)` as `prior` at both call sites. No export, key or prop moves.\n\n## Measured on base first (ruling 4)\n\nThe new pin file run against the `origin/main` blob of `flow-decision-edges.ts` (96cc52d323), through `applyDecisionBranches` replaying the editor's one-cell commits:\n\n- card case (a) — one out-edge `{condition: {dialect: cel, source: \"1 == 1\"}}`, Add branch Label=Otherwise, Expression=true, no target ⇒ `[{id: edge_1, target: end, label: Otherwise, isDefault: true}]`: the condition gone.\n- card case (b) — Target=End picked first ⇒ the same single overwritten edge (the same-target tier claimed the conditioned edge on the first commit).\n- `Tests 5 failed | 6 passed (11)`: all five 13138 pins red, the six controls green.\n- A further base probe: an existing branch plus a connection-inspector `isDefault` edge; adding an empty branch and committing its label deleted that edge (`[e1]` out of `[e1, e2]`).\n\n## Tests\n\n- New `flow-decision-edges.addBranch-13138.test.ts` (15 tests): pins (a), (b) incl. spec-parse of the produced edges, the new-branch-never-detaches pin, and controls (d): by-order pairing of unrouted edges, expression/default/rename edits of an existing branch, label-less expression edits (targeted and by-order), clearing an owned branch's target still detaching, claiming an unrouted drawn edge.\n- `flow-decision-edges.test.ts`: every call passes `prior`; the \"updates the existing edge in place\" fixture is back to its original label-less edge, now with the stored branch that owned it.\n- Family (every test file that imports or names `flow-decision-edges` / `FlowNodeInspector`, 51 files) at 307cb8fbbd: `Test Files 51 passed (51)`, `Tests 776 passed | 1 skipped (777)`.\n- `pnpm --filter @object-ui/app-shell type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`; the test config lists all 3 touched reconciliation files) after the closure build: exit 0.\n- The whole `packages/app-shell/` directory is declared to CI (shared test lock).\n\n## Ablation (one-off, no permanent file)\n\nAt 307cb8fbbd, `scripts/ablation-replace.mjs` replaced the pairing guard `(owned.has(i) || !carriesRouting(edges[i]))` with `true` (the unconditional positional mirror): anchor x1 to x0, blob 42e99b4a54 to aef90adcd9. The pin file went `Tests 4 failed | 11 passed (15)` — all three (a) pins and the (b) Target=End pin red. Restore: blob after restore 42e99b4a54 equals the HEAD blob, `git diff HEAD` empty, rerun `15 passed (15)`.\n\n## Gates (at 307cb8fbbd; re-run at `e532118089` with pin (c): family of 63 files / 961 tests, type-check and the battery all exit 0)\n\nExit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs`. `check:spec-floors` exit 1, `no-artifact` for packages not built in this worktree (recorded, as the order expects on main).\n\neslint narrowed to the 4 changed source files (`--no-inline-config --format json`): 4 files, 0 errors, 4 warnings, all on pre-existing lines of `FlowNodeInspector.tsx` (412, 436, 455). `eslint.config.js` configures no type-aware linting (no `parserOptions.project` / `projectService`), so this diff cannot move any untouched file's verdict.\n\n## Acceptance notes\n\n- Resumed from the pushed sha 634ec94323 after a container restart; every verification above was re-run in this session.\n- The engine-published form path (no Target column) uses the same `prior` rule through `syncDecisionEdgesByOrder`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

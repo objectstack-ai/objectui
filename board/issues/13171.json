@@ -1,0 +1,35 @@
+{
+  "number": 13171,
+  "kind": "pull_request",
+  "title": "fix(app-shell): a chart saved view keeps the view tabs",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T06:31:59Z",
+  "updated_at": "2026-10-20T06:59:09Z",
+  "closed_at": "2026-10-20T06:59:07Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T06:59:07Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13171",
+  "body": "Fixes #13114\nClause-②: no\n\n## What\n\nOpening a `type: chart` saved view on the console list page removed the view tab bar. Since objectui#12440 the strip is handed to `ListView` as `toolbarLeading`, and `renderListView`'s chart branch (`viewDef.type === 'chart'`) returns before `ListView` is reached, so a chart view drew no tabs and the only way back to the grid was the browser's Back button.\n\nRuling 1 route taken: the chart branch draws the strip itself, above the chart. The row that a server-refused view already used is lifted into one element, `viewTabRow` (same classes and `data-testid=\"view-tab-row\"`, gated on `viewTabBar`, so on `viewTabsFit` too: below `sm` it is absent and the app bar's switcher stays the phone's control). Both chart returns (dataset-bound and unbound) wrap their `Suspense` face with it. List faces keep the strip in `ListView`'s toolbar row, unchanged; no face draws two.\n\nRuling 2: the page-level refused-view fallback now reads `refusedViewFace && viewTabRow`, which is the same markup as before.\n\nFiles: `packages/app-shell/src/views/ObjectView.tsx`, a new pin `packages/app-shell/src/views/ObjectView.chartViewTabs-13114.test.tsx`, and `.changeset/13114-chart-view-tabs.md` (`@object-ui/app-shell` patch). No export, prop or type member is added.\n\n## Pins\n\nThe pins drive the real `ObjectView` → plugin `ObjectView` → `renderListView` → `ListView` / `ObjectChart` chain.\n\n- (a) A chart view draws exactly one `view-tab-bar`, inside `view-tab-row`, with no `list-toolbar-leading`. Clicking the grid tab switches back to the grid, where the one strip sits in the list toolbar slot.\n- (b) CONTROL: a grid view has exactly one strip, in `list-toolbar-leading`, and no standalone row.\n- (b) CONTROL: below `sm` a chart view draws no strip.\n- Refused-face CONTROL: the existing `ObjectView.viewRefusal-12112.test.tsx` passes unchanged. Its `getByTestId('view-tab-bar')` throws on more than one match.\n\n## Verification (head `e0ea6dbd93`)\n\n- Closure build `pnpm --filter '@object-ui/app-shell^...' build`: exit 0.\n- `pnpm --filter @object-ui/app-shell type-check` (`tsc --noEmit` plus `tsc -p tsconfig.test.json`): exit 0. `--listFilesOnly` on the test project lists the new pin.\n- Targeted vitest (13114 pin, 12440 toolbar pin, 12112 refusal pin): 3 files, 12 tests passed.\n- Family run: 17 files, 766 tests passed. It covers the ObjectView chart and tab tests, and every test that reads `ObjectView.tsx` source.\n- Ablation via `ablation-replace.mjs`. The anchor `{viewTabRow}` in the chart wrapper (hits 1 to 0) was replaced with `{null}`, and the blob went from `bb7a2825d46c` to `f79650798867`. Pin (a) went red with `Unable to find an element by: [data-testid=\"view-tab-row\"]`, 1 failed and 2 passed. The two controls stayed green. Restore: the blob equals the HEAD blob `bb7a2825d46c` and `git diff HEAD` is empty.\n- Lint narrowed to the two changed files with `eslint --format json`: 2 files, 0 errors. The 183 warnings are identical to `origin/main`'s copy of `ObjectView.tsx`, where the same 183 are pre-existing. The config has no `parserOptions.project` or `projectService` (not type-aware), so this diff cannot move any untouched file's verdict.\n- Gate battery: exit 0 for phantom-deps, self-import, unreferenced-sources, doc-example-readers, handler-key-reads, side-effects-array, element-data-source-declaration, spec-symbols, action-forward-parity, designer-field-key-parity, icon-record-names, i18n-keys, i18n-drift, i18n-designer-parity, control-bytes, new-line-citations, `check-hand-rolled-comment-mask`, `check-changeset-fixed`, `check-changeset-presence` and `check-changeset-no-major`.\n- NOT MEASURED: `check:spec-floors`, reason: prerequisite not met (no-artifact, it wants a full workspace build). The order said to record it, not fix it.\n- NOT MEASURED: the whole `packages/app-shell/` directory, reason: a `--maxWorkers=1` run under the shared lock printed no file result in 45 minutes. I stopped it to release the lock to queued siblings. It is declared to CI.\n\n## Acceptance notes\n\nNone.\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

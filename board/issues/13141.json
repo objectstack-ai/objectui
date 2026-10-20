@@ -1,0 +1,32 @@
+{
+  "number": 13141,
+  "kind": "issue",
+  "title": "Create View dialog: an unavailable view type only says \"Not supported by this object.\" — the reason is in a title tooltip on a disabled button, unreachable by keyboard and touch; type descriptions are cut mid-word",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T04:35:56Z",
+  "updated_at": "2026-10-20T05:51:38Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13141",
+  "body": "立卡门类别 ①:有具名落点且可稳定复现的界面体验缺陷。\n动手的读者:objectui 开发席(pm-dispatch 派发的 os-dev),按下方源码落点改 app-shell 的 CreateViewDialog 类型卡片。\n查重:objectui 搜 \"Not supported by this object\" 命中 0(均含 closed);第一遍 objectui#13113、#13114、#13115 未收录此项。\n\nreach: 界面实测一次(列表页视图标签栏的 + → Create View)。\n\n预期:不可选的视图类型在卡片上直接说明缺什么(例如 \"Needs an image field\"),键盘和触屏用户也能读到;可选类型的说明不被截断。\n实际:\n- 对一个只有 name / date / picklist 字段的对象,Gallery、Map、Chart 卡片只写 \"Not supported by this object.\"。原因(\"This object has no field that can serve as …\")只放在 disabled 按钮的 title 上:disabled 按钮不能聚焦,触屏没有 hover,读屏读不到。\n- 可选类型的说明在 4 列网格里被 line-clamp 截断:\"Cards grouped into columns by a singl…\"、\"Records placed on a monthly calendar …\"。\n\n源码落点:packages/app-shell/src/views/CreateViewDialog.tsx 类型网格(data-testid=\"create-view-type-grid\"):disabled 时正文用 console.objectView.viewTypeUnavailableShort,原因 viewTypeUnavailable / viewTypeUnavailableDataset 只进 title;说明文字 className 含 line-clamp-2。\n\n环境:framework 4bc3becd5f4a,console pin objectui@12dc7b47c340(dist 盖章一致),stock showcase --seed-admin,Chromium 141;源码对照 objectui main 4b677464。来源:UX 走查第二遍(派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi)。\n\ntype: Bug"
+}

@@ -1,0 +1,31 @@
+{
+  "number": 13153,
+  "kind": "issue",
+  "title": "Console: a member following a deep link into a Setup sub-page — detail withheld pending maintainer",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:access",
+    "bug",
+    "domain:ui",
+    "pm:awaiting-maintainer"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T04:36:32Z",
+  "updated_at": "2026-10-20T05:58:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13153",
+  "body": "立卡门类别 ①:有具名落点且可稳定复现的界面体验缺陷。\n动手的读者:objectui 开发席,待维护者看过复现后定落点。\n查重:objectui 搜 \"access denied capability setup\" 无同题(均含 closed);第一遍 objectui#13113、#13114、#13115 未收录此项。\n\n位置:console 对 /apps/setup 下子路由的应用访问处理,以及 apps/console/src/pages/settings/SettingsView.tsx 拒绝时的错误呈现。\n\ndetail withheld pending maintainer。复现已发给派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi。\n\n环境:framework 4bc3becd5f4a,console pin objectui@12dc7b47c340(dist 盖章一致),stock showcase --seed-admin,Chromium 141;源码对照 objectui main 4b677464。来源:UX 走查第二遍(派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi)。\n\ntype: Bug"
+}

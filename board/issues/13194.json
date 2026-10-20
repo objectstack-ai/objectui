@@ -1,0 +1,31 @@
+{
+  "number": 13194,
+  "kind": "pull_request",
+  "title": "fix(app-shell): flow header meta pills ellipsize instead of clipping mid-word",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T08:18:51Z",
+  "updated_at": "2026-10-20T08:23:51Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13194",
+  "body": "Fixes #13135\nClause-②: no\n\n## What\n\nThe Studio flow header's meta (\"Trigger: … · Status: … · Run as: …\") was cut mid-word at the slot's edge (\"Status: Unpublis\") with no ellipsis and no tooltip. Each header item now shortens with an ellipsis, and a shortened item names its whole `Label: value` on hover, followed by the hover text it already had (the run status's reason, the trigger object's name).\n\nRuling 1 choice: **truncate, not wrap.** The row stays on one line, so the header keeps its height (measured below: 27px row before and after, narrow and wide).\n\n## Why the old row clipped bare\n\nThe header variant was an `inline-flex` row of `shrink-0 whitespace-nowrap` pills inside the header's meta slot (`min-w-0 truncate`). A flex row's minimum width is the sum of its items' text, so the row (and the `inline-flex min-w-0` wrapper Studio puts around it) sized itself to its full text and the slot's `overflow: hidden` cut it like a picture. `text-overflow: ellipsis` cannot ellipsize inside an atomic inline box, hence no marker.\n\nMeasured in Chromium (static reproduction with the real class semantics, 620px row): making the pills `truncate` while the row stays flex changes nothing (slot scrollWidth/clientWidth 459/360, every pill uncut). Only a row whose own minimum width is near zero fits the slot without touching the Studio wrapper. So the header variant is now a one-row grid with `minmax(0, max-content)` columns: slot 360/360, Trigger and Status ellipsized (180/114, 135/114), \"Run as: User\" whole. At 1100px everything is whole (slot 840/840). Making the Studio wrapper `max-w-full` would also work, but that file is outside this card's surface.\n\n## Hover text\n\nA pill measures whether it is cut (scrollWidth over clientWidth, on every render and on resize), the way the Studio header's title does for objectui#12897. Only while cut does its `title` gain the `Label: value` line, so an uncut pill keeps exactly the title it had and the existing header pins that read `title` equal to the reason stay green. The designer's info bar (`bar`) is not measured and is unchanged.\n\n## Tests (at 5b944af36f)\n\n- New `FlowPreview.headerMetaTruncate-13135.test.tsx`: 5 passed. Pins: the header Status pill has `truncate` (not `shrink-0`); a cut Status pill's title is `Status: Unpublished draft` then its reason; a cut Trigger pill's title is `Trigger: autolaunched`; CONTROL an uncut pill keeps its old title; CONTROL the bar is not measured.\n- Pills' existing readers, same run: `FlowPreview.headerPills-11779`, `FlowPreview.triggerObjectLabel-13056`, `StudioDesignSurface.flowStatusTruth-11779`, `StudioDesignSurface.flowRegistration-12349`, `AutomationsPillar.tabs-12454`, `StudioItemHeader.statusPlace-12524`: 7 files, 40 tests passed.\n- Ablation (fix committed first): `FlowPreview.tsx` reverted to base 961b69f971 (`useCutText` 0 hits, `inline-grid` 0 hits) gives 3 failed, 2 passed (the two CONTROLs). Restored with `git checkout HEAD`, blob `b40b38798cdd` equals the HEAD blob, `git diff HEAD` empty.\n- `pnpm --filter @object-ui/app-shell type-check` (after the dependency-closure build): exit 0; `tsconfig.test.json` includes `src/**/*.test.tsx`.\n- ESLint on the two changed source files (root `eslint.config.js`, no type-aware linting so no untouched file's verdict can move): 2 files, 0 errors, 2 warnings, both pre-existing lines (129, 373).\n- Battery: phantom-deps, self-import, unreferenced-sources, doc-example-readers, handler-key-reads, side-effects-array, element-data-source-declaration, spec-symbols, action-forward-parity, designer-field-key-parity, icon-record-names, i18n-keys, i18n-drift, i18n-designer-parity, control-bytes, hand-rolled-comment-mask, changeset-fixed: all exit 0. `check:spec-floors` exit 1, NOT MEASURED: no-artifact for packages this PR does not touch (needs a workspace build), as on main.\n- Declared to CI: the full `packages/app-shell/` vitest directory (whole-package runs are off for this dispatch).\n\n## Acceptance notes\n\n- Not verified in the live console: the layout was measured in Chromium on a static page reproducing the header's classes. Tailwind 4 compiles the new arbitrary class to `grid-auto-columns: minmax(0,max-content)`.\n- `useCutText` here repeats the shape of `StudioItemHeader`'s private `useCutTitle`; sharing them would mean exporting from `StudioItemHeader.tsx`, which is outside this card. Carrier: none.\n\nChangeset: `.changeset/13135-flow-meta-pills.md` (`@object-ui/app-shell` patch).\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

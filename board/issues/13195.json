@@ -1,0 +1,31 @@
+{
+  "number": 13195,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Studio Data rail's empty sentence points at the \"+\" above it",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T08:20:35Z",
+  "updated_at": "2026-10-20T08:25:31Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13195",
+  "body": "Fixes #13127\n\nClause-②: no\n\n## What changed\n\nIn a package with no objects, Studio's Data rail said \"No objects yet — create one below to start\". The rail draws nothing below that sentence: `StudioRail` renders its heading row (with the rail's only create control, the \"+\"), then the search box, then the list where the sentence sits. The sentence now names that \"+\", in the wording the Automations and Access rails already use for their own empty sentences (`engine.studio.auto.none`, `engine.studio.access.none`):\n\n| locale | before | after |\n|---|---|---|\n| en | No objects yet — create one below to start | No objects yet — click “+” above to create one |\n| zh | 还没有对象 — 在下方新建一个开始 | 还没有对象 — 点上方的「+」新建 |\n\nOnly the value of `engine.studio.data.noObjects` changes. No key is added or removed, and nothing on the package entry moves. Changeset: `.changeset/13127-data-rail-empty-copy.md` (`@object-ui/app-shell` patch).\n\n## Premise check against `main` at `961b69f`\n\n1. `engine.studio.data.noObjects` renders inside the Data rail (`DataPillar` mounts `StudioRail` with `testId=\"studio-rail-data\"`), in the list area under the heading row that carries the \"+\" (`addTestId=\"studio-rail-add\"`). Confirmed: the \"+\" is above the sentence and nothing that creates is below it.\n2. The sibling string that also says \"below\", `engine.studio.data.firstObjectHint` (\"… Create one below; then design its fields …\"), does not render in the rail. It renders in the content column's empty block, directly above that block's \"New object\" button (`data-testid=\"empty-state-new-object\"`). Its pointer is right for where it renders, so it is unchanged (its zh value, \"点击下方按钮创建一个\", likewise).\n3. The ten locale packs under `packages/i18n/src/locales/` do not carry this key. The designer's own table in `metadata-admin/i18n.ts` holds en and zh only (the `engine.*` carve-out its header describes), so those two rows are all that move; `check:i18n-drift`'s designer leg reports the zh row followed the en change.\n\nNo other key of that table is touched.\n\n## Test\n\n`StudioDesignSurface.emptyPackage.test.tsx` gains one case on the real `DataPillar` over an empty package: the rail's empty sentence is inside `studio-rail-data`, it names the \"+\" (en `“+”`, zh `「+」`), and the rail's `studio-rail-add` precedes the sentence in document order.\n\nAblation (one-off, not kept), run with the fix committed at `b316b28`: the en value was put back to the old text through `objectstack:scripts/ablation-replace.mjs` (anchor hit 1 → 0, blob `73bdf93cdf49` → `42f7baac5071`). The new case went red, `expected 'No objects yet — create one below to …' to contain '“+”'`, and the file's other three cases stayed green (`Tests 1 failed | 3 passed (4)`). Restore proven by blob == HEAD (`73bdf93cdf49`) and an empty `git diff HEAD`.\n\n## Local gates, head `dfa0da6`\n\n- `pnpm exec vitest run` over the touched test file, the Automations/Access empty-state file, `studio-locale.i18n`, `zhPillarNames-11801`, `select-placeholder-literal-11252`, `block-config-i18n`, and the designer-parity and en-drift gate tests → `Test Files 8 passed (8)`, `Tests 121 passed (121)`, exit 0.\n- `pnpm --filter @object-ui/app-shell type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`; the test config lists the touched test file) → exit 0, after the dependency closure build.\n- `node scripts/check-changeset-presence.mjs`, `pnpm check:new-line-citations` (0 new), `pnpm check:control-bytes`, `pnpm check:i18n-keys`, `pnpm check:i18n-drift`, `pnpm check:i18n-designer-parity`, `pnpm check:i18n-dead-keys` (report), `pnpm check:changeset-claims`, `pnpm check:pending-changeset-literals`, `pnpm changeset:check` → each exit 0.\n\nRepo-wide lint and the full test farm are CI's.\n\n## Selectors for a browser read\n\n- The Data rail: `[data-testid=\"studio-rail-data\"]`.\n- Its \"+\": `[data-testid=\"studio-rail-data\"] [data-testid=\"studio-rail-add\"]`.\n- The empty sentence: `[data-testid=\"studio-rail-data\"] p` (the only paragraph in the rail while the package has no objects; it has no test id of its own).\n\n## Acceptance notes\n\n- Read-only packages (not changed here, and not made worse). When the package is read-only, the Data pillar passes no `onAdd` to `StudioRail`, so the rail draws no \"+\", yet the rail still renders `engine.studio.data.noObjects`; and the content column's block still shows `firstObjectHint` (\"Create one below\") while its button is hidden. The old text pointed below at nothing; the new text points above at nothing. objectui#12514 gave the Automations and Access rails the read-only posture \"no rail pointer\" (pinned in `StudioDesignSurface.emptyStates-12514.test.tsx`); the Data pillar did not get it. This is a source reading, not reproduced in a browser (it needs a non-writable package with no objects), and the render condition lives in `StudioDesignSurface.tsx`, outside this claim's file surface. Raised to the seat in the report; no carrier yet.\n- `check:i18n-dead-keys` lists `engine.studio.data.readOnlyPackage` (\"This package is read-only — switch to or create a writable package to add objects\") as a confirmed dead-key candidate: no render site in `packages/app-shell/src`. Not touched: it is another key of the same table.\n\nSession: `session_01GL347th7aWQUnY2k8diSLG` (dispatching seat; this run is its `mode:subagent` dev).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GL347th7aWQUnY2k8diSLG)_\n"
+}

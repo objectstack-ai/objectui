@@ -1,0 +1,37 @@
+{
+  "number": 13114,
+  "kind": "issue",
+  "title": "console list page: opening a `type: chart` saved view removes the view tab bar — the chart branch of renderListView returns before ListView, and the tabs render only as its toolbarLeading",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T02:33:42Z",
+  "updated_at": "2026-10-20T07:01:59Z",
+  "closed_at": "2026-10-20T06:59:08Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13114",
+  "body": "Filing gate: ① user-visible UX defect (dead end: the view switcher disappears). Reader: the objectui dev seat that takes this card from the pm-dispatch queue; fix lands in packages/app-shell/src/views/ObjectView.tsx. Dedupe: objectui issues, open+closed, semantic queries \"chart view hides view tab bar switcher\" (13 hits, top: #12987, #12518, #12440, #12795, #12505, #12774, #12423, #12474) and \"chart view type list page view tabs disappear cannot switch back to grid\" (19 hits, top: #12423, #12463, #12518, #11992, #12063, #11642) — none reports it. #12440 is the change that moved the tab strip into ListView's toolbar leading slot; this card is the chart path that slot never reaches.\n\nreach: console list page of an object that has a `type: chart` saved view. Measured on stock showcase (--seed-admin), framework 54159fd742e5, console pin objectui@12dc7b47c340, dist stamp equal to the pin: Showcase → Projects → click the \"Budget by Account\" tab. The chart renders, and the row of view tabs (All Projects / By Status / Budget by Account / +) is gone — no element with data-testid starting \"view-tab\" is in the page after it settles (screenshot and DOM agree). The only way back to the grid is the browser Back button or clicking \"Projects\" in the sidebar.\n\nExpected: the saved-view tab bar is the page's view switcher and stays on screen for every view type, chart included, so the user can move from the chart to any other view the same way they arrived.\nActual: picking a chart view removes the switcher; the page header stays, the tabs do not.\n\nRepro:\n1. Boot stock showcase with --seed-admin, sign in as admin@objectos.ai.\n2. Showcase → Data Model → Projects.\n3. Click the \"Budget by Account\" view tab.\n4. Observe: no view tabs; the URL is .../showcase_project/view/showcase_project.budget_chart.\n\nSource (objectui main df943a2a1af3, re-read before filing):\n- packages/app-shell/src/views/ObjectView.tsx — `viewTabBar` (the ViewTabBar element) is handed to the list only as `toolbarLeading={viewTabBar ?? undefined}` inside `renderListView`'s ListView branch.\n- In the same `renderListView`, `if (viewDef.type === 'chart')` returns a Suspense-wrapped ObjectChart for both the dataset-bound and the unbound chart before ListView is reached, so nothing renders the tab bar on a chart view. (The page-level fallback that renders `{viewTabBar}` on its own is gated on `refusedViewFace`.)\n\nGeneric blocks / contract: no new widget. Render the existing ViewTabBar above the chart in the chart branch (or render it page-level whenever the active view's face is not a ListView), keeping the same `viewTabsFit` sizing.\n\ntype: Bug\n"
+}

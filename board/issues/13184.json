@@ -1,0 +1,36 @@
+{
+  "number": 13184,
+  "kind": "pull_request",
+  "title": "fix(i18n,app-shell): pluralise the inbox header notification count",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T07:40:31Z",
+  "updated_at": "2026-10-20T08:09:01Z",
+  "closed_at": "2026-10-20T08:08:58Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T08:08:58Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13184",
+  "body": "Fixes #13133\nClause-②: no\n\n## What\n\nThe inbox header's breakdown line read \"4 total · 1 notifications + 3 pending approvals\". `notifications.badgeNotifications` was interpolated with the named placeholder `{{unread}}`, so i18next never plural-selected and every pack held one string for every count.\n\n- `InboxPopover` now passes `count` to `notifications.badgeNotifications`, as `notifications.approvalsPending` beside it already does. The strings switch from `{{unread}}` to `{{count}}`.\n- Each of the ten packs carries the family its language needs, in the shape the gates already accept for `approvalsPending`: a base key plus `_one` / `_other`, with `_many` in es, fr and pt, `_few` / `_many` in ru, and all six CLDR categories in ar. The wording follows each pack's existing string and its `approvalsPending` forms. en reads \"1 notification\" / \"3 notifications\".\n- ja, ko and zh carry the base key plus `_one` / `_other` with one repeated string. They do not carry a single form, because `all-locales-key-parity.test.ts` requires every pack to define every `en` key; `approvalsPending` does the same in those three packs.\n\n### Bounded in-place fix: `notifications.badgeApprovals`\n\nThe span right next to it had the same defect: `{{approvals}}`, one form, so one pending approval read \"1 pending approvals\". It is fixed the same way under the role file's bounded in-place-fix exemption, because all four conditions hold:\n1. It is the same defect class.\n2. The fix is mechanical and its shape is pinned by `approvalsPending`.\n3. It lives in the same two claimed files.\n4. It runs through the same i18n gate family.\n\nThe render pin below covers it as well.\n\n## Tests\n\n- New: `InboxPopover.badgePlural-13133.test.tsx`. It renders the popover against a real i18next instance and the shipped `en` pack. The sibling `InboxPopover.badgeBreakdown.test.tsx` stubs `t()` with an interpolator that cannot plural-select, so it cannot see this defect.\n  - With 1: \"1 notification\" and \"1 pending approval\".\n  - With 3: \"3 notifications\" and \"3 pending approvals\".\n  - CONTROL: the Approvals tab body (`notifications.approvalsPending`) still reads \"1 pending approval\".\n- Updated: `inboxBadgeBreakdown-i18n-7233.test.ts`.\n  - `badgeTotal` keeps its named `{{total}}`.\n  - The two addends are now asserted as count families: base, `_one` and `_other` exist, and every slot carries `{{count}}` and not the retired placeholder.\n- Targeted run at `59793beaa2`, under the shared lock with `--maxWorkers=1`: 8 files, 143 passed. The 8 files are:\n  - the new pin, `InboxPopover.badgeBreakdown`, `AppHeader.inboxVariant`;\n  - `inboxBadgeBreakdown-i18n-7233`, `all-locales-key-parity`, `count-families-11445`, `plural-categories-11432`, `en-zh-key-parity`.\n- Ablation, via `ablation-replace.mjs`: the anchor `count: unreadTopics,` was deleted from the call (1 hit to 0, blob `00c41f45f732` to `a6dd207ab8cf`).\n  - The singular leg went red: it expected `/^1 notification$/` and received `{{count}} notifications`. The plural leg went red too.\n  - The CONTROL stayed green.\n  - The restore was proven by blob hash: after restore `00c41f45f732` equals HEAD's `00c41f45f732`, and `git diff HEAD` is empty.\n\n## Gates\n\n- **Type-check:** `@object-ui/i18n` and `@object-ui/app-shell` `type-check` exit 0 (both `tsc --noEmit` and `tsconfig.test.json`). The `@object-ui/app-shell^...` closure was built first. The app-shell run was repeated at `59793beaa2`.\n- **Pre-tsc battery at `59793beaa2`:** all exit 0. The battery is:\n  - `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`;\n  - `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`;\n  - `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`;\n  - `check:control-bytes`, `check:test-path-roots`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`, `check-changeset-presence.mjs`.\n- **`check:i18n-drift`:** \"2 en value(s) changed (4 key(s) added …), 18 pack value(s) followed\".\n- **`check:spec-floors`:** exit 1. This is a known state on main, so it is recorded here and not touched.\n- **Lint, narrowed:**\n  - The population is the root `eslint.config.js` that each package's `lint` (`eslint .`) reads.\n  - `eslint --no-inline-config --format json` over the 14 changed `.ts`/`.tsx` files at `59793beaa2` reports 14 files, 0 errors and 8 warnings. All 8 are pre-existing `no-explicit-any` warnings on unchanged lines of `InboxPopover.badgeBreakdown.test.tsx`.\n  - The config enables no type-aware linting (no `parserOptions` / `projectService`), so this diff cannot change the verdict on any untouched file.\n- **Declared to CI:** whole-directory runs of `packages/app-shell/` and `packages/i18n/`. The dispatch order forbids whole-package-directory runs on the shared lock.\n\n## Acceptance notes\n\n- A host that overrides these two keys in its own resources must now spell `{{count}}`. The changeset says so.\n- Changeset: `@object-ui/i18n` and `@object-ui/app-shell`, patch.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

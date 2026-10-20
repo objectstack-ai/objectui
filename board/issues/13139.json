@@ -1,0 +1,34 @@
+{
+  "number": 13139,
+  "kind": "issue",
+  "title": "Draft preview bar shows a stale count after a runtime view config Save or Publish (\"no unpublished changes\" after a save; \"1 unpublished change · Publish to see it live\" after a publish)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T04:35:50Z",
+  "updated_at": "2026-10-20T08:31:25Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13139",
+  "body": "立卡门类别 ①:有具名落点且可稳定复现的界面体验缺陷。\n动手的读者:objectui 开发席(pm-dispatch 派发的 os-dev),按下方源码落点改 app-shell 的运行时视图草稿保存与发布路径,补上 usePendingDrafts 订阅的刷新脉冲。\n查重:objectui 搜 \"unpublished change\" 命中 12、\"DraftPreviewBar\" 命中 13,无同题(均含 closed);第一遍 objectui#13113、#13114、#13115 未收录此项。\n\nreach: 界面实测两次,服务端用 GET /api/v1/meta/view/{name} 与 Changes 面板对照。\n\n预期:在列表页视图标签菜单 → Edit view config 里保存草稿后,顶部的草稿预览条显示有 1 处未发布改动;在同一面板点 Publish 后,预览条显示没有未发布改动。\n实际:\n- 保存后(PUT /api/v1/meta/view/{name}?mode=draft 成功,面板出现绿色 Publish 按钮,标签名已变),预览条仍写 \"Draft preview — no unpublished changes; everything here is already live.\"。\n- 发布后(POST …/publish 成功,线上视图已是新标签,Changes 面板写 \"Nothing pending — every draft has been published.\"),预览条仍写 \"Draft preview · 1 unpublished change on this page\",下面还有 \"Publish to see it live\" 按钮。刷新页面后才正确。\n\n复现:\n1. 在任一已发布对象的运行时列表页(带 ?preview=draft)点视图标签的下拉 → Edit view config。\n2. 改 Label → Save。看顶部预览条。\n3. 点面板底部 Publish。看顶部预览条。\n\n源码落点:packages/app-shell/src/preview/DraftPreviewBar.tsx 读 usePendingDrafts(preview/usePendingDrafts.ts),它只在 assistantBus 的 subscribeMetadataRefresh 脉冲和路由变化时重读;运行时视图的保存与发布走 packages/app-shell/src/views/runtime-metadata-persistence.ts(saveRuntimeMetadataDraft / publishRuntimeMetadata)与 views/ObjectView.tsx、views/RuntimeDraftBar.tsx,这几处都不调用 emitMetadataRefresh。\n\n环境:framework 4bc3becd5f4a,console pin objectui@12dc7b47c340(dist 盖章一致),stock showcase --seed-admin,Chromium 141;源码对照 objectui main 4b677464。来源:UX 走查第二遍(派发会话 session_01CfRDy7SuTfUqaTu2AEH2Hi)。\n\ntype: Bug"
+}

@@ -1,0 +1,31 @@
+{
+  "number": 13197,
+  "kind": "pull_request",
+  "title": "fix(plugin-calendar): truncate the header date title and shorten it at phone widths",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T08:32:08Z",
+  "updated_at": "2026-10-20T08:32:20Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13197",
+  "body": "Fixes #13149\nClause-②: no\n\n## What changed\n\n`packages/plugin-calendar/src/CalendarView.tsx`, the header's date-title Popover trigger:\n\n- The title's group (`flex items-center gap-4`) and the trigger button now carry `min-w-0 max-w-full`, and the navigation button group is `shrink-0`. Before, nothing in the chain could shrink below its content, so at 390px the region's `overflow-hidden` clipped the day title to \"Tuesday, October 20, 2\" with no marker.\n- The trigger carries `title` = the full date label (same string as the accessible name's date).\n- The label is drawn twice: the full form (`data-date-label=\"full\"`, `hidden sm:block`) and a short form (`data-date-label=\"short\"`, `sm:hidden`). Both spans are `min-w-0 truncate`, so whichever shows gets an ellipsis if it still does not fit.\n- The short form comes from the same `toLocaleDateString(effectiveLocale, ...)` formatter: day view `weekday/month short, day` (\"Tue, Oct 20\"), week view drops the year (\"Oct 18 - Oct 24\"), month view `month short, year` (\"Oct 2026\"). No hard-coded English, no new i18n key.\n- Wide layouts are unchanged: from `sm` up the full span shows the exact text it showed before, the accessible name is unchanged, and the full span is first in DOM order so `[aria-label^=\"Current date\"] span` readers still get the full label.\n\nTests beside it:\n\n- New `CalendarView.narrowHeader-13149.test.tsx`: (a) trigger and its group carry `min-w-0`, trigger `title` is the full date, both labels carry `truncate` + `min-w-0`, short is `sm:hidden` and full is `hidden sm:block`; (a) short form per view in en-US; (a) short form follows the display locale (de-DE, not English); (b) CONTROL: full label, accessible name and `title` per view are the pre-change strings.\n- Two existing helpers (`headerMonth` in `CalendarView.defaultMonth-10799.test.tsx` and `CalendarView.popoverLocale-10747.test.tsx`) read the trigger's whole `textContent`; with two spans that concatenates both forms, so they now read the full span.\n\nChangeset: `.changeset/13149-calendar-header-narrow.md` (`@object-ui/plugin-calendar` patch). No new package export.\n\n## Evidence (all on `c5c57b87e2`)\n\n- Targeted vitest (`pnpm exec vitest run --maxWorkers=1`, under the shared lock): the new file + the two edited files + `CalendarView.weekStartFromLocale-11675` + app-shell `PageView.refreshInPlace-10519` (reads the trigger's first span): 5 files, 30 passed. Then every `CalendarView.*` test plus every plugin-calendar test that reads `Current date`: 15 files, 122 passed, 21 skipped (the pre-existing TZ-driven `describe.runIf(DRIVEN)` blocks).\n- Ablation (committed fix first, mutation script with `trap ... EXIT INT TERM` restoring via `git checkout HEAD -- PATH`): replaced both spans with one plain `data-date-label=\"full\"` span and dropped `min-w-0 max-w-full` from the trigger and its group. On-disk counts before/after: short label 1 to 0, `min-w-0 truncate` 2 to 0, group class 1 to 0, injected span 0 to 1. Result: the three (a) cases red, the (b) control green (3 failed, 1 passed). Restore proven by blob hash: HEAD `fbb1b2b449e1` equals on-disk `fbb1b2b449e1`, `git diff HEAD` empty.\n- `pnpm --filter '@object-ui/plugin-calendar^...' build` exit 0, then `pnpm --filter @object-ui/plugin-calendar type-check` exit 0 (`tsc --noEmit && tsc -p tsconfig.test.json`; `--listFiles` on the test config lists the new test file).\n- Lint narrowed to the 4 changed files: `eslint --no-inline-config --format json` reports 4 files, 0 errors, 24 warnings; the same file at the merge-base reports 0 errors, 24 warnings (all pre-existing, none on changed lines). All 4 files are in the linted population (`--print-config` resolves for each); the config sets no `parserOptions.project`, so linting is not type-aware and this diff cannot move the verdict on any untouched file.\n- Gate battery, each exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `node scripts/check-hand-rolled-comment-mask.mjs`, `node scripts/check-changeset-fixed.mjs`, `node scripts/check-changeset-presence.mjs`.\n\nDeclared to CI: the full `packages/plugin-calendar/` directory run and the full `pnpm test` / `pnpm lint`.\n\nNOT MEASURED: browser rendering at 390px, reason: no browser pass was run. jsdom applies no stylesheet, so the pins read the classes that do the work, not the painted width.\n\n## Acceptance notes\n\nNone.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

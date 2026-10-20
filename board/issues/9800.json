@@ -1,7 +1,7 @@
 {
   "number": 9800,
   "kind": "issue",
-  "title": "[PM seat] domain:ui @ objectui · seat 3 — ⏳ vacant",
+  "title": "[PM seat] domain:ui @ objectui · seat 3 — 🟢 os-support-ai · session_01GL347th7aWQUnY2k8diSLG · batch 3",
   "state": "open",
   "state_reason": null,
   "draft": null,
@@ -13,16 +13,18 @@
   "labels": [
     "pm:seat"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-support-ai"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-18T06:00:48Z",
-  "updated_at": "2026-10-18T07:24:00Z",
+  "updated_at": "2026-10-20T06:46:50Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 19,
+  "comments": 20,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/9800",
-  "body": "Body written 2026-10-18T07:21Z at clock-out by `session_01N3thnWhtvLywz5ECCWAb7p` (`zhuangjianguo`). Seat registration post for `domain:ui` **seat 3** @ objectui. Job description: `objectstack:.claude/skills/pm-dispatch/references/lanes/ui.md`. The body is authoritative; the title and assignee are derived views. Readers take this body plus any comments newer than its last edit. The shift's working record is the previous body revisions and the clock-out brief below this body.\n\n## 1. Current PM\n\n| | |\n|:--|:--|\n| status | ⏳ vacant. Previous: `zhuangjianguo` · `session_01N3thnWhtvLywz5ECCWAb7p`, clocked out at this body's stamp on the maintainer's word in that session (「你可以下班了」, 「当前任务合并后你就下班」, fold `6246985826`) |\n| wake | none. The seat Routine `trig_01FKANCQmxRRcALh7YAhAyxZ` is deleted with this clock-out |\n| in flight | none. Every card this seat claimed has landed; no dev subagent runs, and no PR of this seat's is open |\n| successor | `/pm-dispatch ui seat 3`, then read this body |\n\n## 2. Handover ledger\n\n- **Landed this shift (3 cards, each closed `completed` by its PR's `Fixes`, each with a `## 席位核对` ACCEPT on its head and a landing note on the card):** objectui#12913 (PR #12925 → `d15ad87`), objectui#12733 (PR #12926 → `35244b6`), objectui#12924 (PR #12937 → `32b492b`).\n- **Filed this shift:** objectstack-ai/objectstack#24230 (the spec still declared `marketplace:installed-list` after objectui#12733; read closed at clock-out).\n- **Queue snapshot at clock-out (open `domain:ui`, 19):** `pm:queue` objectui#12725 (its remainder waits on objectstack-ai/cloud#2924's payload, per its release `6236104808`; this seat's session could not read objectstack-ai/cloud). objectui#12724 is now `pm:dispatched` to another seat (`os-zhuang`), after this seat's reading request on it.\n- **Decision box (`needs-user-decision`, objectui):** none open.\n- **On hold (`pm:on-hold`):** objectui#12618, #12614, #12331, #10971, #7611.\n- **Blocked (`pm:blocked`):** objectui#12932, #12931, #12929, #12894, #12484, #12045, #7205.\n- **In flight on other seats:** objectui#12941 (`sunhaolin`), #12724 (`os-zhuang`).\n\n## 3. Hot-file serial queue\n\nNone open.\n\n## 4. Notes\n\n- Write route: the `fleet-write` relay, so every write lands as `objectstack-fleet[bot]`; attribution is the session ID in the text.\n- Outward publication on an objectui merge: not measured, so it reads as unverified. A landing is checked as MERGED plus a content reading on the card.\n- objectstack-ai/cloud was not attached to this seat's session (`list_repos` query `cloud` answered zero). A card whose remaining work needs a cloud reading waits on the `repo:cloud` seat's answer on the card.\n"
+  "body": "Body written 2026-10-20T06:44Z at seat entry by `session_01GL347th7aWQUnY2k8diSLG` (`os-support-ai`). Seat registration post for `domain:ui` **seat 3** @ objectui. Job description: `objectstack:.claude/skills/pm-dispatch/references/lanes/ui.md`. The body is authoritative; the title and assignee are derived views. Readers take this body plus any comments newer than its last edit. The previous shift's record (`session_01N3thnWhtvLywz5ECCWAb7p`, `zhuangjianguo`) is the previous body revision and its clock-out brief `6247104005`.\n\n## 1. Current PM\n\n| | |\n|:--|:--|\n| status | 🟢 `os-support-ai` · `session_01GL347th7aWQUnY2k8diSLG`, seated at this body's stamp on the maintainer's summons `/pm-dispatch ui seat 3` |\n| batch | 3 (the default; no maintainer word on this session narrows or widens it) |\n| dispatch mode | `mode:subagent` (S/M cards), one `os-dev` per card, one worktree per card |\n| wake | seat Routine, id in the round-open marker comment below (self-bound, hourly) |\n| in flight | none yet; each claim is on its card |\n\n## 2. Handover ledger\n\n- Inherited from the previous shift: nothing in flight, no claim, no hold-over (brief `6247104005`).\n- The lane's current queue, decision box, holds and blocks are read live from the `domain:ui` label each round; this body keeps no copy.\n\n## 3. Hot-file serial queue\n\nNone open.\n\n## 4. Notes\n\n- Write route: the `fleet-write` relay, so every write lands as `objectstack-fleet[bot]`; attribution is the session ID in the text.\n- Outward publication on an objectui merge: not measured, so it reads as unverified. A landing is checked as MERGED plus a content reading on the card.\n- Seats 1 (`huangyiirene`) and 2 (`baozhoutao`) hold their own claims in this lane; their file surfaces are read from their `File surface:` lines before each dispatch.\n"
 }

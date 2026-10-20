@@ -1,0 +1,35 @@
+{
+  "number": 13117,
+  "kind": "pull_request",
+  "title": "feat(app-shell): the create entry uses the object's create form view when declared",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T03:38:10Z",
+  "updated_at": "2026-10-20T04:23:08Z",
+  "closed_at": "2026-10-20T04:23:06Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T04:23:06Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13117",
+  "body": "Fixes #13099\nClause-②: no\n\n## What\n\nThe create entry uses the object's `create` form view when the object declares one, else today's `form` / `formViews.default`. An edit is unchanged. This is ruling B′ on objectstack-ai/objectstack#24692 (ruling comment 6281834942), scoped by the director's pointer 6281857581 on the card. Its first bullet, quoted verbatim as the director asked:\n\n> **One selection line, pinned by a test.** The create entry (`packages/app-shell/src/utils/recordFormNavigation.ts:218`) uses `objectDef.formViews?.create` when the object declares it, else today's `objectDef.form ?? objectDef.formViews?.default`. This is the documented create-vs-edit model (`content/docs/ui/create-vs-edit-form.mdx`) made true by convention; it does not wait on the spec PR.\n\n- `recordFormNavigation.ts`: new `selectRecordFormView(objectDef, flow)` holds the one selection. `resolveFormViewLayout` and `resolveRecordFormModalLayout` take an optional `flow` (`'create' | 'edit'`). A caller that names no flow gets the default form view, the same answer as before.\n- `AppContent` (the console's New/Edit modal) passes `editingRecord ? 'edit' : 'create'`. That is the same test that sets the modal's own `mode`, which comes from the `?form=` URL param (`new` or a record id). So the selected view always matches the mode the form opens in, and an edit cannot reach the create selection.\n- `useActionModal` (action-opened object forms) passes the flow from the same `mode` the `ModalForm` opens in. `view` and `edit` keep the default form view.\n\n## The served key: `OBJECT.create`, not a bare `create` (mechanism, measured)\n\nThe pointer's literal spelling `objectDef.formViews?.create` does not match the runtime shape. A container's `formViews.create` expands to the form item named `OBJECT.create` (`expandViewContainer` in `@objectstack/spec/ui`). `MetadataProvider.mergeViewsIntoObjects` keys `objectDef.formViews` by that served name. The existing pin \"`showcase_contact` keeps its default whichever order its two forms arrive in\" (`MetadataProvider.merge.test.ts`) asserts the keys `showcase_contact.create` / `showcase_contact.form`.\n\nA literal `formViews.create` read would therefore never match the documented showcase example, and a pin on a hand-built fixture would pass anyway. The selection reads `formViews[OBJECT.create]`, and the new pin builds its fixtures from served rows run through the real merge. No second spelling is read; there is no `??` alias between the two.\n\n## Not moved (per the ruling)\n\nThere is no `mode` / `formView` plumbing and no inline add. The Add button keeps its position and its `enabled: true` gate. The `p1-spec-alignment` parity row is untouched.\n\n## Pins (`packages/app-shell/src/utils/__tests__/createFormView-13099.test.ts`)\n\n- (a) `showcase_contact` (a `create` form view whose sections and size differ from the default `form`): a create selects the `create` view's sections and `modalSize`, through `resolveFormViewLayout` and `resolveRecordFormModalLayout`.\n- (b) An edit of the same object keeps the default `form`, which is tabbed with different sections. A call with no flow gives the same answer as an edit.\n- (c) CONTROL: `crm_lead` has a named Web-to-Lead form and no `create` form. Its create uses `form`, and the named form is never picked. The legacy `formViews.default` is still the create fallback. A named-only object creates with no layout.\n\n**Ablation**, run through `ablation-replace.mjs` at HEAD `2e759c1083`. The mutation replaces `if (createView) return createView;` with a no-op, and the anchor goes from 1 hit to 0. Result: (a) red with `expected [ 'identity', 'notes' ] to deeply equal [ 'quick' ]`, (b) and (c) green (`1 failed | 2 passed`). After the restore, the blob is `df4f0b151ec4b5ebaef09a6aef65424f38e6c873`, equal to HEAD, and `git diff HEAD` is empty.\n\n## Verification (HEAD `2e759c1083`)\n\n- `pnpm --filter '@object-ui/app-shell^...' build` (the closure build): exit 0. Then `pnpm --filter @object-ui/app-shell type-check`: exit 0. That is `tsc --noEmit` plus `tsc -p tsconfig.test.json`, and `--listFiles` counts the new test file in the test project.\n- Targeted vitest (`--maxWorkers=1`, under the lock): the new pin plus every test file naming `recordFormNavigation` / `useActionModal` / `AppContent`, 99 files in three batches. Results: 34 files / 260 tests, 31 / 235 and 35 / 338, all passed.\n- **Declared to CI:** the full `packages/app-shell/` directory. The dispatch ruled out whole-package-directory runs locally.\n- Lint, narrowed to the 4 changed `.ts`/`.tsx` files with `eslint --no-inline-config --format json`: 4 files, 0 errors. The warnings are 43 / 15 / 5 on the three edited files, equal to their base-commit counts, and 0 on the new test. The root `eslint.config.js` names no `parserOptions` / `projectService` / type-checked preset, so linting is not type-aware. This diff cannot move any untouched file's verdict.\n- Pre-tsc battery: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes` and `new-line-citations` all exited 0. So did `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs` and `check-changeset-presence.mjs`.\n- `check:spec-floors`: exit 1, `no-artifact`. The workspace is not fully built, so this is NOT MEASURED, recorded and not fixed, as the dispatch says.\n\n## Acceptance notes\n\n- When the `create` form view is selected, it is the whole form: its own sections, layout, size and subforms. Model-derived inline subforms (`attachInlineSubforms`) attach to the default form, so they do not appear on such a create.\n- A list view that also uses the key `create` in the same container takes the name `OBJECT.create` first. The form is then renamed `OBJECT.create_2` by the expansion, which stamps its own collision warning, and the create falls back to the default form.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

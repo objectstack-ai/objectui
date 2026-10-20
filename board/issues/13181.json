@@ -1,0 +1,35 @@
+{
+  "number": 13181,
+  "kind": "pull_request",
+  "title": "fix(app-shell): offer no write action on a read-only package in the Packages sheet",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T07:35:11Z",
+  "updated_at": "2026-10-20T08:12:35Z",
+  "closed_at": "2026-10-20T08:12:33Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-20T08:12:33Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13181",
+  "body": "Fixes #13157\nClause-②: no\n\n## What changed\n\n`PackageDetailSheet` (`packages/app-shell/src/views/metadata-admin/PackagesPage.tsx`) gated its actions on `manifest.scope` being `system` or `cloud` (`isKernel`). That is a second rule beside the Scope badge's. The badge reads the row's served `writable` (objectstack#14375, objectui#12723). A project-scoped or scope-less code package, or a marketplace install, passed the scope rule, so HotCRM's package was badged \"Read-only · code\" and still offered every write action.\n\nThe sheet now reads the badge's verdict, `pkg.writable === true` (anything else is never writable, the way the badge draws it). The write actions are offered only on a writable package:\n\n| Action | Read-only package | Server's answer on a read-only package (objectstack `origin/main` `a43405d596`, `packages/runtime/src/domains/packages.ts`) |\n|---|---|---|\n| Edit | hidden | `PATCH /packages/ID` calls `requireWritablePackage` (objectstack#24705): 422 `WRITABLE_PACKAGE_REQUIRED` |\n| Publish | hidden | `requireWritablePackage`: 422 `WRITABLE_PACKAGE_REQUIRED` |\n| Revert | hidden | `requireWritablePackage`: 422 `WRITABLE_PACKAGE_REQUIRED` |\n| Disable | hidden | `requireWritablePackage`: 422 `WRITABLE_PACKAGE_REQUIRED` |\n| Delete app | hidden | `requireWritablePackage`: 422 `WRITABLE_PACKAGE_REQUIRED` |\n| Duplicate | hidden | `requireDuplicableSource`: 422 `DUPLICATE_SOURCE_NOT_A_BASE` (the source must be a writable base) |\n| Adopt loose items | hidden | not refused (see Acceptance notes); it is a write into this package |\n| Enable (shown only when the package is disabled) | offered | not refused: the enable arm has no writability gate |\n| View info, Export | offered | reads |\n\n**Duplicate (ruling 2, measured from the server source):** it does not create a new writable package from a read-only one. The server refuses a read-only source before it mints the target, so it is a refused action and is hidden like the others.\n\n**Hidden, not disabled with a tooltip:** the badge's wording (\"Read-only · code\", \"System\", \"Read-only\") is already on the sheet, one row above the actions, and a tooltip on a disabled button does not show in most browsers. Adding a new sentence would need new strings in `i18n.ts`, which is outside this card's file surface. So every refused action is hidden, the same way for all of them. The existing kernel sentence (\"This is a platform kernel package. Authoring actions are disabled.\") still shows on system and cloud packages, which now also get View info and Export. Those are reads.\n\nA writable package's sheet is unchanged: the same buttons, in the same order.\n\n## Tests\n\nNew `PackagesPage.readOnlyActions-13157.test.tsx`, through the real `PackageDetailSheet`:\n- (a) read-only packages (project-scoped code package, scope-less, system) offer none of Edit, Publish, Revert, Disable, Duplicate, Adopt loose items, Delete app. View info and Export stay.\n- (b) CONTROL: writable packages (scope-less, and project-scoped) offer all of them.\n- (c) Duplicate and its form are absent on a read-only package.\n- A row with no boolean verdict offers no write action. A disabled read-only package offers Enable.\n\nRun at `8804d718b0`:\n- New test file: `Tests 8 passed (8)`.\n- Every test file naming `PackagesPage` (21 files, the new one included): `Test Files 21 passed (21)`, `Tests 306 passed (306)`.\n- `pnpm --filter '@object-ui/app-shell^...' build` exit 0, then `pnpm --filter @object-ui/app-shell type-check` exit 0. Its `tsconfig.test.json` includes `src/**/*.test.tsx`.\n- `eslint --no-inline-config --format json` on the 2 changed source files: 2 files, 0 errors. The 15 warnings are all on lines this diff does not touch. The root `eslint.config.js` sets no `parserOptions.project` or `projectService`: no type-aware linting, so this diff cannot change a verdict on an untouched file.\n- Gates, each exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs`, `scripts/check-changeset-presence.mjs`.\n- Declared to CI: the whole `packages/app-shell/` test directory (not run locally, by the dispatch's lock rule).\n\n**Ablation** (with `scripts/ablation-replace.mjs`, on the committed fix): anchor `const writable = pkg.writable === true;` replaced by `const writable = true;`. The anchor count went 1 to 0, and the blob went `d374aafcc4bd` to `fad646251e9d`. The new file went red: `Tests 6 failed | 2 passed (8)`. The two that stayed green are the two writable controls. Restore: the blob after restore is `d374aafcc4bda1d5730e6aa9f1bd09739300ecc3`, which equals the HEAD blob, and `git diff HEAD` is empty.\n\n## Acceptance notes\n\n- **The dispatch named the wrong source for the verdict.** It said the badge's verdict lives in `package-scope.ts`, but the badge reads `pkg.writable`. `package-scope.ts` (`buildPackageScopeOptions`) filters Studio's authoring destinations by `scope` alone. The sheet now gates on the verdict the badge actually reads. `package-scope.ts` is not touched.\n- **The pending-drafts block still uses `isKernel`.** Its Publish (N) and Discard changes (N) buttons are not in this card's action list. Overlay drafts can be bound to a code package, and the server does not gate either draft door on writability. They are left as they were.\n- **Not measured, not filed:** (1) the server's `POST /packages/ID/adopt-orphans` arm calls no writability gate, so from the source alone it could bind loose items into a read-only package. The sheet no longer offers it there. (2) `buildPackageScopeOptions` keeps any package whose `scope` is not `system` or `cloud`, read-only scope-less ones included. Neither was exercised through a public door. Carrier: none.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

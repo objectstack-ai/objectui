@@ -1040,6 +1040,16 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // outer skeleton every host mounting this component provides (see this
   // file's header).
   //
+  // The way home itself is shared with the app-missing screen below
+  // (objectui#13122): that screen returns above `ConsoleLayout` too, so a Retry
+  // alone left a stale bookmark or an uninstalled app's link a full-screen dead
+  // end. One button, one copy key, one navigation for every screen that owes it.
+  const renderBackHomeButton = (testId: string) => (
+    <Button onClick={() => navigate(homePath)} data-testid={testId}>
+      {t('empty.appAccessDeniedHome', { defaultValue: 'Back to home' })}
+    </Button>
+  );
+
   // One screen for both branches that draw a `denied` verdict below.
   const renderAppAccessDenied = () => (
     <div className="h-screen flex items-center justify-center">
@@ -1053,11 +1063,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
               'This app exists, but your account is not authorized to open it. Ask an administrator to grant you access.',
           })}
         </EmptyDescription>
-        <div className="mt-4">
-          <Button onClick={() => navigate(homePath)} data-testid="app-access-denied-home">
-            {t('empty.appAccessDeniedHome', { defaultValue: 'Back to home' })}
-          </Button>
-        </div>
+        <div className="mt-4">{renderBackHomeButton('app-access-denied-home')}</div>
       </Empty>
     </div>
   );
@@ -1089,7 +1095,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     // Retry is offered on all three because all three can change on their own:
     // an absence ends when the app is created or published, an unreachable
     // server comes back, and an unasked question is still unasked. That is the
-    // opposite of `denied` above, which no retry can move.
+    // opposite of `denied` above, which no retry can move. Retry is never the
+    // ONLY way out, though: each of the three also offers the denied screen's
+    // way home (objectui#13122), since nothing here is guaranteed to change.
     //
     // ⭐ `granted` lands on the NEUTRAL screen deliberately, with `unknown`.
     // Reaching here with `granted` means the by-name route served the app while
@@ -1126,10 +1134,11 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
         <Empty data-testid={verdictScreen.testId}>
           <EmptyTitle>{verdictScreen.title}</EmptyTitle>
           <EmptyDescription>{verdictScreen.description}</EmptyDescription>
-          <div className="mt-4">
+          <div className="mt-4 flex items-center justify-center gap-2">
             <Button onClick={() => setMissingRecheckRun(null)} data-testid={`${verdictScreen.testId}-retry`}>
               {t('common.retry', { defaultValue: 'Retry' })}
             </Button>
+            {renderBackHomeButton(`${verdictScreen.testId}-home`)}
           </div>
         </Empty>
       </div>

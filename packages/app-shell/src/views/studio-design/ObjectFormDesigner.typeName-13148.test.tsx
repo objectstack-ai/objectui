@@ -15,9 +15,10 @@
  * the upper-case styling objectui#12451 gave it: its text is the display name,
  * drawn in capitals.
  *
- * Controls: the control skeleton and the wide-widget span still key on the
+ * Alongside: the control skeleton and the wide-widget span still key on the
  * spec id; the label, the required star and the selected colour are as they
- * were; a type the catalog does not list is shown as itself.
+ * were; and, the one CONTROL that holds with the fix reverted, a type the
+ * catalog does not list is shown as itself.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -133,7 +134,9 @@ describe('form designer field card type tag (objectui#13148)', () => {
     expect(fieldTypeName('toString', 'en-US')).toBe('toString');
   });
 
-  it('CONTROL — the skeletons, label, required star and selected colour are unchanged', () => {
+  // The skeleton, label and star halves hold with or without the fix; the
+  // selected-colour half finds the tag by its name, so it needs the fix.
+  it('the skeletons, label, required star and selected colour are as they were', () => {
     renderDesigner(FIELDS, { selectedField: 'status' });
     const status = card('Status');
     expect(status).toHaveTextContent(t('engine.studio.designer.select', 'en-US'));

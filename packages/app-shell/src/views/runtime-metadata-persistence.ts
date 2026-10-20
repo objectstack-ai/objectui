@@ -26,9 +26,20 @@
  * adapter's business ({@link ViewCacheInvalidator}); all this module decides is
  * whether a given write is a view write, and it hands the object name down from
  * the call site.
+ *
+ * **Every write here also changes the pending-drafts ledger, so it announces
+ * itself on the assistant bus** (objectui#13139). The draft preview bar, the
+ * home banner, the Studio topbar and the chat bar all count pending drafts
+ * through `usePendingDrafts`, which re-reads on the `emitMetadataRefresh()`
+ * pulse and on nothing a write in this module did. So a runtime Save left the
+ * preview bar saying "no unpublished changes", and a runtime Publish left it
+ * offering "Publish to see it live", until a reload. The pulse goes out from
+ * each write function below, after its write lands and never after a refused
+ * one ({@link announceDraftLedgerWrite}).
  */
 
 import { stripReadDecorations } from '@objectstack/spec/kernel';
+import { emitMetadataRefresh } from '../assistant/assistantBus.js';
 import { slugify } from './metadata-admin/createDerive.js';
 
 /** The runtime-editable artifact types ADR-0034 unifies. `page` (a record
@@ -163,6 +174,33 @@ function invalidateViewCaches(
 }
 
 /**
+ * Announce a landed write to the pending-drafts ledger (objectui#13139).
+ *
+ * `emitMetadataRefresh()` is the one signal every `usePendingDrafts` surface
+ * re-reads on, and it drops the `_drafts` reads already on the wire before
+ * they do, so the count they install is read after this write. It is the
+ * pulse a publish path raises (Studio, the chat card, the draft preview bar's
+ * own Publish), and the one the chat already raises when an agent STAGES a
+ * draft (`AiChatPage`, objectui#5801): a draft save here is that second kind.
+ *
+ * Every function in this module that writes calls it, for the reason
+ * {@link invalidateViewCaches} is applied uniformly: a save adds a draft, a
+ * discard removes one, a publish promotes one, and a per-function exception
+ * list is how a stale count is left behind.
+ *
+ * Called only after the write resolves, so a refused write announces nothing.
+ * Never throws: a listener that fails must not turn a write that landed into
+ * a reported failure.
+ */
+function announceDraftLedgerWrite(): void {
+  try {
+    emitMetadataRefresh();
+  } catch (err) {
+    console.warn('[runtime-metadata] metadata refresh announcement failed:', err);
+  }
+}
+
+/**
  * Unwrap a `?state=draft` GET response into its bare body, or `null` when
  * there is nothing pending.
  *
@@ -219,6 +257,7 @@ export async function persistRuntimeMetadata(
 ): Promise<void> {
   await ctx.metadataClient.save(type, name, body, { mode: 'draft' });
   invalidateViewCaches(type, name, ctx);
+  announceDraftLedgerWrite();
 }
 
 /**
@@ -327,6 +366,7 @@ export async function createRuntimeMetadata(
   }
   await ctx.metadataClient.save(type, name, body, { mode: 'draft' });
   invalidateViewCaches(type, name, ctx);
+  announceDraftLedgerWrite();
   return name;
 }
 
@@ -355,6 +395,7 @@ export async function discardRuntimeDraft(
 ): Promise<void> {
   await ctx.metadataClient.reset(type, name, { state: 'draft' });
   invalidateViewCaches(type, name, ctx);
+  announceDraftLedgerWrite();
 }
 
 /**
@@ -374,4 +415,5 @@ export async function publishRuntimeMetadata(
 ): Promise<void> {
   await ctx.metadataClient.publish(type, name);
   invalidateViewCaches(type, name, ctx);
+  announceDraftLedgerWrite();
 }

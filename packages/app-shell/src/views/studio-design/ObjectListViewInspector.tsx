@@ -83,6 +83,7 @@ import {
 } from './studio-canvas-preview.js';
 import type { Surface } from './navSurface.js';
 import { issueRefusal, plainRefusal } from './metadataError.js';
+import { isStudioHiddenSystemField } from './studioHiddenSystemField.js';
 import {
   addedArrayElements,
   copilotDraftMarkOf,
@@ -496,6 +497,28 @@ function sortEntriesOf(value: unknown): SortEntry[] {
   );
 }
 
+/**
+ * The field names a list body already references: its columns, its filter and
+ * sort rules, and a kanban card's fields, title and group-by field
+ * (objectui#13152). Read by the panel's field pickers so a reference the view
+ * holds keeps drawing (see `ObjectListViewInspector`).
+ */
+function fieldNamesHeldBy(body: Row): string[] {
+  const held = new Set<string>();
+  const add = (name: unknown) => {
+    if (typeof name === 'string' && name) held.add(name);
+  };
+  if (Array.isArray(body.columns)) for (const column of body.columns) add(colFieldName(column));
+  if (Array.isArray(body.filter)) for (const rule of body.filter) if (isPlainObject(rule)) add(rule.field);
+  for (const entry of sortEntriesOf(body.sort)) add(entry.field);
+  if (isPlainObject(body.kanban)) {
+    if (Array.isArray(body.kanban.columns)) body.kanban.columns.forEach(add);
+    add(body.kanban.titleField);
+    add(body.kanban.groupByField);
+  }
+  return [...held];
+}
+
 /** Column index out of `FieldsListEditor`'s selection id, `config.columns[N]`. */
 function selectedColumnIndex(id: string | undefined): number | null {
   const m = /\.columns\[(\d+)\]$/.exec(id ?? '');
@@ -812,6 +835,22 @@ export function ObjectListViewInspector({
     listView;
   const objectName = target?.objectName;
   const fieldState = useObjectFields(objectName);
+  // objectui#13152 — the fields every picker in this panel offers (the
+  // columns' "Add field", the filter, the sort and the kanban card): the
+  // object's fields minus the columns the platform injects and hides, judged
+  // by the one predicate the Data rail uses (`isStudioHiddenSystemField`,
+  // objectui#11780) — the `__search` companion, `owning_business_unit_id`,
+  // `organization_id`. An author's own hidden field stays offered, as it does
+  // on the Data rail. A field this view already names stays too: the filter
+  // and sort builders draw a held field that is not among their options as a
+  // blank trigger (the case objectui#11810 kept in the list filter).
+  const heldKey = row ? fieldNamesHeldBy(listBodyOf(row)).join('\n') : '';
+  const fields = React.useMemo(() => {
+    const held = new Set(heldKey.split('\n'));
+    return fieldState.fields.filter(
+      (f) => held.has(f.name) || !isStudioHiddenSystemField({ system: f.system, hidden: f.hidden }),
+    );
+  }, [fieldState.fields, heldKey]);
   const [ownSelected, setOwnSelected] = React.useState<{ key: string; index: number | null }>({ key: '', index: null });
   if (!target) return null;
   const hostHeld = !!onSelectionChange;
@@ -835,7 +874,6 @@ export function ObjectListViewInspector({
       ? ownSelected.index
       : null;
   const writeBody = (next: Row) => edit(withListBody(working, next));
-  const fields = fieldState.fields;
   const fieldCatalog: LoadState<ObjectFieldOption[]> = fieldState.error
     ? failed(fieldState.error)
     : fieldState.loading

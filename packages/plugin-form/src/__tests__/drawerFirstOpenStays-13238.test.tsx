@@ -183,26 +183,27 @@ describe('a record drawer stays open on its first open (objectui#13238)', () => 
 
     await openRow(user);
     const sheet = await screen.findByRole('dialog');
-
-    // Mid-load: the body waits INSIDE the sheet; the route never shows its
-    // fallback, so nothing above the drawer is hidden or re-run.
-    await waitFor(() =>
-      expect(sheet.querySelector('[data-testid="drawer-form-body-pending"]')).not.toBeNull(),
-    );
-    expect(counts.routeFallbackMounts).toBe(fallbacksBefore);
-    expect(screen.queryByTestId('route-fallback')).toBeNull();
+    // Mid-load: read where the body's wait went — inside the sheet, or up to
+    // the route — once the read has ended and the body is being drawn.
+    await waitFor(() => expect(document.body.querySelector('[data-testid="drawer-form-body-pending"], [data-testid="route-fallback"]')).not.toBeNull());
+    const waitedInsideSheet = !!sheet.querySelector('[data-testid="drawer-form-body-pending"]');
+    const routeFallbackMidLoad = counts.routeFallbackMounts - fallbacksBefore;
 
     release();
-    await screen.findByTestId('deferred-url-widget');
-    await waitFor(() => expect(titleInput()?.value).toBe('Warehouse schema'));
+    await waitFor(() => expect(document.body.querySelector('[data-testid="deferred-url-widget"], [data-testid="route-fallback"]')).not.toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('route-fallback')).toBeNull());
     await settle();
 
-    // Past the load: the same sheet is open, the page was never remounted, the
-    // drawer never asked to close, and focus is on its first field.
-    expect(screen.getByRole('dialog')).toBe(sheet);
-    expect(counts.pageMounts).toBe(pageMountsBefore);
-    expect(counts.routeFallbackMounts).toBe(fallbacksBefore);
-    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    // Each fact on its own line, soft, so a run without the fix names the
+    // whole measured chain: the drawer is gone, because the page was
+    // remounted, because the route showed its fallback — and the drawer never
+    // asked to close.
+    expect.soft(screen.queryByRole('dialog'), 'the drawer is still open past the load').toBe(sheet);
+    expect.soft(counts.pageMounts - pageMountsBefore, 'page remounts').toBe(0);
+    expect.soft(routeFallbackMidLoad, 'route fallback mounts while the body loaded').toBe(0);
+    expect.soft(onOpenChange, 'the drawer never asked to close').not.toHaveBeenCalledWith(false);
+    expect.soft(waitedInsideSheet, 'the body waited inside the sheet').toBe(true);
+    expect(titleInput()?.value).toBe('Warehouse schema');
     expect(screen.queryByTestId('drawer-form-body-pending')).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(titleInput()));
     expect(sheet.contains(document.activeElement)).toBe(true);

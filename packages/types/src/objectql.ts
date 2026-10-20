@@ -2618,7 +2618,7 @@ export interface ObjectViewSchema extends BaseSchema {
    * Fields that support text search
    */
   searchableFields?: string[];
-
+  
   /**
    * RETIRED (objectui#13118) — the Filter panel's per-view field whitelist.
    * `@objectstack/spec` retires the list view's `filterableFields` in 18.0
@@ -2640,7 +2640,7 @@ export interface ObjectViewSchema extends BaseSchema {
    * end-user filter bar, author `userFilters` on the named list view.
    */
   filterableFields?: ListViewSchema['filterableFields'];
-
+  
   /**
    * Show search box
    * @default true

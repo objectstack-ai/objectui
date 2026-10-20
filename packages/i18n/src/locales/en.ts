@@ -5039,6 +5039,12 @@ const en = {
     cancel: 'Cancel',
     cloneConfirm: 'Create clone',
     cloneCreated: 'Created flow "{{name}}".',
+    // The clone result's next steps (objectui#13270): switch the flow the
+    // admin cloned from off through its own toggle, or open the clone where
+    // it is edited. The sharing-rule clone's words for the same offer.
+    cloneSwitchSourceOff: 'Switch "{{label}}" off',
+    cloneSourceOff: 'The packaged flow "{{label}}" is switched off.',
+    cloneOpen: 'Open the clone in Studio',
     emptyTitle: 'No packaged flows',
     emptyBody:
       'No installed package ships an automation flow on this deployment. Flows you author yourself live in Studio.',

@@ -33,6 +33,23 @@
  * unfinished ceremony. `PackagedAutomationPage.test.tsx` pins the absence of
  * the withdrawn shapes so a future "helpful" addition fails loudly.
  *
+ * ## The clone result offers the next steps (objectui#13270)
+ *
+ * A clone is created `draft`, which is NOT an off-switch: a cloned
+ * record-change or schedule flow runs beside the flow it was copied from, and
+ * the server's notice says so. So the result keeps that notice verbatim and
+ * offers the two doors an admin otherwise has to find alone, as the declared
+ * sharing rule's clone does (`SharingRuleCloneDialog`):
+ *
+ *   - **Switch "SOURCE" off** — the SAME packaged-flow toggle the row's switch
+ *     calls, for the row the admin cloned from. It is the page's own knowledge
+ *     of which row was clicked, not a lineage the platform tracks, and it is
+ *     an offer, not a step: clone and disable stay independent primitives
+ *     (ADR-0126). Offered only while that row reads on; a refusal is the
+ *     server's sentence, shown beside the button, which stays offered.
+ *   - **Open the clone in Studio** — the package-less scope where a clone is
+ *     listed and edited (`studioOrgScopePath`, objectui#11553).
+ *
  * For the same reason this page shows no `bound` / `status` column even though
  * `_status` carries both: §7.4 scopes it to what the activation ledger knows.
  * The Studio rail is where a flow's binding is diagnosed.
@@ -87,7 +104,8 @@
  */
 
 import * as React from 'react';
-import { Info, Workflow } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Info, Loader2, Workflow } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -133,6 +151,7 @@ import {
   type PackagedFlowRow,
 } from './packagedFlows.js';
 import { PackagedActionsSection } from './PackagedActionsSection.js';
+import { studioOrgScopePath } from '../studio-design/studioScope.js';
 import { PageHeader } from '../../layout/PageHeader.js';
 
 /* -------------------------------------------------------------------------- */
@@ -188,6 +207,25 @@ interface CloneDraft {
   refusal: string | null;
   busy: boolean;
 }
+
+/** What a successful clone left on the page (objectui#13270). */
+interface CloneResult {
+  /** Machine name the clone was created under. */
+  name: string;
+  /** The server's post-clone notice, verbatim. */
+  notice: string;
+  /** Machine name of the packaged flow the admin cloned from. */
+  source: string;
+  /** That flow's display label, as its row shows it. */
+  sourceLabel: string;
+  /** The switch-off offer's request is in flight. */
+  switchBusy: boolean;
+  /** The toggle's refusal of the switch-off, verbatim. */
+  switchRefusal: string | null;
+}
+
+/** The toggle's answer: the flag the server reports, or its refusal verbatim. */
+type ToggleOutcome = { ok: true; enabled: boolean } | { ok: false; message: string };
 
 /* -------------------------------------------------------------------------- */
 /* The reason disclosure                                                       */
@@ -265,8 +303,8 @@ export function PackagedAutomationPage() {
   /** Per-flow server refusal, keyed by machine name. Verbatim. */
   const [refusals, setRefusals] = React.useState<Record<string, string>>({});
   const [clone, setClone] = React.useState<CloneDraft | null>(null);
-  /** The server's post-clone notice, verbatim, plus the name it created. */
-  const [cloneResult, setCloneResult] = React.useState<{ name: string; notice: string } | null>(null);
+  /** The server's post-clone notice, verbatim, the name it created and the source. */
+  const [cloneResult, setCloneResult] = React.useState<CloneResult | null>(null);
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -305,12 +343,14 @@ export function PackagedAutomationPage() {
     });
   }, []);
 
-  async function onToggle(row: PackagedFlowRow, enabled: boolean) {
-    setBusyFlow(row.name);
-    clearRefusal(row.name);
-    setCloneResult(null);
+  /**
+   * `POST …/toggle` — the ONE packaged-flow toggle, shared by the row's switch
+   * and the clone result's switch-off offer (objectui#13270). Never throws: a
+   * refusal comes back as the server's sentence, verbatim.
+   */
+  async function requestToggle(name: string, enabled: boolean): Promise<ToggleOutcome> {
     try {
-      const res = await fetch(`${apiBase()}/automation/${encodeURIComponent(row.name)}/toggle`, {
+      const res = await fetch(`${apiBase()}/automation/${encodeURIComponent(name)}/toggle`, {
         method: 'POST',
         credentials: 'include',
         headers: { ...JSON_HEADERS, 'Content-Type': 'application/json' },
@@ -321,9 +361,9 @@ export function PackagedAutomationPage() {
         // VERBATIM. The posture gate (403) and the subflow guard (409) both
         // carry the whole of what the admin needs in this string — the second
         // one names the callers, which nothing on the client could reconstruct.
-        setRefusals((prev) => ({
-          ...prev,
-          [row.name]: actionErrorDetail(
+        return {
+          ok: false,
+          message: actionErrorDetail(
             json,
             // A SEPARATE key from the catch arm's below: this one has a status
             // to name and that one does not, and one key cannot carry a hole
@@ -333,26 +373,67 @@ export function PackagedAutomationPage() {
               status: res.status,
             }),
           ),
-        }));
-        return;
+        };
       }
       const reported = envelopeData(json).enabled;
-      const next = typeof reported === 'boolean' ? reported : enabled;
-      setRows((prev) => prev?.map((r) => (r.name === row.name ? { ...r, enabled: next } : r)) ?? prev);
-      // The answer carries the flag, not whether the engine armed the flow:
-      // switching a schedule flow on under a deployment policy that keeps
-      // scheduled work off leaves it unarmed, and enabling a subflow can arm
-      // its callers. Read the runtime states again so no badge keeps a stale
-      // "On" (objectui#13159).
-      setFlowsNonce((n) => n + 1);
+      return { ok: true, enabled: typeof reported === 'boolean' ? reported : enabled };
     } catch (e) {
-      setRefusals((prev) => ({
-        ...prev,
-        [row.name]:
+      return {
+        ok: false,
+        message:
           e instanceof Error && e.message
             ? e.message
             : t('packagedAutomation.toggleFailed', { defaultValue: 'Could not change activation.' }),
-      }));
+      };
+    }
+  }
+
+  /** A toggle the server accepted: the row shows its answer, and the runtime is re-read. */
+  function applyToggled(name: string, enabled: boolean) {
+    setRows((prev) => prev?.map((r) => (r.name === name ? { ...r, enabled } : r)) ?? prev);
+    // The answer carries the flag, not whether the engine armed the flow:
+    // switching a schedule flow on under a deployment policy that keeps
+    // scheduled work off leaves it unarmed, and enabling a subflow can arm
+    // its callers. Read the runtime states again so no badge keeps a stale
+    // "On" (objectui#13159).
+    setFlowsNonce((n) => n + 1);
+  }
+
+  async function onToggle(row: PackagedFlowRow, enabled: boolean) {
+    setBusyFlow(row.name);
+    clearRefusal(row.name);
+    setCloneResult(null);
+    try {
+      const outcome = await requestToggle(row.name, enabled);
+      if (!outcome.ok) {
+        setRefusals((prev) => ({ ...prev, [row.name]: outcome.message }));
+        return;
+      }
+      applyToggled(row.name, outcome.enabled);
+    } finally {
+      setBusyFlow(null);
+    }
+  }
+
+  /**
+   * The clone result's offer (objectui#13270): switch the flow the admin
+   * cloned from off, through the same toggle as its row. The result stays on
+   * the page either way — on success it reads the source as off, on a refusal
+   * it shows the server's sentence and keeps the offer.
+   */
+  async function onSwitchSourceOff(result: CloneResult) {
+    const source = result.source;
+    setBusyFlow(source);
+    clearRefusal(source);
+    setCloneResult((prev) => (prev ? { ...prev, switchBusy: true, switchRefusal: null } : prev));
+    try {
+      const outcome = await requestToggle(source, false);
+      setCloneResult((prev) =>
+        prev && prev.source === source
+          ? { ...prev, switchBusy: false, switchRefusal: outcome.ok ? null : outcome.message }
+          : prev,
+      );
+      if (outcome.ok) applyToggled(source, outcome.enabled);
     } finally {
       setBusyFlow(null);
     }
@@ -395,6 +476,10 @@ export function PackagedAutomationPage() {
       setCloneResult({
         name: typeof created === 'string' && created ? created : draft.name.trim(),
         notice: typeof notice === 'string' ? notice : '',
+        source: draft.source,
+        sourceLabel: rows?.find((r) => r.name === draft.source)?.label ?? draft.source,
+        switchBusy: false,
+        switchRefusal: null,
       });
       // The clone is a tenant artifact, so it does NOT join this packaged
       // list. Refetch anyway: the source flow's own state is re-read, and a
@@ -414,6 +499,8 @@ export function PackagedAutomationPage() {
 
   const title = t('packagedAutomation.title', { defaultValue: 'Packaged automation' });
   const cloneNameValid = !!clone && clone.name.trim() !== '' && clone.label.trim() !== '';
+  /** The cloned-from row as the list shows it NOW, so the offer follows its switch. */
+  const cloneSourceRow = cloneResult ? rows?.find((r) => r.name === cloneResult.source) : undefined;
 
   return (
     <div>
@@ -453,6 +540,52 @@ export function PackagedAutomationPage() {
           </p>
           {/* The server's own post-clone notice, verbatim. */}
           {cloneResult.notice && <p className="text-muted-foreground">{cloneResult.notice}</p>}
+        </div>
+      )}
+
+      {/* The result's next steps (objectui#13270), outside the status region
+          so the announcement stays the server's notice. The switch-off is
+          offered only while the source row reads on; an off source reads as
+          done, as the sharing-rule clone's does. */}
+      {cloneResult && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="packaged-clone-next-steps">
+          {cloneSourceRow?.enabled === false ? (
+            <p className="text-sm text-muted-foreground" data-testid="packaged-clone-source-off">
+              {t('packagedAutomation.cloneSourceOff', {
+                defaultValue: 'The packaged flow "{{label}}" is switched off.',
+                label: cloneResult.sourceLabel,
+              })}
+            </p>
+          ) : cloneSourceRow ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={cloneResult.switchBusy}
+              onClick={() => void onSwitchSourceOff(cloneResult)}
+              data-testid="packaged-clone-switch-source-off"
+            >
+              {cloneResult.switchBusy && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+              {t('packagedAutomation.cloneSwitchSourceOff', {
+                defaultValue: 'Switch "{{label}}" off',
+                label: cloneResult.sourceLabel,
+              })}
+            </Button>
+          ) : null}
+          <Button asChild variant="ghost" size="sm">
+            <Link
+              to={studioOrgScopePath({ type: 'flow', name: cloneResult.name })}
+              data-testid="packaged-clone-open"
+            >
+              {t('packagedAutomation.cloneOpen', { defaultValue: 'Open the clone in Studio' })}
+            </Link>
+          </Button>
+          {cloneResult.switchRefusal && (
+            // VERBATIM, beside the offer that caused it; the offer stays.
+            <p role="alert" className="basis-full text-sm text-destructive">
+              {cloneResult.switchRefusal}
+            </p>
+          )}
         </div>
       )}
 

@@ -38,12 +38,18 @@
  *      `unboundCause`) keeps its switch on and reads "Not running here", never
  *      "On". Bound flows and flows with no trigger read "On" exactly as
  *      before, and a toggle re-reads what the engine armed.
+ *   8. **the clone result's next steps** (objectui#13270) — a clone runs
+ *      beside its source, so the result offers to switch the source off
+ *      through the SAME toggle as its row, and links the clone's Studio scope.
+ *      An off source is offered nothing to switch; a refusal is the server's
+ *      sentence and the offer stays.
  */
 
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 
 import { PackagedAutomationPage } from './PackagedAutomationPage';
 
@@ -223,7 +229,13 @@ afterEach(() => {
 
 /** Render and wait for the first list paint. */
 async function renderPage() {
-  render(<PackagedAutomationPage />);
+  // A router because the clone result links the clone's Studio scope
+  // (objectui#13270); the console mounts this page inside its own.
+  render(
+    <MemoryRouter>
+      <PackagedAutomationPage />
+    </MemoryRouter>,
+  );
   await screen.findByText('Notify owner');
 }
 
@@ -726,5 +738,93 @@ describe('the Activation cell says whether the flow runs', () => {
     expect(await screen.findByText(POSTURE_REFUSAL)).toBeInTheDocument();
     expect(statusReads()).toBe(readsBefore);
     expect(activationCell('pkg_notify').textContent).toBe('On');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* 8) The clone result's next steps (objectui#13270)                           */
+/* -------------------------------------------------------------------------- */
+
+describe('the clone result offers the next steps', () => {
+  /** Clone ONE named row under a new name and wait for the result. */
+  async function cloneRow(flowName: string, newName: string) {
+    fireEvent.click(cloneButtonFor(flowName));
+    fireEvent.change(await screen.findByLabelText('New machine name'), { target: { value: newName } });
+    fireEvent.change(screen.getByLabelText('New label'), { target: { value: 'Ours' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create clone' }));
+    await screen.findByText(`Created flow "${newName}".`);
+  }
+
+  const switchOffOffer = () => screen.queryByTestId('packaged-clone-switch-source-off');
+  const rowSwitch = (label: string) => screen.getByRole('switch', { name: `Activation for ${label}` });
+
+  it('keeps the notice, and switches the source off through the row\'s own toggle (pin a)', async () => {
+    await renderPage();
+    await cloneRow('pkg_notify', 'crm_notify_owner');
+
+    // The server's notice stays, verbatim.
+    expect(screen.getByText(CLONE_NOTICE)).toBeInTheDocument();
+    const offer = switchOffOffer();
+    expect(offer).not.toBeNull();
+    expect(offer!.textContent).toBe('Switch "Notify owner" off');
+    expect(rowSwitch('Notify owner')).toBeChecked();
+
+    fireEvent.click(offer!);
+    await waitFor(() => expect(toggleCalls()).toHaveLength(1));
+    // The SAME door the row's switch calls, for the SOURCE, switching it off.
+    expect(toggleCalls()[0].url).toContain('/automation/pkg_notify/toggle');
+    expect(toggleCalls()[0].method).toBe('POST');
+    expect(toggleCalls()[0].body).toEqual({ enabled: false });
+
+    // The source row reads off, and the result reads the offer as done.
+    await waitFor(() => expect(rowSwitch('Notify owner')).not.toBeChecked());
+    expect(switchOffOffer()).toBeNull();
+    expect(screen.getByTestId('packaged-clone-source-off').textContent).toBe(
+      'The packaged flow "Notify owner" is switched off.',
+    );
+    // The result itself stays: the switch-off is a step after the clone, not
+    // a reason to forget it.
+    expect(screen.getByText('Created flow "crm_notify_owner".')).toBeInTheDocument();
+  });
+
+  it('links the clone in the package-less Studio scope (pin b)', async () => {
+    await renderPage();
+    await cloneRow('pkg_notify', 'crm_notify_owner');
+
+    const open = screen.getByTestId('packaged-clone-open');
+    expect(open.textContent).toBe('Open the clone in Studio');
+    const href = open.getAttribute('href') ?? '';
+    expect(href.startsWith('/studio/~org/automations')).toBe(true);
+    expect(decodeURIComponent(href)).toContain('crm_notify_owner');
+  });
+
+  it('shows a refused switch-off verbatim and keeps the offer (pin c)', async () => {
+    fixture.toggle = [{ status: 403, body: errorEnvelope('PERMISSION_DENIED', POSTURE_REFUSAL) }];
+    await renderPage();
+    await cloneRow('pkg_notify', 'crm_notify_owner');
+
+    fireEvent.click(switchOffOffer()!);
+    const alert = await screen.findByText(POSTURE_REFUSAL);
+    expect(alert).toHaveAttribute('role', 'alert');
+    expect(within(screen.getByTestId('packaged-clone-next-steps')).getByText(POSTURE_REFUSAL)).toBe(alert);
+    // The offer stays, usable, and the source is still on.
+    expect(switchOffOffer()).not.toBeNull();
+    expect(switchOffOffer()).toBeEnabled();
+    expect(rowSwitch('Notify owner')).toBeChecked();
+    expect(screen.getByText(CLONE_NOTICE)).toBeInTheDocument();
+  });
+
+  it('offers no switch-off when the source is already off (pin d, control)', async () => {
+    await renderPage();
+    expect(rowSwitch('Escalate case')).not.toBeChecked();
+    await cloneRow('pkg_escalate', 'crm_escalate');
+
+    expect(screen.getByText(CLONE_NOTICE)).toBeInTheDocument();
+    expect(switchOffOffer()).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Switch .* off$/ })).toBeNull();
+    expect(screen.getByTestId('packaged-clone-source-off').textContent).toBe(
+      'The packaged flow "Escalate case" is switched off.',
+    );
+    expect(toggleCalls()).toHaveLength(0);
   });
 });

@@ -444,12 +444,15 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
   /** Which datasource's Sync dialog is open now, read when a slow introspection settles. */
   const syncNameRef = React.useRef<string | null>(null);
   React.useEffect(() => { syncNameRef.current = syncName; }, [syncName]);
+  /** Counts introspections, so a refusal is drawn only in the dialog that asked for it. */
+  const syncSeqRef = React.useRef(0);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [syncing, setSyncing] = React.useState(false);
 
   const openSync = async (name: string) => {
     setSyncName(name);
     syncNameRef.current = name;
+    const seq = ++syncSeqRef.current;
     setTables(null);
     setSyncError(null);
     setSelected(new Set());
@@ -461,7 +464,7 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
       // shows the envelope's message; a toast reports it only when the dialog
       // was closed before the refusal arrived.
       const message = (err as Error).message;
-      if (syncNameRef.current === name) setSyncError(message);
+      if (syncNameRef.current === name && syncSeqRef.current === seq) setSyncError(message);
       else toast.error(`Introspect ${name}: ${message}`);
     }
   };

@@ -170,6 +170,48 @@ describe('flow canvas: a Decision branch that skips a node is drawn around it (o
   });
 });
 
+describe('flow canvas: a branch that runs between two cards keeps its path, and its pill leaves their rank (objectui#13144)', () => {
+  // Decision → Path A / Path B → End, and a Decision → End branch: its straight
+  // line passes in the gap between A and B, and its pill used to sit there too.
+  const fanNodes: FlowDesignerNode[] = [
+    { id: 'start', type: 'start', label: 'Start' },
+    { id: 'decide', type: 'decision', label: 'Route' },
+    { id: 'a', type: 'script', label: 'Path A' },
+    { id: 'b', type: 'script', label: 'Path B' },
+    { id: 'end', type: 'end', label: 'End' },
+  ];
+  const fanEdges: FlowDesignerEdge[] = [
+    { id: 'f1', source: 'start', target: 'decide' },
+    { id: 'f2', source: 'decide', target: 'a', condition: 'x == 1' },
+    { id: 'f3', source: 'decide', target: 'b', condition: 'x == 2' },
+    { id: 'f4', source: 'a', target: 'end' },
+    { id: 'f5', source: 'b', target: 'end' },
+    { id: 'f6', source: 'decide', target: 'end', condition: "record.status != 'done'" },
+  ];
+
+  it('draws the straight line and puts the pill where no card covers it', () => {
+    const { container } = render(
+      <FlowCanvas nodes={fanNodes} edges={fanEdges} editable={false} designMode={false} selectedId={null} onSelect={() => {}} />,
+    );
+    const decide = cardBox(container, 'decide');
+    const end = cardBox(container, 'end');
+    const g = Array.from(container.querySelectorAll<SVGGElement>('svg g')).find(
+      (el) => el.querySelector('[data-branch-label]')?.textContent === "if record.status != 'done'",
+    )!;
+    expect(g.querySelector('path')!.getAttribute('d')).toBe(
+      edgePath({ x: decide.x + decide.width / 2, y: decide.y + decide.height }, { x: end.x + end.width / 2, y: end.y }),
+    );
+    const fo = g.querySelector('foreignObject')!;
+    const box: Box = {
+      x: Number(fo.getAttribute('x')),
+      y: Number(fo.getAttribute('y')),
+      width: Number(fo.getAttribute('width')),
+      height: Number(fo.getAttribute('height')),
+    };
+    for (const id of ['start', 'decide', 'a', 'b', 'end']) expect(overlaps(box, cardBox(container, id)), id).toBe(false);
+  });
+});
+
 describe('flow region view: a skip edge inside a region is drawn around the node it skips (objectui#13144)', () => {
   it('routes the region edge clear of every region node', () => {
     const { container } = render(

@@ -523,6 +523,56 @@ describe('forwardEdgeRoute — an edge that skips a node is drawn around it (obj
     expect(route).toEqual({ d: edgePath(from, to), label: edgeMidpoint(from, to) });
   });
 
+  it('moves the pill of an edge running between two cards out of their rank, onto the same path', () => {
+    // Same fan as above: the path is unchanged, but a pill as wide as a long
+    // condition centred at the midpoint would sit in the a/b rank, under both.
+    const fanNodes: FlowDesignerNode[] = [
+      { id: 'decide', type: 'decision' },
+      { id: 'a', type: 'script' },
+      { id: 'b', type: 'script' },
+      { id: 'end', type: 'end' },
+    ];
+    const fanEdges: FlowDesignerEdge[] = [
+      { source: 'decide', target: 'a' },
+      { source: 'decide', target: 'b' },
+      { source: 'a', target: 'end' },
+      { source: 'b', target: 'end' },
+      { source: 'decide', target: 'end' },
+    ];
+    const fan = boxesOf(fanNodes, fanEdges);
+    const s = fan.get('decide')!;
+    const from = bottomAnchor(s);
+    const to = topAnchor(fan.get('end')!);
+    const obstacles = [fan.get('a')!, fan.get('b')!];
+    const pill = { width: 174, height: 22 };
+    const pillBox = (p: Point): NodeBox => ({ x: p.x - pill.width / 2, y: p.y - pill.height / 2, ...pill });
+    const covered = (p: Point) =>
+      obstacles.some((b) => {
+        const q = pillBox(p);
+        return q.x < b.x + b.width && q.x + q.width > b.x && q.y < b.y + b.height && q.y + q.height > b.y;
+      });
+    expect(covered(edgeMidpoint(from, to))).toBe(true); // the defect: midpoint pill under a and b
+
+    const route = forwardEdgeRoute(from, to, obstacles, pill);
+    expect(route.d).toBe(edgePath(from, to));
+    expect(covered(route.label)).toBe(false);
+    // On the path, in the band between the decision and the a/b rank.
+    expect(route.label.x).toBe(from.x);
+    expect(route.label.y - pill.height / 2).toBeGreaterThan(s.y + NODE_H);
+    expect(route.label.y + pill.height / 2).toBeLessThan(fan.get('a')!.y);
+    // A pill that fits between the two cards stays at the midpoint.
+    expect(forwardEdgeRoute(from, to, obstacles, { width: 30, height: 22 }).label).toEqual(edgeMidpoint(from, to));
+  });
+
+  it('keeps an adjacent-rank pill at the midpoint whatever its width', () => {
+    const { from, to } = routeOf(boxes, 'decide', 'notify');
+    const obstacles = [boxes.get('start')!, boxes.get('end')!];
+    expect(forwardEdgeRoute(from, to, obstacles, { width: NODE_W, height: 22 })).toEqual({
+      d: edgePath(from, to),
+      label: edgeMidpoint(from, to),
+    });
+  });
+
   it('runs the lane through the gap beside the node it skips, clear of that node’s neighbours', () => {
     // The middle of three siblings is in the way; the lane takes the 44px gap
     // between it and its left neighbour rather than crossing that neighbour.

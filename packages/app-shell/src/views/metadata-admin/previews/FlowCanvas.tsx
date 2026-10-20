@@ -342,8 +342,13 @@ export function FlowCanvas({
     const p = positionOf(n.id);
     return { id: n.id, x: p.x, y: p.y, width: NODE_W, height: heights.get(n.id) ?? NODE_H };
   });
-  const forwardRoute = (source: string, target: string, from: Point, to: Point) =>
-    forwardEdgeRoute(from, to, nodeBoxes.filter((b) => b.id !== source && b.id !== target));
+  const forwardRoute = (
+    source: string,
+    target: string,
+    from: Point,
+    to: Point,
+    labelSize?: { width: number; height: number },
+  ) => forwardEdgeRoute(from, to, nodeBoxes.filter((b) => b.id !== source && b.id !== target), labelSize);
 
   // ── Mutations ────────────────────────────────────────────────────────────
 
@@ -803,7 +808,16 @@ export function FlowCanvas({
       const d = layout.get(t.target);
       // The edge's pill point as actually drawn (source bottom → target top,
       // around any card it would cross — objectui#13144).
-      if (s && d) pt = forwardRoute(t.source, t.target, bottomAnchor(s, heights.get(t.source) ?? NODE_H), topAnchor(d)).label;
+      if (s && d) {
+        const edge = edges.find((e) => e.source === t.source && e.target === t.target);
+        pt = forwardRoute(
+          t.source,
+          t.target,
+          bottomAnchor(s, heights.get(t.source) ?? NODE_H),
+          topAnchor(d),
+          edge && branchPillSize(edge),
+        ).label;
+      }
     }
     if (pt) setPan({ x: vp.clientWidth / 2 - pt.x * zoom, y: vp.clientHeight / 2 - pt.y * zoom });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -859,7 +873,7 @@ export function FlowCanvas({
     if (back) return { back, from, to, d: backEdgePath(from, to), labelPos: backEdgeLabelAnchor(from, to) };
     // objectui#13144 — a forward edge that would cross a card it skips detours
     // around it; its pill, insert handle and wide hit path all follow the route.
-    const route = forwardRoute(edge.source, edge.target, from, to);
+    const route = forwardRoute(edge.source, edge.target, from, to, branchPillSize(edge));
     return { back, from, to, d: route.d, labelPos: route.label };
   };
   // objectui#12507 — each edge's branch pill: its text, its full wording, and
@@ -1431,6 +1445,18 @@ function branchLabelOf(edge: FlowDesignerEdge): BranchLabel | undefined {
   const chars = Array.from(full);
   const text = chars.length > BRANCH_LABEL_MAX_CHARS ? `${chars.slice(0, BRANCH_LABEL_MAX_CHARS).join('')}…` : full;
   return { text, title: [edge.label, ifCond].filter(Boolean).join('\n') };
+}
+
+/**
+ * objectui#13144 — the most room a branch pill can take (its text at the
+ * per-character estimate, at most a node card wide), which the edge router keeps
+ * clear of every card. Undefined for an edge that draws no pill.
+ */
+function branchPillSize(edge: FlowDesignerEdge): { width: number; height: number } | undefined {
+  const label = branchLabelOf(edge);
+  if (!label) return undefined;
+  const width = Math.min(NODE_W, Array.from(label.text).length * BRANCH_PILL_CHAR_W + BRANCH_PILL_CHROME_W);
+  return { width, height: BRANCH_PILL_H };
 }
 
 /**

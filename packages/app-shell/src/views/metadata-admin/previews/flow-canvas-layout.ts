@@ -604,6 +604,16 @@ function inBox(p: Point, b: NodeBox): boolean {
   return p.x > b.x && p.x < b.x + b.width && p.y > b.y && p.y < b.y + b.height;
 }
 
+/** True when a pill of `size` centred on `p` overlaps the box. */
+function pillOverlaps(p: Point, size: { width: number; height: number }, b: NodeBox): boolean {
+  return (
+    p.x - size.width / 2 < b.x + b.width &&
+    p.x + size.width / 2 > b.x &&
+    p.y - size.height / 2 < b.y + b.height &&
+    p.y + size.height / 2 > b.y
+  );
+}
+
 function countHits(samples: Point[], boxes: readonly NodeBox[]): number {
   let hits = 0;
   for (const p of samples) if (boxes.some((b) => inBox(p, b))) hits += 1;
@@ -686,6 +696,45 @@ function detourRoute(
 }
 
 /**
+ * Where the pill of an edge drawn as {@link edgePath} sits: the midpoint, unless
+ * a pill of `size` there would overlap a box. Then the point on the same curve in
+ * the middle of the open band below the source, if the pill fits there and no
+ * box covers it; otherwise still the midpoint.
+ */
+function straightLabel(
+  from: Point,
+  c1: Point,
+  c2: Point,
+  to: Point,
+  obstacles: readonly NodeBox[],
+  size: { width: number; height: number },
+): Point {
+  const mid = edgeMidpoint(from, to);
+  if (!obstacles.some((b) => pillOverlaps(mid, size, b))) return mid;
+  const top = Math.min(
+    to.y,
+    ...obstacles
+      .filter((b) => b.y >= from.y && spansX(b, Math.min(from.x, to.x), Math.max(from.x, to.x), size.width / 2))
+      .map((b) => b.y),
+  );
+  if (top - from.y < size.height) return mid;
+  const y = from.y + (top - from.y) / 2;
+  let at: Point = { x: from.x, y };
+  if (from.x !== to.x) {
+    // The curve's y rises from `from.y` to `to.y`; find the point at height `y`.
+    let lo = 0;
+    let hi = 1;
+    for (let i = 0; i < 32; i++) {
+      const m = (lo + hi) / 2;
+      if (cubicAt(from, c1, c2, to, m).y < y) lo = m;
+      else hi = m;
+    }
+    at = cubicAt(from, c1, c2, to, (lo + hi) / 2);
+  }
+  return obstacles.some((b) => pillOverlaps(at, size, b)) ? mid : at;
+}
+
+/**
  * objectui#13144 — the path of a forward (non-back) edge, routed so it is never
  * drawn through a node it skips.
  *
@@ -702,17 +751,33 @@ function detourRoute(
  * revise loops in. The pill sits on the lane, below the first turn and above the
  * first box, where no card covers it.
  *
- * An edge whose curve crosses no box is returned exactly as before:
- * {@link edgePath} and {@link edgeMidpoint}. So is one with no room to detour
- * downward (a target that is not below its source), and one no detour improves.
+ * An edge whose curve crosses no box is drawn exactly as before, as
+ * {@link edgePath}, with its pill at {@link edgeMidpoint}. One exception moves
+ * only the pill: an edge that runs BETWEEN two cards of a rank it skips crosses
+ * neither, but a pill of `labelSize` at its midpoint would sit in that rank,
+ * under both cards. That pill moves along the same curve to the open band just
+ * below the source, beside its sibling branches' pills. Without a `labelSize`
+ * (the region view draws no pills) the pill point is the midpoint, as before.
+ * An edge with no room to detour downward (a target that is not below its
+ * source), or one no detour improves, is drawn as {@link edgePath} too.
  */
-export function forwardEdgeRoute(from: Point, to: Point, obstacles: readonly NodeBox[]): ForwardEdgeRoute {
+export function forwardEdgeRoute(
+  from: Point,
+  to: Point,
+  obstacles: readonly NodeBox[],
+  labelSize?: { width: number; height: number },
+): ForwardEdgeRoute {
   const straight: ForwardEdgeRoute = { d: edgePath(from, to), label: edgeMidpoint(from, to) };
   if (obstacles.length === 0) return straight;
   const dy = Math.max(Math.abs(to.y - from.y) * 0.5, 24);
-  const samples = samplePath(from, [{ c1: { x: from.x, y: from.y + dy }, c2: { x: to.x, y: to.y - dy }, to }]);
+  const c1 = { x: from.x, y: from.y + dy };
+  const c2 = { x: to.x, y: to.y - dy };
+  const samples = samplePath(from, [{ c1, c2, to }]);
   const blockers = obstacles.filter((b) => samples.some((p) => inBox(p, b)));
-  if (blockers.length === 0 || to.y - from.y < 2 * DETOUR_MIN_TURN) return straight;
+  if (blockers.length === 0) {
+    return labelSize ? { ...straight, label: straightLabel(from, c1, c2, to, obstacles, labelSize) } : straight;
+  }
+  if (to.y - from.y < 2 * DETOUR_MIN_TURN) return straight;
   const straightHits = countHits(samples, obstacles);
   let best: { route: ForwardEdgeRoute; hits: number; travel: number } | null = null;
   for (const side of ['left', 'right'] as const) {

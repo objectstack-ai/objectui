@@ -3778,8 +3778,12 @@ const en = {
     // and pending approvals, then clamps at "9+". These three spell the sum
     // out inside the popover so the number is explainable.
     badgeTotal: '{{total}} total',
-    badgeNotifications: '{{unread}} notifications',
-    badgeApprovals: '{{approvals}} pending approvals',
+    badgeNotifications: '{{count}} notifications',
+    badgeNotifications_one: '{{count}} notification',
+    badgeNotifications_other: '{{count}} notifications',
+    badgeApprovals: '{{count}} pending approvals',
+    badgeApprovals_one: '{{count}} pending approval',
+    badgeApprovals_other: '{{count}} pending approvals',
     // objectui#7011 — the arrival announcement (toast / desktop notification)
     // and the two switches that govern it.
     arrivalMany: '{{count}} new messages',

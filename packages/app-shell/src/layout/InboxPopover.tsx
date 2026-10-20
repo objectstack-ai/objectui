@@ -417,15 +417,15 @@ export function InboxPopover({
             <span aria-hidden>·</span>
             <span data-testid="inbox-badge-breakdown-notifications">
               {t('notifications.badgeNotifications', {
-                defaultValue: '{{unread}} notifications',
-                unread: unreadTopics,
+                defaultValue: '{{count}} notifications',
+                count: unreadTopics,
               })}
             </span>
             <span aria-hidden>+</span>
             <span data-testid="inbox-badge-breakdown-approvals">
               {t('notifications.badgeApprovals', {
-                defaultValue: '{{approvals}} pending approvals',
-                approvals: pendingApprovalsCount,
+                defaultValue: '{{count}} pending approvals',
+                count: pendingApprovalsCount,
               })}
             </span>
           </div>

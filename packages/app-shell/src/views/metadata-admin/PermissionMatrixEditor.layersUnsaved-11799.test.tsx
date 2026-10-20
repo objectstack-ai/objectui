@@ -202,7 +202,9 @@ describe('PermissionMatrixEditPage — the package door\'s SAVE reads a /layers 
     await waitFor(() => expect(server.puts).toHaveLength(1), AUTOSAVE);
 
     expect(layersStatuses()).toEqual([404]);
-    expect(server.puts[0].search).toBe(`?mode=draft&package=${PKG}`);
+    // objectui#12725 — mounted as Studio hosts it (`packageId` + `embedded`),
+    // so the draft save also names its authoring surface.
+    expect(server.puts[0].search).toBe(`?mode=draft&package=${PKG}&surface=studio`);
     expect(server.puts[0].body.objects).toEqual({ a_account: { allowRead: true, allowCreate: true } });
     expect(screen.queryByText(REFUSAL)).toBeNull();
   });

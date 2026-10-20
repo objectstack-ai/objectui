@@ -2187,6 +2187,7 @@ const ar = {
       cryptoRefusalToastNoSubject: "تعذّر تشفير الأسرار",
       sourceBadgeInherited: "موروث من {{source}}",
       sourceBadgeOverrides: "يتجاوز {{source}}",
+      resetToDefault: "إعادة التعيين إلى الافتراضي",
       envLockBadge: "مقفل بواسطة البيئة",
       envLockBadgeTitle: "مثبّت بواسطة متغير بيئة — لا يمكن تعديله من الواجهة.",
       deprecatedBadge: "مهمل",

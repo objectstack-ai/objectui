@@ -2008,6 +2008,7 @@ const de = {
       cryptoRefusalToastNoSubject: "Geheimnisse können nicht verschlüsselt werden",
       sourceBadgeInherited: "Geerbt von {{source}}",
       sourceBadgeOverrides: "Überschreibt {{source}}",
+      resetToDefault: "Auf Standard zurücksetzen",
       envLockBadge: "Per Umgebung gesperrt",
       envLockBadgeTitle: "Durch eine Umgebungsvariable festgelegt — kann nicht in der Oberfläche bearbeitet werden.",
       deprecatedBadge: "Veraltet",

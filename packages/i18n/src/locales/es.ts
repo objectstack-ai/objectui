@@ -2055,6 +2055,7 @@ const es = {
       cryptoRefusalToastNoSubject: "No se pueden cifrar los secretos",
       sourceBadgeInherited: "Heredado de {{source}}",
       sourceBadgeOverrides: "Sobrescribe {{source}}",
+      resetToDefault: "Restablecer valor predeterminado",
       envLockBadge: "Bloqueado por el entorno",
       envLockBadgeTitle: "Fijado por una variable de entorno: no se puede editar desde la interfaz.",
       deprecatedBadge: "Obsoleto",

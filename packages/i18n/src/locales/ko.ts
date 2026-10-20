@@ -2008,6 +2008,7 @@ const ko = {
       cryptoRefusalToastNoSubject: "시크릿을 암호화할 수 없습니다",
       sourceBadgeInherited: "{{source}}에서 상속됨",
       sourceBadgeOverrides: "{{source}} 재정의",
+      resetToDefault: "기본값으로 재설정",
       envLockBadge: "환경 변수로 잠김",
       envLockBadgeTitle: "환경 변수로 고정되어 UI에서 편집할 수 없습니다.",
       deprecatedBadge: "지원 중단됨",

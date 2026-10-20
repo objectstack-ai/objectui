@@ -2010,6 +2010,7 @@ const ja = {
       cryptoRefusalToastNoSubject: "シークレットを暗号化できません",
       sourceBadgeInherited: "{{source}}から継承",
       sourceBadgeOverrides: "{{source}}を上書き",
+      resetToDefault: "デフォルトに戻す",
       envLockBadge: "環境変数でロック",
       envLockBadgeTitle: "環境変数で固定されているため、画面から編集できません。",
       deprecatedBadge: "非推奨",

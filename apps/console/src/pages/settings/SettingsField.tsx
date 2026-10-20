@@ -31,7 +31,7 @@ import {
   getLazyIcon,
 } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
-import { AlertTriangle, ChevronRight, Info } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Info, RotateCcw } from 'lucide-react';
 import { EnvLockBadge } from './EnvLockBadge';
 import { resolveLabel, type Specifier, type ResolvedSettingValue } from './types';
 import type { SettingsLabelHelpers } from './useSettingsLabel';
@@ -65,6 +65,19 @@ const BannerMarkdown = lazy(() =>
 const WARNING_BANNER_CLASSES =
   'border-amber-300/60 bg-amber-50 text-amber-800 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-200 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400';
 
+/**
+ * An emptied text-like box means UNSET (objectui#13145): the key goes into the
+ * draft as `null`, never `""`. The settings door reads `null` as "clear this
+ * layer's value", so the row falls back to what the layer above carries, while
+ * `""` is a stored value like any other — which a required key refuses as
+ * incomplete, leaving a saved value with no way back to unset. The `number`
+ * control has mapped an empty box to `null` all along; this is the same rule
+ * for the controls that hold a string.
+ */
+function textOrUnset(raw: string): string | null {
+  return raw === '' ? null : raw;
+}
+
 export interface SettingsFieldProps {
   spec: Specifier;
   resolved?: ResolvedSettingValue;
@@ -89,14 +102,15 @@ export interface SettingsFieldProps {
   error?: string;
 }
 
-function InheritanceBadges({
-  resolved,
-  labels,
-}: {
-  resolved: ResolvedSettingValue;
-  labels?: SettingsLabelHelpers;
-}) {
-  const { t } = useObjectTranslation();
+type SourceBadge =
+  | { kind: 'inherited'; scope: ResolvedSettingValue['source'] }
+  | { kind: 'overrides'; scope: ResolvedSettingValue['source'] };
+
+/**
+ * Which source badge a row carries, read off the server's `cascadeChain` alone:
+ * the console never invents a source state.
+ */
+function sourceBadgeOf(resolved: ResolvedSettingValue): SourceBadge | null {
   const chain = resolved.cascadeChain;
   if (!chain || chain.length === 0) return null;
 
@@ -105,13 +119,6 @@ function InheritanceBadges({
     (e) => e !== effective && e.value !== null && e.value !== undefined,
   );
 
-  const sourceText = (scope: ResolvedSettingValue['source']) =>
-    labels?.sourceLabel?.(scope) ?? scope;
-
-  // Each badge is ONE sentence with the layer's label interpolated as
-  // `{{source}}` (objectui#12694): a pack puts the layer where its grammar
-  // wants it, never a translated verb beside a translated noun.
-
   // "Inherited from <upper>" — effective value came from an upper scope.
   if (
     effective.scope !== 'default' &&
@@ -119,23 +126,40 @@ function InheritanceBadges({
     effective.scope !== 'tenant'
   ) {
     // global/env: show as inherited for downstream scopes
-    return (
-      <Badge variant="outline" className="text-blue-700 border-blue-300 text-[10px]">
-        {t('console.settingsView.sourceBadgeInherited', { source: sourceText(effective.scope) })}
-      </Badge>
-    );
+    return { kind: 'inherited', scope: effective.scope };
   }
 
   // "Overrides <upper>" — local value shadows an upper-scope value.
-  if (upperWithValue) {
+  if (upperWithValue) return { kind: 'overrides', scope: upperWithValue.scope };
+
+  return null;
+}
+
+function InheritanceBadge({
+  badge,
+  labels,
+}: {
+  badge: SourceBadge;
+  labels?: SettingsLabelHelpers;
+}) {
+  const { t } = useObjectTranslation();
+  const source = labels?.sourceLabel?.(badge.scope) ?? badge.scope;
+
+  // Each badge is ONE sentence with the layer's label interpolated as
+  // `{{source}}` (objectui#12694): a pack puts the layer where its grammar
+  // wants it, never a translated verb beside a translated noun.
+  if (badge.kind === 'inherited') {
     return (
-      <Badge variant="outline" className="text-amber-700 border-amber-300 text-[10px]">
-        {t('console.settingsView.sourceBadgeOverrides', { source: sourceText(upperWithValue.scope) })}
+      <Badge variant="outline" className="text-blue-700 border-blue-300 text-[10px]">
+        {t('console.settingsView.sourceBadgeInherited', { source })}
       </Badge>
     );
   }
-
-  return null;
+  return (
+    <Badge variant="outline" className="text-amber-700 border-amber-300 text-[10px]">
+      {t('console.settingsView.sourceBadgeOverrides', { source })}
+    </Badge>
+  );
 }
 
 /**
@@ -152,6 +176,8 @@ function FieldHeader({
   labels,
   labelId,
   htmlFor,
+  onReset,
+  resetDisabled,
 }: {
   spec: Specifier;
   resolved?: ResolvedSettingValue;
@@ -159,8 +185,16 @@ function FieldHeader({
   labels?: SettingsLabelHelpers;
   labelId?: string;
   htmlFor?: string;
+  /**
+   * Clears this layer's value (objectui#13145). Offered only beside an
+   * `Overrides` badge, the one state where clearing hands the row back to a
+   * value the layer above carries.
+   */
+  onReset?: () => void;
+  resetDisabled?: boolean;
 }) {
   const { t } = useObjectTranslation();
+  const badge = resolved && !resolved.locked ? sourceBadgeOf(resolved) : null;
   return (
     <div className="flex items-center gap-2">
       <Label id={labelId} htmlFor={htmlFor} className="text-sm font-medium">
@@ -175,8 +209,21 @@ function FieldHeader({
         </Badge>
       ) : null}
       {resolved?.locked ? <EnvLockBadge reason={resolved.lockedReason} /> : null}
-      {resolved && !resolved.locked ? (
-        <InheritanceBadges resolved={resolved} labels={labels} />
+      {badge ? <InheritanceBadge badge={badge} labels={labels} /> : null}
+      {badge?.kind === 'overrides' && onReset ? (
+        // Sets the key to `null` in the draft; the page's Save sends it, and
+        // the badge then follows the server's answer for the row.
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-5 px-1.5 text-[11px] text-muted-foreground"
+          onClick={onReset}
+          disabled={resetDisabled}
+        >
+          <RotateCcw className="h-3 w-3 mr-1" aria-hidden="true" />
+          {t('console.settingsView.resetToDefault')}
+        </Button>
       ) : null}
       {resolved?.source && resolved.source !== 'default' && !resolved.locked ? (
         <span className="text-[11px] text-muted-foreground">
@@ -256,7 +303,7 @@ function DomainCombobox({
         list={options.length > 0 ? listId : undefined}
         value={value == null ? '' : String(value)}
         disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(textOrUnset(e.target.value))}
         {...inputProps}
       />
       {options.length > 0 ? (
@@ -401,6 +448,8 @@ export function SettingsField(props: SettingsFieldProps) {
   // `labelFor` is the id of the labelable control the row renders — `id`, the
   // one every single-control case puts on it — or `undefined` for a case whose
   // control is a group that names itself from `labelId` instead.
+  // A value already cleared in the draft has nothing left to reset.
+  const onReset = value === null ? undefined : () => onChange(null);
   const wrapper = (children: React.ReactNode, labelFor: string | undefined = id) => (
     <div className="space-y-1.5 py-2">
       <FieldHeader
@@ -410,6 +459,8 @@ export function SettingsField(props: SettingsFieldProps) {
         labels={labels}
         labelId={labelId}
         htmlFor={labelFor}
+        onReset={onReset}
+        resetDisabled={disabled}
       />
       {error && isValidElement(children)
         ? cloneElement(children as ReactElement<Record<string, unknown>>, {
@@ -445,7 +496,7 @@ export function SettingsField(props: SettingsFieldProps) {
           maxLength={spec.maxLength}
           pattern={spec.pattern}
           disabled={disabled}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(textOrUnset(e.target.value))}
         />,
       );
     case 'password':
@@ -456,7 +507,7 @@ export function SettingsField(props: SettingsFieldProps) {
           autoComplete="new-password"
           placeholder={value ? '••••••••' : ''}
           disabled={disabled}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(textOrUnset(e.target.value))}
         />,
       );
     case 'textarea':
@@ -468,7 +519,7 @@ export function SettingsField(props: SettingsFieldProps) {
           minLength={spec.minLength}
           maxLength={spec.maxLength}
           disabled={disabled}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(textOrUnset(e.target.value))}
         />,
       );
     case 'number':
@@ -495,6 +546,8 @@ export function SettingsField(props: SettingsFieldProps) {
               labels={labels}
               labelId={labelId}
               htmlFor={id}
+              onReset={onReset}
+              resetDisabled={disabled}
             />
             <FieldDescription description={fieldHelp} />
           </div>

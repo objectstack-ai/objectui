@@ -2132,6 +2132,10 @@ const en = {
       // badge, so a pack puts the layer where its own grammar wants it.
       sourceBadgeInherited: 'Inherited from {{source}}',
       sourceBadgeOverrides: 'Overrides {{source}}',
+      // The action beside an `Overrides` badge (objectui#13145): it clears this
+      // layer's value in the draft, and Save sends it as `null` (unset), so the
+      // row falls back to the value the layer above carries.
+      resetToDefault: 'Reset to default',
       // The chips on a settings row's header (objectui#12821): the env-lock
       // chip and the title it shows when the server sends no reason, and the
       // `Deprecated` chip, with `{{replacedBy}}` the key that replaces it.

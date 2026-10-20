@@ -2104,6 +2104,7 @@ const ru = {
       cryptoRefusalToastNoSubject: "Не удалось зашифровать секреты",
       sourceBadgeInherited: "Унаследовано: {{source}}",
       sourceBadgeOverrides: "Переопределяет: {{source}}",
+      resetToDefault: "Сбросить к значению по умолчанию",
       envLockBadge: "Задано окружением",
       envLockBadgeTitle: "Закреплено переменной окружения — изменить в интерфейсе нельзя.",
       deprecatedBadge: "Устарело",

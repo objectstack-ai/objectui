@@ -2051,6 +2051,7 @@ const fr = {
       cryptoRefusalToastNoSubject: "Impossible de chiffrer les secrets",
       sourceBadgeInherited: "Hérité de {{source}}",
       sourceBadgeOverrides: "Remplace {{source}}",
+      resetToDefault: "Rétablir la valeur par défaut",
       envLockBadge: "Verrouillé par l'env.",
       envLockBadgeTitle: "Fixé par une variable d'environnement — modification impossible depuis l'interface.",
       deprecatedBadge: "Obsolète",

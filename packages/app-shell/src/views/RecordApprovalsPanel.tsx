@@ -194,6 +194,19 @@ function formatDate(s: string | null | undefined, locale: string): string {
 }
 
 /**
+ * The step a request or a timeline row names, as a reader should see it: the
+ * authored step label when there is one, else the node's machine name
+ * prettified, else nothing. The headline and every timeline row draw their
+ * step through this one rule, so the two cannot drift (objectui#13248).
+ */
+function stepDisplayText(
+  label: string | null | undefined,
+  machineName: string | null | undefined,
+): string | null {
+  return label || (machineName ? prettifyMachineName(machineName) : null);
+}
+
+/**
  * Merge the per-request action threads into one chronological (oldest-first)
  * timeline. Explicit sort — the panel must not depend on per-request server
  * order once several requests' rows are concatenated.
@@ -366,10 +379,25 @@ export const RecordApprovalsPanel: React.FC<RecordApprovalsPanelProps> = ({
       ? tr('systemSlaActor', 'System (SLA)')
       : a.actor_name ?? formatIdentity(a.actor_id);
 
+  /**
+   * A timeline row's step label is its request's (objectui#13248). The server
+   * writes `sys_approval_action.step_label` as a copy of the owning request's
+   * step label, but `GET /approvals/requests/:id/actions` does not serve that
+   * column: `rowFromAction`, like the spec's `ApprovalActionRow`, names only
+   * `step_name`. The request rows this panel already holds serve `step_label`
+   * from the same chain, and every row in the timeline belongs to one of them
+   * (the threads are read per request id), so the row reads it there. Without
+   * this the row drew the prettified node id ("Manager Review") where the flow
+   * author wrote "Sales Manager Review".
+   */
+  const stepLabelByRequest = new Map(requests.map((r) => [r.id, r.step_label]));
+  const actionStepText = (a: ApprovalActionLite): string | null =>
+    stepDisplayText(stepLabelByRequest.get(a.request_id), a.step_name);
+
   const dp = pendingRequest?.decision_progress;
   const eligible = eligibleApproverCount(pendingRequest);
   const stepText = headline.status === 'pending'
-    ? (headline.step_label || (headline.current_step ? prettifyMachineName(headline.current_step) : null))
+    ? stepDisplayText(headline.step_label, headline.current_step)
     : null;
 
   return (
@@ -498,8 +526,10 @@ export const RecordApprovalsPanel: React.FC<RecordApprovalsPanelProps> = ({
                         {tr('viaOverrideChip', 'Admin override')}
                       </Badge>
                     )}
-                    {a.step_name && (
-                      <span className="text-muted-foreground">· {prettifyMachineName(a.step_name)}</span>
+                    {actionStepText(a) && (
+                      <span className="text-muted-foreground" data-testid="approval-action-step">
+                        · {actionStepText(a)}
+                      </span>
                     )}
                     <span className="ml-auto text-muted-foreground text-[10px]">
                       {formatDate(a.created_at, displayLocale)}

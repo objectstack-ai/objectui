@@ -23,6 +23,7 @@ import {
 } from './api';
 import { resolveLabel, type SettingsNamespacePayload } from './types';
 import { useSettingsLabel } from './useSettingsLabel';
+import { useUnsavedLeaveGuard } from './useUnsavedLeaveGuard';
 
 /**
  * Evaluate the manifest's `visible: "${data.foo === 'bar'}"`
@@ -169,6 +170,17 @@ export function SettingsView() {
   /** i18n helpers bound to this settings namespace. */
   const labels = useSettingsLabel(namespace);
 
+  // objectui#13163 — leaving the page asks first while it holds edits. Armed
+  // exactly while the "N unsaved changes" bar is drawn: a loaded page, not the
+  // skeleton or the error card. A draft outlives its page only across a
+  // Back/Forward between two namespaces (the guard cannot see `popstate`); it
+  // is then not on screen, so the skeleton and the error card must not prompt
+  // for it — which is also why the error card's Back needs no guard. The
+  // sentence is the existing `form.unsavedChanges` leave question.
+  const hasUnsavedEdits =
+    payload !== null && !loading && error === null && dirtyKeys.length > 0;
+  const confirmLeave = useUnsavedLeaveGuard(hasUnsavedEdits, t('form.unsavedChanges'));
+
   if (!namespace) {
     return (
       <div className="p-6 text-muted-foreground">{t('console.settingsView.noNamespace')}</div>
@@ -312,7 +324,7 @@ export function SettingsView() {
           <button
             type="button"
             className="hover:text-foreground hover:underline"
-            onClick={() => navigate('/system/settings')}
+            onClick={() => confirmLeave(() => navigate('/system/settings'))}
             data-testid="settings-breadcrumb-hub"
           >
             {t('console.settingsView.backToHub')}

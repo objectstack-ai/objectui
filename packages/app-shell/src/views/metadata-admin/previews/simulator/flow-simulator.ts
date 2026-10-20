@@ -41,6 +41,7 @@ import type {
 } from './flow-sim-types.js';
 import { evalBranchPredicate, evalGuard, evalValueEnvelope, validateFlowDraft } from './flow-sim-validate.js';
 import { conditionText } from '../flow-canvas-layout.js';
+import { flowNodeDisplayName } from '../flow-canvas-parts.js';
 import { unevaluableVisibleWhen } from '../screen-spec.js';
 import { isValueEnvelopeSlot } from '../../inspectors/flow-value-envelope.js';
 import { t as tr, tFormat } from '../../i18n.js';
@@ -744,7 +745,8 @@ export class FlowSimulator {
     status: SimStepStatus,
     extra: Partial<SimStep> = {},
   ): SimStep {
-    const step: SimStep = { seq: this.seq++, nodeId, type, label: label || nodeId, status, ...extra };
+    // objectui#13242 — the step names its node by the rule the canvas reads.
+    const step: SimStep = { seq: this.seq++, nodeId, type, label: flowNodeDisplayName({ id: nodeId, type, label }, this.locale), status, ...extra };
     this.state.steps.push(step);
     if (status === 'error' && this.state.status !== 'paused') {
       this.state.status = 'error';

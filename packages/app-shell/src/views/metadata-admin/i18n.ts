@@ -1996,7 +1996,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowValidate.edgeTargetMissing': 'Edge target "{target}" does not exist.',
   // objectui#11838 — the other positions that name a node by id.
   'engine.flowValidate.exprRefNodeMissing': 'Expression "{ref}" reads node "{id}", which does not exist.',
-  'engine.flowValidate.boundaryHostMissing': 'Boundary event "{id}" is attached to node "{host}", which does not exist.',
+  'engine.flowValidate.boundaryHostMissing': 'Boundary event "{name}" ({id}) is attached to node "{host}", which does not exist.',
   'engine.flowValidate.startHasIncoming': 'Start node has an incoming edge.',
   'engine.flowValidate.multipleStart': 'Flow has {count} start nodes; expected one.',
   'engine.flowValidate.noStartUsingRoot': 'No "start" node; using the only root node as the entry.',
@@ -2059,7 +2059,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowProblems.sourceExpression': 'expression',
   // objectui#11772 — one extra copy of a connection (`edgeRouteKey`): the
   // engine follows every copy, so the target runs once per copy.
-  'engine.flowProblems.repeatedEdge': 'Connection {source} → {target} is repeated; the flow runs "{target}" once for each copy. Remove this copy.',
+  'engine.flowProblems.repeatedEdge': 'Connection "{sourceName}" ({source}) → "{targetName}" ({target}) is repeated; the flow runs "{targetName}" once for each copy. Remove this copy.',
   // objectui#11905 — why a connection between two existing nodes is refused,
   // shown by both doors that draw one: the canvas's connect handle and the
   // connection inspector's From / To (`edgeConnectionRefusal`).
@@ -5535,7 +5535,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowValidate.edgeSourceMissing': '连线的源节点 “{source}” 不存在。',
   'engine.flowValidate.edgeTargetMissing': '连线的目标节点 “{target}” 不存在。',
   'engine.flowValidate.exprRefNodeMissing': '表达式 “{ref}” 读取的节点 “{id}” 不存在。',
-  'engine.flowValidate.boundaryHostMissing': '边界事件 “{id}” 附着的节点 “{host}” 不存在。',
+  'engine.flowValidate.boundaryHostMissing': '边界事件 “{name}”（{id}）附着的节点 “{host}” 不存在。',
   'engine.flowValidate.startHasIncoming': '开始节点存在入边。',
   'engine.flowValidate.multipleStart': '流程有 {count} 个开始节点;应只有一个。',
   'engine.flowValidate.noStartUsingRoot': '没有“开始”节点;以唯一的根节点作为入口。',
@@ -5582,7 +5582,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowProblems.sourceSchema': '架构',
   'engine.flowProblems.sourceExpression': '表达式',
   // objectui#11772 — one extra copy of a connection (see the en row).
-  'engine.flowProblems.repeatedEdge': '连线 {source} → {target} 重复;流程会为每一条副本各运行一次 “{target}”。请删除这条副本。',
+  'engine.flowProblems.repeatedEdge': '连线 “{sourceName}”（{source}）→ “{targetName}”（{target}）重复;流程会为每一条副本各运行一次 “{targetName}”。请删除这条副本。',
   // objectui#11905 — a refused connection (see the en rows).
   'engine.flowProblems.connectRefused.missingSource': '无法连线：此流程中没有节点 “{source}”。',
   'engine.flowProblems.connectRefused.missingTarget': '无法连线：此流程中没有节点 “{target}”。',

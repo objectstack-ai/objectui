@@ -15,11 +15,11 @@
  *    id instead: `label || id`, `label ? label : id`, `${source} → ${target}`,
  *    a `join(' → ')` of ids, and a message parameter set to an id. Every hit
  *    must be in `ID_SITES` with the reason the id is right there (among them
- *    `own-title`, a node's own title beside its type, ruled on objectui#13200),
- *    or with `open` — a site this card's file surface did not reach, reported
- *    on objectui#13200. A new id-shaped site fails until it is converted or
- *    listed; a listed site that is gone fails until its entry is deleted, so
- *    the list only shrinks.
+ *    `own-title`, a node's own title beside its type, ruled on objectui#13200).
+ *    objectui#13242 converted the last sites this card left `open`; there is no
+ *    `open` verdict any more, so a new id-shaped site fails until it is
+ *    converted or given a reason; a listed site that is gone fails until its
+ *    entry is deleted.
  *
  * The population is ENUMERATED from the directories below (AGENTS.md #9), and
  * a control proves it reaches the files this card changed.
@@ -155,6 +155,77 @@ const RESOLVER_SITES: ResolverSite[] = [
     what: 'the selection label "Edit connection" writes',
     pattern: /label: flowEdgeDisplayName\(\s*\{ source: String\(context\?\.node\?\.id \?\? ''\), target: b\.target \},/,
   },
+  // ── objectui#13242: the sites objectui#13200 left open ──
+  {
+    file: 'previews/FlowCanvas.tsx',
+    what: 'an edge hover title’s end name (objectui#13242)',
+    pattern: /const endName = \(id: string\): string => \{\s*const node = nodes\.find\(\(n\) => n\.id === id\);\s*return node \? flowNodeDisplayName\(node, locale\) : id;/,
+  },
+  {
+    file: 'previews/FlowCanvas.tsx',
+    what: 'the hover title of an edge in an undeclared cycle (objectui#13242)',
+    pattern: /tFormat\('engine\.flowCanvas\.edge\.undeclaredCycle', locale, \{ source: endName\(edge\.source\), target: endName\(edge\.target\) \}\)/,
+  },
+  {
+    file: 'previews/FlowCanvas.tsx',
+    what: 'the hover title of a back-edge (objectui#13242)',
+    pattern: /tFormat\('engine\.flowCanvas\.edge\.backEdge', locale, \{ source: endName\(edge\.source\), target: endName\(edge\.target\) \}\)/,
+  },
+  {
+    file: 'previews/FlowCanvas.tsx',
+    what: 'the hover title of a plain edge (objectui#13242)',
+    pattern: /: flowEdgeDisplayName\(edge, nodes, locale\)\}/,
+  },
+  {
+    file: 'previews/FlowSimulatorPanel.tsx',
+    what: 'the simulator’s mockable node list (objectui#13242)',
+    pattern: /out\.push\(\{ id: n\.id, label: flowNodeDisplayName\(n, locale\), type: n\.type, outputs \}\)/,
+  },
+  {
+    file: 'previews/FlowSimulatorPanel.tsx',
+    what: 'the target name of a simulator step’s unguarded edge row (objectui#13242)',
+    pattern: /const targetName = \(id: string\): string => \{\s*const node = nodes\.find\(\(n\) => n\.id === id\);\s*return node \? flowNodeDisplayName\(node, locale\) : id;/,
+  },
+  {
+    file: 'previews/FlowSimulatorPanel.tsx',
+    what: 'a simulator step’s unguarded edge row (objectui#13242)',
+    pattern: /\(ed\.condition \?\? `→ \$\{targetName\(ed\.target\)\}`\)/,
+  },
+  {
+    file: 'previews/flow-problems.ts',
+    what: 'the repeated-connection Problem, each end named beside its id (objectui#13242)',
+    pattern: /const nameOf = \(id: string\) => \{\s*const node = nodes\.find\(\(n\) => n\.id === id\);\s*return node \? flowNodeDisplayName\(node, locale\) : id;\s*\};[\s\S]*?'engine\.flowProblems\.repeatedEdge', locale, \{\s*sourceName: nameOf\(edge\.source\),\s*source: edge\.source,\s*targetName: nameOf\(edge\.target\),\s*target: edge\.target,/,
+  },
+  {
+    file: 'previews/simulator/flow-sim-validate.ts',
+    what: 'the cycle Problem’s node names (objectui#13242)',
+    pattern: /named\.set\(id, node \? flowNodeDisplayName\(node, locale\) : id\);[\s\S]*?'engine\.flowValidate\.cycleDetected', locale, \{ cycle: cycleDisplayName\(cycle, nodes, locale\) \}/,
+  },
+  {
+    file: 'previews/simulator/flow-sim-validate.ts',
+    what: 'the missing boundary host Problem, the boundary event named beside its id (objectui#13242)',
+    pattern: /const name = flowNodeDisplayName\(p\.node, locale\);\s*diag = \{[^\n]*'engine\.flowValidate\.boundaryHostMissing', locale, \{ name, id: p\.nodeId, host: p\.id \}/,
+  },
+  {
+    file: 'previews/simulator/flow-simulator.ts',
+    what: 'a simulator step’s label (objectui#13242)',
+    pattern: /label: flowNodeDisplayName\(\{ id: nodeId, type, label \}, this\.locale\)/,
+  },
+  {
+    file: 'inspectors/FlowNodeInspector.tsx',
+    what: 'the selection label a node rename writes (objectui#13242)',
+    pattern: /onSelectionChange\?\.\(\{ kind: 'node', id: nextId, label: flowNodeDisplayName\(\{ \.\.\.node, id: nextId \}, locale\) \}\)/,
+  },
+  {
+    file: 'inspectors/FlowNodeInspector.tsx',
+    what: 'the nested breadcrumb’s container crumb (objectui#13242)',
+    pattern: /\{loc\?\.container \? flowNodeDisplayName\(loc\.container, locale\) : null\}/,
+  },
+  {
+    file: 'inspectors/FlowNodeInspector.tsx',
+    what: 'the nested breadcrumb’s node crumb (objectui#13242)',
+    pattern: /text-foreground">\{flowNodeDisplayName\(node, locale\)\}<\/span>/,
+  },
 ];
 
 /** The shapes that print a node by its id. */
@@ -162,7 +233,9 @@ const ID_SHAPES: Record<string, RegExp> = {
   'label-or-id': /\blabel\)?\s*(?:\|\||\?\?)\s*[\w.?]*?\b\w*(?:id|Id)\b/,
   'label-ternary': /\.label\s*\?\s*[\w.?]+\.label\s*:\s*\w*(?:id|Id)\b/,
   'edge-ends': /\$\{[^}]*\b(?:source|target)\}\s*→|→\s*\$\{[^}]*\b(?:source|target)\}/,
-  'id-join': /\.join\(\s*['"`]\s*→\s*['"`]\s*\)/,
+  // A ` → ` join straight on a named list (`cycle.join(' → ')`), the ids as they
+  // are; a join on a mapped list — the names the rule gave — is not this shape.
+  'id-join': /\w\.join\(\s*['"`]\s*→\s*['"`]\s*\)/,
   'id-param': /tFormat\([^)]*\{\s*(?:id|source|target)\s*:\s*[\w.?]+\.(?:id|nodeId|source|target)\b/,
 };
 
@@ -182,8 +255,14 @@ type Verdict =
    * id. The resolver would repeat the type (ruled B on objectui#13200).
    */
   | 'own-title'
-  /** Names an existing node by its id, outside this card's file surface — reported on objectui#13200. */
-  | 'open';
+  /**
+   * A locator into the stored flow, in no language's words: the holder's id
+   * roots a key path (`d › config.conditions[0].expression`), as the removal
+   * refusal's `${nodeId} › boundaryConfig.attachedToNodeId` row does. It names
+   * where an expression sits for a node-id rename, so the id is the address,
+   * and a label (which two nodes may share) would not locate the key.
+   */
+  | 'id-path';
 
 /** Keyed `file · shape · the masked line, trimmed` — content, never a line number (AGENTS.md #11). */
 const ID_SITES: Record<string, Verdict> = {
@@ -196,27 +275,13 @@ const ID_SITES: Record<string, Verdict> = {
   'previews/FlowPreview.tsx · label-or-id · return { eyebrow: kind, title: selection.label ?? nested?.nodeId ?? selection.id };': 'selection-label',
   'inspectors/FlowEdgeInspector.tsx · label-or-id · title={selection.label ?? selection.id}': 'selection-label',
   "inspectors/FlowNodeInspector.tsx · label-or-id · <InspectorShell kindLabel={t('engine.inspector.flowNode.kind', locale)} title={selection.label ?? emptyId} onClose={onClearSelection} closeLabel={t('engine.inspector.flowNode.close', locale)}>": 'selection-label',
-  // ── open: outside this card's file surface, reported on objectui#13200 ──
-  "previews/FlowCanvas.tsx · id-param · ? tFormat('engine.flowCanvas.edge.undeclaredCycle', locale, { source: edge.source, target: edge.target })": 'open',
-  "previews/FlowCanvas.tsx · id-param · ? tFormat('engine.flowCanvas.edge.backEdge', locale, { source: edge.source, target: edge.target })": 'open',
-  'previews/FlowCanvas.tsx · edge-ends · : `${edge.source} → ${edge.target}`}': 'open',
   // ── own-title: own title beside the type eyebrow; resolver would repeat the type (ruled B on objectui#13200) ──
   'previews/FlowCanvas.tsx · label-or-id · label={node.label || node.id}': 'own-title',
   "previews/FlowPreview.tsx · label-or-id · title: (typeof node.label === 'string' && node.label) || node.id,": 'own-title',
   'previews/flow-region-view.tsx · label-or-id · <div className="truncate text-[12px] font-semibold leading-tight text-foreground" title={node.label || node.id}>': 'own-title',
   'previews/flow-region-view.tsx · label-or-id · {node.label || node.id}': 'own-title',
   'inspectors/FlowNodeInspector.tsx · label-or-id · title={node.label || node.id}': 'own-title',
-  // ── open (continued) ──
-  'previews/FlowSimulatorPanel.tsx · label-or-id · out.push({ id: n.id, label: n.label || n.id, type: n.type, outputs });': 'open',
-  "previews/FlowSimulatorPanel.tsx · edge-ends · <span className=\"truncate\">{ed.isDefault ? 'else' : (ed.condition ?? `→ ${ed.target}`)}</span>": 'open',
-  "previews/flow-node-refs.ts · edge-ends · const where = site.holder.kind === 'node' ? site.holder.id : `${site.holder.source} → ${site.holder.target}`;": 'open',
-  "previews/flow-problems.ts · id-param · message: tFormat('engine.flowProblems.repeatedEdge', locale, { source: edge.source, target: edge.target }),": 'open',
-  "previews/simulator/flow-sim-validate.ts · id-join · message: tFormat('engine.flowValidate.cycleDetected', locale, { cycle: cycle.join(' → ') }),": 'open',
-  "previews/simulator/flow-sim-validate.ts · id-param · diag = { level: 'error', nodeId: p.nodeId, message: tFormat('engine.flowValidate.boundaryHostMissing', locale, { id: p.nodeId, host: p.id }) };": 'open',
-  'previews/simulator/flow-simulator.ts · label-or-id · const step: SimStep = { seq: this.seq++, nodeId, type, label: label || nodeId, status, ...extra };': 'open',
-  "inspectors/FlowNodeInspector.tsx · label-or-id · onSelectionChange?.({ kind: 'node', id: nextId, label: node.label || nextId });": 'open',
-  'inspectors/FlowNodeInspector.tsx · label-or-id · <span className="max-w-[45%] truncate font-medium">{loc?.container?.label || loc?.container?.id}</span>': 'open',
-  'inspectors/FlowNodeInspector.tsx · label-or-id · <span className="max-w-[45%] truncate font-medium text-foreground">{node.label || node.id}</span>': 'open',
+  "previews/flow-node-refs.ts · edge-ends · const where = site.holder.kind === 'node' ? site.holder.id : `${site.holder.source} → ${site.holder.target}`;": 'id-path',
 };
 
 function idShapedSites(): string[] {
@@ -243,8 +308,18 @@ describe('flow designer node names go through one rule (objectui#13200)', () => 
     expect(matches).toHaveLength(1);
   });
 
-  it('every id-shaped site is listed, with the reason the id is right there or as open', () => {
+  it('every id-shaped site is listed, with the reason the id is right there', () => {
     expect(idShapedSites()).toEqual(Object.keys(ID_SITES).sort());
+  });
+
+  it('objectui#13242: no site is left open — every listed site has a reason', () => {
+    const verdicts: string[] = Object.values(ID_SITES);
+    // Population control: the scan still finds the sites the ledger reasons about,
+    // so "no open entry" is not read off an empty list.
+    expect(idShapedSites().length).toBe(verdicts.length);
+    expect(verdicts.length).toBeGreaterThanOrEqual(15);
+    expect(verdicts.filter((v) => v === 'own-title')).toHaveLength(5);
+    expect(verdicts).not.toContain('open');
   });
 
   it('control: each shape catches the spelling the converted sites used to have', () => {
@@ -259,6 +334,9 @@ describe('flow designer node names go through one rule (objectui#13200)', () => 
     for (const [shape, line] of before) expect(ID_SHAPES[shape].test(line)).toBe(true);
     // ... and passes the converted spelling.
     expect(Object.values(ID_SHAPES).some((re) => re.test("label: flowEdgeDisplayName(p.target, nodes, locale)"))).toBe(false);
+    // objectui#13242 — the cycle's names, joined after the rule mapped them.
+    expect(ID_SHAPES['id-join'].test(".join(' → ');")).toBe(false);
+    expect(ID_SHAPES['id-join'].test("cycle.map((id) => named.get(id)).join(' → ')")).toBe(false);
     expect(
       Object.values(ID_SHAPES).some((re) =>
         re.test("tFormat('engine.flowValidate.nodeUnreachable', locale, { name, id: n.id })"),

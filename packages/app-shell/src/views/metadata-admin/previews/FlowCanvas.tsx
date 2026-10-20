@@ -60,7 +60,7 @@ import {
   type LabeledRegion,
 } from './flow-canvas-layout.js';
 import { predictExpandedNodeHeight } from './flow-region-metrics.js';
-import { NodeCard, NodePalette, defaultNodeLabel, defaultNodeExtras } from './flow-canvas-parts.js';
+import { NodeCard, NodePalette, defaultNodeLabel, defaultNodeExtras, flowEdgeDisplayName, flowNodeDisplayName } from './flow-canvas-parts.js';
 import { useFlowNodePalette } from './useFlowNodePalette.js';
 import {
   indexProblemBadges,
@@ -876,6 +876,12 @@ export function FlowCanvas({
     const route = forwardRoute(edge.source, edge.target, from, to, branchPillSize(edge));
     return { back, from, to, d: route.d, labelPos: route.label };
   };
+  // objectui#13242 — an edge end as its hover title names it: by the rule, and
+  // by its id only where no node answers to it.
+  const endName = (id: string): string => {
+    const node = nodes.find((n) => n.id === id);
+    return node ? flowNodeDisplayName(node, locale) : id;
+  };
   // objectui#12507 — each edge's branch pill: its text, its full wording, and
   // how wide it may draw before it would reach a neighbouring pill.
   const branchLabels = layoutBranchLabels(edges.map((edge) => {
@@ -1111,10 +1117,10 @@ export function FlowCanvas({
                     >
                       <title>
                         {invalid
-                          ? tFormat('engine.flowCanvas.edge.undeclaredCycle', locale, { source: edge.source, target: edge.target })
+                          ? tFormat('engine.flowCanvas.edge.undeclaredCycle', locale, { source: endName(edge.source), target: endName(edge.target) })
                           : back
-                            ? tFormat('engine.flowCanvas.edge.backEdge', locale, { source: edge.source, target: edge.target })
-                            : `${edge.source} → ${edge.target}`}
+                            ? tFormat('engine.flowCanvas.edge.backEdge', locale, { source: endName(edge.source), target: endName(edge.target) })
+                            : flowEdgeDisplayName(edge, nodes, locale)}
                       </title>
                     </path>
                   )}

@@ -36,6 +36,7 @@
  * on its own and is not mounted here. This file pins the page's own share.
  */
 
+import { useEffect } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
@@ -107,8 +108,10 @@ const seen: { t: unknown; i18n: { addResourceBundle: (...a: unknown[]) => unknow
 function Controls() {
   const { t, i18n, changeLanguage } = useObjectTranslation();
   const navigate = useNavigate();
-  seen.t = t;
-  seen.i18n = i18n as unknown as typeof seen.i18n;
+  useEffect(() => {
+    seen.t = t;
+    seen.i18n = i18n as unknown as typeof seen.i18n;
+  });
   return (
     <div>
       <button type="button" onClick={() => void changeLanguage('zh')}>switch to zh</button>

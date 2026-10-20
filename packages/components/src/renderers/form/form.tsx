@@ -118,15 +118,33 @@ function SectionDivider({ label, description, collapsible, collapsed, onToggle, 
   className?: string;
 }) {
   if (!dividerDrawsRow(label, description)) return null;
+  // objectui#13220 — a collapsible row is a disclosure control a keyboard can
+  // operate: a tab stop (`tabIndex`) that Enter and Space toggle, as the record
+  // detail page's section header is (objectui#12625). Before this it carried
+  // `role="button"` and `aria-expanded` with an `onClick` only, so the Tab
+  // cycle stepped over it and a collapsed group could not be opened without a
+  // mouse. `preventDefault` keeps Space from scrolling the dialog; a held key's
+  // auto-repeat does not toggle the group back and forth. A plain heading stays
+  // a plain row: no role, no tab stop. There is no `aria-controls`: the group's
+  // fields are siblings of this row in the form's field grid, with no element
+  // of their own to point at, and a collapsed group's fields are not mounted.
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    if (!event.repeat) onToggle?.();
+  };
   return (
     <div
       className={cn(
         'col-span-full pt-4 pb-1 border-b border-border',
-        collapsible && 'cursor-pointer select-none',
+        collapsible &&
+          'cursor-pointer select-none ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         className
       )}
       onClick={collapsible ? onToggle : undefined}
+      onKeyDown={collapsible ? handleKeyDown : undefined}
       role={collapsible ? 'button' : undefined}
+      tabIndex={collapsible ? 0 : undefined}
       aria-expanded={collapsible ? !collapsed : undefined}
     >
       {label && (

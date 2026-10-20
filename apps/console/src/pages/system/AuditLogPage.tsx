@@ -307,16 +307,20 @@ export function AuditLogPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters
+  // Filters. Each filter control is named by its visible label: the label's
+  // `htmlFor` names the control's own `id` (objectui#13224).
   const [actionFilter, setActionFilter] = useState<string>('all');
+  const actionFilterId = useId();
   /** The chosen object's API name, or '' for any object. */
   const [objectFilter, setObjectFilter] = useState<string>('');
-  /** The object picker is named by its visible "Object" label. */
   const objectFilterId = useId();
   /** The chosen user's id, or '' for any actor. */
   const [actorFilter, setActorFilter] = useState<string>('');
+  const actorFilterId = useId();
   const [fromDate, setFromDate] = useState<string>('');  // YYYY-MM-DD
+  const fromDateId = useId();
   const [toDate, setToDate] = useState<string>('');
+  const toDateId = useId();
   /** The presets row is named by its visible caption. */
   const presetsCaptionId = useId();
   /** The chosen preset's view key, or null for none. */
@@ -472,9 +476,9 @@ export function AuditLogPage() {
             </div>
           )}
           <div className="space-y-1.5">
-            <Label className="text-xs">Action</Label>
+            <Label htmlFor={actionFilterId} className="text-xs">Action</Label>
             <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setPage(0); }}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger id={actionFilterId} className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All actions</SelectItem>
                 {actionOptions.map((a) => (
@@ -501,10 +505,13 @@ export function AuditLogPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Actor</Label>
+            <Label htmlFor={actorFilterId} className="text-xs">Actor</Label>
             {/* The same lookup a `sys_user` reference field gets. It commits the
-                chosen user's id, and removing the chip commits null. */}
+                chosen user's id, and removing the chip commits null. Its `id`
+                reaches the lookup's trigger button, the control the label
+                names. */}
             <LookupField
+              id={actorFilterId}
               value={actorFilter || null}
               onChange={(v: unknown) => { setActorFilter(v == null ? '' : String(v)); setPage(0); }}
               dataSource={adapter}
@@ -518,12 +525,12 @@ export function AuditLogPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">From</Label>
-            <Input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(0); }} className="h-9" />
+            <Label htmlFor={fromDateId} className="text-xs">From</Label>
+            <Input id={fromDateId} type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(0); }} className="h-9" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">To</Label>
-            <Input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(0); }} className="h-9" />
+            <Label htmlFor={toDateId} className="text-xs">To</Label>
+            <Input id={toDateId} type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(0); }} className="h-9" />
           </div>
           {activeFilterCount > 0 && (
             <div className="md:col-span-5 flex justify-end">

@@ -248,6 +248,55 @@ function mapFieldTypeToFilterType(
 }
 
 /**
+ * Fit one option's preview line to its one line (objectui#13123): show every
+ * segment, then hide the last one still shown for as long as the line
+ * overflows, so a column the line cannot hold leaves WHOLE, together with every
+ * column after it. A segment that draws a badge never shrinks and a text
+ * segment never shrinks below its label (`previewOf`), so this is the only way
+ * a column gives way once the text values are cut as far as they go.
+ *
+ * Read off the rendered box, never computed from field types: a cell renderer
+ * draws what it draws, and only the browser knows how wide that is. jsdom has
+ * no layout, where both widths read 0 and nothing is hidden.
+ */
+function fitPreviewLine(line: HTMLElement): void {
+  const segments = Array.from(line.children) as HTMLElement[];
+  for (const segment of segments) segment.hidden = false;
+  for (let i = segments.length - 1; i >= 0 && line.scrollWidth > line.clientWidth; i -= 1) {
+    segments[i].hidden = true;
+  }
+}
+
+/**
+ * The line under an option's label: the segments `previewOf` builds, fitted by
+ * {@link fitPreviewLine} after every commit (the segments may have changed)
+ * and whenever the line's own box is resized (the popover follows its
+ * trigger's width).
+ */
+function OptionPreviewLine({ children }: { children: React.ReactNode }) {
+  const lineRef = useRef<HTMLSpanElement>(null);
+  React.useLayoutEffect(() => {
+    if (lineRef.current) fitPreviewLine(lineRef.current);
+  });
+  React.useLayoutEffect(() => {
+    const line = lineRef.current;
+    if (!line || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => fitPreviewLine(line));
+    observer.observe(line);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <span
+      ref={lineRef}
+      className="flex min-w-0 items-center gap-1 overflow-hidden text-xs text-muted-foreground"
+      data-testid="lookup-option-preview"
+    >
+      {children}
+    </span>
+  );
+}
+
+/**
  * Lookup field for selecting related records.
  * Supports single and multi-select with search.
  *
@@ -1297,6 +1346,18 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    * key is a held value, so it keeps its column and shows whatever the lookup
    * cell renderer shows for it — never a silently empty slot, which the field
    * report behind this issue calls out as worse than showing the bare id.
+   *
+   * Each column is one SEGMENT — its separator, its label and its value — and
+   * the line shows a column whole or not at all (objectui#13123). Every
+   * column used to be a `min-w-0 truncate` span, so the line shrank them all
+   * together and a badge was cut to its first glyph ("A.", "P..."):
+   *  - a column whose cell is drawn by the renderer that draws a `select`
+   *    badge keeps its full width: no shrink, no clamp on its value;
+   *  - any other column truncates its VALUE, never below its label (the
+   *    `minmax(0, max-content)` track gives the value nothing of the
+   *    segment's minimum width, so that minimum is the label);
+   *  - a column the line still cannot hold leaves whole, with every column
+   *    after it (`fitPreviewLine`).
    */
   const previewOf = useCallback(
     (option: LookupOption): React.ReactNode => {
@@ -1309,21 +1370,40 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         return v !== null && v !== undefined && v !== '';
       });
       if (cols.length === 0) return null;
-      return cols.map((col, i) => (
-        <React.Fragment key={col.field}>
-          {i > 0 && <span aria-hidden="true" className="shrink-0 opacity-60">·</span>}
-          <span className="flex min-w-0 items-center gap-1 truncate">
-            <span className="shrink-0 opacity-70">{`${col.label || fieldToLabel(col.field)}:`}</span>
-            <span className="min-w-0 truncate" data-lookup-preview={col.field}>
-              {renderLookupColumnValue(row, col, {
-                descriptors: previewDescriptors,
-                cellRenderer: getCellRendererResolver(),
-                displayLocale,
-              })}
-            </span>
+      const cellRenderer = getCellRendererResolver();
+      // Asked of the renderer map itself, so every type it draws as a badge
+      // (`status`, `multiselect`, `radio`, …) is one with `select`, and no
+      // second list of those types can drift from it.
+      const badgeRenderer = cellRenderer?.('select');
+      return cols.map((col, i) => {
+        const type = previewDescriptors[col.field]?.type;
+        const drawsBadge = !!badgeRenderer && !!type && cellRenderer?.(type) === badgeRenderer;
+        // `whitespace-nowrap`: in the grid's `auto` track a label that may wrap
+        // ("Annual Revenue:") would break onto a second line before its value
+        // gave way, and the row would grow.
+        const lead = (
+          <span className="flex items-center gap-1 whitespace-nowrap">
+            {i > 0 && <span aria-hidden="true" className="opacity-60">·</span>}
+            <span className="opacity-70">{`${col.label || fieldToLabel(col.field)}:`}</span>
           </span>
-        </React.Fragment>
-      ));
+        );
+        const value = renderLookupColumnValue(row, col, {
+          descriptors: previewDescriptors,
+          cellRenderer,
+          displayLocale,
+        });
+        return drawsBadge ? (
+          <span key={col.field} className="flex shrink-0 items-center gap-1">
+            {lead}
+            <span data-lookup-preview={col.field}>{value}</span>
+          </span>
+        ) : (
+          <span key={col.field} className="grid grid-cols-[auto_minmax(0,max-content)] items-center gap-1">
+            {lead}
+            <span className="min-w-0 truncate" data-lookup-preview={col.field}>{value}</span>
+          </span>
+        );
+      });
     },
     [previewRows, readablePreviewColumns, previewDescriptors, displayLocale],
   );
@@ -1748,14 +1828,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
                             {(() => {
                               const preview = previewOf(option);
                               if (!preview) return null;
-                              return (
-                                <span
-                                  className="flex min-w-0 items-center gap-1 overflow-hidden text-xs text-muted-foreground"
-                                  data-testid="lookup-option-preview"
-                                >
-                                  {preview}
-                                </span>
-                              );
+                              return <OptionPreviewLine>{preview}</OptionPreviewLine>;
                             })()}
                           </div>
                           {isSelected && (

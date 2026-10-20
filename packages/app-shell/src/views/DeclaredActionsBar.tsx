@@ -121,18 +121,20 @@ export interface DeclaredActionsBarProps {
 
 /**
  * Which approvals lever a declared action pulls, read off the route its
- * `target` names (`…/requests/{id}/approve`, `…/reject`, `…/reassign`).
+ * `target` names (`…/requests/{id}/approve`, `…/reject`, `…/reassign`,
+ * `…/recall`).
  *
  * The route is the server's own name for what the action does, so it answers
  * the bar's two questions about a lever without an action-name list: which
  * decision a click records (the decision-output params), and what an override
- * notice may say the click does (objectui#13164). Any other route reads
- * `undefined`.
+ * notice may say the click does (objectui#13164, objectui#13225). Any other
+ * route reads `undefined`.
  */
-const APPROVAL_ROUTE_VERB = /\/(approve|reject|reassign)$/;
-function approvalRouteVerb(action: ActionDef): 'approve' | 'reject' | 'reassign' | undefined {
+type ApprovalRouteVerb = 'approve' | 'reject' | 'reassign' | 'recall';
+const APPROVAL_ROUTE_VERB = /\/(approve|reject|reassign|recall)$/;
+function approvalRouteVerb(action: ActionDef): ApprovalRouteVerb | undefined {
   const match = APPROVAL_ROUTE_VERB.exec(String(action.target ?? ''));
-  return match ? (match[1] as 'approve' | 'reject' | 'reassign') : undefined;
+  return match ? (match[1] as ApprovalRouteVerb) : undefined;
 }
 
 /**
@@ -290,15 +292,42 @@ const DeclaredActionButton: React.FC<{
    * for a caller who holds no slot), the request stays `pending` and waits on
    * them, and the action row is written with `via_override: true`.
    *
+   * A recall is not a decision either, and records no override
+   * (objectui#13225). The admin who reaches it through the override arm did
+   * not submit the request (a submitter reaches it through their own arm, and
+   * `isOverrideDecision` leaves that the plain Recall). `ApprovalService.recall`
+   * withdraws the request: status `recalled`, its pending approvers cleared so
+   * none of them can act, the record's approval-status mirror (when one is
+   * configured) set to `recalled`, and the owning run resumed with
+   * `decision: 'recall'`. Its action row is written with `action: 'recall'` and
+   * no `via_override`. So the recall notice says the request is withdrawn, its
+   * approvers can no longer act and the record is unlocked, and it claims
+   * neither a finalised step nor an override record.
+   *
    * The lever is read off the declared `target` route, the same reading the
    * click handler's decision-output branch makes (`approvalRouteVerb`) — not
    * off an action-name list, which a ninth lever shipped as metadata would
-   * miss. Every lever that is not a reassign keeps the decision sentence
-   * unchanged.
+   * miss. Every lever that is not a reassign or a recall keeps the decision
+   * sentence unchanged.
    */
-  const isReassignOverride = isOverride && approvalRouteVerb(action) === 'reassign';
+  const overrideVerb = isOverride ? approvalRouteVerb(action) : undefined;
+  const recallOverrideNotice = overrideVerb !== 'recall'
+    ? undefined
+    : bypassed.length > 0
+      ? String(t('approvalsInbox.overrideRecallNoticeWho', {
+        defaultValue:
+          'You did not submit this request. Continuing uses your admin override: the request is withdrawn, the record is unlocked, and the approvers who have not acted can no longer act on it — {{who}}.',
+        who: bypassed.join(', '),
+      }))
+      : String(t('approvalsInbox.overrideRecallNotice', {
+        defaultValue:
+          'You did not submit this request. Continuing uses your admin override: the request is withdrawn, any approver who has not acted can no longer act on it, and the record is unlocked.',
+      }));
+  const isReassignOverride = overrideVerb === 'reassign';
   const overrideNotice = !isOverride
     ? undefined
+    : overrideVerb === 'recall'
+    ? recallOverrideNotice
     : isReassignOverride
       ? bypassed.length > 0
         ? String(t('approvalsInbox.overrideReassignNoticeWho', {

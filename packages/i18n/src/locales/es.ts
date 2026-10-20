@@ -3984,6 +3984,8 @@ const es = {
     overrideNoticeWho: 'No ocupa ningún puesto de aprobador en este paso. Al continuar se usará su anulación de administrador: el paso se finaliza de inmediato y se omite a los aprobadores que aún no han actuado — {{who}}. La decisión se registra como anulación de administrador.',
     overrideReassignNotice: 'No ocupa ningún puesto de aprobador en este paso. Al continuar se usará su anulación de administrador: el paso pasa al nuevo aprobador que elija, que sustituye a cualquier aprobador que aún no haya actuado. La solicitud sigue pendiente a la espera del nuevo aprobador. La reasignación se registra como anulación de administrador.',
     overrideReassignNoticeWho: 'No ocupa ningún puesto de aprobador en este paso. Al continuar se usará su anulación de administrador: el paso pasa al nuevo aprobador que elija, que sustituye a los aprobadores que aún no han actuado — {{who}}. La solicitud sigue pendiente a la espera del nuevo aprobador. La reasignación se registra como anulación de administrador.',
+    overrideRecallNotice: 'No envió esta solicitud. Al continuar se usará su anulación de administrador: la solicitud se retira, ningún aprobador que aún no haya actuado podrá actuar sobre ella y el registro se desbloquea.',
+    overrideRecallNoticeWho: 'No envió esta solicitud. Al continuar se usará su anulación de administrador: la solicitud se retira, el registro se desbloquea y los aprobadores que aún no han actuado ya no podrán actuar sobre ella — {{who}}.',
     viaOverrideChip: 'Anulación de administrador',
     viaOverrideHint: 'Quien actuó no ocupaba ningún puesto de aprobador en este paso: fue admitido por la vía de anulación de administrador.',
     overrideActor: 'Actuar como otra identidad (admin)',

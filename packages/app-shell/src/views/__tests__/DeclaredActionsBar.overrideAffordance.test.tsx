@@ -21,8 +21,8 @@
  *      what is about to be bypassed would not have stopped that click;
  *   3. a designated approver is untouched — this must not become friction on
  *      the ordinary path;
- *   4. a submitter-gated action (`approval_recall`) is never relabelled, even
- *      for a viewer who also holds override rights;
+ *   4. the submitter's own recall is never relabelled, even for a viewer who
+ *      also holds override rights (objectui#13225);
  *   5. NO `confirmText` is added. These actions collect params, so the runtime
  *      opens the param dialog and nothing is POSTed until its own Confirm —
  *      chaining a confirm in front of it puts up a first dialog that already
@@ -132,7 +132,17 @@ import { resetApproverDirectoryCache } from '../../hooks/useApproverDirectory';
  * hide behind this simplification.
  */
 const DECISION_VISIBLE = 'record.viewer.can_act || record.viewer.can_override';
-const SUBMITTER_VISIBLE = 'record.viewer.is_submitter';
+/**
+ * `approval_recall`'s gate as `plugin-approvals` ships it, reduced the same
+ * way: the submitter arm (pending or returned) OR the admin-override arm. The
+ * override arm has been on the declaration since objectstack#12716; this
+ * fixture used to declare the recall submitter-only, which hid that a
+ * submitter who also holds override rights reaches the button through BOTH
+ * arms (objectui#13225).
+ */
+const RECALL_VISIBLE =
+  '(record.status == "pending" || record.status == "returned") && record.viewer.is_submitter'
+  + ' || record.viewer.can_override';
 
 // objectui#5622 — `circle-check-big` / `circle-x`, not the retired
 // `check-circle` / `x-circle`. This suite mocks `getIcon` outright, so these
@@ -171,10 +181,12 @@ const ACTIONS = [
   {
     name: 'approval_recall',
     label: 'Recall',
+    description: 'Recall this request? Approvers can no longer act on it and the record is unlocked.',
     type: 'api',
     method: 'POST',
     target: '/api/v1/approvals/requests/{id}/recall',
-    visible: SUBMITTER_VISIBLE,
+    params: [{ name: 'comment', label: 'Comment', type: 'textarea' }],
+    visible: RECALL_VISIBLE,
     locations: ['record_section'],
   },
 ] as any[];
@@ -369,8 +381,10 @@ describe('DeclaredActionsBar — the ordinary path is untouched (objectui#5178)'
     expect(approve.textContent).not.toContain('Override');
   });
 
-  it('never relabels a submitter-gated action for an override-capable viewer', () => {
-    // `approval_recall` is admitted by `is_submitter`, not by `can_override`.
+  it('never relabels the submitter\'s own recall for an override-capable viewer', () => {
+    // `approval_recall` ORs in `can_override` too, but this viewer reaches it
+    // through its `is_submitter` arm: withdrawing their own request is the
+    // ordinary path, not an override (objectui#13225).
     renderBar({ can_act: false, is_submitter: true, can_override: true });
     const recall = screen.getByTestId('declared-action-approval_recall');
     expect(recall.getAttribute('data-override-decision')).toBeNull();
@@ -566,6 +580,113 @@ describe('DeclaredActionsBar — an override reassign is told it reassigns (obje
     const dispatch = await dispatchOf('approval_reassign');
     expect(dispatch.target).toBe('/api/v1/approvals/requests/{id}/reassign');
     expect(dispatch.actionParams.map((p: any) => p.name)).toEqual(['to', 'comment']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// objectui#13225 — a recall is told it recalls, and the submitter's own recall
+// is not an override.
+//
+// `approval_recall` ORs in `can_override` since objectstack#12716, so
+// `isOverrideDecision` admitted it for every override-capable viewer, the
+// submitter's own recall included, and the notice fell to the decision
+// sentence. `ApprovalService.recall` (`plugin-approvals`) does neither thing
+// that sentence claims: it sets the request `recalled`, clears its pending
+// approvers, and writes its action row with `action: 'recall'` and no
+// `via_override`. So the submitter keeps the plain Recall, and an admin who did
+// not submit the request is told what a recall does.
+// ---------------------------------------------------------------------------
+
+const SUBMITTER = { can_act: false, is_submitter: true, can_override: false };
+const SUBMITTER_ADMIN = { can_act: false, is_submitter: true, can_override: true };
+
+describe('DeclaredActionsBar — a recall is told it recalls (objectui#13225)', () => {
+  it('gives a submitter who is also an admin the plain Recall, with no notice', async () => {
+    renderLevers(SUBMITTER_ADMIN);
+    const recall = screen.getByTestId('declared-action-approval_recall');
+    expect(recall.textContent).not.toContain('Override');
+    expect(recall.getAttribute('data-override-decision')).toBeNull();
+    expect(recall.textContent).toContain('Recall');
+
+    const dispatch = await dispatchOf('approval_recall');
+    expect(dispatch.overrideNotice).toBeUndefined();
+    expect(String(dispatch.label)).toBe('Recall');
+  });
+
+  it('gives a submitter who is not an admin the plain Recall, as before — the control', async () => {
+    renderLevers(SUBMITTER);
+    const recall = screen.getByTestId('declared-action-approval_recall');
+    expect(recall.getAttribute('data-override-decision')).toBeNull();
+    expect(recall.textContent).not.toContain('Override');
+
+    const dispatch = await dispatchOf('approval_recall');
+    expect(dispatch.overrideNotice).toBeUndefined();
+    expect(String(dispatch.label)).toBe('Recall');
+  });
+
+  it('tells an override-only admin what a recall does, and nothing a recall does not do', async () => {
+    renderLevers(OVERRIDE_ONLY);
+    const recall = screen.getByTestId('declared-action-approval_recall');
+    // Still framed as an override: this viewer did not submit the request.
+    expect(recall.getAttribute('data-override-decision')).toBe('true');
+    expect(recall.textContent).toContain('Override Recall');
+
+    const dispatch = await dispatchOf('approval_recall');
+    const notice = String(dispatch.overrideNotice);
+    // The two claims a recall cannot make: the server finalises no step, and
+    // writes no override marker on the recall's action row.
+    expect(notice).not.toMatch(/finalis/i);
+    expect(notice).not.toContain('recorded as an admin override');
+    // What it does, read as facts, with the approvers it stops named.
+    expect(notice).toContain('withdrawn');
+    expect(notice).toContain('unlocked');
+    expect(notice).toContain(BYPASSED);
+    expect(notice).toBe(pack.overrideRecallNoticeWho.replace('{{who}}', BYPASSED));
+    expect(String(dispatch.label)).toBe('Override Recall');
+  });
+
+  it('has its own wording when there is no pending approver to name', async () => {
+    renderLevers(OVERRIDE_ONLY, { id: 'req_2', status: 'pending', pending_approvers: [] });
+    const notice = String((await dispatchOf('approval_recall')).overrideNotice);
+
+    expect(notice).not.toMatch(/finalis/i);
+    expect(notice).not.toContain('recorded as an admin override');
+    expect(notice).toBe(pack.overrideRecallNotice);
+  });
+
+  it('leaves approve on the decision sentence and reassign on its own — the control', async () => {
+    renderLevers(OVERRIDE_ONLY);
+    const approve = String((await dispatchOf('approval_approve')).overrideNotice);
+    expect(approve).toBe(pack.overrideNoticeWho.replace('{{who}}', BYPASSED));
+    expect(approve).toContain('finalises the step immediately');
+    expect(String((await dispatchOf('approval_reassign')).overrideNotice))
+      .toBe(pack.overrideReassignNoticeWho.replace('{{who}}', BYPASSED));
+  });
+
+  it('still marks a decision lever as an override for a submitter-admin — the control', async () => {
+    // The submitter arm belongs to the recall's declaration. Approve declares
+    // none, so a submitter-admin approving their own request still reaches it
+    // through the override door alone, exactly as before.
+    renderLevers(SUBMITTER_ADMIN);
+    const approve = screen.getByTestId('declared-action-approval_approve');
+    expect(approve.getAttribute('data-override-decision')).toBe('true');
+    expect(String((await dispatchOf('approval_approve')).overrideNotice))
+      .toBe(pack.overrideNoticeWho.replace('{{who}}', BYPASSED));
+  });
+
+  it('sends the recall unchanged — its own params, no decision outputs, no confirm', async () => {
+    // The route reading that picks the notice also picks which decision a click
+    // records; a recall records none, so a row's decision outputs stay off it.
+    renderLevers(OVERRIDE_ONLY, {
+      ...STAFFED_REQUEST,
+      decision_output_defs: [{ key: 'owning_team', type: 'team' }],
+    });
+    const dispatch = await dispatchOf('approval_recall');
+    expect(dispatch.target).toBe('/api/v1/approvals/requests/{id}/recall');
+    expect(dispatch.method).toBe('POST');
+    expect(dispatch.params._rowRecord.id).toBe('req_1');
+    expect(dispatch.actionParams.map((p: any) => p.name)).toEqual(['comment']);
+    expect(dispatch.confirmText).toBeUndefined();
   });
 });
 

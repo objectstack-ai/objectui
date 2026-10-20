@@ -129,10 +129,12 @@ const formNode = (formType: 'modal' | 'drawer') =>
 
 /** Each host as the console mounts an overlay: under a boundary of its own. */
 function mountHost(formType: 'modal' | 'drawer') {
-  const Form = formType === 'modal' ? ModalForm : DrawerForm;
+  const ds = makeDataSource();
   render(
     <Suspense fallback={<div data-testid="host-fallback">loading</div>}>
-      <Form schema={formNode(formType)} dataSource={makeDataSource()} />
+      {formType === 'modal'
+        ? <ModalForm schema={formNode('modal')} dataSource={ds} />
+        : <DrawerForm schema={formNode('drawer')} dataSource={ds} />}
     </Suspense>,
   );
 }

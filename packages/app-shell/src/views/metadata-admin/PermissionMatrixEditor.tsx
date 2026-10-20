@@ -1024,9 +1024,14 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
       // Environment door (no packageId) stays live (config).
       // objectui#11773 — the guard pins the package door's DRAFT save; the
       // environment door's live write passes through it unpinned, as before.
+      // objectui#12725 — the draft names its authoring surface only under the
+      // Studio host (`embedded`, the Access pillar), so a person's edit there
+      // is recorded `studio`, not `api`. metadata-admin mounts this page with
+      // neither `packageId` nor `embedded`, and states no surface.
       const outcome = await saveVersioned(type, payload.name, toSave, {
         force,
         ...(packageId ? { mode: 'draft' as const, packageId } : {}),
+        ...(packageId && embedded ? { surface: 'studio' as const } : {}),
       });
       // The author chose the saved version; the load replaces the matrix.
       if (outcome === 'reloaded') return;

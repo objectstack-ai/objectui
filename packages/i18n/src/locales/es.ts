@@ -4335,6 +4335,7 @@ const es = {
     toggleLabel: "Activación de {{label}}",
     on: "Activado",
     off: "Desactivado",
+    notRunning: "No se ejecuta aquí",
     clone: "Clonar",
     cloneTitle: "Clonar flujo del paquete",
     cloneBody: "La copia conserva toda la definición y necesita un nombre de máquina y una etiqueta nuevos. Edita la copia en Studio.",

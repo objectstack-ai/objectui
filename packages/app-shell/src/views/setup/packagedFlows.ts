@@ -15,8 +15,8 @@
  *
  * A read projection over what the engine's `getFlowRuntimeStates()` returns —
  * every field optional because older backends answer with fewer of them, and
- * this page must degrade rather than throw. Only `name`, `enabled` and `reason`
- * are read.
+ * this page must degrade rather than throw. Only `name`, `enabled`, `reason`
+ * and `unboundCause` are read.
  */
 export interface FlowRuntimeStateRow {
   name?: unknown;
@@ -27,6 +27,14 @@ export interface FlowRuntimeStateRow {
    * row. `unknown` here like its siblings — only a string is taken.
    */
   reason?: unknown;
+  /**
+   * `FlowRuntimeState.unboundCause` (objectstack#23842): the contract's closed
+   * machine value for WHICH cause `reason` describes, present exactly on the
+   * rows that carry `reason` — an enabled flow that declares a trigger the
+   * engine has not armed. `unknown` here like its siblings — only a non-empty
+   * string is taken.
+   */
+  unboundCause?: unknown;
   [key: string]: unknown;
 }
 
@@ -50,6 +58,44 @@ export interface PackagedFlowRow {
    * matched, compared or restyled on this side, and none is kept in this repo.
    */
   reason?: string;
+  /**
+   * The engine's `unboundCause` for this row — present only when the runtime
+   * row carried a non-empty string one, which the contract sends exactly when
+   * the flow is enabled, declares a trigger, and that trigger is NOT armed on
+   * this deployment. Read for its PRESENCE by {@link activationReading}: the
+   * flow does not run, whichever cause it is (objectui#13159). No cause is
+   * told apart on this page.
+   */
+  unboundCause?: string;
+}
+
+/** What a packaged flow's Activation cell says — see {@link activationReading}. */
+export type ActivationReading = 'on' | 'not-running' | 'off';
+
+/**
+ * What a packaged flow's Activation cell reads as (objectui#13159).
+ *
+ * Two facts sit in that cell and are kept apart: the switch shows and writes
+ * the activation FLAG (the ADR-0126 §7.2 ledger bit), and this reading says
+ * whether the flow RUNS on this deployment. They differ on exactly one kind of
+ * row — enabled, but the engine has not armed its declared trigger (a
+ * deployment policy that keeps package-authored scheduled work off, a disabled
+ * subflow, a missing trigger, a binding failure) — and that row must not read
+ * "On", which an admin takes for "running".
+ *
+ *   - `off` — the flag is off: the flow never runs;
+ *   - `not-running` — the flag is on, and the engine reported an
+ *     `unboundCause` for the row: its trigger is not armed here;
+ *   - `on` — the flag is on and the engine reported no unbound cause: bound to
+ *     its trigger, or a flow with no trigger that runs when invoked.
+ *
+ * The signal is the engine's own classifier field, never the `reason`
+ * sentence (which is rendered, ⛔ never parsed) and never re-derived here from
+ * `bound` / `triggerType`.
+ */
+export function activationReading(row: Pick<PackagedFlowRow, 'enabled' | 'unboundCause'>): ActivationReading {
+  if (!row.enabled) return 'off';
+  return row.unboundCause ? 'not-running' : 'on';
 }
 
 /**
@@ -114,6 +160,7 @@ export function joinPackagedFlows(
     if (!item) continue;
     const label = item.label;
     const reason = state.reason;
+    const unboundCause = state.unboundCause;
     rows.push({
       name,
       label: typeof label === 'string' && label ? label : name,
@@ -124,6 +171,9 @@ export function joinPackagedFlows(
       // with nothing to explain renders exactly as it did before the field
       // existed, and so does every older backend that never sends one.
       ...(typeof reason === 'string' && reason.length > 0 ? { reason } : {}),
+      // Absent the same way, and for the same reason: a backend that predates
+      // the field (objectstack#23842) reads exactly as it did before.
+      ...(typeof unboundCause === 'string' && unboundCause.length > 0 ? { unboundCause } : {}),
     });
   }
   return rows.sort((a, b) => a.label.localeCompare(b.label) || a.name.localeCompare(b.name));

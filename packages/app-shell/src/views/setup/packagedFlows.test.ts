@@ -14,6 +14,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  activationReading,
   envelopeData,
   envelopeRefused,
   isPackagedFlowItem,
@@ -127,6 +128,62 @@ describe('the unbound reason (objectui#9217)', () => {
     );
     expect(rows).toHaveLength(odd.length);
     for (const row of rows) expect(Object.keys(row)).not.toContain('reason');
+  });
+});
+
+describe('the effective state beside the flag (objectui#13159)', () => {
+  it('carries a string `unboundCause` through, and leaves it ABSENT on rows that send none', () => {
+    const rows = joinPackagedFlows(
+      [
+        {
+          name: 'pkg_digest',
+          enabled: true,
+          bound: false,
+          triggerType: 'schedule',
+          reason: 'disabled by deployment policy',
+          unboundCause: 'deployment_policy',
+        },
+        { name: 'pkg_notify', enabled: true, bound: true },
+        // A backend that predates the field sends the sentence alone.
+        { name: 'pkg_older', enabled: true, bound: false, triggerType: 'schedule', reason: 'not armed' },
+      ],
+      [packagedItem('pkg_digest', 'Digest'), packagedItem('pkg_notify', 'Notify'), packagedItem('pkg_older', 'Older')],
+    );
+    const byName = new Map(rows.map((r) => [r.name, r]));
+    expect(byName.get('pkg_digest')).toEqual({
+      name: 'pkg_digest',
+      label: 'Digest',
+      enabled: true,
+      reason: 'disabled by deployment policy',
+      unboundCause: 'deployment_policy',
+    });
+    expect(Object.keys(byName.get('pkg_notify')!)).not.toContain('unboundCause');
+    expect(Object.keys(byName.get('pkg_older')!)).not.toContain('unboundCause');
+  });
+
+  it('ignores an `unboundCause` that is not a non-empty string', () => {
+    const odd: unknown[] = [42, true, null, { cause: 'deployment_policy' }, ['deployment_policy'], ''];
+    const rows = joinPackagedFlows(
+      odd.map((unboundCause, i) => ({ name: `pkg_${i}`, enabled: true, bound: false, unboundCause })),
+      odd.map((_, i) => packagedItem(`pkg_${i}`, `Flow ${i}`)),
+    );
+    expect(rows).toHaveLength(odd.length);
+    for (const row of rows) expect(Object.keys(row)).not.toContain('unboundCause');
+  });
+
+  it('reads an enabled row the engine reports unarmed as not running, whatever the cause', () => {
+    for (const unboundCause of ['deployment_policy', 'disabled_subflow', 'missing_trigger', 'binding_failure']) {
+      expect(activationReading({ enabled: true, unboundCause })).toBe('not-running');
+    }
+  });
+
+  it('reads an enabled row with no unbound cause as on, and a disabled row as off', () => {
+    // Bound to its trigger, or a flow with no trigger that runs when invoked:
+    // the engine sends no cause for either.
+    expect(activationReading({ enabled: true })).toBe('on');
+    expect(activationReading({ enabled: false })).toBe('off');
+    // The flag decides first: a switched-off flow never runs, cause or not.
+    expect(activationReading({ enabled: false, unboundCause: 'deployment_policy' })).toBe('off');
   });
 });
 

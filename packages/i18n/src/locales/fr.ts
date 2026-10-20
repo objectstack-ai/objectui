@@ -4331,6 +4331,7 @@ const fr = {
     toggleLabel: "Activation de {{label}}",
     on: "Activé",
     off: "Désactivé",
+    notRunning: "Ne s'exécute pas ici",
     clone: "Cloner",
     cloneTitle: "Cloner le flux du package",
     cloneBody: "La copie reprend toute la définition et exige un nouveau nom machine et un nouveau libellé. Modifiez la copie dans Studio.",

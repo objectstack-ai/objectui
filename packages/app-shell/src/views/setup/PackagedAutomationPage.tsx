@@ -42,6 +42,18 @@
  * a row that carries one keeps the table's row height — never parsed, never
  * styled as an error. `ReasonDetails` below carries the chip's rules.
  *
+ * And the switch is not the whole of the Activation cell (objectui#13159). The
+ * switch shows and writes the activation FLAG; the badge beside it says
+ * whether the flow RUNS. On a row the engine reports enabled but not armed —
+ * the row carries an `unboundCause`, e.g. every packaged schedule flow while a
+ * deployment keeps package-authored scheduled work off — the switch stays on
+ * (the author may want the flag set for a deployment that does arm it) and the
+ * badge reads "Not running here", the words Studio's rail uses for the same
+ * state, instead of an "On" an admin takes for "running". `activationReading`
+ * in `packagedFlows.ts` is that rule. After a toggle the runtime states are
+ * read again, because the toggle's answer carries the flag alone and the flip
+ * can move what the engine armed — this row's trigger, or a caller of it.
+ *
  * ## Server refusals reach the operator VERBATIM
  *
  * Three refusals are expected here and all three are the server's words,
@@ -111,6 +123,7 @@ import { actionErrorDetail } from '@object-ui/core';
 // reaches the whole flow-designer canvas.
 import { apiBase } from '../../utils/apiBase.js';
 import {
+  activationReading,
   envelopeData,
   envelopeRefused,
   joinPackagedFlows,
@@ -193,9 +206,10 @@ interface CloneDraft {
  * row sent a non-empty string `reason`" — never what the sentence says. The
  * contract's own words on the field are "Consumers RENDER it; ⛔ do not parse
  * it", and a deployment-policy row and a real binding failure arrive in the
- * same `enabled: true, bound: false` shape. A chip that named which of the two
- * a row is needs a structured field beside `reason` (objectstack#23842); until
- * the wire carries one, nothing here names a cause.
+ * same `enabled: true, bound: false` shape. The structured field beside
+ * `reason` that could name which of the two a row is now rides the wire
+ * (`unboundCause`, objectstack#23842); this page reads it for PRESENCE only —
+ * the Activation badge's "not running" — and still names no cause.
  *
  * The disclosure shows the sentence verbatim and whole — not truncated, not
  * reworded, not restyled by what it says — muted, and not as an alert. A
@@ -240,6 +254,12 @@ export function PackagedAutomationPage() {
   const [rows, setRows] = React.useState<PackagedFlowRow[] | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [nonce, setNonce] = React.useState(0);
+  /**
+   * Re-reads the flows half alone (objectui#13159): bumped after a toggle, so
+   * the Activation badges show what the engine armed after the flip. Kept
+   * apart from `nonce` so a flow toggle does not reload the actions section.
+   */
+  const [flowsNonce, setFlowsNonce] = React.useState(0);
   /** Machine name of the flow whose toggle is in flight. */
   const [busyFlow, setBusyFlow] = React.useState<string | null>(null);
   /** Per-flow server refusal, keyed by machine name. Verbatim. */
@@ -274,7 +294,7 @@ export function PackagedAutomationPage() {
       cancelled = true;
       controller.abort();
     };
-  }, [nonce, t]);
+  }, [nonce, flowsNonce, t]);
 
   const clearRefusal = React.useCallback((name: string) => {
     setRefusals((prev) => {
@@ -319,6 +339,12 @@ export function PackagedAutomationPage() {
       const reported = envelopeData(json).enabled;
       const next = typeof reported === 'boolean' ? reported : enabled;
       setRows((prev) => prev?.map((r) => (r.name === row.name ? { ...r, enabled: next } : r)) ?? prev);
+      // The answer carries the flag, not whether the engine armed the flow:
+      // switching a schedule flow on under a deployment policy that keeps
+      // scheduled work off leaves it unarmed, and enabling a subflow can arm
+      // its callers. Read the runtime states again so no badge keeps a stale
+      // "On" (objectui#13159).
+      setFlowsNonce((n) => n + 1);
     } catch (e) {
       setRefusals((prev) => ({
         ...prev,
@@ -474,6 +500,7 @@ export function PackagedAutomationPage() {
           <TableBody>
             {rows.map((row) => {
               const refusal = refusals[row.name];
+              const reading = activationReading(row);
               return (
                 <TableRow key={row.name} data-testid={`packaged-flow-${row.name}`}>
                   <TableCell className="align-top">
@@ -506,10 +533,21 @@ export function PackagedAutomationPage() {
                           label: row.label,
                         })}
                       />
-                      <Badge variant={row.enabled ? 'default' : 'secondary'}>
-                        {row.enabled
+                      {/* Whether the flow RUNS, beside the switch that holds
+                          its flag (objectui#13159). "Not running here" is
+                          outlined, not destructive: a deployment policy is not
+                          a defect, and the Details chip carries the platform's
+                          sentence for why. */}
+                      <Badge
+                        data-testid="packaged-flow-activation"
+                        data-reading={reading}
+                        variant={reading === 'on' ? 'default' : reading === 'not-running' ? 'outline' : 'secondary'}
+                      >
+                        {reading === 'on'
                           ? t('packagedAutomation.on', { defaultValue: 'On' })
-                          : t('packagedAutomation.off', { defaultValue: 'Off' })}
+                          : reading === 'not-running'
+                            ? t('packagedAutomation.notRunning', { defaultValue: 'Not running here' })
+                            : t('packagedAutomation.off', { defaultValue: 'Off' })}
                       </Badge>
                     </div>
                   </TableCell>

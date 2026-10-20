@@ -3,7 +3,7 @@
 /**
  * Setup › Packaged automation (ADR-0126 §7.4) — behaviour.
  *
- * Six properties, in the order the page exercises them:
+ * Seven properties, in the order the page exercises them:
  *
  *   1. **scope** — the list is packaged flows only. The rule itself lives in
  *      `packagedFlows.ts` and is measured directly in `packagedFlows.test.ts`;
@@ -32,6 +32,12 @@
  *      Since objectui#12609 the sentence is not in the row at all: it opens
  *      from a neutral chip on the name's line, the same chip whatever the
  *      sentence says, so the row keeps the table's height.
+ *   7. **the effective state** (objectui#13159) — the switch holds the
+ *      activation FLAG, and the badge beside it says whether the flow RUNS: a
+ *      row the engine reports enabled but unarmed (it carries an
+ *      `unboundCause`) keeps its switch on and reads "Not running here", never
+ *      "On". Bound flows and flows with no trigger read "On" exactly as
+ *      before, and a toggle re-reads what the engine armed.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -582,5 +588,143 @@ describe('the platform reason for an unbound flow', () => {
     expect(flowCell('pkg_object').textContent).toBe('Object reasonpkg_object');
     expect(chipIn('pkg_numeric')).toBeNull();
     expect(chipIn('pkg_object')).toBeNull();
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* 7) The Activation cell says whether the flow runs (objectui#13159)          */
+/* -------------------------------------------------------------------------- */
+
+describe('the Activation cell says whether the flow runs', () => {
+  /** The Activation cell of ONE named row: the switch and its badge. */
+  function activationCell(flowName: string): HTMLElement {
+    const cell = screen.getByTestId(`packaged-flow-${flowName}`).querySelectorAll('td')[1];
+    if (!cell) throw new Error(`no activation cell for ${flowName}`);
+    return cell as HTMLElement;
+  }
+
+  /** A packaged schedule flow the deployment's policy left unarmed, flag on. */
+  function withPolicyRow() {
+    fixture.runtime = [
+      ...fixture.runtime,
+      {
+        name: 'pkg_digest',
+        enabled: true,
+        bound: false,
+        triggerType: 'schedule',
+        reason: POLICY_REASON,
+        unboundCause: 'deployment_policy',
+      },
+    ];
+    fixture.meta = [...fixture.meta, packagedItem('pkg_digest', 'Daily digest')];
+  }
+
+  it('does not present an unbound schedule flow with its flag on as running (acceptance)', async () => {
+    withPolicyRow();
+    await renderPage();
+
+    const cell = activationCell('pkg_digest');
+    // The switch keeps the author's flag: on, and still a live control.
+    const toggle = within(cell).getByRole('switch', { name: 'Activation for Daily digest' });
+    expect(toggle).toBeChecked();
+    expect(toggle).toBeEnabled();
+    // The badge says the flow does not run, and nothing in the cell says "On".
+    expect(within(cell).getByText('Not running here')).toBeInTheDocument();
+    expect(within(cell).queryByText('On')).toBeNull();
+    expect(cell.textContent).toBe('Not running here');
+  });
+
+  it('keeps a bound flow, a flow with no trigger and a disabled flow exactly as before (controls)', async () => {
+    fixture.runtime = [...fixture.runtime, { name: 'pkg_manual', enabled: true, bound: false }];
+    fixture.meta = [...fixture.meta, packagedItem('pkg_manual', 'Run by hand')];
+    withPolicyRow();
+    await renderPage();
+
+    // Bound to its trigger: "On".
+    expect(activationCell('pkg_notify').textContent).toBe('On');
+    // No declared trigger, so `bound: false` and no cause: it runs when
+    // invoked, and is never called "not running".
+    expect(activationCell('pkg_manual').textContent).toBe('On');
+    // Switched off: "Off".
+    expect(activationCell('pkg_escalate').textContent).toBe('Off');
+    // The policy row beside them is the only one that reads otherwise.
+    expect(activationCell('pkg_digest').textContent).toBe('Not running here');
+  });
+
+  it('reads every unbound cause the same way, and styles none of them as an error', async () => {
+    withPolicyRow();
+    fixture.runtime = [
+      ...fixture.runtime,
+      {
+        name: 'pkg_sync',
+        enabled: true,
+        bound: false,
+        triggerType: 'record_change',
+        reason: BINDING_FAILED_REASON,
+        unboundCause: 'binding_failure',
+      },
+    ];
+    fixture.meta = [...fixture.meta, packagedItem('pkg_sync', 'Sync accounts')];
+    await renderPage();
+
+    const policy = within(activationCell('pkg_digest')).getByText('Not running here');
+    const failure = within(activationCell('pkg_sync')).getByText('Not running here');
+    // The badge names no cause: the Details chip carries the platform's words.
+    expect(failure.className).toBe(policy.className);
+    for (const badge of [policy, failure]) {
+      expect(badge.className).not.toMatch(/destructive/);
+      expect(badge).not.toHaveAttribute('role', 'alert');
+    }
+  });
+
+  it('still writes the flag from a row that is not running', async () => {
+    withPolicyRow();
+    await renderPage();
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Activation for Daily digest' }));
+    await waitFor(() => expect(toggleCalls()).toHaveLength(1));
+    expect(toggleCalls()[0].url).toContain('/automation/pkg_digest/toggle');
+    expect(toggleCalls()[0].body).toEqual({ enabled: false });
+    await waitFor(() => expect(activationCell('pkg_digest').textContent).toBe('Off'));
+    expect(screen.getByRole('switch', { name: 'Activation for Daily digest' })).not.toBeChecked();
+  });
+
+  it('re-reads what the engine armed after a toggle, so switching an unarmed flow on does not read "On"', async () => {
+    // Off at load: a disabled row carries no unbound cause.
+    fixture.runtime = [
+      ...fixture.runtime,
+      { name: 'pkg_digest', enabled: false, bound: false, triggerType: 'schedule' },
+    ];
+    fixture.meta = [...fixture.meta, packagedItem('pkg_digest', 'Daily digest')];
+    await renderPage();
+    expect(activationCell('pkg_digest').textContent).toBe('Off');
+    const statusReads = () => calls.filter((c) => c.url.endsWith('/automation/_status')).length;
+    const readsBefore = statusReads();
+
+    // What the engine will report once the flag is on: the deployment's policy
+    // keeps the schedule trigger unarmed. The toggle's own answer carries only
+    // `{ name, enabled }`.
+    const row = fixture.runtime.find((r) => r.name === 'pkg_digest')!;
+    Object.assign(row, { reason: POLICY_REASON, unboundCause: 'deployment_policy' });
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Activation for Daily digest' }));
+    await waitFor(() => expect(toggleCalls()).toHaveLength(1));
+    expect(toggleCalls()[0].body).toEqual({ enabled: true });
+
+    await waitFor(() => expect(activationCell('pkg_digest').textContent).toBe('Not running here'));
+    expect(statusReads()).toBe(readsBefore + 1);
+    expect(screen.getByRole('switch', { name: 'Activation for Daily digest' })).toBeChecked();
+  });
+
+  it('does not re-read after a refused toggle', async () => {
+    fixture.toggle = [{ status: 403, body: errorEnvelope('PERMISSION_DENIED', POSTURE_REFUSAL) }];
+    await renderPage();
+    const statusReads = () => calls.filter((c) => c.url.endsWith('/automation/_status')).length;
+    const readsBefore = statusReads();
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Activation for Notify owner' }));
+    expect(await screen.findByText(POSTURE_REFUSAL)).toBeInTheDocument();
+    expect(statusReads()).toBe(readsBefore);
+    expect(activationCell('pkg_notify').textContent).toBe('On');
   });
 });

@@ -4237,6 +4237,7 @@ const de = {
     toggleLabel: "Aktivierung für {{label}}",
     on: "An",
     off: "Aus",
+    notRunning: "Läuft hier nicht",
     clone: "Klonen",
     cloneTitle: "Paket-Flow klonen",
     cloneBody: "Die Kopie übernimmt die gesamte Definition und benötigt einen neuen Maschinennamen und ein neues Label. Bearbeiten Sie die Kopie im Studio.",

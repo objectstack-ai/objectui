@@ -4957,6 +4957,11 @@ const en = {
     toggleLabel: 'Activation for {{label}}',
     on: 'On',
     off: 'Off',
+    // The Activation badge on a flow whose switch is ON but whose trigger the
+    // engine has not armed on this deployment (objectui#13159): the switch
+    // keeps the flag, this says the flow does not run. The same words as
+    // Studio's rail for the same state (`engine.studio.auto.notRunning`).
+    notRunning: 'Not running here',
     clone: 'Clone',
     cloneTitle: 'Clone packaged flow',
     cloneBody:

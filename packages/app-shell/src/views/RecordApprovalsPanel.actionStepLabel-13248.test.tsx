@@ -118,8 +118,10 @@ function stubApi() {
     'fetch',
     vi.fn(async (url: string) => {
       const m = String(url).match(/\/approvals\/requests\/([^/]+)\/actions$/);
-      if (m) return { ok: true, json: async () => ({ data: ACTIONS_BY_REQUEST[m[1]] ?? [] }) } as any;
-      return { ok: false, status: 404, json: async () => ({}) } as any;
+      if (m) {
+        return { ok: true, json: async () => ({ data: ACTIONS_BY_REQUEST[m[1]] ?? [] }) } as unknown as Response;
+      }
+      return { ok: false, status: 404, json: async () => ({}) } as unknown as Response;
     }),
   );
 }

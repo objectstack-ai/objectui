@@ -21,8 +21,8 @@ import {
   runSettingsAction,
   saveSettingsNamespace,
 } from './api';
-import { resolveLabel, type SettingsNamespacePayload } from './types';
-import { useSettingsLabel } from './useSettingsLabel';
+import { resolveLabel, type SettingsNamespacePayload, type Specifier } from './types';
+import { useSettingsLabel, type SettingsLabelHelpers } from './useSettingsLabel';
 import { useUnsavedLeaveGuard } from './useUnsavedLeaveGuard';
 
 /**
@@ -97,6 +97,38 @@ function cryptoRefusalOf(apiError: unknown): CryptoRefusal {
     subject: key ? (namespace ? `${namespace}.${key}` : key) : undefined,
     prescription: nonEmpty(e.message),
   };
+}
+
+/**
+ * The settings a refused save names, by the label each row draws
+ * (objectui#13146): the manifest literal, through the same
+ * `labels.fieldLabel` lookup `SettingsField` renders, so the toast and the row
+ * call a setting by the same name in every pack.
+ *
+ * The refusal's `field` is the machine key and is never shown. The server's
+ * `FieldError.label` is not read either: the settings service fills it with
+ * the manifest literal, untranslated, so it would name the setting differently
+ * from its row in any pack that translates the label. A key no specifier on
+ * this page declares, or one whose label resolves empty, is left out: the page
+ * has no product name for it, and its row (if any) carries its own message.
+ * Order is the refusal's, which is the manifest's.
+ */
+function refusedSettingLabels(
+  refused: ReadonlyArray<{ field: string }>,
+  specifiers: ReadonlyArray<Specifier>,
+  labels: SettingsLabelHelpers,
+): string[] {
+  const named: string[] = [];
+  const seen = new Set<string>();
+  for (const { field } of refused) {
+    if (seen.has(field)) continue;
+    seen.add(field);
+    const spec = specifiers.find((s) => s.key === field);
+    if (!spec) continue;
+    const label = labels.fieldLabel(field, resolveLabel(spec.label));
+    if (label) named.push(label);
+  }
+  return named;
 }
 
 export function SettingsView() {
@@ -269,13 +301,33 @@ export function SettingsView() {
         //
         // The toast still fires: the offending field can be scrolled out of
         // view, or hidden behind a `visible` expression, and a save that
-        // silently does nothing is the worse failure. It carries the server's
-        // summary message, which already names the fields.
+        // silently does nothing is the worse failure.
+        //
+        // With per-field rejections the toast names the settings by their
+        // labels and leaves the reasons to the rows (objectui#13146). The
+        // server's summary sentence (`SettingsValidationError.message`) is
+        // written for logs: it leads with the namespace and each machine key,
+        // calls every refusal "incomplete" even for a malformed value, and
+        // repeats each row's whole message, help text included.
+        // `{{settings}}` is the labels joined with the pack's own list
+        // separator, the one the record form's field lists use.
         const perField = extractFieldErrors(apiError);
         if (perField?.length) {
           setFieldErrors(Object.fromEntries(perField.map((f) => [f.field, f.message])));
+          const named = refusedSettingLabels(perField, manifest.specifiers, labels);
+          toast.error(
+            named.length > 0
+              ? t('console.settingsView.fieldErrorsToast', {
+                  count: named.length,
+                  settings: named.join(t('validation.formInvalidJoiner')),
+                })
+              : t('console.settingsView.saveFailed'),
+          );
+        } else {
+          // Not field-scoped (a 403, an unknown key, a server fault): the
+          // server's sentence is the only account of what happened.
+          toast.error(err?.message ?? t('console.settingsView.saveFailed'));
         }
-        toast.error(err?.message ?? t('console.settingsView.saveFailed'));
       }
     } finally {
       setSaving(false);

@@ -50,7 +50,7 @@ function mountFieldMulti(copilotAdded?: ReadonlySet<string>): HTMLElement {
       schema={{}}
       value={['book', 'reader', 'due_date']}
       onChange={() => {}}
-      context={{ objectFields: loaded(CATALOG) }}
+      context={{ conditionScope: 'flattened', objectFields: loaded(CATALOG) }}
       copilotAdded={copilotAdded}
     />,
   );

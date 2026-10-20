@@ -531,6 +531,15 @@ const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // (objectui#11068): the words the table's own empty row shows, so leaving the
   // member out changes nothing a user reads.
   'table.noResults': 'No results found',
+  // The empty state an empty grid draws when no authored `emptyState` and no
+  // search term are in force (objectui#13142). Borrowed from the `list.*`
+  // namespace `ListEmptyState` reads, so a grid and a list say the same thing
+  // about the same empty object; the rows exist HERE too for a provider-less
+  // host.
+  'list.firstRunTitle': 'Nothing here yet',
+  'list.firstRunMessage': 'Create your first record to get started.',
+  'list.noMatches': 'No matching records',
+  'list.viewFilterNoMatchesMessage': 'No records match this view’s filter.',
   // Heading of the record-detail overlay this grid opens on row click
   // (objectui#3426). Borrowed from the `detail.*` namespace rather than minted
   // as `grid.recordDetail`: `NavigationOverlay` already resolves
@@ -7305,12 +7314,45 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const authoredEmptyTitle = resolveInlineI18nLabel(authoredEmptyState?.title, displayLocale);
   const authoredEmptyMessage = resolveInlineI18nLabel(authoredEmptyState?.message, displayLocale);
   const searchEmptiedRows = manualSearchOn && manualSearch.trim() !== '';
+  const holdsNoRows = !loading && (isGrouped ? groups.length === 0 : data.length === 0);
   const drawsAuthoredEmptyState = authoredEmptyState != null
-    && !loading
-    && !searchEmptiedRows
-    && (isGrouped ? groups.length === 0 : data.length === 0);
+    && holdsNoRows
+    && !searchEmptiedRows;
+  // objectui#13142 — with no authored `emptyState`, an empty grid used to fall
+  // through to the table's own empty row, "No results found / Try adjusting
+  // your filters or search query.", which is the right sentence only when the
+  // USER's query emptied it. Over an object that has no record and a grid
+  // nobody searched, there is no filter to adjust. So the grid tells the two
+  // apart, the way `ListEmptyState` (plugin-list) does, with the same `list.*`
+  // copy:
+  //
+  // - a search term (this grid's own box, or the host's `search`) is the
+  //   user's query: the table stays, with its row and its search box, so the
+  //   term can be cleared;
+  // - the declared `filter` alone is the view's, not the user's: "No matching
+  //   records / No records match this view's filter." — never the first-run
+  //   invitation over an object that may be full of records (objectui#4155);
+  // - neither: the first-run copy, "Nothing here yet / Create your first
+  //   record to get started.", which points at the host's own create control.
+  //
+  // This grid has no user-filter or quick-filter control of its own. The one
+  // host that merges its user's filters into `filter` (`ListView`, for a grid
+  // grouping on the server) draws its own empty state before it mounts this
+  // grid, from its window fetched under the same filter.
+  const userQueryEmptiedRows = querySearchTerm.trim() !== '';
+  const drawsDefaultEmptyState = authoredEmptyState == null
+    && holdsNoRows
+    && !userQueryEmptiedRows;
+  const viewFilterEmptiedRows = schemaFilter !== undefined;
   const AuthoredEmptyIcon = drawsAuthoredEmptyState ? resolveIcon(authoredEmptyState?.icon) : null;
-  const renderedGridContent = drawsAuthoredEmptyState ? (
+  const renderedGridContent = drawsDefaultEmptyState ? (
+    <DataEmptyState
+      data-testid="object-grid-empty-state"
+      className="flex-1 min-h-[200px]"
+      title={viewFilterEmptiedRows ? t('list.noMatches') : t('list.firstRunTitle')}
+      description={viewFilterEmptiedRows ? t('list.viewFilterNoMatchesMessage') : t('list.firstRunMessage')}
+    />
+  ) : drawsAuthoredEmptyState ? (
     <DataEmptyState
       data-testid="object-grid-empty-state"
       className="flex-1 min-h-[200px]"

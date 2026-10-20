@@ -1,5 +1,1013 @@
 # @object-ui/plugin-detail
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- 4c127cd: The `record:related_list` registration no longer declares `columns` required, so
+  the page compile accepts a related list that lists no columns of its own
+  (objectui#11613).
+  
+  `@objectstack/spec`'s `record:related_list` row leaves `columns` optional, and the
+  renderer agrees: a `dataSource` binding that names a view lands that view's
+  columns on the node, and with neither the list derives its columns from the
+  related object (its `highlightFields`, otherwise its listable fields). The
+  registration still declared `required: true`, and the page compile reads the
+  registration, so a node with no `columns` was refused with
+  `missing-required-prop` and the save failed.
+  
+  **Clause-②: yes (widening)** — a `record:related_list` node that sets no `columns`
+  now compiles and saves, whether a `dataSource` binding names a view (the list
+  draws the view's columns) or not (the list draws columns derived from the related
+  object, as it already did when such a node reached it). Authored `columns` still
+  win over both. `objectName` and `relationshipField` are still required, as the
+  spec row requires them. The published `columns` input now carries a description
+  that says where the columns come from when it is absent.
+- 76993f8: A field group's `visibleWhen` now gates its section on the record detail page, the same way it gates the section on the entry form (objectui#11630). Take an object whose `fieldGroups` entry declares `visibleWhen: "record.kind == 'pro'"`. The edit form hid the "Pro details" section on a `basic` row, but the detail page drew it on every row, header included. The detail page now draws it only where the predicate holds.
+  
+  **How it works.** The detail body now writes each field group as `@objectstack/spec`'s own reference form, `{ group: KEY }` (`RecordDetailsProps.sections[].group`). `record:details` resolves the reference against the object's `fieldGroups`: the group's members, label, icon, description and collapse state, and its `visibleWhen`. The predicate is evaluated per record with the form's own evaluator (`resolveFieldRuleState` from `@object-ui/core`, under `usePredicateScope`), and both spellings work as they do on the form: a bare CEL string or a `{ dialect: 'cel', source }` envelope.
+  
+  - Values bind under `record.`, so a bare identifier is unbound.
+  - A declared field the row does not carry compares as `null`.
+  - A relation binds as its stored id, even when the page's record arrived expanded.
+  - `previous` binds the persisted row, as on the record's edit form.
+  - A predicate that cannot be evaluated SHOWS the section and warns once, which is what the form does.
+  
+  A FALSE verdict removes the whole section, heading and members. This is display only: the record API serves those fields either way.
+  
+  **Clause-②: yes (output shape change).** BREAKING for code that reads the synthesized sections of a grouped object. The bump is still `minor`: under this repo's release model, objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.
+  
+  - `buildDefaultPageSchema`, `buildDefaultTabs`, `buildDefaultDetails` and `resolveDetailSections` (`@object-ui/plugin-detail`) change the `record:details` `properties.sections[]` they emit for an object with `fieldGroups`:
+    - Each declared group becomes `{ group: KEY, columns }`. It used to be an enumerated copy of the group: `name`, `label`, `icon`, `description`, `collapsible`, `defaultCollapsed`, `columns`, and `fields` as rich `{ name, label, type, … }` descriptors.
+    - The trailing ungrouped section keeps `columns` and lists `fields` as bare names.
+    - The node now parses as `RecordDetailsProps`; the old one was refused at every field object. Pages Studio seeds from it (`createSeed`) change the same way. An explicit `sections` option is still returned unchanged.
+  - `record:details` gates a `{ group }` reference with the group's `visibleWhen`. It does not read `visibleWhen` off an enumerated section, a key the spec refuses there.
+  - The console's default record page (`RecordDetailView`, `@object-ui/app-shell`) writes `{ group: KEY, showBorder: true }` for each declared group. Its ungrouped primary and "More details" sections are unchanged.
+  - The `record:details` registration's `sections` input description now says a `{ group }` reference inherits the group's `visibleWhen`, and that one written on a section itself is not read.
+  - Unchanged: `deriveFieldGroupDetailSections` still returns the resolved, enumerated sections (what a reference renders as), with no `visibleWhen` on them. No type member, zod member, registered `inputs` entry, prop or i18n key is added.
+  
+  **Migration.**
+  
+  - FROM reading a group's heading or members off a synthesized section (`sections[i].label`, `sections[i].fields`) → TO `deriveFieldGroupDetailSections(def)`, which returns the resolved sections, or the group's own entry in `def.fieldGroups`.
+  - FROM a stored page section copied from an older seed, `{ name: 'pro', label: 'Pro details', fields: [ … ] }` → TO `{ group: 'pro' }`, with `columns` / `showBorder` / `headerColor` kept if you set them. Only the reference form inherits the group's `visibleWhen`; an enumerated copy renders on every row, as before.
+- 22b503c: Read-only boolean values, the boolean list face and the Home greeting's punctuation follow the language (objectui#11689).
+  
+  Under zh-CN a record showed its boolean values as "Yes" / "No", and the Home greeting joined a Chinese greeting to the person's name with an ASCII comma and closed it with an ASCII period.
+  
+  - **Booleans.** The read-only surfaces that draw a boolean as a word now read the existing `common.yes` / `common.no` keys: `BooleanField`'s readonly display, a `FormulaField` whose `returnType` is `boolean`, the lookup column's plain-text fallback, and the record-detail highlights chip. zh-CN shows the Chinese words; English is unchanged. Without an `I18nProvider` the words stay "Yes" / "No".
+  - **The boolean list face.** `BooleanCellRenderer`, which every list surface draws, spelled its status badge ("Active — Off") and its completion indicator's accessible names ("Completed" / "Not completed") in English. All three now come from the language packs. The grid also handed that face the authored field label while its header printed the translated one, so the badge named the column in the authored language under a translated header. The face now receives the label the header prints.
+  - **Greeting.** The comma before the name and the closing mark are two new keys, so zh-CN reads the full-width comma and full stop, Japanese its own marks and Arabic its own comma. English is unchanged, and the name keeps its own colour.
+  
+  **Widened public surface.**
+  
+  - `@object-ui/i18n`: five new keys in all ten language packs, so the exported `en` pack and the `TranslationKeys` type derived from it gain `home.greetingSeparator`, `home.greetingEnd`, `fields.boolean.offBadge`, `fields.boolean.completed` and `fields.boolean.notCompleted`.
+  - `@object-ui/fields`: a new export, `useBooleanValueLabel()`, with its type `BooleanValueLabel`. It returns the current language's word for a boolean value, and `@object-ui/plugin-detail`'s highlights chip reads it.
+- f34e877: The record page and related lists honour a deadline's `settledWhen` (objectui#11815). The details section, the highlights strip and each related-list row judge a declared deadline against their own record, so a done record's past due date reads neutral while an open one reads "Overdue Nd" in red. A related list asks for the fields the predicate reads when no column shows them. The deadline comes from the object field only: a `dueLike` written on a detail-view entry is ignored.
+- 2312bd9: A page that declares `print` now prints as a document, and a record page bound to such a page offers a Print action (objectui#11958, the objectui half of the print-page ruling on objectstack#8346, M1, zero server).
+  
+  - **The print stylesheet.** `PageRenderer` mounts a stylesheet built from the page's `print` declaration, only for a page that declares it. Every rule sits inside `@media print`, so the page on screen is drawn as before. `paperSize` and `orientation` set `@page { size }` (A4 and portrait when omitted). `margins` set one `@page` margin per declared side, in millimetres. `pageNumbers` prints "page / pages" in the bottom-right margin. `repeatHeader` and `repeatFooter` repeat the page's own `header` and `footer` regions on every sheet. `repeatTableHeaders` (on when omitted) repeats a table's column headings on every sheet it runs onto. `avoidBreakInside` keeps each block of a region whole on one sheet when it fits. Only the print page reaches paper: the console chrome and the record view's own panels around the page are hidden, and the page runs onto as many sheets as it needs.
+  - **The printable blocks print whole.** On a print page, `record:line_items` no longer cuts lines off at its row cap in silence: when the child object has more lines than the cap (500 unless `limit` is set), the panel draws the cap's lines and the shared row-ceiling note under them, naming both numbers when the server reports a total. A collapsible `record:details` section draws open, because a closed section never reaches paper. Off a print page both blocks behave as before.
+  - **The record page's Print action.** When the record page bound to a record declares `print`, the record view shows a Print button that opens the browser's print preview of that page.
+  - **New exports from `@object-ui/react`:** `PrintPageProvider`, `usePrintPage` and `PrintPageContext`. `usePrintPage()` returns the enclosing page's `print` declaration, or `null` outside a print page.
+  - The source comments that described PDF export as declined now say where a printable document lives: a page that declares `print`.
+- c5406c2: Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
+  
+  Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18 (raised to `^18.0.0-next.1` by objectui#12370 before release).
+  
+  **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.1` (objectui#12370), at the same time as it takes this release.
+  
+  **objectui's own surface moves with it:**
+  
+  - `element:record_picker`'s registration stops publishing the `object`, `filter`, `sort` and `limit` inputs, which spec 18 retires; a JSX page that writes one now gets `unknown-prop`.
+  - The `CapabilityMultiSelectField` widget's curated capability set (`@object-ui/fields`) follows spec 18: `manage_mailboxes` in, `manage_org_presentation` out.
+  - `element:number` and `element:repeater` nodes that bind no object are accepted, as spec 18's row and `PageComponentSchema` accept them; the two `ELEMENT_*_OBJECT_REQUIRED` refusals are gone.
+  
+  **Retired with the spec:** `@objectstack/spec` 18 tombstones `object-grid`'s `defaultFilters` and refuses it by name, and `ObjectGrid` and `ObjectView` stop reading it (`table.defaultFilters` on an `object-view` included). A view that still carries it renders unfiltered: rename the key to `filter`, whose value is the same rule array.
+- c08c933: A `record:details` section heading can show how many values a field holds (objectui#12192).
+  
+  A section that declares `count: { field }` (`@objectstack/spec` 18, `RecordDetailsProps.sections[].count`) now has the `{{ count }}` hole in its heading filled with the number of values that field holds on the current record: `{ name: 'tagging', label: '{{ count }} tags', count: { field: 'tags' }, fields: ['tags'] }` reads `3 tags` when three tags are selected. The hole grammar is the spec's exported `SECTION_HEADING_COUNT_HOLE`.
+  
+  - An absent or empty value counts 0. A field the viewer may not read counts as absent.
+  - The hole is filled after the heading is translated, so each locale of an inline label map and a translated `objects.OBJECT._sections.NAME.label` entry write the same `{{ count }}`.
+  - `count` changes the heading only. Whether the section renders is unchanged: with `hideEmpty` on (the default), a section whose fields are all empty is still absent.
+  - A section without `count` prints its heading exactly as written, including a literal `{{ count }}`.
+  
+  `RecordDetailsComponentProps.sections[]` in `@object-ui/types` now declares `count?: { field: string }`, so a typed section literal carrying it compiles.
+- 7af0ab3: The author of a comment on a record page can now edit and delete it from the record feed (objectui#12268).
+  
+  `sys_comment` declares the generic Edit and Delete affordances (`managedBy: 'platform'`), and the platform lets an author update and delete their own comment, but the record feed only offered reactions and replies. Now the author's own comment and reply show Edit and Delete. Nobody else sees either control on it.
+  
+  - **Edit** opens the comment's text in place. Save stores the new text and marks the comment edited; the row then shows the new text with the usual "(edited)" mark. If the server refuses, an error appears, the editor keeps the draft, and the comment keeps its previous text. A comment stored as edited reads as edited.
+  - **Delete** asks first, through the console's usual destructive confirm dialog. Cancel deletes nothing. If the server refuses, an error appears and the comment stays.
+  - **Replies outlive their comment on screen.** A reply whose comment the feed does not hold, because that comment was deleted or lies before the loaded page, now shows as a row of its own instead of disappearing, so deleting a comment no longer hides anyone's replies to it.
+  - Each control appears only with the matching permission on `sys_comment` (update for Edit, delete for Delete). The server's own rule still decides every write.
+  
+  Published surface, all additive:
+  
+  - `@object-ui/collaboration`: new export `isCommentAuthor(authorId, viewerId)`, the owner rule `CommentThread` gates Edit and Delete on. Two missing or empty ids no longer count as a match.
+  - `@object-ui/types`: `FeedItem.authoredByViewer?: boolean`, set by the host that read the row.
+  - `@object-ui/react`: `DiscussionContextValue.onEditComment` and `onDeleteComment`.
+  - `@object-ui/plugin-detail`: `onEditComment` and `onDeleteComment` on `RecordActivityTimelineProps`, `RecordChatterPanelProps` and `ThreadedRepliesProps`. A reply now shows the "(edited)" mark too.
+  - `@object-ui/core`: two rows in the affordance-to-grant map, `feedCommentEdit` and `feedCommentDelete`.
+  - `@object-ui/i18n`: five new `detail.*` keys in all ten language packs (`editComment`, `deleteComment`, `deleteCommentConfirm`, `commentEditFailed`, `commentDeleteFailed`).
+- 82e5f53: `record:details`, `record:highlights` and `record:quick_actions` honour the per-element `dataSource` binding the spec already declares on every page component (objectui#12294). A product `app` page can now compose a record's surfaces from these blocks, with no record page around them:
+  
+  ```json
+  {
+    "type": "record:highlights",
+    "properties": { "fields": ["name", "environment_type"] },
+    "dataSource": {
+      "object": "sys_environment",
+      "filter": [{ "field": "environment_type", "operator": "equals", "value": "production" }],
+      "limit": 1
+    }
+  }
+  ```
+  
+  - **One record per block.** A record block shows the FIRST row of the bound set by the binding's `sort`, read as one row and under the caller's own identity; the server decides what the caller may read, exactly as on any other read. When no row matches, each block draws what it draws for a record that is not there: `record:details` its "record not found" state, `record:highlights` nothing, `record:quick_actions` its empty bar. A read the server refuses draws the same, so a record the caller may not read looks absent. A read that fails for any other reason is reported in the block's place, with the family's data-source error panel.
+  - **`record:quick_actions` runs against the bound row.** The object's declared actions (`actionNames`) run with the bound row's id.
+  - **The binding resolves as on every bound block.** A named `view`, the binding's `filter` (with `{current_user_id}`-style tokens), and its `sort` mean what they mean on a list block, and an unresolvable view or a refused filter draws the same configuration panel. Reference fields come back expanded, limited to the fields the caller may read, as on the record page.
+  - **The bound record stays fresh.** It re-reads in place whenever a write to its object is announced — by the data source's mutation events or on the data-invalidation bus — so a save or an action elsewhere on the page refreshes it.
+  - **The record page is unchanged.** A block with no `dataSource` reads the record page's record exactly as before. A bound block placed on a record page shows its bound record instead, as the spec says the binding does, and is kept out of that page's inline-edit session and highlight-field registry: it is read-only there, and it does not hide fields from the page record's details.
+  - **The registrations declare the key.** The three blocks publish the injected `dataSource` input, so the page authoring diagnostics no longer report it as an unknown prop.
+  - **`@object-ui/types`: the strict authoring face accepts the binding on the three blocks.** Each arm declares `dataSource` as the spec's `ElementDataSourceSchema`, by reference, as `record:line_items` does; the TypeScript authoring face follows. `objectui validate` refused it as an undeclared key before.
+  - **`@object-ui/cli`: `objectui validate` warns on a record block whose binding has no `limit: 1`.** The document still validates; the warning names the block's path and asks the author to say which record the block shows. `record:related_list` is not warned about: its binding is the binding of its child rows.
+  
+  `record:related_list` is unchanged: its `dataSource` still binds the rows it lists.
+- d81e460: `record:related_list` reads its parent record from `parentDataSource` (objectui#12294, ruling B on objectui#12296). The key is a member of the spec's `record:related_list` row and takes the object binding `dataSource` takes, so a product `app` page can list a record's children with no record page around the block:
+  
+  ```json
+  {
+    "type": "record:related_list",
+    "properties": {
+      "objectName": "sys_member",
+      "relationshipField": "environment_id",
+      "parentDataSource": {
+        "object": "sys_environment",
+        "filter": [{ "field": "environment_type", "operator": "equals", "value": "production" }],
+        "limit": 1
+      }
+    }
+  }
+  ```
+  
+  - **The parent is read the way the other record blocks read their record.** The FIRST row of the binding by its `sort` is the parent, read as one row under the caller's own identity and re-read when a write to its object is announced. The list draws that record's children through `relationshipField`, and `relationshipValueField` is read on that row.
+  - **No row is said out loud.** When no row matches, or the server refuses the read, the block draws a notice naming the object in its place, and no list: an empty list would read as "this record has no related records". A read that fails any other way draws the data-source error panel.
+  - **Without the key, the parent is the record page's record, as before**, and a related list rendered on a record page draws the same markup it drew. With the key, the binding wins over the page record.
+  - **`dataSource` keeps its meaning.** On this block it binds the CHILD rows the list draws, and it is never read as the parent.
+  - **Authoring.** `RecordRelatedListComponentProps` declares `parentDataSource` as the spec's `ElementDataSource`, by reference, and the registration publishes it as an input, so the html tier no longer reports it as an unknown prop. `objectui validate` already accepted it in `properties`, where the spec row puts it, and refuses it written on the node; it now also warns on a parent binding without `limit: 1`, as it warns on the one-record blocks' bindings.
+- 28ebfb5: A record page draws one provenance footer for its record, whatever the number of `record:details` nodes it carries (objectui#12307).
+  
+  Every `DetailView` mounted its own `RecordMetaFooter`, the one-line "Created … Updated …" summary, and a record page renders one `DetailView` per `record:details` node. A page with two nodes printed the same line twice, and a node whose sections were all hidden drew a block holding that line and nothing else (measured on objectstack-ai/cloud's environment page).
+  
+  - **`@object-ui/plugin-detail`.** A `record:details` node that reads the record page's record (it carries no `dataSource` binding) no longer draws a footer: the `DetailView` it mounts leaves the line to the page. So a node whose sections are all hidden now draws nothing. A standalone `DetailView` (the `detail-view` node, `RecordDetailDrawer`, `RecordDetailPanel`, a direct React caller) keeps its footer, and so does a BOUND `record:details`, which shows a record the page does not.
+  - **`@object-ui/app-shell`.** `RecordDetailView` draws the record's `RecordMetaFooter` once, at the page foot, after the page tree and the panels it appends there, so the line no longer moves with the active tab. The Studio page preview draws it the same way under its sample record.
+  
+  Behaviour change for a host that mounts `RecordContextProvider` itself and renders `record:details` nodes in it: those nodes no longer draw the record's footer, so the host renders `RecordMetaFooter` (already exported from `@object-ui/plugin-detail`) once, with the record as `data` and the object definition as `objectSchema`, where its page ends.
+  
+  Nothing is added to either package entry: no export, prop, type member or schema key. The signal from `record:details` to its `DetailView` is a context internal to `@object-ui/plugin-detail`.
+- ff9df88: Depend on `@objectstack/*` `18.0.0-next.1` (objectui#12370).
+  
+  Every `@objectstack/*` range these packages declare moves from `^18.0.0-next.0` to `^18.0.0-next.1`; the console and the runner bundle `18.0.0-next.1`. A consumer moves its own `@objectstack/*` packages to `18.0.0-next.1` with this release.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates page action rows and view data bindings through the spec's own rows, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.1` refuses. Each was accepted on `18.0.0-next.0`:
+  
+  - `onSuccess` on an `action:button` / `action:icon` row, or an `action:group` / `action:menu` member, whose executor is the `url`, `navigation`, `modal`, `flow` or `form` built-in, or that has no executor at all. Write the hop on an `api` or `script` action (or a host handler name), or drop it.
+  - `onSuccess` beside `operation: 'update'`, and an `onSuccess` block carrying a key outside `{ navigate, openIn }`.
+  - `actionType: 'navigation'` on a row (and `type: 'navigation'` on a container member): write `'url'`.
+  - A `url` executor's `target` that is not openable, judged on the executor the runner runs, including a row whose `name` selects it.
+  - A view `data` binding with `provider: 'api'`: bind the object or static rows; an API call is the page element's binding.
+- 023087f: The details grid passes a pointer field's `referenceDeletedWhen` to `resolveRecordPointer` (objectui#12489).
+  
+  `DetailSection` hands the rule the object field's `referenceDeletedWhen` beside `referenceVia`, and the sibling field's options translated exactly as the grid translates a `select` field's options. So the tombstone a pointer face draws reads as the option reads in its own cell, localized labels included. The predicate is evaluated in `@object-ui/fields`, not here. A field without the key draws as before.
+  
+  **Clause-②: yes (widening)**: the grid hands the pointer face one more state. No export, prop or type changes, and nothing narrows.
+- f62b6ff: Resolve `@objectstack/*` `18.0.0-next.2` (objectui#12626).
+  
+  The console and the runner bundle `18.0.0-next.2`. `@object-ui/types` and `@object-ui/app-shell` now declare `@objectstack/spec` `^18.0.0-next.2`; the other packages keep `^18.0.0-next.1`, which already admits it.
+  
+  **The record dialog opens bounded on desktop for every object.** A create, edit or child record dialog on an object with many fields used to open as a 95vw task canvas. `@objectstack/spec` `18.0.0-next.2` derives a bounded modal for it on desktop and keeps the full-screen sheet on a phone, and the console now takes that answer directly.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates a page through the spec's own page checks, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.2` refuses. Each was accepted before:
+  
+  - On a `kind: 'full'` page, a region whose `name` the page's `template` does not place (with the default template: anything but `header`, `sidebar`, `main`, `aside` and `footer`), and a second region for a slot another region already fills. The renderer stacked such a region under `main` at full width. Rename it to a slot the template places, or choose the `dashboard` template, which lays every other region out as a grid cell.
+  - `isDefault: true` on a page whose `type` is its page kind (`record`, `home` or `utility`) unless it is a `record` page bound to an `object`. Delete the key; an app's landing page is its first navigation item.
+- 8df2608: `record:related_list` now draws the "View all" link its `showViewAll` key declares (objectui#12741, ENFORCE, the objectui half of objectstack-ai/objectstack#23941).
+  
+  The contract declares `showViewAll: z.boolean().default(true)`, "Show 'View All' link to see all related records". Nothing read the key, and no host passed `RelatedList` an `onViewAll`, so the default drew nothing. The renderer reads the key now:
+  
+  - **Absent or `true`**: the link draws when the host offers a destination (the new `RelatedRecordHandlers.onViewAll`) and the list has records. Clicking it opens the related object's records, filtered to this parent on the relationship the list already uses.
+  - **`false`**: no link.
+  - **An empty list, or no destination from the host**: no link.
+  
+  `RelatedList` used to draw its "View all" link only when the records ran past one page. It now draws whenever it is handed `onViewAll` and has records, because the spec states no truncation condition. This renderer is the only caller that passes `onViewAll`.
+  
+  ⚠️ Behaviour change: on a console record page, every related list with records now shows "View all", unless it declares `showViewAll: false`.
+  
+  Clause-② line, the same as the pull request's:
+  Clause-②: yes
+  `@object-ui/react`'s exported `RelatedRecordHandlers` gains one optional member, `onViewAll`. No input, key or accept set of this package changes.
+- 26323c4: Resolve `@objectstack/*` `18.0.0-next.3` (objectui#12873).
+  
+  The console and the runner bundle `18.0.0-next.3`. Every package keeps its `@objectstack/*` range (`^18.0.0-next.1`, or `^18.0.0-next.2` for `@object-ui/types` and `@object-ui/components`), which already admits it, except `@object-ui/app-shell` (objectui#12943) and `@object-ui/plugin-detail` (objectui#12946), which declare `^18.0.0-next.3`.
+  
+  **An accept set that narrows with it.** `@object-ui/types` validates a `page:header` node's `properties` through the spec's own `page:header` row, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse `showStar`, which `18.0.0-next.3` retires: the follow star it switched on is not drawn by any renderer. It was accepted before. Delete the key.
+  
+  **A type that widens with it.** `SelectOptionBase`, and the field and form option types built on it, take the spec's select option by reference, so they now carry its optional `kind` (`'open' | 'won' | 'lost'`), the lifecycle category `18.0.0-next.3` adds. The spec takes it on a single-value `select` or `radio` field's options and requires it on every option of the field an object's `stageField` names.
+- 8392f74: `record:path`: a stage derived from a picklist now takes its terminal from the option's declared lifecycle `kind` (objectstack#23809) — `won` is the forward terminus, `lost` sits in the separated group, `open` is a middle step — instead of guessing it from the value's spelling. The spelling heuristic stays the fallback for options that declare no kind (objectui#12907). Two published types gain an optional member: `deriveStages`' return type adds `terminal?: 'won' | 'lost'`, and `ObjectDefFieldLike.options[]` adds `kind?: SelectOptionKind`.
+- c219165: Bound record blocks draw an authored empty state when their binding answers no row (objectui#12932, the renderer half of objectstack-ai/objectstack#24266).
+  
+  `record:details`, `record:highlights` and `record:quick_actions` take the spec's `emptyState` (`{ title, message, icon, link }`, the list view's own `EmptyStateSchema`). When the block carries a `dataSource` binding and the bound read answers no row, the block draws that empty state in its place. A read the server refuses as forbidden reads as no row, so the empty state is drawn for it too. The drawing is the one `object-grid` uses for its own `emptyState`: a Lucide `icon`, a `title` and a `message`, each a plain string or an inline locale map, and one `link` followed through the action runner. A `title` left out reads "Record not found".
+  
+  It is not drawn while the read is loading, in place of the error panel a failed read shows, when a bound row is there, or on a block with no `dataSource`. A block that declares no `emptyState` keeps its own placeholder: "Record not found" on `record:details`, nothing on `record:highlights`, and the empty bar on `record:quick_actions`.
+  
+  The three registrations publish the `emptyState` input.
+  
+  `@object-ui/types` declares `emptyState` on `RecordDetailsComponentProps` and `RecordHighlightsComponentProps`, by reference to the spec's `EmptyState` type, so a typed literal can author it.
+  
+  `@object-ui/plugin-detail` now requires `@objectstack/spec` `^18.0.0-next.5`, the first published release that declares the key.
+- 78b07f4: The object-page special cases for the retired permission-set catalog object are removed (objectui#7611, after objectstack's ADR-0131 stage 8 retired `sys_position`, `sys_permission_set`, `sys_position_permission_set` and `sys_capability`). A permission set is edited on its Setup metadata page, which reads the registry; none of the removed code ran anywhere else.
+  
+  **Breaking (narrowing; scored `minor` per the fixed group's version policy).** Each removal below shrinks a published face:
+  
+  - **`@object-ui/core`: `recordDelete.confirmText`.** FROM `recordDelete.confirmText({ objectName, t }, record)` TO `recordDelete.confirmText({ t })`. A package-owned `sys_permission_set` row no longer gets the reset question or the "reset" toast: every record gets the delete question and the delete toast. Fix: drop `objectName` and the second argument.
+  - **`@object-ui/i18n`: pack keys.** FROM `perm.facet.*` (`none`, `more`, `objects`, `fields`, `rls`, `tabs` with their plural slots, `adminScope`, `designInStudio`, `designInStudioHint`) and `objectActions.resetPackageSetConfirm` / `objectActions.resetPackageSetSuccess` in all ten packs TO absent. Fix: a consumer that still asks for one keeps its own copy (inline `defaultValue` or its own bundle).
+  - **`@object-ui/plugin-detail`: the `field:permission-facet-link` registry key.** FROM a registered field widget (the read-only facet summary with a "Design in Studio" link, also special-cased in the detail section and inline edit) TO unregistered. A field still carrying `widget: 'permission-facet-link'` renders with its declared type, like any unregistered widget. Fix: drop the `widget` hint, or register an own widget under that key.
+  - **`@object-ui/cli`: `objectui check`'s known schema types.** FROM `field:permission-facet-link` known TO unknown, so `objectui check` reports a node of that type. Fix: as above.
+  
+  **Behaviour changes, not narrowings:**
+  
+  - **`@object-ui/data-objectstack`:** `getObjectSchema` no longer stamps `widget: 'permission-facet-link'` onto the six `sys_permission_set` facet fields (that object is no longer served).
+  - **`@object-ui/app-shell`:** the `sys_permission_set` record page no longer appends the assigned-users panel. The panel itself, `AssignedUsersSection`, stays on the permission-set metadata page.
+  - **`@object-ui/app-shell`: a permission set created from the Setup catalog is created live.** "New" on the permission-set page used to save a draft, while the set's editor edits the live set and reads no draft: the editor opened an empty set without the label, its Save wrote the grants live, and the draft stayed pending, so publishing it from Home replaced the grants with the empty create body. Outside a package binding the create now writes live (with the same first-write pin); under `?package=` it stays a package draft.
+  
+  **Widenings:**
+  
+  - **`@object-ui/core`:** the data source `recordDelete.run` is injected with needs only `delete` (it no longer calls `findOne`).
+  - **`@object-ui/app-shell`:** the metadata-resource registry entry gains an optional `createLive`, which a type sets when its edit page writes the live item.
+  
+  Internal, not reachable from a published entry: the `PermissionFacetLink` component (never exported from `@object-ui/plugin-detail`), `RecordPermissionAssignmentsRenderer` (never exported from `@object-ui/app-shell`), and `ObjectStackAdapter`'s private `applyFieldWidgetOverrides`.
+
+### Patch Changes
+
+- b61c116: fix(plugin-detail): `record:details` read mode shows a `textarea` value with its line breaks (objectui#11577)
+  
+  A multi-line `textarea` value, such as a note with a blank line in it, read as one line on the record page: the details body drew every `textarea` value with the grid's one-line cell, which folds line breaks into spaces and cuts a long value off with an ellipsis. The record form's read-only field and, since objectui#11562, the inline editor already kept the breaks.
+  
+  The details body now draws a `textarea` value with the fields package's own read display, the read-only branch of `TextAreaField`, which is the display the record form uses. Line breaks, blank lines and a trailing newline show as stored. A single-line value reads as the same line; a long one now wraps at the column width instead of ending in an ellipsis. Other field types, plain text included, render exactly as before, and grid cells keep their one-line display.
+- f9f4a62: Console, record page and Studio copy from the 2026-10-05 cloud acceptance run (objectui#11659).
+  
+  **The cloud home's primary button reads "Open workspace" (zh 「进入工作区」), not "Open Production".** A new customer has exactly one environment, and "production" is control-plane vocabulary. The `cloud:onboarding-next` widget's ready-state button now resolves `cloudOnboarding.openWorkspace`, which replaces `cloudOnboarding.openProduction` in all ten language packs, and the hint under it (`cloudOnboarding.hintReady`) says "workspace" instead of "production environment". The button still navigates to the page's `openProductionUrl`; the page-metadata contract is unchanged. The same release then retires the `cloud:onboarding-next` widget and every `cloudOnboarding.*` key (objectui#12954), so neither the button nor those keys ship.
+  
+  **The create-workspace dialog asks for the name only.** `CreateWorkspaceDialog` no longer shows the "URL slug" field: the customer never sees the slug take effect at this step. The slug is still generated from the name, by the same rule as before, and sent with the create call; the owner can change it later in organization settings. Because the slug is no longer the user's to fix in the dialog, a slug collision (`ORGANIZATION_ALREADY_EXISTS` or `ORGANIZATION_SLUG_ALREADY_TAKEN`) is retried with a short random suffix, up to three attempts in all; any other refusal is shown as before. The `workspace.slugLabel` and `workspace.slugHint` pack keys are left in place, now unread.
+  
+  **The backup-password reminder no longer appears in the user's first session.** 「建议设置一个备用密码」 showed on the environment home right after a new user built their first app: the reminder was gated on a home-visit count (quiet on the first home mount, shown on the second), and coming back to home after building is the second mount inside the first sitting. It now stays quiet for 12 hours after the first home visit on the device, so it first shows on a later day's visit. The first-visit record (`os:recovery-pw-first-seen`) now holds a timestamp; a device that holds the old `'1'` flag starts the 12 hours over rather than reading it as long ago. When storage is unavailable it stays quiet. `RecoveryPasswordReminder` moves out of `HomePage.tsx` into its own module; it is not exported from the package entry, and its other conditions (dismissed, SSO-enforced, has a local password) are unchanged.
+  
+  **The record header's highlight row no longer cuts a phone number.** A drawer's highlight row read 「0574-876」 for the stored `0574-8765-4321`, with no ellipsis. The phone cell draws a dial icon, the number and a copy button in one `inline-flex` box, and the chip's single-line clip cannot put an ellipsis on such a box, so a 9rem chip cut the number mid-way. `HeaderHighlight` now gives a `phone` chip the wide basis that `email` and `url` already take, so a whole number shows; the full value stays in the chip's hover title. Other field types keep their chip width.
+  
+  **Studio's dashboard widgets list names each widget's kind in the designer's language.** The list read 「按客户状态统计数量 · bar」: beside each title, `DashboardDefaultInspector` printed the stored `type` id. It now prints the name the add-widget picker shows for that kind (`engine.widgetPicker.type.*`, zh 「柱状图」, en "Bar chart"), with the id on hover. A type the catalogue does not know still prints its id. The stored `type` is unchanged.
+  
+  **Studio's automation pillar copy is plain language in zh.** The list heading read 「自动化 · flow」 and the top bar 「默认 OFF · 审阅后再启用」: an internal metadata type and an English switch state inside Chinese copy. They now read 「自动化」 and 「默认停用 · 审阅后再启用」, matching the pillar's own 已启用 / 已停用, and the canvas hint 「可视化编排 · 点选节点配置」 reads 「点选画布上的节点即可配置」. The en heading drops the type too ("Automations"). Whether the pillar is offered on a given plan is not decided here.
+- 7300fca: **The record header's highlight chips share the row's free width and truncate only when it runs out (objectui#11684).** A Product with SKU "QA Widget 1" read "QA Wid…" in the record drawer's highlight row, with most of the row empty. Every chip in `HeaderHighlight` was a fixed column: a 9rem basis (16rem for wide types and for a column being edited), no grow, and a 16rem / 24rem cap. A value wider than the chip was clipped, however much room the row had left.
+  
+  A chip's basis is now its floor, and the chips grow into the line's free width. Each chip is capped at its own content, so a chip that fits stops growing and the rest of the free width goes to the chips that still need it. Which chips share a line does not change, because line breaking still reads the floors. A short value keeps its 9rem column, and a sparse strip still packs left, because no chip is ever wider than what it shows. A value is cut with an ellipsis only once its line has no free width left. The whole value stays available as the hover title. A column being edited still takes the 16rem floor, and it can grow to its editor's natural width.
+- 4590363: A record open no longer sends the same record read twice at once, and asks each explain question once, with concurrent callers sharing the request (objectui#11699).
+  
+  A record page open sent `GET /api/v1/data/OBJ/ID` twice at the same moment and `POST /api/v1/security/explain` four times: the `update` and the `delete` question, each asked twice. Both reads came from the details block, whose load effect runs again while its first read is still on the wire. Each question was asked by the page header and by the details block, which mounts while the header's answer is still pending. The record page's own `$expand` read of the record, which it sends again when the object definition changes identity, is not changed here.
+  
+  - **`ObjectStackAdapter.findOne` shares an in-flight read**, the way `find` already did. Calls for the same resource, id and params that arrive while a read is pending get that read's answer. The entry is dropped when the read settles, so a later call reads again: this is not a response cache. A failed read reaches every caller that shared it and is not remembered. A write through the adapter (`create`, `update`, `delete`, the bulk and batch writes) drops the pending `findOne` reads of the resource it wrote, so a record read asked after a save never gets an answer sent before it.
+  - **The record-level edit and delete probe (`useRecordEditable`) shares an unanswered question.** Mounts asking the same question (same principal, object, record and operation) while it is pending wait on one request. A question whose record changes while it is pending is not shared, so the re-ask is a fresh request. No pending question is shared across a change of the signed-in principal.
+  
+  Nothing is added to either package entry: no export, prop, type member or language-pack key. `findOne` keeps its signature.
+- 885a96f: Titles and links outside the object list page that name a list of an object's records read the object's plural label (objectui#11733).
+  
+  objectui#11696 titled the object list page and its breadcrumb with `useObjectLabel().objectPluralLabel`: the translated plural, else the declared `pluralLabel`, else the label. The other places that name the same kind of list now read it too:
+  
+  - **Related-list titles on the record page** (`RecordDetailView`): a section listing a child object's records is titled with the child's plural ("Tasks"). A child that points at the parent through more than one field is titled with its plural and that field's label ("Opportunities · Partner Project"); that title was built from the child's untranslated label before.
+  - **`record:related_list` and `record:reference_rail` with no authored title** (`@object-ui/plugin-detail`): the list heading, each rail card, and the rail's "+ N empty (…)" line read the bundle's `objects.{name}.pluralLabel`, else the translated label, else the humanized object name. These blocks hold the related object's name only, so they read bundle keys, not a declared `pluralLabel`.
+  - **The record form page's breadcrumb link** (`RecordFormPage`): the link to the object's list reads the plural; the "Create …" / "Edit …" title and the save toast keep the singular.
+  - **Favorites and recent items**: the favorite saved by the object list page's star button is labelled with the plural, and a recent `object` entry is named with the plural (`useRecentItemLabel`).
+  - **The record page's back link**: when the open list view has no label, the link back to the list reads the plural, both when a row or a link cell opens the record (`ObjectView`) and when a create lands on the new record's page.
+  
+  Unchanged: an unlabelled `object` navigation entry still inherits the singular (`useNavTargetLabel`, step 3 of the spec's navigation-label rule), and record-scoped text keeps the singular: the record page, the record drawer title, "New …", "Create …" / "Edit …", the delete confirmation and toasts, and the import wizard's object name.
+- 72167a9: A related list's action-refusal notice is shown to the people who can fix the page, not to every viewer (objectui#11768).
+  
+  When a `record:related_list` names an action id in `actions` that the related object does not define, or one the list has nowhere to draw, the list draws no button for it and names it in a notice above the list (objectui#11163). That notice is an authoring fault, and `os validate` already refuses such an id at build time. It used to be drawn for whoever opened the record, so an end user read a configuration error they could neither fix nor act on.
+  
+  The notice is now drawn only:
+  
+  - for a viewer who holds the metadata-edit capability, `manage_metadata`, read the way the console's Studio entry points read it. A permission provider that never reports capabilities (a backend predating ADR-0066, the role-based provider, or no provider at all, as in the Studio designer) counts as holding it. A reported capability set without it, including an empty one, does not;
+  - or in dev mode, meaning the build's `NODE_ENV` is not `production`.
+  
+  Everything else is unchanged for every viewer: the refused id still draws no button, the ids that resolve still render, and a list with no refused id renders exactly as before.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 455c646: A record action greyed out by its declared `disabled` predicate now says why (objectui#11811). It shows the reason "Not available for this record", and the same text is its accessible description (`aria-describedby`), so a screen reader announces it too. Before, the action carried no tooltip, no `title` and no description, so a user could not learn why it was off.
+  
+  Where it shows:
+  
+  - **The record page header** (`page:header`, `@object-ui/components`). On an inline action button, hovering it or focusing it from the keyboard opens a tooltip with the reason. On an action in the ⋯ overflow menu, the reason is a second line under the label. A tooltip there could not be reached from the keyboard, because the menu skips a disabled item and traps Tab.
+  - **The `record:quick_actions` bar** (`@object-ui/plugin-detail`), for example a record page's section bar. Hovering or focusing the button opens the tooltip.
+  - **The `DeclaredActionsBar`** (`@object-ui/app-shell`), which renders server-declared actions on the approvals surfaces. Hovering or focusing the button opens the tooltip.
+  
+  A natively disabled button receives no pointer or focus events, so the tooltip's trigger is a focusable wrapper around the button, the pattern Radix documents for a disabled trigger.
+  
+  What stays unchanged: a button greyed out only while its own action runs shows no reason. So do the header's Edit and Delete that the console injects, whose `disabled` the host computes (for example while the record is locked for approval), and a header action greyed out by a live inline-edit session.
+  
+  The reason is the same generic sentence for every action. An author-written reason beside the predicate would be a new key on the action spec, which is objectstack's to declare. It is not part of this change.
+  
+  **Clause-②: yes (widening).** `@object-ui/i18n` gains one language-pack key, `actions.notAvailableForRecord`, translated in all ten packs. No export, prop or type member is added, removed or changed.
+- a368ccb: A pointer field draws the record it points at, the console reads an approval request's record page through the approvals routes, and the approval decision panel is built for the request page (objectui#12045, B1 of objectui#2763).
+  
+  - **The approval decision panel (`@object-ui/app-shell`, module-internal).** One panel that draws the request's decision progress (`DecisionProgressIndicator`) above the request's own declared decision actions (`DeclaredActionsBar` at `record_section`, decided through `ActionParamDialog`). It reads the bound request and takes no authorable props; outside a `sys_approval_request` record page it renders nothing. After a decision it invalidates the request record and its timeline instead of remounting. It is not registered as a component type yet: the type `record:approval_decision` is proposed to the spec on objectstack-ai/objectstack#22472, and its registration lands with the spec row.
+  - **`referenceVia` pointer pairs (`@object-ui/fields`).** `resolveRecordPointer(field, row)` returns the record a `text` field declaring `referenceVia` points at on one row (`{ objectName, recordId }`, the new `RecordPointer` type), and `RECORD_POINTER_CARD_TYPE` is the registry key a resolved pair is drawn with. The package's default under that key draws the record id as text, as the field drew before.
+  - **The record details grid draws the pair (`@object-ui/plugin-detail`).** A field declaring `referenceVia` is resolved from the row and drawn with the pointer face; with `@object-ui/app-shell` loaded that face is the record preview card, so `sys_approval_request.record_id` and the other pointer fields show the record they point at. A pair whose row leaves either half blank draws the stored text.
+  - **The console's approval request page.** The console's record route for `sys_approval_request` mounts the record page over the routed approvals source, so the request carries the `viewer` block its declared actions gate on and the decision tally. The source now reads one request's `sys_approval_action` timeline from `GET /approvals/requests/:id/actions`, applying the read's `$orderby`, `$top` and `$skip` itself, dropping `$select` and `$expand`, and refusing any other parameter with `UNSUPPORTED_QUERY_PARAM`. On a request's own page the record view no longer asks for approvals opened on the request itself.
+  
+  No language-pack key is added, and `CellRendererProps` is unchanged.
+  
+  **Superseded in part (objectui#12072):** outside a `sys_approval_request` record page the panel now draws a short localized notice instead of nothing, so the sentence above saying it renders nothing there no longer holds when both changes release together.
+  
+  **Corrected and superseded in part (objectui#12045, the page-mount step):** the last sentence of the console bullet, that a request's own page no longer asks for approvals opened on the request itself, is an `@object-ui/app-shell` change (the record view's approvals read), not a console one. And the console no longer declares a record route of its own for `sys_approval_request`: every surface that opens a request reads it through the console's adapter with the request's record reads routed, so the console bullet's first sentence describes the route that change replaces, when both release together.
+- e391f87: A record's History tab and activity feed name the user behind an activity row that carries `actor_id` and no `actor_name` (objectui#12067). On `@objectstack/*` 17.7.0 the audit writer fills only `actor_id`, so `record:history` showed every such entry as "Unknown user", and the `record:activity` block and the console record page's activity feed showed the change as made by "System". Their `sys_activity` reads now expand `actor_id`, which brings each user's record back with the page in the same request, and the entry shows that user's `name`. `actor_name`, when present, still wins: it is the name recorded when the action happened. A row with neither, or whose user the viewer may not read, keeps the existing fallback, and a raw user id is never shown as a name.
+- 023f00d: A create form asks its fields the create question, so a role that may create
+  records but not edit them can fill and submit the form (objectui#12082). Every
+  console affordance that offers a write now reads the grant it exercises from
+  one map.
+  
+  **The defect.** A create form gated each field on `checkField(object, field,
+  'write')`, whose fallback for a field the permission set does not mention is
+  the object's `allowEdit`. Under a grant of `allowCreate: true, allowEdit: false`
+  every field of the create form rendered disabled, the outbound filter stripped
+  every field from the body, and the save posted an empty record that the server
+  refused for its required fields — while the server accepts the same create.
+  
+  **The server's insert rule, which the create question follows.** The server's
+  field-level write step refuses a write that names a field whose explicit
+  field-level entry has `editable: false`; a field with no entry passes it, and
+  object admission decides the operation (`allowCreate` for an insert,
+  `allowEdit` for an update). So a create-form field now reads its explicit entry
+  when there is one and the object's create grant when there is none. A field the
+  permission set marks `editable: false` stays disabled and out of the body.
+  
+  **Clause-②: yes (widening)**
+  
+  - `@object-ui/core` exports the affordance-to-grant map: `AFFORDANCE_GRANTS`
+    (one row per affordance: the CRUD-affordance bit it needs, the object grant it
+    exercises and, for an affordance that offers fields, the field question it
+    asks), `resolveAffordance` (managed-object policy ∧ the server's effective API
+    operation set ∧ the caller's grant, with the row's `userActions` predicates
+    surfaced only when all three allow it), `resolveFieldAffordance`,
+    `formFieldsAffordance`, and their types (`ConsoleAffordance`,
+    `FieldAffordance`, `AffordanceGrant`, `FieldAffordanceGrant`,
+    `AffordanceGrantRow`, `AffordanceGrantPrincipal`, `FieldAffordancePrincipal`,
+    `AffordanceSource`, `AffordanceVerdict`).
+  - `@object-ui/permissions`: `checkField`'s action accepts `'create'` beside
+    `'read'` and `'write'`. `MePermissionsProvider` answers it from the explicit
+    field entry when there is one and from `allowCreate` otherwise; the
+    role-based `PermissionProvider` answers it as it answers `'write'`.
+  
+  **Behaviour, by package.** With no permission provider mounted every grant
+  still reads open, as before.
+  
+  - `@object-ui/plugin-form`: every `ObjectForm` layout's fields and outbound
+    filter ask the question of the form's mode (create or edit). The form-wide
+    lock, with its "You don't have permission to …" notice, also engages when the
+    caller's object grant for the form's mode is denied, not only when the
+    managed-object policy or the effective API operation set closes it. A
+    create-mode `MasterDetailForm`'s line cells ask the create question of the
+    child object, since every line there is a new record.
+  - `@object-ui/app-shell`: the record page's Edit and Delete (and the record
+    body's in-place editing) read the caller's update / delete grant; they read
+    none before. The import wizard's write targets ask the create question, so a
+    caller offered Import keeps every field the insert accepts. List New / Import,
+    the related lists and the Attachments panel read the map with the verdicts
+    they had.
+  - `@object-ui/fields`: a lookup's "Create new" reads the create grant (and the
+    managed-object policy and operation set) of the object the field references;
+    it read no grant before.
+  - `@object-ui/plugin-grid`: row Edit / Delete, in-place editing, the template
+    download and the add-record row read the map; the add-record row now also
+    honours the object's managed-object policy and effective `create` operation.
+  - `@object-ui/plugin-detail`: `record:details` in-place editing reads the
+    caller's update grant; the detail header's object gate adds the effective
+    operation set.
+  - `@object-ui/plugin-list` and `@object-ui/console`: bulk Delete, the
+    inline-edit toggle and the profile page's language field read the map with
+    the verdicts they had.
+- 158c75d: The record feed and a related list's Add existing and fallback remove read the
+  affordance-to-grant map, so a caller without the grant is no longer offered a
+  write the server then refuses (objectui#12082, leg B of the write-census
+  backlog).
+  
+  - **Four rows join `AFFORDANCE_GRANTS`** (`@object-ui/core`, a published value,
+    hence `minor`), each asked of the object the write goes to: `feedComment` (the
+    create grant on `sys_comment`), `feedReactionAdd` and `feedReactionRemove`
+    (the create and delete grants on `sys_comment_reaction`, the caller's own
+    reaction row) and `feedReactionColumn` (the update grant on `sys_comment`,
+    for a deployment that stores reactions in a column).
+  - **The record feed** (`@object-ui/app-shell`'s record page) hands its comment
+    composer, its reply input and its reaction control their handlers only where
+    the row allows the write; the panel draws each from its handler, so a closed
+    row withholds it. The platform's `everyone` baseline grants neither object;
+    an application does, so a member whose sets do not was offered a composer
+    whose post the server refused. On the reaction store, taking a reaction back
+    asks the delete grant: without it the click writes nothing.
+  - **A related list's Add existing** (`@object-ui/plugin-detail`) reads the row
+    of the write it ends in: with a `linkField`, a link row of the list's own
+    object (`relatedNew`, the create grant there); without one, a re-parent of the
+    picked record (`relatedRowEdit`, the update grant on `add.picker.object`). A
+    closed row withholds the button and its dialog.
+  - **The `record:related_list` fallback remove** (an `add` config with no host
+    delete) reads the list object's `relatedRowDelete` row with the object's
+    registered schema. On a record page the host withholds its delete exactly when
+    that row is closed, and the fallback used to put the delete back.
+  
+  With no permission provider mounted every one of these reads open, as before.
+- 7525045: More write affordances read the affordance-to-grant map, so a caller without the
+  grant is no longer offered a write the server then refuses (objectui#12082, leg A
+  of the write-census backlog). No row is added: each reuses the row of the same
+  verb on the same object.
+  
+  - **The record overlay's inline edit** — the overlay the calendar, the kanban and
+    the gantt open on a record (`RecordDetailPanel`) — reads the `recordEdit` row,
+    the row the record page reads for the same in-place edit: the object's policy,
+    the effective API operation set and the caller's update grant. A closed row
+    opens no inline-edit session, as an absent `onFieldSave` already did. Each
+    field still asks its own field question, as since objectui#12103.
+  - **The gantt's in-chart writes** read `rowEdit` (a bar's drag, resize and
+    progress, its title edited in place, and its dependency links) and `rowDelete`
+    (a row's Delete). A closed row withholds the handler the chart draws the
+    affordance from, the way `readOnly` and `lockField` already do.
+  - **A grid's bulk field update** (a `bulkActionDefs` entry with `operation:
+    'update'`) reads `rowEdit`, as its bulk delete reads `rowDelete`: a closed row
+    removes the button from the selection bar, and with it the dialog, its undo
+    and its retry. `custom` operations are unchanged.
+  - **A master-detail form's line grids** read `relatedNew` (Add, the entry row
+    and Duplicate) and `relatedRowDelete` (Remove) on the CHILD object, as a
+    line-items panel does. Remove asks the delete grant on an edit form only: a
+    create form's lines are drafts, and a removed one is never a server delete.
+  - **A line-items panel** now hands its child object's schema to those two rows,
+    so the child's own policy (`managedBy`, `userActions`) is read too.
+  - **The AI build panel's spreadsheet import** (`ExcelImportBar`) reads the
+    `listImport` row of the object it imports into, as the list page's Import
+    does: without it, Import is disabled for that object.
+  
+  With no permission provider mounted every one of these reads open, as before.
+- 5f75cfa: In-place edit on the record page and a list's in-cell edit honour the caller's field write grant, and the owner field honours the transfer grant (objectui#12103).
+  
+  **What a caller saw.** A caller whose permission set marks a field `{ readable: true, editable: false }` was offered an editor for it in the record page's details body, in its highlights strip and in a list's grid cells, and Save answered 403 ("Field write denied"). The owner field was offered the same way to a caller without the transfer grant, and Save answered 403 ("requires the transfer grant"). Edit forms already refused both fields through `fieldWriteGate`.
+  
+  **What changed.**
+  
+  - **The map (`@object-ui/core`).** The `recordEdit` and `listInlineEdit` rows of `AFFORDANCE_GRANTS` gain `field: 'write'`, so the record page's in-place edit and a list's in-cell edit each ask every field the same update question an edit form asks, through `resolveFieldAffordance`. `FieldAffordance` therefore includes both rows.
+  - **The details body and the highlights strip (`@object-ui/plugin-detail`).** `DetailSection` and `HeaderHighlight` ask that question of each field. A refused field shows no pencil, does not enter the edit session on double-click, and stays a read display in edit mode. The strip and the body share one session and one Save, so they answer alike.
+  - **The grid (`@object-ui/plugin-grid`).** `ObjectGrid` marks a refused field's column not editable, so its cell keeps the read display while the rest of the row edits. Whether the grid is editable at all is still the object-level `listInlineEdit` verdict.
+  - **The owner field (`@object-ui/permissions`).** The server refuses an update that writes the record's owner (the field the `@objectstack/spec` constant `SystemFieldName` names `OWNER_ID`) unless the caller holds `allowTransfer` or `modifyAllRecords`. `MePermissionsProvider`'s `checkField(object, owner, 'write')` now answers with that grant, read with the spec's `objectPermissionGrants`. The `write` question is the server's update rule for a field, so every surface that asks it (edit forms, in-place edit, in-cell edit) offers the owner field only to a caller who may transfer the record. `checkField(object, owner, 'create')` is unchanged, because on insert the server stamps an empty owner to the caller and accepts the caller's own id. `MePermissionsResponse` declares the `allowTransfer` bit the endpoint already serves, and `@object-ui/permissions` now depends on `@objectstack/spec` directly.
+  
+  **Unchanged.** With no permission provider mounted no field question is asked, so a standalone embed and the designer preview behave as before. The server still enforces every grant; this only stops the console from offering a write it would refuse.
+  
+  **Clause-②: yes (widening).** `AFFORDANCE_GRANTS.recordEdit` and `AFFORDANCE_GRANTS.listInlineEdit` gain a `field: 'write'` member, which widens the `FieldAffordance` type by those two rows. `MePermissionsResponse`'s object entry declares an optional `allowTransfer?: boolean`. `checkField`'s action union is unchanged; its `write` answer narrows for the owner field only. No export, prop or language-pack key is added or removed.
+- 1d1cfe0: A record activity feed shows an object's `activityMilestones` rows of type `completed`, such as "Case resolved", instead of hiding them as completed tasks (objectui#12106).
+  
+  A milestone keeps the `type` its declaration names, so "Case resolved" declared with `type: 'completed'` arrived as a `completed` row. The feed mapped every `completed` row to a `task` item, and `showCompleted` is off by default, so the milestone was hidden on every record page that did not set it, including the default page.
+  
+  plugin-audit now stamps `metadata.kind: 'milestone'` on a row a milestone fired (objectstack#22771). The feed reads that marker. A `completed` row that carries it renders as a `system` item, the presentation every other author-typed milestone already gets, and shows whatever `showCompleted` says. A task's own "Task completed" milestone shows on that task's page for the same reason.
+  
+  A `completed` row without the marker is unchanged: it is a `task` item, hidden unless `showCompleted` is on. That covers rows from a runtime that does not stamp the marker yet, and rows an app inserts itself. `filterMode: 'tasks_only'` and `types: ['task']` still select tasks only, so they do not list a milestone. The `record:activity` block's own read and the console record page's feed both read rows through `activityRowToFeedItem`, so both change together. No export, prop or type changes.
+- 5330038: Console rendering fixes from the HotCRM browser pass (objectui#12110):
+  
+  - **Grid:** a view column's authored `label` is the header. It used to lose to the field's translated label whenever the app bundle translated the field.
+  - **Form:** a field `widget` that names no registered component falls back to the field type's renderer, as the spec's `widget` description says. A `rating` field declaring `widget: 'star_rating'` now draws the star widget instead of a text box. A built-in control name (`input`, `textarea`, …) and the native password and email inputs still render as before.
+  - **Cells:** a `rating` value draws stars out of the field's `max` (5 by default) in list, detail and related-list cells, instead of a bare number.
+  - **Reference rail:** a related row is named by its object's declared `nameField`, and the rail refetches in place when the record, a related object or everything is invalidated. A record action with `refreshAfter: true` therefore refreshes the rail too.
+  - **Gantt:** the task list, the tooltip and the drag previews show a date's year when it is not the current year.
+  - **Approvals drawer:** a `position:` approver shows the position's label, from the console's position registry, instead of a truncated id. The headline figure prefers the object's declared `currency` field and never shows a zero from a field matched only by its name.
+  - **Public form:** a form with no title of its own is headed by its object's label, not the object's API name.
+- a7d4920: The record page's discussion shows stored replies under their comment, and every comment offers the reply input where the caller may post one (objectui#12144).
+  
+  With threading on, which the default record page's discussion turns on, the timeline takes every reply out of the top-level list and shows a comment's replies only under a reply count above zero. The record page read each `sys_comment` row with its `parent_id` and never a reply count, so after a reload a stored reply was shown nowhere, and no comment read from the server offered the reply input: the first reply on a comment could not be posted from the page.
+  
+  - **`@object-ui/app-shell`:** the record page counts each comment's replies in the comments it read (the rows whose `parent_id` names it) and sets the feed item's `replyCount` from that count. `sys_comment` stores no reply count; its object definition says to count `parent_id` children at read time.
+  - **`@object-ui/plugin-detail`:** `RecordActivityTimeline` offers the reply input on every comment row it is handed `onAddReply` for, including a comment with no replies yet, and on no row that is not a comment, because a reply is stored as a comment under a comment. A comment's reply list still shows only when its `replyCount` is above zero, so whether replies show never depends on whether the caller may post one. On the record page the input still needs the create grant on `sys_comment`, as before.
+  
+  Nothing is added to either package's entry: no export, prop, type member or language-pack key.
+- e723f58: Screen readers hear the names of more controls in the viewer's language (objectui#12145).
+  
+  These controls carried an English `aria-label`, so under a non-English locale a screen reader announced their names in English: the docs portal's loading spinner, the record form page's breadcrumb, the `Spinner` status region, a data table's row menu button, the `pagination` renderer's previous and next links, the image crop preview, the percent slider, the record picker's grid, the AI composer's send and stop button and an attachment's remove button, the designer's undo and redo buttons, minimap, version history and back button, a dismissible record alert's close button, the bulk-action bar, and the mobile view switcher. Each name now comes from the language packs. English names are unchanged, with two small exceptions: the spinner now reads "Loading…", and the pagination links read "Previous page" and "Next page", the same words the data table pager uses. Sighted use is unchanged.
+  
+  Added: eight language-pack keys in all ten packs: `help.loadingDocumentation`, `common.breadcrumb`, `table.rowActions`, `fields.image.cropPreview`, `fields.percent.slider`, `designer.canvasMinimap`, `designer.versionHistory` and `grid.bulkActions`. Every other name reuses a key that already holds the same words. The exported `en` pack, and so `TranslationKeys`, gains these eight members. `PromptInputAttachment` (exported through `AIElements`) takes an optional `removeLabel` prop that names its remove button; without it the button keeps its English name.
+- 466a219: The detail view's inline-edit field enrichment no longer copies `allow_create`, `lookup_columns` or `lookup_page_size` off the object schema. The lookup picker reads `allowCreate`, `lookupColumns` and `lookupPageSize` alone since objectui#12157, and those are still copied.
+- 803f678: An inline edit of a date-only field on a record page saves the day the user picked, in every timezone (objectui#12206).
+  
+  The inline editor in the record highlights and the details body wrote a `date` field as local midnight converted to a UTC instant. The server keeps a date-only field's UTC calendar day, so every user east of UTC saved the day before: at UTC+8, picking 2026-10-16 sent `2026-10-15T16:00:00.000Z` and stored 2026-10-15. The editor now writes the picked day as the plain `YYYY-MM-DD`, as the Edit form already did.
+  
+  A `datetime` field edited inline is unchanged. No export, prop or type changes.
+- 5c2982a: A record whose `approval_status` reads `pending` no longer opens locked when the approvals read answered and found no request (objectui#12220).
+  
+  A composition without the approvals service answers `GET /api/v1/approvals/requests?object=…&recordId=…` with `200 { "data": [] }` and enforces no lock: a `PATCH` to the record succeeds. The record page still showed "Locked for approval", disabled Edit and offered Recall, which had nothing to recall, because the page and the detail body's approval band fell back to the literal `approval_status` column whenever no pending request was found. Records that an app stamped `pending` with no request behind them stayed locked in the console.
+  
+  - **The rule:** when the approvals read answers, the lock follows the open request. No pending request means no approval band, no lock and no Recall. The `approval_status` column stands in only while no read has answered: the route is absent (404 or 501), the read has not landed yet, or the first read failed. A record with an open request is unchanged, including a `lockRecord: false` node, which stays editable.
+  - **`@object-ui/react` adds** `resolveApprovalLock`, the one function the record page and the band both call, with its `ApprovalLockInput` and `ApprovalLockState` types. It also adds an optional `approvalReadAnswered` prop on `InlineEditProvider`, read back on `InlineEditContextValue`. A host sets it when its `locked` and `approvalPending` come from an approvals read that answered. Omitted, the band keeps the column fallback exactly as before.
+  - **`@object-ui/app-shell`:** the record page sets `approvalReadAnswered` from its approvals read.
+  - **`@object-ui/plugin-detail`:** the band decides through `resolveApprovalLock`.
+  
+  Nothing is removed or renamed.
+- 0cd322d: A record activity feed shows a call, meeting or email logged on the record, instead of hiding it as a completed task (objectui#12228). On an object with no authored record page, a call logged with Log a Call now appears in the default page's feed.
+  
+  An action that logs an interaction writes the interaction as its own record (an event, a `sys_email` row) and then one `sys_activity` row of type `completed` that points at it through `source_object` / `source_id` (ADR-0052). The feed mapped every `completed` row to a `task` item, and `showCompleted` is off by default, so the default record page, whose `record:discussion` block carries no `feed`, hid every logged call, meeting and email.
+  
+  The feed's `showCompleted` filter now keeps a `task` item that carries that pointer: the same items the timeline already gives a **View source** link. `showCompleted` still hides a `completed` row with no pointer, such as a finished task, while it is off. A logged interaction stays a `task` item, so `types: ['task']` and `filterMode: 'tasks_only'` still list it, and a page that sets `showCompleted: true` renders exactly what it did before. The default record page is not changed and `showCompleted`'s default stays `false`.
+  
+  This narrows one sentence of the objectui#12106 entry, which said a `completed` row an app inserts itself stays hidden by default: one that points at its source record now shows. The `record:activity` block's own read and the console record page's feed both run the same filter, so both change together. No export, prop or type changes.
+- 10aba37: A currency field's fixed currency, declared as `currencyConfig`, shows on the record quick-look panel and in related lists (objectui#12242).
+  
+  `@objectstack/spec`'s `FieldSchema` refuses a field-level `currency`, so `currencyConfig: { currencyMode: 'fixed', defaultCurrency }` is the only way a spec object can say an amount is in euros. The record page's sections already carried it to the cell. `RecordDetailPanel`'s field build and `RelatedList`'s cell bag copied `currency` and dropped `currencyConfig`, so on those two surfaces a fixed-EUR amount read in the tenant's currency, or as a bare number when the tenant has none.
+  
+  - FROM `currency` copied alone → TO `currency` and `currencyConfig` copied, so the cell resolves the currency the way every other currency cell does.
+- 51c661e: The console's assistant button no longer covers the record page's inline-edit Save or an attachment's Download and Delete, and deleting an attachment asks first (objectui#12248).
+  
+  - **The assistant button steps aside.** It sits in the bottom-right corner of every page, and at common desktop widths the inline-edit bar's Save and, when the attachments panel is the page's last content, the last row's Delete land under it. A click there opened the assistant instead, and an inline save could be lost that way. The button is now hidden while one of those controls is under it, and it comes back as soon as the corner is free. The assistant stays reachable from the top bar and with Cmd/Ctrl+Shift+I. On a phone, where the button sits higher, nothing changes.
+  - **`InlineEditSaveBar` marks its bar** with a `data-fab-yield` attribute, which a host's floating launcher can read. No prop or export is added.
+  - **Attachment delete asks for confirmation** through the console's usual destructive confirm dialog, the one the record page's own Delete uses. The dialog names the file. Cancel deletes nothing.
+  - **`@object-ui/i18n`:** one new key, `detail.deleteAttachmentConfirm`, in all ten language packs.
+- 9782cb2: A `record:details` node with neither `sections` nor `fields` now draws the object's `highlightFields` (objectui#12433).
+  
+  `@objectstack/spec` declares this fallback on `RecordDetailsProps` ("omitting it falls back to the object's `highlightFields`"), and the block's own registry inputs said the same, but the renderer drew an empty body. objectstack's served `sys_approval_request_detail` page uses a bare `record:details` for its Details tab, so that tab was empty for every approver; it now shows the request's target record (`record_id`), the one highlight field the page's strip leaves to the body.
+  
+  - The fallback list is the object's `highlightFields`, in declared order. It takes the same path an authored `fields` list takes: `enforceFieldSecurity` and `redactFields` apply, and a field already shown by a mounted `record:highlights` strip or as the page title is not repeated.
+  - It runs only when the node authors neither key. An authored `sections` or `fields`, an empty one included, is the body exactly as before.
+  - A list the field-security fold empties stays empty; nothing is derived in its place.
+  - An object that declares no `highlightFields` still renders an empty body, as before: the spec names no further fallback.
+- 3e2394d: Studio's page-create seed and slotted page preview now build an object's default record page with the same detail sections the running app uses. On an object that declares no `fieldGroups`, both used to produce a bare `record:details`, which draws only the object's `highlightFields` (or nothing), while the running app drew every visible field split into a primary section and a collapsible "More details" section. The seed persists those sections as field names, the shape `@objectstack/spec` declares. Objects that declare `fieldGroups` are unchanged. `resolveDetailSections`' doc no longer claims a bare `record:details` falls back to a flat layout of every field.
+- 3eb3ec1: The console's list toolbar no longer has a write into the shared view, and the data-source method that write used is retired (objectui#12504).
+  
+  **BREAKING:** `DataSource.updateViewConfig` is removed from `@object-ui/types`, and `ObjectStackAdapter.updateViewConfig` is removed from `@object-ui/data-objectstack`. The capability gate that only that method read goes with it: `ObjectStackAdapter.setSystemCapabilities`, the `systemCapabilities` option of the adapter constructor and of `createObjectStackAdapter`, `VIEW_CONFIG_CAPABILITY`, `ViewConfigPermissionDeniedError` and `isViewConfigPermissionDeniedError`. A class that implements `DataSource` and keeps an `updateViewConfig` method still compiles, but nothing calls the method any more; an object literal annotated as `DataSource` that carries it is refused as an unknown property. Code that calls `updateViewConfig` through a `DataSource` or an `ObjectStackAdapter`, or imports one of the gate names, no longer compiles. To change a view for everyone, save the view: `createView` / `updateView` on the data source, or the console's view editor, which writes through the runtime metadata seam.
+  
+  Since objectui#12418 and objectui#12474, the toolbar's sort, column layout, density and Hide Fields are each user's own list state, so the toolbar write had no caller. The view editor's explicit save is now the one write path to the shared view, and it is unchanged.
+  
+  Personalization rows that earlier consoles wrote into `/meta/view` stay readable: the overlay marker, `narrowPersonalizationOverlay` and `listViews()` exclusion still apply to them. Nothing new writes such a row.
+  
+  `@object-ui/i18n` drops `console.objectView.viewConfigPermissionDenied` from all ten packs. It was the toast the retired write raised when the gate refused it. The other packages change only in comments and tests that named the retired path.
+- 518a8e3: The record page's highlight strip no longer cuts a value without saying so, and at phone width it uses one layout (objectui#12523).
+  
+  - **A cut value ends in an ellipsis.** The email, URL and phone cells drew their text inside an `inline-flex` anchor. A host that clips to one line, such as a highlight chip, cut that text mid-word with no ellipsis: the cell was one atomic inline box, and a browser clips the first atomic inline on a line instead of ellipsing it. The three cells now follow the single-line convention the other cells in `@object-ui/fields` use. The cell is bounded by its host, and the box that holds the text truncates with an ellipsis. In the highlight strip the whole value is still the clip box's `title`. A host wider than the value shows no change.
+  - **A phone declared through `format` gets the phone width.** A `text` field with `format: 'phone'` (or `email` / `url`) drew the phone cell on the narrow 9rem chip, so the HotCRM lead's phone read "+1-555-0" at 1440. The strip now sizes a chip by the cell it draws, so that phone gets the same 16rem floor as a `phone` field. When the floors no longer fit one line, the strip wraps before it cuts a value.
+  - **A wrapped line starts flush.** From `sm` up, the first chip of every line now hides its separator and left padding, not only the strip's first chip. A second line no longer reads as an indented list.
+  - **One layout below `sm`.** Every chip is a full-width line with no separator. Two chips no longer sit side by side above a single-column list.
+- 165f8ff: Record page History: an entry with no actor at all (neither a resolved name nor a user id — a seed backfill or a hook with no user in context) now reads "System" with a cog glyph instead of "Unknown user" with a "?" avatar. The label is the existing `detail.systemActor` key that `record:activity` already uses, so it is translated in all ten locale packs. "Unknown user" (and the `unknownUserText` override) stays for the one case that is unknown: a user id that resolved to no name. The `record:history` self-fetch now carries each row's actor id through to the timeline so it can tell the two apart.
+- 6f5dc6b: Record details: Enter on a link inside a read-only details row that offers copy now opens the link, instead of copying the row's value (objectui#12569).
+  
+  - **The defect.** A read-only details row that offers copy is a focusable button: Enter or Space on it copies the field's value. Its key handler cancelled Enter and Space and copied the value whatever the key was pressed on, so Enter on a link drawn inside the row (a lookup's link to the referenced record, or the links in the record card an approval request's Details tab draws for its target) copied the row's value and did not open the link.
+  - **Now.** The row copies only for Enter or Space pressed on the row itself. A key pressed on a link, a button or anything else focusable inside the row is left to that element: a link opens, and the row's own copy button still copies through its click. Both row layouts (the default row and the phone layout's row) follow the same rule.
+  - **Unchanged.** A mouse click on the row, or on a link inside it, behaves as before; Enter and Space on the row itself still copy; Escape still does nothing; rows that offer in-place editing still have no copy handler.
+  
+  **Clause-②: no.** No export, prop, type member or i18n key is added or removed.
+- 4be76e0: Record page sections: a collapsible section's header is now a real button named by the section title (objectui#12625). It carries `aria-expanded`, is reachable by Tab, and Enter or Space toggles it; a click anywhere on the header still toggles as before. The per-field copy-value icon button is named "Copy to clipboard". A non-collapsible section's header is unchanged.
+- e219a3d: Opening a record page sends one approvals read and one record read (objectui#12701).
+  
+  - **Approvals.** Every section of a record page that shows its approval state (the lock band, the decision actions, the approvals panel or an authored `record:approvals` block) now shares one `GET /api/v1/approvals/requests?object=…&recordId=…` read. A section that mounts later, such as a tab opened after the page loaded, reads nothing and shows the same answer. In development, where the console runs under React StrictMode, a record open used to send this read three times. A decision, or a saved edit, still re-reads it for every section. Opening the record again reads it again.
+  - **The record.** The `record:details` body no longer reads its record a second time while the page's own read is in flight. It waits for the page's record, which already carries every relation the page expands, and shows its loading state until it arrives. `DetailView` takes a new `recordFromHost` prop for this. Without the prop, `DetailView` still reads its record itself.
+  
+  Every section shows what it showed before.
+- 263e9dd: A record details section on a print page prints every field it declares, with no "Show N empty fields" button on paper (objectui#12717).
+  
+  On screen, a section that has some empty fields hides them and offers a "Show N empty fields" toggle. That density rule is the renderer's own, not something the page declares, and on a page that declares `print` it put the toggle on paper while the empty fields stayed off it. On a print page the rule is now off: every declared field prints, an empty one as its placeholder dash, and there is no toggle. A section authored with `hideEmpty: true` whose fields are all empty still prints nothing, as it declares. Off a print page nothing changes.
+- 360e27a: The derived highlight strip on a record page no longer picks a field from a field group that declares a `visibleWhen` (objectui#12720).
+  
+  When an object declares no `highlightFields`, the record page picks its header chips heuristically, and that pick never read `fieldGroups`. A member of a gated group could therefore become a chip with its value on a record where the details body hides the whole group. The heuristic now skips every member of a group whose `visibleWhen` the details body evaluates, on every record: it runs from object metadata with no record in hand, so it does not evaluate the predicate, and the details body stays the one place that does. Where the group is shown, its members are drawn in the body, once, as before. The record preview card's key fields come from the same heuristic and skip those members too. A declared `highlightFields` list is unchanged, including an entry inside a gated group.
+  
+  Clause-②: no
+- 464ae62: A collapsible record details section on a print page prints its header as a plain heading, with no disclosure chevron and no clickable-header chrome (objectui#12732).
+  
+  On a page that declares `print`, a collapsible section already draws open, but its header still drew the screen control: a toggle button, a chevron, and the pointer and hover styling of a clickable header. On a print page the section now renders the way a non-collapsible section does: the title, the icon, the header colour and the description, with the content always shown. Off a print page the collapsible header is unchanged.
+  
+  Clause-②: no
+- 6367bfe: A record on a print page no longer prints its approval band: no "Recall approval" button, no approval status badge and no approval tally on paper (objectui#12751).
+  
+  On a page that declares `print`, a record in approval put the screen's approval band on paper: the recall button, the "In approval · editable" or "Locked for approval" badge, and the "Approvals — 0 of 1" tally. The button is a control. The badge and the tally are the approval's live state, which differs by viewer and changes with each decision, the same reason a print page refuses `record:approvals` and `record:approval_decision`. On a print page the band is now not drawn, and the record's fields print as before. A printed record that should state its approval status prints the record's own status field through `record:details`. Off a print page the band is unchanged.
+  
+  Clause-②: no
+- 020d178: An inline edit of a `datetime` field on the record page keeps its time (objectui#12759). The record details section and the header highlights edited `date` and `datetime` fields with the browser's native date input, a day-only control. A `datetime` showed no time there, and an edit of the day saved local midnight of that day, dropping the time the record held.
+  
+  - **The platform date picker.** Both types now edit with the picker the record form, the action dialogs, the grid's inline cell editor and the kanban required-fields dialog draw (objectui#12622, objectui#12642, objectui#12664). Its placeholder and digit order follow the console locale, not the machine's.
+  - **A `datetime` keeps its time.** The picker shows the date and the time. A day picked in its calendar keeps the value's time, and typed text carries the time typed. The value written is an ISO instant, as before. A record at 14:30 moved to another day saves that day at 14:30.
+  - **A `date` field still writes `YYYY-MM-DD`** (objectui#12206), unchanged.
+  - **A stored day that does not exist** (`2026-02-30`) still shows an empty, invalid box with a notice naming the stored value, and nothing is written until a day is entered (objectui#10625).
+  - **Typed text is read when the box loses focus or on Enter.** Pressing Save moves focus to the button first, so the typed value is saved.
+  - `@object-ui/fields`: a code comment only, on where the picker is drawn.
+  
+  Clause-②: no. No type member, prop, export or language-pack key is added or removed.
+- 1aa622a: A declared action `icon` is now drawn beside the label on the row's inline primary button, the row "⋮" menu item and the record-header quick action (`record:quick_actions`). The name resolves through the shared icon seam (`resolveIcon` from `@object-ui/components`); an unknown name draws the label alone, and an action with no `icon` renders exactly as before.
+- 6e4f144: A record on a print page prints its own title field (objectui#12787). Off a print page, `record:details` hides the row that the page header's H1 already shows: the declared name field, the field a `titleFormat` resolves to, or the first title candidate that has a value. A print page refuses `page:header`, so nothing on paper showed the title, and a printed invoice had no invoice number. On a page that declares `print`, `record:details` now prints every field it declares, the title field included. Off a print page nothing changes.
+- 15b1065: A related list on a custom app page draws and runs its authored actions when its parent record is bound through `parentDataSource` (objectui#12870).
+  
+  Before this change, the page offered related lists no action handlers. A `record:related_list` bound to its parent through `parentDataSource` drew its rows, but none of the toolbar or row actions authored in its `actions`, and nothing on the page said why.
+  
+  - **The page now serves the record page's executor.** The page mounts the record page's related-list bridge inside its own action runtime. A list that resolved its parent gets that bridge's toolbar and row executors, so its authored actions draw and run as they do on a record page. Its `record_related` row actions are placed too, because the list sits inside its bound parent record.
+  - **Only the executors are served.** A page list that authors no `actions` is unchanged: it shows no New, Edit or Delete, no row click and no default actions. The record page's related lists are unchanged.
+  - **Actions that cannot run are named.** When a list authors actions that no executor can run, it shows a notice next to the existing refusal notice and names each action. For example, a page list without `parentDataSource` has no parent record to run them against. The notice has the same audience as the refusal notice: dev builds, and viewers who can edit metadata.
+  
+  No export, prop, type member or language-pack key is added to either package entry.
+- 1e6d83b: Data-bound blocks title their "data source could not be resolved" panel in the page's language (objectui#12920, the family of objectui#12910). The panel shows when a block's `dataSource.view` names a view its object does not have. Each block's title now reads `@object-ui/i18n` through `useObjectTranslation`, with the `en` pack's value as the inline default, so a page with no `I18nProvider` draws the same English it drew before.
+  
+  - **Plugin blocks.** `object-calendar`, `object-chart`, `object-metric`, `object-pivot`, `detail-view`, `record:related_list`, `object-form`, `embeddable-form`, `object-master-detail-form`, `record:line_items`, `object-gantt`, `object-grid`, `object-kanban`, `list-view`, `object-map` and `object-timeline` read one `element.KIND.sourceUnresolved` key per block kind. `object-metric` reads `element.number.sourceUnresolved`, the key `element:number` already reads for the same sentence. The three forms share `element.form.sourceUnresolved`. `record:related_list`'s panel for a failed `parentDataSource` read reads `element.relatedList.parentUnreadable` ("This related list’s parent record could not be read").
+  - **`@object-ui/react` panel defaults.** `ElementDataSourceErrorPanel` with no `title` reads `element.component.sourceUnresolved`, and `NoDataSourcePanel` with no `title` reads `element.component.noDataSource`. A passed `title` still wins, an empty string included. Props and markup do not change.
+  
+  Clause-②: yes
+  
+  The new keys in `@object-ui/i18n` widen its exported `TranslationKeys`. No prop, input or export of these packages changes.
+- 79cb8c0: `record:details` draws a boolean the viewer cannot edit as the locale's word for its value (`common.yes` / `common.no`) instead of a disabled checkbox that read as a setting refusing the click (objectui#12933). An editable boolean keeps its checkbox, and a value that is not a boolean still draws the shared "No value" affordance.
+- 03f1d65: `@object-ui/plugin-detail` now declares `@objectstack/spec` `^18.0.0-next.3`, up from `^18.0.0-next.1` (objectui#12946).
+  
+  Clause-②: no
+  
+  Since objectui#12922 the published `dist/synth/buildDefaultPageSchema.d.ts` imports the type `SelectOptionKind` from `@objectstack/spec/data`. `18.0.0-next.3` is the first release that exports it; the `18.0.0-next.1` and `18.0.0-next.2` tarballs do not. The old range admitted both, so a consumer that resolved either got a type declaration that names an export its spec lacks. The range is the claim a package makes about what it works against, and it now admits only specs that carry the symbol.
+  
+  A consumer whose `@objectstack/spec` resolves to `18.0.0-next.1` or `18.0.0-next.2` moves it to `18.0.0-next.3` or later. An install that resolves the newest `next` is unaffected.
+  
+  This package is one of the two exceptions the `18.0.0-next.3` note names to its statement that every package keeps its `@objectstack/*` range; the other is `@object-ui/app-shell` (objectui#12943). No export, prop, key or schema of the package changes, and this change moves no other package's range.
+- bcd9717: `record:quick_actions` maps an action's spec `variant` onto the `Button` vocabulary the way the record header and the row menu do: `danger` draws the destructive style and `primary` the default (filled) style, while `secondary`, `ghost` and `link` pass through. The block's own `variant` stays the fallback for an action that declares none (objectui#12986).
+- 1d3da6c: `record:quick_actions` no longer shows its authoring placeholder ("record:quick_actions — no actions configured") to a viewer whose named actions are all withheld. A block that names actions but resolves to none (every action withheld by `requiredPermissions`, hidden by `visible`, at another location, or with no record to run against) now draws nothing, as the record header and the row menu do. A block that names no action keeps the placeholder on a design / preview surface (`PreviewModeProvider`) only and draws nothing in a runtime view. A refused action array still names the refusal on the surface.
+- 0d97642: `record:quick_actions`: a refused declared action array (a mixed id/object array) no longer draws its "refused at index N (see console)" box in a runtime view. That box is developer copy, so it is drawn on a design / preview surface only, the same rule the block's "no actions configured" placeholder follows. The console error naming the offending index still fires in every view (objectui#13000).
+- d0b9648: A record page that shows the same unfiltered related list both as a `record:reference_rail` card and in a `page:tabs` count badge now reads that list once on open, not twice. The rail claims its rows in `RelatedCountStore` while it renders; the badge's probe then asks for the card's rows with its count, and the card takes them. If the rail reads first, the badge joins that read. A badge with its own declared filter still sends its own probe. A rail alone on the page still reads only when it comes into view, and a refresh still reads the rail again.
+  
+  `RelatedCountStore`, exported from `@object-ui/components`, gains three members:
+  
+  - `RelatedCountStore.claimRows(objectName, relationshipField, parentId, limit)` declares that a card will list the first `limit` rows of that unfiltered related list, so a count probe of the same list fetches those rows with its count; it reads nothing itself.
+  - `RelatedCountStore.fetchRows(finder, objectName, relationshipField, parentId, limit, fields?)` resolves to `{ total, rows }` for that list, taking rows a probe already holds for the claim (once only), joining a read in flight, or reading itself; it rejects when the read fails.
+  - `RelatedCountStore.releaseRows(objectName, relationshipField, parentId)` withdraws the claim when the card unmounts or moves to a new scope, dropping any rows still held for it; held rows are also dropped when the child object is invalidated.
+- 50ba1bb: A record page no longer asks `POST /api/v1/security/explain` for a verdict nothing on screen uses (objectui#13045).
+  
+  - **Record page header.** When the object's `userActions.edit` is the static `false`, the page does not ask the `update` verdict; `userActions.delete: false` likewise skips the `delete` verdict. Edit and Delete were already hidden by that `false`. A per-record predicate form, `true`, or an absent entry still asks, and Edit and Delete still follow the answer.
+  - **`DetailView`.** The record-level verdicts are asked only for a button the host shows: the `update` verdict when `showEdit` is set, the `delete` verdict when `showDelete` is set. The console record page's `record:details` body shows neither, so it no longer asks. A standalone `DetailView` with `showEdit` / `showDelete` asks as before, and its buttons follow the verdict.
+  
+  On an object such as cloud's `sys_environment` (`userActions: { edit: false, delete: false }`), opening a record now sends no `security/explain` request. No export, prop or type member is added.
+- fb85637: A field group whose `visibleWhen` cannot be evaluated is now hidden, header and members, on the form and on the record detail page (objectui#13055).
+  
+  `@objectstack/spec` declares `ObjectFieldGroupSchema.visibleWhen` fail-closed: "the whole group (header included) is shown only when TRUE, else hidden (fail-closed)". Until now both surfaces failed open. A group whose predicate had a parse error, named an unknown field or root, or failed to evaluate was drawn in full, with only a console warning.
+  
+  - **Form.** Every layout now hides the group: simple, tabbed, split, drawer, modal, and the console's form page. This holds whether the group comes from the object's `fieldGroups` fallback or from a `{ group }` section reference. Members of a group hidden this way behave as they do under a FALSE predicate: their values still submit and their client-side validation is skipped.
+  - **Record detail page.** `record:details` hides the group's section.
+  - **Diagnostic.** The one-time warning still fires, and now names the default taken: `safe default (false)` and "the group is hidden".
+  - **What stays fail-open.** An authored form-view section's own `visibleWhen` still faults open, as `FormSectionSchema.visibleWhen` declares. So do a field's own `visibleWhen`, `readonlyWhen` and `requiredWhen` (ADR-0137 D3), and every other predicate slot. A well-formed predicate gates exactly as before.
+  
+  How the direction reaches the renderer: a form-view section's predicate and a field group's predicate arrive at the form renderer in the same slot, a `section-divider` row's (or a tab's) `visibleWhen`. So the direction travels with the predicate. `@object-ui/types` declares one runtime hand-off key, `visibleWhenFault?: 'hidden' | 'shown'`, on `ObjectFormSection`, `FormField` (`section-divider` rows only) and `FormFieldTab`, and mirrors it on the zod faces. `deriveFieldGroupSections` stamps `'hidden'` beside a group's predicate. Every layout carries it next to `visibleWhen`, and the form renderer reads it as the fault fallback. Absent means today's fail-open. It is not an authoring key: the spec's strict `FormSectionSchema` refuses it in authored metadata.
+- 4c68855: `record:details` no longer draws a record pointer's type half as its own row (objectui#13102).
+  
+  An object can declare a polymorphic record pointer as a pair: the id half (for example `record_id`) names its sibling with `referenceVia` (for example `object_name`), and the sibling holds the target object's machine name. The Details body draws the id half as the record card, which names the target object by its label. The type half also drew as a row of its own, so the page showed the stored machine name next to the label that names the same object. This affected the record pages of objects such as `sys_record_share`, `sys_share_link`, `sys_audit_log` and the approval objects.
+  
+  The type half now leaves the body when its id half is drawn in the same body. The pair is read from the object's declared fields only, never from a field's name. A type half whose id half the body does not draw keeps its row. The record still carries the value, so the card still resolves the pair. An object that declares no pair draws exactly what it drew before.
+  
+  Nothing is added to the package entry: no export, prop or key.
+- daeb77f: A new record page seeded in Studio is saved with the `default` layout template instead of `full-width`, and the page node's `template` member is typed by reference to the spec's (part of objectstack#23610).
+  
+  `@objectstack/spec` closes `PageSchema.template` to four layout names — `default`, `header-sidebar-main`, `three-column`, `dashboard` — and retires `full-width` by name, naming `default` as its replacement; the save path refuses a page that still carries it.
+  
+  - **`buildDefaultPageSchema` seeds `template: 'default'`.** Studio's "new record page" seed takes its template from this synthesis, so with the old value the first save of a new record page was refused. `full-width` and `default` were drawn by the same renderer component, which `default` still names, so a seeded page lays out exactly as before.
+  - **`PageNodeSchema.template` is `SpecPage['template']`.** The member was re-declared as `string` over the spec's inherited one; once the spec closes the set, that widening is a TypeScript error (TS2430) on the interface. Against today's spec, whose member is still `string`, the type is unchanged.
+  - **The zod mirror's `template` is the spec's member too.** `PageNodeSchema` in the zod face declared `template: z.string()`, which accepts every name; once the spec closes the set it measures wider than the TS face, so `full-width` would still pass `objectui validate`. It now takes the spec's own member (defaults stripped, as for every imported member), and against today's spec it accepts exactly what it accepted before.
+  
+  A page already stored with `full-width` keeps rendering because the platform rewrites it to `default` on read (the spec's conversion `page-template-full-width-to-default`). The renderer itself no longer recognises `full-width` (objectui#12476).
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [96fcf30]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [055d350]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [db4cb6b]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [e06365c]
+- Updated dependencies [3035948]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [5ab2f19]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [2312bd9]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [c5406c2]
+- Updated dependencies [c5406c2]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [a368ccb]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [417e245]
+- Updated dependencies [69bca0a]
+- Updated dependencies [023f00d]
+- Updated dependencies [158c75d]
+- Updated dependencies [7525045]
+- Updated dependencies [5af42db]
+- Updated dependencies [ce991bd]
+- Updated dependencies [3c0f806]
+- Updated dependencies [1071393]
+- Updated dependencies [5f75cfa]
+- Updated dependencies [29b9949]
+- Updated dependencies [6757a93]
+- Updated dependencies [b7cd5c8]
+- Updated dependencies [5330038]
+- Updated dependencies [2498a07]
+- Updated dependencies [898bd2c]
+- Updated dependencies [c9fc10b]
+- Updated dependencies [dc6d28e]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [e723f58]
+- Updated dependencies [82bb1d5]
+- Updated dependencies [f3d5408]
+- Updated dependencies [b231607]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [54159d3]
+- Updated dependencies [fa778e6]
+- Updated dependencies [334f0cf]
+- Updated dependencies [c08c933]
+- Updated dependencies [92f979d]
+- Updated dependencies [c4dd707]
+- Updated dependencies [c4dd707]
+- Updated dependencies [7578323]
+- Updated dependencies [a491b64]
+- Updated dependencies [38bb373]
+- Updated dependencies [923504f]
+- Updated dependencies [5b45c0d]
+- Updated dependencies [923504f]
+- Updated dependencies [5c2982a]
+- Updated dependencies [97e7d4e]
+- Updated dependencies [5d3f437]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [51c661e]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [b434f5f]
+- Updated dependencies [9f282ef]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [cea429b]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [8106db1]
+- Updated dependencies [068a540]
+- Updated dependencies [ca45c6d]
+- Updated dependencies [093d55b]
+- Updated dependencies [b64fda3]
+- Updated dependencies [a8051d6]
+- Updated dependencies [72594f2]
+- Updated dependencies [524136e]
+- Updated dependencies [2b06a91]
+- Updated dependencies [6f3299f]
+- Updated dependencies [065a1cf]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [789cb16]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [37db09f]
+- Updated dependencies [ff9df88]
+- Updated dependencies [70e843f]
+- Updated dependencies [caac3b2]
+- Updated dependencies [a2225f9]
+- Updated dependencies [5c4deb5]
+- Updated dependencies [a8e5b73]
+- Updated dependencies [d9d9d98]
+- Updated dependencies [c950345]
+- Updated dependencies [21f9577]
+- Updated dependencies [044f231]
+- Updated dependencies [f8267df]
+- Updated dependencies [023087f]
+- Updated dependencies [9b82ced]
+- Updated dependencies [3821a3a]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [92c2a69]
+- Updated dependencies [518a8e3]
+- Updated dependencies [646caea]
+- Updated dependencies [1ffd6a2]
+- Updated dependencies [5f8ecf6]
+- Updated dependencies [7d0c174]
+- Updated dependencies [8ed7e5a]
+- Updated dependencies [6c4d00d]
+- Updated dependencies [db8ce2f]
+- Updated dependencies [726d8c9]
+- Updated dependencies [f0e760a]
+- Updated dependencies [a5bb7ac]
+- Updated dependencies [f78efdd]
+- Updated dependencies [8a8bcf3]
+- Updated dependencies [f74638c]
+- Updated dependencies [278bc29]
+- Updated dependencies [ef71a09]
+- Updated dependencies [8614705]
+- Updated dependencies [619e3f7]
+- Updated dependencies [ca7a4c3]
+- Updated dependencies [c9e6742]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [608033b]
+- Updated dependencies [c6b7d82]
+- Updated dependencies [611566b]
+- Updated dependencies [efa9cb4]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [9d857c9]
+- Updated dependencies [670ea10]
+- Updated dependencies [ff215d9]
+- Updated dependencies [71243db]
+- Updated dependencies [a8add5c]
+- Updated dependencies [33ee9de]
+- Updated dependencies [4839f5c]
+- Updated dependencies [a23e804]
+- Updated dependencies [c7462e7]
+- Updated dependencies [36e2f7b]
+- Updated dependencies [ac59073]
+- Updated dependencies [44cb469]
+- Updated dependencies [e058d76]
+- Updated dependencies [c999d4c]
+- Updated dependencies [8df2608]
+- Updated dependencies [5483297]
+- Updated dependencies [ed43c79]
+- Updated dependencies [260ef71]
+- Updated dependencies [655e897]
+- Updated dependencies [655e897]
+- Updated dependencies [020d178]
+- Updated dependencies [8d80845]
+- Updated dependencies [69a408f]
+- Updated dependencies [d2b21a1]
+- Updated dependencies [5ff64ef]
+- Updated dependencies [64acb7e]
+- Updated dependencies [4ff5b6b]
+- Updated dependencies [473e5a0]
+- Updated dependencies [b279016]
+- Updated dependencies [bb6c38c]
+- Updated dependencies [26323c4]
+- Updated dependencies [9753811]
+- Updated dependencies [2727527]
+- Updated dependencies [3da39ae]
+- Updated dependencies [bc281f4]
+- Updated dependencies [d637be3]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [8523e81]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [32b492b]
+- Updated dependencies [6058bf8]
+- Updated dependencies [c219165]
+- Updated dependencies [a7ae252]
+- Updated dependencies [fb501bc]
+- Updated dependencies [30083da]
+- Updated dependencies [7f9cc37]
+- Updated dependencies [b7fe09e]
+- Updated dependencies [025130c]
+- Updated dependencies [76f91f8]
+- Updated dependencies [ea34d9b]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [024b7b6]
+- Updated dependencies [cb80001]
+- Updated dependencies [909c64e]
+- Updated dependencies [9e7e1a5]
+- Updated dependencies [2493e85]
+- Updated dependencies [d0b9648]
+- Updated dependencies [46dbf32]
+- Updated dependencies [a928aaa]
+- Updated dependencies [47508f3]
+- Updated dependencies [61ed5ad]
+- Updated dependencies [1b94d50]
+- Updated dependencies [6f877f1]
+- Updated dependencies [988aa9f]
+- Updated dependencies [1ce0711]
+- Updated dependencies [fb85637]
+- Updated dependencies [9f1dd79]
+- Updated dependencies [df71568]
+- Updated dependencies [d11174a]
+- Updated dependencies [2d8a8b7]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [5129caa]
+- Updated dependencies [9eb1479]
+- Updated dependencies [74e37aa]
+- Updated dependencies [961b69f]
+- Updated dependencies [52907d7]
+- Updated dependencies [f466b0a]
+- Updated dependencies [673a71c]
+- Updated dependencies [616df65]
+- Updated dependencies [f48a4d5]
+- Updated dependencies [58798ec]
+- Updated dependencies [8803ca5]
+- Updated dependencies [e70c21d]
+- Updated dependencies [4b92c5a]
+- Updated dependencies [06be396]
+- Updated dependencies [3650d94]
+- Updated dependencies [7c05f21]
+- Updated dependencies [8cd4db4]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [35a2b59]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [53ee2f8]
+- Updated dependencies [088e0f7]
+- Updated dependencies [78b07f4]
+- Updated dependencies [0df67f2]
+- Updated dependencies [f962cdc]
+- Updated dependencies [b403bb3]
+- Updated dependencies [8a25fee]
+- Updated dependencies [4016370]
+- Updated dependencies [12dc7b4]
+  - @object-ui/types@18.0.0
+  - @object-ui/components@18.0.0
+  - @object-ui/core@18.0.0
+  - @object-ui/i18n@18.0.0
+  - @object-ui/react@18.0.0
+  - @object-ui/fields@18.0.0
+  - @object-ui/permissions@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

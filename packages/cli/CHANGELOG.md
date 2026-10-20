@@ -1,5 +1,397 @@
 # @object-ui/cli
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- c4c506b: **Clause-②: yes (narrowing)**
+  
+  One declaration of the per-type NODE SLOTS — the keys other than `children` through which a renderer hands authored nodes back to `SchemaRenderer` — and three readers that walk it instead of stopping at `children` (objectui#11170, the follow-up PR #11126's Acceptance notes filed).
+  
+  New on `@object-ui/types`, beside `BaseSchema.children`: `NODE_SLOT_DECLARATIONS` (one row per renderer, under every registry spelling that resolves to it), `nodeSlotsFor(type)`, `nodeSlotPathSegments(path)` and `nodeSlotValues(node, path)`, with the types `NodeSlotDeclaration`, `NodeSlotRow`, `NodeSlotSegment` and `NodeSlotValue`. A position is spelled as a key path — `trigger`, `items[].content`, `regions[].components`, `items[]`, `report.sections[].content` — and the value at its end is one node or a list of nodes. The `page:*` rows are `@objectstack/spec`'s `pageComponentSlotPositions()` placed on the type whose renderer reads each position, pinned against that export in both directions; every other row is objectui's own, pinned against the live renderer. `body` stays retired as the generic child-list key (objectui#6771): it appears only on the four `page:*` types whose renderer still paints it for stored documents, marked `retired`.
+  
+  Accept sets that narrow, each reader FROM → TO:
+  
+  - `@object-ui/cli` — `objectui check`'s unevaluated-expression refusal (`findUnbindableTextExpressions`). FROM: the document root and every node its `children` hold. TO: those, and every node under a slot its type declares — so a `${…}` on `title` / `label` / `value` / `description` of a node under a dialog's `content`, a tab item's `content`, a page's `regions[].components`, a carousel item, a detail view's `tabs[].content` is now refused with the slot path (`items → 0 → content → value`). The false-refusal rows of PR #11126's ablation 2 stay green: a form's `fields[]`, a grid's `columns[]` and `{ "type": "multiple" }` are not slots. Measured over this repository's own JSON corpus and docs fences: no new finding.
+  - `@object-ui/core` — `validateSchema`. FROM: `validateChildren` recursed through `children` only. TO: it also recurses through the declared slots, so an invalid node under one (a retired `crud` spelling under `dialog.content`, an `INVALID_SCHEMA` member) is reported with its own path, spelled as `schema.items[0].content`. Measured over the same corpus: no new finding.
+  - `@object-ui/sdui-parser` — `validateTree`. FROM: the walk descended `children` alone, and a manifest entry carried no slot. TO: `ManifestComponent` gains `slots?: readonly string[]`, `manifestFromConfigs` gains `opts.slotsFor` (hand it `nodeSlotsFor`) and projects each entry's non-retired positions, and `validateTree` descends them — an unknown component, an unknown or mis-typed prop or an illegal enum under a slot now draws its diagnostic. A manifest built without the option serialises byte-identically and keeps the `children`-only reach. The `RETIRED_CHILD_LIST_KEY` refusals are unchanged.
+  - `@object-ui/components` — the `kind:'html'` page's compile manifest (`getJsxManifest`) is built with `slotsFor`, so an html-tier page whose slot-held node fails validation now fails to compile the way one under `children` does. Narrowing: a page that compiled with an unknown tag under a `dialog`'s `content` no longer does.
+  
+  Docs: `content/docs/utilities/cli.mdx`'s "Component nodes only" rule, the gate's own docblock, `validateChildren`'s comment and the parser's header now say the walk follows `children` and the declared slots; the declaration's header is where the slot list is explained.
+- 45d5853: New SDUI widget `cloud:workspace-timezone-notice`: one line on the Cloud welcome page naming the timezone a workspace was seeded with at creation (objectui#11930, the objectui half of objectstack-ai/cloud#2676).
+  
+  **Clause-②: yes** — four published surfaces widen, and nothing that parsed or rendered before changes:
+  
+  - the accept set of `AnyComponentSchema`, and so of `safeValidateSchema` and `objectui validate`, widens by one `type` literal, `cloud:workspace-timezone-notice`. `@object-ui/types/zod` exports one new schema, `CloudWorkspaceTimezoneNoticeSchema`, and `@object-ui/types` exports its TypeScript twin of the same name, a member of `AnySchema`;
+  - `@object-ui/i18n` adds one key, `cloudWorkspaceTimezoneNotice.seeded`, to all ten locale packs;
+  - `@object-ui/cli`: `objectui check` knows `cloud:workspace-timezone-notice` as a registered type;
+  - `@object-ui/app-shell` registers the widget, and its `sideEffects` array names the new module in its source and published spellings.
+  
+  **Why.** The welcome page is static metadata, and nothing in a page's expression scope carries a per-organization value, so the page could not say which timezone the workspace was created with. The seed is available only from the org-scoped `GET /cloud/environment-entitlements` summary, as the additive `workspaceTimezoneSeed` string.
+  
+  **What changed, in observable terms.**
+  
+  - A page places the node with no props: `{ "type": "cloud:workspace-timezone-notice" }`. The widget reads the summary through the hook the environment list already uses, and when the summary carries `workspaceTimezoneSeed` it renders one muted line naming that zone, verbatim. In English: "The environment timezone was set to Asia/Shanghai from your browser when the environment was created. You can change it in Settings → Localization."
+  - It renders nothing when the summary carries no seed (workspaces created before the seed existed, and control planes that do not send it yet), while the summary loads, when the request fails or rejects, and when the body is not the `{ success, data }` envelope. A failed request does not throw.
+  - The line is text only: no link and no dismissal state.
+  - The node's `className` and `responsiveStyles` reach the line.
+  - The widget is registered under one key, `cloud:workspace-timezone-notice`. There is no bare `workspace-timezone-notice` fallback and no `app-shell:`-prefixed twin.
+  - `CloudWorkspaceTimezoneNoticeSchema` takes no prop: `properties` is optional and may only be `{}`, so any key in the bag, the zone included, is refused at `properties`. `body` and `children` are refused by name, because the widget reads neither.
+- c5406c2: Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
+  
+  Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18 (raised to `^18.0.0-next.1` by objectui#12370 before release).
+  
+  **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.1` (objectui#12370), at the same time as it takes this release.
+  
+  **objectui's own surface moves with it:**
+  
+  - `element:record_picker`'s registration stops publishing the `object`, `filter`, `sort` and `limit` inputs, which spec 18 retires; a JSX page that writes one now gets `unknown-prop`.
+  - The `CapabilityMultiSelectField` widget's curated capability set (`@object-ui/fields`) follows spec 18: `manage_mailboxes` in, `manage_org_presentation` out.
+  - `element:number` and `element:repeater` nodes that bind no object are accepted, as spec 18's row and `PageComponentSchema` accept them; the two `ELEMENT_*_OBJECT_REQUIRED` refusals are gone.
+  
+  **Retired with the spec:** `@objectstack/spec` 18 tombstones `object-grid`'s `defaultFilters` and refuses it by name, and `ObjectGrid` and `ObjectView` stop reading it (`table.defaultFilters` on an `object-view` included). A view that still carries it renders unfiltered: rename the key to `filter`, whose value is the same rule array.
+- 82e5f53: `record:details`, `record:highlights` and `record:quick_actions` honour the per-element `dataSource` binding the spec already declares on every page component (objectui#12294). A product `app` page can now compose a record's surfaces from these blocks, with no record page around them:
+  
+  ```json
+  {
+    "type": "record:highlights",
+    "properties": { "fields": ["name", "environment_type"] },
+    "dataSource": {
+      "object": "sys_environment",
+      "filter": [{ "field": "environment_type", "operator": "equals", "value": "production" }],
+      "limit": 1
+    }
+  }
+  ```
+  
+  - **One record per block.** A record block shows the FIRST row of the bound set by the binding's `sort`, read as one row and under the caller's own identity; the server decides what the caller may read, exactly as on any other read. When no row matches, each block draws what it draws for a record that is not there: `record:details` its "record not found" state, `record:highlights` nothing, `record:quick_actions` its empty bar. A read the server refuses draws the same, so a record the caller may not read looks absent. A read that fails for any other reason is reported in the block's place, with the family's data-source error panel.
+  - **`record:quick_actions` runs against the bound row.** The object's declared actions (`actionNames`) run with the bound row's id.
+  - **The binding resolves as on every bound block.** A named `view`, the binding's `filter` (with `{current_user_id}`-style tokens), and its `sort` mean what they mean on a list block, and an unresolvable view or a refused filter draws the same configuration panel. Reference fields come back expanded, limited to the fields the caller may read, as on the record page.
+  - **The bound record stays fresh.** It re-reads in place whenever a write to its object is announced — by the data source's mutation events or on the data-invalidation bus — so a save or an action elsewhere on the page refreshes it.
+  - **The record page is unchanged.** A block with no `dataSource` reads the record page's record exactly as before. A bound block placed on a record page shows its bound record instead, as the spec says the binding does, and is kept out of that page's inline-edit session and highlight-field registry: it is read-only there, and it does not hide fields from the page record's details.
+  - **The registrations declare the key.** The three blocks publish the injected `dataSource` input, so the page authoring diagnostics no longer report it as an unknown prop.
+  - **`@object-ui/types`: the strict authoring face accepts the binding on the three blocks.** Each arm declares `dataSource` as the spec's `ElementDataSourceSchema`, by reference, as `record:line_items` does; the TypeScript authoring face follows. `objectui validate` refused it as an undeclared key before.
+  - **`@object-ui/cli`: `objectui validate` warns on a record block whose binding has no `limit: 1`.** The document still validates; the warning names the block's path and asks the author to say which record the block shows. `record:related_list` is not warned about: its binding is the binding of its child rows.
+  
+  `record:related_list` is unchanged: its `dataSource` still binds the rows it lists.
+- d81e460: `record:related_list` reads its parent record from `parentDataSource` (objectui#12294, ruling B on objectui#12296). The key is a member of the spec's `record:related_list` row and takes the object binding `dataSource` takes, so a product `app` page can list a record's children with no record page around the block:
+  
+  ```json
+  {
+    "type": "record:related_list",
+    "properties": {
+      "objectName": "sys_member",
+      "relationshipField": "environment_id",
+      "parentDataSource": {
+        "object": "sys_environment",
+        "filter": [{ "field": "environment_type", "operator": "equals", "value": "production" }],
+        "limit": 1
+      }
+    }
+  }
+  ```
+  
+  - **The parent is read the way the other record blocks read their record.** The FIRST row of the binding by its `sort` is the parent, read as one row under the caller's own identity and re-read when a write to its object is announced. The list draws that record's children through `relationshipField`, and `relationshipValueField` is read on that row.
+  - **No row is said out loud.** When no row matches, or the server refuses the read, the block draws a notice naming the object in its place, and no list: an empty list would read as "this record has no related records". A read that fails any other way draws the data-source error panel.
+  - **Without the key, the parent is the record page's record, as before**, and a related list rendered on a record page draws the same markup it drew. With the key, the binding wins over the page record.
+  - **`dataSource` keeps its meaning.** On this block it binds the CHILD rows the list draws, and it is never read as the parent.
+  - **Authoring.** `RecordRelatedListComponentProps` declares `parentDataSource` as the spec's `ElementDataSource`, by reference, and the registration publishes it as an input, so the html tier no longer reports it as an unknown prop. `objectui validate` already accepted it in `properties`, where the spec row puts it, and refuses it written on the node; it now also warns on a parent binding without `limit: 1`, as it warns on the one-record blocks' bindings.
+- ff9df88: Depend on `@objectstack/*` `18.0.0-next.1` (objectui#12370).
+  
+  Every `@objectstack/*` range these packages declare moves from `^18.0.0-next.0` to `^18.0.0-next.1`; the console and the runner bundle `18.0.0-next.1`. A consumer moves its own `@objectstack/*` packages to `18.0.0-next.1` with this release.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates page action rows and view data bindings through the spec's own rows, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.1` refuses. Each was accepted on `18.0.0-next.0`:
+  
+  - `onSuccess` on an `action:button` / `action:icon` row, or an `action:group` / `action:menu` member, whose executor is the `url`, `navigation`, `modal`, `flow` or `form` built-in, or that has no executor at all. Write the hop on an `api` or `script` action (or a host handler name), or drop it.
+  - `onSuccess` beside `operation: 'update'`, and an `onSuccess` block carrying a key outside `{ navigate, openIn }`.
+  - `actionType: 'navigation'` on a row (and `type: 'navigation'` on a container member): write `'url'`.
+  - A `url` executor's `target` that is not openable, judged on the executor the runner runs, including a row whose `name` selects it.
+  - A view `data` binding with `provider: 'api'`: bind the object or static rows; an API call is the page element's binding.
+- 35244b6: The separate Installed Apps view is retired (objectui#12733, ruling B on objectstack#23892). Setup → Packages filtered to Marketplace is the one list of what is installed (objectui#12675), and objectstack#23933 points the install-local plugin's Installed Apps entry straight at it. This is breaking for a host that used one of the retired names; it is marked `minor` under this repository's version policy.
+  
+  - **Export `MarketplaceInstalledPage`.** FROM: `@object-ui/app-shell` exported it, and it redirected to Packages filtered to Marketplace. TO: there is no such export, and importing it fails to compile.
+  - **SDUI widget `marketplace:installed-list`** (also registered as `app-shell:marketplace:installed-list`). FROM: registered, and it redirected to the same URL. TO: not registered. A page that still names it draws the unknown-component panel, and `objectui check` no longer counts it among the known component types.
+  - **Routes `system/marketplace/installed`**, in the no-active-app branch and the app branch. FROM: both redirected to the same URL. TO: neither exists. The path now matches `system/marketplace/:packageId`, so an old bookmark opens the package page for a package id `installed`, which the catalog does not have.
+  - **The Marketplace page's "Installed (N)" button** opens `/apps/APP/component/developer/packages?source=marketplace` directly, with no redirect hop. APP is the app the page was opened under, and `setup` when there is none.
+  
+  The widget's module also leaves the `sideEffects` array of `@object-ui/app-shell`.
+  
+  Fix for each retired name: link to `/apps/APP/component/developer/packages?source=marketplace` (Setup → Packages, Source = Marketplace) instead.
+  
+  Clause-②: no (narrowing)
+- 30083da: Two Cloud SDUI widgets are retired: `cloud:onboarding-next`, the Welcome page's next-step block, and `cloud:plan-status`, the pricing page's current-plan marker (objectui#12954). The Cloud control plane was their one consumer, and objectstack-ai/cloud#3010 replaced both: the home's next step is declared `element:button` nodes over `GET /api/v1/cloud/home`, and the pricing page marks the current plan with a `visibleWhen` on the same summary. At retirement, hotcrm `main` (`3b05ae7`) and objectstack `main` (`0b44840dfd`) registered and authored neither type. They are retired at once, with no deprecation alias. This is breaking for a page or host that still names one of them; it is marked `minor` under this repository's version policy.
+  
+  - **SDUI widget `cloud:onboarding-next`**, also registered as `app-shell:cloud:onboarding-next`. FROM: `@object-ui/app-shell` registered both keys. TO: neither is registered. A page that still names one draws the unknown-component panel, and `objectui check` no longer counts either key among the known component types.
+  - **SDUI widget `cloud:plan-status`**. FROM: `@object-ui/app-shell` registered it. TO: not registered, with the same two consequences.
+  - **Schema `CloudPlanStatusSchema`** in `@object-ui/types`: the TypeScript interface from the package entry, and the zod arm from `@object-ui/types/zod`, which was also a member of `AnyComponentSchema`. FROM: exported, and a `cloud:plan-status` node validated against the arm. TO: there is no such export, so importing it fails to compile. `AnyComponentSchema` keeps a refusal arm for the literal, which is not exported, so `objectui validate` refuses a `cloud:plan-status` node BY NAME at `type`, and the message names the remedy: a `visibleWhen` on the page's summary. `CloudWorkspaceTimezoneNoticeSchema` stays.
+  - **Locale keys `cloudOnboarding.*`** (`hintCreate`, `hintReady`, `createEnvironment`, `openWorkspace`, `manageEnvironments`) **and `cloudPlanStatus.current`** leave all ten built-in packs of `@object-ui/i18n`.
+  
+  The two widget modules also leave the `sideEffects` array of `@object-ui/app-shell`. `useEnvironmentEntitlements` stays: the environment list and `cloud:workspace-timezone-notice` still read it.
+  
+  Fix for a page that still names either widget: compose it from generic blocks, as objectstack-ai/cloud#3010 did — declared `element:button` nodes over the home summary in place of `cloud:onboarding-next`, and a `visibleWhen` on the same summary in place of `cloud:plan-status`.
+  
+  Clause-②: no (narrowing)
+- e4c0b54: `objectui validate` and `objectui check` judge a document through the strict authoring face (objectui#5250)
+  
+  Both commands parsed an authored document with `safeValidateSchema`, whose node schemas are
+  `.passthrough()`: a key no schema declares was kept and never judged, so a misspelled or invented
+  key read `✓ Schema is valid!`. They now parse through `StrictAnyComponentSchema`, the strict twin
+  of the same declarations (objectui#8345), under the objectui#5250 ruling: the authoring verdict is
+  strict, while the rendering face keeps its passthrough.
+  
+  **Breaking for documents that carry an undeclared key.** `objectui validate` now exits 1 on such a
+  document, on the root node and on every nested node, and names each key, the path of the object
+  carrying it, and the fix:
+  
+      Undeclared key "validation" at (root) (type "input"): no schema declares it there. Remove it, or check its spelling against the keys declared at that position.
+  
+  A nested child's key is named at the child's path, and so is one inside a union the node fits
+  more than one arm of (a dashboard widget), where the issue list reports only an `Invalid input`
+  that names no key. For an undeclared key `objectui check` stays advisory — it does not change the
+  exit code, which is non-zero on unreadable JSON and on a `${…}` refused on a text key its node never
+  evaluates (objectui#4795) — but such a file is no longer counted as validated: it is listed by name
+  among the files that did not validate, with the same line under it. Its `${…}` expressions are still
+  judged, so a listed file can fail the run for an expression. There is no flag to opt out.
+  
+  Where another entry in this release says `objectui validate` or `objectui check` runs
+  `safeValidateSchema`, the tolerant face, this entry supersedes it: both commands run the strict face.
+  
+  Declared `minor` rather than `major` because this release group follows the `@objectstack` major;
+  the breaking semantics are stated here instead.
+- 78b07f4: The object-page special cases for the retired permission-set catalog object are removed (objectui#7611, after objectstack's ADR-0131 stage 8 retired `sys_position`, `sys_permission_set`, `sys_position_permission_set` and `sys_capability`). A permission set is edited on its Setup metadata page, which reads the registry; none of the removed code ran anywhere else.
+  
+  **Breaking (narrowing; scored `minor` per the fixed group's version policy).** Each removal below shrinks a published face:
+  
+  - **`@object-ui/core`: `recordDelete.confirmText`.** FROM `recordDelete.confirmText({ objectName, t }, record)` TO `recordDelete.confirmText({ t })`. A package-owned `sys_permission_set` row no longer gets the reset question or the "reset" toast: every record gets the delete question and the delete toast. Fix: drop `objectName` and the second argument.
+  - **`@object-ui/i18n`: pack keys.** FROM `perm.facet.*` (`none`, `more`, `objects`, `fields`, `rls`, `tabs` with their plural slots, `adminScope`, `designInStudio`, `designInStudioHint`) and `objectActions.resetPackageSetConfirm` / `objectActions.resetPackageSetSuccess` in all ten packs TO absent. Fix: a consumer that still asks for one keeps its own copy (inline `defaultValue` or its own bundle).
+  - **`@object-ui/plugin-detail`: the `field:permission-facet-link` registry key.** FROM a registered field widget (the read-only facet summary with a "Design in Studio" link, also special-cased in the detail section and inline edit) TO unregistered. A field still carrying `widget: 'permission-facet-link'` renders with its declared type, like any unregistered widget. Fix: drop the `widget` hint, or register an own widget under that key.
+  - **`@object-ui/cli`: `objectui check`'s known schema types.** FROM `field:permission-facet-link` known TO unknown, so `objectui check` reports a node of that type. Fix: as above.
+  
+  **Behaviour changes, not narrowings:**
+  
+  - **`@object-ui/data-objectstack`:** `getObjectSchema` no longer stamps `widget: 'permission-facet-link'` onto the six `sys_permission_set` facet fields (that object is no longer served).
+  - **`@object-ui/app-shell`:** the `sys_permission_set` record page no longer appends the assigned-users panel. The panel itself, `AssignedUsersSection`, stays on the permission-set metadata page.
+  - **`@object-ui/app-shell`: a permission set created from the Setup catalog is created live.** "New" on the permission-set page used to save a draft, while the set's editor edits the live set and reads no draft: the editor opened an empty set without the label, its Save wrote the grants live, and the draft stayed pending, so publishing it from Home replaced the grants with the empty create body. Outside a package binding the create now writes live (with the same first-write pin); under `?package=` it stays a package draft.
+  
+  **Widenings:**
+  
+  - **`@object-ui/core`:** the data source `recordDelete.run` is injected with needs only `delete` (it no longer calls `findOne`).
+  - **`@object-ui/app-shell`:** the metadata-resource registry entry gains an optional `createLive`, which a type sets when its edit page writes the live item.
+  
+  Internal, not reachable from a published entry: the `PermissionFacetLink` component (never exported from `@object-ui/plugin-detail`), `RecordPermissionAssignmentsRenderer` (never exported from `@object-ui/app-shell`), and `ObjectStackAdapter`'s private `applyFieldWidgetOverrides`.
+
+### Patch Changes
+
+- c4dd707: feat(app-shell): five generic product-page blocks — `hero`, `stat`, `usage-bar`, `checklist`, `tile-grid` (objectui#12197)
+  
+  Clause-②: yes
+  
+  `@object-ui/app-shell` registers five product-neutral SDUI blocks for pages a product composes as metadata, each with declared `inputs` that state their defaults, and each accepting the spec's API binding as `dataSource`:
+  
+  - `hero` — `title`, `subtitle?`, `meta?` (drawn with a copy-to-clipboard button), `status?`, `statusTone?` (`neutral` when omitted), `primary?` / `secondary?` (`element:button` or `action:button` nodes).
+  - `stat` — `label`, `value` (a number is formatted in the viewer's locale), `hint?`.
+  - `usage-bar` — `label`, `used`, `limit?`, `unit?`; the bar's width is `used / limit` clamped to 0–100, and an absent or `0` limit is unlimited: the amount used and no bar.
+  - `checklist` — `items: [{ label, done, action? }]`, `collapsedWhenDone?` (`false` when omitted; when set, the block draws nothing once every step is done).
+  - `tile-grid` — `items: [{ label, href, icon?, caption? }]` or a `${…}` hole naming such a list, `addTile?: { label, href }`; the console home's launcher tile, now shared with the home's apps strip, which draws as before.
+  
+  `@object-ui/types` gains each block's strict arm in `AnyComponentSchema` (`HeroBlockSchema`, `StatBlockSchema`, `UsageBarBlockSchema`, `ChecklistBlockSchema`, `ChecklistBlockItemSchema`, `TileGridBlockSchema`, `TileGridBlockItemSchema`, `TileGridBlockAddTileSchema`, the union `ProductBlockComponentSchema`) and their TypeScript twins, so `objectui validate` accepts the five types. A value the bound answer may supply also accepts one whole-string `${…}` hole. The `dataSource` descriptions on the object-bound arms now name the object binding as one of `PageComponentSchema.dataSource`'s two shapes. `@object-ui/cli`'s known component types gain the five names. The console's preview gallery draws every block at `?only=product_blocks`.
+- 52d6194: The page block `record:approval_decision` renders (objectui#12342). `@objectstack/spec` 18 declares it, and until now a page naming it passed the spec and drew nothing, because no registration mounted the decision panel.
+  
+  - **Registered (`@object-ui/app-shell`).** The package entry registers `ApprovalDecisionRenderer` as `record:approval_decision` (no bare twin), from the new side-effect leaf `views/record-approval-decision-renderer.tsx`, which joins the package's `sideEffects` array. On an approval request's record page the node draws the request's decision progress above its declared decision actions; off a request page it draws the localized notice it already drew. The renderer is still not exported from the package entry: a page reaches it by type.
+  - **Armed (`@object-ui/types`).** `RecordApprovalDecisionBlockSchema` (zod, from `@object-ui/types/zod`) and its TypeScript twin of the same name (from `@object-ui/types`) are new, and `AnyComponentSchema` gains the arm, so `safeValidateSchema` and the strict face accept a `record:approval_decision` node. Its `properties` bag is the spec's empty strict row, restated because the spec exports the row under no name: the only bag it accepts is `{}`, and a node-level `children` or `body` is refused by name.
+  - **`objectui check` and `objectui validate` (`@object-ui/cli`).** The generated list of registered types gains `record:approval_decision`, and `objectui validate` no longer refuses the type at `type`.
+  
+  Studio's block palette still does not offer the block; its exclusion reason now says it renders.
+- 1f1c4b5: The `objectui doctor` check-result types are declared as `DoctorDiagnostic` and `DoctorDiagnosticLevel` instead of `Diagnostic` and `DiagnosticLevel` (objectui#6349, batch 6), because `@object-ui/sdui-parser` publishes `Diagnostic` for a parser finding, a different shape. Both types are internal to the command: this package's entry exports `serve` and `init` only, so no import changes.
+  
+  No runtime behaviour changes; `objectui doctor` prints the same output.
+- 088e0f7: A record-form field can name one item of a metadata registry by its machine name: a `text` field that declares `widget: 'position-ref'` lists the position registry, and one that declares `widget: 'permission-ref'` lists the permission-set registry. It stores the name only (objectui#7611, ruling B2 on objectstack#22865). This is the mechanism the metadata forms' `ref-multi:permission` picker brought in (objectui#12126), now reachable from an ObjectQL object field. A grant table's name field (`sys_user_position`'s position, `sys_user_permission_set.permission_set`) can now offer the declared items instead of a box for a typed name.
+  
+  - **The widget (`@object-ui/fields`).** `field:position-ref` and `field:permission-ref`, one key per registry type, with the type in the key, as `object-ref` carries `object`. Like every `widget` value, the name is looked up as `field:<widget>`. Each item reads as its label beside its name, and a pick writes the name: no label, no id. A stored name the loaded registry does not list stays on screen as its own option, flagged *not found*. The four catalog arms follow the metadata forms' `ref:dataset` / `ref-multi:<type>` pickers. With no data source that can list a registry, the field is a text box for the typed name. While the list loads, the stored name sits in a disabled box. When the load fails, a notice names the failure and its cause, and the text box stays enabled. A loaded but empty registry gives the same text box. Neither key is a declarable field type: both are widget hints, like `object-ref`.
+  - **The catalog (`@object-ui/types`, `@object-ui/data-objectstack`).** `DataSource` gains an optional `listMetadataItems(type)`, answering `{ name, label }` headers for one registry type. An empty array is authoritative ("this registry has no item of this type"), so a failed load must reject, never resolve `[]`. `ObjectStackAdapter` implements it over `GET /api/v1/meta/:type` (the client's `meta.getItems`). It rejects with the transport's error, and refuses an answer that carries no `items` list. It is uncached, so an item authored in Studio shows on the next form.
+  - **Locale keys (`@object-ui/i18n`).** `fields.registryRef.loadFailed` and `fields.registryRef.notFound`, in all ten packs.
+  - **Wiring.** The form renderer threads `dataSource` to both keys, as it does for the other widget-hint pickers (`@object-ui/components`). The inline-grid exclusion set and the action-param value-shape table list both keys as widget-hint-only (`@object-ui/fields`, `@object-ui/app-shell`). The CLI's generated `KNOWN_SCHEMA_TYPES` gains `field:position-ref` and `field:permission-ref` (`@object-ui/cli`). A comment in `@object-ui/core` stops counting the picker names.
+  
+  **Clause-②: yes (widening)**: one optional `DataSource` member, two registered `field:` keys (the `RegisteredFieldWidgetType` union and `FORM_FIELD_TYPES` gain two members), and two locale keys. Nothing narrows: a field without the hint renders exactly as before.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [96fcf30]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [e06365c]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [f34e877]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [2312bd9]
+- Updated dependencies [c5406c2]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [69bca0a]
+- Updated dependencies [ce991bd]
+- Updated dependencies [b7cd5c8]
+- Updated dependencies [5330038]
+- Updated dependencies [c9fc10b]
+- Updated dependencies [dc6d28e]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [e723f58]
+- Updated dependencies [f3d5408]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [c08c933]
+- Updated dependencies [92f979d]
+- Updated dependencies [c4dd707]
+- Updated dependencies [c4dd707]
+- Updated dependencies [923504f]
+- Updated dependencies [5c2982a]
+- Updated dependencies [97e7d4e]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [b434f5f]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [8106db1]
+- Updated dependencies [093d55b]
+- Updated dependencies [a8051d6]
+- Updated dependencies [72594f2]
+- Updated dependencies [524136e]
+- Updated dependencies [6f3299f]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [ff9df88]
+- Updated dependencies [70e843f]
+- Updated dependencies [a2225f9]
+- Updated dependencies [5c4deb5]
+- Updated dependencies [c950345]
+- Updated dependencies [21f9577]
+- Updated dependencies [044f231]
+- Updated dependencies [f8267df]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [1ffd6a2]
+- Updated dependencies [5f8ecf6]
+- Updated dependencies [726d8c9]
+- Updated dependencies [ef71a09]
+- Updated dependencies [619e3f7]
+- Updated dependencies [c9e6742]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [608033b]
+- Updated dependencies [611566b]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [71243db]
+- Updated dependencies [a8add5c]
+- Updated dependencies [33ee9de]
+- Updated dependencies [4839f5c]
+- Updated dependencies [c7462e7]
+- Updated dependencies [e058d76]
+- Updated dependencies [c999d4c]
+- Updated dependencies [8df2608]
+- Updated dependencies [5483297]
+- Updated dependencies [ed43c79]
+- Updated dependencies [655e897]
+- Updated dependencies [655e897]
+- Updated dependencies [69a408f]
+- Updated dependencies [d2b21a1]
+- Updated dependencies [5ff64ef]
+- Updated dependencies [26323c4]
+- Updated dependencies [9753811]
+- Updated dependencies [bc281f4]
+- Updated dependencies [d637be3]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [c219165]
+- Updated dependencies [a7ae252]
+- Updated dependencies [30083da]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [024b7b6]
+- Updated dependencies [909c64e]
+- Updated dependencies [9e7e1a5]
+- Updated dependencies [d0b9648]
+- Updated dependencies [46dbf32]
+- Updated dependencies [a928aaa]
+- Updated dependencies [61ed5ad]
+- Updated dependencies [1b94d50]
+- Updated dependencies [988aa9f]
+- Updated dependencies [fb85637]
+- Updated dependencies [df71568]
+- Updated dependencies [d11174a]
+- Updated dependencies [2d8a8b7]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [4b92c5a]
+- Updated dependencies [3650d94]
+- Updated dependencies [8cd4db4]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [088e0f7]
+- Updated dependencies [b403bb3]
+- Updated dependencies [4016370]
+  - @object-ui/types@18.0.0
+  - @object-ui/components@18.0.0
+  - @object-ui/react@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

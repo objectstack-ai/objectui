@@ -1,4 +1,0 @@
----
----
-
-No package released. `scripts/check-doc-json-fences.mjs` gains a fourth `SCAN_SURFACE` leg — every `.md` page of the published skill bundle under `skills/objectui/` — so the json/jsonc node documents a customer's agent copies from the guides are judged through the strict authoring face, the face `objectui validate` uses; its declaration lookup steps over the one `os:check` opt-in line `check-skill-examples.mjs` requires directly above each of those fences, so a `doc-json: fragment` declaration sits directly above that line. The eight deliberate counter-examples in `skills/objectui/guides/schema-expressions.md` and `skills/objectui/rules/protocol.md` carry that declaration; no fence content, `os:check` marker or `check-skill-examples.mjs` rule changes. `skills/**`, `scripts/` and `content/docs/` sit in no package's `files[]` (objectui#12204).

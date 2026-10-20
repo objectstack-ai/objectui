@@ -1,5 +1,648 @@
 # @object-ui/core
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- c4c506b: **Clause-②: yes (narrowing)**
+  
+  One declaration of the per-type NODE SLOTS — the keys other than `children` through which a renderer hands authored nodes back to `SchemaRenderer` — and three readers that walk it instead of stopping at `children` (objectui#11170, the follow-up PR #11126's Acceptance notes filed).
+  
+  New on `@object-ui/types`, beside `BaseSchema.children`: `NODE_SLOT_DECLARATIONS` (one row per renderer, under every registry spelling that resolves to it), `nodeSlotsFor(type)`, `nodeSlotPathSegments(path)` and `nodeSlotValues(node, path)`, with the types `NodeSlotDeclaration`, `NodeSlotRow`, `NodeSlotSegment` and `NodeSlotValue`. A position is spelled as a key path — `trigger`, `items[].content`, `regions[].components`, `items[]`, `report.sections[].content` — and the value at its end is one node or a list of nodes. The `page:*` rows are `@objectstack/spec`'s `pageComponentSlotPositions()` placed on the type whose renderer reads each position, pinned against that export in both directions; every other row is objectui's own, pinned against the live renderer. `body` stays retired as the generic child-list key (objectui#6771): it appears only on the four `page:*` types whose renderer still paints it for stored documents, marked `retired`.
+  
+  Accept sets that narrow, each reader FROM → TO:
+  
+  - `@object-ui/cli` — `objectui check`'s unevaluated-expression refusal (`findUnbindableTextExpressions`). FROM: the document root and every node its `children` hold. TO: those, and every node under a slot its type declares — so a `${…}` on `title` / `label` / `value` / `description` of a node under a dialog's `content`, a tab item's `content`, a page's `regions[].components`, a carousel item, a detail view's `tabs[].content` is now refused with the slot path (`items → 0 → content → value`). The false-refusal rows of PR #11126's ablation 2 stay green: a form's `fields[]`, a grid's `columns[]` and `{ "type": "multiple" }` are not slots. Measured over this repository's own JSON corpus and docs fences: no new finding.
+  - `@object-ui/core` — `validateSchema`. FROM: `validateChildren` recursed through `children` only. TO: it also recurses through the declared slots, so an invalid node under one (a retired `crud` spelling under `dialog.content`, an `INVALID_SCHEMA` member) is reported with its own path, spelled as `schema.items[0].content`. Measured over the same corpus: no new finding.
+  - `@object-ui/sdui-parser` — `validateTree`. FROM: the walk descended `children` alone, and a manifest entry carried no slot. TO: `ManifestComponent` gains `slots?: readonly string[]`, `manifestFromConfigs` gains `opts.slotsFor` (hand it `nodeSlotsFor`) and projects each entry's non-retired positions, and `validateTree` descends them — an unknown component, an unknown or mis-typed prop or an illegal enum under a slot now draws its diagnostic. A manifest built without the option serialises byte-identically and keeps the `children`-only reach. The `RETIRED_CHILD_LIST_KEY` refusals are unchanged.
+  - `@object-ui/components` — the `kind:'html'` page's compile manifest (`getJsxManifest`) is built with `slotsFor`, so an html-tier page whose slot-held node fails validation now fails to compile the way one under `children` does. Narrowing: a page that compiled with an unknown tag under a `dialog`'s `content` no longer does.
+  
+  Docs: `content/docs/utilities/cli.mdx`'s "Component nodes only" rule, the gate's own docblock, `validateChildren`'s comment and the parser's header now say the walk follows `children` and the declared slots; the declaration's header is where the slot list is explained.
+- 96fcf30: **Clause-②: yes (an export widens, and an accept set narrows)**
+  
+  A chart's value axis over a count now draws whole-number ticks (objectui#11681). Dashboard charts over a `count` measure ("Tasks by Status", "Projects by Health", "Invoices by Month") used to read 0.5, 0.8, 1.5 or 2.3 on their value axis. The dataset answer states each measure column's aggregate (`fields[].aggregate`, from `@objectstack/spec` 18). The chart now carries it to the axis, and an axis whose series all plot `count` or `count_distinct` sets `allowDecimals: false`. Any other measure on the axis keeps the previous ticks, so a sum over currency keeps its decimals. Every cartesian value axis is covered, including the horizontal-bar value axis that runs across the plot. Each side of a dual-axis chart decides for itself.
+  
+  - `@object-ui/core` (widens): `buildChartSeries` copies a result field's `aggregate` onto the series it derives. `ChartResultField` and `ChartSeriesBinding` gain an optional `aggregate`. `INTEGER_AGGREGATES` and `isIntegerAggregate` are new exports.
+  - `@object-ui/plugin-dashboard`: the dataset widget keeps the aggregate on the series it builds. That includes the comparison overlay and the series a dimensionless chart transposes, which states an aggregate only when every measure shares it.
+  - `@object-ui/plugin-charts` (widens): the `dataKey` arm of `ChartRendererProps.schema.series` and `NormalizedSeries` (carried by the exported `NormalizedChartSchema`) gain an optional `aggregate`, read by `normalizeSeries`. The accept set only widens: nothing that compiled before is refused. The member is renderer-internal.
+  - `@object-ui/types` (narrows): `aggregate` on a chart series is refused by name. FROM: `ChartDataSeriesSchema` (and so `ChartSchema.series[]`) accepted `{ name, aggregate: 'count' }` and stripped the key. TO: it refuses that series with an `invalid_type` issue at `aggregate`, and `ChartDataSeries.aggregate` is typed `?: never`. The key is internal: declare the aggregate on the dataset measure instead.
+- d50f724: Dates and times render in the time zone the server answers for the signed-in workspace (objectui#11693).
+  
+  `GET /api/v1/auth/me/localization` answers `timezone` beside `currency` and `locale`, and the console kept only the other two. It now carries all three, and every date and datetime face built on the shared date-display functions of `@object-ui/core` (field cells, grid and card dates, gantt tooltips, dataset measures, data-table cells) renders an instant in that zone. A date-only value still names the day it stores, whatever the zone. With no zone, every face renders in the viewer's own zone, as before.
+  
+  The zone is whatever the endpoint answers. A server that answers a zone for a workspace that configured none (objectstack's localization cascade answers `UTC` in that case) moves that workspace's datetimes into that zone.
+  
+  - **`@object-ui/core`**: `setDisplayTimeZone(timeZone)`, `getDisplayTimeZone()` and `subscribeDisplayTimeZone(listener)` declare and read the zone the date faces render instants in. An IANA name the runtime's `Intl` does not know clears it, with a console warning, instead of making every face throw.
+  - **`@object-ui/i18n`**: `LocalizationValue` gains `timezone`. `LocalizationProvider` hands it to the date faces, and `useLocalization().timezone` reads back the zone they render in.
+  - Renderers that format dates with their own `Intl` options rather than through the shared functions do not take the zone yet.
+- 17acfbb: A record delete confirmation now names what it deletes and confirms with a destructive "Delete" button (objectui#11695).
+  
+  Deleting a row from an object list, a selection of rows, or a record from its own page opened a dialog titled "Confirm Action" with a "Continue" button in the primary style, and nothing in it said which record was about to go. The dialog now:
+  
+  - titles one record by the object label and the record's display name, for example `Delete Product "QA Widget 0"?`. The name comes from the same resolver the record header and lookups use, so an object's declared `nameField` is honoured;
+  - titles a selection by its size and the object label, for example `Delete 3 Product records?`;
+  - labels its confirm button "Delete" and paints it in the destructive button style.
+  
+  The body is unchanged: the plain delete question, the batch question, or, for a package-owned permission set, the reset question from ADR-0094. The record page's Delete now asks that same question, so a package-owned permission set deleted from its own page also gets the reset question instead of the plain one.
+  
+  The three dialogs (the console list's row and bulk Delete, the record page's Delete, and the registered `object-view`'s grid Delete) take this copy from one place:
+  
+  - `@object-ui/core`: `recordDelete.confirmCopy(deps, target)` returns `{ title, message, confirmText }` for one record (`{ record }`) or a batch (`{ count }`). The `ConfirmationHandler` options gain `destructive?: boolean`.
+  - `@object-ui/app-shell`: `ActionConfirmDialog` paints the confirm button destructive when `options.destructive` is set. `useObjectActions` accepts `objectDef` and returns `deleteRecords(records)` for a confirmed batch delete. `deleteRecord` now asks through `onConfirm` with the full copy before the delete runs, rather than through the action runner's one-argument confirm. The console list passes its translated object label, so the delete toasts read the same label the page header shows.
+  - `@object-ui/i18n`: new keys in all ten packs: `objectActions.deleteConfirmTitle`, the `objectActions.bulkDeleteConfirmTitle` count family, and `objectActions.deleteConfirmButton`.
+  
+  Other confirmations are unchanged. They keep the `actionConfirm.*` title and "Continue" button and the primary style.
+- f34e877: New `isDeadlineSettled(field, row, { scope, fields })` (objectui#11815). It answers whether a declared deadline is settled for one row: `true` only when the field declares `dueLike: true` and a `settledWhen` predicate that holds for the row, evaluated with `evalRowPredicate` (the row bound as `record`). A field that is not a declared deadline, a field with no `settledWhen`, and a predicate that fails to evaluate all answer `false`. Every view that draws a date cell beside a record uses it to set the cell's `deadlineSettled`.
+- c5406c2: Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
+  
+  Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18 (raised to `^18.0.0-next.1` by objectui#12370 before release).
+  
+  **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.1` (objectui#12370), at the same time as it takes this release.
+  
+  **objectui's own surface moves with it:**
+  
+  - `element:record_picker`'s registration stops publishing the `object`, `filter`, `sort` and `limit` inputs, which spec 18 retires; a JSX page that writes one now gets `unknown-prop`.
+  - The `CapabilityMultiSelectField` widget's curated capability set (`@object-ui/fields`) follows spec 18: `manage_mailboxes` in, `manage_org_presentation` out.
+  - `element:number` and `element:repeater` nodes that bind no object are accepted, as spec 18's row and `PageComponentSchema` accept them; the two `ELEMENT_*_OBJECT_REQUIRED` refusals are gone.
+  
+  **Retired with the spec:** `@objectstack/spec` 18 tombstones `object-grid`'s `defaultFilters` and refuses it by name, and `ObjectGrid` and `ObjectView` stop reading it (`table.defaultFilters` on an `object-view` included). A view that still carries it renders unfiltered: rename the key to `filter`, whose value is the same rule array.
+- 023f00d: A create form asks its fields the create question, so a role that may create
+  records but not edit them can fill and submit the form (objectui#12082). Every
+  console affordance that offers a write now reads the grant it exercises from
+  one map.
+  
+  **The defect.** A create form gated each field on `checkField(object, field,
+  'write')`, whose fallback for a field the permission set does not mention is
+  the object's `allowEdit`. Under a grant of `allowCreate: true, allowEdit: false`
+  every field of the create form rendered disabled, the outbound filter stripped
+  every field from the body, and the save posted an empty record that the server
+  refused for its required fields — while the server accepts the same create.
+  
+  **The server's insert rule, which the create question follows.** The server's
+  field-level write step refuses a write that names a field whose explicit
+  field-level entry has `editable: false`; a field with no entry passes it, and
+  object admission decides the operation (`allowCreate` for an insert,
+  `allowEdit` for an update). So a create-form field now reads its explicit entry
+  when there is one and the object's create grant when there is none. A field the
+  permission set marks `editable: false` stays disabled and out of the body.
+  
+  **Clause-②: yes (widening)**
+  
+  - `@object-ui/core` exports the affordance-to-grant map: `AFFORDANCE_GRANTS`
+    (one row per affordance: the CRUD-affordance bit it needs, the object grant it
+    exercises and, for an affordance that offers fields, the field question it
+    asks), `resolveAffordance` (managed-object policy ∧ the server's effective API
+    operation set ∧ the caller's grant, with the row's `userActions` predicates
+    surfaced only when all three allow it), `resolveFieldAffordance`,
+    `formFieldsAffordance`, and their types (`ConsoleAffordance`,
+    `FieldAffordance`, `AffordanceGrant`, `FieldAffordanceGrant`,
+    `AffordanceGrantRow`, `AffordanceGrantPrincipal`, `FieldAffordancePrincipal`,
+    `AffordanceSource`, `AffordanceVerdict`).
+  - `@object-ui/permissions`: `checkField`'s action accepts `'create'` beside
+    `'read'` and `'write'`. `MePermissionsProvider` answers it from the explicit
+    field entry when there is one and from `allowCreate` otherwise; the
+    role-based `PermissionProvider` answers it as it answers `'write'`.
+  
+  **Behaviour, by package.** With no permission provider mounted every grant
+  still reads open, as before.
+  
+  - `@object-ui/plugin-form`: every `ObjectForm` layout's fields and outbound
+    filter ask the question of the form's mode (create or edit). The form-wide
+    lock, with its "You don't have permission to …" notice, also engages when the
+    caller's object grant for the form's mode is denied, not only when the
+    managed-object policy or the effective API operation set closes it. A
+    create-mode `MasterDetailForm`'s line cells ask the create question of the
+    child object, since every line there is a new record.
+  - `@object-ui/app-shell`: the record page's Edit and Delete (and the record
+    body's in-place editing) read the caller's update / delete grant; they read
+    none before. The import wizard's write targets ask the create question, so a
+    caller offered Import keeps every field the insert accepts. List New / Import,
+    the related lists and the Attachments panel read the map with the verdicts
+    they had.
+  - `@object-ui/fields`: a lookup's "Create new" reads the create grant (and the
+    managed-object policy and operation set) of the object the field references;
+    it read no grant before.
+  - `@object-ui/plugin-grid`: row Edit / Delete, in-place editing, the template
+    download and the add-record row read the map; the add-record row now also
+    honours the object's managed-object policy and effective `create` operation.
+  - `@object-ui/plugin-detail`: `record:details` in-place editing reads the
+    caller's update grant; the detail header's object gate adds the effective
+    operation set.
+  - `@object-ui/plugin-list` and `@object-ui/console`: bulk Delete, the
+    inline-edit toggle and the profile page's language field read the map with
+    the verdicts they had.
+- 158c75d: The record feed and a related list's Add existing and fallback remove read the
+  affordance-to-grant map, so a caller without the grant is no longer offered a
+  write the server then refuses (objectui#12082, leg B of the write-census
+  backlog).
+  
+  - **Four rows join `AFFORDANCE_GRANTS`** (`@object-ui/core`, a published value,
+    hence `minor`), each asked of the object the write goes to: `feedComment` (the
+    create grant on `sys_comment`), `feedReactionAdd` and `feedReactionRemove`
+    (the create and delete grants on `sys_comment_reaction`, the caller's own
+    reaction row) and `feedReactionColumn` (the update grant on `sys_comment`,
+    for a deployment that stores reactions in a column).
+  - **The record feed** (`@object-ui/app-shell`'s record page) hands its comment
+    composer, its reply input and its reaction control their handlers only where
+    the row allows the write; the panel draws each from its handler, so a closed
+    row withholds it. The platform's `everyone` baseline grants neither object;
+    an application does, so a member whose sets do not was offered a composer
+    whose post the server refused. On the reaction store, taking a reaction back
+    asks the delete grant: without it the click writes nothing.
+  - **A related list's Add existing** (`@object-ui/plugin-detail`) reads the row
+    of the write it ends in: with a `linkField`, a link row of the list's own
+    object (`relatedNew`, the create grant there); without one, a re-parent of the
+    picked record (`relatedRowEdit`, the update grant on `add.picker.object`). A
+    closed row withholds the button and its dialog.
+  - **The `record:related_list` fallback remove** (an `add` config with no host
+    delete) reads the list object's `relatedRowDelete` row with the object's
+    registered schema. On a record page the host withholds its delete exactly when
+    that row is closed, and the fallback used to put the delete back.
+  
+  With no permission provider mounted every one of these reads open, as before.
+- 5af42db: Five write affordances that read no grant at all now read the affordance-to-grant
+  map, so a caller without the grant is no longer offered a write the server then
+  refuses (objectui#12082, the card's remainder).
+  
+  - **`object-view`'s New** (the toolbar button of the SDUI `object-view` node)
+    reads the `listNew` row, as the console's list pages already did: the
+    object's policy, the effective API operation set and the caller's create
+    grant, on top of the node's `showCreate` / `operations.create` toggles.
+  - **The calendar's quick-create** (an empty-day click, or a time-range drag in
+    the week / day grid) reads the new `calendarQuickCreate` row, and
+    **drag-to-reschedule** reads the new `calendarReschedule` row. A closed row
+    withholds the handler the calendar grid draws the affordance from: no dialog
+    on a day click, no range drag, no draggable event. A host-supplied
+    `onDateClick` / `onEventDrop` is handed through unchanged.
+  - **The kanban card move** reads the new `kanbanCardMove` row. A closed row
+    draws the cards as not movable and hands the board no mover, so no drop
+    reaches the write.
+  - **A line-items panel's add and remove** (`record:line_items`) read the
+    `relatedNew` and `relatedRowDelete` rows on the CHILD object, the same rows a
+    related list reads for the same two writes. Add covers the Add button, the
+    entry row and Duplicate; remove covers the per-row Remove.
+  
+  With no permission provider mounted every one of them reads open, as before.
+  
+  **Clause-②: yes (widening).** `AFFORDANCE_GRANTS`, exported from
+  `@object-ui/core`, gains three rows: `calendarQuickCreate` (create),
+  `calendarReschedule` (update) and `kanbanCardMove` (update), and with them the
+  `ConsoleAffordance` union that `resolveAffordance` accepts. Nothing is removed or
+  renamed. The other four packages change behaviour only.
+- 5f75cfa: In-place edit on the record page and a list's in-cell edit honour the caller's field write grant, and the owner field honours the transfer grant (objectui#12103).
+  
+  **What a caller saw.** A caller whose permission set marks a field `{ readable: true, editable: false }` was offered an editor for it in the record page's details body, in its highlights strip and in a list's grid cells, and Save answered 403 ("Field write denied"). The owner field was offered the same way to a caller without the transfer grant, and Save answered 403 ("requires the transfer grant"). Edit forms already refused both fields through `fieldWriteGate`.
+  
+  **What changed.**
+  
+  - **The map (`@object-ui/core`).** The `recordEdit` and `listInlineEdit` rows of `AFFORDANCE_GRANTS` gain `field: 'write'`, so the record page's in-place edit and a list's in-cell edit each ask every field the same update question an edit form asks, through `resolveFieldAffordance`. `FieldAffordance` therefore includes both rows.
+  - **The details body and the highlights strip (`@object-ui/plugin-detail`).** `DetailSection` and `HeaderHighlight` ask that question of each field. A refused field shows no pencil, does not enter the edit session on double-click, and stays a read display in edit mode. The strip and the body share one session and one Save, so they answer alike.
+  - **The grid (`@object-ui/plugin-grid`).** `ObjectGrid` marks a refused field's column not editable, so its cell keeps the read display while the rest of the row edits. Whether the grid is editable at all is still the object-level `listInlineEdit` verdict.
+  - **The owner field (`@object-ui/permissions`).** The server refuses an update that writes the record's owner (the field the `@objectstack/spec` constant `SystemFieldName` names `OWNER_ID`) unless the caller holds `allowTransfer` or `modifyAllRecords`. `MePermissionsProvider`'s `checkField(object, owner, 'write')` now answers with that grant, read with the spec's `objectPermissionGrants`. The `write` question is the server's update rule for a field, so every surface that asks it (edit forms, in-place edit, in-cell edit) offers the owner field only to a caller who may transfer the record. `checkField(object, owner, 'create')` is unchanged, because on insert the server stamps an empty owner to the caller and accepts the caller's own id. `MePermissionsResponse` declares the `allowTransfer` bit the endpoint already serves, and `@object-ui/permissions` now depends on `@objectstack/spec` directly.
+  
+  **Unchanged.** With no permission provider mounted no field question is asked, so a standalone embed and the designer preview behave as before. The server still enforces every grant; this only stops the console from offering a write it would refuse.
+  
+  **Clause-②: yes (widening).** `AFFORDANCE_GRANTS.recordEdit` and `AFFORDANCE_GRANTS.listInlineEdit` gain a `field: 'write'` member, which widens the `FieldAffordance` type by those two rows. `MePermissionsResponse`'s object entry declares an optional `allowTransfer?: boolean`. `checkField`'s action union is unchanged; its `write` answer narrows for the owner field only. No export, prop or language-pack key is added or removed.
+- 334f0cf: A `type: 'url'` action or an `element:button` whose target is `mailto:` now opens the mail client, where it used to fail at click (objectui#12191, the objectui half of ruling A+; the spec half is objectstack-ai/objectstack#23010).
+  
+  The spec accepts a `mailto:` url target, and app-shell's entitlement CTA already opened one. The action runner refused every scheme but `http(s)` and relative paths, so a mail button published cleanly and then answered "Invalid URL scheme" at click.
+  
+  - **One answer, two callers.** `@object-ui/core` exports `classifyNavigationTarget(url)` and its `NavigationTargetKind` type. It returns `'web'` (`http://`, `https://`), `'mail'` (`mailto:`), `'path'` (an in-app path, `/…` or `./…`) or `null` (refused). The action runner and app-shell's `resolveCtaHref` both read it, and neither keeps a scheme list of its own. Scheme names compare case-insensitively.
+  - **`mailto:` navigates in place.** On a `type: 'url'` action, its `navigation` alias and `onSuccess.navigate`, a `mailto:` target sets `window.location.href`. It never opens a new tab, so `openIn` is not consulted. It never goes to the host's navigation handler either: the console's handler would open it in a new tab or route it as a path.
+  - **The admitted set is closed.** `javascript:`, `data:`, `tel:` and every other scheme stay refused. A protocol-relative `//host` is now refused too; the runner used to hand it to the navigation handler as an in-app path. So are the two spellings a browser reads as `//host`: a backslash right after the first slash, and a target holding a tab, line feed or carriage return.
+  - **The refusal names the set.** The runner's error now reads "Invalid URL scheme. Only http://, https://, mailto: and in-app relative paths (/path, ./path) are allowed." The `onSuccess.navigate` warning carries the same sentence.
+  - **Upper-case schemes.** The runner now admits `HTTP://…` and `HTTPS://…` as external URLs and `MAILTO:…` as a mail target; it used to refuse them.
+  - **app-shell.** `resolveCtaHref` answers as before for `http(s)` URLs, `mailto:` and relative paths, and now also passes a `MAILTO:` URL through as-is. A target the shared answer refuses still takes the control-plane-relative branch, as before.
+- 7af0ab3: The author of a comment on a record page can now edit and delete it from the record feed (objectui#12268).
+  
+  `sys_comment` declares the generic Edit and Delete affordances (`managedBy: 'platform'`), and the platform lets an author update and delete their own comment, but the record feed only offered reactions and replies. Now the author's own comment and reply show Edit and Delete. Nobody else sees either control on it.
+  
+  - **Edit** opens the comment's text in place. Save stores the new text and marks the comment edited; the row then shows the new text with the usual "(edited)" mark. If the server refuses, an error appears, the editor keeps the draft, and the comment keeps its previous text. A comment stored as edited reads as edited.
+  - **Delete** asks first, through the console's usual destructive confirm dialog. Cancel deletes nothing. If the server refuses, an error appears and the comment stays.
+  - **Replies outlive their comment on screen.** A reply whose comment the feed does not hold, because that comment was deleted or lies before the loaded page, now shows as a row of its own instead of disappearing, so deleting a comment no longer hides anyone's replies to it.
+  - Each control appears only with the matching permission on `sys_comment` (update for Edit, delete for Delete). The server's own rule still decides every write.
+  
+  Published surface, all additive:
+  
+  - `@object-ui/collaboration`: new export `isCommentAuthor(authorId, viewerId)`, the owner rule `CommentThread` gates Edit and Delete on. Two missing or empty ids no longer count as a match.
+  - `@object-ui/types`: `FeedItem.authoredByViewer?: boolean`, set by the host that read the row.
+  - `@object-ui/react`: `DiscussionContextValue.onEditComment` and `onDeleteComment`.
+  - `@object-ui/plugin-detail`: `onEditComment` and `onDeleteComment` on `RecordActivityTimelineProps`, `RecordChatterPanelProps` and `ThreadedRepliesProps`. A reply now shows the "(edited)" mark too.
+  - `@object-ui/core`: two rows in the affordance-to-grant map, `feedCommentEdit` and `feedCommentDelete`.
+  - `@object-ui/i18n`: five new `detail.*` keys in all ten language packs (`editComment`, `deleteComment`, `deleteCommentConfirm`, `commentEditFailed`, `commentDeleteFailed`).
+- 524136e: The view-level `provider: 'api'` data source is no longer read anywhere in objectui (objectui#12325). `@objectstack/spec` retires it (objectstack#23082, ADR-0049): a view binds its object (`provider: 'object'`) or static rows (`provider: 'value'`), and a metadata-declared API call is the page element's `dataSource` binding.
+  
+  Breaking, declared as `minor` per the version-alignment rule:
+  
+  - **`resolveDataSource`** (`@object-ui/core`) has no `api` arm. A block that still says `provider: 'api'` is an unknown provider and gets an unknown provider's answer (the fallback DataSource, else `null`); no `ApiDataSource` is built from its `read` / `write`. `ResolveDataSourceOptions` loses `fetch` and `defaultHeaders`, which only that arm read.
+  - **`ViewDataProvider`** (`@object-ui/core`) has no `api` arm: such a config resolves with `Unknown data provider: api`. `ViewDataConfig` and `ResolvedData.provider` drop `'api'`, and `DataFetcher.fetchUrl`, which only that arm called, is removed.
+  - **`useViewData`** (`@object-ui/react`) no longer keys on or threads anything for an `api` block.
+  - **`ObjectGantt`** reads no `api` block: its `read` URL is never requested, and the chart answers it like any unknown provider. `ObjectCalendar` and `ObjectMap` drop their `api` branches, which only warned "not yet implemented".
+  - **`ListView`** no longer stands down for a gantt view with an `api` block: it fetches the bound object like any other list.
+  
+  Unchanged: `ApiDataSource` stays a class for code that constructs it from an `ApiDataSourceConfig`, so the console's approvals inbox reads exactly as before.
+- ff9df88: Depend on `@objectstack/*` `18.0.0-next.1` (objectui#12370).
+  
+  Every `@objectstack/*` range these packages declare moves from `^18.0.0-next.0` to `^18.0.0-next.1`; the console and the runner bundle `18.0.0-next.1`. A consumer moves its own `@objectstack/*` packages to `18.0.0-next.1` with this release.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates page action rows and view data bindings through the spec's own rows, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.1` refuses. Each was accepted on `18.0.0-next.0`:
+  
+  - `onSuccess` on an `action:button` / `action:icon` row, or an `action:group` / `action:menu` member, whose executor is the `url`, `navigation`, `modal`, `flow` or `form` built-in, or that has no executor at all. Write the hop on an `api` or `script` action (or a host handler name), or drop it.
+  - `onSuccess` beside `operation: 'update'`, and an `onSuccess` block carrying a key outside `{ navigate, openIn }`.
+  - `actionType: 'navigation'` on a row (and `type: 'navigation'` on a container member): write `'url'`.
+  - A `url` executor's `target` that is not openable, judged on the executor the runner runs, including a row whose `name` selects it.
+  - A view `data` binding with `provider: 'api'`: bind the object or static rows; an API call is the page element's binding.
+- f62b6ff: Resolve `@objectstack/*` `18.0.0-next.2` (objectui#12626).
+  
+  The console and the runner bundle `18.0.0-next.2`. `@object-ui/types` and `@object-ui/app-shell` now declare `@objectstack/spec` `^18.0.0-next.2`; the other packages keep `^18.0.0-next.1`, which already admits it.
+  
+  **The record dialog opens bounded on desktop for every object.** A create, edit or child record dialog on an object with many fields used to open as a 95vw task canvas. `@objectstack/spec` `18.0.0-next.2` derives a bounded modal for it on desktop and keeps the full-screen sheet on a phone, and the console now takes that answer directly.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates a page through the spec's own page checks, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.2` refuses. Each was accepted before:
+  
+  - On a `kind: 'full'` page, a region whose `name` the page's `template` does not place (with the default template: anything but `header`, `sidebar`, `main`, `aside` and `footer`), and a second region for a slot another region already fills. The renderer stacked such a region under `main` at full width. Rename it to a slot the template places, or choose the `dashboard` template, which lays every other region out as a grid cell.
+  - `isDefault: true` on a page whose `type` is its page kind (`record`, `home` or `utility`) unless it is a `record` page bound to an `object`. Delete the key; an app's landing page is its first navigation item.
+- 26323c4: Resolve `@objectstack/*` `18.0.0-next.3` (objectui#12873).
+  
+  The console and the runner bundle `18.0.0-next.3`. Every package keeps its `@objectstack/*` range (`^18.0.0-next.1`, or `^18.0.0-next.2` for `@object-ui/types` and `@object-ui/components`), which already admits it, except `@object-ui/app-shell` (objectui#12943) and `@object-ui/plugin-detail` (objectui#12946), which declare `^18.0.0-next.3`.
+  
+  **An accept set that narrows with it.** `@object-ui/types` validates a `page:header` node's `properties` through the spec's own `page:header` row, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse `showStar`, which `18.0.0-next.3` retires: the follow star it switched on is not drawn by any renderer. It was accepted before. Delete the key.
+  
+  **A type that widens with it.** `SelectOptionBase`, and the field and form option types built on it, take the spec's select option by reference, so they now carry its optional `kind` (`'open' | 'won' | 'lost'`), the lifecycle category `18.0.0-next.3` adds. The spec takes it on a single-value `select` or `radio` field's options and requires it on every option of the field an object's `stageField` names.
+- 025130c: A row action's templates read the row as `record`, the way the record header's do (objectui#12967).
+  
+  The same action's `confirmText` with `${record.display_name}` read filled from a record header and as template source from a list row: the header binds `record` in the action runner's context, while a row surface (a grid row, a related-list row, `DeclaredActionsBar`, a page header, `action:button`'s update write) stashes the row under `params._rowRecord` and binds nothing. The runner now binds a dispatch's `_rowRecord` as `record` for that dispatch's templates, the row winning over a page-level `record`. A hole naming a field the record does not carry prints empty on both doors, as it always has on the header.
+  
+  The param dialog's `description` and each param's `helpText` are filled in the same scope, on both doors. Before, neither door filled them. The runner hands the param-collection handler an `interpolate` function; the console's two handlers apply it to the localized description (never to the admin-override notice, whose approver names are data) and pass it to `ActionParamDialog`, which applies it to the `helpText` the user reads, after an inline per-locale map is picked.
+  
+  A toast's `${result.*}` is unchanged. No action key is added.
+  
+  **Clause-②: yes (widening).** The exported `ParamCollectionHandler` type in `@object-ui/core` gains an optional third parameter, `interpolate?: (text: string) => string`. A handler that ignores it reads exactly as before. `ActionParamDialog`'s state type gains one optional member, `interpolate`; that type is not in `@object-ui/app-shell`'s barrel.
+- 2493e85: A page predicate can ask the capability question: `current_user.hasCapability('NAME')` now answers in the console, from the same `/auth/me/permissions` answer the action gate reads (objectui#13006, the objectui half of objectstack#24414).
+  
+  - **`@object-ui/core`** carries the subject's held system capabilities to the formula engine the way it already carries the object-permission map for `current_user.can(object, verb)`. New `bindSubjectCapabilities` / `subjectCapabilitiesOf` sit beside `bindSubjectPermissions` / `subjectPermissionsOf`, under a symbol key (`SUBJECT_CAPABILITIES`), and `evalFieldPredicate` passes the list as `EvalContext.systemPermissions`. The list is not a CEL root and not a readable member of `current_user`.
+  - **`@object-ui/app-shell`**'s `ExpressionProvider` binds that list from `usePermissions().systemPermissions` once the payload has loaded. Until then nothing is bound and the call faults, the same as `can()` does: it is never defaulted to `[]`. An empty list is a real answer and evaluates to `false`. The list is bound only together with the object-permission map from the same answer, so both change at the same time.
+  - Actions' `visible`, the action capability gate (`requiredPermissions`) and every other existing gate are unchanged.
+- 9f1dd79: A `type: 'form'` action placed at `record_related` and fired from a related-list row now opens the clicked row's edit form (`/forms/NAME?recordId=ROW_ID&recordObject=CHILD`), as it does from the child's own record page, instead of a blank create form (objectui#13063). The related-list bridge hands the row to the dispatch as its execution context (`record` + the child's `objectName`); `ActionRunner.execute` takes that per-call context as an optional second argument and leaves the runner's own context untouched.
+  
+  `@object-ui/core` widens one published method: `ActionRunner.execute(action, callContext?)`. `callContext` is optional, so every existing caller is unchanged.
+- 616df65: An action's param dialog keeps what the user typed when the server refuses the run (objectui#13161).
+  
+  The console's param dialog resolved its values and closed on Confirm, before the action ran, so a refusal ("User already exists. Use another email.", an invalid redirect URL) landed on a dialog that no longer existed: only the error toast remained, and the user typed everything again. The dialog now stays open and busy until the run settles. A success closes it, and the runner toasts as before. A refusal leaves it open with every value as typed and the refusal shown above the buttons, so the user can fix the input and confirm again, or cancel. While the run is in flight, Confirm and Cancel are disabled and the dialog does not close. Cancel after a refusal closes the dialog and runs nothing more.
+  
+  The refusal is shown as the form's, never on a field: the run's result carries it as text only, and the dialog does not guess a field from the sentence. The runner still toasts it.
+  
+  The runner hands the param-collection handler a `run` function: called with the collected values, it dispatches the action and resolves with that run's result. A refused run gets its post-execution (error toast, `onFailure`) at once; a successful run's post-execution waits until the handler settles, so the dialog is closed before the success toast or a result dialog shows. A call made while a run is in flight returns that run and dispatches nothing new. A handler that never calls `run` keeps the old contract: one dispatch with the values it resolves. The console's two param handlers, `useConsoleActionRuntime`'s and `RecordDetailView`'s, forward it to `ActionParamDialog`. The type-level actions of a metadata type (`MetadataTypeActions`) run without the runner and keep the old close-on-Confirm behavior.
+  
+  **Clause-②: yes (widening).** The exported `ParamCollectionHandler` type in `@object-ui/core` gains an optional fourth parameter, `run?: (values: Record<string, any>) => Promise<ActionResult>`. A handler that ignores it reads exactly as before. `ActionParamDialog`'s state type gains one optional member, `run`; that type is not in `@object-ui/app-shell`'s barrel.
+- 3c3115e: List views read `userActions.editInline` with the spec's default, on since objectstack-ai/objectstack#22605 (`editInline: z.boolean().default(true)`), and `editInline: false` is the opt-out. A view's `inlineEdit` folds into it, and the console's inline-edit toggle no longer writes to the view (objectui#5144).
+  
+  **The spec's default, read as declared.** The spec declares `userActions.editInline` with `.default(true)` (objectstack-ai/objectstack#22605): a list view is editable in place by default, under the permission gate, and `editInline: false` is the opt-out. The object-list toolbar used to read an absent `editInline` as "defer to the host", so every console grid offered the inline-edit toggle unless a view said `editInline: false`. The toolbar now reads it as the spec does. A grid view that declares neither `userActions.editInline` nor `inlineEdit` offers the inline-edit toggle, on the wide toolbar and in the compact settings popover, and opens out of edit mode. The flip of the default, and the interface page that reads it, are the objectui#12086 entry of this release.
+  
+  **The fold.** `normalizeListViewSchema` (`@object-ui/core`) now folds a boolean `inlineEdit` into `userActions.editInline`, the way it already folds the `show*` flags into the other toggles:
+  
+  - `inlineEdit: true` reads as `editInline: true`: the toggle is offered and the grid opens in edit mode;
+  - `inlineEdit: false` reads as `editInline: false`: no toggle;
+  - an explicit `userActions.editInline` wins over `inlineEdit`, in both directions;
+  - a view with neither key reads on, the spec's default.
+  
+  `inlineEdit` stays on the folded view, because `ListView` opens the grid in edit mode from it. Nothing migrates stored views.
+  
+  **The console toggle is session-only (`@object-ui/app-shell`).** Both keys are the author's permission. The console's toolbar toggle used to store a user's edit mode in the view's `inlineEdit`; after the fold, switching it off would have taken the toggle away for good. It now writes nothing. The toggle switches edit mode for the session, and each load starts from the view's own `inlineEdit`. `ListView` still reports the toggle through `onInlineEditChange`.
+  
+  **A named view's `inlineEdit` keeps its precedence (`@object-ui/plugin-view`).** On a host's `renderListView`, `ObjectView` merges `userActions` from the node, the host's `views` entry and the active named view, the named view last. The named view's `userActions` now go through the same fold as the other two. So a named view's `inlineEdit` decides whether inline editing is offered ahead of a host entry's, as it already decided the edit mode.
+  
+  **What to do.** A list whose records are read-only by nature declares `userActions.editInline: false`. A view that declares `userActions.editInline: true` keeps the toggle offered whatever the user does with it. Two costs come with the session-only toggle:
+  
+  - the edit mode is not remembered across loads;
+  - a view, or a personalization overlay, where the old toggle stored `inlineEdit: false` still reads off. That is existing data, and it is not migrated. Declaring `userActions.editInline: true` on the view brings the toggle back.
+  
+  Nothing is added to a package entry: no export, prop, type member or language-pack key.
+- 3fd8625: feat(plugin-list)!: the renderers stop reading the list-view keys every door refuses: the pre-#2231 aliases, `calendar.defaultView`, and the undeclared keys a per-kind block carries (objectui#6152, round 14)
+  
+  Clause-②: no
+  
+  **Changed (breaking for a stored view that carries a refused key).** Rounds 11 and 12 of
+  objectui#6152 closed the doors: `@object-ui/types`, `objectui validate` and `@objectstack/spec`'s
+  view write door refuse these keys on a list view's per-kind blocks, top-level and under the legacy
+  `options` bag. The renderers kept reading them, so a view stored before the doors closed still
+  rendered as written. They no longer read them, on every route that did: `normalizeListViewSchema`
+  (`@object-ui/core`), which folded the four aliases onto their spec keys before anything else read
+  the view, `ListView`, the object page's relay (`@object-ui/app-shell`), `ObjectView`'s own views
+  (`@object-ui/plugin-view`) and `ObjectTimeline`. A stored view that carries one of these keys still renders, without what the key
+  used to bind. Write the spec's key instead:
+  
+  | stored key (either nesting) | what renders now | write instead |
+  | :--- | :--- | :--- |
+  | `kanban.groupField` | lanes as for a view that names none: the object's declared lifecycle field (`status` on an `object-view` element's own views) | `kanban.groupByField` |
+  | `kanban.cardFields` | cards show `kanban.columns`, or the view's own fields | `kanban.columns` |
+  | `gallery.imageField` | no cover binding: `ObjectGallery` tries `image`, and the Gallery view is not offered | `gallery.coverField` |
+  | `timeline.dateField`, and `calendar.dateField` read as a timeline axis | no timeline axis: the timeline's refusal names the keys to write, and the Timeline view is not offered | `timeline.startDateField` (or `calendar.startDateField`) |
+  | `calendar.defaultView` | the calendar opens on its own default view | nothing on a list view: the initial mode is the `object-calendar` element's flat `defaultView` |
+  | `kanban.swimlaneField` and any other undeclared kanban key | not drawn | nothing: the spec's kanban block has no swimlane |
+  | `tree.titleField` | the tree labels by `name` | `tree.labelField` |
+  | an undeclared key under `calendar`, `tree` or `gantt`, or anything under `options.grid` | not forwarded to the view | the block's declared key, or a top-level key of the view for a grid |
+  
+  The declared keys keep their route: `kanban.summarizeField`, `calendar.colorField` and
+  `calendar.allDayField` are now read by name where the removed spreads used to carry them, and every
+  `gantt` key the spec declares reaches the gantt through a typed table that `tsc` keeps total. A
+  block key named like a node key (`objectName`, `filter`) can no longer override the node's own
+  value. `ListView`'s projection collectors stop asking the server for the fields these keys named.
+  
+  **Not measured: production.** The census before this change (objectui#6152 round 13) found no
+  writer and no stored row carrying these keys in any repository corpus a seat can reach, with
+  positive controls; stored view and page metadata in deployments was not measured. A row that
+  carries one of these keys renders as the table says until it is re-saved with the key on the
+  right.
+  
+  Not in this change: the legacy chart axes (`chart.xAxisField`, `yAxisFields`, `categoryField`,
+  `valueField`, `aggregation`), which `ListView` still reads until the next round on objectui#6152.
+  
+  - `@object-ui/core`: `normalizeListViewSchema` returns a view whose only legacy vocabulary is one of
+    these nested aliases by reference, with the alias in place; it no longer removes it either.
+  - `@object-ui/types`: the refusal messages of these keys no longer say a stored view still renders
+    through the alias, and the kanban `groupBy` refusal no longer suggests the refused `groupField`.
+  
+  **Note added 2026-10-09 (objectui#6152 round 15):** the legacy chart axes are no longer read either.
+  `ListView`, the object page and `ObjectView`'s own views read no `xAxisField`, `yAxisFields`,
+  `categoryField`, `valueField` or `aggregation` on a chart block, so a chart view that names no
+  `dataset` binds nothing and `ObjectChart` refuses it on screen; see
+  `.changeset/6152-list-view-legacy-chart-retired.md`.
+- d328698: `ActionContext`, `ActionResult`, `UndoableOperation` and `ComponentMeta` are re-exported from `@object-ui/types` instead of declared a second time here (objectui#6349, batch 4), so an import of any of these names from either package is the same type. The registry's own registration type gets its own name, `RegistryComponentMeta`.
+  
+  **Type changes, breaking for some consumers.**
+  
+  - **`ComponentMeta` from this package no longer carries the five registry-only keys** (`tier`, `namespace`, `skipFallback`, `labelling`, `deprecated`). It used to be this package's registration type, `@object-ui/types`' `ComponentMeta` plus those keys, published under the general name. That type is now `RegistryComponentMeta`, with the same members. `ComponentRegistry.register`, `registerLazy` and `getMeta` are typed with it, so a registration literal passed straight to them still compiles. Code that annotates a value as `ComponentMeta` from `@object-ui/core` and writes or reads one of the five keys must use `RegistryComponentMeta` instead (for example `RegistryComponentMeta['labelling']`).
+  - `ActionContext`: the runner's copy typed `record` and `user` as `any`; the one declaration types both as `Record<string, any>`. A non-object `record` or `user` on a value typed `ActionContext` no longer type-checks, and under `strict` a read such as `context.record.id` now needs optional chaining (`context.record?.id`). `data`, `selectedRecords`, `pageVariables` and the index signature are unchanged.
+  - `ActionResult` and `UndoableOperation` keep their members exactly; only their declaring package moves.
+  
+  No runtime behaviour changes.
+- 78b07f4: The object-page special cases for the retired permission-set catalog object are removed (objectui#7611, after objectstack's ADR-0131 stage 8 retired `sys_position`, `sys_permission_set`, `sys_position_permission_set` and `sys_capability`). A permission set is edited on its Setup metadata page, which reads the registry; none of the removed code ran anywhere else.
+  
+  **Breaking (narrowing; scored `minor` per the fixed group's version policy).** Each removal below shrinks a published face:
+  
+  - **`@object-ui/core`: `recordDelete.confirmText`.** FROM `recordDelete.confirmText({ objectName, t }, record)` TO `recordDelete.confirmText({ t })`. A package-owned `sys_permission_set` row no longer gets the reset question or the "reset" toast: every record gets the delete question and the delete toast. Fix: drop `objectName` and the second argument.
+  - **`@object-ui/i18n`: pack keys.** FROM `perm.facet.*` (`none`, `more`, `objects`, `fields`, `rls`, `tabs` with their plural slots, `adminScope`, `designInStudio`, `designInStudioHint`) and `objectActions.resetPackageSetConfirm` / `objectActions.resetPackageSetSuccess` in all ten packs TO absent. Fix: a consumer that still asks for one keeps its own copy (inline `defaultValue` or its own bundle).
+  - **`@object-ui/plugin-detail`: the `field:permission-facet-link` registry key.** FROM a registered field widget (the read-only facet summary with a "Design in Studio" link, also special-cased in the detail section and inline edit) TO unregistered. A field still carrying `widget: 'permission-facet-link'` renders with its declared type, like any unregistered widget. Fix: drop the `widget` hint, or register an own widget under that key.
+  - **`@object-ui/cli`: `objectui check`'s known schema types.** FROM `field:permission-facet-link` known TO unknown, so `objectui check` reports a node of that type. Fix: as above.
+  
+  **Behaviour changes, not narrowings:**
+  
+  - **`@object-ui/data-objectstack`:** `getObjectSchema` no longer stamps `widget: 'permission-facet-link'` onto the six `sys_permission_set` facet fields (that object is no longer served).
+  - **`@object-ui/app-shell`:** the `sys_permission_set` record page no longer appends the assigned-users panel. The panel itself, `AssignedUsersSection`, stays on the permission-set metadata page.
+  - **`@object-ui/app-shell`: a permission set created from the Setup catalog is created live.** "New" on the permission-set page used to save a draft, while the set's editor edits the live set and reads no draft: the editor opened an empty set without the label, its Save wrote the grants live, and the draft stayed pending, so publishing it from Home replaced the grants with the empty create body. Outside a package binding the create now writes live (with the same first-write pin); under `?package=` it stays a package draft.
+  
+  **Widenings:**
+  
+  - **`@object-ui/core`:** the data source `recordDelete.run` is injected with needs only `delete` (it no longer calls `findOne`).
+  - **`@object-ui/app-shell`:** the metadata-resource registry entry gains an optional `createLive`, which a type sets when its edit page writes the live item.
+  
+  Internal, not reachable from a published entry: the `PermissionFacetLink` component (never exported from `@object-ui/plugin-detail`), `RecordPermissionAssignmentsRenderer` (never exported from `@object-ui/app-shell`), and `ObjectStackAdapter`'s private `applyFieldWidgetOverrides`.
+
+### Patch Changes
+
+- e6dcd85: An authored `view:calendar` or `view:timeline` node loads its plugin and renders the calendar or the timeline, and a console boot no longer logs the registry's race warning for those two keys (objectui#11680).
+  
+  The console declares both views as lazy stubs, then registers a protocol placeholder for each protocol key nothing renders yet. The placeholder registrar asked the registry about loaded components only, so it read the two stubbed keys as free and took them, and the registry cleared the stubs under them. Until some other node happened to load the calendar or the timeline chunk, an authored `view:calendar` or `view:timeline` drew the dashed "Component Placeholder" box instead of the view. `registerPlaceholders()` and the eager palette placeholders now skip a key a pending lazy stub holds (`ComponentRegistry.hasLazy`). The key stays with the plugin that declared it, and `SchemaRenderer` loads that plugin the first time the node renders. A protocol key that nothing declares still gets its placeholder.
+  
+  The registry's collision warnings now name a stub by the full type it declared. A stub found under its own namespaced key was named with its namespace written twice (`view:view:calendar`), and `register`, `registerLazy` and `unregister` compared ownership against that doubled spelling.
+  
+  **Clause-②: no.** No export is added or removed, and no accepted input changes. The placeholder registrar is not exported, and the field the registry now records on a lazy stub lives on a type the package does not export.
+- c0862c1: The action key inventory lists `requiresMembershipReach`, the key `@objectstack/spec` 17.7.0 adds to `ActionSchema` (objectui#11717), so an action carrying it is no longer reported as having an unknown key. The spec's parse lowers it into `visible`; the action runner does not read it.
+- d99b731: Approval requests can now be read by the standard list and record views, and `ApiDataSource.findOne` now rejects a refused or failed read instead of reporting the record as missing (objectui#12032, A1 of objectui#2763).
+  
+  - **`ApiDataSource.findOne` resolves `null` only on a 404.** Every other failure (a 403, a 5xx, a transport error) now rejects, the way `ObjectStackAdapter.findOne` does. Before, any failure resolved `null`, so a record page over a `provider: 'api'` source showed a refused or failed read as "Record not found". It now shows "no access", or "could not load" with Retry (the record page states from objectui#11902).
+  - **A console data source for approval requests.** `apps/console/src/services/approvalRequestsDataSource.ts` routes reads of `sys_approval_request` to the approvals routes through `ApiDataSource`, and everything else to the console's own adapter. Each source serves one server-side scope: awaiting me, submitted by me, or all. Rows come back as the approvals service serves them, so `viewer` and (on a single read) `decision_progress` are fields a view can bind. On a list read, `$top`, `$skip` and `$search` become the route's `limit`, `offset` and `q`, and `$select` is dropped. Every other parameter, such as a filter, a sort or an expansion, is refused with an `UNSUPPORTED_QUERY_PARAM` error, so the list shows its error panel and never shows unfiltered rows. Nothing mounts the source yet; the approvals list and detail pages that will use it come later.
+  
+  Nothing is added to any package entry: no export, prop, type member or language-pack key.
+  
+  **Superseded in part (objectui#12045):** the console now mounts this source on the `sys_approval_request` record route, so the sentence above saying nothing mounts it no longer holds when both changes release together.
+  
+  **Superseded again (objectui#12045, the page-mount step):** the console no longer declares a record route of its own for `sys_approval_request`. On every surface that opens a request, the console-wide `ApprovalRecordReads` layer sends the request's single read to `GET /approvals/requests/:id` and one request's timeline to `GET /approvals/requests/:id/actions`; lists of requests, and every other read, stay on the console's adapter, the data API.
+- 7525045: More write affordances read the affordance-to-grant map, so a caller without the
+  grant is no longer offered a write the server then refuses (objectui#12082, leg A
+  of the write-census backlog). No row is added: each reuses the row of the same
+  verb on the same object.
+  
+  - **The record overlay's inline edit** — the overlay the calendar, the kanban and
+    the gantt open on a record (`RecordDetailPanel`) — reads the `recordEdit` row,
+    the row the record page reads for the same in-place edit: the object's policy,
+    the effective API operation set and the caller's update grant. A closed row
+    opens no inline-edit session, as an absent `onFieldSave` already did. Each
+    field still asks its own field question, as since objectui#12103.
+  - **The gantt's in-chart writes** read `rowEdit` (a bar's drag, resize and
+    progress, its title edited in place, and its dependency links) and `rowDelete`
+    (a row's Delete). A closed row withholds the handler the chart draws the
+    affordance from, the way `readOnly` and `lockField` already do.
+  - **A grid's bulk field update** (a `bulkActionDefs` entry with `operation:
+    'update'`) reads `rowEdit`, as its bulk delete reads `rowDelete`: a closed row
+    removes the button from the selection bar, and with it the dialog, its undo
+    and its retry. `custom` operations are unchanged.
+  - **A master-detail form's line grids** read `relatedNew` (Add, the entry row
+    and Duplicate) and `relatedRowDelete` (Remove) on the CHILD object, as a
+    line-items panel does. Remove asks the delete grant on an edit form only: a
+    create form's lines are drafts, and a removed one is never a server delete.
+  - **A line-items panel** now hands its child object's schema to those two rows,
+    so the child's own policy (`managedBy`, `userActions`) is read too.
+  - **The AI build panel's spreadsheet import** (`ExcelImportBar`) reads the
+    `listImport` row of the object it imports into, as the list page's Import
+    does: without it, Import is disabled for that object.
+  
+  With no permission provider mounted every one of these reads open, as before.
+- d75f212: Published text no longer teaches the retired view-level `provider: 'api'` data source (objectui#12364). A view binds `provider: 'object'` or `provider: 'value'`; a metadata-declared API call is the page element's `dataSource` binding. Text only: no schema accepts or refuses anything new, and no renderer behaves differently.
+  
+  - **`@object-ui/types`:** the `object-tree` `data` description drops the `api` provider from the providers it names.
+  - **`@object-ui/plugin-grid` / `@object-ui/plugin-map`:** the `data` input descriptions drop the `api` provider.
+  - **`@object-ui/plugin-calendar` / `@object-ui/plugin-gantt` / `@object-ui/plugin-map`:** the error thrown when no `DataSource` is available now reads `DataSource required for the object provider` (was `DataSource required for object/api providers`). It fires in exactly the same conditions as before.
+  - **`@object-ui/react` / `@object-ui/auth`:** the README and docblocks describe `SchemaRendererProvider`'s `apiFetch` as what it is now: the host's authenticated fetch the renderers use for their own reads of the host's API (chart metadata, dataset dimension labels, record-permission probes). It is not a channel for a view's data source.
+  - **`@object-ui/app-shell`:** comment wording only in `ConsoleShell`, `useConsoleActionRuntime` and `ObjectView` (these comments ship in the built JS): no behaviour change.
+  - **`@object-ui/core`:** docblock wording only on `normalizeListViewSchema` and `resolveRecordSourceObjectName` (these ship in `dist/*.d.ts` and the built JS): no behaviour change.
+- 260ef71: Clause-②: no
+  
+  **A navigation no longer claims a success (objectui#12755).** A `type: 'url'` action, its `navigation` alias and a `type: 'form'` action only change the route, yet each raised the generic success toast ("Action completed successfully" / 「操作已成功完成」) after it navigated, so a button that merely opened a page read as a completed operation. `ActionRunner` now marks such a result `silent` (it keeps `success: true`), so it announces nothing unless the action declares its own `successMessage`, which still shows. Actions that write (api, script, field update, flow) keep their success toast.
+- fb501bc: An `operation: 'update'` action no longer posts its declared `patch` as request `params` (objectui#12941). The platform action route applies the patch itself, from the action definition it resolves by name, so the request carries only the values collected for the action's declared `params`, plus the record id.
+  
+  Before, `ActionRunner` merged the `patch` keys into the `params` it handed the registered `script` dispatch, so every declarative-update button sent field values its action never declared as params. The route wrote the same values either way, but a route that refuses undeclared params (ADR-0104 D2, objectstack#24268) answered every such button with a 400. The runtime half of that refusal waits on this change.
+  
+  - **What a button writes is unchanged.** The route still writes the declared `patch` under the collected values, and a collected value of the same name still wins.
+  - **Undo is unchanged.** An `undoable` update still captures the prior value of every field the route writes, the `patch` fields included, because the runner reads them off the action, not off the request.
+  - **A custom `script` dispatch** registered on the runner is now handed an update action whose `params` hold the collected values alone. The action's `patch` is still on the definition it receives.
+  
+  No key is added, removed or renamed, and no accepted input changes.
+- 61ed5ad: The Undo of an `operation: 'update'` action covers the `patch` of the declared action its `name` names, and no action renderer forwards a page action row's own `patch` (objectui#13022, following `@objectstack/spec` 18 retiring that row key, objectstack#24442).
+  
+  A page action row (`action:button`, `action:icon`, an `action:group` / `action:menu` member) with `operation: 'update'` runs the declared action its `name` names. The platform action route resolves that declaration by name and writes its `patch` under the collected params. The row's own `patch` reached no request since objectui#12941, and the runner read it only for the Undo snapshot, so the snapshot covered the wrong fields. A row with no `patch` of its own snapshotted the collected params alone, not the fields the route wrote.
+  
+  - **Undo restores the fields the route writes.** `ActionRunner` reads the `patch` of the declaration the action's `name` names from the `objectActions` its host publishes beside `objectName`, plus the collected params. A declaration with no `patch` keeps the params-only snapshot. A written field the row does not carry still offers no Undo.
+  - **The console publishes the declarations.** `useConsoleActionRuntime` and the record page publish the object's `actions` as `objectActions` in the runner context, beside `objectFields`.
+  - **A host that publishes none** is unchanged for an action it dispatches whole (a grid row, a declared-actions bar, a related-list row): the runner reads that def's own `patch`, which is the declaration's.
+  - **`action:button`, `action:icon`, `action:group` and `action:menu` no longer forward `patch`.** The request body is unchanged: it carries the collected params alone, as since objectui#12941.
+  
+  The `patch` input `action:button` and `action:icon` publish is unchanged here. It follows the spec pin.
+- b13ea3c: feat(types)!: `ObjectGridSchema.defaultFilters` and the flat `ObjectGanttSchema` / `ObjectMapSchema` `filter` follow their `@objectstack/spec` rows (objectui#6152, round 10)
+  
+  Clause-②: yes
+  
+  `@objectstack/spec` typed `ComponentPropsMap['object-grid'].defaultFilters` as the same
+  `ViewFilterRule` array as `filter`, `[{ field, operator, value }, ...]`, from 17.6.0 until 18
+  retired it (see objectui#12030): the legacy fallback `ObjectGrid` read only when `filter` was
+  absent, refusing the MongoDB-style record, a bare string and the AST tuple array. The `object-gantt` and `object-map` rows type `filter` the same
+  way. `@object-ui/types` now takes each row's own member by reference, on the TypeScript interface
+  and on the zod mirror, with no alias window.
+  
+  **Widened.** `ObjectGridSchema.defaultFilters` was `Record<string, any>` and
+  `z.record(z.string(), z.any())`, so the zod mirror REFUSED the rule array the row declares. The
+  flat grid mirror is the source of an `object-view`'s `table` slot, so
+  `table: { defaultFilters: [{ field: 'status', operator: 'equals', value: 'open' }] }` parsed
+  there through 17.x, on the tolerant and the strict face and through `safeValidateSchema`; retired
+  in 18, see objectui#12030: the row's tombstone refuses `defaultFilters` by name, so every value,
+  the rule array included, is refused there now.
+  
+  **Narrowed (breaking).**
+  
+  - The record form of `defaultFilters` is refused: on the interface (a compile error, in an
+    `object-view`'s `table` too) and on the zod mirror, at `defaultFilters` (`table.defaultFilters`
+    in an `object-view`), with the protocol's own message, which computed the rule array from the
+    record's keys through 17.x (since 18, see objectui#12030, it is the retired-key message, which
+    names `filter`). Respell
+    `defaultFilters: { status: 'open' }` as
+    `filter: [{ field: 'status', operator: 'equals', value: 'open' }]`; the rule-array
+    `defaultFilters` spelling this entry first offered is retired in 18 too.
+  - `ObjectGanttSchema.filter` and `ObjectMapSchema.filter` were `any[]` and `z.array(z.any())`, so
+    `filter: [['status', '=', 'open']]` type-checked and parsed. Both are the row's rule array now;
+    respell the tuple as `[{ field: 'status', operator: 'equals', value: 'open' }]`. These two flat
+    types describe the node as the renderers read it: an authored `object-gantt` / `object-map`
+    node's `properties` bag is the row itself, which refused the tuple array already.
+  
+  What did not move: the renderers' reads. `ObjectGrid` lowered `defaultFilters` through the same
+  `toFilterNode` sink as `filter`, so a rule array there sent the same `$filter` and drew the same
+  rows as the same array written as `filter` (retired in 18, see objectui#12030: `ObjectGrid` and
+  `ObjectView` no longer read `defaultFilters`, so a view that still carries it renders unfiltered);
+  the sink still lowers a record or an AST that reaches `filter` at runtime, and `ObjectGantt` / `ObjectMap` still forward an AST a host composes. The
+  `@object-ui/core`, `@object-ui/plugin-grid` and `@object-ui/plugin-view` entries are comment
+  repairs to sentences that called the key `Record<string, any>`. `@object-ui/plugin-grid`,
+  `@object-ui/plugin-view` and `@object-ui/plugin-map` also carry typed test fixtures re-spelled to
+  the rule array, and `@object-ui/plugin-grid` a pin of the above through the real renderer (since
+  18 it pins that `defaultFilters` is not read).
+- 088e0f7: A record-form field can name one item of a metadata registry by its machine name: a `text` field that declares `widget: 'position-ref'` lists the position registry, and one that declares `widget: 'permission-ref'` lists the permission-set registry. It stores the name only (objectui#7611, ruling B2 on objectstack#22865). This is the mechanism the metadata forms' `ref-multi:permission` picker brought in (objectui#12126), now reachable from an ObjectQL object field. A grant table's name field (`sys_user_position`'s position, `sys_user_permission_set.permission_set`) can now offer the declared items instead of a box for a typed name.
+  
+  - **The widget (`@object-ui/fields`).** `field:position-ref` and `field:permission-ref`, one key per registry type, with the type in the key, as `object-ref` carries `object`. Like every `widget` value, the name is looked up as `field:<widget>`. Each item reads as its label beside its name, and a pick writes the name: no label, no id. A stored name the loaded registry does not list stays on screen as its own option, flagged *not found*. The four catalog arms follow the metadata forms' `ref:dataset` / `ref-multi:<type>` pickers. With no data source that can list a registry, the field is a text box for the typed name. While the list loads, the stored name sits in a disabled box. When the load fails, a notice names the failure and its cause, and the text box stays enabled. A loaded but empty registry gives the same text box. Neither key is a declarable field type: both are widget hints, like `object-ref`.
+  - **The catalog (`@object-ui/types`, `@object-ui/data-objectstack`).** `DataSource` gains an optional `listMetadataItems(type)`, answering `{ name, label }` headers for one registry type. An empty array is authoritative ("this registry has no item of this type"), so a failed load must reject, never resolve `[]`. `ObjectStackAdapter` implements it over `GET /api/v1/meta/:type` (the client's `meta.getItems`). It rejects with the transport's error, and refuses an answer that carries no `items` list. It is uncached, so an item authored in Studio shows on the next form.
+  - **Locale keys (`@object-ui/i18n`).** `fields.registryRef.loadFailed` and `fields.registryRef.notFound`, in all ten packs.
+  - **Wiring.** The form renderer threads `dataSource` to both keys, as it does for the other widget-hint pickers (`@object-ui/components`). The inline-grid exclusion set and the action-param value-shape table list both keys as widget-hint-only (`@object-ui/fields`, `@object-ui/app-shell`). The CLI's generated `KNOWN_SCHEMA_TYPES` gains `field:position-ref` and `field:permission-ref` (`@object-ui/cli`). A comment in `@object-ui/core` stops counting the picker names.
+  
+  **Clause-②: yes (widening)**: one optional `DataSource` member, two registered `field:` keys (the `RegisteredFieldWidgetType` union and `FORM_FIELD_TYPES` gain two members), and two locale keys. Nothing narrows: a field without the hint renders exactly as before.
+- 12dc7b4: Setup lists the sharing rules installed packages declare again, read-only, with Disable / Enable and Clone (objectui#12982).
+  
+  Since objectstack stage 9 a package's declared sharing rules are no longer `sys_sharing_rule` rows, so Setup's Sharing Rules page (that object's data view) stopped listing them while they still granted access. Following objectstack ADR-0131 D6 regime C (ruling A on objectstack#24378), the declared rules now have their own page, the environment scope of the `sharing_rule` registry type (`…/metadata/sharing_rule?scope=environment`), as permission sets and positions do. The `sys_sharing_rule` view stays the page for the rules an organization authors. No page fetches and merges both lists.
+  
+  - **Read-only, with provenance.** The list shows each rule's object, recipient, access level and declaring package. It offers no New, and a rule opens read-only. A link leads to the organization rules page, where New lives.
+  - **Disable / Enable.** `sharing_rule` joins the Setup catalog types with an active switch: the state is the activation ledger's row, and the switch writes `POST /security/_activation/sharing_rule/:name`. A refusal, such as a walled tenant's, is shown in the server's words.
+  - **Clone.** Offered only to a caller holding the create grant on `sys_sharing_rule`, read through the new `declarationClone` row of `AFFORDANCE_GRANTS` (`@object-ui/core`). The dialog pre-fills a new organization rule from the server's compiled projection of that rule (`GET /sharing/rules/:name`), under a name no declared rule holds, and writes it through the `sys_sharing_rule` data door. The server's `409 RESOURCE_CONFLICT` for a declared name is shown as sent. Once the copy exists, the dialog offers to switch the declared rule off. A rule already switched off, whose projection the server does not serve, continues in the pre-filled New form.
+  
+  Clause-②: no. Console UI over existing server doors; no spec key or registry key changes. `AFFORDANCE_GRANTS` gains one row, `declarationClone`.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [2e818d0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [96fcf30]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [f34e877]
+- Updated dependencies [aaba865]
+- Updated dependencies [45d5853]
+- Updated dependencies [2312bd9]
+- Updated dependencies [c5406c2]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [69bca0a]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [c08c933]
+- Updated dependencies [c4dd707]
+- Updated dependencies [923504f]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [8106db1]
+- Updated dependencies [093d55b]
+- Updated dependencies [a8051d6]
+- Updated dependencies [524136e]
+- Updated dependencies [6f3299f]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [ff9df88]
+- Updated dependencies [a2225f9]
+- Updated dependencies [21f9577]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [619e3f7]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [4839f5c]
+- Updated dependencies [c999d4c]
+- Updated dependencies [26323c4]
+- Updated dependencies [c219165]
+- Updated dependencies [30083da]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [a928aaa]
+- Updated dependencies [1b94d50]
+- Updated dependencies [fb85637]
+- Updated dependencies [df71568]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [088e0f7]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

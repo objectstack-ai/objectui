@@ -1,5 +1,366 @@
 # @object-ui/data-objectstack
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- da35453: Objects with a picklist-bound field save again from the OWD overview, the Setup fields and objects pages, the metadata-admin embedded-item editor, and `MetadataService.saveFields` (objectui#11692).
+  
+  The runtime serves a field that names a shared picklist (`picklist: 'NAME'`) with the options it resolved from the list. The authoring door refuses `options` beside `picklist`, with `422 INVALID_METADATA` at `fields.FIELD.options`, and the refusal covers the whole object. objectui#10202 fixed the two designers that host the select-field editor. These writers also seed their save from a served object read, so they sent the resolved options back and were refused, whatever had been edited:
+  
+  - **Studio → Access → OWD overview.** Changing an object's sharing model and saving was refused.
+  - **The Setup fields page** (`MetadataFieldsPage`). Editing any field of such an object was refused.
+  - **The Setup objects page** (`MetadataObjectsPage`). Relabelling such an object was refused.
+  - **The metadata-admin embedded-item editor** (`EmbeddedItemEditor`, opened from an object's fields, indexes or validations). Saving any item of such an object was refused.
+  - **`MetadataService.saveFields`.** A field list built from the served object was refused.
+  
+  Each now leaves `options` out of every field that names a picklist, before the PUT. A field without `picklist` keeps its inline `options` unchanged, and no other key is touched.
+  
+  `dropServedPicklistOptions` is now exported from `@object-ui/data-objectstack`. It is the served-to-authored conversion these writers apply, and it moves here from `@object-ui/app-shell` (it was not exported there), because `@object-ui/plugin-designer` does not depend on `app-shell`. It is for code that builds an object PUT from a served read. `MetadataClient.save` does not apply it, and neither do `MetadataService.saveObject` and `MetadataService.saveMetadataItem`, which read nothing: a body that pairs `picklist` with `options` without a served read behind it is still refused by the server, with its prescription.
+- b9814b3: Studio's first draft save after opening an item no longer replaces a draft that was saved elsewhere in the meantime (objectui#11773).
+  
+  Until now an editor's draft saves were pinned only from its second save on: the `/meta` draft read served no version, so two editors who each opened an item and saved it once overwrote each other's draft in silence. The `@objectstack/*` 18 draft read serves the version, and each editor's load now pins its first save to what it read:
+  
+  - an item with a pending draft is saved with `If-Match` and that draft's version;
+  - an item with no pending draft is saved with `If-None-Match: *`, so a draft another editor created in the meantime is refused, not overwritten.
+  
+  The editors read the draft at the package their saves write to (`?package=`), since a read's version describes the row a save to the same address compares against. This covers the metadata editor, the permission matrix's package door, the Studio pillars (objects, flows, interfaces and app navigation), the list-view panel and the hooks panel.
+  
+  A create sends `If-None-Match: *`, so creating an item under a name that already holds a draft is refused instead of writing the new skeleton over it.
+  
+  In the conflict dialog, **Overwrite** now re-sends the draft pinned to the version the refusal names (`currentVersion`), so a save that lands while the dialog is open is refused and asked about again rather than overwritten. A server whose refusal names no `currentVersion` is overwritten unpinned, as before.
+  
+  `@object-ui/data-objectstack`: `MetadataClientSaveOptions` gains `ifNoneMatch?: '*'`, sent as `If-None-Match: *`. It never travels with `ifMatch`: `MetadataClient.save` throws before sending a request that sets both. The `ifMatch` docblock now names the token's real sources (the item read's `version`, a save receipt's `version`, a conflict's `currentVersion`) instead of "the `checksum` returned by the last read".
+- c5406c2: Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
+  
+  Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18 (raised to `^18.0.0-next.1` by objectui#12370 before release).
+  
+  **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.1` (objectui#12370), at the same time as it takes this release.
+  
+  **objectui's own surface moves with it:**
+  
+  - `element:record_picker`'s registration stops publishing the `object`, `filter`, `sort` and `limit` inputs, which spec 18 retires; a JSX page that writes one now gets `unknown-prop`.
+  - The `CapabilityMultiSelectField` widget's curated capability set (`@object-ui/fields`) follows spec 18: `manage_mailboxes` in, `manage_org_presentation` out.
+  - `element:number` and `element:repeater` nodes that bind no object are accepted, as spec 18's row and `PageComponentSchema` accept them; the two `ELEMENT_*_OBJECT_REQUIRED` refusals are gone.
+  
+  **Retired with the spec:** `@objectstack/spec` 18 tombstones `object-grid`'s `defaultFilters` and refuses it by name, and `ObjectGrid` and `ObjectView` stop reading it (`table.defaultFilters` on an `object-view` included). A view that still carries it renders unfiltered: rename the key to `filter`, whose value is the same rule array.
+- 6757a93: Show a write answer's advisory `warnings` to the user after save (objectui#12107).
+  
+  - `@object-ui/data-objectstack`: `WriteWarningEvent` gains an optional `warnings` member, typed by the spec's `ValidateDataIssue` (the element of `CreateDataResponseSchema` / `UpdateDataResponseSchema`'s `warnings`). A single-record `create` / `update` parses the answer's `warnings` through `ValidateDataIssueSchema` and emits the write-warning event when either `droppedFields` or `warnings` is non-empty; `droppedFields` stays required and is `[]` when the event exists only for warnings. An answer without the key emits nothing new, including from a runtime that predates it.
+  - `@object-ui/app-shell`: the write-warning toast shows each distinct warning message as the server wrote it, in its own toast titled by the new `detail.writeWarningsTitle` key. The stripped-fields toast is unchanged.
+  - `@object-ui/i18n`: adds `detail.writeWarningsTitle` to all ten packs.
+- 43e1505: **A dashboard or a list view the server refuses you, opened by its URL, now says it was refused** (objectui#12112, the console half of objectstack#22611's ruling A).
+  
+  Since objectstack#22731 the server applies a dashboard's and a list view's `requiredPermissions`: its dashboard and view lists carry only what you may open, and a by-name read of one you may not answers `403 PERMISSION_DENIED`. The console read only the lists, so a refused dashboard's URL showed "Dashboard Not Found", and a refused list view's URL silently showed the object's default view instead.
+  
+  - **The dashboard page and the object's list page** ask a missed name by name. A `PERMISSION_DENIED` answer shows "You don't have access" with the server's own sentence, which names the item: `You do not have permission to open the 'NAME' dashboard.` (or `view`). Any other answer keeps today's face: "Dashboard Not Found", or the fall-back to the default view. Nothing is asked in draft preview, or by a host whose data source has no probe. The title reuses existing translations; no translation key is added.
+  - **`@object-ui/data-objectstack`: `ObjectStackAdapter.probeMetaItemAccess(type, name)`**, and its result type `MetaItemAccess`. It is `probeAppAccess` for any type the by-name meta route gates per caller, and it also returns the refusal's `message` with a `denied` verdict. `probeAppAccess` now delegates to it and answers as before.
+  - An object's own list view, served whole inside the object's metadata to a user who may edit the object, is still listed and opens. The server serves it to that user, and the console adds no rule of its own.
+- dbc8c11: Studio's Automations rail and the open flow's Status pill read the automation engine's registration verdict, which the flow list now serves beside its items (`registrations`, `FlowRegistrationSchema` in `@objectstack/spec`). A flow the engine refused at boot reads "Refused by the engine", titled with the engine's message as sent, instead of "Unpublished draft" or "Enabled"; a flow the engine holds no registration for reads "Not running here". A registered flow, and a flow with no verdict, read as before, and the flow's stored `status` is never rewritten. `MetadataClient.listResponse` returns a list read with what the server serves beside the items; `list` is unchanged.
+  
+  **Clause-②: yes (widening).** `@object-ui/data-objectstack` gains one method, `MetadataClient.listResponse`, and one exported type, `MetadataListAnswer` (`items` plus the optional `registrations` of the spec's `GetMetaItemsResponse`). No export, prop or member is removed or changes type; `@object-ui/app-shell`'s exports are unchanged.
+- ff9df88: Depend on `@objectstack/*` `18.0.0-next.1` (objectui#12370).
+  
+  Every `@objectstack/*` range these packages declare moves from `^18.0.0-next.0` to `^18.0.0-next.1`; the console and the runner bundle `18.0.0-next.1`. A consumer moves its own `@objectstack/*` packages to `18.0.0-next.1` with this release.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates page action rows and view data bindings through the spec's own rows, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.1` refuses. Each was accepted on `18.0.0-next.0`:
+  
+  - `onSuccess` on an `action:button` / `action:icon` row, or an `action:group` / `action:menu` member, whose executor is the `url`, `navigation`, `modal`, `flow` or `form` built-in, or that has no executor at all. Write the hop on an `api` or `script` action (or a host handler name), or drop it.
+  - `onSuccess` beside `operation: 'update'`, and an `onSuccess` block carrying a key outside `{ navigate, openIn }`.
+  - `actionType: 'navigation'` on a row (and `type: 'navigation'` on a container member): write `'url'`.
+  - A `url` executor's `target` that is not openable, judged on the executor the runner runs, including a row whose `name` selects it.
+  - A view `data` binding with `provider: 'api'`: bind the object or static rows; an API call is the page element's binding.
+- 919d5cd: "Publish all" publishes each language of a package-less email template by its own bundle member (objectui#12402, the publish half of objectui#12271).
+  
+  Since `@objectstack/spec` 18.0.0-next.1 each `GET /meta/_drafts` row carries `member` for a type whose identity is a pair (today only `email_template`, `(name, locale)`), and the by-name publish door reads it back as `?member=`. A publish that names no member promotes the canonical member's draft, so two languages of one template drafted outside a package were published as the canonical one twice.
+  
+  - **`MetadataClient.publishDraft(type, name, options?)`** takes an optional `{ member }` and sends `?member=` when it is set. Without one the parameter is omitted, never sent empty. This widens the method's accepted arguments; a two-argument call sends exactly the request it sent before.
+  - **`usePublishAllDrafts`** (Home's "Publish all" and the draft-preview bar) keeps each draft row's `member` and passes it on the package-less path. Rows without a member send no selector.
+  - **Unchanged:** package-bound drafts still publish through `publishPackageDrafts(packageId)`.
+- 431cece: `MetadataDraftHeader`, the row type `MetadataClient.listDrafts()` declares, now declares `member` (objectui#12413).
+  
+  `@objectstack/spec` declares `ListDraftsResponseSchema.drafts[].member`, an optional string, and `GET /meta/_drafts` serves it on every draft of a type whose identity is a pair (today `email_template`, `(name, locale)`). The published row type had no `member`, so a reader had to cast the row to reach it.
+  
+  - **`@object-ui/data-objectstack`, additive widening.** `MetadataDraftHeader` is now derived from the spec row by `Pick` over `type`, `name`, `member`, `packageId`, `updatedAt` and `updatedBy`. The five keys it declared before keep their exact types; `member?: string` is the one key added. Nothing is removed or narrowed. `MetadataSaveAdvisoryEvent` gains an optional `member`, set by `publishDraft()` when the publish named one, so an advisory raised on one language's publish is attributed to that member. Every other door emits the event as before, without the key.
+  - **`@object-ui/app-shell`, no behaviour change.** The publish-all hook reads each draft row's `member` through the declared type instead of an `any[]` cast. The URLs it sends are unchanged.
+- caac3b2: A list's sort, column layout, Filter panel and tab order are now each user's own, and follow them to another browser (objectui#12418).
+  
+  **What changes for users.** Sorting a list, resizing or moving its columns, and dragging the tabs in Manage Views is now personal: it no longer changes the view for everyone. Before this change, a header sort or a column drag was saved into the shared view, and a Manage Views drag saved a new order onto every saved view, so one user's click re-sorted or reordered the list for every other user. Under a walled tenancy posture (`group` or `isolated`), where only the platform operator may write environment metadata, the same click ended in an error. The view's own sort, columns, filter and tab order stay the default for every user who has not changed them, and the view editor (the view settings panel and Studio) is still how an author changes them for everyone. Density and hidden fields are not part of this change: they are still saved to the view.
+  
+  - **Where it is kept.** One `sys_user_preference` row per user and object, key `ui.list.<object>`, holding `{ viewOrder, perView: { <view id>: { sort, filters, columnState } } }`. The console reads every such row in its one preference read at load (objectui#12187), so this adds no request. localStorage (`list-state:<user>:<object>`) is the write-through cache, and the only store when no preference backend is attached. The first read of an object with nothing cached takes that browser's older tab order (`viewOrder:<object>`) and Filter panel conditions (`list-filters:…`). The search term stays where it was.
+  - **Opening a list.** A list now opens on the user's stored sort and Filter panel conditions, and the page waits until the preference read has answered (2.5 s at most) before drawing it. A link that carries list state still wins over the stored state, as before (objectui#11860).
+  - **Resetting.** The Filter panel's "Clear all" clears the user's stored filters for the view. A new "Reset view" entry in the page header's ⋯ menu, beside the favorites entry, appears when the user has stored anything for the active view. It drops that view's sort, filters and column layout and opens the list as the view declares it. An administrator can delete a user's row under Setup → User Preferences.
+  
+  `@object-ui/data-objectstack` adds `createObjectStackUserPreferenceFamily` (with the `UserPreferenceFamily` and `ObjectStackUserPreferenceFamilyOptions` types and the `PREFERENCE_FAMILY_ROW_LIMIT` constant). It loads every row whose key starts with a prefix, through the same shared read as the per-key adapters. A read that includes a prefix asks for its keys or that prefix, with a `$top` of the key count plus 200 rows per prefix. When an answer fills that `$top`, a key whose row is missing from it reads its own row. `createObjectStackUserStateAdapter` keeps its signature and its behaviour.
+  
+  `@object-ui/i18n` adds `console.objectView.resetView` and `console.objectView.resetViewTitle` in all ten packs.
+- 3eb3ec1: The console's list toolbar no longer has a write into the shared view, and the data-source method that write used is retired (objectui#12504).
+  
+  **BREAKING:** `DataSource.updateViewConfig` is removed from `@object-ui/types`, and `ObjectStackAdapter.updateViewConfig` is removed from `@object-ui/data-objectstack`. The capability gate that only that method read goes with it: `ObjectStackAdapter.setSystemCapabilities`, the `systemCapabilities` option of the adapter constructor and of `createObjectStackAdapter`, `VIEW_CONFIG_CAPABILITY`, `ViewConfigPermissionDeniedError` and `isViewConfigPermissionDeniedError`. A class that implements `DataSource` and keeps an `updateViewConfig` method still compiles, but nothing calls the method any more; an object literal annotated as `DataSource` that carries it is refused as an unknown property. Code that calls `updateViewConfig` through a `DataSource` or an `ObjectStackAdapter`, or imports one of the gate names, no longer compiles. To change a view for everyone, save the view: `createView` / `updateView` on the data source, or the console's view editor, which writes through the runtime metadata seam.
+  
+  Since objectui#12418 and objectui#12474, the toolbar's sort, column layout, density and Hide Fields are each user's own list state, so the toolbar write had no caller. The view editor's explicit save is now the one write path to the shared view, and it is unchanged.
+  
+  Personalization rows that earlier consoles wrote into `/meta/view` stay readable: the overlay marker, `narrowPersonalizationOverlay` and `listViews()` exclusion still apply to them. Nothing new writes such a row.
+  
+  `@object-ui/i18n` drops `console.objectView.viewConfigPermissionDenied` from all ten packs. It was the toast the retired write raised when the gate refused it. The other packages change only in comments and tests that named the retired path.
+- 3bcf314: Studio marks the settings the AI copilot drafted: a Draft chip and a Source line ("Added as a draft by the AI copilot 2 min ago") on a field or a list-view setting the copilot changed, read from the platform's per-key draft provenance (objectui#12725, item 3; objectstack#24298 and #24395).
+  
+  - **`@object-ui/data-objectstack` reads and writes the provenance.** The strict draft read (`getDraft`) serves `draftChanges` beside `item`: one `{ path, by, actor, at }` per changed key path. New exports beside `extractDraftBody`: `readDraftChanges(resp)` (the envelope's entries, or `null` when the read recorded none, never `[]`), `governingDraftChange(changes, path)` (the entry that answers for a key: the longest prefix), `draftChangesUnder(changes, path)`, and the `DraftChange` type, derived from `@objectstack/spec`'s `GetMetaItemResponse`. `MetadataClientSaveOptions` gains `surface?: 'studio' | 'api'`, sent once as `?surface=`, derived from the spec's `MetadataAuthoringSurface` minus `copilot` (the HTTP doors refuse it). `MetadataDeleteOptions` no longer inherits it: the delete door reads no such parameter.
+  - **Studio's own draft saves declare `surface: 'studio'`,** so a person's edit there is recorded as `studio`, not `api`.
+  - **The marks.** The Data pillar's field properties show the chip and the Source line when the field's entry, or an entry under it, is the copilot's. An `object` leaf's list-view properties show the chip on each setting the copilot changed (card fields, title, click to open, group by, columns, filter, sort), mark the elements it added to an array setting by comparing the draft's array with the published one, and end with a Source line naming them. A `studio` or `api` entry draws nothing, and so does a draft whose read recorded no provenance. To compare arrays, the list-view panel reads the published layer beside a draft when, and only when, the draft carries a copilot entry.
+  
+  The new copy lives in the metadata-admin designer's own string tables (en and zh).
+- 6058bf8: Studio's Changes drawer can now fill a new field's default into the records an object already holds, when you publish (objectui#12929).
+  
+  - **The choice.** In the drawer, under a field that a pending draft adds to an already-published object, an unchecked "Backfill default (N existing records)" choice appears when the field declares a literal `defaultValue`. N is the object's record count, read as you. If the count read gives no total, the choice shows no number. A field whose default is a runtime token (`NOW()`, `current_user`) or an expression, a field with no default, and the fields of an object that has never been published get no choice. The publish door refuses those with a 400, and there are no existing records to fill.
+  - **The publish.** Publish all sends the checked fields as the protocol's opt-in `backfill` (objectstack#24253). The server writes each field's default into the existing records that have no value, as you, with permissions and record hooks applied. The publish toast then shows the rows the server says it wrote for each field. If a field stopped short, the toast is a warning that gives the server's reason, and the publish still stands. If nothing is checked, the publish request is `{}`, the same as before, and no existing record is written.
+  - **`MetadataClient.publishPackageDrafts(packageId, options?)`** (`@object-ui/data-objectstack`) takes `options.backfill`, an array of `{ object, field }`. Its type is picked from `@objectstack/client`'s `packages.publishDrafts`. The method sends `backfill` only when it is given. The receipt is `backfillApplied` on the result. A call without options sends the `{}` body it always sent.
+  - **New strings:** `preview.changes.backfillOption` (a count family) and `preview.changes.backfillOptionNoCount` in all ten `@object-ui/i18n` packs. The Studio table gains `engine.studio.backfillWritten` and `engine.studio.backfillStopped` (en and zh).
+- 088e0f7: A record-form field can name one item of a metadata registry by its machine name: a `text` field that declares `widget: 'position-ref'` lists the position registry, and one that declares `widget: 'permission-ref'` lists the permission-set registry. It stores the name only (objectui#7611, ruling B2 on objectstack#22865). This is the mechanism the metadata forms' `ref-multi:permission` picker brought in (objectui#12126), now reachable from an ObjectQL object field. A grant table's name field (`sys_user_position`'s position, `sys_user_permission_set.permission_set`) can now offer the declared items instead of a box for a typed name.
+  
+  - **The widget (`@object-ui/fields`).** `field:position-ref` and `field:permission-ref`, one key per registry type, with the type in the key, as `object-ref` carries `object`. Like every `widget` value, the name is looked up as `field:<widget>`. Each item reads as its label beside its name, and a pick writes the name: no label, no id. A stored name the loaded registry does not list stays on screen as its own option, flagged *not found*. The four catalog arms follow the metadata forms' `ref:dataset` / `ref-multi:<type>` pickers. With no data source that can list a registry, the field is a text box for the typed name. While the list loads, the stored name sits in a disabled box. When the load fails, a notice names the failure and its cause, and the text box stays enabled. A loaded but empty registry gives the same text box. Neither key is a declarable field type: both are widget hints, like `object-ref`.
+  - **The catalog (`@object-ui/types`, `@object-ui/data-objectstack`).** `DataSource` gains an optional `listMetadataItems(type)`, answering `{ name, label }` headers for one registry type. An empty array is authoritative ("this registry has no item of this type"), so a failed load must reject, never resolve `[]`. `ObjectStackAdapter` implements it over `GET /api/v1/meta/:type` (the client's `meta.getItems`). It rejects with the transport's error, and refuses an answer that carries no `items` list. It is uncached, so an item authored in Studio shows on the next form.
+  - **Locale keys (`@object-ui/i18n`).** `fields.registryRef.loadFailed` and `fields.registryRef.notFound`, in all ten packs.
+  - **Wiring.** The form renderer threads `dataSource` to both keys, as it does for the other widget-hint pickers (`@object-ui/components`). The inline-grid exclusion set and the action-param value-shape table list both keys as widget-hint-only (`@object-ui/fields`, `@object-ui/app-shell`). The CLI's generated `KNOWN_SCHEMA_TYPES` gains `field:position-ref` and `field:permission-ref` (`@object-ui/cli`). A comment in `@object-ui/core` stops counting the picker names.
+  
+  **Clause-②: yes (widening)**: one optional `DataSource` member, two registered `field:` keys (the `RegisteredFieldWidgetType` union and `FORM_FIELD_TYPES` gain two members), and two locale keys. Nothing narrows: a field without the hint renders exactly as before.
+- 78b07f4: The object-page special cases for the retired permission-set catalog object are removed (objectui#7611, after objectstack's ADR-0131 stage 8 retired `sys_position`, `sys_permission_set`, `sys_position_permission_set` and `sys_capability`). A permission set is edited on its Setup metadata page, which reads the registry; none of the removed code ran anywhere else.
+  
+  **Breaking (narrowing; scored `minor` per the fixed group's version policy).** Each removal below shrinks a published face:
+  
+  - **`@object-ui/core`: `recordDelete.confirmText`.** FROM `recordDelete.confirmText({ objectName, t }, record)` TO `recordDelete.confirmText({ t })`. A package-owned `sys_permission_set` row no longer gets the reset question or the "reset" toast: every record gets the delete question and the delete toast. Fix: drop `objectName` and the second argument.
+  - **`@object-ui/i18n`: pack keys.** FROM `perm.facet.*` (`none`, `more`, `objects`, `fields`, `rls`, `tabs` with their plural slots, `adminScope`, `designInStudio`, `designInStudioHint`) and `objectActions.resetPackageSetConfirm` / `objectActions.resetPackageSetSuccess` in all ten packs TO absent. Fix: a consumer that still asks for one keeps its own copy (inline `defaultValue` or its own bundle).
+  - **`@object-ui/plugin-detail`: the `field:permission-facet-link` registry key.** FROM a registered field widget (the read-only facet summary with a "Design in Studio" link, also special-cased in the detail section and inline edit) TO unregistered. A field still carrying `widget: 'permission-facet-link'` renders with its declared type, like any unregistered widget. Fix: drop the `widget` hint, or register an own widget under that key.
+  - **`@object-ui/cli`: `objectui check`'s known schema types.** FROM `field:permission-facet-link` known TO unknown, so `objectui check` reports a node of that type. Fix: as above.
+  
+  **Behaviour changes, not narrowings:**
+  
+  - **`@object-ui/data-objectstack`:** `getObjectSchema` no longer stamps `widget: 'permission-facet-link'` onto the six `sys_permission_set` facet fields (that object is no longer served).
+  - **`@object-ui/app-shell`:** the `sys_permission_set` record page no longer appends the assigned-users panel. The panel itself, `AssignedUsersSection`, stays on the permission-set metadata page.
+  - **`@object-ui/app-shell`: a permission set created from the Setup catalog is created live.** "New" on the permission-set page used to save a draft, while the set's editor edits the live set and reads no draft: the editor opened an empty set without the label, its Save wrote the grants live, and the draft stayed pending, so publishing it from Home replaced the grants with the empty create body. Outside a package binding the create now writes live (with the same first-write pin); under `?package=` it stays a package draft.
+  
+  **Widenings:**
+  
+  - **`@object-ui/core`:** the data source `recordDelete.run` is injected with needs only `delete` (it no longer calls `findOne`).
+  - **`@object-ui/app-shell`:** the metadata-resource registry entry gains an optional `createLive`, which a type sets when its edit page writes the live item.
+  
+  Internal, not reachable from a published entry: the `PermissionFacetLink` component (never exported from `@object-ui/plugin-detail`), `RecordPermissionAssignmentsRenderer` (never exported from `@object-ui/app-shell`), and `ObjectStackAdapter`'s private `applyFieldWidgetOverrides`.
+
+### Patch Changes
+
+- 4590363: A record open no longer sends the same record read twice at once, and asks each explain question once, with concurrent callers sharing the request (objectui#11699).
+  
+  A record page open sent `GET /api/v1/data/OBJ/ID` twice at the same moment and `POST /api/v1/security/explain` four times: the `update` and the `delete` question, each asked twice. Both reads came from the details block, whose load effect runs again while its first read is still on the wire. Each question was asked by the page header and by the details block, which mounts while the header's answer is still pending. The record page's own `$expand` read of the record, which it sends again when the object definition changes identity, is not changed here.
+  
+  - **`ObjectStackAdapter.findOne` shares an in-flight read**, the way `find` already did. Calls for the same resource, id and params that arrive while a read is pending get that read's answer. The entry is dropped when the read settles, so a later call reads again: this is not a response cache. A failed read reaches every caller that shared it and is not remembered. A write through the adapter (`create`, `update`, `delete`, the bulk and batch writes) drops the pending `findOne` reads of the resource it wrote, so a record read asked after a save never gets an answer sent before it.
+  - **The record-level edit and delete probe (`useRecordEditable`) shares an unanswered question.** Mounts asking the same question (same principal, object, record and operation) while it is pending wait on one request. A question whose record changes while it is pending is not shared, so the re-ask is a fresh request. No pending question is shared across a change of the signed-in principal.
+  
+  Nothing is added to either package entry: no export, prop, type member or language-pack key. `findOne` keeps its signature.
+- 4a9fe31: Studio shows a refused save as a sentence the author can act on, with the technical detail behind a "Details" disclosure (objectui#11785).
+  
+  - **Studio's save strips.** The Data, Automations and Interfaces pages used to print the refusal verbatim: the write guard's developer prose, or the server's raw issue paths such as `nodes.2.config.title — …`. Each strip now shows one sentence that names the input the refusal is about, in the terms the editor shows. On the Data page that is the field's label. On the Automations page it is the step's label and the inspector input, so a refusal at `nodes.2.config.title` reads "Check Title on the step “Notify approver” — …". On the Interfaces page it is the navigation item and its input. A "Show me" button opens that field, step or navigation item. The raw text stays under a closed "Details" disclosure, unchanged. A path Studio cannot place on the open page keeps its line there, and the sentence says the draft was refused.
+  - **A Picklist with no options.** Switching a field to Picklist before it has an option now says "Changes not saved: the field “Status” needs at least one option…", instead of the guard's message.
+  - **The object write guard's message names no code.** `assertObjectMetadataWritable` no longer prints the door's class name, a package name or tracker ids. Its message is the same at every door, so the other surfaces that show it as their banner read the field, its type and the remedy. Its signature, error type and exports are unchanged.
+  
+  `formatMetadataError` is unchanged, so every other surface that calls it prints what it printed before. Nothing is added to either package entry: no export, prop, type member or language-pack key. The new sentences are rows in the metadata-admin designer's own string tables (en and zh).
+- 6d8bf0c: Opening a Studio package no longer sends the same read several times at once (objectui#11797).
+  
+  Several readers mount together on Studio entry and each one used to send its own request for the same answer. A caller that arrives while an identical request is still pending now waits for that request instead of sending another:
+  
+  - **`@object-ui/app-shell`:** the package list (`GET /api/v1/packages`, read by the Studio package switcher, the read-only gate and the object-name namespace lookup) and the pending-drafts count (`GET /api/v1/meta/_drafts`, read by the Studio top bar and the chat bar).
+  - **`@object-ui/data-objectstack`:** `MetadataClient.listTypes`, `list`, `listDrafts`, `get` and `getDraft`. Requests are shared between clients built on the same `fetch`, so the per-component clients the console creates share them too. Each caller, the first one included, still gets an answer object that no other caller holds.
+  
+  This is not a response cache. Once a request settles, the next call goes to the server again. A failed request is shared only by the callers already waiting, and the next call retries. A write the reader can see drops any read still pending, so a read made after the write never gets the answer of a request sent before it. For the metadata client that is any save, publish or reset through a client on the same `fetch`. For the app-shell reads it is a package duplicate, the `objectui:packages-changed` announcement and the publish refresh pulse.
+  
+  No exported function, method signature, option or type changes.
+- 5dff027: Studio stops asking questions whose expected answer is an error, so the browser console no longer fills with red lines that hide real failures (objectui#11799).
+  
+  - **`MetadataClient.getDraft()` reads the drafts ledger first.** It reads `GET /meta/_drafts` through the client's shared read, and sends `GET /meta/:type/:name?state=draft` only when the ledger lists the name. An item with no draft no longer logs a 404. The method still resolves `null` when there is no draft and the draft envelope when there is one. A draft saved a moment ago is found, because a write drops the ledger read that was pending when it landed. A ledger the caller cannot read (403, 501, a network fault) counts as unknown, and the item read is sent as before.
+  - **Studio reads an item's published baseline only when it uses it.** The Interfaces pillar's leaves and the Automations pillar's flows read `GET /meta/:type/:name/layers` only for an item with no pending draft, and the Interfaces pillar reads none for an app found only in the drafts ledger. An item that was never saved always has a draft, so it no longer logs a 404 for `/layers`. Opening a leaf or a flow now waits for the ledger before it reads the item, one round trip more than the parallel reads it replaces. The Data pillar still reads `/layers` for an object that was never published: that answer is how it tells it has no records table yet.
+  - **The AI usage indicator asks nothing while AI is off.** It reads `GET /ai/usage` only while the agent catalog at its base lists an agent, the signal the console gates every AI entry point on. On an open-edition server, Studio's copilot dock no longer logs a 501 for it each time it mounts.
+  
+  No REST answer, export, prop or type member changes.
+- d48071e: A console page load reads `sys_user_preference` once, not once per preference key (objectui#12187).
+  
+  - **The user-state adapters share one read per load.** `createObjectStackUserStateAdapter`'s `load()` now joins an open read for its data source, resource and user. Every load of that scope issued before the next microtask adds its key, the read is sent once, and each adapter takes its own row from the answer. The console's favorites, recent items and flow palette recents used to make three requests, one per key; they now make one, `user_id = USER and key in (the three keys)`, with `$top` set to the number of keys. The object's unique index on `(user_id, key)` bounds the answer to one row per key.
+  - **A read that collects one key is unchanged.** It sends the same per-key query, `$top: 1`, as before.
+  - **Nothing is kept past the request.** The read closes when it is sent. A later `load()`, such as a new adapter after a language or account switch, asks the server again. A different user or data source never joins another's read.
+  - **Writes are unchanged.** `save()` still finds and writes its own row, and the stored rows and their shape are the same.
+  
+  No export, option or type changes.
+- 40cb13b: The connection state follows the requests the console already makes, so the header chip now shows a mid-session outage (objectui#12295).
+  
+  Until now the adapter set its connection state only while making the first connection. Once that had succeeded, no failed request could change it, so a backend that stopped mid-session left stale rows on screen and the header chip hidden.
+  
+  - **A request with no HTTP answer** (refused, reset, unreachable) moves the state to `reconnecting`. Once the adapter's own retry window is spent, it moves to `error`. The window is the same `autoReconnect` / `maxReconnectAttempts` budget a failed first connection gets, counted in unanswered requests. The state stays there until a request is answered, and the header chip stays visible the whole time.
+  - **The next answered request** moves it back to `connected`, and the chip hides again after its brief "Connected" flash.
+  - **An answered HTTP error does not move it.** A 4xx or 5xx means the server is reachable. A request its caller aborted does not move it either.
+  
+  The adapter adds no timer, no heartbeat and no request of its own: the state changes when a request the host makes settles. Every request goes through the adapter's one fetch, including those made through `getClient()`, except `uploadFile` / `uploadFiles`: those two call the global `fetch`, so an upload's outcome does not move the state. The fetch hands its response or rejection to the caller unchanged. Nothing is added to the package entry: no export, option, type member or language-pack key.
+- 068a540: The console's Setup › Apps page reports what the server did with a write (objectui#12300). Before, a Delete and a Disable could report success for a write that changed nothing.
+  
+  - **Delete.** When the reset door answers `reset: false` (there was no customization row to remove, so the app already is what its package ships), the page shows a neutral notice with the server's own sentence and never says "deleted". The row stays, because the server still serves it.
+  - **Disable, Set as default and the bulk Enable / Disable.** A save of an app that a package owns now names that package (`?package=`, read off the served `_packageId`), so it lands on the row the server serves. A package-less app is saved with no scope, as before.
+  - After every write, whatever it answered, the page re-reads the app list and shows the served state.
+  
+  `ObjectStackAdapter` forwards every argument of `getClient().meta.saveItem`. Its save-advisory wrapper used to pass on only `type`, `name` and `item`, so the SDK's options bag (`packageId`, `force`, `mode`, `ifMatch`) was dropped before it reached the wire, for every caller of the adapter's client.
+  
+  Two new `appManagement.toast` keys, `nothingToDelete` and `alreadyAtDefault`, ship in all ten language packs.
+- 866763b: A failed first `connect()` with `autoReconnect` now retries discovery and settles (objectui#12318). The retry used to call `connect()` from inside the attempt it was retrying. `connect()` hands every caller the attempt in flight, so the retry waited on itself: one discovery read, a state stuck at `reconnecting`, and a promise that never settled. A console opened while its backend was down never finished starting, even after the backend came back.
+  
+  - **Each retry is a new discovery read**, after the existing backoff (`reconnectDelay` × 2^(n-1)), up to `maxReconnectAttempts` times.
+  - **`connect()` settles.** It resolves once discovery answers, and the state ends `connected`. Once the retries are spent it rejects with the last attempt's `ConnectionError`, and the state ends `error`.
+  - **Concurrent callers still share one attempt**, including a caller that arrives during the backoff.
+  
+  Nothing is added to the package entry: no export, option or type member. The state sequence of a failed attempt is unchanged: `error`, then `reconnecting` while retries remain.
+- d12bc5f: A console reset, delete or draft discard names the package whose row it removes (objectui#12335, the consumer half of objectstack#23165).
+  
+  Since `@objectstack/rest` 18.0.0-next.1 the metadata delete door reads `?package=`. A delete that names no package addresses the one package that holds the item; when two or more packages hold it the door refuses `409 RESOURCE_CONFLICT`, deletes nothing, and names `?package=` as the remedy. The console could not send that remedy.
+  
+  - **`MetadataClient.reset()`** now sends `?package=` when `options.packageId` is set, beside `?state=draft` for a draft discard, with the spelling `save()` and `publish()` use. Without a binding the parameter is omitted, never sent empty. Its options type already declared `packageId` (inherited by `MetadataDeleteOptions`); `reset()` used to drop it. No exported type changes.
+  - **The metadata editor** (`MetadataResourceEditPage`): Reset/Delete and "Discard draft" state the package the editor's save and publish already state, read from `?package=` on the editor URL (the `all` scope names none). An editor with no package sends none, and a refusal is shown on the page's error line in the server's words.
+  - **The Objects page** (`MetadataObjectsPage`, `@object-ui/plugin-designer`): deleting an object states the package the listed row is served from (its `_packageId`). A row no package owns, including one served with the `sys_metadata` sentinel, sends none, and a refusal is shown in the page's error panel.
+  - **Unchanged:** the runtime draft bar's Discard and the adapter's `deleteView` hold no package binding, so they keep the package-less delete. Their refusals already reach the caller: the draft bar shows the server's message in its error toast, and `deleteView` throws.
+- cfbca7f: `deleteView` now shows the server's reason when the published half of a view delete is refused (objectui#12416).
+  
+  `ObjectStackAdapter.deleteView` deletes a view's draft home, then its published home. When the published delete failed, the adapter threw its own sentence ("… is NOT fully removed … retry the delete") and kept the server's error only on `cause`. `formatMetadataError(err)` reads the error's issues or its own message, so the console's Delete view toast showed the adapter's sentence and hid the server's reason. For the `409 RESOURCE_CONFLICT` a package-less delete of a view two packages hold gets since `@objectstack/rest` 18.0.0-next.1, that reason is the `?package=` remedy, and the toast told the user to retry a delete that cannot succeed.
+  
+  The thrown error's message is now the adapter's sentence followed, on the next line, by the server's reason as `formatMetadataError` renders it (its issue lines, or else the served message unchanged). The sentence still says the view is not fully removed and the published row still serves it. It says "retry the delete" only when the failure is not a 4xx refusal. `cause` and `outcome` are unchanged. A refusal of the draft half is thrown as served, as before.
+- 35ef750: `aggregate()` no longer reads a served `null` measure as a missing one. The analytics answer's `null` (the max or min over rows whose field is all NULL) now reaches the caller as `null` from the single analytics request; only a measure key that is absent from the answer falls back to re-reading the rows through `find()`. This removes a second, row-reading request from every widget bound to such an aggregate.
+- 65fe4c2: One page open asks the server for one object document once (objectui#13044). The metadata provider's by-name object read now goes through the adapter's `getObjectSchema`, so the page's object scope and the record form, `useSettledSchema` and the field widgets share one `GET /meta/object/NAME`. The published view list (`GET /meta/view`) is shared while a request is on the wire: the provider's eager view read, `listViews` and `listViewOverrides` join it instead of each sending its own, and nothing is stored, so a later read, a refresh or a view write still asks the server. An organization or session switch clears the adapter's metadata cache. Each reader still gets its own copy, in the shape it got before; the draft-preview path is unchanged.
+- cd4623d: One object-page open reads the published view list (`GET /meta/view`) once (objectui#13057). The adapter now stores the list its client read and answers `listViews` and `listViewOverrides` from it, so the provider's eager view read serves the page's two readers. The client read itself still always asks the server. Every path that should see a fresh list drops it first: a refresh of the object page, every view write (through the adapter, its client, or the console's `MetadataClient`, whose view saves, publishes, resets, rollbacks and package publishes now drop it), and an organization or session switch. The package sheet's *Publish app* now announces the publish like every other publish path, so open views, forms and navigation re-read what went live. The draft-preview list read is unchanged and never fills the stored list.
+- 12ff256: `ConnectionState` is re-exported from `@object-ui/types` instead of being declared a second time here (objectui#6349, batch 10). `@object-ui/collaboration` declared the same five states for `useRealtimeSubscription`, so both packages now publish the one declaration under the same name. The union is unchanged, and so are `getConnectionState()`, `ConnectionStateEvent` and every import of `ConnectionState` from this package.
+  
+  No runtime behaviour changes.
+- 1b2d016: Doc comments only. `UserDataAdapter` now carries the contract notes `@object-ui/app-shell` kept on its own copy of the interface: implementations must be safe to call concurrently and should never throw, so the hosting provider can degrade to localStorage when the backend fails. `@object-ui/app-shell` now re-exports this declaration instead of declaring a second one (objectui#6349, batch 9). The type and its members are unchanged.
+  
+  No runtime behaviour changes.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [2e818d0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [96fcf30]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [aaba865]
+- Updated dependencies [45d5853]
+- Updated dependencies [2312bd9]
+- Updated dependencies [c5406c2]
+- Updated dependencies [d99b731]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [69bca0a]
+- Updated dependencies [023f00d]
+- Updated dependencies [158c75d]
+- Updated dependencies [7525045]
+- Updated dependencies [5af42db]
+- Updated dependencies [5f75cfa]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [334f0cf]
+- Updated dependencies [c08c933]
+- Updated dependencies [c4dd707]
+- Updated dependencies [923504f]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [8106db1]
+- Updated dependencies [093d55b]
+- Updated dependencies [a8051d6]
+- Updated dependencies [524136e]
+- Updated dependencies [6f3299f]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [ff9df88]
+- Updated dependencies [a2225f9]
+- Updated dependencies [21f9577]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [619e3f7]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [4839f5c]
+- Updated dependencies [c999d4c]
+- Updated dependencies [260ef71]
+- Updated dependencies [26323c4]
+- Updated dependencies [c219165]
+- Updated dependencies [fb501bc]
+- Updated dependencies [30083da]
+- Updated dependencies [025130c]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [2493e85]
+- Updated dependencies [a928aaa]
+- Updated dependencies [61ed5ad]
+- Updated dependencies [1b94d50]
+- Updated dependencies [fb85637]
+- Updated dependencies [9f1dd79]
+- Updated dependencies [df71568]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [616df65]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [088e0f7]
+- Updated dependencies [78b07f4]
+- Updated dependencies [b403bb3]
+- Updated dependencies [12dc7b4]
+  - @object-ui/types@18.0.0
+  - @object-ui/core@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

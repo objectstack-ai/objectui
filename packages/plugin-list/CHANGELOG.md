@@ -1,5 +1,1010 @@
 # @object-ui/plugin-list
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- fd060f0: The `list-view` and `view:list` registrations no longer declare `objectName`
+  required, so the page compile accepts a node whose `dataSource` binding names the
+  object, and a list that names its object in neither place shows a hint instead of
+  an empty list (objectui#11605).
+  
+  `list-view` has no spec row. The binding doc says a node bound by
+  `dataSource.object` needs no `objectName` of its own, and the schema validator
+  counts the binding as a `list-view` record source. The renderer agrees:
+  `dataSource.object` lands on `objectName` before the list reads the node. The
+  registrations still declared `required: true`, and the page compile reads them,
+  so a bound list with no `objectName` of its own was refused with
+  `missing-required-prop` and the save failed.
+  
+  **Clause-②: yes (widening)** — a `list-view` (or `view:list`) node that names its
+  object through `dataSource.object` and sets no `objectName` now compiles and
+  saves. A node that names its object in neither place also compiles now, and the
+  list shows "No object named: set objectName or dataSource.object." where it used
+  to draw the "Nothing here yet" empty state. A list with inline `data` shows no
+  hint and renders as before. The published `objectName` input now carries a
+  description that says the binding can supply it.
+- 834c559: An empty list's copy no longer contradicts the page it sits on (objectui#11687).
+  
+  An identity list (an object managed by the authentication provider) said its records are "not added by hand here", even beside an "Invite User" or "Register OAuth Application" button on the same page. The console now asks whether the page offers a way to add a row: its New button, or a toolbar action the page draws, judged by the same placement, capability and `visible` gates the toolbar applies. When it does, the identity copy is not used and the list shows its own empty state instead. When the toolbar action is hidden (for example a multi-organization-only Invite User in a single-organization deployment), the identity copy stays. The Teams list keeps its own copy, which already names its Create Team button.
+  
+  A list view emptied by its own declared filter said "No records match your current filters or search." when no filter or search had been applied. That message is now said only when the user applied a filter or a search. A view emptied by its own filter alone keeps the "No matching records" title and reads "No records match this view’s filter.", through a new `list.viewFilterNoMatchesMessage` key in all ten language packs and in `LIST_DEFAULT_TRANSLATIONS`. A list with no filter at all still gets the first-run copy.
+- f34e877: Gallery cards and the compact list honour a deadline's `settledWhen` (objectui#11815): a done record's past due date reads neutral, an open one's reads "Overdue Nd" in red. Gallery cards now also read the field's declared `dueLike`, so a declared deadline reads overdue there at all.
+- 75bacf9: A console object list's toolbar grouping is now in the URL, beside its Filter panel conditions, search term and sort, so a grouped list can be shared as a link or bookmarked (objectui#11860).
+  
+  `ListView` (`@object-ui/plugin-list`) has a new optional prop, `onGroupingChange`. It fires when the user changes the grouping in either grouping editor: the toolbar's Group panel (adding, changing or removing a level, or Clear) and the compact toolbar's View settings popover. The value is the `@objectstack/spec` `GroupingConfig` (`{ fields: [{ field, order, collapsed }] }`), the shape `schema.grouping` takes, or `undefined` when the grouping is cleared. It does not fire when the list re-reads a changed `schema.grouping` from its host. A host that does not pass it behaves as before.
+  
+  The console object page (`@object-ui/app-shell`) writes that value into a fourth `uf_` query parameter, `uf__group`, as JSON, and opens a list grouped by it:
+  
+  - **A URL that carries a grouping opens the list grouped that way**, over the grouping the view declares. A URL without one opens the view's declared grouping.
+  - **Malformed or out-of-date groupings are dropped.** This applies to a value that is not valid JSON, a grouping or level the spec's `GroupingConfigSchema` rejects, and a field the object no longer has or the user may not read. The list still opens, and the dropped entry is removed from the address bar.
+  - Each change replaces the current history entry. Clearing the grouping removes the parameter; the spec has no empty grouping, so a link to a view that declares a grouping cannot carry "no grouping". Switching to another view opens it on its own grouping. Opening or closing the Group panel leaves the URL unchanged.
+  
+  The grouping is written to the URL only: it is not stored on the view or in the per-browser filter memory.
+  
+  Also fixed on the console object page: a link's `uf__sort` now sorts the list on a view that declares a sort of its own. Before, the view's declared sort overrode it, so the link's sort showed in the address bar while the list stayed in the view's order.
+- c5406c2: Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
+  
+  Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18 (raised to `^18.0.0-next.1` by objectui#12370 before release).
+  
+  **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.1` (objectui#12370), at the same time as it takes this release.
+  
+  **objectui's own surface moves with it:**
+  
+  - `element:record_picker`'s registration stops publishing the `object`, `filter`, `sort` and `limit` inputs, which spec 18 retires; a JSX page that writes one now gets `unknown-prop`.
+  - The `CapabilityMultiSelectField` widget's curated capability set (`@object-ui/fields`) follows spec 18: `manage_mailboxes` in, `manage_org_presentation` out.
+  - `element:number` and `element:repeater` nodes that bind no object are accepted, as spec 18's row and `PageComponentSchema` accept them; the two `ELEMENT_*_OBJECT_REQUIRED` refusals are gone.
+  
+  **Retired with the spec:** `@objectstack/spec` 18 tombstones `object-grid`'s `defaultFilters` and refuses it by name, and `ObjectGrid` and `ObjectView` stop reading it (`table.defaultFilters` on an `object-view` included). A view that still carries it renders unfiltered: rename the key to `filter`, whose value is the same rule array.
+- 5330afd: List views read an absent `userActions.editInline` as on, the v18 protocol default (objectui#12086, the consumer half of objectstack#22605). A list view is editable in place by default, under the permission gate that already exists, and `userActions: { editInline: false }` makes it read-only in place.
+  
+  **A list view that declares neither key.** The maintainer's v18 ruling flipped the spec's `ListViewSchema.userActions.editInline` from `.default(false)` to `.default(true)`. `ListView` (`@object-ui/plugin-list`) reads an absent `editInline` as on (`!== false`). A grid view that declares neither `userActions.editInline` nor `inlineEdit` offers the inline-edit toggle, on the wide toolbar and in the compact settings popover, and opens out of edit mode. The previous release offered it there too, reading an absent key as "defer to the host"; objectui#5144 read it off on unreleased `main` only, and its entry in this release states the default as on. The fold objectui#5144 added is unchanged.
+  
+  **Behaviour change: the ADR-0047 interface page (`@object-ui/app-shell`).** The page reads its config's `userActions.editInline` with the same default and hands it to `ListView` as the grid's edit mode, because the page wires no inline-edit toggle. A page that declares nothing now opens its grid editable in place; `editInline: false` keeps it read-only.
+  
+  **Unchanged.**
+  
+  - The permission gate. The toggle, the compact entry and the edit mode are offered only where the object is editable in place and the current principal holds `update` on it. A principal without the grant sees no toggle.
+  - The `inlineEdit` fold (objectui#5144): `inlineEdit: true` reads on and opens the grid in edit mode, `inlineEdit: false` reads off, and an explicit `editInline` wins either way.
+  - The console toggle stays session-only (objectui#5144, ruling E).
+  
+  **What to do.** A list whose records are read-only by nature (a log, an audit trail, a history, a roll-up) declares `userActions: { editInline: false }`. A view or overlay where an earlier console stored `inlineEdit: false` still reads off; declaring `userActions.editInline: true` brings the toggle back.
+  
+  Nothing is added to a package entry: no export, prop, type member or language-pack key. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own behaviour changes ship as `minor` with the semantics stated here.)
+- 5c0846e: A page `list-view` node is written in `@objectstack/spec`'s list view spelling, `data` and `type`, and a metadata page reads `properties.type` as the list kind (objectstack-ai/objectstack#22444, ruling C; objectui#12099).
+  
+  - The `list-view` and `view:list` registrations publish `data` (the spec's `ViewData`, `{ provider: 'object', object }` naming the object) and `type` (the list kind) in place of `objectName` and `viewType`, in their `inputs` and in `list-view`'s `defaultProps`. Neither input is required: a `dataSource` binding can name the object, and an absent kind is a grid unless a bound saved view supplies one.
+  - On a metadata page, `{ "type": "list-view", "properties": { "data": { "provider": "object", "object": "deal" }, "type": "kanban", "kanban": { … } } }` now draws a kanban over `deal`. Before, the page renderer never copied `properties.type` onto the node (the node's own `type` is the registry key), so every such list drew a grid. The node's own `type` stays `list-view`. A kind the node states outranks a bound saved view's kind.
+  - **Breaking for page nodes in the old spelling:** a page node's own `objectName` and `viewType` are no longer read. Each logs one console warning naming what to write instead, and a node that names its object only as `objectName` draws the "no object named" hint, which now names `data.object`. Converting stored page nodes is the platform's job (an ADR-0087 conversion in `@objectstack/spec`); the renderer does not read them back. `ListView`'s React props (`ListViewSchema`) are unchanged and still spell the two `objectName` and `viewType`.
+- b434f5f: An empty list draws its declared link, and a list page's own empty state wins over its source view's (objectui#12270).
+  
+  `@objectstack/spec` 18 gives the empty state (`EmptyStateSchema`) one optional `link: { label, url }`, and a list page's `interfaceConfig` an `emptyState` of its own with that shape. Both parsed and neither was drawn:
+  
+  - a list view's empty state (`ListView`, on its `grid` and `gallery` visualizations) and the `object-grid` block's authored empty state now draw the link, beside the add-record action where the view offers one;
+  - a list page's own `interfaceConfig.emptyState` now wins, whole, over the one its source view declares, on every visualization; the source view's is the fallback when the page declares none.
+  
+  The link is followed as a `type: 'url'` action through the action runner, so it opens what such an action opens: an in-app path in place, an `http(s)://` address as the runner opens an external target, and `mailto:` in place. The runner refuses anything else at the click and reports it. The link's `label` takes a string or an inline locale map.
+  
+  `@object-ui/components` exports `EmptyStateLink`, the one component every empty state draws the link with.
+  
+  **Clause-②: yes (widening)** — the renderers start honouring two keys the spec declares (`emptyState.link`, `interfaceConfig.emptyState`), so what they draw widens. No existing key changes.
+- 524136e: The view-level `provider: 'api'` data source is no longer read anywhere in objectui (objectui#12325). `@objectstack/spec` retires it (objectstack#23082, ADR-0049): a view binds its object (`provider: 'object'`) or static rows (`provider: 'value'`), and a metadata-declared API call is the page element's `dataSource` binding.
+  
+  Breaking, declared as `minor` per the version-alignment rule:
+  
+  - **`resolveDataSource`** (`@object-ui/core`) has no `api` arm. A block that still says `provider: 'api'` is an unknown provider and gets an unknown provider's answer (the fallback DataSource, else `null`); no `ApiDataSource` is built from its `read` / `write`. `ResolveDataSourceOptions` loses `fetch` and `defaultHeaders`, which only that arm read.
+  - **`ViewDataProvider`** (`@object-ui/core`) has no `api` arm: such a config resolves with `Unknown data provider: api`. `ViewDataConfig` and `ResolvedData.provider` drop `'api'`, and `DataFetcher.fetchUrl`, which only that arm called, is removed.
+  - **`useViewData`** (`@object-ui/react`) no longer keys on or threads anything for an `api` block.
+  - **`ObjectGantt`** reads no `api` block: its `read` URL is never requested, and the chart answers it like any unknown provider. `ObjectCalendar` and `ObjectMap` drop their `api` branches, which only warned "not yet implemented".
+  - **`ListView`** no longer stands down for a gantt view with an `api` block: it fetches the bound object like any other list.
+  
+  Unchanged: `ApiDataSource` stays a class for code that constructs it from an `ApiDataSourceConfig`, so the console's approvals inbox reads exactly as before.
+- ff9df88: Depend on `@objectstack/*` `18.0.0-next.1` (objectui#12370).
+  
+  Every `@objectstack/*` range these packages declare moves from `^18.0.0-next.0` to `^18.0.0-next.1`; the console and the runner bundle `18.0.0-next.1`. A consumer moves its own `@objectstack/*` packages to `18.0.0-next.1` with this release.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates page action rows and view data bindings through the spec's own rows, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.1` refuses. Each was accepted on `18.0.0-next.0`:
+  
+  - `onSuccess` on an `action:button` / `action:icon` row, or an `action:group` / `action:menu` member, whose executor is the `url`, `navigation`, `modal`, `flow` or `form` built-in, or that has no executor at all. Write the hop on an `api` or `script` action (or a host handler name), or drop it.
+  - `onSuccess` beside `operation: 'update'`, and an `onSuccess` block carrying a key outside `{ navigate, openIn }`.
+  - `actionType: 'navigation'` on a row (and `type: 'navigation'` on a container member): write `'url'`.
+  - A `url` executor's `target` that is not openable, judged on the executor the runner runs, including a row whose `name` selects it.
+  - A view `data` binding with `provider: 'api'`: bind the object or static rows; an API call is the page element's binding.
+- a2225f9: The console list page spends less of the screen on chrome (objectui#12423).
+  
+  - **Four controls on the list toolbar.** The bar now shows Filter, Sort, Display and Search. Display is the former "View settings" panel, opened by default on every list: a Layout row (the visualization switcher, when the list offers more than one), Group, Row color, Hide fields, Density, a Row numbers switch and an Edit inline switch, with Reset to view default, Refresh and Export in its footer. The Display button shows how many of these differ from the view's own settings, and Reset hands them all back. Each control still saves exactly what it saved before; Row numbers lasts for the session only and starts on. A view that sets `compactToolbar: false` keeps the old toolbar, one button per control.
+  - **View tabs fit the width.** The view tab strip shows as many saved views as fit and folds the rest into the "N more" menu; `maxVisibleTabs` is now an optional cap on top of the width. A table view's tab is its name alone, other view types keep their icon, and the small filter, sort and default-view marks on tabs are gone. The current tab's menu still offers every action, and "Set as default" now shows which view is the default.
+  - **Grid rows.** With selection on, the first cell of a row shows the row number and swaps to the checkbox on hover, on keyboard focus, on touch screens and on every row while any row is selected; the header keeps its select-all box. With row numbers off the cell is empty until hover. The row actions button appears on hover, on focus and on a selected row, and stays reachable by keyboard.
+  - **One-row page header.** On desktop the list page header is a single row: icon, title, then the description, with the actions on the right. The favorite star is no longer in this header. Phones are unchanged.
+  
+  For integrators: `ObjectGrid` takes a `showRowNumbers` prop (on unless set to `false`); the `ViewTabBar` config's `showIndicators` is deprecated and draws nothing; the language packs gain `list.display`, `list.layout`, `list.rowNumbers` and `list.resetToViewDefault`, and drop `list.viewSettings`, `list.viewSettingsHint` and `list.recordEditingTitle`.
+- d4bc81e: The console list page draws its saved-view tabs and the list's Filter, Sort, Display and Search controls on one row (objectui#12440).
+  
+  - **One row for tabs and tools.** From the `sm` breakpoint up, the view tab strip is no longer a bordered row of its own above the list: it sits at the left of the list toolbar, takes the width the four controls leave, and folds the views that do not fit into its "N more" menu. Its "+" add-view button comes with it. Below `sm` nothing changes: there is no tab strip, and the app bar's view switcher stays the phone's view control. A view the server refuses still shows the tabs on their own row, since no list (and so no toolbar) is drawn for it.
+  
+  For integrators: `ListView` takes a `toolbarLeading` React prop. A host node passed there renders first in the toolbar row's left group, before the user-filter chips, in a `min-w-0 flex-1` wrapper. It is a host prop, not a schema key. Without it the toolbar row is unchanged.
+- c41ce3f: Setup draws one page header on every page: the `sys_*` record lists, the metadata-type pages, the settings pages and the component pages.
+  
+  - **One header, a Setup posture.** Inside the Setup app the console page header (`ConsolePageHeader`) puts the description on its own line under the title: a 32px icon tile, an 18px title with the page's kind chip after it, a 13px muted description, Refresh as an icon button and the primary action at the right. The title sits at the same place on every Setup page. Outside Setup the header keeps its one row. `ConsolePageHeader` takes three new optional props: `badge` (the kind chip after the title), `breadcrumb` (leading crumbs on the description line) and `refresh` (`{ onRefresh, label, busy? }`, drawn as one icon button before `actions`).
+  - **Metadata-type pages under Setup** (Positions, Capabilities, Permission Sets and their siblings) drop the "All Metadata Types" breadcrumb and the Items / Filtered tiles. The count reads "18 items" in the description, the source select is a filter chip, the table takes the record list's row height and sentence-case headers, and the source column shows plain text with its explanation in a tooltip instead of a chip on every row. The same page outside Setup (the metadata directory, Studio's "Open in Setup" target) is unchanged.
+  - **Record lists under Setup** open without the `#` row numbers. `ListView` takes a new host prop for this, `defaultRowNumbers` (default `true`); it is not a view key.
+  - **Settings pages** keep their form and take the same header. "All settings" is now the first crumb of the header's description line instead of a button at the top of the form.
+  - **Component pages** — Packages, Packaged automation, Approvals Inbox, Audit Log Browser and App Marketplace — draw their title row through the same header, with Refresh as its icon button.
+- 8614705: A kanban under a list view puts every record of the view in its column, not the list's first page, and its cards carry the view's first columns (objectui#12619).
+  
+  Measured on HotCRM's 45 opportunities at Display › Layout › Kanban: the board drew 25 cards (the grid's Rows per page), the closed columns read 0, the footer read "Showing first 25 records. More data may be available.", and each card showed only the record's name.
+  
+  - **Each lane is its own query.** `ListView` no longer hands its board the rows it fetched for the grid. It hands it the view's query, and the board asks each lane for its first 50 records: the view's filter (toolbar filters and chips included) AND the lane value, in the view's sort, with the toolbar search. The lane's count in its header is the server's count from the same answer. A lane holding more shows **Load more** at its foot. One more query finds the records in no lane (a lane value that is none of the lanes, or empty) for the trailing Uncategorized lane. A refresh asks each lane again at the depth it was loaded to. Dragging a card between columns writes the lane value and asks for the required fields as before, and both lane counts follow the card.
+  - **The list footer counts the view.** It shows the view's record count from the list's own query, with no "Showing first N records" line and no Rows per page picker on such a board.
+  - **Which boards page their lanes.** A board whose lanes are known before the query (the lane field's options) and that draws no swimlanes. Any other board under a list view is handed the list's rows, as before. A standalone `object-kanban` keeps its one query, capped by `limit`.
+  - **Cards carry the view's first columns.** With no `kanban.columns` of its own, a list view hands the board the view's next two columns past the card title, the lane field and the owner field, by field name. Before, a card drew no field lines from the view's columns. Below its name it showed at most a subtitle the board derives from the record where the record yields one (an amount and an account, say). On HotCRM's measured board it showed the name alone: that view's columns are `{ field }` entries, handed over whole, which the card read as field names and matched none. The kanban block's `columns` is the author's card list and is used whole.
+  - **A card field is a line with its label.** Each card field now shows its label, muted, before its value. The label used to be a tooltip only. The card's reduced padding between its title and its first field line now holds at every breakpoint; from the `sm` breakpoint up it had widened back to the full padding.
+  - **The owner's avatar.** When the object gives its records an owner (the spec's `ownership` model and `SystemFieldName.OWNER_ID`, read through `resolveInjectedSystemColumns`), each card shows the owner's avatar from the expanded owner record, as the viewer may read it.
+  
+  Public surface: `ObjectKanbanComponentProps` gains two optional host props, `lanePaging` (`{ search?, searchFields?, reloadKey? }`) and `ownerField`. Neither is an authoring key on the `object-kanban` node. `@object-ui/i18n` gains `kanban.loadMore` in every language pack.
+- a8add5c: A list block in a page region narrower than half the page draws a compact list (objectui#12703).
+  
+  The page renderer measures each region against the page body and tells the region's blocks their posture: `compact` when the region is narrower than half the page (an `aside` or `sidebar` rail beside `main`), `full` otherwise. The measurement is the region's rendered width relative to the page, never the viewport, so the same `aside` is compact beside `main` and full once a narrow screen stacks it. Nothing is authored: `@objectstack/spec` declares no posture or `compact` key, and none is added.
+  
+  A `list-view` block in a compact region draws a header with its title and record count over two-line rows: the view's first visible column, with its second muted below. It draws no toolbar, no view tabs, no row-number column, no pager and no record-count bar. A click on a row opens the record the way a grid row does. A region half the page or wider, a region whose width is not known (server render, no `ResizeObserver`), and the object list page keep the full list unchanged. The compact list applies to a paged grid; a board, a calendar or a grouped grid keeps its own rendering.
+  
+  Published surface:
+  
+  - `@object-ui/components` exports `usePageRegionPosture()` and the type `PageRegionPosture` (`'compact' | 'full'`). The hook answers `null` outside a page region or before the width is known.
+  - `@object-ui/plugin-list`'s `ListViewProps` gains the optional host prop `compact`. It is a React prop, never a schema key; absent, the list renders as before.
+- 33ee9de: A `list-view` block drawn as a compact list in a narrow page region now shows a "View all" link under its rows (objectui#12703).
+  
+  - `@object-ui/react`: `RelatedRecordActionsValue` gains two optional members, `listHref(objectName, viewName?)` and `openList(objectName, viewName?)`. They address an object's list page, or one of its saved views, the way `recordHref` / `openRecord` address a record. A host that omits them is unchanged.
+  - `@object-ui/app-shell`: a custom page supplies them. The routes are `/apps/APP/OBJECT/view/VIEW` for a block bound to a saved view (`dataSource.view`) and `/apps/APP/OBJECT` otherwise. The block's inline filter, columns and sort are never put in the URL.
+  - `@object-ui/plugin-list`: the compact list draws the link only when the host answers a destination. It is a real anchor with in-app navigation on a plain click.
+  - `@object-ui/i18n`: one new key, `list.viewAll`, in all ten packs.
+- 1b88645: A list's user-filter chip no longer shows the raw field key while the object definition is loading (objectui#12890).
+  
+  A chip declared without a label (`userFilters.fields: [{ field: 'category' }]`) takes its name from the object definition. Until that definition arrived, the chip, its text-search placeholder, its person-picker search prompt and the deprecated toggle button all showed the machine key (`category`), which a zh-CN viewer then saw replaced by `分类`. While the definition is loading, these now show a skeleton (or no text) instead. Once it arrives the chip shows the field's translated label, as before. A chip with an authored `label` shows it throughout. If the loaded definition has no such field, the chip still falls back to the key.
+  
+  `UserFiltersProps` gains an optional `objectDefPending` flag, which `ListView` sets while it fetches the definition. A host that leaves it out gets the previous behaviour.
+- b5153f4: The list toolbar's Display control compares hidden fields and density against the view's own value again (objectui#12949). On a console list, after a user hid a column (or changed the density) and reloaded, "Reset to view default" was disabled and the Display trigger counted nothing, although the list differed from the view. The console lays the user's stored choice over the view's value (objectui#12474), so the list compared that choice with itself. Now the reset is enabled whenever the user's hidden fields or density differ from the view's, the trigger count follows the same comparison, and pressing the reset writes the view's value back through the same doors the controls write through, so the user's stored preference follows, as Show all does.
+  
+  On a saved view that declares no `columns`, the view's own `hiddenFields` is never applied (objectui#12505), so the view hides nothing there: the reset returns to every drawn column.
+  
+  **Clause-②: yes (widening)**: the exported `ListViewProps` gains one optional member, `viewDefaults?: Pick<ListViewSchema, 'hiddenFields' | 'rowHeight'>`. A host that lays a user preference over those two schema keys passes the view's own values in it. When it is passed, its members are the whole baseline (an absent `hiddenFields` means the view hides nothing, an absent `rowHeight` means the default density). A host that does not pass it behaves exactly as before: `schema` is the view's own. No key is added to `ListViewSchema`, and no existing member changes type. `@object-ui/app-shell`'s object page passes it; its own exports do not change.
+- a244a17: `list-view` publishes the keys of its `@objectstack/spec` row that the renderer honours on a page node (objectui#13047).
+  
+  The spec's `ComponentPropsMap` gained a `list-view` row in 18 (objectstack-ai/objectstack#22444): the list view's own `ListViewSchema`. The registration published six of its keys (`data`, `type`, `columns`, `filter`, `sort`, `options`). Every other key of the row was measured on a page node, authored in the node's `properties` and rendered through `SchemaRenderer` and this registration, and the 33 the renderer honours are now published in `inputs`, with the member shape the spec declares named in each description:
+  
+  - **The query:** `pagination`, `searchableFields`.
+  - **Identity:** `label`, `description` (each a plain string or an inline locale map).
+  - **The toolbar:** `userFilters`, `userActions`, `compactToolbar`, `appearance`, `exportOptions`, `allowPrinting`, `showRecordCount`, `emptyState`.
+  - **The grid:** `hiddenFields`, `fieldOrder`, `rowHeight`, `resizable`, `selection`, `navigation`, `grouping`, `rowColor`, `conditionalFormatting`, `inlineEdit`, `rowActions`, `bulkActions`, `bulkActionDefs`.
+  - **Each kind's own block:** `kanban`, `calendar`, `gantt`, `gallery`, `timeline`, `map`, `tree`, `chart`.
+  
+  `appearance.allowedVisualizations` narrows the kinds a view switcher offers, and a page node draws no switcher, so on a page it changes nothing; its description says so.
+  
+  Five keys of the row stay unpublished, because the renderer does not honour them on a page node: `name` and `requiredPermissions` are read by nothing there, `sharing` and `addRecord` each draw a button that does nothing there, and `filterableFields` is read as the Filter panel's field list, not as the quick-filter shorthand the row declares it to be.
+  
+  The `view:list` alias registers the same renderer and now publishes the same list. The descriptions of the six keys already published are filled in. Nothing changes at render time: no reader, export, prop or type member is added.
+- b017621: A page `list-view` node now honours `requiredPermissions`, a key of the spec's list view row, and the registration publishes it (objectui#13074): the capabilities a viewer must all hold. A viewer missing one sees an insufficient-permissions notice in place of the list, the same notice the record blocks draw, and no records are queried. A provider that reports no capabilities still shows the list.
+  
+  `addRecord` and `sharing` stay unpublished. With `addRecord.enabled`, the Add button calls the `onCreate` a `RelatedRecordActionsContext` provider serves for the listed object, and is withheld, not drawn dead, where no provider serves one. `sharing`'s Share button has no action the spec declares.
+- d11174a: A list's `addRecord` Add button opens the create form on a console page and on the console's object list (objectui#13089).
+  
+  - **Page `list-view` nodes.** The console's page host now serves the record-form create to a list that names no `relationshipField` and has no parent: a page `list-view` node. So `addRecord: { enabled: true }` draws its Add button, and a click opens the create form for the listed object. A related list whose parent did not resolve is still served nothing, so it draws no "+ New" that would open a child form linked to no parent. No Edit, Delete or row click is served to a list without a parent.
+  - **`list-view.addRecord` is a published input** of the `list-view` and `list` registrations. `enabled` and `position` are read; `mode` and `formView` are not.
+  - **The console's object list.** A saved view that declares `addRecord.enabled` used to draw an Add button whose click did nothing, also for a viewer who may not create. The button now opens the header New's create, and is withheld wherever that New is not offered or is greyed.
+  - **`editMode: 'page'`.** A create linked to no parent, from the record-actions bridge, now opens an `editMode: 'page'` object's full-page create route, as the object list does, instead of the overlay.
+  - **`ResolveRelatedRecordActionsInput`** (`@object-ui/react`) documents what an input without `relationshipField` asks for: an object-scoped list's handlers. No type or member changes.
+- cbac9d7: The list view's Filter panel no longer narrows its field list to a per-view `filterableFields` whitelist (objectui#13118). `@objectstack/spec` 18 retires the list view's `filterableFields` (objectstack#24640, maintainer ruling C), and no per-view Filter-panel whitelist replaces it. The Filter panel offers every field the user may read, minus the fields the object marks `hidden: true`, which is what it already offered a view that declared no whitelist. A hidden field still appears when a condition the panel holds filters on it.
+  
+  - **`ListView`** (`@object-ui/plugin-list`) reads `filterableFields` nowhere. A stored view that still carries the key gets the same Filter-panel list as a view without it. The spec's conversion drops the key from stored and authored views, so no new source carries it.
+  - **The relays** stop forwarding the key: the `object-view` delegation in `@object-ui/plugin-view` (from the named view, the host `views` entry and the node) and the object page in `@object-ui/app-shell` (from the active view). The `object-view` registration no longer publishes `filterableFields` as an input.
+  - **`@object-ui/types`** declares `NamedListView.filterableFields` as a `?: never` tombstone, so a TypeScript author who writes the key on a named view is refused by name. `ObjectViewSchema.filterableFields` is deprecated and typed by reference to the list view's spec slot, the same slot its Zod mirror carries, so the `@objectstack/spec` pin bump that takes the retirement refuses it on both faces at once.
+  
+  BREAKING (`@object-ui/types`, `@object-ui/plugin-view`, `@object-ui/plugin-list`, `@object-ui/app-shell`), for a TypeScript caller or a view that passes `filterableFields`: the key no longer compiles on `NamedListView` (and on `ObjectViewSchema` from that pin bump on), and no renderer narrows the Filter panel to it. Delete the key. For a curated end-user filter bar, author `userFilters` on the list view, for example `userFilters: { element: 'dropdown', fields: [{ field: 'stage' }] }`. There is no replacement for a per-view Filter-panel whitelist: field-level read security decides which fields a user may filter on, and `hidden: true` on the object's field keeps a field out of the panel. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  Clause-②: no (narrowing)
+- 3c3115e: List views read `userActions.editInline` with the spec's default, on since objectstack-ai/objectstack#22605 (`editInline: z.boolean().default(true)`), and `editInline: false` is the opt-out. A view's `inlineEdit` folds into it, and the console's inline-edit toggle no longer writes to the view (objectui#5144).
+  
+  **The spec's default, read as declared.** The spec declares `userActions.editInline` with `.default(true)` (objectstack-ai/objectstack#22605): a list view is editable in place by default, under the permission gate, and `editInline: false` is the opt-out. The object-list toolbar used to read an absent `editInline` as "defer to the host", so every console grid offered the inline-edit toggle unless a view said `editInline: false`. The toolbar now reads it as the spec does. A grid view that declares neither `userActions.editInline` nor `inlineEdit` offers the inline-edit toggle, on the wide toolbar and in the compact settings popover, and opens out of edit mode. The flip of the default, and the interface page that reads it, are the objectui#12086 entry of this release.
+  
+  **The fold.** `normalizeListViewSchema` (`@object-ui/core`) now folds a boolean `inlineEdit` into `userActions.editInline`, the way it already folds the `show*` flags into the other toggles:
+  
+  - `inlineEdit: true` reads as `editInline: true`: the toggle is offered and the grid opens in edit mode;
+  - `inlineEdit: false` reads as `editInline: false`: no toggle;
+  - an explicit `userActions.editInline` wins over `inlineEdit`, in both directions;
+  - a view with neither key reads on, the spec's default.
+  
+  `inlineEdit` stays on the folded view, because `ListView` opens the grid in edit mode from it. Nothing migrates stored views.
+  
+  **The console toggle is session-only (`@object-ui/app-shell`).** Both keys are the author's permission. The console's toolbar toggle used to store a user's edit mode in the view's `inlineEdit`; after the fold, switching it off would have taken the toggle away for good. It now writes nothing. The toggle switches edit mode for the session, and each load starts from the view's own `inlineEdit`. `ListView` still reports the toggle through `onInlineEditChange`.
+  
+  **A named view's `inlineEdit` keeps its precedence (`@object-ui/plugin-view`).** On a host's `renderListView`, `ObjectView` merges `userActions` from the node, the host's `views` entry and the active named view, the named view last. The named view's `userActions` now go through the same fold as the other two. So a named view's `inlineEdit` decides whether inline editing is offered ahead of a host entry's, as it already decided the edit mode.
+  
+  **What to do.** A list whose records are read-only by nature declares `userActions.editInline: false`. A view that declares `userActions.editInline: true` keeps the toggle offered whatever the user does with it. Two costs come with the session-only toggle:
+  
+  - the edit mode is not remembered across loads;
+  - a view, or a personalization overlay, where the old toggle stored `inlineEdit: false` still reads off. That is existing data, and it is not migrated. Declaring `userActions.editInline: true` on the view brings the toggle back.
+  
+  Nothing is added to a package entry: no export, prop, type member or language-pack key.
+- 0253416: feat(plugin-list)!: a chart list view binds only an ADR-0021 `dataset`; the legacy inline chart axes and their `name` / `value` floors are retired on every route (objectui#6152, round 15)
+  
+  Clause-②: no
+  
+  **Changed (breaking for a stored chart view that names no `dataset`).** Every door refuses the
+  pre-ADR-0021 chart axes on a list view: `@objectstack/spec`'s chart block is a strict object of
+  `chartType`, `dataset`, `dimensions` and `values`, and `@object-ui/types`, `objectui validate` and the
+  platform's view write door judge by it, top-level and in the `options` bag. The renderers kept
+  reading the axes, so a chart view stored before the doors closed still drew an inline aggregate, and
+  a chart view that declared nothing was drawn from the invented fields `name` and `value`. They no
+  longer do, on every route that did: `ListView`'s chart branch and its capability gate, the object
+  page's chart view (`@object-ui/app-shell`) and `ObjectView`'s own views (`@object-ui/plugin-view`).
+  
+  | stored chart block (either nesting) | what renders now | write instead |
+  | :--- | :--- | :--- |
+  | `xAxisField` / `categoryField`, `yAxisFields` / `valueField`, `aggregation` (and, on the object page, `series` and `filter` on the block) | the chart's refusal: "Chart category axis required", in place of the chart; a view of another type no longer offers Chart in its view switcher | `chart: { dataset, values, dimensions }`, naming an ADR-0021 dataset of the object |
+  | no binding at all on a view whose `viewType` is `chart` | the same refusal, where a chart grouped by `name` and counting `value` used to draw | the same dataset block |
+  
+  A dataset-bound chart renders as before. The refusal is `ObjectChart`'s own screen for an object-bound
+  chart that names no category axis (objectui#8168); its remedy names that component's keys, not the
+  list view's dataset block.
+  
+  **Not measured: production.** The census before this change (objectui#6152 round 13) found no writer
+  and no stored row carrying these axes in any repository corpus a seat can reach, with positive
+  controls; this repository's create-view dialog writes the dataset block. Stored view and page
+  metadata in deployments was not measured. A row that carries the axes renders the refusal until it is
+  re-saved with a dataset block.
+  
+  - `@object-ui/plugin-view`: an `ObjectView` kanban view no longer reads `kanban.conditionalFormatting`.
+    The list view's kanban block does not declare it, and every door that judges the block refuses it
+    by name; the view's own `conditionalFormatting` is the one place it is read. The development-only
+    flat-key warning no longer names `dateField`, `groupBy`, `groupField`, `imageField` or
+    `subtitleField`, which it told an author to move into a block that refuses them.
+  - `@object-ui/app-shell`: the object page's development-only flat-key warning no longer names the
+    twelve keys every per-kind block refuses (among them `groupField`, `imageField`, `cardFields`,
+    `xAxisField`, `yAxisFields`, `aggregation` and `series`).
+  - `@object-ui/plugin-charts`, `@object-ui/types`: comments only, where they said the list-view relays
+    still read the legacy axes.
+- 3fd8625: feat(plugin-list)!: the renderers stop reading the list-view keys every door refuses: the pre-#2231 aliases, `calendar.defaultView`, and the undeclared keys a per-kind block carries (objectui#6152, round 14)
+  
+  Clause-②: no
+  
+  **Changed (breaking for a stored view that carries a refused key).** Rounds 11 and 12 of
+  objectui#6152 closed the doors: `@object-ui/types`, `objectui validate` and `@objectstack/spec`'s
+  view write door refuse these keys on a list view's per-kind blocks, top-level and under the legacy
+  `options` bag. The renderers kept reading them, so a view stored before the doors closed still
+  rendered as written. They no longer read them, on every route that did: `normalizeListViewSchema`
+  (`@object-ui/core`), which folded the four aliases onto their spec keys before anything else read
+  the view, `ListView`, the object page's relay (`@object-ui/app-shell`), `ObjectView`'s own views
+  (`@object-ui/plugin-view`) and `ObjectTimeline`. A stored view that carries one of these keys still renders, without what the key
+  used to bind. Write the spec's key instead:
+  
+  | stored key (either nesting) | what renders now | write instead |
+  | :--- | :--- | :--- |
+  | `kanban.groupField` | lanes as for a view that names none: the object's declared lifecycle field (`status` on an `object-view` element's own views) | `kanban.groupByField` |
+  | `kanban.cardFields` | cards show `kanban.columns`, or the view's own fields | `kanban.columns` |
+  | `gallery.imageField` | no cover binding: `ObjectGallery` tries `image`, and the Gallery view is not offered | `gallery.coverField` |
+  | `timeline.dateField`, and `calendar.dateField` read as a timeline axis | no timeline axis: the timeline's refusal names the keys to write, and the Timeline view is not offered | `timeline.startDateField` (or `calendar.startDateField`) |
+  | `calendar.defaultView` | the calendar opens on its own default view | nothing on a list view: the initial mode is the `object-calendar` element's flat `defaultView` |
+  | `kanban.swimlaneField` and any other undeclared kanban key | not drawn | nothing: the spec's kanban block has no swimlane |
+  | `tree.titleField` | the tree labels by `name` | `tree.labelField` |
+  | an undeclared key under `calendar`, `tree` or `gantt`, or anything under `options.grid` | not forwarded to the view | the block's declared key, or a top-level key of the view for a grid |
+  
+  The declared keys keep their route: `kanban.summarizeField`, `calendar.colorField` and
+  `calendar.allDayField` are now read by name where the removed spreads used to carry them, and every
+  `gantt` key the spec declares reaches the gantt through a typed table that `tsc` keeps total. A
+  block key named like a node key (`objectName`, `filter`) can no longer override the node's own
+  value. `ListView`'s projection collectors stop asking the server for the fields these keys named.
+  
+  **Not measured: production.** The census before this change (objectui#6152 round 13) found no
+  writer and no stored row carrying these keys in any repository corpus a seat can reach, with
+  positive controls; stored view and page metadata in deployments was not measured. A row that
+  carries one of these keys renders as the table says until it is re-saved with the key on the
+  right.
+  
+  Not in this change: the legacy chart axes (`chart.xAxisField`, `yAxisFields`, `categoryField`,
+  `valueField`, `aggregation`), which `ListView` still reads until the next round on objectui#6152.
+  
+  - `@object-ui/core`: `normalizeListViewSchema` returns a view whose only legacy vocabulary is one of
+    these nested aliases by reference, with the alias in place; it no longer removes it either.
+  - `@object-ui/types`: the refusal messages of these keys no longer say a stored view still renders
+    through the alias, and the kanban `groupBy` refusal no longer suggests the refused `groupField`.
+  
+  **Note added 2026-10-09 (objectui#6152 round 15):** the legacy chart axes are no longer read either.
+  `ListView`, the object page and `ObjectView`'s own views read no `xAxisField`, `yAxisFields`,
+  `categoryField`, `valueField` or `aggregation` on a chart block, so a chart view that names no
+  `dataset` binds nothing and `ObjectChart` refuses it on screen; see
+  `.changeset/6152-list-view-legacy-chart-retired.md`.
+- c0c0a0d: The view switcher's views are typed as `@object-ui/core`'s `ListViewVisualization`, and this package no longer re-exports that union as `ViewType` (objectui#6349, batch 7). `@object-ui/types` publishes a different `ViewType`: the whole view-type vocabulary, which adds the `list` and `detail` categories to the nine visualizations the switcher draws. One exported name stood for two unions across the two packages.
+  
+  **Type change, breaking for some consumers.** `ViewType` is no longer exported from `@object-ui/plugin-list` (TS2305 on import). Import `ListViewVisualization` from `@object-ui/core` instead; it is the same nine-member union. The switcher's props keep their members, and `ListViewSwitcherProps['currentView']` names the same union (the props were renamed from `ViewSwitcherProps` in objectui#6349, batch 8).
+  
+  No runtime behaviour changes.
+- d758f2f: The props of this package's view switcher are declared and exported as `ListViewSwitcherProps` instead of `ViewSwitcherProps` (objectui#6349, batch 8). `@object-ui/plugin-view` publishes a different `ViewSwitcherProps`: the props of its `view-switcher` renderer, which takes a `ViewSwitcherSchema` and host callbacks and is keyed on the whole `ViewType`. This package's switcher takes `currentView` and `availableViews`, keyed on `@object-ui/core`'s `ListViewVisualization`. One exported name stood for two props types across the two packages.
+  
+  **Type change, breaking for some consumers.** `ViewSwitcherProps` is no longer exported from `@object-ui/plugin-list`. Replace `import type { ViewSwitcherProps } from '@object-ui/plugin-list'` with `ListViewSwitcherProps`; the members (`currentView`, `availableViews`, `onViewChange`, `className`, `animated`) are unchanged. The compiler names the replacement (TS2724, "Did you mean 'ListViewSwitcherProps'?"). The `ViewSwitcher` and `ViewSwitcherDropdown` components keep their names.
+  
+  No runtime behaviour changes.
+
+### Patch Changes
+
+- 1e1f09e: The list filter builder starts on the view's first column, hides hidden fields, and offers one empty check where "empty" and "null" mean the same records (objectui#11810).
+  
+  - **Field list.** The list view's Filter panel no longer offers a field the object definition marks `hidden: true` (Organization, Owning Business Unit, the search index). Its fields follow the view's columns in the order the grid shows them, then the other business fields, then the system fields (created / modified / owner). A hidden field stays listed only when the view names it in `filterableFields`, or when a condition the panel already holds filters on it, so a restored filter still shows its field.
+  - **"Add filter".** A new condition starts on the view's first visible column instead of the hidden Organization field.
+  - **Empty checks.** On a column whose type cannot hold an empty value other than null (select, lookup, number, date and the other "null only" types of `@objectstack/spec`'s `expandEmptyOperator`), the operator list offers "Is empty" / "Is not empty" and no longer "Is null" / "Is not null": there they match the same records. Text columns and list-valued columns keep both pairs, and the operator list says how they differ ("Is empty" also matches blank text, or an empty list). A stored "Is null" condition on such a column still loads and shows as "Is null". Every `FilterBuilder` consumer gets this offer; what a row can hold (`operatorsForFieldType`) is unchanged.
+  
+  `@object-ui/i18n` gains two language-pack keys in all ten packs, `filterBuilder.emptyCheckHint.text` and `filterBuilder.emptyCheckHint.list`, which carry that hint. No export, prop or type member is added.
+  
+  `@object-ui/components` raises its `@objectstack/spec` floor from `^17.0.0` to `^17.5.0`, because its published entry now imports `expandEmptyOperator`, which the spec first exports in 17.5.0.
+- bf376c5: A list view that shows a declared deadline but not the field its `settledWhen` reads now fetches that field, so a done record's past due date reads neutral instead of overdue (objectui#11815). A field the viewer may not read is still never requested; that deadline stays unsettled.
+- 9844bbf: Grid inline edit marks a row modified only when a value really changed, draws one "Actions" column, and the "Edit inline" toggle reports its state (objectui#11816).
+  
+  - **A row is modified only by a real change.** The data table staged every committed cell edit, so clicking into a cell and out again showed "1 row modified · Cancel All · Save All (1)" for a row nobody had changed. An edit is now staged only when the value differs from the one the row loaded with. `null`, `undefined`, `''` and `[]` count as the same empty value, a number equals the decimal string that spells it (`5` and `'5'`), and a multi-value set equals the same set in another order. Staging the loaded value back removes the cell's edit, and the row is no longer counted as modified once none of its cells are.
+  - **One "Actions" column.** With inline edit on, the trailing column that only holds a modified row's cancel and save buttons was headed "Actions" too, beside the grid's own row-menu column, and in larger type. When that column can only hold those buttons (the table is editable, has a save handler, and is given no row-menu handler), its header is now a pencil icon with the accessible name "Edit" (the existing `table.edit` key). A column that can hold a row menu keeps the "Actions" header, now in the same small muted type as the other column headers.
+  - **The "Edit inline" toolbar toggle sets `aria-pressed`** to whether inline edit is on.
+  
+  No export, prop, type member or language-pack key is added.
+- 2063f7a: Four plugin controls pick with the shared `Select`, the control the rest of the console picks with (objectui#11865, the plugins' single selects): `SharedViewLink`'s "Expires after", `ViewSettingsPopover`'s "Color by field", a `select` field of the kanban `InlineQuickAdd` form, and the grouped grid's "Rows per page".
+  
+  The four were browser-native selects, so they looked and behaved differently from the console's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour. The grouped grid's size picker is now drawn as the flat grid's pager draws its own.
+  
+  What they write is unchanged. Each option gives the same value as before: "Never" still generates a link with no expiry, "None" still clears the row-colour config, the quick-add placeholder still submits an empty string, and each page size still repaginates from page 1. Re-picking the current option writes nothing. The quick-add picker keeps the accessible name its label gave the native select and still takes the form's first focus. Its keys keep the form's contract: Enter on the closed picker still submits the form and Escape still cancels it; Space and the arrow keys open the list, and Enter or Escape inside the open list selects or closes it without submitting or cancelling the form.
+  
+  One display change: a value none of a picker's options carries now shows as itself. The native select showed its first option instead ("None" for a row-colour field, the placeholder for a quick-add value), which is not what the view or the form holds.
+  
+  **Clause-②: no.** No published face moves: the package entries export the same names, the four components take the same props, and no i18n key is added. What moves is the four controls' own markup, described above.
+- 8f8f760: Three more controls pick with the shared `Select`, the control the rest of the console picks with (objectui#11865, the list view and the chatbot): `ListView`'s "Color by field" and its "Rows per page" selector (the fallback for views without a grid pager), and `ChatbotEnhanced`'s model picker.
+  
+  The three were browser-native selects, so they looked and behaved differently from the console's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour. "Color by field" now matches its twin in the compact toolbar's View settings popover, which made the same change earlier.
+  
+  What they write is unchanged. Each option gives the same value as before: "None" still clears the row-colour config, a field keeps the config's colours, each page size still reaches `onPageSizeChange` and refetches at that size, and each model still reaches `onModelChange` as its id. Re-picking the current option writes nothing. The model picker keeps its accessible name, the `model` label. A row-colour rule on a field the caller may not read still shows as "None" and is never offered.
+  
+  One display change: a value none of a picker's options carries now shows as itself. The native select showed its first option instead: "None" for a row-colour field outside the list's columns, the first size for a page size in force that is not one of the options (an undeclared size, for instance), and the first model for a selected model the environment no longer offers.
+  
+  **Clause-②: no.** No published face moves: the package entries export the same names, the two components take the same props, and no i18n key is added. What moves is the three controls' own markup, described above.
+- 077d198: The list's Filter panel offers only the fields the user may read (objectui#11925). Its field list now asks the same field-level read check the list's columns already use, `checkField(objectName, field, 'read')` from the permission context, so a field the grid does not show to this user can no longer be chosen as a filter condition, and the two field lists cannot drift apart.
+  
+  - **Both sources pass the check.** The list is built from the object definition and, while that has no field map, from the view's declared columns. A field the user may not read is dropped from either.
+  - **Nothing keeps an unreadable field listed.** Not the view's `filterableFields`, and not a condition the panel already holds.
+  - **Nothing else changes.** While the permission answer has not loaded, the list is as before, the same way the column check defers. A user who may read every field sees the same list, in the same order. The `filterableFields` whitelist, the hidden-field rule and the ordering are unchanged, and so is the sort picker.
+  
+  **Clause-②: no** — no export, prop, type member or accepted input changes.
+- e44f9bc: The list's Sort picker no longer offers a field the user may not read (objectui#11943). Choosing such a field sent a sort the server refuses, and the list went blank on "no access". The picker now asks the same field-level read check as the list's columns and its Filter panel, `checkField(objectName, field, 'read')` from the permission context. The Filter panel and the Sort picker share one predicate for it.
+  
+  - **A field the current sort already uses stays listed.** A stored or URL sort on an unreadable field still shows its row by name, so it can be removed. For now that field is also still offered in the picker's other rows. Listing it only as removable is a follow-up.
+  - **Nothing else changes.** While the permission answer has not loaded, the list is as before, the same way the column check defers. A user who may read every field sees the same list, in the same order. A link field the user may not read no longer brings up the hint about link fields not being sortable. The Filter panel's list is unchanged.
+  
+  **Clause-②: no** — no export, prop, type member or accepted input changes.
+- 4f4fc03: The list's Sort picker lists a field it keeps only for the current sort as removable, never as a new choice (objectui#11943).
+  
+  `SortBuilder`'s `fields` entries take an optional `disabled`. A disabled entry is drawn as an unavailable option in every row's dropdown and cannot be chosen by click or keyboard. A row whose field it already is still shows its label, and can be changed to another field or removed. "Add sort" seeds the first entry that is not disabled, and is disabled when every entry is. An entry without the flag behaves as before.
+  
+  `ListView` sets the flag on each field its Sort picker keeps only because the current sort names it: a field the user may not read, a field the platform refuses to order by, and a relational field listed as ordering by ID. Before this, a stored or URL sort on such a field left it choosable in the picker's other rows, and "Add sort" seeded it when it came first.
+- 2312bd9: A page that declares `print` now prints as a document, and a record page bound to such a page offers a Print action (objectui#11958, the objectui half of the print-page ruling on objectstack#8346, M1, zero server).
+  
+  - **The print stylesheet.** `PageRenderer` mounts a stylesheet built from the page's `print` declaration, only for a page that declares it. Every rule sits inside `@media print`, so the page on screen is drawn as before. `paperSize` and `orientation` set `@page { size }` (A4 and portrait when omitted). `margins` set one `@page` margin per declared side, in millimetres. `pageNumbers` prints "page / pages" in the bottom-right margin. `repeatHeader` and `repeatFooter` repeat the page's own `header` and `footer` regions on every sheet. `repeatTableHeaders` (on when omitted) repeats a table's column headings on every sheet it runs onto. `avoidBreakInside` keeps each block of a region whole on one sheet when it fits. Only the print page reaches paper: the console chrome and the record view's own panels around the page are hidden, and the page runs onto as many sheets as it needs.
+  - **The printable blocks print whole.** On a print page, `record:line_items` no longer cuts lines off at its row cap in silence: when the child object has more lines than the cap (500 unless `limit` is set), the panel draws the cap's lines and the shared row-ceiling note under them, naming both numbers when the server reports a total. A collapsible `record:details` section draws open, because a closed section never reaches paper. Off a print page both blocks behave as before.
+  - **The record page's Print action.** When the record page bound to a record declares `print`, the record view shows a Print button that opens the browser's print preview of that page.
+  - **New exports from `@object-ui/react`:** `PrintPageProvider`, `usePrintPage` and `PrintPageContext`. `usePrintPage()` returns the enclosing page's `print` declaration, or `null` outside a print page.
+  - The source comments that described PDF export as declined now say where a printable document lives: a page that declares `print`.
+- 164f02c: The list toolbar's hide-fields popover, Group editor and Row color select, and its user-filter chips, no longer offer a field the user may not read (objectui#11984). They now ask the same field-level read check as the list's columns, its Filter panel and its Sort picker. The compact toolbar's View settings popover offers the same three lists and asks it too.
+  
+  - **User-filter chips.** A chip on a field the user may not read is not shown, whether the author named the field or it was derived from the object definition: a value chosen on it is a filter the server refuses, and the list went blank. A chip whose field a selection already holds (the applied filter, or a selection the host restored) stays, so that filter can be cleared.
+  - **Stored settings are kept.** A grouping level on such a field still shows, under the field's name, so it can be removed, and nothing offers that field as a new choice. A hidden-field entry or a row-color rule on such a field is not shown, counted or cleared in the editors, and stays as stored: "Show all" and every other edit keep it.
+  - **Nothing else changes.** While the permission answer has not loaded, every list is as before, the same way the column check defers. A user who may read every field sees the same lists, in the same order.
+  
+  **Clause-②: no**: no export, prop, type member or accepted input changes.
+- e616327: A quick-filter selection restored from the URL now applies when the list's dropdown chips come from the object definition (objectui#12001).
+  
+  `userFilters: { element: 'dropdown' }` with no `fields` fills its chips from the object definition, and that definition loads after the list mounts. The dropdown bar read the restored selection (`initialSelections`, which the console fills from `uf_*` URL params) only once, at mount, when it had no fields yet. So a shared link such as `?uf_status=open` opened the list unfiltered while the address bar still carried the filter.
+  
+  Now a field that appears after mount gets the same starting selection it would have had at mount: the author's default, then the restored value, converted to the option's value type, with a single-choice field kept to one value. The chip shows it and the query carries it. Each field gets this once, so a value the user picks or clears afterwards is not overwritten when the definition renders again. As with a restore at mount, the bar reports it through `onFilterChange` and does not call `onSelectionsChange`.
+  
+  A list with declared `fields` behaves as before. The `tabs` mode was measured and is not affected: its presets come from the view, not the definition. The deprecated `toggle` mode takes no restored selection in any list.
+  
+  No export, prop, type or language-pack key changes.
+- 902fbe1: The list toolbar's field-list read check is rolled back to restore the console's first-load budget, and it re-lands with objectui#11984 after objectui#11939's reclaim.
+- 16b9d44: A quick-filter value restored from the URL now gets its field's type once the object definition loads, when the field is declared without its type (objectui#12008).
+  
+  Values restored from the URL arrive as strings. The dropdown bar converts them to the option's value type: `'true'` to `true` for a boolean field, `'2'` to `2` for a numeric option. It did this once, at mount. A field declared without its type, such as `fields: [{ field: 'is_active' }]`, takes its type and options from the object definition, and that definition loads after the list mounts. So the bar converted the value before it knew the type. A shared link such as `?uf_is_active=true` then filtered on the string `"true"`, and the chip counted 1 with no box ticked.
+  
+  Now, the first time the definition changes a field's type or options, the bar converts that field's starting value once more: the restored value, or the author's default. The box is ticked and the query carries the typed value. A value the user has changed or cleared in the meantime is left as it is. A field declared with its type behaves as before. Nothing is emitted when the conversion changes nothing, so a select field with string options issues no extra query.
+  
+  The fix also lists every read the bar makes of the object definition and tests each one against a definition that loads late. The label, the i18n scope and the lookup picker already followed a late definition; the starting value's type was the only read that did not. The `tabs` mode and the deprecated `toggle` mode read nothing from the definition.
+  
+  No export, prop, type or language-pack key changes.
+- 16c8810: A calendar view in a list draws every record of the days it shows, not the first 100 records of the object (objectui#12081 item 2).
+  
+  A list view's calendar used to draw the rows of the list's one unpaged fetch: the first 100 records of the object, with no date condition. A month holding more than 100 matching records was drawn from whichever 100 came first, and the rest never appeared. The only sign was the list's "Showing first 100 records" note. Measured on a contracts calendar with 122 records: up to 22 were never drawn.
+  
+  - **The list fetches the calendar's visible days.** The query selects the days on the calendar's start field, or, with an end field bound, every span that touches those days. It also selects the records with no start date, which the calendar counts as unscheduled. The view's own filter, the filter panel, the user filters and the search still narrow it.
+  - **It walks the window in steps of the fetch batch.** Every request asks for at most 100 records, the same batch as before. The list keeps asking until the window is exhausted, so every record of the month is drawn. It stops at the platform's non-grid ceiling of 2,000 records. It then draws the first 2,000 and shows a note under the calendar naming both numbers, the note the standalone calendar already shows. The "Showing first 100 records" note no longer appears on a calendar.
+  - **A declared page size no longer sizes a calendar's fetch.** On a calendar with a start date bound, every step is the fetch batch, whatever `pagination.pageSize` the view declares. A declared size still sizes the window of every other view, and of a calendar with no start date bound.
+  - **The rows-per-page picker is no longer offered on such a calendar.** A page size changes nothing it draws. The other views that offer it keep it.
+  - **Moving to another month fetches that month.** A move inside the window already fetched, such as switching to a week of the same month, fetches nothing. The calendar keeps drawing while the next window loads, and keeps the month it moved to.
+  - **Unchanged:** the grid's paging and its requests, every other view's one fetch batch, and a calendar with no start date bound. A calendar rendered on its own, outside a list, still fetches as before.
+  
+  **Clause-②: yes (widening)** — `ObjectCalendarComponentProps` gains one optional member, `onVisibleRangeChange?: (range: { start: Date; end: Date }) => void`. `ObjectCalendar` calls it on mount and whenever navigation or a view change moves the days it draws. `start` is local midnight of the first day drawn and `end` local midnight of the day after the last. The `object-calendar` renderer forwards it from a host, like the other callbacks, only when the value is a function. Nothing else on either package entry changes: no export is added or removed, no existing member changes type, and no locale key is added.
+- 023f00d: A create form asks its fields the create question, so a role that may create
+  records but not edit them can fill and submit the form (objectui#12082). Every
+  console affordance that offers a write now reads the grant it exercises from
+  one map.
+  
+  **The defect.** A create form gated each field on `checkField(object, field,
+  'write')`, whose fallback for a field the permission set does not mention is
+  the object's `allowEdit`. Under a grant of `allowCreate: true, allowEdit: false`
+  every field of the create form rendered disabled, the outbound filter stripped
+  every field from the body, and the save posted an empty record that the server
+  refused for its required fields — while the server accepts the same create.
+  
+  **The server's insert rule, which the create question follows.** The server's
+  field-level write step refuses a write that names a field whose explicit
+  field-level entry has `editable: false`; a field with no entry passes it, and
+  object admission decides the operation (`allowCreate` for an insert,
+  `allowEdit` for an update). So a create-form field now reads its explicit entry
+  when there is one and the object's create grant when there is none. A field the
+  permission set marks `editable: false` stays disabled and out of the body.
+  
+  **Clause-②: yes (widening)**
+  
+  - `@object-ui/core` exports the affordance-to-grant map: `AFFORDANCE_GRANTS`
+    (one row per affordance: the CRUD-affordance bit it needs, the object grant it
+    exercises and, for an affordance that offers fields, the field question it
+    asks), `resolveAffordance` (managed-object policy ∧ the server's effective API
+    operation set ∧ the caller's grant, with the row's `userActions` predicates
+    surfaced only when all three allow it), `resolveFieldAffordance`,
+    `formFieldsAffordance`, and their types (`ConsoleAffordance`,
+    `FieldAffordance`, `AffordanceGrant`, `FieldAffordanceGrant`,
+    `AffordanceGrantRow`, `AffordanceGrantPrincipal`, `FieldAffordancePrincipal`,
+    `AffordanceSource`, `AffordanceVerdict`).
+  - `@object-ui/permissions`: `checkField`'s action accepts `'create'` beside
+    `'read'` and `'write'`. `MePermissionsProvider` answers it from the explicit
+    field entry when there is one and from `allowCreate` otherwise; the
+    role-based `PermissionProvider` answers it as it answers `'write'`.
+  
+  **Behaviour, by package.** With no permission provider mounted every grant
+  still reads open, as before.
+  
+  - `@object-ui/plugin-form`: every `ObjectForm` layout's fields and outbound
+    filter ask the question of the form's mode (create or edit). The form-wide
+    lock, with its "You don't have permission to …" notice, also engages when the
+    caller's object grant for the form's mode is denied, not only when the
+    managed-object policy or the effective API operation set closes it. A
+    create-mode `MasterDetailForm`'s line cells ask the create question of the
+    child object, since every line there is a new record.
+  - `@object-ui/app-shell`: the record page's Edit and Delete (and the record
+    body's in-place editing) read the caller's update / delete grant; they read
+    none before. The import wizard's write targets ask the create question, so a
+    caller offered Import keeps every field the insert accepts. List New / Import,
+    the related lists and the Attachments panel read the map with the verdicts
+    they had.
+  - `@object-ui/fields`: a lookup's "Create new" reads the create grant (and the
+    managed-object policy and operation set) of the object the field references;
+    it read no grant before.
+  - `@object-ui/plugin-grid`: row Edit / Delete, in-place editing, the template
+    download and the add-record row read the map; the add-record row now also
+    honours the object's managed-object policy and effective `create` operation.
+  - `@object-ui/plugin-detail`: `record:details` in-place editing reads the
+    caller's update grant; the detail header's object gate adds the effective
+    operation set.
+  - `@object-ui/plugin-list` and `@object-ui/console`: bulk Delete, the
+    inline-edit toggle and the profile page's language field read the map with
+    the verdicts they had.
+- e723f58: Screen readers hear the names of more controls in the viewer's language (objectui#12145).
+  
+  These controls carried an English `aria-label`, so under a non-English locale a screen reader announced their names in English: the docs portal's loading spinner, the record form page's breadcrumb, the `Spinner` status region, a data table's row menu button, the `pagination` renderer's previous and next links, the image crop preview, the percent slider, the record picker's grid, the AI composer's send and stop button and an attachment's remove button, the designer's undo and redo buttons, minimap, version history and back button, a dismissible record alert's close button, the bulk-action bar, and the mobile view switcher. Each name now comes from the language packs. English names are unchanged, with two small exceptions: the spinner now reads "Loading…", and the pagination links read "Previous page" and "Next page", the same words the data table pager uses. Sighted use is unchanged.
+  
+  Added: eight language-pack keys in all ten packs: `help.loadingDocumentation`, `common.breadcrumb`, `table.rowActions`, `fields.image.cropPreview`, `fields.percent.slider`, `designer.canvasMinimap`, `designer.versionHistory` and `grid.bulkActions`. Every other name reuses a key that already holds the same words. The exported `en` pack, and so `TranslationKeys`, gains these eight members. `PromptInputAttachment` (exported through `AIElements`) takes an optional `removeLabel` prop that names its remove button; without it the button keeps its English name.
+- 5dd583f: A gallery card whose title field is a lookup now shows the referenced record's name, not `[object Object]` (objectui#12188).
+  
+  The card title printed the title field's value as plain text. A lookup value read through `$expand` is the related record, so the title read `[object Object]`. This showed on a record page's related list at phone width, which draws its rows as these cards titled by the first column: the organization page's Members tab showed `[object Object]` where the desktop grid showed the user's name. It also showed on any gallery view whose title field is a lookup. A lookup id that was not expanded printed as the raw id.
+  
+  - A title field of type `lookup`, `master_detail`, `tree` or `user` now renders through the same cell renderer the grid and the card's own detail rows use. An expanded record shows its name. A bare lookup id is looked up and shows the record's name, as it does in the grid.
+  - The card's tooltip and its letter tile read an expanded record's display name instead of `[object Object]`.
+  - A plain text title is unchanged. The title text is now read the way the record's display name is read everywhere else: surrounding spaces are trimmed, and a value that is blank after trimming or is a list of values is not used as the title. Those cards fall back to the record's display name, as a card with an empty title field already did.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- f5b66bf: An empty gallery draws the same empty state as an empty grid, translated, instead of "No items to display" in English (objectui#12217).
+  
+  `ObjectGallery` used to draw one hard-coded English line, "No items to display", whenever it had no records, in every locale. It also ignored the view's authored `emptyState`, because `ListView` drew its empty state only for the `grid` visualization and handed an empty gallery the empty list.
+  
+  - **Under `ListView`** (an object list or an interface list page shown as a gallery), the gallery now draws the grid's empty state. That is the view's authored `emptyState` (`title` and `message` resolved against the display locale, its `icon`) when there is one, and otherwise the localized default copy: the first-run message, or the no-matches message when the user's search or filters or the view's own filter emptied the list. The add-record action appears as it does on the grid.
+  - **Standalone** (an `object-gallery` node, or `ObjectView`'s own gallery path), the gallery draws the same component with what it knows. That is the localized first-run copy, or the view-filter message when its own `filter` emptied its own query. The `object-gallery` node declares no `emptyState`, and the standalone gallery has no add-record control.
+  
+  The copy uses the `list.*` keys the grid already used, so every language pack already carries it. Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 3092aca: A grid's inline-edit save no longer overwrites a concurrent write without a word (objectui#12292). The grid's default row save and "Save All" now send each row's `updated_at` as `If-Match`, the way the record forms and the record page's inline edit already do. A stale grid edit is refused with `409` instead of landing with a `200`. The refusal opens the same conflict dialog the record page opens (`ConcurrentUpdateDialog`, offering Reload latest, Overwrite anyway or Cancel). After a save, the row's next save sends the token of the record the server answered with, so saving the same row twice does not conflict with your own first save.
+  
+  The rows now carry that token. An inline-editable grid, and a list view in inline-edit mode, add `updated_at` to the query's `$select` even when no column shows it. Before, the token was missing from every row unless a column displayed it, so there was nothing to send.
+  
+  "Save All" reports each row on its own. A row that is refused (a conflict you cancel, a validation error) stays pending and flagged, and the rows that saved are cleared, not reported as failed and not sent again. Nothing the server accepted is rolled back.
+  
+  **Type change, additive.** `DataTableSchema.onBatchSave` may now resolve with `{ failed: Array<{ rowIndex, error }> }`, naming the rows that did not persist by the `rowIndex` they were handed. The table keeps and flags exactly those rows. A handler that resolves with nothing or rejects is read exactly as before, so existing handlers need no change.
+- a311b6a: A list view tinted by a field that is not one of its columns now colours its rows (objectui#12376).
+  
+  `ListView` builds each request's `$select` from its columns plus the fields its view bindings, grouping and row predicates read. It did not add the row colour's field (`rowColor.field`), so a list whose `rowColor` named a field that was not a column fetched rows without it, and no row was tinted, with no error. The field is now requested, through the same gate as the other added fields: a field the viewer may not read, or one the object does not declare, is not requested.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- 7a5f4c1: Studio Data pillar layout (objectui#12450, epic objectui#12446).
+  
+  - **Seven flat tabs.** Records, Form, Validations, Hooks, Actions, API and Settings sit in one underline tab row when the content column is 1000px or wider. Below that, the last five fold back into "Advanced ▾", whose trigger keeps its own name whichever panel is open. A container query on the content column decides the fold, so it also responds when the field inspector opens beside the column.
+  - **Object header buttons.** The object header gains an Object settings button, which opens the Settings panel, and a More button. Add field moves from the header row into the More menu. It is also still in the grid's "+" column header and in the form designer.
+  - **Records toolbar and grid.** The Records tab drops the framed card and the body padding around the list, so the toolbar, grid and footer run flush with the column. Its toolbar is the list's wide form: Hide fields, Filter, Group and Sort as labelled buttons, then Refresh, Search and Add record. There is no density control.
+  - **List search button name.** The list toolbar's icon-only Search button now has an `aria-label`, like Refresh. When a keyword is active, its accessible name is "Search: KEYWORD" instead of the bare keyword.
+- 3821a3a: List toolbar: the Filter, Export and Add record buttons keep an accessible name when they render icon-only below the `sm` breakpoint (objectui#12500). Each carries an `aria-label` from the same i18n key as its visible label. With filters active, the Filter button's name carries the count through the new `list.filterActive` key ("Filter, {{count}} active"), added to all ten locale packs.
+- 3eb3ec1: The console's list toolbar no longer has a write into the shared view, and the data-source method that write used is retired (objectui#12504).
+  
+  **BREAKING:** `DataSource.updateViewConfig` is removed from `@object-ui/types`, and `ObjectStackAdapter.updateViewConfig` is removed from `@object-ui/data-objectstack`. The capability gate that only that method read goes with it: `ObjectStackAdapter.setSystemCapabilities`, the `systemCapabilities` option of the adapter constructor and of `createObjectStackAdapter`, `VIEW_CONFIG_CAPABILITY`, `ViewConfigPermissionDeniedError` and `isViewConfigPermissionDeniedError`. A class that implements `DataSource` and keeps an `updateViewConfig` method still compiles, but nothing calls the method any more; an object literal annotated as `DataSource` that carries it is refused as an unknown property. Code that calls `updateViewConfig` through a `DataSource` or an `ObjectStackAdapter`, or imports one of the gate names, no longer compiles. To change a view for everyone, save the view: `createView` / `updateView` on the data source, or the console's view editor, which writes through the runtime metadata seam.
+  
+  Since objectui#12418 and objectui#12474, the toolbar's sort, column layout, density and Hide Fields are each user's own list state, so the toolbar write had no caller. The view editor's explicit save is now the one write path to the shared view, and it is unchanged.
+  
+  Personalization rows that earlier consoles wrote into `/meta/view` stay readable: the overlay marker, `narrowPersonalizationOverlay` and `listViews()` exclusion still apply to them. Nothing new writes such a row.
+  
+  `@object-ui/i18n` drops `console.objectView.viewConfigPermissionDenied` from all ten packs. It was the toast the retired write raised when the gate refused it. The other packages change only in comments and tests that named the retired path.
+- 646caea: The object list's chrome sits on fewer rows (objectui#12528).
+  
+  - **The view description no longer takes a row above the toolbar**, so the toolbar sits at one height with or without one. The console's view tab strip draws it on the active tab: as the tab's tooltip and as the header of its ▾ menu. `ViewTabItem` gains an optional `description` (already resolved, already gated on `appearance.showDescription`; `false` still shows it nowhere). A `ListView` with no host tab strip (the console below `sm`, any other host) draws it as an info control at the start of its toolbar row.
+  - **The sort popover's standing note about linked columns is an info control** beside the popover's title, the note as its tooltip, instead of a paragraph that took about half the popover on every open. One line (`list.sortRelationalPicked`, in every locale pack) says that a linked column sorts by the stored ID, only while the current sort names one.
+  - **One footer row on an aggregated list.** `ObjectGrid` gains an `onColumnSummaryChange` host prop: when it is passed the grid draws no summary row of its own and reports, in column order, what that row would draw. `ListView` passes it and draws the summaries at the right of its record-count row, truncated with the full text as their tooltip.
+  
+  **Clause-②: yes (widening).** Two optional members widen published types: `ViewTabItem.description` in `@object-ui/plugin-view` and `ObjectGridComponentProps.onColumnSummaryChange` in `@object-ui/plugin-grid`. Both are host props on React components, never authored metadata.
+- 79c1996: The list toolbar's Display menu now closes once a layout is chosen (segmented or dropdown switcher), returning focus to the Display button, as Escape already does; the panel's toggles (row numbers, inline edit, density, hidden fields) keep it open (objectui#12621).
+- 0171c24: The list toolbar draws Filter, Sort and Display as 28 px icon buttons at every width, on every list that mounts it: app object lists, Setup lists and related lists (objectui#12695). Filter shows a funnel, Sort the up-and-down arrows, and Display the sliders, which Filter used to draw. None of the three shows a text label any more; each count badge stays beside its icon and is the only text in the tool cluster, so the cluster takes less room beside the view tabs.
+  
+  Each button keeps its accessible name and now carries a tooltip with it: "Filter" (or "Filter, N active" with filters applied), "Sort" and "Display". Sort gets a name of its own, since the label it was named by is gone. The popovers, the search button and the add button are unchanged, and Sort still hides below the `sm` breakpoint as before.
+- 99a0d3b: A list view's `date-range` user-filter chip draws the platform date picker on both bounds, and names them in the console's language (objectui#12784). It used to draw two native date inputs, which take their placeholder and digit order from the machine's locale, labelled with the English literals "From" and "To".
+  
+  - **How it gets there, with no new dependency.** Each bound resolves the `field:date` widget from `ComponentRegistry` at render time, the seam the list Filter panel and `filter-ui` use since objectui#12743. `@object-ui/fields` registers the picker there behind its lazy loader. With no `field:date` widget registered, a bound keeps the native input.
+  - **The labels.** The bounds reuse the language packs' existing `filterBuilder.rangeStart` / `filterBuilder.rangeEnd` keys, which all ten packs already carry.
+  - **The value written is unchanged.** Each bound writes `YYYY-MM-DD`, and the chip writes `[]` when both bounds are empty, so the list query gets the same `>=` / `<=` conditions as before.
+  - **A typed day is applied.** The picker reads its text on blur and on Enter. A pointer press outside the bound while it holds focus blurs it first, so the text is read before the chip's popover closes on that press. Escape discards.
+  
+  Clause-②: no — no prop, export, dependency or language-pack key is added or removed.
+- 1e6d83b: Data-bound blocks title their "data source could not be resolved" panel in the page's language (objectui#12920, the family of objectui#12910). The panel shows when a block's `dataSource.view` names a view its object does not have. Each block's title now reads `@object-ui/i18n` through `useObjectTranslation`, with the `en` pack's value as the inline default, so a page with no `I18nProvider` draws the same English it drew before.
+  
+  - **Plugin blocks.** `object-calendar`, `object-chart`, `object-metric`, `object-pivot`, `detail-view`, `record:related_list`, `object-form`, `embeddable-form`, `object-master-detail-form`, `record:line_items`, `object-gantt`, `object-grid`, `object-kanban`, `list-view`, `object-map` and `object-timeline` read one `element.KIND.sourceUnresolved` key per block kind. `object-metric` reads `element.number.sourceUnresolved`, the key `element:number` already reads for the same sentence. The three forms share `element.form.sourceUnresolved`. `record:related_list`'s panel for a failed `parentDataSource` read reads `element.relatedList.parentUnreadable` ("This related list’s parent record could not be read").
+  - **`@object-ui/react` panel defaults.** `ElementDataSourceErrorPanel` with no `title` reads `element.component.sourceUnresolved`, and `NoDataSourcePanel` with no `title` reads `element.component.noDataSource`. A passed `title` still wins, an empty string included. Props and markup do not change.
+  
+  Clause-②: yes
+  
+  The new keys in `@object-ui/i18n` widen its exported `TranslationKeys`. No prop, input or export of these packages changes.
+- b7fe09e: The list's quick-search box and the record pickers' type-ahead are no longer offered on an object whose search resolves to no field, and a refused search shows the server's message (objectui#12966, the console half of objectstack#24284).
+  
+  objectstack now answers a non-blank `search` over such an object with `400 INVALID_FIELD` (`param: 'search'`) instead of every row. The common shape is a junction object: two lookups and a composed formula title, with no `searchableFields` declared.
+  
+  - **The list toolbar** decides with the spec's `resolveSearchFieldResolution`, over the object definition with `internal: true` fields left out and the object's own `searchableFields`, the inputs the engine uses. When the set is empty the search box is not drawn, and a term restored at mount is not applied. Until the definition is read the box is drawn, as before; the list is loading for that read anyway, since its data fetch waits on it. A list whose data source serves no definition keeps the box. A view's `searchableFields` does not make such an object searchable: the server refuses that override outside the object's set.
+  - **`RecordPickerDialog` and `LookupField`'s inline dropdown** draw no search box on a target whose set is empty. They still list the records, and the dialog still pages them. An unknown target schema keeps the box.
+  - **A refused search** on a list now shows the server's sentence, which names the object and the two remedies, in place of the generic "query was rejected" copy. The record pickers already showed the server's message.
+  
+  Nothing is added to either package entry: no export, prop or type member.
+- fe11eb1: A list view draws a `referenceVia` pointer column's record when its columns do not show the type half (objectui#13036).
+  
+  A pointer column (objectui#12608) resolves its record from the row: it reads the sibling field the column's `referenceVia` names. A list's `$select` asked for the shown columns and its other harvested fields, but never for that sibling, so a list showing `record_id` without `object_name` drew the raw record id. Both projection builders now ask for the sibling of every shown pointer column: `ListView`'s own fetch and the fetch a grid makes for itself, grouped or not. A sibling the viewer may not read, or one the object does not declare, is not asked for; such a row keeps the stored text, as a row whose sibling is blank does.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- a57d80a: An ungrouped list view now asks for the object's declared `nameField` in its `$select`, so the bulk confirm step lists each record's name rather than `Record #ID` when no column shows that field. The field is fetched, not drawn, and goes through the same known-field and field-permission gates as the list's other harvested fields.
+- f22b980: A list view fetches a shown column's declared `dependsOn` siblings, so a faced column can read them off the row (objectui#13214).
+  
+  A faced column reads its siblings from the row it draws: the `recipient-picker` face names a stored id by the row's `recipient_type`. A list's `$select` asked for the shown columns and its other harvested fields, but never for those siblings, so a list showing `recipient_id` without `recipient_type` drew the raw user id. Both projection builders now ask for every sibling a shown column's field names in `dependsOn`: `ListView`'s own fetch and the fetch a grid makes for itself, grouped or not. A column authored `hidden: true` pulls nothing; a sibling the viewer may not read, or one the object does not declare, is not asked for. Nothing is added to the view's columns.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- 5d77c09: feat(types)!: a list view's legacy `options` bag is the `@objectstack/spec` list overlay's bag by reference, `ListViewTimelineConfig` is the list view's own `timeline` block, and `ListViewGalleryConfig` is retired (objectui#6152, round 12)
+  
+  Clause-②: no
+  
+  **Narrowed (breaking), `@object-ui/types`.** `@objectstack/spec`'s authoring list view declares no
+  `options` bag. Its one home is the flattened list overlay on the view write door
+  (`VIEW_METADATA_MEMBERS.listOverlay`), where it is a strict object of the eight kinds that name a
+  block, each judged by its own list-view block with every key optional. `ListViewSchema.options` was
+  a record of `any` with three named refusals, so `ListViewSchema`, `AnyComponentSchema`,
+  `safeValidateSchema` (`objectui validate`), `StrictAnyComponentSchema` and the TypeScript
+  `ListViewSchema['options']` accepted what that door refuses. It is now that member's own bag, taken
+  by reference, with this package's `kanban`, `calendar`, `gallery` and `timeline` blocks in it, so
+  each named refusal gives the same message under `options.KIND` as under the top-level `KIND`. What is
+  refused now, and what to write instead:
+  
+  - A key that is not one of the eight kinds is refused with the spec's own `unrecognized_keys` at
+    `options`. `options.grid` gets the spec's guidance: a grid has no per-kind block, so its settings
+    (`columns`, `sort`, `filter`, …) are top-level keys of the view. Remove it.
+  - An undeclared key in any kind (for example `options.kanban.swimlaneField`,
+    `options.timeline.descriptionField`, `options.tree.titleField`, `options.chart.xAxisField`) is
+    refused with the spec's own `unrecognized_keys` at that kind. Before this change it was kept and
+    never examined.
+  - `options.kanban.groupField` is refused by name: write `groupByField`.
+  - `options.kanban.cardFields` is refused by name: write `columns`.
+  - `options.gallery.imageField` is refused by name: write `coverField`.
+  - `options.timeline.dateField` is refused by name: write `startDateField`.
+  - `options.calendar.defaultView` is refused by name: the initial view mode is a member of the
+    `object-calendar` element (its flat `defaultView`), not of a list view's calendar block.
+  - `options.chart`'s legacy axes (`xAxisField`, `yAxisFields`, `categoryField`, `valueField`,
+    `aggregation`) are refused: write the dataset-bound block, `chart: { dataset, dimensions, values }`.
+  - A value of the wrong type (for example `options.kanban: 42`, or a number where a field name
+    belongs) is refused at its path.
+  
+  The three refusals already in place (`options.kanban.groupBy`, objectui#8365;
+  `options.calendar.dateField` / `endField`, objectui#8355) keep their messages, and now report
+  `invalid_type` at the key, as the top-level blocks do, where they reported `custom`. Each kind is
+  `.partial()`, as the spec's bag is: the renderer reads the bag as a per-key underlay of the top-level
+  block, so a required member is not asked of it.
+  
+  **Changed, `@object-ui/types`.** `ListViewTimelineConfig` is `NonNullable<ListViewSchema['timeline']>`:
+  the spec's list-view slot, strict and `.partial()`, with the legacy `dateField` refused by name
+  (write `startDateField`). It was the spec's `TimelineConfig` plus `dateField?: string` and a string
+  index signature of `any`, so a block with any key compiled.
+  
+  **Retired, `@object-ui/types`.** The `ListViewGalleryConfig` type export is gone. Nothing in this
+  repository used it, and the spec has no element of that shape. Write the spec's `GalleryConfig`,
+  which this package re-exports.
+  
+  **`@object-ui/app-shell`.** The object page's relay writes the spec's spellings into the bag it hands
+  `ListView`: `options.kanban.columns` where it wrote `cardFields`, no `options.gallery.imageField`
+  beside `coverField`, and no `options.timeline.descriptionField`. What renders does not change: the
+  board reads `columns` for its cards, the gallery reads `coverField` first, and nothing drew the
+  timeline's nested `descriptionField`.
+  
+  **`@object-ui/plugin-list`.** `ListView`'s capability gate also reads `options.gallery.coverField`, so
+  a bag binding its cover under the spec's key offers the Gallery view; it read only the legacy
+  `imageField` there. The README's examples author the top-level per-kind blocks and a dataset-bound
+  chart, and no longer show the bag.
+  
+  **`@object-ui/plugin-timeline`.** `ObjectTimeline`'s nested `schema.timeline` prop takes the new
+  `ListViewTimelineConfig`.
+  
+  What did not move: the renderers' reads. `ListView` still merges each `options.KIND` under the
+  top-level block and still reads the legacy spellings, so a view stored before these doors closed
+  renders as before; only authored metadata meets the refusal.
+  
+  **Note added 2026-10-09 (objectui#6152 round 14):** the renderers' reads have moved. `ListView`
+  still merges each `options.KIND` under the top-level block, but it reads each kind's declared keys
+  only: the legacy spellings, `options.grid` and the undeclared keys a bag carries are no longer read,
+  so a view stored with one of them renders without what that key used to bind; see
+  `.changeset/6152-list-view-readers-retired.md`. The legacy chart axes (`options.chart.xAxisField`
+  and the rest) are still read until the next round on objectui#6152.
+  
+  **Note added 2026-10-09 (objectui#6152 round 15):** the legacy chart axes are no longer read, in the
+  bag or at the top level: a chart block that names no `dataset` binds nothing, and `ObjectChart`
+  refuses it on screen; see `.changeset/6152-list-view-legacy-chart-retired.md`.
+- 26b0bd2: `ListViewProps.onFilterChange` and `ListViewProps.initialFilters` now name the advanced-filter group by `@object-ui/components`' new name for it, `FilterBuilderRowGroup` (it was exported as `FilterGroup`; objectui#6349, batch 12). The type is the same. Nothing you pass or receive changes shape, and the package entry's exported names are unchanged.
+  
+  No runtime behaviour changes.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [96fcf30]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [055d350]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [db4cb6b]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [e06365c]
+- Updated dependencies [3035948]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [5ab2f19]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [2312bd9]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [c5406c2]
+- Updated dependencies [c5406c2]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [a368ccb]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [417e245]
+- Updated dependencies [69bca0a]
+- Updated dependencies [023f00d]
+- Updated dependencies [158c75d]
+- Updated dependencies [7525045]
+- Updated dependencies [5af42db]
+- Updated dependencies [ce991bd]
+- Updated dependencies [3c0f806]
+- Updated dependencies [1071393]
+- Updated dependencies [5f75cfa]
+- Updated dependencies [29b9949]
+- Updated dependencies [6757a93]
+- Updated dependencies [b7cd5c8]
+- Updated dependencies [5330038]
+- Updated dependencies [2498a07]
+- Updated dependencies [898bd2c]
+- Updated dependencies [c9fc10b]
+- Updated dependencies [dc6d28e]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [e723f58]
+- Updated dependencies [82bb1d5]
+- Updated dependencies [f3d5408]
+- Updated dependencies [b231607]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [54159d3]
+- Updated dependencies [fa778e6]
+- Updated dependencies [334f0cf]
+- Updated dependencies [c08c933]
+- Updated dependencies [92f979d]
+- Updated dependencies [c4dd707]
+- Updated dependencies [c4dd707]
+- Updated dependencies [7578323]
+- Updated dependencies [a491b64]
+- Updated dependencies [38bb373]
+- Updated dependencies [923504f]
+- Updated dependencies [5b45c0d]
+- Updated dependencies [923504f]
+- Updated dependencies [5c2982a]
+- Updated dependencies [97e7d4e]
+- Updated dependencies [5d3f437]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [51c661e]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [b434f5f]
+- Updated dependencies [9f282ef]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [cea429b]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [8106db1]
+- Updated dependencies [068a540]
+- Updated dependencies [ca45c6d]
+- Updated dependencies [093d55b]
+- Updated dependencies [b64fda3]
+- Updated dependencies [a8051d6]
+- Updated dependencies [72594f2]
+- Updated dependencies [524136e]
+- Updated dependencies [2b06a91]
+- Updated dependencies [6f3299f]
+- Updated dependencies [065a1cf]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [789cb16]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [37db09f]
+- Updated dependencies [ff9df88]
+- Updated dependencies [70e843f]
+- Updated dependencies [caac3b2]
+- Updated dependencies [a2225f9]
+- Updated dependencies [5c4deb5]
+- Updated dependencies [a8e5b73]
+- Updated dependencies [d9d9d98]
+- Updated dependencies [c950345]
+- Updated dependencies [21f9577]
+- Updated dependencies [044f231]
+- Updated dependencies [f8267df]
+- Updated dependencies [023087f]
+- Updated dependencies [9b82ced]
+- Updated dependencies [3821a3a]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [92c2a69]
+- Updated dependencies [518a8e3]
+- Updated dependencies [646caea]
+- Updated dependencies [1ffd6a2]
+- Updated dependencies [5f8ecf6]
+- Updated dependencies [7d0c174]
+- Updated dependencies [8ed7e5a]
+- Updated dependencies [6c4d00d]
+- Updated dependencies [db8ce2f]
+- Updated dependencies [726d8c9]
+- Updated dependencies [f0e760a]
+- Updated dependencies [a5bb7ac]
+- Updated dependencies [f78efdd]
+- Updated dependencies [8a8bcf3]
+- Updated dependencies [f74638c]
+- Updated dependencies [278bc29]
+- Updated dependencies [ef71a09]
+- Updated dependencies [8614705]
+- Updated dependencies [619e3f7]
+- Updated dependencies [ca7a4c3]
+- Updated dependencies [c9e6742]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [608033b]
+- Updated dependencies [c6b7d82]
+- Updated dependencies [611566b]
+- Updated dependencies [efa9cb4]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [9d857c9]
+- Updated dependencies [670ea10]
+- Updated dependencies [ff215d9]
+- Updated dependencies [71243db]
+- Updated dependencies [a8add5c]
+- Updated dependencies [33ee9de]
+- Updated dependencies [4839f5c]
+- Updated dependencies [a23e804]
+- Updated dependencies [c7462e7]
+- Updated dependencies [36e2f7b]
+- Updated dependencies [ac59073]
+- Updated dependencies [44cb469]
+- Updated dependencies [e058d76]
+- Updated dependencies [c999d4c]
+- Updated dependencies [8df2608]
+- Updated dependencies [5483297]
+- Updated dependencies [ed43c79]
+- Updated dependencies [260ef71]
+- Updated dependencies [655e897]
+- Updated dependencies [655e897]
+- Updated dependencies [020d178]
+- Updated dependencies [8d80845]
+- Updated dependencies [69a408f]
+- Updated dependencies [d2b21a1]
+- Updated dependencies [5ff64ef]
+- Updated dependencies [64acb7e]
+- Updated dependencies [4ff5b6b]
+- Updated dependencies [473e5a0]
+- Updated dependencies [b279016]
+- Updated dependencies [bb6c38c]
+- Updated dependencies [26323c4]
+- Updated dependencies [9753811]
+- Updated dependencies [2727527]
+- Updated dependencies [3da39ae]
+- Updated dependencies [bc281f4]
+- Updated dependencies [d637be3]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [8523e81]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [32b492b]
+- Updated dependencies [6058bf8]
+- Updated dependencies [c219165]
+- Updated dependencies [a7ae252]
+- Updated dependencies [fb501bc]
+- Updated dependencies [30083da]
+- Updated dependencies [7f9cc37]
+- Updated dependencies [b7fe09e]
+- Updated dependencies [025130c]
+- Updated dependencies [76f91f8]
+- Updated dependencies [ea34d9b]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [024b7b6]
+- Updated dependencies [cb80001]
+- Updated dependencies [909c64e]
+- Updated dependencies [9e7e1a5]
+- Updated dependencies [2493e85]
+- Updated dependencies [d0b9648]
+- Updated dependencies [46dbf32]
+- Updated dependencies [a928aaa]
+- Updated dependencies [47508f3]
+- Updated dependencies [61ed5ad]
+- Updated dependencies [1b94d50]
+- Updated dependencies [6f877f1]
+- Updated dependencies [988aa9f]
+- Updated dependencies [1ce0711]
+- Updated dependencies [fb85637]
+- Updated dependencies [9f1dd79]
+- Updated dependencies [df71568]
+- Updated dependencies [d11174a]
+- Updated dependencies [2d8a8b7]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [5129caa]
+- Updated dependencies [9eb1479]
+- Updated dependencies [74e37aa]
+- Updated dependencies [961b69f]
+- Updated dependencies [52907d7]
+- Updated dependencies [f466b0a]
+- Updated dependencies [673a71c]
+- Updated dependencies [616df65]
+- Updated dependencies [f48a4d5]
+- Updated dependencies [58798ec]
+- Updated dependencies [8803ca5]
+- Updated dependencies [e70c21d]
+- Updated dependencies [4b92c5a]
+- Updated dependencies [06be396]
+- Updated dependencies [3650d94]
+- Updated dependencies [7c05f21]
+- Updated dependencies [8cd4db4]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [35a2b59]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [53ee2f8]
+- Updated dependencies [088e0f7]
+- Updated dependencies [78b07f4]
+- Updated dependencies [0df67f2]
+- Updated dependencies [f962cdc]
+- Updated dependencies [b403bb3]
+- Updated dependencies [8a25fee]
+- Updated dependencies [4016370]
+- Updated dependencies [12dc7b4]
+  - @object-ui/types@18.0.0
+  - @object-ui/components@18.0.0
+  - @object-ui/core@18.0.0
+  - @object-ui/i18n@18.0.0
+  - @object-ui/react@18.0.0
+  - @object-ui/fields@18.0.0
+  - @object-ui/permissions@18.0.0
+  - @object-ui/mobile@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

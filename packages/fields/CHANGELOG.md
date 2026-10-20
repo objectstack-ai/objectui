@@ -1,5 +1,791 @@
 # @object-ui/fields
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- 2abec3a: The `grid` field's eight field-level keys are camelCase now, and their snake_case spellings are retired and refused by name on every face (objectui#11610).
+  
+  BREAKING (`@object-ui/types`, `@object-ui/fields`): a `grid` field's metadata, and a `form` `fields[]` entry of `type: 'grid'`, must spell these keys in camelCase. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  - FROM `min_rows` → TO `minRows`
+  - FROM `max_rows` → TO `maxRows`
+  - FROM `allow_add` → TO `allowAdd`
+  - FROM `allow_delete` → TO `allowDelete`
+  - FROM `allow_reorder` → TO `allowReorder`
+  - FROM `total_field` → TO `totalField`
+  - FROM `add_label` → TO `addLabel`
+  - FROM `sort_field` → TO `sortField`
+  
+  Why: `@objectstack/spec`'s runtime form field declares config keys in camelCase only, so it could not declare these keys as they were written (objectstack-ai/objectstack#21704, fork 2, ruled B). There is no alias window and no dual read: no reader reads the snake_case spellings any more, and no stored producer outside this repository's own fixtures, which move with this change, was found to write them.
+  
+  **Migration.** Rename each key; its value stays the same. `totalField` keeps its meaning: the CHILD column summed into the grid's footer, which is the value a spec `amountField` carries. It is not the parent field the spec's own `totalField` names on a master-detail subform.
+  
+  What each face does with a snake_case key now:
+  
+  - **TypeScript.** `GridFieldMetadata` and `FormField` declare each as a `never` member, so an authored value no longer compiles. The camelCase members carry the value types the snake_case members had, and `FormField` still takes each one by reference to `GridFieldMetadata`.
+  - **zod (`@object-ui/types/zod`).** NARROWS on the tolerant face (`safeValidateSchema`, which `objectui validate` runs) and on the strict authoring face: a form field entry carrying a snake_case key used to parse with the value kept, and is now refused with one `invalid_type` issue at that key. The message leads with ``Did you mean `min_rows` → `minRows`?`` (each key names its own replacement). WIDENS on both faces: the camelCase keys parse, judged by the same value types.
+  - **The `grid` widget (`@object-ui/fields`).** `GridField` reads the camelCase keys only. A field whose metadata still carries a snake_case key is drawn as an inline alert naming each retired key beside its replacement (`role="alert"`, `data-testid="grid-field-retired-keys"`) instead of the grid, and the same text goes to `console.error` once. Nothing is thrown, so the rest of the form still draws, and the rows are not changed.
+  
+  New export from `@object-ui/types`: `GRID_FIELD_RETIRED_KEYS`, the snake_case to camelCase map that the zod refusals and the widget both read, with its key type `GridFieldRetiredKey`.
+  
+  `@object-ui/plugin-form`'s master-detail and line-items adapters now hand the grid the camelCase keys, typed against `GridFieldMetadata` instead of cast through `any`. What they draw does not change.
+  
+  **Clause-②: yes (narrowing)**: the camelCase spellings widen each face, and the snake_case spellings narrow it.
+- 22b503c: Read-only boolean values, the boolean list face and the Home greeting's punctuation follow the language (objectui#11689).
+  
+  Under zh-CN a record showed its boolean values as "Yes" / "No", and the Home greeting joined a Chinese greeting to the person's name with an ASCII comma and closed it with an ASCII period.
+  
+  - **Booleans.** The read-only surfaces that draw a boolean as a word now read the existing `common.yes` / `common.no` keys: `BooleanField`'s readonly display, a `FormulaField` whose `returnType` is `boolean`, the lookup column's plain-text fallback, and the record-detail highlights chip. zh-CN shows the Chinese words; English is unchanged. Without an `I18nProvider` the words stay "Yes" / "No".
+  - **The boolean list face.** `BooleanCellRenderer`, which every list surface draws, spelled its status badge ("Active — Off") and its completion indicator's accessible names ("Completed" / "Not completed") in English. All three now come from the language packs. The grid also handed that face the authored field label while its header printed the translated one, so the badge named the column in the authored language under a translated header. The face now receives the label the header prints.
+  - **Greeting.** The comma before the name and the closing mark are two new keys, so zh-CN reads the full-width comma and full stop, Japanese its own marks and Arabic its own comma. English is unchanged, and the name keeps its own colour.
+  
+  **Widened public surface.**
+  
+  - `@object-ui/i18n`: five new keys in all ten language packs, so the exported `en` pack and the `TranslationKeys` type derived from it gain `home.greetingSeparator`, `home.greetingEnd`, `fields.boolean.offBadge`, `fields.boolean.completed` and `fields.boolean.notCompleted`.
+  - `@object-ui/fields`: a new export, `useBooleanValueLabel()`, with its type `BooleanValueLabel`. It returns the current language's word for a boolean value, and `@object-ui/plugin-detail`'s highlights chip reads it.
+- 9fc68aa: Screen readers can name and reach the controls of the view tab bar, the settings form, the sidebar menus, the table's selection column and the percent cell (objectui#11690). axe-core (wcag2a + wcag2aa) on an object list page and on a Setup settings page reported the faults below; each is fixed where it is produced and pinned by an axe run on that component.
+  
+  - **View tab bar (`ViewTabBar`).** The "+" add-view button is named, through the existing `view.addView` key, and its tooltip reads the same translated words instead of a hard-coded "Add View". Each view is now a `<button>`; the current one carries `aria-current="true"`. The views were `role="tab"` elements with no `tablist`, and the active view's actions button sat inside its tab, so it was a control inside a control. That button is now the view button's sibling, still named "View actions for …" and still one Tab stop away. Tab roles could not hold it: a tab's content is presentational and a tablist may contain only tabs. These views never had the tabs keyboard model (arrow keys, a tab panel) either. Every view stays its own Tab stop. When the bar is not reorderable, as the console renders it, Enter or Space switches to the focused view. With drag-to-reorder on, Enter or Space on a view starts a keyboard drag instead, as it did before this change, so a view is switched to by click. The rename box is now outside the view button and is named through `view.rename`. With drag-to-reorder on, the sortable attributes describe the view as a button. Breaking for anything that queried the bar by `role="tab"` or `aria-selected`: query `data-testid="view-tab-ID"` or `aria-current` instead.
+  - **Settings form (`@object-ui/console`).** Each row's label is bound to its control, so text, number, password, textarea, JSON, colour, switch and select controls are named by it. Clicking a label now focuses or toggles its control. A radio group and a multiselect checkbox group are named by the row label too.
+  - **Sidebar menus (`NavigationRenderer`).** With drag-to-reorder on (the desktop default), every row was wrapped in a `<div>` between the menu's `<ul>` and its `<li>`. The sortable node is now the row's own `<li>`. A separator and a nested group inside a menu are now list items too: the separator's item is hidden from assistive tech, and a top-level group is unchanged.
+  - **Table selection column (`data-table`).** The select-all checkbox and each row's checkbox are named through the existing `table.selectAllRows` and `table.selectRow` keys.
+  - **Percent cell (`PercentCellRenderer`).** The progress bar is named by the formatted value beside it (`aria-labelledby`), so the name is in the viewer's locale.
+  
+  No language-pack key, export or prop is added; every new name reads a key the packs already carried.
+- f34e877: A date reads overdue only when its field declares it a deadline, and never once the deadline is settled for the record (objectui#11815).
+  
+  - **Declared only.** The `date` and `datetime` cells paint the "Overdue Nd" wording and the red colour only for a field that declares `dueLike: true`. The field-name convention that used to turn the affordance on by itself (`due_date`, `deadline`, `expires_at`, `sla_at`, …) is retired: an undeclared date in the past now reads as any past date does, for example "6 days ago". To keep the affordance on such a field, declare `dueLike: true` on it.
+  - **Settled.** `CellRendererProps` gains an optional `deadlineSettled` boolean. While it is `true`, both cells paint no overdue wording and no red, and read the neutral relative phrase instead. Absent or `false` changes nothing. The host computes it with `isDeadlineSettled` from `@object-ui/core`.
+- c5406c2: Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
+  
+  Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18 (raised to `^18.0.0-next.1` by objectui#12370 before release).
+  
+  **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.1` (objectui#12370), at the same time as it takes this release.
+  
+  **objectui's own surface moves with it:**
+  
+  - `element:record_picker`'s registration stops publishing the `object`, `filter`, `sort` and `limit` inputs, which spec 18 retires; a JSX page that writes one now gets `unknown-prop`.
+  - The `CapabilityMultiSelectField` widget's curated capability set (`@object-ui/fields`) follows spec 18: `manage_mailboxes` in, `manage_org_presentation` out.
+  - `element:number` and `element:repeater` nodes that bind no object are accepted, as spec 18's row and `PageComponentSchema` accept them; the two `ELEMENT_*_OBJECT_REQUIRED` refusals are gone.
+  
+  **Retired with the spec:** `@objectstack/spec` 18 tombstones `object-grid`'s `defaultFilters` and refuses it by name, and `ObjectGrid` and `ObjectView` stop reading it (`table.defaultFilters` on an `object-view` included). A view that still carries it renders unfiltered: rename the key to `filter`, whose value is the same rule array.
+- a368ccb: A pointer field draws the record it points at, the console reads an approval request's record page through the approvals routes, and the approval decision panel is built for the request page (objectui#12045, B1 of objectui#2763).
+  
+  - **The approval decision panel (`@object-ui/app-shell`, module-internal).** One panel that draws the request's decision progress (`DecisionProgressIndicator`) above the request's own declared decision actions (`DeclaredActionsBar` at `record_section`, decided through `ActionParamDialog`). It reads the bound request and takes no authorable props; outside a `sys_approval_request` record page it renders nothing. After a decision it invalidates the request record and its timeline instead of remounting. It is not registered as a component type yet: the type `record:approval_decision` is proposed to the spec on objectstack-ai/objectstack#22472, and its registration lands with the spec row.
+  - **`referenceVia` pointer pairs (`@object-ui/fields`).** `resolveRecordPointer(field, row)` returns the record a `text` field declaring `referenceVia` points at on one row (`{ objectName, recordId }`, the new `RecordPointer` type), and `RECORD_POINTER_CARD_TYPE` is the registry key a resolved pair is drawn with. The package's default under that key draws the record id as text, as the field drew before.
+  - **The record details grid draws the pair (`@object-ui/plugin-detail`).** A field declaring `referenceVia` is resolved from the row and drawn with the pointer face; with `@object-ui/app-shell` loaded that face is the record preview card, so `sys_approval_request.record_id` and the other pointer fields show the record they point at. A pair whose row leaves either half blank draws the stored text.
+  - **The console's approval request page.** The console's record route for `sys_approval_request` mounts the record page over the routed approvals source, so the request carries the `viewer` block its declared actions gate on and the decision tally. The source now reads one request's `sys_approval_action` timeline from `GET /approvals/requests/:id/actions`, applying the read's `$orderby`, `$top` and `$skip` itself, dropping `$select` and `$expand`, and refusing any other parameter with `UNSUPPORTED_QUERY_PARAM`. On a request's own page the record view no longer asks for approvals opened on the request itself.
+  
+  No language-pack key is added, and `CellRendererProps` is unchanged.
+  
+  **Superseded in part (objectui#12072):** outside a `sys_approval_request` record page the panel now draws a short localized notice instead of nothing, so the sentence above saying it renders nothing there no longer holds when both changes release together.
+  
+  **Corrected and superseded in part (objectui#12045, the page-mount step):** the last sentence of the console bullet, that a request's own page no longer asks for approvals opened on the request itself, is an `@object-ui/app-shell` change (the record view's approvals read), not a console one. And the console no longer declares a record route of its own for `sys_approval_request`: every surface that opens a request reads it through the console's adapter with the request's record reads routed, so the console bullet's first sentence describes the route that change replaces, when both release together.
+- 29b9949: A bulk action's field-backed param now renders its real control on the selection bar, and the confirm step names the picked record (objectui#12105).
+  
+  A list view's `bulkActions: ['add_to_campaign']` runs the object's own action over the selected records. When that action declares a field-backed param, `{ field: 'crm_campaign', objectOverride: 'crm_campaign_member' }`, the selection bar's dialog drew a plain text box for it, and the confirm step listed the raw record id. The record page drew the record picker for the same action, because only its dialog looked the field up.
+  
+  - **One resolver for both dialogs.** The function that resolves an action param against the object's field definitions (`resolveActionParam` / `resolveActionParams`) moves, unchanged, from `@object-ui/app-shell` into `@object-ui/fields`, the one package both dialogs depend on. The record dialog and the bulk dialog both call it. A field-backed param on the selection bar now gets its field's type, label (translated), options, default and picker target, as it does on the record page. A lookup param renders the record picker, and the confirm step shows the record's label.
+  - **When it resolves.** The grid resolves a promoted action's params when the dialog opens, after it has loaded the session's object metadata, so a param whose owning object (`objectOverride`) has not loaded yet is waited for.
+  - **A missing field is refused, not drawn as a text box.** A field-backed param whose field is not in the object metadata is shown as a refusal naming `object.field`, and the run is blocked, as the record dialog already does. The copy is the existing `actionDialog.unresolvedParam` string.
+  - **Inline params are unchanged.** A param declared with its own `name` and `type` keeps the same widget, label, help text, default and `reference` target.
+  
+  New `@object-ui/fields` exports: `resolveActionParam`, `resolveActionParams`, `resolveParamWidgetType`, `withKnownObjects`, `RESOLVED_ONLY_PARAM_KEYS`, and the types `RawActionParam`, `RawActionParamOption` and `ResolveActionParamsContext`. Before this change these were internal to `@object-ui/app-shell` and were not exported from it. No other export, prop, context member or language-pack key is added.
+  
+  Not covered yet: on the selection bar, a resolved lookup param uses only its field's picker target, display field and `dependsOn`. The field's other picker settings (`lookupFilters`, `lookupColumns`, `descriptionField` and the rest) do not reach the bulk dialog yet.
+- 466a219: The `lookup` widget reads `@objectstack/spec`'s `allowCreate`, `lookupColumns` and `lookupPageSize` alone. Their snake_case twins are retired, with no alias (objectui#12157).
+  
+  - FROM `allow_create` → TO `allowCreate`
+  - FROM `lookup_columns` → TO `lookupColumns`
+  - FROM `lookup_page_size` → TO `lookupPageSize`
+  
+  `LookupField` used to read each snake spelling FIRST, ahead of the key `FieldSchema` declares. That made a second spelling of three keys the spec refuses in snake_case. `resolveActionParams` retires its `lookup_columns` / `lookup_page_size` legs in the same change, so a field-backed lookup action param reads `lookupColumns` / `lookupPageSize` off the resolved field and nothing else.
+  
+  A definition served through `ObjectStackAdapter.getObjectSchema`, or stored by the console's `MetadataProvider`, loses nothing. The ingestion fold (`normalizeSchemaReferenceKeys`, objectui#7650) stamps a stored snake spelling onto its declared key before the widget or the resolver reads it. Measured in `LookupField.snakeLegsRetired-12157.test.tsx` and `resolveActionParams.remainingLookupLegs-7435.test.ts`: a def that spells only the snake keys, run through that fold, draws the declared picker columns and page size and opts out of quick-create, exactly as the camelCase def does.
+  
+  ## ⚠️ BREAKING, priced as minor under the fixed group's version policy
+  
+  A def that reaches the widget or the resolver WITHOUT the fold, and spells only a snake key, loses that setting. That covers a field def handed to `LookupField` directly (a hand-authored `form` field entry is one), a `DataSource` other than `ObjectStackAdapter`, and `resolveActionParams` given a host's own, unfolded `objects`. Measured on such a def, in the same two pins:
+  
+  - **`lookup_columns` / `lookup_page_size`.** The browse-all picker draws the columns derived from the referenced object, on the default page of 10, exactly as for a def that sets neither key.
+  - **`allow_create: false` on a user-facing reference.** The quick-select offers "Create new" again, which is the widget's default for such a reference. It used to be suppressed.
+  - **The action-param resolver.** The resolved param carries no `lookupColumns` / `lookupPageSize`.
+  
+  **Fix:** spell the key in camelCase (the value stays the same), or serve the definition through `ObjectStackAdapter` / `MetadataProvider`. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  **Clause-②: yes (narrowing)**: three accepted spellings are retired from the widget and the resolver.
+- 923504f: A field-backed action param's help line reads the field's `inlineHelpText`, through the one read the record form uses, and no longer reads a field's `help` (objectui#12213).
+  
+  When an action param backed by a field (`{ field: 'x' }`) declares no `helpText` of its own, `resolveActionParam` gives it the field's help text. It read `help`, then `description`, and never `@objectstack/spec`'s `FieldSchema.inlineHelpText`, the key Studio writes.
+  
+  - FROM `param.helpText ?? field.help ?? field.description` → TO `param.helpText ?? fieldHelpText(field)`, which reads `field.inlineHelpText || field.description`
+  
+  The param's own `helpText` still wins. An empty string on the field reads as absent, as it does on the record form, so the next key is used.
+  
+  ## ⚠️ BREAKING, priced as minor under the fixed group's version policy
+  
+  Translated field help on a field-backed param needs an objectstack server on `@objectstack/spec` 17.7.0 or later (objectstack-ai/objectstack `bab76850c`, objectstack-ai/objectstack#21956). `FieldSchema` refuses `help` as an authoring key, and its one producer was a server on spec 17.6.0 or earlier, whose translator put a field's translated description on the served field's `help` key. 17.7.0 serves that text on `description`, which is read. Against an older server, the param's help line shows the field's `description` as the server stores it, untranslated, and a field whose only help is a served `help` key lends none. Fix: run the server on spec 17.7.0 or later, within the same major. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+- 5b45c0d: `@object-ui/fields` exports `fieldHelpText(field)`, the one read of the help line a field draws under its control (objectui#12213).
+  
+  It reads `@objectstack/spec`'s `inlineHelpText`, then `description`, an empty string reading as absent, and never `help`. The record form (`@object-ui/plugin-form`, for `ObjectForm`'s field builder and `fromObjectSchema`) and `resolveActionParam` both call it, so the order has one home. It used to be a package-internal function of `@object-ui/plugin-form`, which `resolveActionParam` cannot import, so the resolver restated the order by hand. Its parameter is typed as `BaseFieldMetadata`'s `inlineHelpText` and `description` members (`@object-ui/types`); a typed literal that also carries `help` does not compile.
+  
+  **Clause-②: yes**: one export joins this package's public surface, `fieldHelpText`, and the read it carries accepts a field's `inlineHelpText` and `description` only.
+- 5d3f437: `buildValidationRules` stops compiling a field-level `pattern` / `pattern_message` and `validate` (objectui#12242, maintainer ruling A). `@objectstack/spec`'s `FieldSchema` refuses all three keys by name, so no published object carries them, and `@object-ui/types` retires them as `never` tombstones.
+  
+  - FROM: a field metadata object carrying `pattern` (a string or a `RegExp`) produced a `pattern` rule, with `pattern_message` as its message, and one carrying `validate` produced a `validate` rule (on a `location` field, beside the stored-value check).
+  - TO: neither is read. A `location` field's rule is the stored-value check alone. An `email` or `url` field still gets its own format rule, and `minLength` / `maxLength` / `min` / `max` / `required` are unchanged.
+  
+  A regex check on an object is its `format` validation rule, `{ type: 'format', name, field, regex, message }`, which the server runs on every write that touches the field and refuses with the rule's `message`. No client pre-check of that rule is added.
+  
+  `mobile_fullscreen` is typed for `TextAreaField` and `RichTextField` on a package-local hand-off, since the field metadata types no longer declare it, and `LookupField` reads `idField` / `picker` / `subtitle` through `FormField`'s declaration of them. Both are type-only: the widgets read the same keys as before.
+  
+  ## ⚠️ BREAKING, priced as minor under the fixed group's version policy
+  
+  A host that hand-writes field metadata in code with `pattern` or `validate` loses that client-side check on the form: the value is submitted, and only a `format` rule on the object refuses it, on the server. Declare the check on the object. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+- 065a1cf: A file the reader may not open now renders a restricted state instead of a generic file chip (objectui#12339).
+  
+  When a reader may read a record but not a file's `sys_file` metadata, the platform sends the file field's value as `{ id, metadataRefused: true }` (`FileRefusedValueSchema` in `@objectstack/spec/data`, spec `18.0.0-next.0`). `readFileValue` used to read it as an ordinary file named `File`. It now recognises the marker by the spec's closed schema and flags the view.
+  
+  - **Public type widening:** `FileValueView` gains an optional `metadataRefused?: true`. It is set only for the refused marker, so existing consumers are unaffected.
+  - **What users see:** the `file` grid cell, the read-only `FileField` list and its edit rows, `FileCell`, `ImageField`, the `image` / `avatar` grid cell and `AvatarField` show a lock and a translated "Restricted file" label. They never attempt a thumbnail, because no MIME type was served. Where the renderer offers an open link, it still points to the id-derived download endpoint, which decides access on its own and may answer `403 FILE_DOWNLOAD_DENIED`. Normal file values render as before.
+  - **Submitting:** when an editable `FileField`, `FileCell` or `ImageField` re-submits the field's other values (append, remove, crop), it sends the marker back as its bare id, never as the marker object.
+  - **i18n:** two new keys, `fields.file.restricted` and `fields.file.restrictedHint`, in all ten locales.
+- ff9df88: Depend on `@objectstack/*` `18.0.0-next.1` (objectui#12370).
+  
+  Every `@objectstack/*` range these packages declare moves from `^18.0.0-next.0` to `^18.0.0-next.1`; the console and the runner bundle `18.0.0-next.1`. A consumer moves its own `@objectstack/*` packages to `18.0.0-next.1` with this release.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates page action rows and view data bindings through the spec's own rows, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.1` refuses. Each was accepted on `18.0.0-next.0`:
+  
+  - `onSuccess` on an `action:button` / `action:icon` row, or an `action:group` / `action:menu` member, whose executor is the `url`, `navigation`, `modal`, `flow` or `form` built-in, or that has no executor at all. Write the hop on an `api` or `script` action (or a host handler name), or drop it.
+  - `onSuccess` beside `operation: 'update'`, and an `onSuccess` block carrying a key outside `{ navigate, openIn }`.
+  - `actionType: 'navigation'` on a row (and `type: 'navigation'` on a container member): write `'url'`.
+  - A `url` executor's `target` that is not openable, judged on the executor the runner runs, including a row whose `name` selects it.
+  - A view `data` binding with `provider: 'api'`: bind the object or static rows; an API call is the page element's binding.
+- 023087f: `resolveRecordPointer` reads `referenceDeletedWhen`, so a pointer pair can say the platform deleted its target (objectui#12489).
+  
+  `@objectstack/spec`'s `FieldSchema.referenceDeletedWhen: { field, value }` sits beside `referenceVia` and names a sibling `select` field and one of its options. On a row whose sibling holds that option, the platform has asserted that the record the pointer names was deleted. `resolveRecordPointer(field, row, optionsOf)` now evaluates that predicate in the same call that resolves the pair. When it holds, the pair comes back with `deletedLabel`, the declared option's label taken from `optionsOf(field)`, the option list the call site draws `select` cells with. With no `optionsOf`, or no option with that value, the pair comes back as before. The spec refuses an undeclared option at parse, and the raw option value is never used as the text.
+  
+  The default face under `RECORD_POINTER_CARD_TYPE` draws `deletedLabel` in place of the record id. A field without `referenceDeletedWhen`, or a row whose sibling holds anything else, draws exactly as before.
+  
+  **Clause-②: yes (widening)**: the exported `RecordPointer` type gains the optional `deletedLabel`, `resolveRecordPointer`'s field parameter gains the optional `referenceDeletedWhen`, and the function gains an optional third parameter, `optionsOf`. Nothing narrows: every existing argument and return shape still type-checks and resolves as before. No new export.
+- 278bc29: A list names what an `object-ref` or `recipient-picker` field references, instead of printing its api name (objectui#12613). The Sharing Rules list read `crm_account` and `sales_manager` where the edit form reads "Account" and "Sales Manager".
+  
+  - **The declared `widget` picks the read cell (`@object-ui/fields`).** `resolveCellRendererType` now promotes a textual field declaring `widget: 'object-ref'` or `widget: 'recipient-picker'` to a cell key of that name, the same second step a `format` hint takes. Both keys are registered with the stored text as their default face, as `RECORD_POINTER_CARD_TYPE` is. A widget with no read cell of its own (`filter-condition`, `position-ref`, …) still draws as its `type`, and nothing is keyed on an object or field name.
+  - **`CellRendererProps` gains one optional member, `dependentValues`**: the row's values, the cell-side counterpart of the edit widget's `dependentValues`. `ObjectGrid` (`@object-ui/plugin-grid`) passes the row, and the widget hint, on every column path. A call site that passes nothing draws the stored text exactly as before.
+  - **The edit widgets' kind table and spellings are published** so a host face names a value as the widgets do: `RECIPIENT_RECORD_KINDS`, `RECIPIENT_REGISTRY_KINDS`, `FIELD_RECIPIENT_TYPE`, `recipientCandidateLabel` and `objectRefOptionLabel`, plus the shared `UnresolvedReferenceMark` drawing. `ObjectRefField` and `RecipientPickerField` read through them and list and store exactly what they did.
+  - **The console's faces (`@object-ui/app-shell`)** register under the two keys and load lazily, on the first cell that draws one, so a page without such a column pays nothing on load. `object-ref` draws the object's icon and label from the console's metadata store (the same object list the picker offers), the label translated through the app bundle like every other object label, with the picker's `Label (name)` spelling as its tooltip. `recipient-picker` draws the label of the user, team, business unit, position or user column the stored value names: record recipients by their exact id, one `$in` query per kind for the whole page, with the fields the viewer may not read left out of the label; positions from the metadata store; the `field` kind from the shared object's schema.
+  - **A value nothing names** (a deleted record, a renamed object, a read the viewer is refused) draws as the raw stored value, muted, with the shared unresolved-reference mark. It is never blank.
+  
+  Stored values do not change.
+- 35a2b59: The result type of this package's `toDomProps` is declared and exported as `FieldDomProps` instead of `DomProps` (objectui#6349, batch 11). `@object-ui/core` publishes a different `DomProps`: its general DOM pass-through type, whose default key set forwards `role`, where this package's forwards `name` and `disabled` instead. One exported name stood for two key sets across the two packages, and core keeps it. `FieldDomProps` is not `FieldWidgetDomProps`: that one is the field widget contract's DOM block, the keys a widget may receive; `FieldDomProps` is the generic result of `toDomProps` for whatever props it is handed.
+  
+  **Type change, breaking for some consumers.** `DomProps` is no longer exported from `@object-ui/fields`. Replace `import type { DomProps } from '@object-ui/fields'` with `FieldDomProps`; it takes the same one type argument and is the same type. The old import fails to compile with TS2724 ("has no exported member named 'DomProps'"). That error's "Did you mean" names the `toDomProps` function, not the replacement; using the function's name as a type fails too (TS2749), so write `FieldDomProps`. The `toDomProps` function keeps its name, and what it forwards is unchanged.
+  
+  No runtime behaviour changes.
+- d328698: `FIELD_WIDGET_LABELLING` is typed against `@object-ui/core`'s `RegistryComponentMeta['labelling']` instead of `ComponentMeta['labelling']` (objectui#6349, batch 4). `@object-ui/core`'s `ComponentMeta` is now the general component metadata and no longer carries `labelling`; the registration type that does is `RegistryComponentMeta`.
+  
+  **Breaking-change note.** Nothing breaks for a consumer of this package: the export's value type still resolves to the same `'control' | 'group' | 'display'` vocabulary, and no runtime behaviour changes. The breaking half of this rename is `@object-ui/core`'s, recorded in its changeset.
+- 53ee2f8: The capability select lists the capability registry, and the permission-set editor's provenance badge reads the layered envelope (objectui#7611, objectstack ADR-0131 D3/D7).
+  
+  - **`CapabilityMultiSelectField` lists the registry.** Its options are the `capability` items of the console metadata store (`GET /api/v1/meta/capability`): the platform's curated capabilities beside every capability a package declares. They are read through `MetadataCtx` `ensureType`, the reader the sharing-rule recipient picker uses for positions. It no longer asks a data source for `sys_capability` rows. Nothing writes such a row any more, so on a fresh database the picker offered only the capabilities the set already granted, and none could be added. No second list is merged in. A granted name the registry does not serve is still shown, selected, under "Other". The props are unchanged; the `dataSource` prop is no longer read. Without a metadata store mounted, the picker offers only the set's own selections and loads nothing. On a framework from before objectstack#22669, the registry serves the package-declared capabilities only, so the platform's curated ones are offered only where the set already grants them.
+  - **The provenance badge.** In the permission-set editor, a set a code package ships now reads "Package" beside its read-only lock. It read "Custom" in the Setup catalog, because the registry serves no `managedBy` and that scope passes no `packageId`. The badge now also reads the layered envelope's verdict that the lock reads. A set authored in the environment, an organization-authored set and a published organization set still read "Custom".
+  - **The Capabilities page.** `…/metadata/capability?scope=environment` lists the capability registry read-only, with no create affordance and no active switch, because the type offers no runtime write channel and a capability has no activation. Nothing about that page changes here; `SETUP_CATALOG_TYPES` keeps `capability` out of the switch on purpose, and its documentation now says why.
+- 088e0f7: A record-form field can name one item of a metadata registry by its machine name: a `text` field that declares `widget: 'position-ref'` lists the position registry, and one that declares `widget: 'permission-ref'` lists the permission-set registry. It stores the name only (objectui#7611, ruling B2 on objectstack#22865). This is the mechanism the metadata forms' `ref-multi:permission` picker brought in (objectui#12126), now reachable from an ObjectQL object field. A grant table's name field (`sys_user_position`'s position, `sys_user_permission_set.permission_set`) can now offer the declared items instead of a box for a typed name.
+  
+  - **The widget (`@object-ui/fields`).** `field:position-ref` and `field:permission-ref`, one key per registry type, with the type in the key, as `object-ref` carries `object`. Like every `widget` value, the name is looked up as `field:<widget>`. Each item reads as its label beside its name, and a pick writes the name: no label, no id. A stored name the loaded registry does not list stays on screen as its own option, flagged *not found*. The four catalog arms follow the metadata forms' `ref:dataset` / `ref-multi:<type>` pickers. With no data source that can list a registry, the field is a text box for the typed name. While the list loads, the stored name sits in a disabled box. When the load fails, a notice names the failure and its cause, and the text box stays enabled. A loaded but empty registry gives the same text box. Neither key is a declarable field type: both are widget hints, like `object-ref`.
+  - **The catalog (`@object-ui/types`, `@object-ui/data-objectstack`).** `DataSource` gains an optional `listMetadataItems(type)`, answering `{ name, label }` headers for one registry type. An empty array is authoritative ("this registry has no item of this type"), so a failed load must reject, never resolve `[]`. `ObjectStackAdapter` implements it over `GET /api/v1/meta/:type` (the client's `meta.getItems`). It rejects with the transport's error, and refuses an answer that carries no `items` list. It is uncached, so an item authored in Studio shows on the next form.
+  - **Locale keys (`@object-ui/i18n`).** `fields.registryRef.loadFailed` and `fields.registryRef.notFound`, in all ten packs.
+  - **Wiring.** The form renderer threads `dataSource` to both keys, as it does for the other widget-hint pickers (`@object-ui/components`). The inline-grid exclusion set and the action-param value-shape table list both keys as widget-hint-only (`@object-ui/fields`, `@object-ui/app-shell`). The CLI's generated `KNOWN_SCHEMA_TYPES` gains `field:position-ref` and `field:permission-ref` (`@object-ui/cli`). A comment in `@object-ui/core` stops counting the picker names.
+  
+  **Clause-②: yes (widening)**: one optional `DataSource` member, two registered `field:` keys (the `RegisteredFieldWidgetType` union and `FORM_FIELD_TYPES` gain two members), and two locale keys. Nothing narrows: a field without the hint renders exactly as before.
+- 0df67f2: The Setup catalog for positions and permission sets reads the registry. It is built from the metadata-admin list and editors in their environment scope, not from new pages (objectui#7611, objectstack ADR-0131 D3/D7).
+  
+  - **The environment scope (`?scope=environment`).** `…/metadata/position` and `…/metadata/permission` with this parameter list every item the registry serves for the type, including the platform's own sets. Without it, the list shows one project package's items, as Studio does. Every link the pages emit keeps the scope: the item links, the create link and the editor's breadcrumb. `ENVIRONMENT_SCOPE_QUERY` is exported for hosts that route their own URLs onto it.
+  - **Gated for Setup.** A caller without `manage_metadata` gets no create affordance on the list and a read-only editor, and the page says why. Under `single`, the reason is that the platform administrator defines these items and the caller's organization assigns them. Under a wall, it is that the operator defines them for every organization. The generic editor and the permission-set editor now apply this caller gate wherever they render. The metadata door refuses that caller's save anyway; this states the refusal before the click.
+  - **The active switch.** The catalog list has an active column and an active/inactive filter. Both show the activation ledger's state (`sys_metadata_activation`), which is what the authorization resolver reads; an item with no ledger row is active. The switch writes through the ledger's door, `POST /api/v1/security/_activation/:type/:name` with `{ enabled }`, so switching a set or a position off takes it away from its holders, and switching it on gives it back. It reads and writes no catalog row, so the catalog row's own `active` column is neither shown nor changed. The door's refusals are shown in the server's own words. The audience anchors `everyone` and `guest`, which the door refuses to switch, show a disabled switch and the reason. The door is objectstack's ADR-0131 stage 2c.
+  - **Holders.** In the environment scope, the permission-set editor shows who holds the set under its definition, and the position editor shows who holds the position. A set's holders are read by name: grants come from the `permission_set` column, and the positions that distribute the set come from the registry's position definitions (`permissionSets`). They are no longer read from `sys_position_permission_set` or `sys_position` rows, so on a framework from before objectstack's ADR-0131 stage 1, where positions declare no `permissionSets`, a set lists no holders through a position. A position is assigned by its name.
+  - **The sharing-rule recipient picker lists the `position` registry** through the console's metadata store. It no longer reads `sys_position` rows. Without a metadata store mounted, the `position` kind falls back to the plain text input.
+  - **The console's `system/roles`, `system/positions` and `system/permissions`** now go to the catalog list, not to the object pages.
+
+### Patch Changes
+
+- 055d350: Two cells now draw the right text (objectui#11683).
+  
+  - **Formula cell (`FormulaCellRenderer`).** A numeric result is drawn by `NumberCellRenderer`, so it is grouped in the viewer's locale and set in the number cell's tabular figures, no longer printed raw in monospace: a formula with no `returnType` holding `200000` reads `200,000` in en-US and zh-CN. A result counts as numeric when the field declares `returnType: 'number'`, or when it declares no `returnType` and the value is a JS number. A declared `scale` sets the width, as on a number field. A string of digits from a formula with no `returnType` stays text, and any other declared `returnType` is drawn as before. `summary` fields use this renderer, so a numeric roll-up is formatted the same way. No type is inferred from the formula's expression or its inputs: the spec's `returnType` has no currency value, so a formula over currency fields reads as a plain number.
+  - **Datetime cell (`DateTimeCellRenderer`).** On the compact face, the default, the date and the time are separated by a space in the text, not by a margin alone. Copied text, screen readers and `textContent` get `10/6/2026 1:42 am` (en-US) and `2026/10/6 上午1:42` (zh-CN) where they got the two halves run together. The text is now exactly what `formatDateTime(value, { style: 'compact' })` returns. The time keeps its muted colour; its margin narrows from `ml-2` to `ml-1` beside the space.
+  
+  No export, prop or language-pack key is added.
+- db4cb6b: A `composite` or `record` field value reads as labelled sub-values, not as its stored JSON (objectui#11697). On the record page, and in every grid cell that draws from the same cell-renderer table, a composite value such as `{"width":10,"height":20}` showed as raw JSON in a monospace face. It now reads `Width 10 · Height 20`. A record value reads one labelled group per entry name, so `{ primary: { name: "A", score: 9 }, backup: { name: "B", score: 7 } }` reads `Primary (Name A · Score 9) · Backup (Name B · Score 7)`. A record entry that is not a sub-object reads as a pair.
+  
+  - **Labels** are the humanized key. The field metadata has no sub-field declaration to read one from: `@objectstack/spec`'s field schema declares none for these types and refuses `fields` / `subFields` as unrecognized keys.
+  - **Sub-values.** A number is formatted as the number cell formats a field with no declared `scale`, and a boolean reads as Yes / No in the reader's language. A string reads as itself and an unset sub-value as the shared "No value" dash. An object or array nested inside a sub-value stays compact JSON.
+  - **One line.** The value is one truncated line in the grid, on the record page and in the summary chip, with the full text in its `title`. It is a description list, so a screen reader reads term and value pairs.
+  - **Unchanged.** An empty value, `[]`, `{}` and a non-object value read exactly as the JSON cell reads them, and a string holding JSON is never parsed. `json` and `object` keep the JSON cell. The record page's copy button still copies the stored JSON.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The new renderer is module-local and is reached through `getCellRenderer('composite')` and `getCellRenderer('record')`.
+- c0862c1: The capability picker labels `view_all_audit_log`, the platform capability `@objectstack/spec` 17.7.0 adds to `PLATFORM_CAPABILITIES` (objectui#11717). Without the label it showed the registry's English text in every locale. All ten locale packs carry the label.
+- 4c0de52: A formula reads the same in a read-only form and in a table cell (objectui#11748).
+  
+  The read-only form face (`FormulaField`) and the table cell (`FormulaCellRenderer`) formatted a formula's value separately, so one stored value read two ways. The form printed a number raw or with two fixed decimals, in monospace (`200000`, `200000.00`), where the cell read `200,000`. The cell printed a declared boolean or date raw (`true`, `2026-07-04`), where the form read `Yes` and `Jul 4`.
+  
+  Both faces now use one rule. The type is the field's declared `returnType`. With no `returnType`, a JS number is a number and any other value is text. No type is inferred from the expression. Each type is drawn the way the matching field type draws it:
+  
+  - **number**: formatted in the viewer's locale, at the width a declared `scale` gives, as on a number field. `200000` reads `200,000` in en-US and zh-CN in both faces; two fixed decimals are no longer added.
+  - **boolean**: the language's Yes / No word in both faces (`是` / `否` in zh-CN). The cell no longer prints `true`. Only a JS boolean counts, as on a boolean field. A non-boolean value draws the empty-value mark, where the form used to read `Yes` for the string `'false'`.
+  - **date**: the date field's read-only face, `formatDate`'s default (`Jul 4`, or `Jul 4, 2020` outside the current year), in both faces. The cell does not use the date cell's relative face (`Today`, `2 days ago`), because the form has no relative face to match. An unparsable value draws the empty-value mark.
+  - **text**: the value in monospace, as before. The form now prints it the way the cell does: an empty string or empty list draws the empty-value mark, where the form drew a blank, and an expanded record reads its name, where the form printed `[object Object]`.
+  
+  objectui#11683 changed the cell for numbers only and left a declared boolean or date as it was. This change converts both.
+  
+  No export, prop or language-pack key is added. The `returnType` doc comments in `@object-ui/types`, on `FormulaFieldMetadata` and on the form field, now describe this rule for both faces in place of the retired two-decimal face.
+- a80fef7: A summary (roll-up) field reads the same in a read-only form and in a table cell (objectui#11752).
+  
+  The read-only form face (`SummaryField`) formatted the value by the roll-up's aggregation function: a `count` as it arrived, a `sum` / `avg` / `min` / `max` at two fixed decimals. The table cell, which `summary` shares with `formula`, draws a number as the number cell does. So one stored value read two ways: a `sum` over `15750.5` read `15750.50` in the form and `15,750.5` in the cell, and a `count` of `12000` read `12000` and `12,000`.
+  
+  The form face now reads the value the way the cell does, whatever the function:
+  
+  - **number**: formatted as a number field formats it, in the viewer's display locale. With no `scale` on the field the value keeps its own precision, so `15750.5` reads `15,750.5` and a `count` of `12000` reads `12,000` in en-US and zh-CN, in both faces. A count stays whole. A `scale` on the field fixes the width in both faces (`scale: 2` reads `15,750.50`). Two fixed decimals are no longer added, so an average reads at its own precision unless the field declares a `scale`.
+  - **empty**: an empty string or empty list draws the empty-value mark, as in the cell, where the form drew a blank. A stored `0` (a `count` or `sum` over no child rows) reads `0`, where the form read `0.00`.
+  - **anything else**: the value as text, as the cell prints it.
+  
+  No export, prop or language-pack key is added. The `summaryOperations` doc comments in `@object-ui/types`, on `SummaryFieldMetadata` and on the form field, now describe this rule in place of the retired per-function face.
+- 3035948: fix: the package sheet and the record create form no longer log React warnings (objectui#11804)
+  
+  The package sheet's "Pending changes" header was a paragraph holding the draft-count badge, and the badge renders a block element. A block inside a paragraph is invalid HTML, so every time a package with pending drafts opened the sheet, from the console's metadata admin or from Studio's *Package info & settings*, React logged a DOM-nesting error. The header is now a block container with the same classes, and it looks the same.
+  
+  A select field the create form did not seed opened as an uncontrolled dropdown, and the user's first pick switched it to controlled, so React logged "Select is changing from uncontrolled to controlled". The select widget now renders a controlled dropdown from its first render for every host that hands it an `onChange`: an unset value shows the placeholder exactly as before. What a form saves is unchanged. A picked value is saved as before, and an untouched select still sends no value. A select node rendered with no `onChange` stays uncontrolled, so it still shows the user's pick.
+- 5ab2f19: The record picker (`RecordPickerDialog`) is laid out from the design system's own primitives (objectui#11903). It is the dialog behind a multi-select lookup's "Browse all records", a related list's Add and a role's Assign user.
+  
+  - **Spacing.** The dialog keeps the standard spacing between its title, search, table and footer. The title no longer sits on the search box.
+  - **Search.** The search box is the standard input with a leading icon: one border at rest, one focus ring.
+  - **Selection.** In multi-select mode every row starts with a checkbox that shows whether it is picked, and the header checkbox picks or clears every row on the page. A row click, the arrow keys and Enter / Space toggle a row as before.
+  - **Width.** The dialog is as wide as its columns need: a three-column picker is no longer stretched to the full large-screen width, which stays the ceiling for wide pickers.
+  - **Footer.** The record count, the page controls, the selected count and the Cancel / Confirm buttons sit on one footer bar.
+  - **Confirm.** Confirm is disabled while nothing is picked.
+  - **No links in rows.** Email, URL, phone, file and reference values show as text inside the picker, so a click on a row always picks it instead of opening a mail client or another record.
+  
+  The console's dev-only preview gallery shows the picker in multi-select mode over three columns (`?only=record_picker`). Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 023f00d: A create form asks its fields the create question, so a role that may create
+  records but not edit them can fill and submit the form (objectui#12082). Every
+  console affordance that offers a write now reads the grant it exercises from
+  one map.
+  
+  **The defect.** A create form gated each field on `checkField(object, field,
+  'write')`, whose fallback for a field the permission set does not mention is
+  the object's `allowEdit`. Under a grant of `allowCreate: true, allowEdit: false`
+  every field of the create form rendered disabled, the outbound filter stripped
+  every field from the body, and the save posted an empty record that the server
+  refused for its required fields — while the server accepts the same create.
+  
+  **The server's insert rule, which the create question follows.** The server's
+  field-level write step refuses a write that names a field whose explicit
+  field-level entry has `editable: false`; a field with no entry passes it, and
+  object admission decides the operation (`allowCreate` for an insert,
+  `allowEdit` for an update). So a create-form field now reads its explicit entry
+  when there is one and the object's create grant when there is none. A field the
+  permission set marks `editable: false` stays disabled and out of the body.
+  
+  **Clause-②: yes (widening)**
+  
+  - `@object-ui/core` exports the affordance-to-grant map: `AFFORDANCE_GRANTS`
+    (one row per affordance: the CRUD-affordance bit it needs, the object grant it
+    exercises and, for an affordance that offers fields, the field question it
+    asks), `resolveAffordance` (managed-object policy ∧ the server's effective API
+    operation set ∧ the caller's grant, with the row's `userActions` predicates
+    surfaced only when all three allow it), `resolveFieldAffordance`,
+    `formFieldsAffordance`, and their types (`ConsoleAffordance`,
+    `FieldAffordance`, `AffordanceGrant`, `FieldAffordanceGrant`,
+    `AffordanceGrantRow`, `AffordanceGrantPrincipal`, `FieldAffordancePrincipal`,
+    `AffordanceSource`, `AffordanceVerdict`).
+  - `@object-ui/permissions`: `checkField`'s action accepts `'create'` beside
+    `'read'` and `'write'`. `MePermissionsProvider` answers it from the explicit
+    field entry when there is one and from `allowCreate` otherwise; the
+    role-based `PermissionProvider` answers it as it answers `'write'`.
+  
+  **Behaviour, by package.** With no permission provider mounted every grant
+  still reads open, as before.
+  
+  - `@object-ui/plugin-form`: every `ObjectForm` layout's fields and outbound
+    filter ask the question of the form's mode (create or edit). The form-wide
+    lock, with its "You don't have permission to …" notice, also engages when the
+    caller's object grant for the form's mode is denied, not only when the
+    managed-object policy or the effective API operation set closes it. A
+    create-mode `MasterDetailForm`'s line cells ask the create question of the
+    child object, since every line there is a new record.
+  - `@object-ui/app-shell`: the record page's Edit and Delete (and the record
+    body's in-place editing) read the caller's update / delete grant; they read
+    none before. The import wizard's write targets ask the create question, so a
+    caller offered Import keeps every field the insert accepts. List New / Import,
+    the related lists and the Attachments panel read the map with the verdicts
+    they had.
+  - `@object-ui/fields`: a lookup's "Create new" reads the create grant (and the
+    managed-object policy and operation set) of the object the field references;
+    it read no grant before.
+  - `@object-ui/plugin-grid`: row Edit / Delete, in-place editing, the template
+    download and the add-record row read the map; the add-record row now also
+    honours the object's managed-object policy and effective `create` operation.
+  - `@object-ui/plugin-detail`: `record:details` in-place editing reads the
+    caller's update grant; the detail header's object gate adds the effective
+    operation set.
+  - `@object-ui/plugin-list` and `@object-ui/console`: bulk Delete, the
+    inline-edit toggle and the profile page's language field read the map with
+    the verdicts they had.
+- 5330038: Console rendering fixes from the HotCRM browser pass (objectui#12110):
+  
+  - **Grid:** a view column's authored `label` is the header. It used to lose to the field's translated label whenever the app bundle translated the field.
+  - **Form:** a field `widget` that names no registered component falls back to the field type's renderer, as the spec's `widget` description says. A `rating` field declaring `widget: 'star_rating'` now draws the star widget instead of a text box. A built-in control name (`input`, `textarea`, …) and the native password and email inputs still render as before.
+  - **Cells:** a `rating` value draws stars out of the field's `max` (5 by default) in list, detail and related-list cells, instead of a bare number.
+  - **Reference rail:** a related row is named by its object's declared `nameField`, and the rail refetches in place when the record, a related object or everything is invalidated. A record action with `refreshAfter: true` therefore refreshes the rail too.
+  - **Gantt:** the task list, the tooltip and the drag previews show a date's year when it is not the current year.
+  - **Approvals drawer:** a `position:` approver shows the position's label, from the console's position registry, instead of a truncated id. The headline figure prefers the object's declared `currency` field and never shows a zero from a field matched only by its name.
+  - **Public form:** a form with no title of its own is headed by its object's label, not the object's API name.
+- 2498a07: A rich-text field no longer draws hint lines above its editor (objectui#12110, ruled B). The `markdown`, `html` and `richtext` editors used to show "Format: markdown" (or "Format: html") and "Rich text editor (basic)" above the textarea, on every form. An anonymous visitor on a public form read them as editor chrome. Both lines are gone everywhere: on public forms, on internal forms, and in the fullscreen dialog. The field's own `placeholder` and help text are unchanged and remain the place for authored guidance.
+  
+  Nothing is added to or removed from the package entry: no export, prop, type member or language-pack key changes. The two catalogue keys the lines used, `fields.richText.format` and `fields.richText.basicEditorHint`, stay in every language pack; nothing reads them now.
+- 898bd2c: A formula field declared `returnType: 'currency'` renders as money, in a list cell, a form and a record detail (objectui#12111).
+  
+  `@objectstack/spec` 18 adds `currency` to `FieldSchema.returnType`: the formula's result is an amount of money, in the currency the formula's own `currencyConfig` declares, as a currency field declares it. Both formula faces drew such a value as plain text (`3456`). Now each one hands the formula's definition to the currency field's own face: `FormulaCellRenderer` to `CurrencyCellRenderer`, and `FormulaField`'s read-only face to `CurrencyField`'s. So a formula reads exactly what a currency field with the same `currencyConfig` reads. A `fixed` config shows its own currency (`CN¥3,456.00`). With no `currencyConfig`, or a `dynamic` one, the amount shows in the tenant's default currency.
+  
+  A formula declared `number`, `text`, `boolean` or `date`, or declaring no `returnType`, renders as before. Nothing is added to the package entry.
+- e723f58: Screen readers hear the names of more controls in the viewer's language (objectui#12145).
+  
+  These controls carried an English `aria-label`, so under a non-English locale a screen reader announced their names in English: the docs portal's loading spinner, the record form page's breadcrumb, the `Spinner` status region, a data table's row menu button, the `pagination` renderer's previous and next links, the image crop preview, the percent slider, the record picker's grid, the AI composer's send and stop button and an attachment's remove button, the designer's undo and redo buttons, minimap, version history and back button, a dismissible record alert's close button, the bulk-action bar, and the mobile view switcher. Each name now comes from the language packs. English names are unchanged, with two small exceptions: the spinner now reads "Loading…", and the pagination links read "Previous page" and "Next page", the same words the data table pager uses. Sighted use is unchanged.
+  
+  Added: eight language-pack keys in all ten packs: `help.loadingDocumentation`, `common.breadcrumb`, `table.rowActions`, `fields.image.cropPreview`, `fields.percent.slider`, `designer.canvasMinimap`, `designer.versionHistory` and `grid.bulkActions`. Every other name reuses a key that already holds the same words. The exported `en` pack, and so `TranslationKeys`, gains these eight members. `PromptInputAttachment` (exported through `AIElements`) takes an optional `removeLabel` prop that names its remove button; without it the button keeps its English name.
+- a491b64: The `position-ref` grant picker no longer offers the `everyone` and `guest` audience anchors (objectui#12200). Every authenticated or anonymous principal holds an anchor implicitly (ADR-0090 D5/D9), and the server refuses a `sys_user_position` row that names one, so a pick of either was refused on save. The picker leaves out exactly the spec's `AUDIENCE_ANCHOR_POSITIONS`, read from `@objectstack/spec`, so an anchor the spec adds is left out too. A registry that lists nothing but anchors gives the typed-name box, as an empty one does. A row that already stores an anchor still shows it, by its label beside its name, as its own option, unflagged. `permission-ref` is unchanged: a permission set named like an anchor is listed as before.
+- f0532d8: Saving a master-detail edit form no longer rewrites the position of lines the
+  user did not touch (objectui#12286).
+  
+  The edit form read each collection's lines with no sort, so its line grid drew
+  them in whatever order the server returned, and the grid stamped every line's
+  index into the child's sort field (`position`, `sort_order`, …) on any change.
+  Editing one cell of one line therefore saved a new position onto its untouched
+  siblings, swapping their stored order and bumping their `updated_at`.
+  
+  - `MasterDetailForm` now reads the lines ascending by the child's derived sort
+    field, the record id breaking ties, so the grid opens in stored order.
+  - The line grid (`field:grid` with a `sortField`) renumbers only when a row is
+    added, removed, duplicated or moved. A cell edit leaves every row's position
+    as it was, so lines whose stored positions are tied, empty or gapped are not
+    renumbered by an edit either.
+  
+  Editing one line's field now sends exactly one update, and moving a line sends
+  only the lines whose position changed. The `GridFieldMetadata.sortField`
+  description says when the grid stamps the field.
+- 789cb16: fix(fields): a text-valued formula is drawn as text, not in a monospace code font (objectui#12357)
+  
+  The formula cell now draws a text result through `TextCellRenderer`, and the read-only form face (`FormulaField`) draws it with `TextField`'s read-only classes, whether the formula declares `returnType: 'text'` or declares no `returnType` at all. Both faces used to print every result that was not a number, boolean or date in monospace, so a formula yielding a person's name read as code beside the text columns around it.
+- 518a8e3: The record page's highlight strip no longer cuts a value without saying so, and at phone width it uses one layout (objectui#12523).
+  
+  - **A cut value ends in an ellipsis.** The email, URL and phone cells drew their text inside an `inline-flex` anchor. A host that clips to one line, such as a highlight chip, cut that text mid-word with no ellipsis: the cell was one atomic inline box, and a browser clips the first atomic inline on a line instead of ellipsing it. The three cells now follow the single-line convention the other cells in `@object-ui/fields` use. The cell is bounded by its host, and the box that holds the text truncates with an ellipsis. In the highlight strip the whole value is still the clip box's `title`. A host wider than the value shows no change.
+  - **A phone declared through `format` gets the phone width.** A `text` field with `format: 'phone'` (or `email` / `url`) drew the phone cell on the narrow 9rem chip, so the HotCRM lead's phone read "+1-555-0" at 1440. The strip now sizes a chip by the cell it draws, so that phone gets the same 16rem floor as a `phone` field. When the floors no longer fit one line, the strip wraps before it cuts a value.
+  - **A wrapped line starts flush.** From `sm` up, the first chip of every line now hides its separator and left padding, not only the strip's first chip. A second line no longer reads as an indented list.
+  - **One layout below `sm`.** Every chip is a full-width line with no separator. Two chips no longer sit side by side above a single-column list.
+- 7d0c174: A boolean cell's read-only checkbox is named by its field (objectui#12584).
+  
+  The boolean cell renderer draws a plain checkbox for every boolean column outside the completion and status names. It had no accessible name, so a screen reader announced each cell of the Studio Records grid and the runtime list grid as a bare "checkbox, not checked", with nothing to say which field it was. The checkbox is now named by the field's label, or by its humanized name when the field declares no label, the same words the status field's "Off" badge prints. The name carries no state word: the checkbox role announces checked or not checked itself.
+  
+  The humanized-name fallback now reads the field name as authored, for the checkbox and the "Off" badge alike. It read the lower-cased name before, so an unlabelled `IsPreferred` read `Ispreferred`. A spec-legal field name is lowercase snake_case already, so for every such field the words are unchanged.
+  
+  Nothing else moves: no visual change, no new language-pack key, and no export, prop or type member.
+- 726d8c9: Every wide centred dialog keeps a 1rem gutter on each side of the window from `sm` (640px) up, by one shared class (objectui#12603).
+  
+  `@object-ui/components` adds one export, `DIALOG_VIEWPORT_GUTTER` (`sm:w-[calc(100%-2rem)]`): the gutter `ModalForm` introduced for its `lg` and `xl` sizes (objectui#12593), promoted so every wide dialog reads the same value. A dialog that raises its cap with `sm:max-w-2xl` or wider writes this constant beside the cap.
+  
+  Dialogs that ran edge to edge between `sm` and their max width and now keep the gutter:
+  
+  - the action modal's `lg` and `xl` sizes (`xl` is what a `type: 'modal'` action with a page target and no size opens at);
+  - the action parameter dialog with a long parameter list, the flow runner's object-form or long screen step, and the CEL test-run dialog;
+  - the full-screen text editor dialog, the image lightbox and the import wizard.
+  
+  The record picker reads the same class under every width rung; it kept a `95vw` margin of its own before, so between `sm` and its cap it is now the window less 2rem instead. `ModalForm` reads the shared export instead of its private copy, with no change in output.
+  
+  Unchanged: sheets, the phone sheet below `sm`, the `full` size (`95vw`), and every dialog's width on a window wider than its max width plus 2rem.
+- f78efdd: List grids show the record a pointer field names, and the Approvals Inbox says who else is waiting (objectui#12608).
+  
+  - **Record names in place of record ids.** A `text` field that declares `referenceVia` holds the id of a record whose object the sibling column names on the same row, as `record_id` does on Approval Requests (`referenceVia: 'object_name'`) or `source_id` on activities. In a list grid such a column now shows the target object's icon and the record's name, linking to the record. The record id moves to the tooltip. The grid reads the records of one page with one request per target object, not one per row.
+  - **Unavailable records say so.** When the record cannot be read (deleted, or outside what the viewer may read), the cell shows the object's label followed by "record unavailable", with the id in the tooltip, instead of the bare id.
+  - **The empty Approvals Inbox names who else is waiting.** When nothing is waiting on the viewer but other requests are pending, the empty state adds one muted line: "N requests are waiting on other approvers · Browse all requests". The number comes from one count request and counts only requests the viewer can see; when it cannot be read, the line is not shown.
+  
+  New language-pack keys, in every shipped language: `grid.recordUnavailable` and the `approvalsInbox.waitingOnOthers` plural family.
+- ca7a4c3: Record forms draw `date` and `datetime` fields with the platform date picker instead of the browser's native date input (objectui#12622).
+  
+  The picker is a text box in the display locale's format (`10/16/2026` in English, `2026/10/16` in Chinese), with a calendar popover, keyboard entry, a clear button, and Today / Tomorrow shortcuts. The native input took its placeholder and digit order from the machine, so an English console could show a Chinese machine's placeholder.
+  
+  - **The value written is unchanged.** A `date` field writes `YYYY-MM-DD` and a `datetime` field writes an ISO instant, as the native inputs did. Clearing writes an empty value, as before. Typed text that names no date is not written: the box is marked invalid and a notice names the expected format.
+  - **Where it applies.** The form registration of `field:date` / `field:datetime` (what `registerField` / `registerAllFields` register) takes the picker, and so does `getLazyFieldWidget` (the action-param and bulk-action dialogs, objectui#12642). The inline editors draw it too (objectui#12664, objectui#12759). A form without `@object-ui/fields` registered keeps the native input. The read-only face is unchanged.
+  - **New language-pack keys** in all ten packs: `fields.datePicker.today`, `tomorrow`, `clear`, `openCalendar` and `invalid`.
+- c6b7d82: Action-param and bulk-action dialogs draw `date` and `datetime` params with the platform date picker, the same face record forms draw since objectui#12622 (objectui#12642).
+  
+  The native input took its placeholder and digit order from the machine's locale, not the console's. Now one field type has one face in forms and dialogs.
+  
+  - **Where it applies.** Everything that resolves a field widget through `getLazyFieldWidget` or `registerField` / `registerAllFields`: the record form, `ActionParamDialog`, the grid's `BulkActionDialog`, and the console's form page. The inline editors draw it too (objectui#12664, objectui#12759). The list filters keep the native input.
+  - **The value written is unchanged.** A `date` param writes `YYYY-MM-DD` and a `datetime` param writes an ISO instant, as the native inputs did.
+  - **The Action designer's preview** draws a date-picker shape for `date` / `datetime` params, matching the dialog.
+  - **No public surface changes.** No type, prop, export or language-pack key is added or removed (Clause-②: no). `getLazyFieldWidget('date' | 'datetime')` returns another component with the same props.
+- d66d7e8: The grid's inline cell editor and the kanban required-fields dialog draw `date` and `datetime` fields with the platform date picker, the face record forms and the action dialogs already draw (objectui#12664). The native input took its placeholder and digit order from the machine's locale, not the console's.
+  
+  - **Where it applies.** Everything that renders `FieldEditWidget`: the grid's inline cell editor and the kanban required-fields dialog. The record details inline editor delegates `date` / `datetime` to `FieldEditWidget` too since objectui#12759. The list filters are objectui#12743.
+  - **A typed day is no longer lost in a grid cell.** The picker reads its text when its control loses focus. The data table now blurs the focused control inside an injected cell editor before Enter or a click outside commits, and it commits the last value the editor staged. Before, a typed day was dropped on both. Escape still discards. Editors that stage on every keystroke behave as before.
+  - **The value written is unchanged.** A `date` field writes `YYYY-MM-DD` and a `datetime` field writes an ISO instant, as the native inputs did.
+  - **The picker stays lazy.** `FieldEditWidget` loads it through the same `import()` the form uses, so it stays in its own chunk, and shows a placeholder with no input while it loads.
+  - **No public surface changes.** No type member, prop, export or language-pack key is added or removed. The `renderCellEditor` context keeps its seven members; its documentation now states the blur-before-commit behaviour.
+- 020d178: An inline edit of a `datetime` field on the record page keeps its time (objectui#12759). The record details section and the header highlights edited `date` and `datetime` fields with the browser's native date input, a day-only control. A `datetime` showed no time there, and an edit of the day saved local midnight of that day, dropping the time the record held.
+  
+  - **The platform date picker.** Both types now edit with the picker the record form, the action dialogs, the grid's inline cell editor and the kanban required-fields dialog draw (objectui#12622, objectui#12642, objectui#12664). Its placeholder and digit order follow the console locale, not the machine's.
+  - **A `datetime` keeps its time.** The picker shows the date and the time. A day picked in its calendar keeps the value's time, and typed text carries the time typed. The value written is an ISO instant, as before. A record at 14:30 moved to another day saves that day at 14:30.
+  - **A `date` field still writes `YYYY-MM-DD`** (objectui#12206), unchanged.
+  - **A stored day that does not exist** (`2026-02-30`) still shows an empty, invalid box with a notice naming the stored value, and nothing is written until a day is entered (objectui#10625).
+  - **Typed text is read when the box loses focus or on Enter.** Pressing Save moves focus to the button first, so the typed value is saved.
+  - `@object-ui/fields`: a code comment only, on where the picker is drawn.
+  
+  Clause-②: no. No type member, prop, export or language-pack key is added or removed.
+- 8523e81: A read-only `GridField` table shows a select cell's option label and a number or currency cell in the session's locale (objectui#12915).
+  
+  The read-only table (a read-only record page, a print page, a read-only master-detail grid) sent only file and date / datetime / time cells through the grid's display formatter and printed every other cell as its stored value: a status read `open` instead of `Open`, and an amount read `98765.25` instead of `98.765,25 €` in a `de-DE` session. Every cell except a lookup now goes through the same formatter the list-mode and computed cells already use, so the read-only and editable views of one row read alike. Since objectui#12854 a `record:line_items` column listed by `name` takes its select, number or currency type from the child field, so a read-only invoice's line items reach exactly these cells.
+  
+  Lookup cells still render through `LookupField`, and file and date cells are unchanged.
+  
+  Clause-②: no
+- 32b492b: Line-item grids read a boolean column's options and a file cell's text in the session language (objectui#12924). Under a zh-CN session, a master-detail or `record:line_items` grid showed English in two places: the two options of a column derived from a `boolean` or `toggle` child field (`Yes` / `No`, in the editable picker and in the per-row form's list), and a file cell's text (`N files` for a cell holding several files, `File` for a file with no name). Both now come from the language packs, and English reads as before.
+  
+  - **Boolean options.** The labels are the session's word for each value, from `useBooleanValueLabel` (`@object-ui/fields`), which reads `common.yes` / `common.no`, the keys read-only booleans already use. The stored values are unchanged: `'true'` and `'false'`. `MasterDetailForm` and `LineItemsPanel` call the hook and pass it to the derive functions. Both re-label the options when the session's words change, so a catalogue that lands after the child schema, or a language switch, reaches them without re-reading the lines.
+  - **File text.** `GridField` reads the count from `detail.fileCount`, the plural family the file cell renderer already uses, so each language gets its own plural forms (Russian `few` / `many`, for example). The name of a nameless file comes from `fields.file.fileFallback`. The per-row form's list cell and the read-only table both show these words.
+  
+  No language-pack key is added.
+  
+  BREAKING (`@object-ui/plugin-form`), for a caller of the exported `deriveDetail` or `deriveColumns`: both now require `booleanLabel`, a function that names a boolean value in the session language. Pass `useBooleanValueLabel()` from `@object-ui/fields`: `deriveDetail(childObject, childSchema, parentObjectName, { booleanLabel })`, and `deriveColumns(childSchema, { booleanLabel })`. There is no default, because an English default would label the options in English for a session in any other language. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  Clause-②: no (narrowing)
+- b7fe09e: The list's quick-search box and the record pickers' type-ahead are no longer offered on an object whose search resolves to no field, and a refused search shows the server's message (objectui#12966, the console half of objectstack#24284).
+  
+  objectstack now answers a non-blank `search` over such an object with `400 INVALID_FIELD` (`param: 'search'`) instead of every row. The common shape is a junction object: two lookups and a composed formula title, with no `searchableFields` declared.
+  
+  - **The list toolbar** decides with the spec's `resolveSearchFieldResolution`, over the object definition with `internal: true` fields left out and the object's own `searchableFields`, the inputs the engine uses. When the set is empty the search box is not drawn, and a term restored at mount is not applied. Until the definition is read the box is drawn, as before; the list is loading for that read anyway, since its data fetch waits on it. A list whose data source serves no definition keeps the box. A view's `searchableFields` does not make such an object searchable: the server refuses that override outside the object's set.
+  - **`RecordPickerDialog` and `LookupField`'s inline dropdown** draw no search box on a target whose set is empty. They still list the records, and the dialog still pages them. An unknown target schema keeps the box.
+  - **A refused search** on a list now shows the server's sentence, which names the object and the two remedies, in place of the generic "query was rejected" copy. The record pickers already showed the server's message.
+  
+  Nothing is added to either package entry: no export, prop or type member.
+- 5129caa: Lookup quick-picker: the preview line under each option no longer cuts a badge to its first letter (objectui#13123). A column drawn as a badge (a `select`, `status`, `radio`, `multiselect` and the other types the select renderer draws) keeps its whole label. Other columns still truncate their value, but never below their label. A column the line cannot hold is left out whole, together with the columns after it, instead of being squeezed. For example, a showcase Account option on a narrow field used to read "Lifecycle: A. · Industry: Tec... · Annual Revenue: $96,00..." and now reads "Lifecycle: Active · Industry: Technology"; a wider field adds the revenue column back, truncated if it must be.
+- f48a4d5: A lookup's quick-picker takes the choice after a search, and a single-select lookup's trigger shows the picked record (objectui#13162).
+  
+  - **Enter after a search sets the value.** The quick-picker had no active row until an arrow key moved to one, and the row an arrow key chose was dropped when the debounced search answer replaced the list. Typing a term and pressing Enter therefore set nothing, which a required field then refused ("Manager is required"). Once the rows on screen answer the typed term, the first one is now the active row (announced through `aria-activedescendant`), and Enter takes it. While the answer is still pending, no row is made active, so Enter cannot take a row the typed term did not ask for. A click on a row is unchanged: it always set the value.
+  - **The trigger shows the picked record.** A full-size single-select lookup drew its value as a chip above a trigger that went on reading "Select…", so a field holding a value read as one still asking for it. The trigger now reads the record's label (the whole label on hover when it is cut short), as the compact grid-cell editor already did, and a search-first (people) field also draws the avatar the chip used to draw. The chip's clear control moves beside the trigger, with the same accessible name ("Remove …") and the same rule: a disabled field offers none. A multi-select lookup keeps its chips and its "N selected" trigger. The placeholder now reads muted in both sizes, so an empty field and a filled one look different.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The query kernel the pickers share (`useRecordQuery`, which the package entry does not export) now reports the search term its records answer, which is how the quick-picker tells the two states apart.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [96fcf30]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [e06365c]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [2312bd9]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [c5406c2]
+- Updated dependencies [c5406c2]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [7282c6a]
+- Updated dependencies [24804dc]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [417e245]
+- Updated dependencies [69bca0a]
+- Updated dependencies [023f00d]
+- Updated dependencies [158c75d]
+- Updated dependencies [7525045]
+- Updated dependencies [5af42db]
+- Updated dependencies [ce991bd]
+- Updated dependencies [3c0f806]
+- Updated dependencies [1071393]
+- Updated dependencies [5f75cfa]
+- Updated dependencies [6757a93]
+- Updated dependencies [b7cd5c8]
+- Updated dependencies [5330038]
+- Updated dependencies [c9fc10b]
+- Updated dependencies [dc6d28e]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [e723f58]
+- Updated dependencies [82bb1d5]
+- Updated dependencies [f3d5408]
+- Updated dependencies [b231607]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [54159d3]
+- Updated dependencies [fa778e6]
+- Updated dependencies [334f0cf]
+- Updated dependencies [c08c933]
+- Updated dependencies [92f979d]
+- Updated dependencies [c4dd707]
+- Updated dependencies [c4dd707]
+- Updated dependencies [7578323]
+- Updated dependencies [38bb373]
+- Updated dependencies [923504f]
+- Updated dependencies [5c2982a]
+- Updated dependencies [97e7d4e]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [51c661e]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [b434f5f]
+- Updated dependencies [9f282ef]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [cea429b]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [8106db1]
+- Updated dependencies [068a540]
+- Updated dependencies [ca45c6d]
+- Updated dependencies [093d55b]
+- Updated dependencies [b64fda3]
+- Updated dependencies [a8051d6]
+- Updated dependencies [72594f2]
+- Updated dependencies [524136e]
+- Updated dependencies [2b06a91]
+- Updated dependencies [6f3299f]
+- Updated dependencies [065a1cf]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [37db09f]
+- Updated dependencies [ff9df88]
+- Updated dependencies [70e843f]
+- Updated dependencies [caac3b2]
+- Updated dependencies [a2225f9]
+- Updated dependencies [5c4deb5]
+- Updated dependencies [a8e5b73]
+- Updated dependencies [d9d9d98]
+- Updated dependencies [c950345]
+- Updated dependencies [21f9577]
+- Updated dependencies [044f231]
+- Updated dependencies [f8267df]
+- Updated dependencies [9b82ced]
+- Updated dependencies [3821a3a]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [92c2a69]
+- Updated dependencies [646caea]
+- Updated dependencies [1ffd6a2]
+- Updated dependencies [5f8ecf6]
+- Updated dependencies [8ed7e5a]
+- Updated dependencies [6c4d00d]
+- Updated dependencies [db8ce2f]
+- Updated dependencies [726d8c9]
+- Updated dependencies [f0e760a]
+- Updated dependencies [a5bb7ac]
+- Updated dependencies [f78efdd]
+- Updated dependencies [8a8bcf3]
+- Updated dependencies [f74638c]
+- Updated dependencies [ef71a09]
+- Updated dependencies [8614705]
+- Updated dependencies [619e3f7]
+- Updated dependencies [ca7a4c3]
+- Updated dependencies [c9e6742]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [608033b]
+- Updated dependencies [611566b]
+- Updated dependencies [efa9cb4]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [9d857c9]
+- Updated dependencies [670ea10]
+- Updated dependencies [ff215d9]
+- Updated dependencies [71243db]
+- Updated dependencies [a8add5c]
+- Updated dependencies [33ee9de]
+- Updated dependencies [4839f5c]
+- Updated dependencies [a23e804]
+- Updated dependencies [c7462e7]
+- Updated dependencies [36e2f7b]
+- Updated dependencies [ac59073]
+- Updated dependencies [44cb469]
+- Updated dependencies [e058d76]
+- Updated dependencies [c999d4c]
+- Updated dependencies [8df2608]
+- Updated dependencies [5483297]
+- Updated dependencies [ed43c79]
+- Updated dependencies [260ef71]
+- Updated dependencies [655e897]
+- Updated dependencies [655e897]
+- Updated dependencies [8d80845]
+- Updated dependencies [69a408f]
+- Updated dependencies [d2b21a1]
+- Updated dependencies [5ff64ef]
+- Updated dependencies [64acb7e]
+- Updated dependencies [4ff5b6b]
+- Updated dependencies [473e5a0]
+- Updated dependencies [b279016]
+- Updated dependencies [bb6c38c]
+- Updated dependencies [26323c4]
+- Updated dependencies [9753811]
+- Updated dependencies [2727527]
+- Updated dependencies [3da39ae]
+- Updated dependencies [bc281f4]
+- Updated dependencies [d637be3]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [6058bf8]
+- Updated dependencies [c219165]
+- Updated dependencies [a7ae252]
+- Updated dependencies [fb501bc]
+- Updated dependencies [30083da]
+- Updated dependencies [7f9cc37]
+- Updated dependencies [025130c]
+- Updated dependencies [76f91f8]
+- Updated dependencies [ea34d9b]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [024b7b6]
+- Updated dependencies [cb80001]
+- Updated dependencies [909c64e]
+- Updated dependencies [9e7e1a5]
+- Updated dependencies [2493e85]
+- Updated dependencies [d0b9648]
+- Updated dependencies [46dbf32]
+- Updated dependencies [a928aaa]
+- Updated dependencies [47508f3]
+- Updated dependencies [61ed5ad]
+- Updated dependencies [1b94d50]
+- Updated dependencies [6f877f1]
+- Updated dependencies [988aa9f]
+- Updated dependencies [1ce0711]
+- Updated dependencies [fb85637]
+- Updated dependencies [9f1dd79]
+- Updated dependencies [df71568]
+- Updated dependencies [d11174a]
+- Updated dependencies [2d8a8b7]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [9eb1479]
+- Updated dependencies [74e37aa]
+- Updated dependencies [961b69f]
+- Updated dependencies [52907d7]
+- Updated dependencies [f466b0a]
+- Updated dependencies [673a71c]
+- Updated dependencies [616df65]
+- Updated dependencies [58798ec]
+- Updated dependencies [8803ca5]
+- Updated dependencies [e70c21d]
+- Updated dependencies [4b92c5a]
+- Updated dependencies [06be396]
+- Updated dependencies [3650d94]
+- Updated dependencies [7c05f21]
+- Updated dependencies [8cd4db4]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [12ff256]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [088e0f7]
+- Updated dependencies [78b07f4]
+- Updated dependencies [f962cdc]
+- Updated dependencies [b403bb3]
+- Updated dependencies [8a25fee]
+- Updated dependencies [4016370]
+- Updated dependencies [12dc7b4]
+  - @object-ui/types@18.0.0
+  - @object-ui/components@18.0.0
+  - @object-ui/core@18.0.0
+  - @object-ui/i18n@18.0.0
+  - @object-ui/react@18.0.0
+  - @object-ui/permissions@18.0.0
+  - @object-ui/providers@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

@@ -3114,7 +3114,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // objectui#12453 — the item header's read-only link, every pillar.
   'engine.studio.pkg.readonlyLink': 'Read-only · Customize with an overlay',
   'engine.studio.app.scaffoldNav': "Add this package's objects as menu items",
-  'engine.studio.landing.title': 'App Builder',
+  // objectui#13137 — the page title names the surface as the header crumb
+  // (`console.studio.title`) and the route do: Studio, in every locale.
+  'engine.studio.landing.title': 'Studio',
   'engine.studio.landing.description': 'Design objects, forms, automations and interfaces inside a writable package; edits save as drafts and the whole package publishes in one release. Code and installed packages are read-only: browse them here, and customize them with an environment overlay.',
   'engine.studio.landing.mineHeading': 'My packages (writable)',
   'engine.studio.landing.noneWritable': 'No writable packages yet — create one to start.',
@@ -6515,7 +6517,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.pkg.readonlyHint': '只读软件包 — 请切换或新建可写软件包后再编辑。',
   'engine.studio.pkg.readonlyLink': '只读 · 用覆盖定制',
   'engine.studio.app.scaffoldNav': '将本包的对象添加为菜单项',
-  'engine.studio.landing.title': '应用构建',
+  'engine.studio.landing.title': 'Studio',
   'engine.studio.landing.description': '在一个可写软件包里设计对象、表单、自动化与界面;编辑存为草稿,整包一次发布。源码与已安装的软件包为只读：可在此浏览，并用环境覆盖进行定制。',
   'engine.studio.landing.mineHeading': '我的软件包(可写)',
   'engine.studio.landing.noneWritable': '还没有可写软件包 — 新建一个开始。',

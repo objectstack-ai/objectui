@@ -239,7 +239,7 @@ describe('a field-by-field refusal toasts the settings by label (objectui#13146)
     );
 
     expect(screen.getByText('Default timezone')).toBeTruthy();
-    expect(msg).toContain('Default timezone');
+    expect(msg).toBe(fill(VIEW.fieldErrorsToast_one, 1, 'Default timezone'));
     expect(msg).not.toContain('Zone (as sent)');
   });
 

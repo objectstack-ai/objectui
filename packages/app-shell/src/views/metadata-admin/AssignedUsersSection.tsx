@@ -65,6 +65,16 @@ const GRANT_OBJECT = 'sys_user_permission_set';
 export interface AssignedUsersSectionProps {
   /** The permission set's machine name (e.g. `ai_seat`, `admin_full_access`). */
   permissionSetName: string;
+  /**
+   * Called after each successful read of the holders with how many people the
+   * section lists (direct grants and holders via a position, one per person)
+   * and the set that read was for — a read still in flight when the set
+   * changes reports the set it read, never the one now shown. Not called when
+   * the read fails: a failed read is not "held by nobody" (objectui#12706).
+   * The permission-set editor uses it to retire the clone notice once the copy
+   * is held (objectui#13272).
+   */
+  onHoldersRead?: (count: number, permissionSetName: string) => void;
 }
 
 interface AssignedRow {
@@ -184,8 +194,11 @@ export function positionsDistributing(positions: readonly unknown[], setName: st
   return out;
 }
 
-export function AssignedUsersSection({ permissionSetName }: AssignedUsersSectionProps) {
+export function AssignedUsersSection({ permissionSetName, onHoldersRead }: AssignedUsersSectionProps) {
   const adapter = useAdapter() as any;
+  // Read through a ref so a host's inline callback does not re-key `load`.
+  const onHoldersReadRef = React.useRef(onHoldersRead);
+  onHoldersReadRef.current = onHoldersRead;
   const c = useCopy();
 
   const metadataStore = useMetadata();
@@ -299,6 +312,7 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
       );
       setEveryoneBound(boundEveryone);
       setReadFailure(null);
+      onHoldersReadRef.current?.(userIds.length, permissionSetName);
     } catch (err) {
       setRows([]);
       setEveryoneBound(false);

@@ -125,12 +125,38 @@ vi.mock('../../hooks/useCanAuthorMetadata', async (importOriginal) => ({
   useCanAuthorMetadata: () => canAuthor,
 }));
 
-// The holders section reads grants of its own; here it only says which set it
-// was handed, so the scope the copy opens in is visible.
+// The holders section reads grants of its own; here it says which set it was
+// handed, so the scope the copy opens in is visible, and reports each read the
+// way the real one does (`onHoldersRead`, objectui#13272): once on mount with
+// `holdersByName`'s count, and again after its "Add" (a grant, then a re-read).
+let holdersByName: Record<string, number> = {};
 vi.mock('./AssignedUsersSection', () => ({
-  AssignedUsersSection: ({ permissionSetName }: { permissionSetName: string }) => (
-    <div data-testid="assigned-users-stub">{permissionSetName}</div>
-  ),
+  AssignedUsersSection: ({
+    permissionSetName,
+    onHoldersRead,
+  }: {
+    permissionSetName: string;
+    onHoldersRead?: (count: number, setName: string) => void;
+  }) => {
+    React.useEffect(() => {
+      onHoldersRead?.(holdersByName[permissionSetName] ?? 0, permissionSetName);
+      // Once per set, as the real section's load is keyed on the set name.
+    }, [permissionSetName]);
+    return (
+      <div>
+        <div data-testid="assigned-users-stub">{permissionSetName}</div>
+        <button
+          type="button"
+          onClick={() => {
+            holdersByName[permissionSetName] = (holdersByName[permissionSetName] ?? 0) + 1;
+            onHoldersRead?.(holdersByName[permissionSetName], permissionSetName);
+          }}
+        >
+          Stub add holder
+        </button>
+      </div>
+    );
+  },
 }));
 
 import { PermissionMatrixEditPage } from './PermissionMatrixEditor';
@@ -238,6 +264,7 @@ beforeEach(() => {
   localeFixture = 'en-US';
   canAuthor = true;
   doorAnswer = okAnswer();
+  holdersByName = {};
   calls.length = 0;
   stubFetch();
 });
@@ -600,6 +627,44 @@ describe('PermissionMatrixEditPage — the clone notice is point-in-time: a save
 
     await waitFor(() => expect(saved).toEqual([BASE_SET]));
     // The base's save says nothing about the copy, which is still unsaved and unheld.
+    expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
+  });
+
+  it('clone, then add a holder through the holders section: the notice is gone', async () => {
+    // The Setup catalog's scope, where the holders section renders.
+    await renderRouted('?scope=environment');
+    await fillDialog();
+    fireEvent.click(createCopy());
+
+    await screen.findByRole('button', { name: /^Save$/ });
+    expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
+    expect(screen.getByTestId('assigned-users-stub')).toHaveTextContent(CLONE_NAME);
+    fireEvent.click(screen.getByRole('button', { name: 'Stub add holder' }));
+
+    await waitFor(() => expect(screen.queryByTestId('perm-clone-notice')).toBeNull());
+  });
+
+  it('control: the copy\'s holders read reporting 0 keeps the notice', async () => {
+    // The Setup catalog's scope, where the holders section renders.
+    await renderRouted('?scope=environment');
+    await fillDialog();
+    fireEvent.click(createCopy());
+
+    await screen.findByRole('button', { name: /^Save$/ });
+    // The stub reported the copy's mount read (0 holders) before Save showed.
+    expect(screen.getByTestId('assigned-users-stub')).toHaveTextContent(CLONE_NAME);
+    expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
+  });
+
+  it('control: the base\'s holders do not retire the copy\'s notice', async () => {
+    holdersByName = { [BASE_SET]: 3 };
+    // The Setup catalog's scope, where the holders section renders.
+    await renderRouted('?scope=environment');
+    await fillDialog();
+    fireEvent.click(createCopy());
+
+    await screen.findByRole('button', { name: /^Save$/ });
+    expect(screen.getByTestId('assigned-users-stub')).toHaveTextContent(CLONE_NAME);
     expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
   });
 });

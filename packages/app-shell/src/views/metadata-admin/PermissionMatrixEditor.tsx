@@ -1249,6 +1249,17 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     }
   }
 
+  /**
+   * objectui#13272 — the clone notice ends "The copy is held by nobody yet",
+   * which stops being true once the copy has a holder. The holders section
+   * reports every read; one that lists anybody for the copy retires the
+   * notice, whole (the server's string is never cut into sentences). Keyed on
+   * the set the read was FOR, so a late read of another set cannot retire it.
+   */
+  function onHoldersRead(count: number, setName: string) {
+    if (count > 0) setCloned((c) => (c && c.name === setName ? null : c));
+  }
+
   /* ── Render helpers ──────────────────────────────────────── */
   const filteredObjects = React.useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -1425,7 +1436,8 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           open it on), announced by name on this set. The server's notice
           (what was not copied, and that the copy is held by nobody yet) is
           shown as sent (advisory, like the re-read notice below), and only
-          until the copy is saved (objectui#13272, `doSave`). */}
+          until the copy is saved or held (objectui#13272: `doSave`,
+          `onHoldersRead`). */}
       {cloned !== null && (embedded || cloned.name === name) && (cloned.name !== name || !!cloned.notice) && (
         <div
           role="status"
@@ -2019,7 +2031,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
             set's holders render under its definition, by name. */}
         {showAssignments && (
           <div className="mx-4 mb-4 shrink-0 max-h-[35vh] overflow-y-auto rounded-md border" data-testid="perm-assignments">
-            <AssignedUsersSection permissionSetName={name} />
+            <AssignedUsersSection permissionSetName={name} onHoldersRead={onHoldersRead} />
           </div>
         )}
       </div>

@@ -37,7 +37,10 @@ import { LookupField } from './LookupField';
 // Installs the cell-renderer resolver the preview draws its values with.
 import '../index';
 
-const FIELDS: Record<string, any> = {
+/** A field of the referenced object's schema, as `getObjectSchema` serves it. */
+type SchemaField = { type: string; label: string; [key: string]: unknown };
+
+const FIELDS: Record<string, SchemaField> = {
   name: { type: 'text', label: 'Account Name' },
   status: {
     type: 'select',
@@ -85,7 +88,7 @@ function makeDataSource() {
     find: vi.fn(async () => ({ data: [ROW], total: 1 })),
     findOne: vi.fn(async () => ROW),
     getObjectSchema: vi.fn(async (objectName: string) => ({ name: objectName, fields: FIELDS })),
-  } as any;
+  };
 }
 
 async function openPicker(columns: string[]): Promise<void> {
@@ -96,7 +99,8 @@ async function openPicker(columns: string[]): Promise<void> {
     <LookupField
       value={undefined}
       onChange={() => {}}
-      dataSource={dataSource}
+      // Read-only: the picker only reads, so the write members stay absent.
+      dataSource={dataSource as never}
       field={{ reference: 'showcase_account', displayField: 'name', lookupColumns } as never}
     />,
   );

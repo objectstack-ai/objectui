@@ -25,7 +25,17 @@
  *
  * A commit in which NO branch carries a target (the engine-published
  * configSchema form has no Target column, and older flows) falls back to the
- * #1927 by-order mirror, so those paths behave exactly as before.
+ * #1927 by-order mirror.
+ *
+ * objectui#13138 — every fallback pairing (the by-order mirror, the derived
+ * Target column, and "same target node" when a target is picked) only ever
+ * pairs a branch with an out-edge that carries NO routing of its own (no
+ * `condition`, `label` or `isDefault`). An edge that does carry routing is
+ * driven only by the branch that binds it; a branch that binds no edge stays a
+ * branch with no edge until its target is chosen, and then gets its own edge.
+ * Before this, "Add branch" on a decision whose connection held a condition
+ * written in the connection inspector stamped the new branch over that edge
+ * and the condition was gone.
  *
  * "Bound to a branch" follows the same matching the `FlowEdgeInspector`
  * Branch picker uses: a default-ish branch (expression empty or `true`) binds
@@ -89,6 +99,33 @@ export function edgeBindsBranch(branch: DecisionBranch, edge: DecisionEdge): boo
   return name !== '' && edge.label === name;
 }
 
+/**
+ * The reconciliation's claim: the #1930 binding above, or the branch's label
+ * naming the edge. The label is what the mirror stamps on every edge it writes,
+ * so it is what still names the branch's own edge after a one-cell edit of the
+ * expression — including an edit into the default path, which the
+ * default-ish half of `edgeBindsBranch` alone would not follow.
+ */
+function edgeClaimedByBranch(branch: DecisionBranch, edge: DecisionEdge): boolean {
+  if (edgeBindsBranch(branch, edge)) return true;
+  const name = branchName(branch);
+  return name !== '' && edge.label === name;
+}
+
+/**
+ * objectui#13138 — an out-edge that carries routing of its own: a guard, a
+ * label or the default flag. Only a branch that claims it may rewrite it; no
+ * positional or same-target fallback pairs with it.
+ */
+function carriesRouting(edge: DecisionEdge): boolean {
+  const cond = condText(edge.condition);
+  return (
+    (cond !== undefined && cond.trim() !== '') ||
+    (typeof edge.label === 'string' && edge.label.trim() !== '') ||
+    edge.isDefault === true
+  );
+}
+
 /** The decision's plain out-edges (fault / back edges never carry branches). */
 const isCandidate = (decisionId: string) => (e: DecisionEdge): boolean =>
   e.source === decisionId && e.type !== 'fault' && e.type !== 'back';
@@ -118,8 +155,45 @@ function mirrorBranchOntoEdge(edge: DecisionEdge, branch: DecisionBranch): Decis
 }
 
 /**
- * The legacy #1927 by-order mirror: branch i stamps the i-th plain out-edge.
- * Used when no committed branch carries an explicit target (see module doc).
+ * Pair each branch with an out-edge (branch index → edge index): first every
+ * branch with the edge it claims, then the remaining branches, in order, with
+ * the remaining out-edges that carry no routing of their own (the #1927
+ * by-order pairing, narrowed by objectui#13138). A branch left unpaired has no
+ * edge.
+ */
+function pairBranchesWithEdges(
+  decisionId: string,
+  branches: DecisionBranch[],
+  edges: DecisionEdge[],
+): Map<number, number> {
+  const candidates = edges
+    .map((_, i) => i)
+    .filter((i) => isCandidate(decisionId)(edges[i]));
+  const claimed = new Set<number>();
+  const pairing = new Map<number, number>();
+  branches.forEach((b, bi) => {
+    const ei = candidates.find((i) => !claimed.has(i) && edgeClaimedByBranch(b, edges[i]));
+    if (ei !== undefined) {
+      claimed.add(ei);
+      pairing.set(bi, ei);
+    }
+  });
+  branches.forEach((_, bi) => {
+    if (pairing.has(bi)) return;
+    const ei = candidates.find((i) => !claimed.has(i) && !carriesRouting(edges[i]));
+    if (ei !== undefined) {
+      claimed.add(ei);
+      pairing.set(bi, ei);
+    }
+  });
+  return pairing;
+}
+
+/**
+ * The legacy #1927 by-order mirror: each branch stamps the out-edge it is
+ * paired with (`pairBranchesWithEdges`) — its own edge, else the next plain
+ * out-edge that carries no routing. Used when no committed branch carries an
+ * explicit target (see module doc).
  */
 export function syncDecisionEdgesByOrder(
   decisionId: string,
@@ -127,19 +201,20 @@ export function syncDecisionEdgesByOrder(
   edges: DecisionEdge[],
 ): DecisionEdge[] {
   const branches = asBranchArray(conditions);
-  const candidate = isCandidate(decisionId);
-  let bi = 0;
-  return edges.map((e) => {
-    if (!candidate(e)) return e;
-    const branch = branches[bi++];
+  const branchOfEdge = new Map<number, DecisionBranch>();
+  pairBranchesWithEdges(decisionId, branches, edges).forEach((ei, bi) => branchOfEdge.set(ei, branches[bi]));
+  return edges.map((e, i) => {
+    const branch = branchOfEdge.get(i);
     return branch ? mirrorBranchOntoEdge(e, branch) : e;
   });
 }
 
 /**
  * Derive the Target column for display: pair each branch with the out-edge
- * bound to it (#1930 matching), then pair the remainder by order (the #1927
- * mirror keeps unannotated flows aligned that way). Returns the branches with
+ * bound to it (#1930 matching), then pair the remainder by order with the
+ * out-edges that carry no routing (the #1927 mirror keeps unannotated flows
+ * aligned that way; objectui#13138 keeps a branch from showing — and then
+ * committing — the target of an edge it does not name). Returns the branches with
  * `target` injected from the paired edge — and any stale stored `target` key
  * dropped, since edges are the source of truth.
  */
@@ -150,26 +225,7 @@ export function withBranchTargets(
 ): DecisionBranch[] {
   const branches = asBranchArray(conditions);
   if (branches.length === 0) return branches;
-  const candidates = edges
-    .map((_, i) => i)
-    .filter((i) => isCandidate(decisionId)(edges[i]));
-  const claimed = new Set<number>();
-  const pairing = new Map<number, number>();
-  branches.forEach((b, bi) => {
-    const ei = candidates.find((i) => !claimed.has(i) && edgeBindsBranch(b, edges[i]));
-    if (ei !== undefined) {
-      claimed.add(ei);
-      pairing.set(bi, ei);
-    }
-  });
-  branches.forEach((_, bi) => {
-    if (pairing.has(bi)) return;
-    const ei = candidates.find((i) => !claimed.has(i));
-    if (ei !== undefined) {
-      claimed.add(ei);
-      pairing.set(bi, ei);
-    }
-  });
+  const pairing = pairBranchesWithEdges(decisionId, branches, edges);
   return branches.map((b, bi) => {
     const { target: _stale, ...rest } = b;
     const ei = pairing.get(bi);
@@ -183,8 +239,10 @@ export function withBranchTargets(
  *
  * With no targets anywhere the edge pass is the legacy by-order mirror.
  * Otherwise branches claim edges in three deterministic tiers — exact target
- * AND binding, exact target, binding alone (a retarget keeps the edge's
- * identity and extra keys) — unmatched targeted branches create a fresh edge,
+ * AND binding, exact target on an edge that carries no routing of its own
+ * (objectui#13138: never a conditioned / labelled / default edge another branch
+ * or the connection inspector wrote), binding alone (a retarget keeps the
+ * edge's identity and extra keys) — unmatched targeted branches create a fresh edge,
  * and a target-less branch detaches (removes) the edge still bound to it.
  *
  * Every created edge carries an `id` (objectui#3202). This output is a
@@ -220,9 +278,9 @@ export function applyDecisionBranches(
   const pairing = new Map<number, number>();
 
   const tiers: Array<(b: DecisionBranch, e: DecisionEdge) => boolean> = [
-    (b, e) => e.target === branchTarget(b) && edgeBindsBranch(b, e),
-    (b, e) => e.target === branchTarget(b),
-    (b, e) => edgeBindsBranch(b, e),
+    (b, e) => e.target === branchTarget(b) && edgeClaimedByBranch(b, e),
+    (b, e) => e.target === branchTarget(b) && !carriesRouting(e),
+    (b, e) => edgeClaimedByBranch(b, e),
   ];
   for (const matches of tiers) {
     branches.forEach((b, bi) => {

@@ -101,7 +101,9 @@ describe('applyDecisionBranches — commit reconciliation (#1942)', () => {
   });
 
   it('updates the existing edge in place, carrying condition/label/default', () => {
-    const existing = [edge({ id: 'e1', target: 'n1', condition: 'old' })];
+    // The branch's own edge: the label the mirror stamped names it (objectui#13138 —
+    // a conditioned edge no branch names is never rewritten, see the addBranch pins).
+    const existing = [edge({ id: 'e1', target: 'n1', condition: 'old', label: 'A' })];
     const { edges } = applyDecisionBranches(DEC, [{ label: 'A', expression: 'fresh', target: 'n1' }], existing);
     expect(edges).toEqual([{ id: 'e1', source: DEC, target: 'n1', label: 'A', condition: 'fresh' }]);
   });

@@ -12,7 +12,9 @@
  * snake_case columns).
  *
  * Scope (MVP):
- *  - Filter by action / object_name / actor (a `sys_user` lookup) / date range
+ *  - Filter by action / object (picked from the served objects, objectui#13165;
+ *    see `objectFilterOptionsOf` below) / actor (a `sys_user` lookup) /
+ *    date range
  *  - Presets: the list views `sys_audit_log` SERVES (Writes, Auth, …), read
  *    from the console's object metadata, never copied here (objectui#12667).
  *    See `auditPresetsOf` below
@@ -65,8 +67,10 @@ import {
   SelectTrigger,
   SelectValue,
   Separator,
+  Combobox,
+  type ComboboxOption,
 } from '@object-ui/components';
-import { LookupField } from '@object-ui/fields';
+import { LookupField, objectRefOptionLabel } from '@object-ui/fields';
 import { ConsolePageHeader, useAdapter, useMetadata } from '@object-ui/app-shell';
 import { Search, X, AlertCircle, ScrollText, ExternalLink } from 'lucide-react';
 import { ACTION_OPTIONS, ACTION_VARIANT } from './auditLogActions';
@@ -164,6 +168,34 @@ function auditPresetsOf(objectDef: unknown): AuditPreset[] {
 }
 
 /**
+ * The Object filter's choices (objectui#13165): one per object the console's
+ * metadata serves, valued by its API name and labelled `Label (name)`, the
+ * spelling the `object-ref` picker gives an object (`objectRefOptionLabel`),
+ * sorted by that label in the display locale.
+ *
+ * The filter commits the chosen value, the API name, which is what
+ * `sys_audit_log.object_name` stores and what the list fetch matches exactly.
+ * It used to be a free-text box matched the same way under the placeholder
+ * "e.g. account": in an app whose objects carry a prefix that example matched
+ * no row (`crm_account` held them), and finding any object meant knowing its
+ * API name. Picking it, as the actor filter picks a user (objectui#11701),
+ * leaves nothing to guess.
+ *
+ * Nothing here names an object. The list is the served registry, the same
+ * `useMetadata().objects` read the presets come from.
+ */
+function objectFilterOptionsOf(objects: readonly unknown[], locale: string): ComboboxOption[] {
+  const options: ComboboxOption[] = [];
+  for (const raw of objects) {
+    const object = raw as { name?: unknown; label?: unknown } | null | undefined;
+    if (!object || typeof object.name !== 'string' || !object.name) continue;
+    const label = typeof object.label === 'string' && object.label.trim() ? object.label.trim() : undefined;
+    options.push({ value: object.name, label: objectRefOptionLabel(object.name, label) });
+  }
+  return options.sort((a, b) => a.label.localeCompare(b.label, locale));
+}
+
+/**
  * `locale` is REQUIRED: the log's timestamp column used to format with no
  * tag, i.e. in the MACHINE's locale (objectui#9909). The page passes
  * `useDisplayLocale()`; the `catch` is for an unparseable value.
@@ -257,18 +289,24 @@ export function AuditLogPage() {
   const { appName } = useParams<{ appName?: string }>();
   // The served `sys_audit_log` document, read through the console's metadata
   // cache — the same read the object list's view switcher draws from.
-  const { objects } = useMetadata();
+  const { objects, getTypeStatus } = useMetadata();
   const presets = useMemo(
     () => auditPresetsOf(objects.find((o) => (o as { name?: unknown } | null)?.name === AUDIT_OBJECT)),
     [objects],
   );
+  // The Object filter picks from the same served objects (objectui#13165).
+  const objectOptions = useMemo(() => objectFilterOptionsOf(objects, displayLocale), [objects, displayLocale]);
+  const objectsLoading = getTypeStatus?.('object') === 'loading';
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Filters
   const [actionFilter, setActionFilter] = useState<string>('all');
+  /** The chosen object's API name, or '' for any object. */
   const [objectFilter, setObjectFilter] = useState<string>('');
+  /** The object picker is named by its visible "Object" label. */
+  const objectFilterId = useId();
   /** The chosen user's id, or '' for any actor. */
   const [actorFilter, setActorFilter] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('');  // YYYY-MM-DD
@@ -295,7 +333,7 @@ export function AuditLogPage() {
     try {
       const filter: Record<string, unknown> = {};
       if (actionFilter && actionFilter !== 'all') filter.action = actionFilter;
-      if (objectFilter.trim()) filter.object_name = objectFilter.trim();
+      if (objectFilter) filter.object_name = objectFilter;
       if (actorFilter.trim()) filter.user_id = actorFilter.trim();
       if (fromDate) filter.created_at = { ...(filter.created_at as object || {}), $gte: fromDate };
       if (toDate) filter.created_at = { ...(filter.created_at as object || {}), $lte: `${toDate}T23:59:59` };
@@ -358,7 +396,7 @@ export function AuditLogPage() {
   const activeFilterCount = useMemo(() => {
     let n = 0;
     if (actionFilter !== 'all') n += 1;
-    if (objectFilter.trim()) n += 1;
+    if (objectFilter) n += 1;
     if (actorFilter.trim()) n += 1;
     if (fromDate) n += 1;
     if (toDate) n += 1;
@@ -440,12 +478,20 @@ export function AuditLogPage() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Object</Label>
-            <Input
-              placeholder="e.g. account"
+            <Label htmlFor={objectFilterId} className="text-xs">Object</Label>
+            {/* Picked from the served objects, never typed (objectui#13165):
+                it commits the object's API name, and choosing the chosen
+                object again commits '' for any object. A combobox takes no
+                name from its content, so the label names it. */}
+            <Combobox
+              id={objectFilterId}
+              options={objectOptions}
               value={objectFilter}
-              onChange={(e) => { setObjectFilter(e.target.value); setPage(0); }}
-              className="h-9"
+              onValueChange={(v) => { setObjectFilter(v); setPage(0); }}
+              placeholder="Any object"
+              searchPlaceholder="Search objects…"
+              emptyText={objectsLoading ? 'Loading objects…' : 'No objects found.'}
+              className="h-9 w-full"
             />
           </div>
           <div className="space-y-1.5">

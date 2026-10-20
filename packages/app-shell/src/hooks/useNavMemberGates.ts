@@ -235,13 +235,26 @@ export function navEntryVisible(
 export function useNavVisibility(
   app: unknown,
 ): (expression: NavigationItem['visible'], entry?: NavigationItem) => boolean {
+  return useNavVisibilityAndReads(app).evaluate;
+}
+
+/**
+ * {@link useNavVisibility}'s evaluator together with the read state it is built
+ * on, so a consumer that must tell "hidden" from "not answered yet" asks the
+ * same reads instead of issuing its own (objectui#13097).
+ */
+function useNavVisibilityAndReads(app: unknown): {
+  evaluate: (expression: NavigationItem['visible'], entry?: NavigationItem) => boolean;
+  readEntry: (entry: NavigationItem) => NavEntryDataRead;
+} {
   const { evaluator } = useExpressionContext();
   const readEntry = useNavEntryData(app);
-  return useCallback(
+  const evaluate = useCallback(
     (expression: NavigationItem['visible'], entry?: NavigationItem) =>
       navEntryVisible(expression, entry, evaluator, readEntry),
     [evaluator, readEntry],
   );
+  return { evaluate, readEntry };
 }
 
 /** The member's gates, as the sidebar applies them. */
@@ -257,13 +270,23 @@ export interface NavMemberGates {
 }
 
 /**
+ * The member's gates, with where each entry's API binding stands
+ * (objectui#13097): the read state the `visible` evaluator is built on, so the
+ * app root's landing can tell an entry that is hidden from one whose read has
+ * not answered yet, without a read of its own.
+ */
+export interface NavMemberGatesWithReads extends NavMemberGates {
+  readEntry: (entry: NavigationItem) => NavEntryDataRead;
+}
+
+/**
  * The member's gates, built from the providers the console mounts: the
  * expression evaluator, `usePermissions()`, and the registered object list.
  */
-export function useNavMemberGates(): NavMemberGates {
+export function useNavMemberGates(): NavMemberGatesWithReads {
   const { app } = useExpressionContext();
   // objectui#13029 — the entries of the app this frame renders may bind data.
-  const evalVis = useNavVisibility(app);
+  const { evaluate: evalVis, readEntry } = useNavVisibilityAndReads(app);
 
   // Permission check for nav `requiredPermissions` entries.
   //
@@ -346,7 +369,7 @@ export function useNavMemberGates(): NavMemberGates {
     [registeredObjectNames, missingObjectNames, readObjectScope],
   );
 
-  return { evaluateVisibility: evalVis, checkPermission: checkPerm, checkCapability: checkCap, can };
+  return { evaluateVisibility: evalVis, checkPermission: checkPerm, checkCapability: checkCap, can, readEntry };
 }
 
 /**
@@ -375,4 +398,27 @@ export function navEntriesShownToMember(items: NavigationItem[], gates: NavMembe
           : item,
       );
   return shown(withoutUnreadableObjectEntries(items, gates.can));
+}
+
+/**
+ * `items` as this member would be shown them if every entry whose API read is
+ * still pending were shown once it answers (objectui#13097): the same gates as
+ * {@link navEntriesShownToMember}, except that a pending entry's `visible` is
+ * not decided yet and keeps it. Every other gate (the object-read prune,
+ * `requiredPermissions`, the runtime-capability gates, a plain or answered
+ * `visible`) applies as it does there.
+ *
+ * Comparing the two answers tells the app root's landing whether a pending read
+ * could still change what it chooses: if it cannot, it lands now.
+ */
+export function navEntriesShownOncePendingReadsShow(
+  items: NavigationItem[],
+  gates: NavMemberGatesWithReads,
+): NavigationItem[] {
+  return navEntriesShownToMember(items, {
+    ...gates,
+    evaluateVisibility: (expression, entry) =>
+      (entry !== undefined && gates.readEntry(entry).status === 'pending') ||
+      gates.evaluateVisibility(expression, entry),
+  });
 }

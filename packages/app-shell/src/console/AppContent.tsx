@@ -56,7 +56,11 @@ import { RouteFader } from '../chrome/RouteFader.js';
 import { NavigationSyncEffect } from '../hooks/useNavigationSync.js';
 import { AppNoAccessEmptyState } from './AppNoAccessEmptyState.js';
 import { appServesNoNavigation } from './appServesNoNavigation.js';
-import { useNavMemberGates, navEntriesShownToMember } from '../hooks/useNavMemberGates.js';
+import {
+  useNavMemberGates,
+  navEntriesShownToMember,
+  navEntriesShownOncePendingReadsShow,
+} from '../hooks/useNavMemberGates.js';
 import { resolveSetupAppPath } from './ConsoleShell.js';
 import { APP_ROUTE_METADATA_READS, collectRoutePaths, metadataReadsForAppRoute, type LazyMetadataType } from './appRouteMetadataReads.js';
 import { readAppObjectScope } from './appObjectScope.js';
@@ -1604,6 +1608,18 @@ function resolveLandingRoute(navigation: NavigationItem[], ctx?: NavTemplateCont
  * `service_agent` landed on a dashboard built on an object they may not read,
  * with no active sidebar entry.
  *
+ * An entry whose API `dataSource` read is still pending is hidden by those
+ * gates (objectui#13029), but it is not decided yet (objectui#13097). So the
+ * landing is asked twice: over the trees as the member is shown them now, and
+ * over the trees as they would be shown if every pending entry were shown once
+ * it answers. When the two disagree, on the landing route or on whether the
+ * app shows this member anything, a pending read ahead of the first decided
+ * entry could still change the answer: the root holds on a skeleton, neither
+ * navigating nor saying "nothing here", and lands when the reads answer. A
+ * failed read hides its entry, and the landing moves on. An app with no bound
+ * entry, or whose first decided entry comes before every pending one, gets the
+ * same answer twice and lands on first render, as before.
+ *
  * It is a component, not an expression in `AppContent`'s render, because the
  * `visible` evaluator is the `ExpressionProvider` mounted INSIDE that render;
  * read from `AppContent` itself it would be an outer one, not the sidebar's.
@@ -1620,6 +1636,31 @@ function AppRootLanding({
   const gates = useNavMemberGates();
   const navigation = navEntriesShownToMember(app?.navigation || [], gates);
   const landing = resolveLandingRoute(navigation, ctx);
+  const shownApp = {
+    navigation,
+    areas: (app?.areas || []).map((area: any) => ({
+      navigation: navEntriesShownToMember(area?.navigation || [], gates),
+    })),
+  };
+  // objectui#13097 — the same questions, as if every pending read showed its
+  // entry. A different answer means a pending read is still deciding it.
+  const undecided = navEntriesShownOncePendingReadsShow(app?.navigation || [], gates);
+  const undecidedApp = {
+    navigation: undecided,
+    areas: (app?.areas || []).map((area: any) => ({
+      navigation: navEntriesShownOncePendingReadsShow(area?.navigation || [], gates),
+    })),
+  };
+  if (
+    resolveLandingRoute(undecided, ctx) !== landing ||
+    (!landing && appServesNoNavigation(shownApp) !== appServesNoNavigation(undecidedApp))
+  ) {
+    return (
+      <div data-testid="app-landing-pending" className="h-full">
+        <SkeletonGrid />
+      </div>
+    );
+  }
   if (landing) return <Navigate to={landing} replace />;
   // objectui#12079 — an app that shows this member NO navigation (every entry
   // gated away from them, or none served at all) is an app they have no access
@@ -1629,12 +1670,6 @@ function AppRootLanding({
   // asked of the trees as this member is shown them (objectui#12426), so a
   // member who can see no entry gets this answer, never a page the sidebar
   // hides.
-  const shownApp = {
-    navigation,
-    areas: (app?.areas || []).map((area: any) => ({
-      navigation: navEntriesShownToMember(area?.navigation || [], gates),
-    })),
-  };
   if (appServesNoNavigation(shownApp)) {
     return <AppNoAccessEmptyState app={app} setupPath={setupPath} />;
   }

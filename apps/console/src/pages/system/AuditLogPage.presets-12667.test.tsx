@@ -181,7 +181,10 @@ describe('AuditLogPage — served list views are presets (objectui#12667)', () =
   it("joins the bar's filters rather than replacing them", async () => {
     renderPage();
     await settle();
-    fireEvent.change(screen.getByPlaceholderText('e.g. account'), { target: { value: 'account' } });
+    // The object is picked from the served objects (objectui#13165).
+    fireEvent.click(screen.getByRole('combobox', { name: 'Object' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'account' }));
+    await settle();
     fireEvent.click(within(presetsGroup()).getByRole('button', { name: 'Night shift' }));
     await settle();
     expect(lastFilter()).toEqual([

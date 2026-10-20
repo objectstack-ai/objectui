@@ -1661,7 +1661,7 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   'list-view.sharing':
     'Unpublished by measurement (objectui#13047): `sharing.type` draws a Share button with no click handler, and the sharing config is enforced nowhere in the renderer. Publishing it would advertise a dead control (objectui#13047\'s report).',
   'list-view.filterableFields':
-    'Unpublished by measurement (objectui#13047): the row declares it as the legacy shorthand of `userFilters.fields` (end-user quick filters), and the list reads it as something else — the field list of the Filter panel — while it draws no quick-filter bar. Publishing it would advertise the row\'s meaning, which nothing honours; which meaning stands is a contract question for the seat (objectui#13047\'s report).',
+    'Unpublished, and RETIRED (objectui#13118): the row declares it as the legacy shorthand of `userFilters.fields`, which nothing honours, and the list read it as the Filter panel\'s field list until `@objectstack/spec` retired the key in 18.0 (objectstack#24640, ruling C: no per-view Filter-panel whitelist replaces it). Nothing reads it now. The entry dies at the pin that carries the spec\'s tombstone, when the row stops declaring the key live.',
 };
 
 /**

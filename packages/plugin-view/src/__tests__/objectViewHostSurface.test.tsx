@@ -25,8 +25,10 @@
  *
  * objectui#5097 measured 31 distinct keys that `ObjectView`'s `renderListView`
  * delegation branch reads off the object-view node through `(schema as any).K`
- * and forwards to the host's list renderer. Four are declared members of
- * `ObjectViewSchema`; 27 are not.
+ * and forwards to the host's list renderer. Four were declared members of
+ * `ObjectViewSchema`; 27 are not. objectui#13118 dropped one of the four,
+ * `filterableFields`, with the spec's retirement of the key (objectstack#24640,
+ * ruling C), so the branch reads 30 today: three declared, the 27 unchanged.
  *
  * The maintainer ruled on 2026-08-18 (verbatim 「同意」) that the 27 are HOST
  * surface, exempted with reasons — not authored surface — on a MEASURED
@@ -151,7 +153,7 @@ describe('the forwarded key set equals the documented exemption (objectui#5097)'
   const exempt: string[] = [...OBJECT_VIEW_HOST_COMPOSITION_KEYS].sort();
   const declared: string[] = [...OBJECT_VIEW_DECLARED_FORWARDED_KEYS].sort();
 
-  it('the fence reads exactly the 27 exempt keys plus the 4 declared ones', () => {
+  it('the fence reads exactly the 27 exempt keys plus the 3 declared ones', () => {
     expect(castReadsIn(regionSlice())).toEqual([...exempt, ...declared].sort());
   });
 
@@ -168,7 +170,8 @@ describe('the forwarded key set equals the documented exemption (objectui#5097)'
 
   it('the exemption covers 27 keys, the count the ruling was made on', () => {
     expect(OBJECT_VIEW_HOST_COMPOSITION_KEYS).toHaveLength(27);
-    expect(OBJECT_VIEW_DECLARED_FORWARDED_KEYS).toHaveLength(4);
+    // 4 until objectui#13118 retired `filterableFields`.
+    expect(OBJECT_VIEW_DECLARED_FORWARDED_KEYS).toHaveLength(3);
     // Disjoint: a key cannot be both declared surface and exempt host surface.
     expect(exempt.filter((k) => declared.includes(k))).toEqual([]);
   });
@@ -280,7 +283,7 @@ const namedViewReadsIn = (slice: string): string[] =>
 const FENCE_NAMED_VIEW_READS = [
   'addRecord', 'allowPrinting', 'appearance', 'aria', 'bulkActionDefs', 'bulkActions', 'columns',
   'compactToolbar', 'conditionalFormatting', 'data', 'description', 'emptyState', 'exportOptions',
-  'fieldOrder', 'filterableFields', 'grouping', 'hiddenFields', 'inlineEdit', 'label', 'navigation',
+  'fieldOrder', 'grouping', 'hiddenFields', 'inlineEdit', 'label', 'navigation',
   'pagination', 'resizable', 'rowActions', 'rowColor', 'rowHeight', 'searchableFields', 'selection',
   'sharing', 'showRecordCount', 'userActions', 'userFilters',
 ];
@@ -405,8 +408,11 @@ describe("the registered renderer cannot reach the delegation branch — the rul
     // The control: without it, "publishes none of them" would pass just as
     // happily against a registration that publishes nothing at all.
     expect(inputsOf('object-view')).toEqual(
-      expect.arrayContaining(['navigation', 'searchableFields', 'filterableFields']),
+      expect.arrayContaining(['navigation', 'searchableFields']),
     );
+    // objectui#13118: `filterableFields` left the control with the spec's
+    // retirement of the key; the registration publishes it no longer.
+    expect(inputsOf('object-view')).not.toContain('filterableFields');
   });
 
   it('the spec models no `object-view`, so the parity gate is owed nothing', () => {
@@ -454,10 +460,12 @@ const SENTINELS: Record<string, unknown> = {
   showRecordCount: true,
   userFilters: [{ field: 'owner', operator: 'eq', value: 'me' }],
   wrapHeaders: true,
-  // The four declared members ride the same branch.
+  // The three declared members ride the same branch.
   data: { api: '/api/tasks' },
   navigation: { mode: 'drawer' },
   searchableFields: ['name'],
+  // RETIRED (objectui#13118) — carried by the node and forwarded no longer;
+  // the last row below asserts it does not reach the host renderer.
   filterableFields: ['stage'],
 };
 
@@ -486,7 +494,7 @@ describe('every forwarded key still reaches the host renderer (objectui#5097)', 
     return seen[0];
   };
 
-  it('forwards all 31 reads — 27 exempt plus 4 declared — by name', () => {
+  it('forwards all 30 reads — 27 exempt plus 3 declared — by name', () => {
     const forwarded = forwardedSchema();
     const keys = [...OBJECT_VIEW_HOST_COMPOSITION_KEYS, ...OBJECT_VIEW_DECLARED_FORWARDED_KEYS];
     const got = Object.fromEntries(keys.map((k) => [k, forwarded[k]]));
@@ -498,6 +506,17 @@ describe('every forwarded key still reaches the host renderer (objectui#5097)', 
         + 'licence to stop reading it. A dropped read silently blanks that setting in every stored\n'
         + 'app-shell document that carries it.',
     ).toEqual(want);
+  });
+
+  it('the retired `filterableFields` reaches the host renderer from no source (objectui#13118)', () => {
+    // `@objectstack/spec` 18 retires the key (objectstack#24640, ruling C) and
+    // no per-view Filter-panel whitelist replaces it, so the node's value is
+    // dropped here rather than relayed into a `ListView` that reads nothing.
+    // The control on the same render: a declared sibling still arrives.
+    const forwarded = forwardedSchema();
+    expect(SENTINELS.filterableFields).toEqual(['stage']);
+    expect(forwarded).not.toHaveProperty('filterableFields');
+    expect(forwarded.searchableFields).toEqual(SENTINELS.searchableFields);
   });
 });
 

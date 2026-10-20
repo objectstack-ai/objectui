@@ -227,21 +227,24 @@ describe('objectui#4243 part 1 — the sort picker no longer reuses `filterableF
     expect(screen.getByTestId('sort-relational-info')).toHaveAttribute('title', expect.stringMatching(/can only be sorted by the stored ID/i));
   });
 
-  it('CONTROL — the FILTER builder still honours `filterableFields`', async () => {
-    // The whitelist is a filter contract and stays one. Widening the sort
-    // picker must not widen this; it is the half of the card that was never
-    // broken.
+  it('INVERTED (objectui#13118) — the FILTER builder no longer honours the retired `filterableFields`', async () => {
+    // This row was the CONTROL "the FILTER builder still honours
+    // `filterableFields`", and the dropdown offered `['Status']` alone. The
+    // spec retired the key (objectstack#24640, ruling C) and no per-view
+    // whitelist replaces it, so the filter panel offers every readable field
+    // whatever the stored view still carries — no wider than the sort picker's
+    // base set, which part 1 above already widened.
     await renderList({ sort: DECLARED_SORT, filterableFields: ['status'] });
     await openFilterPanel();
 
-    // A fresh condition defaults to `fields[0]`, so the whitelist's only member
-    // is what the row shows — and what its dropdown offers is the whole set.
+    // A fresh condition defaults to `fields[0]`: the view's first column, not
+    // the retired key's only member.
     const fp = panel('Filter Records');
     fireEvent.click(within(fp).getByRole('button', { name: /add filter/i }));
-    const fieldTrigger = within(fp).getByText('Status').closest('button');
+    const fieldTrigger = within(fp).getByText('Name').closest('button');
     expect(fieldTrigger).not.toBeNull();
 
-    expect(await optionsOf(fieldTrigger as HTMLElement)).toEqual(['Status']);
+    expect(await optionsOf(fieldTrigger as HTMLElement)).toEqual(['Name', 'Plan Start Date', 'Status', 'Owner', 'Total Amount']);
   });
 });
 

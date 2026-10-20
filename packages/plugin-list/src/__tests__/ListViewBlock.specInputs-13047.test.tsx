@@ -38,9 +38,10 @@
  * The last describe block is the keys measured NOT honoured on a page node,
  * each held out of `inputs` with its reason in the console's repo-wide parity
  * gate: `name` (read by nothing here), `sharing` (draws a button that does
- * nothing on a page node), and `filterableFields`
- * (read, but as the Filter panel's field list, not as the quick-filter
- * shorthand the row declares it to be). `requiredPermissions` was measured
+ * nothing on a page node), and `filterableFields` (read as the Filter panel's
+ * field list, not as the quick-filter shorthand the row declares it to be,
+ * until objectui#13118 removed that reader with the spec's retirement of the
+ * key; it is read as nothing now). `requiredPermissions` was measured
  * here too, until objectui#13074 honoured it on a page node; its pins now live
  * in `ListViewBlock.inertKeys-13074.test.tsx`, beside the `addRecord` routing
  * rows under a provider that serves `onCreate`. `addRecord` was held out too,
@@ -784,7 +785,12 @@ describe('objectui#13047 — measured NOT honoured on a page `list-view` node (h
     expect(screen.queryByTestId('user-filters')).toBeNull();
   });
 
-  it('`filterableFields`: what the list reads it as instead — the Filter panel\'s field list', async () => {
+  // objectui#13118 — this row read "what the list reads it as instead — the
+  // Filter panel's field list", and the second mount's first filter field was
+  // `Amount`, the key's first member. `@objectstack/spec` 18 retires the key
+  // (objectstack#24640, ruling C) and no per-view whitelist replaces it, so the
+  // list reads it as nothing: both mounts start "Add filter" on the same field.
+  it('`filterableFields`: RETIRED (objectui#13118) — the list no longer reads it as the Filter panel\'s field list, so "Add filter" starts where it does without the key', async () => {
     const firstFilterField = async (): Promise<string> => {
       fireEvent.click(screen.getByRole('button', { name: /^filter/i }));
       await screen.findByText('Filter Records');
@@ -805,7 +811,7 @@ describe('objectui#13047 — measured NOT honoured on a page `list-view` node (h
 
     const { dataSource } = mount({ filterableFields: ['amount', 'owner'] });
     await loaded(dataSource);
-    expect(await firstFilterField()).toBe('Amount');
+    expect(await firstFilterField()).toBe('Name');
   });
 
   it('`addRecord.enabled`: no Add button on a page node under no `onCreate` host — withheld, not drawn dead', async () => {

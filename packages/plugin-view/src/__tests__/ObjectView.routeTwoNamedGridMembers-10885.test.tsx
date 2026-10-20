@@ -39,8 +39,9 @@
  *    (`ObjectView.namedViewInlineEdit-10885.test.tsx`).
  *
  * The rest of bucket ① (`addRecord`, `allowPrinting`, `aria`, `compactToolbar`,
- * `description`, `emptyState`, `filterableFields`, `sharing`, `showRecordCount`,
- * `userFilters`) is list chrome `ListView` draws. `object-grid`
+ * `description`, `emptyState`, `sharing`, `showRecordCount`, `userFilters`) is
+ * list chrome `ListView` draws; `filterableFields` was among it until
+ * objectui#13118 retired it with the spec, and nothing reads it now. `object-grid`
  * does not declare it under the same name, so route 2 has no slot to read it
  * into.
  */

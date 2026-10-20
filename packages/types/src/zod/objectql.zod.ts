@@ -1223,6 +1223,9 @@ const OBJECT_VIEW_NEITHER_CHANNEL = neitherContentChannelGuidance(
  *     `NavigationConfig` for `ViewNavigationConfig`, and a literal restating it
  *     is the drift this repo keeps paying for (objectui#4588). The pin asserts
  *     identity against the spec schema, so a spec-side change moves them.
+ *     `filterableFields` is read no longer (objectui#13118: the spec retires
+ *     it, and the TypeScript face is a `?: never` tombstone); its slot stays
+ *     by reference so the spec's tombstone arrives with the pin bump.
  *   - `allowCreateView`, `viewActions` — READ: the renderer forwards both
  *     verbatim into the `view-switcher` node it composes
  *     (`allowCreateView: schema.allowCreateView`, `viewActions: schema.viewActions`,
@@ -1295,7 +1298,12 @@ export const ObjectViewSchema = BaseSchema.extend({
   form: z.lazy(() => ObjectFormSchema.omit({ type: true, objectName: true, mode: true }).partial()).optional().describe('Form config'),
   // Spec slots by reference (objectui#7779) — `array(string).optional()` on
   // both; the spec's own description marks `filterableFields` a legacy
-  // shorthand for `userFilters.fields`.
+  // shorthand for `userFilters.fields`. ⚠️ `filterableFields` is RETIRED on the
+  // TypeScript face (objectui#13118, a `?: never` tombstone) and read by
+  // nothing: `@objectstack/spec` 18 retires it (objectstack#24640, ruling C).
+  // This reference stays, because it is what carries the spec's own
+  // `retiredKey()` tombstone in on the pin bump that takes the retirement;
+  // until then it admits the array, recorded in `WiderThanDeclared`.
   searchableFields: stripImportedDefaults(SpecListViewSchema).shape.searchableFields,
   filterableFields: stripImportedDefaults(SpecListViewSchema).shape.filterableFields,
   showSearch: z.boolean().optional().describe('Show search'),

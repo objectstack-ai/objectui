@@ -473,7 +473,9 @@ const FAMILIES: Record<string, Record<string, Sources>> = {
   },
   'search, filter and navigation': {
     searchableFields: { named: ['subject'], host: ['host_search'], node: ['node_search'] },
-    filterableFields: { named: ['stage'], host: ['host_filter'], node: ['node_filter'] },
+    // `filterableFields` rode this family until objectui#13118: the spec
+    // retires it (objectstack#24640, ruling C) and no source relays it now —
+    // pinned by its own row below the families.
     userFilters: {
       named: { element: 'dropdown', fields: [{ field: 'stage' }] },
       host: { element: 'dropdown', fields: [{ field: 'owner' }] },
@@ -543,11 +545,14 @@ function expectControl(s: HandedDown) {
 
 describe('objectui#10758 — the host delegation reads bucket ① off the named view, one named view per member family', () => {
   it('the families cover bucket ① exactly once, and every member is a protocol member of a named view', () => {
-    // 23 is the ruling's figure (objectui#7924, comment 5690906005) and the
-    // re-sample on this tree; the types census re-derives the partition on
-    // every run, so this is the fixture's coverage, not a second census.
-    expect(BUCKET_ONE).toHaveLength(23);
-    expect(new Set(BUCKET_ONE).size).toBe(23);
+    // 23 is the ruling's figure (objectui#7924, comment 5690906005); 22 since
+    // objectui#13118 retired `filterableFields`, which the spec retires and no
+    // source relays (its own row below). The types census re-derives the
+    // partition on every run, so this is the fixture's coverage, not a second
+    // census.
+    expect(BUCKET_ONE).toHaveLength(22);
+    expect(new Set(BUCKET_ONE).size).toBe(22);
+    expect(BUCKET_ONE).not.toContain('filterableFields');
     const protocol = Object.keys(SpecObjectListViewSchema.shape);
     expect(BUCKET_ONE.filter((m) => !protocol.includes(m))).toEqual([]);
     // Control on the same query: a key the protocol does NOT declare on a
@@ -594,6 +599,22 @@ describe('objectui#10758 — the host delegation reads bucket ① off the named 
         }
       }
     });
+  });
+
+  it('RETIRED (objectui#13118) — `filterableFields` reaches the list from no source: not the named view, not the host entry, not the node', () => {
+    // It was a bucket-① member read named view first, then the host entry,
+    // then the node. `@objectstack/spec` 18 retires it (objectstack#24640,
+    // ruling C) and no per-view Filter-panel whitelist replaces it, so all
+    // three rungs went with the `ListView` reader they fed. The control rides
+    // the same render: the named view's other members still arrive.
+    const retired: Record<string, unknown> = { filterableFields: ['stage'] };
+    const s = delegatedWithSources(
+      { ...CONTROL, ...retired } as SpecNamedView,
+      { filterableFields: ['host_filter'] },
+      { filterableFields: ['node_filter'] },
+    );
+    expectControl(s);
+    expect(s).not.toHaveProperty('filterableFields');
   });
 
   it('`rowHeight`: the named view is read as ITSELF, and the host entry still goes through the fold', () => {

@@ -163,14 +163,17 @@ describe('the Filter panel field list asks the column read check (objectui#11925
     expect(await openFilterFieldList()).toEqual(FULL_READ_LIST);
   });
 
-  it('the `filterableFields` whitelist does not bring an unreadable field back', async () => {
+  // objectui#13118 — this row read "the `filterableFields` whitelist does not
+  // bring an unreadable field back", and the list was the whitelist minus the
+  // unreadable field (`title`, `priority`). The spec retired the key
+  // (objectstack#24640, ruling C) and no per-view whitelist replaces it, so the
+  // read check is now the only narrowing: a stored view that still carries the
+  // key gets exactly the list a view without it gets.
+  it('a stored view still carrying the retired `filterableFields` gets the read-checked list, no narrower and no wider (objectui#13118)', async () => {
     mount({ perms: RESTRICTED, schemaExtra: { filterableFields: ['secret_note', 'priority', 'title'] } });
-    fireEvent.click(screen.getByRole('button', { name: /^filter/i }));
-    await screen.findByText('Filter Records');
-    await waitFor(() => {
-      const latest = (captured.fields[captured.fields.length - 1] ?? []).map((f) => f.value);
-      expect(latest).toEqual(['title', 'priority']);
-    });
+    const list = await openFilterFieldList();
+    expect(list).not.toContain('secret_note');
+    expect(list).toEqual(['title', 'status', 'priority']);
   });
 
   it('a held condition on an unreadable field does not bring it back', async () => {

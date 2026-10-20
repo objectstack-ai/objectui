@@ -66,6 +66,19 @@
  * and every pin that held one of those members UNREAD is inverted, not deleted.
  * ⛔ Quote neither pair from here: the census re-derives both on every run.
  *
+ * ⭐ objectui#13118 moved one member back the other way, by retirement rather
+ * than by a lost read: `@objectstack/spec` 18 retires the list view's
+ * `filterableFields` (objectstack#24640, maintainer ruling C — no per-view
+ * Filter-panel whitelist replaces it), so its one reader, `ListView`'s Filter
+ * panel whitelist, and every relay rung that fed it came out, and both faces'
+ * TypeScript declarations became `?: never` tombstones. objectui's own spec pin
+ * predates that retirement, so the installed protocol still calls the key LIVE:
+ * the census reads it in a sixth bucket, {@link BUCKET_SPEC_RETIRED_AHEAD_OF_PIN},
+ * which empties itself into the protocol-retired buckets at the pin bump that
+ * takes the retirement. On the node, the key stays MIRRORED (the spec's slot by
+ * reference carries the tombstone in at that bump) and is READ no longer
+ * ({@link SPEC_RETIRED_UNREAD}).
+ *
  * ⚠️ BOTH FIGURES WERE RE-TAKEN at objectui#8980 and are NOT the ones this file
  * was written with. It measured 47 declared / 6 read / 41 unread, plus a
  * SEVENTH read, `data`, that was declared nowhere and reached the renderer
@@ -154,6 +167,19 @@ const SIBLING_REFERENCED = ['allowCreateView', 'viewActions'] as const;
 const LOCAL_LITERALS = ['defaultViewType', 'defaultListView', 'showViewSwitcher'] as const;
 const MIRRORED = [...SPEC_REFERENCED, ...SIBLING_REFERENCED, ...LOCAL_LITERALS] as const;
 type Mirrored = (typeof MIRRORED)[number];
+/**
+ * objectui#13118 — the one MIRRORED key the renderer reads no longer.
+ * `@objectstack/spec` 18 retires the list view's `filterableFields`
+ * (objectstack#24640, ruling C: no per-view Filter-panel whitelist replaces
+ * it). The node's mirror slot is still the spec's own by reference, which is
+ * what carries the spec's tombstone in at the pin bump that takes the
+ * retirement; the TypeScript face is a `?: never` tombstone already. Its read
+ * pins are inverted below, not deleted.
+ */
+const SPEC_RETIRED_UNREAD = 'filterableFields' as const;
+type ReadMirrored = Exclude<Mirrored, typeof SPEC_RETIRED_UNREAD>;
+/** The mirrored keys the renderer still reads: every one but {@link SPEC_RETIRED_UNREAD}. */
+const READ_MIRRORED = MIRRORED.filter((k): k is ReadMirrored => k !== SPEC_RETIRED_UNREAD);
 const RETIRED = 'viewTabBar';
 /** Ledgered until objectui#7928; the spec's own record, by reference, since. */
 const LEDGERED = 'listViews';
@@ -162,12 +188,11 @@ const LEDGERED = 'listViews';
  * Exact source text of the reads, as they stand today. Line numbers drift and
  * live in the docblocks' prose only; the READ is the fact.
  */
-const READ_TEXT: Record<Mirrored, ReadonlyArray<readonly [file: string, text: string]>> = {
+const READ_TEXT: Record<ReadMirrored, ReadonlyArray<readonly [file: string, text: string]>> = {
   // objectui#10885: the node's `navigation` is still read, now as the fallback
   // behind the active named view's.
   navigation: [[READER, 'const navigationConfig: ViewNavigationConfig | undefined = currentNamedViewConfig?.navigation ?? schema.navigation;']],
   searchableFields: [[READER, 'searchableFields: currentNamedViewConfig?.searchableFields ?? activeView?.searchableFields ?? (schema as any).searchableFields,']],
-  filterableFields: [[READER, 'filterableFields: currentNamedViewConfig?.filterableFields ?? activeView?.filterableFields ?? (schema as any).filterableFields,']],
   allowCreateView: [
     [READER, 'allowCreateView: schema.allowCreateView,'],
     [SWITCHER, 'const createViewButton = schema.allowCreateView ? ('],
@@ -198,8 +223,10 @@ const READ_CONTROL_KEY = 'objectName';
 const CONTROL_KEY = 'viewSwitcherPosition';
 
 /**
- * The `NamedListView` members the renderer reads off a named view. Forty-three
- * since objectui#10758 made the host delegation read bucket ① — the
+ * The `NamedListView` members the renderer reads off a named view. Forty-two
+ * since objectui#13118 stopped reading `filterableFields` (the spec retires
+ * it); forty-three from objectui#10758, which made the host delegation read
+ * bucket ① — the
  * twenty-three protocol members no route read off the named view — from the
  * named view first; twenty from objectui#7928, which stopped reading the legacy
  * `options` bag off a named view (it is folded at `ViewPreview` instead);
@@ -210,7 +237,7 @@ const CONTROL_KEY = 'viewSwitcherPosition';
 const NAMED_VIEW_READS = [
   'addRecord', 'allowPrinting', 'appearance', 'aria', 'bulkActionDefs', 'bulkActions',
   'calendar', 'chart', 'columns', 'compactToolbar', 'conditionalFormatting', 'data',
-  'description', 'emptyState', 'exportOptions', 'fieldOrder', 'filter', 'filterableFields',
+  'description', 'emptyState', 'exportOptions', 'fieldOrder', 'filter',
   'gallery', 'gantt', 'grouping', 'hiddenFields', 'inlineEdit', 'kanban', 'label', 'map',
   'name', 'navigation', 'pagination', 'resizable', 'rowActions', 'rowColor', 'rowHeight',
   'searchableFields', 'selection', 'sharing', 'showRecordCount', 'sort', 'timeline', 'tree',
@@ -238,15 +265,16 @@ const NAMED_LIST_VIEW_DECLARED = [
 ] as const;
 
 /**
- * The DECLARED members the renderer reads off a named view. All 43 of them
- * (20 until objectui#10758 added bucket ①; 21 until objectui#7928 dropped
- * `options`) — the read set and the declared set disagree on no name since
- * objectui#8980, which is what closed {@link NAMED_VIEW_READ_UNDECLARED}.
+ * The DECLARED members the renderer reads off a named view. All 42 of them
+ * (43 until objectui#13118 stopped reading `filterableFields`; 20 until
+ * objectui#10758 added bucket ①; 21 until objectui#7928 dropped `options`) —
+ * the read set and the declared set disagree on no name since objectui#8980,
+ * which is what closed {@link NAMED_VIEW_READ_UNDECLARED}.
  */
 const NAMED_VIEW_READ_DECLARED = [
   'addRecord', 'allowPrinting', 'appearance', 'aria', 'bulkActionDefs', 'bulkActions',
   'calendar', 'chart', 'columns', 'compactToolbar', 'conditionalFormatting', 'data',
-  'description', 'emptyState', 'exportOptions', 'fieldOrder', 'filter', 'filterableFields',
+  'description', 'emptyState', 'exportOptions', 'fieldOrder', 'filter',
   'gallery', 'gantt', 'grouping', 'hiddenFields', 'inlineEdit', 'kanban', 'label', 'map',
   'name', 'navigation', 'pagination', 'resizable', 'rowActions', 'rowColor', 'rowHeight',
   'searchableFields', 'selection', 'sharing', 'showRecordCount', 'sort', 'timeline', 'tree',
@@ -270,10 +298,11 @@ const NAMED_VIEW_READ_DECLARED = [
 const NAMED_VIEW_READ_UNDECLARED = [] as const;
 
 /**
- * The census result: declared, and NOT read off a named view. 22 today: the
+ * The census result: declared, and NOT read off a named view. 23 today: the
  * 44 of objectui#7928 minus bucket ①'s twenty-three, which objectui#10758 made
  * the host delegation read off the named view, plus `requiredPermissions`
- * (objectui#12341). What is left is bucket ② (the legacy `show*` spellings),
+ * (objectui#12341), plus `filterableFields`, read no longer since objectui#13118
+ * ({@link BUCKET_SPEC_RETIRED_AHEAD_OF_PIN}). What is left is bucket ② (the legacy `show*` spellings),
  * bucket ③ (objectui-only members), the two members `@objectstack/spec` 17.5.0
  * retired ({@link BUCKET_PROTOCOL_RETIRED_TOMBSTONED}) and the one LIVE
  * protocol member the SERVER enforces ({@link BUCKET_SERVER_ENFORCED_UNREAD}) —
@@ -293,7 +322,7 @@ const NAMED_VIEW_READ_UNDECLARED = [] as const;
  */
 const NAMED_LIST_VIEW_UNREAD = [
   'addDeleteRecordsInline', 'addRecordViaForm', 'allowExport', 'clickIntoRecordDetails',
-  'collapseAllByDefault', 'color', 'densityMode', 'fieldTextColor', 'options', 'pageName',
+  'collapseAllByDefault', 'color', 'densityMode', 'fieldTextColor', 'filterableFields', 'options', 'pageName',
   'prefixField', 'requiredPermissions', 'showColor', 'showDensity', 'showDescription', 'showFilters', 'showGroup',
   'showHideFields', 'showSearch', 'showSort', 'tabs', 'wrapHeaders',
 ] as const;
@@ -382,6 +411,26 @@ const PROTOCOL_RETIRED_KEYS = ['bordered', 'pageName', 'performance', 'responsiv
  */
 const BUCKET_SERVER_ENFORCED_UNREAD = ['requiredPermissions'] as const;
 
+/**
+ * The SIXTH bucket (objectui#13118) — a member the installed protocol still
+ * calls LIVE, that `@objectstack/spec` has RETIRED on objectstack `main`
+ * AHEAD of objectui's own pin, and that objectui therefore reads nowhere and
+ * declares only as a `?: never` tombstone.
+ *
+ * `filterableFields`: objectstack#24640 (maintainer ruling C, pulled into
+ * 18.0) retires the list view's per-view Filter-panel whitelist, and no key
+ * replaces it. The renderer change does not depend on the pin — dropping a
+ * reader of a retired key is safe at any pin — so it landed ahead of the bump.
+ *
+ * ⛔ Not a place to park a key the renderer should read: a member lands here
+ * only with a named spec retirement on objectstack `main`. ⭐ The bucket is
+ * SELF-EXPIRING: the per-member row below asserts the installed spec does not
+ * carry the tombstone yet, so the pin bump that takes the retirement reddens
+ * it, and the member moves to {@link PROTOCOL_RETIRED_KEYS} and
+ * {@link BUCKET_PROTOCOL_RETIRED_TOMBSTONED} in that same bump.
+ */
+const BUCKET_SPEC_RETIRED_AHEAD_OF_PIN = ['filterableFields'] as const;
+
 /** The marker every protocol tombstone's description opens with. */
 const PROTOCOL_TOMBSTONE_MARKER = '[REMOVED]';
 
@@ -403,16 +452,25 @@ const PROTOCOL_TOMBSTONE_MARKER = '[REMOVED]';
 const BUCKET_PROTOCOL_DECLARED_UNREAD = [] as const;
 
 /**
- * The twenty-three bucket-① members, by name — the pinned reading of what moved
- * from unread to read at objectui#10758. Each is asserted READ, per member,
- * below; the census above asserts the same from the other side.
+ * The bucket-① members still read, by name — the pinned reading of what moved
+ * from unread to read at objectui#10758. Twenty-three moved; twenty-two stay
+ * read, because objectui#13118 stopped reading `filterableFields` when the spec
+ * retired it ({@link BUCKET_ONE_UNREAD_SINCE_13118}). Each is asserted READ, per
+ * member, below; the census above asserts the same from the other side.
  */
 const BUCKET_ONE_READ_SINCE_10758 = [
   'addRecord', 'allowPrinting', 'aria', 'bulkActionDefs', 'bulkActions', 'compactToolbar',
-  'conditionalFormatting', 'description', 'emptyState', 'exportOptions', 'filterableFields',
+  'conditionalFormatting', 'description', 'emptyState', 'exportOptions',
   'hiddenFields', 'inlineEdit', 'navigation', 'pagination', 'resizable', 'rowActions', 'rowHeight',
   'searchableFields', 'selection', 'sharing', 'showRecordCount', 'userFilters',
 ] as const;
+
+/**
+ * The one objectui#10758 bucket-① member read no longer: `filterableFields`,
+ * whose reader objectui#13118 removed with the spec's retirement of the key.
+ * Its READ pin is inverted below, not deleted.
+ */
+const BUCKET_ONE_UNREAD_SINCE_13118 = ['filterableFields'] as const;
 
 /**
  * BUCKET ② — the eight legacy `show*` SPELLINGS: declared by objectui alone,
@@ -483,6 +541,15 @@ const BUCKET_LOCAL_ONLY_RETAINED = [] as const;
  * marker, the way the objectui#11073 pair is kept apart below.
  */
 const RETIRED_BY_11013 = ['allowExport'] as const;
+
+/**
+ * The `?: never` tombstone objectui#13118 put on `NamedListView`: the
+ * twenty-first, and the first for a key the installed protocol still calls
+ * live ({@link BUCKET_SPEC_RETIRED_AHEAD_OF_PIN}). Kept apart from
+ * {@link NAMED_LIST_VIEW_TOMBSTONES} for the same reason as
+ * {@link RETIRED_BY_11013}.
+ */
+const RETIRED_BY_13118 = ['filterableFields'] as const;
 
 /**
  * The bucket-③ member retired LATER than its neighbours, by ruling A′ on
@@ -591,6 +658,10 @@ export type _DefaultViewTypeIsNotAny = Expect<Equal<IsAny<TsObjectViewSchema['de
 // the point: the tombstone is load-bearing.
 export type _ViewTabBarIsTombstone = Expect<Equal<TsObjectViewSchema['viewTabBar'], undefined>>;
 export type _ViewTabBarIsNotAny = Expect<Equal<IsAny<TsObjectViewSchema['viewTabBar']>, false>>;
+// `filterableFields`: a `?: never` tombstone since objectui#13118 — the spec
+// retires the key. Widening it back to `string[]` makes this pin red.
+export type _FilterableFieldsIsTombstone = Expect<Equal<TsObjectViewSchema['filterableFields'], undefined>>;
+export type _FilterableFieldsIsNotAny = Expect<Equal<IsAny<TsObjectViewSchema['filterableFields']>, false>>;
 // `listViews`: the protocol's record since objectui#7928 — inverted from "STILL the
 // declaration's local value", which this card (objectui#7779) pinned.
 export type _ListViewsIsNoLongerTheLocalRecord = Expect<Equal<Equal<TsObjectViewSchema['listViews'], Record<string, NamedListView> | undefined>, false>>;
@@ -611,6 +682,9 @@ export const literal: TsObjectViewSchema = { ...NODE, ...(ACCEPTED as Record<Mir
 // tombstone `Equal` row above instead.
 // @ts-expect-error — `viewTabBar` is RETIRED on this node (objectui#7779); it was never read
 export const retiredLiteral: TsObjectViewSchema = { ...NODE, viewTabBar: { showAddButton: true } };
+// …REFUSES the spec-retired `filterableFields` (objectui#13118) on a literal.
+// @ts-expect-error — `filterableFields` is RETIRED (objectui#13118): the spec retires it, and nothing reads it
+export const retiredFilterableFieldsLiteral: TsObjectViewSchema = { ...NODE, filterableFields: ['status'] };
 // …and REFUSES the host-only view kind: `tree` is not authorable here (objectui#5321).
 // @ts-expect-error — `defaultViewType` is the seven-value union; `tree` is host composition only
 export const hostOnlyLiteral: TsObjectViewSchema = { ...NODE, defaultViewType: 'tree' };
@@ -934,7 +1008,7 @@ describe('objectui#7779 — the renderer reads the eight mirrored keys, which is
     expect(new Set<string>(MIRRORED).size).toBe(8);
   });
 
-  it.each(MIRRORED)('`%s` is still read, as the exact text the docblocks cite', (key) => {
+  it.each(READ_MIRRORED)('`%s` is still read, as the exact text the docblocks cite', (key) => {
     for (const [file, text] of READ_TEXT[key]) {
       expect(readRepo(file), `${file} no longer reads \`${key}\` as \`${text}\``).toContain(text);
     }
@@ -945,9 +1019,12 @@ describe('objectui#7779 — the renderer reads the eight mirrored keys, which is
     for (const text of REGISTRATION_TEXT) expect(src).toContain(text);
   });
 
-  it('the read set, derived from the renderer and the switcher, contains every mirrored key and the read control — and NOT the retired key or the control key', () => {
+  it('the read set, derived from the renderer and the switcher, contains every mirrored key it still reads and the read control — and NOT the retired keys or the control key', () => {
     const reads = new Set([...schemaReads(READER), ...schemaReads(SWITCHER)]);
-    for (const key of MIRRORED) expect(reads.has(key), `renderer no longer reads schema.${key}`).toBe(true);
+    for (const key of READ_MIRRORED) expect(reads.has(key), `renderer no longer reads schema.${key}`).toBe(true);
+    // objectui#13118: the spec-retired mirrored key is read no longer — on the
+    // same query that still finds its two spec-referenced siblings above.
+    expect(reads.has(SPEC_RETIRED_UNREAD), `renderer reads schema.${SPEC_RETIRED_UNREAD} again`).toBe(false);
     // The positive control: the query that returns zero for `viewTabBar` is
     // the same query that returns `objectName`, so the zero is a reading.
     expect(reads.has(READ_CONTROL_KEY)).toBe(true);
@@ -959,6 +1036,25 @@ describe('objectui#7779 — the renderer reads the eight mirrored keys, which is
     // this turns red and the control must be re-chosen, not declared on the
     // way past.
     expect(reads.has(CONTROL_KEY)).toBe(false);
+  });
+
+  it('INVERTED (objectui#13118): `filterableFields` is read off no source — not the node, not a named view, not the host `views` entry', () => {
+    // Was "`filterableFields` is still read, as the exact text the docblocks
+    // cite" — the three-rung relay into `ListView`'s Filter-panel whitelist.
+    // `@objectstack/spec` 18 retires the key (objectstack#24640, ruling C) and
+    // no per-view whitelist replaces it, so the relay and its reader came out.
+    const src = readRepo(READER);
+    expect(src).not.toMatch(/\bfilterableFields\s*:/);
+    expect(namedViewReads()).not.toContain(SPEC_RETIRED_UNREAD);
+    expect(src).not.toContain('activeView?.filterableFields');
+    // Control on the same file and the same spelling: its sibling's rung stands.
+    expect(src).toContain('searchableFields: currentNamedViewConfig?.searchableFields ?? activeView?.searchableFields ?? (schema as any).searchableFields,');
+    // …and both TypeScript faces carry the tombstone, while the mirror keeps the
+    // spec's slot by reference, which carries the spec's own tombstone in at the
+    // pin bump that takes the retirement.
+    expect(readRepo(DECLARATION).match(/filterableFields\?: never;/g)).toHaveLength(2);
+    expect(readRepo(DECLARATION)).toContain('RETIRED (objectui#13118)');
+    expect(readRepo(MIRROR)).toContain('filterableFields: stripImportedDefaults(SpecListViewSchema).shape.filterableFields,');
   });
 
   it('`viewTabBar` reaches the tab bar only as a component PROP from the host, never off the node', () => {
@@ -1324,8 +1420,8 @@ describe('objectui#7779 → objectui#7928 — `listViews` was ledgered on the fa
     ])).toEqual(['label-only', 'tuple']);
   });
 
-  it('the renderer reads forty-three keys off a named view — every one of them a declared `NamedListView` member — of a declaration with 65, the reason a local key-for-key mirror was never the answer', () => {
-    // ⚠️ The REGEX instrument sees forty-two, not forty-three: `name` is read only
+  it('the renderer reads forty-two keys off a named view — every one of them a declared `NamedListView` member — of a declaration with 65, the reason a local key-for-key mirror was never the answer', () => {
+    // ⚠️ The REGEX instrument sees forty-one, not forty-two: `name` is read only
     // at the tab strip (`view.name`), which `currentNamedViewConfig?.KEY` cannot
     // see. The AST derivation below finds it; the gap between the two is
     // asserted by name there rather than papered over here.
@@ -1335,9 +1431,9 @@ describe('objectui#7779 → objectui#7928 — `listViews` was ledgered on the fa
     // objectui#7928 resolves it as the protocol's `I18nLabel` first; `view.label`
     // is still the read.
     expect(readRepo(READER)).toContain('{resolveInlineI18nLabel(view.label, displayLocale) || view.name || key}');
-    // ALL forty-three are declared `NamedListView` members (objectui#10758's
-    // twenty-three bucket-① reads are protocol members declared since
-    // objectui#8980 or before). Since objectui#8980:
+    // ALL forty-two are declared `NamedListView` members (objectui#10758's
+    // bucket-① reads are protocol members declared since objectui#8980 or
+    // before; objectui#13118 took `filterableFields` out of the read set). Since objectui#8980:
     // the seventeen the protocol declares on this surface landed with a read
     // point each, and `data` — which used to reach the renderer through an
     // `as any` cast on the named-view config — is one of them. So the "unread"
@@ -1444,10 +1540,11 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
     }
   });
 
-  it('the renderer reads exactly forty-three names off a named view — every one of them declared', () => {
+  it('the renderer reads exactly forty-two names off a named view — every one of them declared', () => {
     const d = deriveNamedViewReads();
     expect(d.reads).toEqual([...NAMED_VIEW_READS]);
-    expect(d.reads).toHaveLength(43);
+    // 43 until objectui#13118 stopped reading the spec-retired `filterableFields`.
+    expect(d.reads).toHaveLength(42);
     // ⭐ THE INSTRUMENTS NOW DISAGREE BY ONE NAME, and the difference is pinned
     // rather than smoothed over. The AST finds STRICTLY more than the
     // `currentNamedViewConfig?.KEY` regex it replaced — that was already true
@@ -1466,15 +1563,15 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
     expect(d.readSites.name.length, '`name` is read at exactly one site: the tab strip\'s display fallback').toBe(1);
   });
 
-  it('the census partitions the declaration exactly: 43 read + 22 unread = 65, disjoint and exhaustive', () => {
+  it('the census partitions the declaration exactly: 42 read + 23 unread = 65, disjoint and exhaustive (43 + 22 until objectui#13118)', () => {
     const declared = new Set(namedListViewMembers().names);
     const reads = new Set(deriveNamedViewReads().reads);
     const read = [...declared].filter((m) => reads.has(m)).sort();
     const unread = [...declared].filter((m) => !reads.has(m)).sort();
     expect(read).toEqual([...NAMED_VIEW_READ_DECLARED]);
     expect(unread).toEqual([...NAMED_LIST_VIEW_UNREAD]);
-    expect(read).toHaveLength(43);
-    expect(unread).toHaveLength(22);
+    expect(read).toHaveLength(42);
+    expect(unread).toHaveLength(23);
     expect(read.length + unread.length).toBe(declared.size);
     expect(read.filter((m) => unread.includes(m))).toEqual([]);
   });
@@ -1631,7 +1728,7 @@ function foldFlagMap(): Record<string, string> {
   return out;
 }
 
-describe('objectui#7924 — the unread members, in the FOUR buckets the ruling was written in plus the server-enforced fifth (objectui#12341), derived against the installed protocol (bucket ① empty since objectui#10758)', () => {
+describe('objectui#7924 — the unread members, in the FOUR buckets the ruling was written in plus the server-enforced fifth (objectui#12341) and the retired-ahead-of-the-pin sixth (objectui#13118), derived against the installed protocol (bucket ① empty since objectui#10758)', () => {
   it('the protocol declares 51 keys for a named list view, and the instrument that reads them fires', () => {
     const keys = protocolListViewKeys();
     expect(keys).toEqual([...PROTOCOL_LIST_VIEW_KEYS]);
@@ -1733,16 +1830,18 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     }
   });
 
-  it('the 22 unread members partition FIVE ways — 0 + 8 + 11 + 2 + 1 since objectui#12341 (0 + 8 + 11 + 2 before it, 23 + 8 + 11 + 2 before objectui#10758) — disjoint and exhaustive', () => {
+  it('the 23 unread members partition SIX ways — 0 + 8 + 11 + 2 + 1 + 1 since objectui#13118 (0 + 8 + 11 + 2 + 1 before it, 0 + 8 + 11 + 2 before objectui#12341, 23 + 8 + 11 + 2 before objectui#10758) — disjoint and exhaustive', () => {
     const unread = new Set(NAMED_LIST_VIEW_UNREAD as readonly string[]);
     const protocolKeys = new Set(protocolListViewKeys());
     const retiredTombstoned = new Set<string>(BUCKET_PROTOCOL_RETIRED_TOMBSTONED);
     const serverEnforced = new Set<string>(BUCKET_SERVER_ENFORCED_UNREAD);
+    const retiredAheadOfPin = new Set<string>(BUCKET_SPEC_RETIRED_AHEAD_OF_PIN);
     const spellings = new Set<string>(BUCKET_LEGACY_SHOW_SPELLINGS);
 
     const protocolLive = [...unread].filter((m) => protocolKeys.has(m) && !retiredTombstoned.has(m));
-    const protocolDeclared = protocolLive.filter((m) => !serverEnforced.has(m)).sort();
+    const protocolDeclared = protocolLive.filter((m) => !serverEnforced.has(m) && !retiredAheadOfPin.has(m)).sort();
     expect(protocolLive.filter((m) => serverEnforced.has(m)).sort()).toEqual([...BUCKET_SERVER_ENFORCED_UNREAD]);
+    expect(protocolLive.filter((m) => retiredAheadOfPin.has(m)).sort()).toEqual([...BUCKET_SPEC_RETIRED_AHEAD_OF_PIN]);
     const localOnly = [...unread].filter((m) => !protocolKeys.has(m)).sort();
     const legacy = localOnly.filter((m) => spellings.has(m)).sort();
     const inventedOnly = localOnly.filter((m) => !spellings.has(m)).sort();
@@ -1759,14 +1858,16 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(inventedOnly).toHaveLength(11);
     expect(BUCKET_PROTOCOL_RETIRED_TOMBSTONED).toHaveLength(2);
     expect(BUCKET_SERVER_ENFORCED_UNREAD).toHaveLength(1);
+    expect(BUCKET_SPEC_RETIRED_AHEAD_OF_PIN).toHaveLength(1);
     // Exhaustive and disjoint against the census's own unread set: a member that
     // lands in no bucket, or in two, fails here — which is the event that makes
     // the 2026-09-16 disposition ruling stale.
     const union = [
       ...protocolDeclared, ...legacy, ...inventedOnly, ...BUCKET_PROTOCOL_RETIRED_TOMBSTONED, ...BUCKET_SERVER_ENFORCED_UNREAD,
+      ...BUCKET_SPEC_RETIRED_AHEAD_OF_PIN,
     ];
-    expect(union).toHaveLength(22);
-    expect(new Set(union).size).toBe(22);
+    expect(union).toHaveLength(23);
+    expect(new Set(union).size).toBe(23);
     expect([...union].sort()).toEqual([...unread].sort());
   });
 
@@ -1794,10 +1895,12 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     const unreadProtocol = live.filter((k) => declared.includes(k) && !reads.includes(k)).sort();
     // Was the objectui#8980 pair until `@objectstack/spec` 17.5.0 retired both;
     // a retired key is not live, so the set was empty (objectui#11073). Since
-    // objectui#12341 it holds exactly the server-enforced bucket — a live
-    // protocol member read off no named view BY DESIGN — and nothing else.
-    expect(unreadProtocol).toEqual([...BUCKET_SERVER_ENFORCED_UNREAD]);
-    expect(unreadProtocol.filter((k) => !(BUCKET_SERVER_ENFORCED_UNREAD as readonly string[]).includes(k))).toEqual([]);
+    // objectui#12341 it holds the server-enforced bucket — a live protocol
+    // member read off no named view BY DESIGN — and since objectui#13118 the
+    // member retired on objectstack `main` ahead of this pin; nothing else.
+    const accounted = [...BUCKET_SERVER_ENFORCED_UNREAD, ...BUCKET_SPEC_RETIRED_AHEAD_OF_PIN] as readonly string[];
+    expect(unreadProtocol).toEqual([...accounted].sort());
+    expect(unreadProtocol.filter((k) => !accounted.includes(k))).toEqual([]);
     // Control on the same derivation: it still finds the bucket-② / ③ members
     // unread, so the empty bucket is a reading and not a probe that reads all.
     expect(declared.filter((k) => !reads.includes(k))).toContain(NAMED_VIEW_UNREAD_CONTROL);
@@ -1809,6 +1912,16 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(deriveNamedViewReads().reads).toContain(member);
     expect(NAMED_VIEW_READ_DECLARED as readonly string[]).toContain(member);
     expect(NAMED_LIST_VIEW_UNREAD as readonly string[]).not.toContain(member);
+  });
+
+  it.each(BUCKET_ONE_UNREAD_SINCE_13118)('INVERTED (objectui#13118) — `%s` was a bucket-① member read off a named view since objectui#10758, and is read off none now: the spec retires it', (member) => {
+    expect(namedListViewMembers().names).toContain(member);
+    expect(namedListViewMembers().tombstones).toContain(member);
+    expect(protocolListViewKeys()).toContain(member);
+    expect(deriveNamedViewReads().reads).not.toContain(member);
+    expect(NAMED_VIEW_READ_DECLARED as readonly string[]).not.toContain(member);
+    expect(NAMED_LIST_VIEW_UNREAD as readonly string[]).toContain(member);
+    expect(BUCKET_SPEC_RETIRED_AHEAD_OF_PIN as readonly string[]).toContain(member);
   });
 
   it.each(BUCKET_LEGACY_SHOW_SPELLINGS)('BUCKET ② — `%s` is a legacy SPELLING: the protocol declares it nowhere, and the runtime already folds it onto its canonical twin', (member) => {
@@ -1842,6 +1955,24 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(tombstones).toContain(member);
     expect(docs[member]).toContain('RETIRED (objectui#11073)');
     expect(protocolRetiredKeys()).toContain(member);
+    expect(deriveNamedViewReads().reads).not.toContain(member);
+    expect(NAMED_LIST_VIEW_UNREAD as readonly string[]).toContain(member);
+  });
+
+  it.each(BUCKET_SPEC_RETIRED_AHEAD_OF_PIN)('RETIRED AHEAD OF THE PIN — `%s` is live at the installed spec, retired on objectstack `main`, a `?: never` tombstone here, and read nowhere (objectui#13118)', (member) => {
+    const { names, tombstones, docs } = namedListViewMembers();
+    expect(names).toContain(member);
+    expect(tombstones).toContain(member);
+    expect(docs[member]).toContain('RETIRED (objectui#13118)');
+    expect(protocolListViewKeys()).toContain(member);
+    // The self-expiry: this goes red at the pin bump that takes the spec's
+    // retirement, and the bump moves the member into the protocol-retired
+    // buckets rather than editing this row.
+    expect(
+      protocolRetiredKeys(),
+      `the installed spec now carries \`${member}\`'s tombstone: move it to PROTOCOL_RETIRED_KEYS and `
+        + 'BUCKET_PROTOCOL_RETIRED_TOMBSTONED, and empty BUCKET_SPEC_RETIRED_AHEAD_OF_PIN, in the bump that took it',
+    ).not.toContain(member);
     expect(deriveNamedViewReads().reads).not.toContain(member);
     expect(NAMED_LIST_VIEW_UNREAD as readonly string[]).toContain(member);
   });
@@ -1922,6 +2053,10 @@ export const _refusedPrefixField: NamedListView = { ...BASE_VIEW, prefixField: '
 export const _refusedWrapHeaders: NamedListView = { ...BASE_VIEW, wrapHeaders: true };
 // @ts-expect-error — `densityMode` is RETIRED (objectui#7924, ruling A′): author top-level `rowHeight`
 export const _refusedDensityMode: NamedListView = { ...BASE_VIEW, densityMode: 'compact' };
+// `filterableFields` — objectui#13118's tombstone: the spec retires the key.
+export type _FilterableFieldsTombstoned = Expect<Equal<NamedListView['filterableFields'], undefined>>;
+// @ts-expect-error — `filterableFields` is RETIRED (objectui#13118): the spec retires it; curate a filter bar with `userFilters`
+export const _refusedFilterableFields: NamedListView = { ...BASE_VIEW, filterableFields: ['stage'] };
 
 // …and the canonical blocks ACCEPT a protocol-shaped value on a literal. The
 // same values are parsed against the protocol's own slots below, so "protocol
@@ -1951,8 +2086,11 @@ describe('objectui#7924 — the retirement: seventeen `?: never` tombstones, obj
     // their own bucket above, and `allowExport` is objectui#11013's; this row is
     // about objectui#7924's seventeen.
     const tombstones = allTombstones.filter((t) => !(BUCKET_PROTOCOL_RETIRED_TOMBSTONED as readonly string[]).includes(t)
-      && !(RETIRED_BY_11013 as readonly string[]).includes(t));
-    expect(allTombstones).toHaveLength(20);
+      && !(RETIRED_BY_11013 as readonly string[]).includes(t)
+      && !(RETIRED_BY_13118 as readonly string[]).includes(t));
+    // 20 until objectui#13118 tombstoned `filterableFields`.
+    expect(allTombstones).toHaveLength(21);
+    for (const m of RETIRED_BY_13118) expect(allTombstones).toContain(m);
     expect([...tombstones].sort()).toEqual([...NAMED_LIST_VIEW_TOMBSTONES]);
     expect(tombstones).toHaveLength(17);
     expect(BUCKET_LOCAL_ONLY_RETAINED).toHaveLength(0);

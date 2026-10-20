@@ -2586,23 +2586,31 @@ describe('ListView', () => {
   });
 
   // ============================
-  // filterableFields whitelist
+  // filterableFields — RETIRED (objectui#13118)
   // ============================
-  describe('filterableFields', () => {
-    it('should render with filterableFields whitelist restricting available fields', () => {
-      const schema: ListViewSchema = {
-        type: 'list-view',
-        objectName: 'contacts',
-        viewType: 'grid',
-        fields: [
-          { name: 'name', label: 'Name', type: 'text' },
-          { name: 'email', label: 'Email', type: 'text' },
-          { name: 'phone', label: 'Phone', type: 'text' },
-        ] as any,
-        filterableFields: ['name', 'email'],
-      };
+  // `@objectstack/spec` 18 retires the list view's `filterableFields`
+  // (objectstack#24640, ruling C), and no per-view Filter-panel whitelist
+  // replaces it. `ListViewSchema` takes the spec's slot by reference, so the
+  // spec's tombstone reaches the typed face with the pin bump; the two rows
+  // that still carry the key build it as STORED data, the way a pre-18 view
+  // row arrives, rather than as a typed literal. What the Filter panel offers
+  // is pinned in `ListView.filterFieldList-11810.test.tsx`.
+  describe('filterableFields (retired, objectui#13118)', () => {
+    /** A stored view row that still carries the retired key: data, not an authored literal. */
+    const storedView = (filterableFields: string[]): ListViewSchema => ({
+      type: 'list-view',
+      objectName: 'contacts',
+      viewType: 'grid',
+      fields: [
+        { name: 'name', label: 'Name', type: 'text' },
+        { name: 'email', label: 'Email', type: 'text' },
+        { name: 'phone', label: 'Phone', type: 'text' },
+      ],
+      filterableFields,
+    }) as unknown as ListViewSchema;
 
-      renderWithProvider(<ListView schema={schema} />);
+    it('a stored view still carrying a non-empty `filterableFields` renders the filter button — the retired key is ignored', () => {
+      renderWithProvider(<ListView schema={storedView(['name', 'email'])} />);
       // Filter button should still be visible
       const filterButton = screen.getByRole('button', { name: /filter/i });
       expect(filterButton).toBeInTheDocument();
@@ -2624,19 +2632,8 @@ describe('ListView', () => {
       expect(filterButton).toBeInTheDocument();
     });
 
-    it('should render filter button when filterableFields is empty array', () => {
-      const schema: ListViewSchema = {
-        type: 'list-view',
-        objectName: 'contacts',
-        viewType: 'grid',
-        fields: [
-          { name: 'name', label: 'Name', type: 'text' },
-          { name: 'email', label: 'Email', type: 'text' },
-        ] as any,
-        filterableFields: [],
-      };
-
-      renderWithProvider(<ListView schema={schema} />);
+    it('a stored view still carrying an empty `filterableFields` renders the filter button', () => {
+      renderWithProvider(<ListView schema={storedView([])} />);
       const filterButton = screen.getByRole('button', { name: /filter/i });
       expect(filterButton).toBeInTheDocument();
     });

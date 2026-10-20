@@ -3461,7 +3461,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             selection: viewDef.selection ?? listSchema.selection,
             pagination: viewDef.pagination ?? listSchema.pagination,
             searchableFields: viewDef.searchableFields ?? listSchema.searchableFields,
-            filterableFields: viewDef.filterableFields ?? listSchema.filterableFields,
             resizable: viewDef.resizable ?? listSchema.resizable,
             rowActions: viewDef.rowActions ?? listSchema.rowActions,
             /**

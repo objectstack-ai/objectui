@@ -580,9 +580,12 @@ chrome (`description`, `compactToolbar`, `allowPrinting`, `showRecordCount`,
 `rowActions`, `bulkActions`, `bulkActionDefs`, `exportOptions`), grid
 presentation (`rowHeight`, `pagination`, `selection`, `resizable`,
 `hiddenFields`, `conditionalFormatting`), and search, filter and navigation
-(`searchableFields`, `filterableFields`, `userFilters`, `navigation`) — that
-node takes the value from the active named view first, ahead of the host's
-`views` entry (objectui#10758).
+(`searchableFields`, `userFilters`, `navigation`) — that node takes the value
+from the active named view first, ahead of the host's `views` entry
+(objectui#10758). `filterableFields` is relayed from no source: `@objectstack/spec`
+18 retires it, and no per-view Filter-panel whitelist replaces it — the Filter
+panel offers every field the user may read, minus the fields the object marks
+`hidden: true` (objectui#13118).
 `src/__tests__/ObjectView.namedViewProtocolKeys-8980.test.tsx` pins each family.
 
 ### Update
@@ -761,7 +764,7 @@ re-exporting, so import it from there:
 
 | Import from `@object-ui/types` | What it types |
 | --- | --- |
-| `ObjectViewSchema` | the whole `type: 'object-view'` node — `objectName` (required), `title`, `description`, `layout`, `defaultViewType`, `listViews`, `defaultListView`, `navigation`, `table`, `form`, `searchableFields`, `filterableFields`, `show*`, `operations`, `onNavigate`, `allowCreateView`, `viewActions` (`viewTabBar` is retired — objectui#7779 — and refused by name) |
+| `ObjectViewSchema` | the whole `type: 'object-view'` node — `objectName` (required), `title`, `description`, `layout`, `defaultViewType`, `listViews`, `defaultListView`, `navigation`, `table`, `form`, `searchableFields`, `show*`, `operations`, `onNavigate`, `allowCreateView`, `viewActions` (`viewTabBar` is retired — objectui#7779 — and refused by name; `filterableFields` is retired with the spec's own retirement of it — objectui#13118 — and nothing reads it) |
 | `NamedListView` | the former type of a `listViews` entry, still exported. Since objectui#7928 an entry is `@objectstack/spec`'s `ObjectListViewSchema` — `NonNullable<ObjectViewSchema['listViews']>[string]` |
 | `ViewNavigationConfig` | `navigation` — row/item click behaviour |
 | `ViewTabBarConfig` | the `config` prop of `ViewTabBar` — tab-bar UX (inline add, overflow, indicators), composed by the host; not an `object-view` node key |

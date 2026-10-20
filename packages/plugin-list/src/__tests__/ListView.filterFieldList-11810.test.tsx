@@ -175,13 +175,17 @@ describe('objectui#11810 — the filter field list: no hidden field, the view’
     expect(within(filterPanel()).getAllByRole('combobox')[0].textContent).toBe('Organization');
   });
 
-  it('keeps a hidden field the author named in `filterableFields`', async () => {
+  // objectui#13118 — this row pinned the opposite until the spec retired the
+  // key: "keeps a hidden field the author named in `filterableFields`", and the
+  // list was the three named fields alone. `@objectstack/spec` 18 retires the
+  // list view's `filterableFields` (objectstack#24640, ruling C) and no
+  // per-view whitelist replaces it, so a stored view that still carries the key
+  // gets the spec's list: every readable field, minus the `hidden: true` ones,
+  // the same list the first row pins for a view with no key at all.
+  it('a stored view still carrying the retired `filterableFields` gets the spec’s list — it neither narrows the panel nor brings a hidden field back (objectui#13118)', async () => {
     mount({ filterableFields: ['owning_business_unit_id', 'estimate_hours', 'title'] });
-    fireEvent.click(screen.getByRole('button', { name: /^filter/i }));
-    await screen.findByText('Filter Records');
-    await waitFor(() => {
-      const latest = (captured.fields[captured.fields.length - 1] ?? []).map((f) => f.value);
-      expect(latest).toEqual(['title', 'estimate_hours', 'owning_business_unit_id']);
-    });
+    const list = await openFilterFieldList();
+    for (const name of HIDDEN) expect(list, name).not.toContain(name);
+    expect(list).toEqual([...TASK_COLUMNS, ...BUSINESS_REST, ...SYSTEM]);
   });
 });

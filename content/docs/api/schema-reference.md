@@ -950,7 +950,6 @@ A complete object management interface combining grid, form, search, filters, an
     "delete": true
   },
   "searchableFields": ["name", "company", "owner"],
-  "filterableFields": ["stage", "owner", "value"],
   "listViews": {
     "all": {
       "label": "All Deals",

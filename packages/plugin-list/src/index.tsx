@@ -120,9 +120,10 @@ const LIST_VIEW_TYPE_INPUT: ComponentInput = {
  *
  * Two keys of the row are NOT here, by the same measurement: `name` (read
  * by nothing on a page node) and `sharing` (draws a Share button that does
- * nothing: the spec declares no action for it). So is `filterableFields`: the row declares it as the
- * shorthand of `userFilters.fields`, and the list reads it as the Filter
- * panel's field list instead. The console's repo-wide parity gate
+ * nothing: the spec declares no action for it). So is `filterableFields`, which
+ * `@objectstack/spec` retires in 18.0 (objectstack#24640, ruling C): no
+ * per-view Filter-panel whitelist replaces it, and the list reads it nowhere
+ * since objectui#13118. The console's repo-wide parity gate
  * (`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`) records
  * each with its reason. `requiredPermissions` was among them until
  * `ListViewBlock` honoured it on a page node (objectui#13074,

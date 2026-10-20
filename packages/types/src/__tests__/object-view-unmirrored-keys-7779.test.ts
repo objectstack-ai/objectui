@@ -70,8 +70,10 @@
  * than by a lost read: `@objectstack/spec` 18 retires the list view's
  * `filterableFields` (objectstack#24640, maintainer ruling C — no per-view
  * Filter-panel whitelist replaces it), so its one reader, `ListView`'s Filter
- * panel whitelist, and every relay rung that fed it came out, and both faces'
- * TypeScript declarations became `?: never` tombstones. objectui's own spec pin
+ * panel whitelist, and every relay rung that fed it came out. `NamedListView`
+ * declares it as a `?: never` tombstone; the node's member follows the spec's
+ * slot by reference, as its zod twin does, so both of the node's faces flip at
+ * the pin bump that takes the retirement. objectui's own spec pin
  * predates that retirement, so the installed protocol still calls the key LIVE:
  * the census reads it in a sixth bucket, {@link BUCKET_SPEC_RETIRED_AHEAD_OF_PIN},
  * which empties itself into the protocol-retired buckets at the pin bump that
@@ -173,8 +175,9 @@ type Mirrored = (typeof MIRRORED)[number];
  * (objectstack#24640, ruling C: no per-view Filter-panel whitelist replaces
  * it). The node's mirror slot is still the spec's own by reference, which is
  * what carries the spec's tombstone in at the pin bump that takes the
- * retirement; the TypeScript face is a `?: never` tombstone already. Its read
- * pins are inverted below, not deleted.
+ * retirement, and the TypeScript face reads the same slot by reference, so
+ * both faces flip there together. Its read pins are inverted below, not
+ * deleted.
  */
 const SPEC_RETIRED_UNREAD = 'filterableFields' as const;
 type ReadMirrored = Exclude<Mirrored, typeof SPEC_RETIRED_UNREAD>;
@@ -658,9 +661,12 @@ export type _DefaultViewTypeIsNotAny = Expect<Equal<IsAny<TsObjectViewSchema['de
 // the point: the tombstone is load-bearing.
 export type _ViewTabBarIsTombstone = Expect<Equal<TsObjectViewSchema['viewTabBar'], undefined>>;
 export type _ViewTabBarIsNotAny = Expect<Equal<IsAny<TsObjectViewSchema['viewTabBar']>, false>>;
-// `filterableFields`: a `?: never` tombstone since objectui#13118 — the spec
-// retires the key. Widening it back to `string[]` makes this pin red.
-export type _FilterableFieldsIsTombstone = Expect<Equal<TsObjectViewSchema['filterableFields'], undefined>>;
+// `filterableFields` (objectui#13118): the spec retires the key and nothing
+// reads it, but on this node the TS face is the list view's spec-derived slot
+// BY REFERENCE — the same slot the zod twin carries — so the pin bump that
+// takes the retirement narrows both faces at once. A local restatement (a
+// `string[]` or a `?: never` written here) makes this pin red.
+export type _FilterableFieldsIsTheSpecSlot = Expect<Equal<TsObjectViewSchema['filterableFields'], TsListViewSchema['filterableFields']>>;
 export type _FilterableFieldsIsNotAny = Expect<Equal<IsAny<TsObjectViewSchema['filterableFields']>, false>>;
 // `listViews`: the protocol's record since objectui#7928 — inverted from "STILL the
 // declaration's local value", which this card (objectui#7779) pinned.
@@ -682,9 +688,6 @@ export const literal: TsObjectViewSchema = { ...NODE, ...(ACCEPTED as Record<Mir
 // tombstone `Equal` row above instead.
 // @ts-expect-error — `viewTabBar` is RETIRED on this node (objectui#7779); it was never read
 export const retiredLiteral: TsObjectViewSchema = { ...NODE, viewTabBar: { showAddButton: true } };
-// …REFUSES the spec-retired `filterableFields` (objectui#13118) on a literal.
-// @ts-expect-error — `filterableFields` is RETIRED (objectui#13118): the spec retires it, and nothing reads it
-export const retiredFilterableFieldsLiteral: TsObjectViewSchema = { ...NODE, filterableFields: ['status'] };
 // …and REFUSES the host-only view kind: `tree` is not authorable here (objectui#5321).
 // @ts-expect-error — `defaultViewType` is the seven-value union; `tree` is host composition only
 export const hostOnlyLiteral: TsObjectViewSchema = { ...NODE, defaultViewType: 'tree' };
@@ -1049,10 +1052,11 @@ describe('objectui#7779 — the renderer reads the eight mirrored keys, which is
     expect(src).not.toContain('activeView?.filterableFields');
     // Control on the same file and the same spelling: its sibling's rung stands.
     expect(src).toContain('searchableFields: currentNamedViewConfig?.searchableFields ?? activeView?.searchableFields ?? (schema as any).searchableFields,');
-    // …and both TypeScript faces carry the tombstone, while the mirror keeps the
-    // spec's slot by reference, which carries the spec's own tombstone in at the
-    // pin bump that takes the retirement.
-    expect(readRepo(DECLARATION).match(/filterableFields\?: never;/g)).toHaveLength(2);
+    // …and `NamedListView` carries the tombstone, while the node's two faces keep
+    // the spec's slot by reference, which carries the spec's own tombstone in at
+    // the pin bump that takes the retirement.
+    expect(readRepo(DECLARATION).match(/filterableFields\?: never;/g)).toHaveLength(1);
+    expect(readRepo(DECLARATION)).toContain("filterableFields?: ListViewSchema['filterableFields'];");
     expect(readRepo(DECLARATION)).toContain('RETIRED (objectui#13118)');
     expect(readRepo(MIRROR)).toContain('filterableFields: stripImportedDefaults(SpecListViewSchema).shape.filterableFields,');
   });

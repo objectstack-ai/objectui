@@ -658,14 +658,8 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **5 entries** in `WiderThanDeclared`, **5 keys** across them, and **5 arms**
- *     under those keys — split **3** SCHEMA-NODE, **2** CONCRETE, **0** MIXED, **0** unions.
- *     It read 4 / 4 / 4 — 3 / 1 / 0 / 0 — until objectui#13118 retired
- *     `objectql.zod.ts#ObjectViewSchema`'s `filterableFields` on the TypeScript face (a
- *     `?: never` tombstone, after `@objectstack/spec` 18 retired the key) while the
- *     mirror's slot stays the spec's own by reference, which still admits the array at
- *     this package's spec pin: the entry, its one key and its one CONCRETE arm ENTERED
- *     together, and they leave together at the pin bump that takes the spec's retirement.
+ *   - **4 entries** in `WiderThanDeclared`, **4 keys** across them, and **4 arms**
+ *     under those keys — split **3** SCHEMA-NODE, **1** CONCRETE, **0** MIXED, **0** unions.
  *     It read 6 / 6 / 8 — 3 / 3 / 0 / 2 — until objectui#12163 (ruling C) made the widget
  *     `component` slot's second arm a refusal by name and narrowed its declaration to the
  *     component arm: the two dashboard entries that objectui#11466 brought in (next
@@ -4151,20 +4145,6 @@ interface WiderThanDeclared {
    * leaves when the declaration states `objectName?: string`.
    */
   'objectql.zod.ts#ObjectGridSchema': 'objectName';
-  /**
-   * CONCRETE. `filterableFields` ENTERED under objectui#13118. `@objectstack/spec` 18
-   * retires the list view's `filterableFields` (objectstack#24640, maintainer ruling C:
-   * no per-view Filter-panel whitelist replaces it), so objectui removed its one reader
-   * and the TypeScript twin is a `?: never` tombstone. The mirror's slot is the spec's
-   * own BY REFERENCE (`SpecListViewSchema.shape.filterableFields`, identity-pinned in
-   * `object-view-unmirrored-keys-7779.test.ts`), and this package's spec pin predates
-   * the retirement, so it still admits `string[]`. The remedy is not local: the
-   * reference carries the spec's `retiredKey()` tombstone in on the pin bump that takes
-   * the retirement, the mirror's input narrows to absence, and the entry LEAVES in that
-   * bump. ⛔ Not narrowed here with a local `retirementTombstone()`: that would replace
-   * the by-reference slot, which is what makes the bump move this mirror at all.
-   */
-  'objectql.zod.ts#ObjectViewSchema': 'filterableFields';
   // `navigation.zod.ts#HeaderBarSchema` recorded `logo` here (CONCRETE, two arms; ENTERED
   // under objectui#7760): the mirror spelled it single-or-list `SchemaNode` and the
   // declaration a bare `string`. The `header-bar` renderer reads no `logo` at all — through
@@ -4307,9 +4287,6 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   // (objectui#12163).
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
   'objectql.zod.ts#ObjectGridSchema::objectName': ['CONCRETE'],
-  // objectui#13118: the spec's `string[]` slot by reference, wider than the
-  // `?: never` tombstone until the pin bump carries the spec's own tombstone in.
-  'objectql.zod.ts#ObjectViewSchema::filterableFields': ['CONCRETE'],
 };
 
 /* ── The invariant ──────────────────────────────────────────────────────────── */

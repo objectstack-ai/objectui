@@ -2627,18 +2627,19 @@ export interface ObjectViewSchema extends BaseSchema {
    * the fields the object marks `hidden: true`. Nothing in objectui reads the
    * key, on this node or on a named view.
    *
-   * `?: never` is this package's tombstone convention (see `viewTabBar` below):
-   * a deletion is refused only on a fresh literal, so the retired spelling
-   * would type-check green through a widened value and do nothing. The Zod
-   * twin is the spec's own slot by reference (`zod/objectql.zod.ts`), which
-   * carries the spec's `retiredKey()` tombstone from the pin bump that takes
-   * the retirement; until that bump the mirror still admits the array, and the
-   * zod-mirror parity ledger records that widening by name.
+   * Typed BY REFERENCE to the list view's spec-derived slot, ⛔ not as a local
+   * `?: never` tombstone yet: the Zod twin is the spec's own slot by reference
+   * (`zod/objectql.zod.ts`), and this package's spec pin predates the
+   * retirement, so a local tombstone would make the two faces disagree on the
+   * `object-view` arm — the drift `node-recursion-point-8344.test.ts` refuses
+   * to ledger. Both faces read the same slot, so the pin bump that takes the
+   * retirement carries the spec's `retiredKey()` tombstone onto both at once,
+   * and the key is refused by name from then on.
    *
    * @deprecated RETIRED (objectui#13118) — delete the key. For a curated
    * end-user filter bar, author `userFilters` on the named list view.
    */
-  filterableFields?: never;
+  filterableFields?: ListViewSchema['filterableFields'];
 
   /**
    * Show search box

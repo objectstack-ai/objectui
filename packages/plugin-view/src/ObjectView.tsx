@@ -1027,8 +1027,9 @@ export const OBJECT_VIEW_HOST_COMPOSITION_KEYS = [
  *
  * `filterableFields` was the fourth until objectui#13118: `@objectstack/spec`
  * retires it in 18.0 (objectstack#24640, ruling C) and no per-view Filter-panel
- * whitelist replaces it, so this branch no longer forwards it from any source
- * and `ObjectViewSchema` declares it only as a `?: never` tombstone.
+ * whitelist replaces it, so this branch no longer forwards it from any source.
+ * `ObjectViewSchema` keeps it only as the spec's slot by reference, deprecated,
+ * until the pin bump that takes the retirement carries the spec's tombstone.
  */
 export const OBJECT_VIEW_DECLARED_FORWARDED_KEYS = [
   'data',

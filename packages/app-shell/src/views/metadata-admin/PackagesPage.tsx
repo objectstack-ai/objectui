@@ -343,9 +343,10 @@ class PackagePublishRefusal extends Error {
 
 /**
  * A `validationErrors` element as one line: the item it names, then the
- * server's message. The producer leaves `type` and `name` empty where a reason
- * belongs to no one item (a package with no items, a namespace the whole
- * package lacks), and the line is then the message alone.
+ * server's message. Where a reason belongs to no one item the producer leaves
+ * `name` empty (a namespace the whole package lacks: `api: …`), or `type` and
+ * `name` both (a package with no items), and the line then names only what it
+ * was given, or is the message alone.
  */
 function publishRefusalLine(error: PackagePublishValidationError): string {
   const subject = [error.type, error.name].filter(Boolean).join('/');

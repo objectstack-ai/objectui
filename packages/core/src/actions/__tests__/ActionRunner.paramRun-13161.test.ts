@@ -28,8 +28,8 @@
  *  - a handler that never calls `run` keeps the old one-dispatch contract.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ActionRunner, type ActionResult, type ParamCollectionHandler } from '../ActionRunner';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { ActionRunner, type ActionResult, type ParamCollectionHandler, type ToastHandler } from '../ActionRunner';
 
 const PARAMS = [
   { name: 'email', label: 'Email', type: 'text' },
@@ -47,11 +47,11 @@ function deferred<T>() {
 
 describe('ActionRunner — the param-collection session (`run`, objectui#13161)', () => {
   let runner: ActionRunner;
-  let toast: ReturnType<typeof vi.fn>;
+  let toast: Mock<ToastHandler>;
 
   beforeEach(() => {
     runner = new ActionRunner({});
-    toast = vi.fn();
+    toast = vi.fn<ToastHandler>();
     runner.setToastHandler(toast);
   });
 

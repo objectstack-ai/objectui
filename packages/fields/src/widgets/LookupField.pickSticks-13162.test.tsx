@@ -49,7 +49,7 @@ const ROWS: Record<string, unknown>[] = [
  */
 function makeBackend(opts: { holdSearch?: boolean } = {}) {
   let releaseSearch: (() => void) | null = null;
-  const find = vi.fn(async (_objectName: string, params?: any) => {
+  const find = vi.fn(async (_objectName: string, params?: { $search?: string; $filter?: { id?: { $in?: unknown[] } } }) => {
     const wanted: unknown[] | undefined = params?.$filter?.id?.$in;
     if (wanted) {
       const rows = ROWS.filter((r) => wanted.includes(r.id));

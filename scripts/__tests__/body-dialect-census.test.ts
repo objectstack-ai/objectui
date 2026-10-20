@@ -34,6 +34,7 @@ import {
   census,
   scanNodes,
   keepFencedCodeOnly,
+  mayHoldWantedNode,
   resolvePopulation,
   parseKeys,
   finalVerdict,
@@ -143,6 +144,34 @@ describe('the scanner sees the shapes authored metadata actually uses', () => {
     expect(nodes.filter((n: { keys: Set<string> }) => n.keys.has('children')).length).toBeGreaterThan(0);
     // And the retired spelling is gone from it, which is the migration half.
     expect(nodes.filter((n: { keys: Set<string> }) => n.keys.has('body')).length).toBe(0);
+  });
+
+  it('the pre-filter admits every `type` spelling the scanner counts (objectui#13210)', () => {
+    // `census()` skips `scanNodes` for a text `mayHoldWantedNode` refuses, so
+    // the predicate must be a SUPERSET of the scanner: one that narrows it is
+    // a silent zero with exit 0, which is this block's subject. Each text is a
+    // shape the scanner counts as a population node — checked first, so the
+    // predicate is tested against the scanner and not against this list.
+    const keys = ['badge', 'sidebar-menu-item', 'x+y'];
+    const mayHold = mayHoldWantedNode(keys);
+    const fenced = ['Prose.', '', '```json', '{ "type": "badge", "children": [] }', '```', ''].join('\n');
+    for (const text of [
+      '{"type": "badge", "children": []}',
+      "{ type: 'badge', children: [] }",
+      `{ 'type' : "badge" }`,
+      '{ type:\n    "badge" }',
+      '{ "type": "sidebar-menu-item" }',
+      // A `--keys` name with a regex metacharacter: unescaped, `x+y` would
+      // match "xy" and never the literal "x+y".
+      '{ "type": "x+y" }',
+      keepFencedCodeOnly(fenced),
+    ]) {
+      expect(scanNodes(text).some((n: { type: string }) => keys.includes(n.type)), text).toBe(true);
+      expect(mayHold.test(text), text).toBe(true);
+    }
+    // …and the skip is real: no `type` value from the population, no parse.
+    expect(mayHold.test('{"type": "object", "properties": {"badge": {}}}')).toBe(false);
+    expect(mayHoldWantedNode([]).test('{"type": "badge"}')).toBe(false);
   });
 });
 
@@ -531,13 +560,20 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     for (const hit of producers.filter((h: { carrier: string }) => h.carrier === 'item')) {
       expect(hit.disposition).toBe('ruled:not-a-dialect/item-schema-violation');
     }
-    // ⏱ Explicit, because this block runs TWO tree-wide instruments (the census
-    // over 7,855 files and the producer scan over 5,136) and the default 15s is
-    // not enough on a loaded shard: measured 7.9s here after objectui#9871 made
-    // the scan single-pass, and the CI runner took the SAME block past 15s when
-    // it measured 10.1s locally — so that runner is at least 1.9x slower. 60s is
-    // ~3x the observed CI-scale cost: ordinary contention cannot flake it, and a
-    // scan that stops terminating still fails. ⛔ Not a global `testTimeout` bump.
+    // ⏱ Explicit, because this block runs TWO tree-wide instruments and the
+    // default 15s is not enough on a loaded shard: objectui#9871 measured the
+    // CI runner at least 1.9x slower than a local run of this same block. A scan
+    // that stops terminating still fails. ⛔ Not a global `testTimeout` bump.
+    //
+    // ⚠️ objectui#13210: the coverage lane timed this block out at 60s, on and
+    // off, once the pinned `@objectstack` build appeared in `.objectstack-pin/`
+    // and both walks read it. Fixed at the COST and ⛔ not by raising this
+    // number: the walks skip that directory, and the census parses only a text
+    // that can hold a counted node — the hit set outside the pin unchanged,
+    // compared by digest on that card's pull request, which also carries the
+    // before/after times. ⛔ They are not copied here (AGENTS.md #9): this file
+    // under `pnpm exec vitest run --coverage --reporter=verbose` prints this
+    // block's own ms.
   }, 60_000);
 });
 
@@ -579,6 +615,46 @@ describe('the census skips `.objectui-tmp` (objectui#9201)', () => {
     // Lit control — without this the assertion below passes on an empty walk.
     expect(files).toContain('packages/scanned-control/page.json');
     expect(files.some((file) => file.startsWith('.objectui-tmp/'))).toBe(false);
+  });
+});
+
+/**
+ * Neither instrument walks `.objectstack-pin` (objectui#13210).
+ *
+ * `.objectstack-pin/NAME/` is where `scripts/objectstack-pin.mjs build` links
+ * the pinned `@objectstack/*` build beside the committed manifest: git-ignored,
+ * present only after a build, and another repository's packed output. Walking
+ * it summed objectstack's population into this one and pushed the in-tree pin
+ * above to its 60s budget under coverage. Two-sided for the same reason as the
+ * block above, once per instrument.
+ */
+describe('the census and the producer scan skip `.objectstack-pin` (objectui#13210)', () => {
+  const roots: string[] = [];
+  afterAll(() => {
+    for (const root of roots) rmSync(root, { recursive: true, force: true });
+  });
+
+  it('finds planted nodes under `packages/` and NOT the same bytes under `.objectstack-pin/`', () => {
+    const root = mkdtempSync(join(tmpdir(), 'body-dialect-census-13210-'));
+    roots.push(root);
+    const NODE_JSON = JSON.stringify({ type: 'page', body: [{ type: 'text', text: 'x' }] }, null, 2) + '\n';
+    const NODE_TS = "export const node = { type: 'page', body: [{ type: 'text', text: 'x' }] };\n";
+    for (const dir of ['packages/scanned-control', '.objectstack-pin/spec/src']) {
+      for (const [name, bytes] of [['page.json', NODE_JSON], ['node.ts', NODE_TS]]) {
+        const full = join(root, dir, name);
+        mkdirSync(dirname(full), { recursive: true });
+        writeFileSync(full, bytes);
+      }
+    }
+    const posix = (file: string) => file.split('\\').join('/');
+    const censusFiles = census(root).hits.map((hit) => posix(hit.file));
+    const scanFiles = scan(root).hits.map((hit: { file: string }) => posix(hit.file));
+
+    // Lit controls — an empty walk satisfies each exclusion on its own.
+    expect(censusFiles).toContain('packages/scanned-control/page.json');
+    expect(scanFiles).toContain('packages/scanned-control/node.ts');
+    expect(censusFiles.some((file) => file.startsWith('.objectstack-pin/'))).toBe(false);
+    expect(scanFiles.some((file) => file.startsWith('.objectstack-pin/'))).toBe(false);
   });
 });
 

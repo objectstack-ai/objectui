@@ -256,9 +256,9 @@ const SCANNED_EXT = new Set([
 // the same commit depending on whether a build had run, and summed objectstack's
 // population into objectui's, which "Populations are reported SEPARATELY and
 // never summed" above forbids. It also made the walk's cost grow with
-// objectstack's tree: from the pin's arrival it was the largest single
-// directory this walk read, and the in-tree pin of this census then hit its
-// 60s budget under coverage. ESLint ignores it for the same reason
+// objectstack's tree rather than objectui's, and the in-tree pin of this
+// census then hit its 60s budget under coverage — the measurement is on
+// objectui#13210's pull request. ESLint ignores it for the same reason
 // (`eslint.config.js`, objectui#13008). The two instruments keep this list in
 // step (`body-dialect-producer-scan.mjs`).
 const SKIP_DIRS = new Set([

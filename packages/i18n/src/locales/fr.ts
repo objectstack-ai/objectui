@@ -3977,6 +3977,8 @@ const fr = {
     overrideActionLabel: '{{action}} (dérogation)',
     overrideNotice: "Vous n'occupez aucun poste d'approbateur à cette étape. En continuant, votre dérogation d'administrateur sera utilisée : l'étape est finalisée immédiatement et tout approbateur n'ayant pas encore statué est contourné. La décision est enregistrée comme une dérogation d'administrateur.",
     overrideNoticeWho: "Vous n'occupez aucun poste d'approbateur à cette étape. En continuant, votre dérogation d'administrateur sera utilisée : l'étape est finalisée immédiatement et les approbateurs n'ayant pas encore statué sont contournés — {{who}}. La décision est enregistrée comme une dérogation d'administrateur.",
+    overrideReassignNotice: "Vous n'occupez aucun poste d'approbateur à cette étape. En continuant, votre dérogation d'administrateur sera utilisée : l'étape passe au nouvel approbateur que vous choisissez, qui remplace tout approbateur n'ayant pas encore statué. La demande reste en attente de la décision du nouvel approbateur. La réattribution est enregistrée comme une dérogation d'administrateur.",
+    overrideReassignNoticeWho: "Vous n'occupez aucun poste d'approbateur à cette étape. En continuant, votre dérogation d'administrateur sera utilisée : l'étape passe au nouvel approbateur que vous choisissez, qui remplace les approbateurs n'ayant pas encore statué — {{who}}. La demande reste en attente de la décision du nouvel approbateur. La réattribution est enregistrée comme une dérogation d'administrateur.",
     viaOverrideChip: 'Dérogation administrateur',
     viaOverrideHint: "L'auteur n'occupait aucun poste d'approbateur à cette étape — admis par la voie de dérogation administrateur.",
     overrideActor: 'Agir sous une autre identité (admin)',

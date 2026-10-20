@@ -3981,6 +3981,8 @@ const es = {
     overrideActionLabel: '{{action}} (anulación)',
     overrideNotice: 'No ocupa ningún puesto de aprobador en este paso. Al continuar se usará su anulación de administrador: el paso se finaliza de inmediato y se omite a cualquier aprobador que aún no haya actuado. La decisión se registra como anulación de administrador.',
     overrideNoticeWho: 'No ocupa ningún puesto de aprobador en este paso. Al continuar se usará su anulación de administrador: el paso se finaliza de inmediato y se omite a los aprobadores que aún no han actuado — {{who}}. La decisión se registra como anulación de administrador.',
+    overrideReassignNotice: 'No ocupa ningún puesto de aprobador en este paso. Al continuar se usará su anulación de administrador: el paso pasa al nuevo aprobador que elija, que sustituye a cualquier aprobador que aún no haya actuado. La solicitud sigue pendiente a la espera del nuevo aprobador. La reasignación se registra como anulación de administrador.',
+    overrideReassignNoticeWho: 'No ocupa ningún puesto de aprobador en este paso. Al continuar se usará su anulación de administrador: el paso pasa al nuevo aprobador que elija, que sustituye a los aprobadores que aún no han actuado — {{who}}. La solicitud sigue pendiente a la espera del nuevo aprobador. La reasignación se registra como anulación de administrador.',
     viaOverrideChip: 'Anulación de administrador',
     viaOverrideHint: 'Quien actuó no ocupaba ningún puesto de aprobador en este paso: fue admitido por la vía de anulación de administrador.',
     overrideActor: 'Actuar como otra identidad (admin)',

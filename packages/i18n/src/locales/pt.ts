@@ -3976,6 +3976,8 @@ const pt = {
     overrideActionLabel: '{{action}} (substituição)',
     overrideNotice: 'Você não ocupa nenhuma vaga de aprovador nesta etapa. Ao continuar, será usada a sua substituição de administrador: a etapa é finalizada imediatamente e qualquer aprovador que ainda não agiu é ignorado. A decisão é registrada como substituição de administrador.',
     overrideNoticeWho: 'Você não ocupa nenhuma vaga de aprovador nesta etapa. Ao continuar, será usada a sua substituição de administrador: a etapa é finalizada imediatamente e os aprovadores que ainda não agiram são ignorados — {{who}}. A decisão é registrada como substituição de administrador.',
+    overrideReassignNotice: 'Você não ocupa nenhuma vaga de aprovador nesta etapa. Ao continuar, será usada a sua substituição de administrador: a etapa passa para o novo aprovador que você escolher, que substitui qualquer aprovador que ainda não agiu. A solicitação continua pendente, aguardando o novo aprovador. A reatribuição é registrada como substituição de administrador.',
+    overrideReassignNoticeWho: 'Você não ocupa nenhuma vaga de aprovador nesta etapa. Ao continuar, será usada a sua substituição de administrador: a etapa passa para o novo aprovador que você escolher, que substitui os aprovadores que ainda não agiram — {{who}}. A solicitação continua pendente, aguardando o novo aprovador. A reatribuição é registrada como substituição de administrador.',
     viaOverrideChip: 'Substituição de administrador',
     viaOverrideHint: 'Quem agiu não ocupava vaga de aprovador nesta etapa — admitido pela via de substituição de administrador.',
     overrideActor: 'Agir como outra identidade (admin)',

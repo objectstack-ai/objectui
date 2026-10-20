@@ -107,6 +107,9 @@ vi.mock('@object-ui/components', async (importOriginal) => {
 });
 
 import { AdapterCtx } from '@object-ui/react';
+// objectui#13164 — the `en` pack, read for the expected notice sentences. A
+// separate specifier from the mocked `@object-ui/i18n` barrel above.
+import { en as enPack } from '@object-ui/i18n/locales';
 import { DeclaredActionsBar } from '../DeclaredActionsBar';
 import { resetApproverDirectoryCache } from '../../hooks/useApproverDirectory';
 
@@ -443,6 +446,126 @@ describe('DeclaredActionsBar — the bypassed party is NAMED, not referenced (ob
     await waitFor(() =>
       expect(screen.getByTestId('declared-action-approval_approve')).toBeTruthy());
     expect(adapter.find).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// objectui#13164 — the notice says what the LEVER does.
+//
+// `isOverrideDecision` admits every lever whose `visible` ORs in
+// `can_override`, the reassign included, and the notice used to give them all
+// the decision sentence: an admin about to override a REASSIGN was told the
+// step "finalises immediately and bypasses the approvers". The server does no
+// such thing — an override reassign hands the whole pending slate to the person
+// picked, the request stays pending and waits on them, and the action row is
+// written with `via_override: true` (`ApprovalService.reassign` in
+// `plugin-approvals`). So a reassign's notice describes a reassign, and only a
+// decision override says it finalises the step.
+//
+// The expected sentences are read from the `en` pack, not re-spelled here: the
+// call-site gate (`pnpm check:i18n-keys`) holds each inline `defaultValue` this
+// suite's `t` double renders equal to its pack value, so `toBe` against the
+// pack proves WHICH key a lever got without pinning copy twice.
+// ---------------------------------------------------------------------------
+
+/** The reassign lever as `plugin-approvals` declares it, gate reduced as above. */
+const REASSIGN_ACTION = {
+  name: 'approval_reassign',
+  label: 'Reassign',
+  type: 'api',
+  method: 'POST',
+  target: '/api/v1/approvals/requests/{id}/reassign',
+  params: [
+    { name: 'to', label: 'New approver', required: true },
+    { name: 'comment', label: 'Comment', type: 'textarea' },
+  ],
+  visible: DECISION_VISIBLE,
+  locations: ['record_section'],
+};
+
+function renderLevers(viewer: Record<string, unknown>, record: Record<string, unknown> = STAFFED_REQUEST) {
+  return render(
+    <DeclaredActionsBar
+      objectName="sys_approval_request"
+      record={{ ...record, viewer }}
+      location="record_section"
+      actions={[...ACTIONS, REASSIGN_ACTION] as any}
+    />,
+  );
+}
+
+/** Click one lever and return what it dispatched. */
+async function dispatchOf(name: string): Promise<Record<string, any>> {
+  executeSpy.mockClear();
+  fireEvent.click(screen.getByTestId(`declared-action-${name}`));
+  await waitFor(() => expect(executeSpy).toHaveBeenCalledTimes(1));
+  return executeSpy.mock.calls[0][0];
+}
+
+const BYPASSED = 'Qian Hua, Li Lei';
+const pack = enPack.approvalsInbox;
+
+describe('DeclaredActionsBar — an override reassign is told it reassigns (objectui#13164)', () => {
+  it('describes the hand-off, names who it replaces, and says nothing about finalising', async () => {
+    renderLevers(OVERRIDE_ONLY);
+    const notice = String((await dispatchOf('approval_reassign')).overrideNotice);
+
+    expect(notice).toBe(pack.overrideReassignNoticeWho.replace('{{who}}', BYPASSED));
+    // The measured facts the reported dialog got wrong, read as facts.
+    expect(notice).not.toMatch(/finalis/i);
+    expect(notice).toContain('stays pending');
+    expect(notice).toContain(BYPASSED);
+    // Still framed as an override: the viewer holds no slot.
+    expect(notice).toContain('recorded as an admin override');
+  });
+
+  it('has its own wording when there is no pending approver to name', async () => {
+    renderLevers(OVERRIDE_ONLY, { id: 'req_2', status: 'pending', pending_approvers: [] });
+    const notice = String((await dispatchOf('approval_reassign')).overrideNotice);
+
+    expect(notice).toBe(pack.overrideReassignNotice);
+    expect(notice).not.toMatch(/finalis/i);
+  });
+
+  it('leaves approve and reject on the decision sentence, named and unnamed — the control', async () => {
+    renderLevers(OVERRIDE_ONLY);
+    const named = pack.overrideNoticeWho.replace('{{who}}', BYPASSED);
+    expect(String((await dispatchOf('approval_approve')).overrideNotice)).toBe(named);
+    expect(String((await dispatchOf('approval_reject')).overrideNotice)).toBe(named);
+    expect(named).toContain('finalises the step immediately');
+  });
+
+  it('leaves the unnamed decision sentence as it was — the control', async () => {
+    renderLevers(OVERRIDE_ONLY, { id: 'req_2', status: 'pending', pending_approvers: [] });
+    expect(String((await dispatchOf('approval_approve')).overrideNotice)).toBe(pack.overrideNotice);
+    expect(String((await dispatchOf('approval_reject')).overrideNotice)).toBe(pack.overrideNotice);
+  });
+
+  it('keeps the override label and treatment on the reassign button', async () => {
+    renderLevers(OVERRIDE_ONLY);
+    const reassign = screen.getByTestId('declared-action-approval_reassign');
+    expect(reassign.getAttribute('data-override-decision')).toBe('true');
+    expect(reassign.textContent).toContain('Override Reassign');
+    expect(String((await dispatchOf('approval_reassign')).label)).toBe('Override Reassign');
+  });
+
+  it('gives a slot holder no notice on reassign', async () => {
+    renderLevers(DESIGNATED_APPROVER);
+    const dispatch = await dispatchOf('approval_reassign');
+    expect(dispatch.overrideNotice).toBeUndefined();
+    expect(String(dispatch.label)).toBe('Reassign');
+  });
+
+  it('sends the reassign unchanged — its own params, no decision outputs', async () => {
+    // The route reading that picks the notice also picks which decision a click
+    // records; a reassign records none, so a row's decision outputs stay off it.
+    renderLevers(OVERRIDE_ONLY, {
+      ...STAFFED_REQUEST,
+      decision_output_defs: [{ key: 'owning_team', type: 'team' }],
+    });
+    const dispatch = await dispatchOf('approval_reassign');
+    expect(dispatch.target).toBe('/api/v1/approvals/requests/{id}/reassign');
+    expect(dispatch.actionParams.map((p: any) => p.name)).toEqual(['to', 'comment']);
   });
 });
 

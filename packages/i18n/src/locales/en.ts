@@ -4597,6 +4597,8 @@ const en = {
     overrideActionLabel: 'Override {{action}}',
     overrideNotice: 'You hold no approver slot on this step. Continuing uses your admin override: it finalises the step immediately, bypassing any approver who has not acted. The decision is recorded as an admin override.',
     overrideNoticeWho: 'You hold no approver slot on this step. Continuing uses your admin override: it finalises the step immediately and bypasses the approvers who have not acted — {{who}}. The decision is recorded as an admin override.',
+    overrideReassignNotice: 'You hold no approver slot on this step. Continuing uses your admin override: the step moves to the new approver you pick, replacing any approver who has not acted. The request stays pending and waits on the new approver. The reassignment is recorded as an admin override.',
+    overrideReassignNoticeWho: 'You hold no approver slot on this step. Continuing uses your admin override: the step moves to the new approver you pick, replacing the approvers who have not acted — {{who}}. The request stays pending and waits on the new approver. The reassignment is recorded as an admin override.',
     viaOverrideChip: 'Admin override',
     viaOverrideHint: 'The actor held no approver slot on this step — admitted by the admin-override path.',
     overrideActor: 'Act as another identity (admin)',

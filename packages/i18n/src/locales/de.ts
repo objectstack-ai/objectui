@@ -3901,6 +3901,8 @@ const de = {
     overrideActionLabel: '{{action}} (Übersteuerung)',
     overrideNotice: 'Sie haben in diesem Schritt keine Genehmigerrolle. Beim Fortfahren wird Ihre Administrator-Übersteuerung verwendet: Der Schritt wird sofort abgeschlossen und alle noch nicht entschiedenen Genehmiger werden übergangen. Die Entscheidung wird als Administrator-Übersteuerung protokolliert.',
     overrideNoticeWho: 'Sie haben in diesem Schritt keine Genehmigerrolle. Beim Fortfahren wird Ihre Administrator-Übersteuerung verwendet: Der Schritt wird sofort abgeschlossen und die noch nicht entschiedenen Genehmiger werden übergangen — {{who}}. Die Entscheidung wird als Administrator-Übersteuerung protokolliert.',
+    overrideReassignNotice: 'Sie haben in diesem Schritt keine Genehmigerrolle. Beim Fortfahren wird Ihre Administrator-Übersteuerung verwendet: Der Schritt geht an den von Ihnen gewählten neuen Genehmiger, der alle noch nicht entschiedenen Genehmiger ersetzt. Die Anfrage bleibt ausstehend und wartet auf den neuen Genehmiger. Die Neuzuweisung wird als Administrator-Übersteuerung protokolliert.',
+    overrideReassignNoticeWho: 'Sie haben in diesem Schritt keine Genehmigerrolle. Beim Fortfahren wird Ihre Administrator-Übersteuerung verwendet: Der Schritt geht an den von Ihnen gewählten neuen Genehmiger, der die noch nicht entschiedenen Genehmiger ersetzt — {{who}}. Die Anfrage bleibt ausstehend und wartet auf den neuen Genehmiger. Die Neuzuweisung wird als Administrator-Übersteuerung protokolliert.',
     viaOverrideChip: 'Administrator-Übersteuerung',
     viaOverrideHint: 'Die handelnde Person hatte in diesem Schritt keine Genehmigerrolle — zugelassen über die Administrator-Übersteuerung.',
     overrideActor: 'Als andere Identität handeln (Admin)',

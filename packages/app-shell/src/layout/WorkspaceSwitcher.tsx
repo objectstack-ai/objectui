@@ -36,6 +36,7 @@ import {
 import { ChevronsUpDown, Check, Plus, Users } from 'lucide-react';
 import { resolveRootUrl } from '../console/organizations/resolveHomeUrl.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
+import { confirmUnsavedLeave } from '../chrome/unsavedEdits.js';
 import { OrgBadge } from './OrgBadge.js';
 
 export function WorkspaceSwitcher() {
@@ -78,18 +79,25 @@ export function WorkspaceSwitcher() {
   // unchanged.
   if (orgList.length <= 1) return null;
 
-  const handleSwitch = async (org: AuthOrganization) => {
+  const handleSwitch = (org: AuthOrganization) => {
     if (org.id === current.id) return;
-    try {
-      await switchOrganization(org.id);
-      // switchOrganization only updates state; reload to the console root so the
-      // new active org propagates to every data scope app-wide AND
-      // RootLandingRedirect resolves the right landing (single-app workspace →
-      // that app, not the redundant launcher). Same as OrganizationsPage.
-      window.location.href = resolveRootUrl();
-    } catch (err) {
-      console.error('[WorkspaceSwitcher] switch failed', err);
-    }
+    // objectui#13231 — ask BEFORE `set-active` is sent. Asking at the reload
+    // would be too late: the server has already switched, and the page holding
+    // the edits reloads itself for the new organization (dropping them, and its
+    // leave prompt with them) before the document load starts. On Cancel
+    // nothing is sent: the organization, the URL and the edits stay.
+    confirmUnsavedLeave(async () => {
+      try {
+        await switchOrganization(org.id);
+        // switchOrganization only updates state; reload to the console root so the
+        // new active org propagates to every data scope app-wide AND
+        // RootLandingRedirect resolves the right landing (single-app workspace →
+        // that app, not the redundant launcher). Same as OrganizationsPage.
+        window.location.href = resolveRootUrl();
+      } catch (err) {
+        console.error('[WorkspaceSwitcher] switch failed', err);
+      }
+    });
   };
 
   return (
@@ -132,7 +140,7 @@ export function WorkspaceSwitcher() {
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={() => navigate(`/organizations/${current.slug}/members`)}
+          onClick={() => confirmUnsavedLeave(() => navigate(`/organizations/${current.slug}/members`))}
           className="cursor-pointer gap-2"
           data-testid="workspace-manage-members"
         >
@@ -141,7 +149,7 @@ export function WorkspaceSwitcher() {
         </DropdownMenuItem>
         {!multiOrgDisabled && (
           <DropdownMenuItem
-            onClick={() => navigate('/organizations?create=1')}
+            onClick={() => confirmUnsavedLeave(() => navigate('/organizations?create=1'))}
             className="cursor-pointer gap-2"
             data-testid="workspace-create"
           >

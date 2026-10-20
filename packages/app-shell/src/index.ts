@@ -179,6 +179,10 @@ export {
   useTheme,
 } from './chrome/index.js';
 
+// Unsaved edits (objectui#13231): a console page outside this package registers
+// the edits it holds, and every shell departure asks before dropping them.
+export { useRegisterUnsavedEdits, confirmUnsavedLeave } from './chrome/unsavedEdits.js';
+
 // Observability — Sentry integration, configured by the runtime on
 // `/api/v1/runtime/config` (objectstack#12681). No build-time DSN.
 export { initSentry, captureError, setSentryUser, getSentry } from './observability/index.js';

@@ -14,7 +14,7 @@
  * with a plain interpolator that cannot plural-select, so it cannot see this.
  */
 import '@testing-library/jest-dom/vitest';
-import type { ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { createI18n, I18nProvider } from '@object-ui/i18n';
@@ -28,18 +28,24 @@ vi.mock('../../context/NavigationContext', () => ({
   useNavigationContext: () => ({ currentAppName: 'setup' }),
 }));
 
+type Slot = { children?: ReactNode };
+
 // Passthrough primitives so the popover body renders without driving Radix
 // open/close in jsdom (the pattern InboxPopover.badgeBreakdown.test.tsx uses).
 vi.mock('@object-ui/components', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  Button: ({ children, ...p }: any) => <button type="button" {...p}>{children}</button>,
-  Popover: ({ children }: any) => <div>{children}</div>,
-  PopoverTrigger: ({ children }: any) => <div>{children}</div>,
-  PopoverContent: ({ children }: any) => <div>{children}</div>,
-  Tabs: ({ children }: any) => <div>{children}</div>,
-  TabsList: ({ children }: any) => <div>{children}</div>,
-  TabsTrigger: ({ children }: any) => <button type="button">{children}</button>,
-  TabsContent: ({ children }: any) => <div>{children}</div>,
+  Button: ({ children, ...p }: ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" {...p}>
+      {children}
+    </button>
+  ),
+  Popover: ({ children }: Slot) => <div>{children}</div>,
+  PopoverTrigger: ({ children }: Slot) => <div>{children}</div>,
+  PopoverContent: ({ children }: Slot) => <div>{children}</div>,
+  Tabs: ({ children }: Slot) => <div>{children}</div>,
+  TabsList: ({ children }: Slot) => <div>{children}</div>,
+  TabsTrigger: ({ children }: Slot) => <button type="button">{children}</button>,
+  TabsContent: ({ children }: Slot) => <div>{children}</div>,
 }));
 
 import { InboxPopover, type InboxNotification } from '../InboxPopover';

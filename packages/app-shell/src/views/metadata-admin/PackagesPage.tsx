@@ -534,6 +534,15 @@ export function PackageDetailSheet({
   const id = pkg.manifest.id;
   const enabled = pkg.enabled !== false && pkg.status !== 'disabled';
   const isKernel = pkg.manifest.scope === 'system' || pkg.manifest.scope === 'cloud';
+  // objectui#13157 — the sheet offers a write action only on a package the
+  // Scope badge above draws Writable: the same served verdict, the row's
+  // top-level `writable` (objectstack#14375), read the same way (anything but
+  // `true` is never writable). On a read-only package the server refuses
+  // Edit, Publish, Revert, Disable and Delete (`WRITABLE_PACKAGE_REQUIRED`)
+  // and Duplicate (`DUPLICATE_SOURCE_NOT_A_BASE`: its source must be a
+  // writable base); Adopt orphans would bind loose items into a package the
+  // org cannot author. So none of them is offered there. The reads stay.
+  const writable = pkg.writable === true;
   // The name the delete dialog asks the author to type: the one the sheet's
   // title shows.
   const displayName = pkg.manifest.name || id;
@@ -929,32 +938,42 @@ export function PackageDetailSheet({
 
         <Separator className="my-4" />
 
-        {isKernel ? (
-          <p className="text-sm text-muted-foreground">
-            {t('engine.packages.detail.kernelReadOnly', locale)}
-          </p>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t('engine.packages.detail.actions', locale)}
+        <div className="space-y-2">
+          {isKernel && (
+            <p className="text-sm text-muted-foreground">
+              {t('engine.packages.detail.kernelReadOnly', locale)}
             </p>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={() => setViewOpen(true)} disabled={!!busy}>
-                <Eye className="mr-1.5 h-3.5 w-3.5" />
-                {t('engine.packages.detail.viewInfo', locale)}
-              </Button>
+          )}
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t('engine.packages.detail.actions', locale)}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => setViewOpen(true)} disabled={!!busy}>
+              <Eye className="mr-1.5 h-3.5 w-3.5" />
+              {t('engine.packages.detail.viewInfo', locale)}
+            </Button>
+            {writable && (
               <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} disabled={!!busy}>
                 <Pencil className="mr-1.5 h-3.5 w-3.5" />
                 {t('engine.packages.detail.edit', locale)}
               </Button>
+            )}
+            {writable && (
               <Button size="sm" onClick={publish} disabled={!!busy}>
                 <Upload className="mr-1.5 h-3.5 w-3.5" />
                 {busy === 'publish' ? t('engine.packages.detail.publishing', locale) : t('engine.packages.detail.publish', locale)}
               </Button>
+            )}
+            {writable && (
               <Button size="sm" variant="outline" onClick={revert} disabled={!!busy}>
                 <Undo2 className="mr-1.5 h-3.5 w-3.5" />
                 {t('engine.packages.detail.revert', locale)}
               </Button>
+            )}
+            {/* Disable is refused on a read-only package; Enable is not (the
+                server's enable door has no writability gate), so a disabled
+                read-only package can still be switched back on. */}
+            {(writable || !enabled) && (
               <Button size="sm" variant="outline" onClick={toggleEnable} disabled={!!busy}>
                 {enabled ? (
                   <PowerOff className="mr-1.5 h-3.5 w-3.5" />
@@ -963,10 +982,12 @@ export function PackageDetailSheet({
                 )}
                 {enabled ? t('engine.packages.detail.disable', locale) : t('engine.packages.detail.enable', locale)}
               </Button>
-              <Button size="sm" variant="outline" onClick={exportPkg} disabled={!!busy}>
-                <Download className="mr-1.5 h-3.5 w-3.5" />
-                {busy === 'export' ? t('engine.packages.detail.exporting', locale) : t('engine.packages.detail.export', locale)}
-              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={exportPkg} disabled={!!busy}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              {busy === 'export' ? t('engine.packages.detail.exporting', locale) : t('engine.packages.detail.export', locale)}
+            </Button>
+            {writable && (
               <Button
                 size="sm"
                 variant="outline"
@@ -977,10 +998,14 @@ export function PackageDetailSheet({
                 <Copy className="mr-1.5 h-3.5 w-3.5" />
                 {busy === 'duplicate' ? t('engine.packages.detail.duplicating', locale) : t('engine.packages.detail.duplicate', locale)}
               </Button>
+            )}
+            {writable && (
               <Button size="sm" variant="outline" onClick={adoptOrphans} disabled={!!busy}>
                 <Inbox className="mr-1.5 h-3.5 w-3.5" />
                 {busy === 'adopt' ? t('engine.packages.detail.adopting', locale) : t('engine.packages.detail.adoptOrphans', locale)}
               </Button>
+            )}
+            {writable && (
               <Button
                 size="sm"
                 variant="outline"
@@ -991,48 +1016,48 @@ export function PackageDetailSheet({
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" />
                 {busy === 'delete' ? t('engine.packages.detail.deleting', locale) : t('engine.packages.detail.deleteApp', locale)}
               </Button>
-            </div>
-            {dupOpen && (
-              <div className="flex flex-col gap-1.5 rounded-md border p-2.5" data-testid="pkg-detail-dup-form">
-                <input
-                  autoFocus
-                  value={dupName}
-                  onChange={(e) => setDupName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && dupArmed && !busy) void duplicateApp();
-                    if (e.key === 'Escape') setDupOpen(false);
-                  }}
-                  placeholder={t('engine.studio.landing.dupNamePlaceholder', locale)}
-                  aria-label={t('engine.studio.landing.dupNamePlaceholder', locale)}
-                  data-testid="pkg-detail-dup-name-input"
-                  className="h-7 w-full rounded-md border bg-background px-2 text-[11px] outline-none focus:ring-1 focus:ring-primary"
-                />
-                <PackageIdInput
-                  value={dupId}
-                  onChange={setDupId}
-                  onEnter={() => {
-                    if (dupArmed && !busy) void duplicateApp();
-                  }}
-                  onEscape={() => setDupOpen(false)}
-                  placeholder={t('engine.studio.landing.dupIdPlaceholder', locale)}
-                  locale={locale}
-                  testId="pkg-detail-dup-id-input"
-                />
-                <div className="flex items-center gap-1.5">
-                  <Button size="sm" onClick={() => void duplicateApp()} disabled={!!busy || !dupArmed}>
-                    <Copy className="mr-1.5 h-3.5 w-3.5" />
-                    {busy === 'duplicate'
-                      ? t('engine.packages.detail.duplicating', locale)
-                      : t('engine.packages.detail.duplicateGo', locale)}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setDupOpen(false)} disabled={!!busy}>
-                    {t('engine.cancel', locale)}
-                  </Button>
-                </div>
-              </div>
             )}
           </div>
-        )}
+          {writable && dupOpen && (
+            <div className="flex flex-col gap-1.5 rounded-md border p-2.5" data-testid="pkg-detail-dup-form">
+              <input
+                autoFocus
+                value={dupName}
+                onChange={(e) => setDupName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && dupArmed && !busy) void duplicateApp();
+                  if (e.key === 'Escape') setDupOpen(false);
+                }}
+                placeholder={t('engine.studio.landing.dupNamePlaceholder', locale)}
+                aria-label={t('engine.studio.landing.dupNamePlaceholder', locale)}
+                data-testid="pkg-detail-dup-name-input"
+                className="h-7 w-full rounded-md border bg-background px-2 text-[11px] outline-none focus:ring-1 focus:ring-primary"
+              />
+              <PackageIdInput
+                value={dupId}
+                onChange={setDupId}
+                onEnter={() => {
+                  if (dupArmed && !busy) void duplicateApp();
+                }}
+                onEscape={() => setDupOpen(false)}
+                placeholder={t('engine.studio.landing.dupIdPlaceholder', locale)}
+                locale={locale}
+                testId="pkg-detail-dup-id-input"
+              />
+              <div className="flex items-center gap-1.5">
+                <Button size="sm" onClick={() => void duplicateApp()} disabled={!!busy || !dupArmed}>
+                  <Copy className="mr-1.5 h-3.5 w-3.5" />
+                  {busy === 'duplicate'
+                    ? t('engine.packages.detail.duplicating', locale)
+                    : t('engine.packages.detail.duplicateGo', locale)}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setDupOpen(false)} disabled={!!busy}>
+                  {t('engine.cancel', locale)}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {msg && (
           <div

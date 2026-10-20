@@ -53,7 +53,9 @@ test('province options re-filter live as country changes, and the stale value cl
   await page.getByRole('button', { name: /^(New|新建)$/i }).first().click();
 
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByTestId('md-form-submit')).toBeVisible();
+  // `showcase_cascade` has no child collection, so New opens the flat
+  // ModalForm: its own footer, not MasterDetailForm's `md-form-submit`.
+  await expect(dialog.getByTestId('modal-form-footer')).toBeVisible();
   await dialog.locator('input[name="name"]').fill(`Cascade ${Date.now()}`);
 
   // --- country = China -> the dependent province offers only Chinese provinces. ---

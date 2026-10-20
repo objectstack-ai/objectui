@@ -15,7 +15,10 @@ import { test, expect } from '@playwright/test';
  *     removable chip), never a text `<Input>`;
  *   • picking a file uploads it through the console's UploadProvider adapter and
  *     shows a chip with the file name;
- *   • submit carries the resolved file object ({ name, url, … }) on the line.
+ *   • submit carries the uploaded file's id on the line — ADR-0104's stored
+ *     form for a file field is an opaque file id, never an inline
+ *     { name, url } blob — and that id resolves through the file door
+ *     (`GET /api/v1/storage/files/:fileId`) to the bytes that were uploaded.
  *
  * Live-only (needs the storage service + a real backend); runs under
  * `pnpm test:e2e:live`, not the mocked PR e2e job.
@@ -27,7 +30,9 @@ const PNG = Buffer.from(
   'base64',
 );
 
-test('inline line-item grid uploads a per-row file and persists it in the batch', async ({ page }) => {
+const API = process.env.LIVE_API_URL || 'http://localhost:3000';
+
+test('inline line-item grid uploads a per-row file and persists it in the batch', async ({ page, request }) => {
   const batches: any[] = [];
   page.on('request', (r) => {
     if (r.method() === 'POST' && r.url().includes('/api/v1/batch')) {
@@ -40,7 +45,9 @@ test('inline line-item grid uploads a per-row file and persists it in the batch'
 
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByTestId('md-form-submit')).toBeVisible();
-  await expect(dialog.getByText('Line Items', { exact: false })).toBeVisible();
+  // The section's heading, by role: a bare text match also hits the dialog's
+  // sr-only description ("…its line items, then save.") and fails strict mode.
+  await expect(dialog.getByRole('heading', { name: 'Line Items' })).toBeVisible();
 
   const li = dialog.getByTestId('line-items');
   // The child schema loads async — wait for real headers, then assert Receipt.
@@ -84,9 +91,14 @@ test('inline line-item grid uploads a per-row file and persists it in the batch'
   const ops = batches[0].operations;
   const child = ops.find((o: any) => o.object === 'showcase_invoice_line');
   expect(child).toBeTruthy();
-  // The uploaded file resolved to a stored object, not a blob/text placeholder.
+  // The line carries the uploaded file's id (ADR-0104 D3, "Stored form": an
+  // opaque file id), not an inline blob, a url, or the file name as text.
   const receipt = child?.data?.receipt;
-  expect(receipt).toBeTruthy();
-  expect(receipt.name || receipt.original_name).toContain('receipt');
-  expect(String(receipt.url)).toMatch(/^https?:\/\//);
+  expect(typeof receipt, `the receipt is not a file id: ${JSON.stringify(receipt)}`).toBe('string');
+  expect(receipt).not.toContain('receipt.png');
+  // The id resolves through the file door to exactly the bytes uploaded above.
+  const file = await request.get(`${API}/api/v1/storage/files/${encodeURIComponent(receipt)}`);
+  expect(file.status()).toBe(200);
+  expect(file.headers()['content-type']).toContain('image/png');
+  expect(Buffer.compare(await file.body(), PNG)).toBe(0);
 });

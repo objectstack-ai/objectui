@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import {
   assignSlots,
   derivedLiteralsByRow,
+  normalize,
   readAnchors,
   syncDoc,
   VERSION_LITERAL,
@@ -144,7 +145,12 @@ describe('a release bump carries the doc with it', () => {
     expect(result.refusals).toEqual([]);
     expect(result.changes).toEqual([{ label: 'Version', from: anchors.version, to: '99.9.9' }]);
     expect(result.doc).toContain(`- **Version:** 99.9.9 (the version every`);
-    expect(result.doc).not.toContain(anchors.version);
+    // Whole literals, never a raw substring, as the gate compares them. The
+    // group's version can be a prefix of another row's literal (the group at
+    // `18.0.0` beside a `^18.0.0-next.N` spec range), and a substring check then
+    // reddened the release lane's validation on a correct rewrite (objectui#13108).
+    const literals = [...result.doc.matchAll(VERSION_LITERAL)].map((match) => normalize(match[0]));
+    expect(literals).not.toContain(anchors.version);
   });
 
   /**

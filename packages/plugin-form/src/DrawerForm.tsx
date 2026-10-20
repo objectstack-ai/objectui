@@ -13,7 +13,7 @@
  * Aligns with @objectstack/spec FormView type: 'drawer'
  */
 
-import React, { useState, useCallback, useEffect, useMemo, useRef, useId } from 'react';
+import React, { startTransition, useState, useCallback, useEffect, useMemo, useRef, useId } from 'react';
 import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSection } from '@object-ui/types';
 import {
   Sheet,
@@ -304,6 +304,17 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   // inside `resolveSectionCollapse`, the one reader of that member — the same
   // shape as ObjectForm's grouped layout (objectui#9849 step one).
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  // objectui#13246 — a section toggle is a TRANSITION, as in `ModalForm`.
+  // Opening a group draws its `React.lazy` field widgets, so the first time a
+  // type is drawn the render suspends. The drawer has no boundary of its own,
+  // so as an ordinary update that suspension hid everything under the HOST's
+  // nearest boundary — the drawer and the header the user had just pressed
+  // included — and a browser drops focus from an element it stops rendering.
+  // As a transition React keeps what is drawn on screen until the group's rows
+  // can be drawn: the header keeps focus, and the next Tab reaches the group's
+  // first field.
+  const setSectionCollapsed = (key: string, next: boolean) =>
+    startTransition(() => setCollapsedSections(prev => ({ ...prev, [key]: next })));
 
   // Fetch object schema
   useEffect(() => {
@@ -771,7 +782,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
           title: section.label,
           description: section.description,
           where: `DrawerForm section '${sectionKey}' of object '${schema.objectName}'`,
-          setCollapsed: next => setCollapsedSections(prev => ({ ...prev, [sectionKey]: next })),
+          setCollapsed: next => setSectionCollapsed(sectionKey, next),
         });
 
         // The ONE path from a section configuration to its divider row, and
@@ -831,7 +842,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
           title,
           description: section.description,
           where: `DrawerForm field group '${sectionKey}' of object '${schema.objectName}'`,
-          setCollapsed: next => setCollapsedSections(prev => ({ ...prev, [sectionKey]: next })),
+          setCollapsed: next => setSectionCollapsed(sectionKey, next),
         });
         allFields.push(
           ...projectSectionDivider({

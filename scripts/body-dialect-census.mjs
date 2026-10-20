@@ -487,10 +487,35 @@ function* walk(dir) {
   }
 }
 
-function lineOf(text, offset) {
-  let line = 1;
-  for (let i = 0; i < offset && i < text.length; i++) if (text[i] === '\n') line++;
-  return line;
+/**
+ * Line numbers for one text from ONE pass over it (objectui#13210).
+ *
+ * The `lineOf(text, offset)` this replaces counted newlines from the top of the
+ * file for every hit, so a file cost hits × size. This indexes the newlines
+ * once — lazily, so a file that yields no hit never pays — and answers each
+ * offset by binary search. Same answer for every offset: the number of
+ * newlines strictly before it, plus one.
+ *
+ * @param {string} text
+ * @returns {(offset: number) => number}
+ */
+function lineCounter(text) {
+  /** @type {number[] | null} */
+  let newlines = null;
+  return (offset) => {
+    if (newlines === null) {
+      newlines = [];
+      for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) newlines.push(i);
+    }
+    let lo = 0;
+    let hi = newlines.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (newlines[mid] < offset) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo + 1;
+  };
 }
 
 /**
@@ -587,12 +612,13 @@ export function census(root, options = {}) {
     } catch {
       continue;
     }
+    const lineAt = lineCounter(text);
     for (const node of nodes) {
       if (!wanted.has(node.type)) continue;
       const rel = relative(root, file);
       hits.push({
         file: rel,
-        line: lineOf(text, node.offset),
+        line: lineAt(node.offset),
         type: node.type,
         body: node.keys.has('body'),
         children: node.keys.has('children'),

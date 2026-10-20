@@ -19,7 +19,9 @@
  *
  * Two halves, both pinned here on the real ObjectGrid + BulkActionDialog:
  *   - the grid's own `$select` asks for the declared `nameField` (a formula
- *     included), so the row carries it and the step lists it;
+ *     included), so the row carries it and the step lists it; the measured
+ *     list groups by account, so a server-grouped grid's row pages are pinned
+ *     too;
  *   - when the declared value still is not on the row, the step shows the
  *     resolver's `Record #<id>` floor, never a derived field's value.
  * Controls: an object whose `nameField` is a column (the lead list) and an
@@ -113,6 +115,8 @@ function renderGrid(opts: {
   objectExtra?: Record<string, unknown>;
   /** Keys the server leaves off every row, selected or not. */
   withheld?: string[];
+  /** A view grouping (the measured All Contacts list groups by account). */
+  grouping?: Record<string, unknown>;
 }) {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
     ok: true,
@@ -122,6 +126,8 @@ function renderGrid(opts: {
     json: async () => ({ success: true }),
   }));
   const dataSource = {
+    // Present, so a grouped grid groups on the server and pages its own rows.
+    queryGroupHeaders: vi.fn(async () => [{ last_name: null, count: opts.rows.length }]),
     find: vi.fn(async (_object: string, params: Record<string, any>) => {
       const select = params?.$select as string[] | undefined;
       const data = opts.rows.map((row) => {
@@ -146,6 +152,7 @@ function renderGrid(opts: {
           columns: opts.columns,
           pagination: { pageSize: 50 },
           bulkActions: ['add_to_campaign'],
+          ...(opts.grouping ? { grouping: opts.grouping } : {}),
         } as any}
         dataSource={dataSource as any}
       />
@@ -153,6 +160,8 @@ function renderGrid(opts: {
   );
   return dataSource;
 }
+
+const GROUPED = { fields: [{ field: 'last_name', order: 'asc', collapsed: false }] };
 
 /** The last `$select` the grid sent, sorted. */
 const lastSelect = (ds: { find: { mock: { calls: any[][] } } }) =>
@@ -185,6 +194,24 @@ describe('bulk confirm step names a record by its declared nameField when no col
     expect(listed(list)).toEqual(['John Smith', 'Marcus Reed']);
     // Fetched, never drawn: no column header names it.
     expect(screen.queryByRole('columnheader', { name: /Full Name/ })).toBeNull();
+  });
+
+  it('(a) a server-grouped grid (the measured list groups) asks for it on every group row page', async () => {
+    const ds = renderGrid({
+      objectName: 'crm_contact',
+      fields: CONTACT_FIELDS,
+      rows: CONTACT_ROWS,
+      columns: CONTACT_COLUMNS,
+      objectExtra: { nameField: 'full_name' },
+      grouping: GROUPED,
+    });
+    await waitFor(() => expect(ds.queryGroupHeaders).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText('VP of Engineering')).toBeInTheDocument());
+    const selects = ds.find.mock.calls.map(([, params]) => [...((params?.$select as string[] | undefined) ?? [])].sort());
+    expect(selects.length).toBeGreaterThan(0);
+    for (const select of selects) {
+      expect(select).toEqual(['first_name', 'full_name', 'id', 'last_name', 'title']);
+    }
   });
 
   it('(b) a nameField value absent from the answer reads `Record #id`, never the job title', async () => {

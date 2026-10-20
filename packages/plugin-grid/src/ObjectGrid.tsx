@@ -35,7 +35,7 @@ import { createSafeTranslation } from '@object-ui/i18n';
 // what stops a seventh site picking a convention of its own.
 import { resolveGridCellRendering, gridCellRendererForFixedKey, linkCellRenderer, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
 import { isMaskedGridColumn, isWithheldGridColumn } from './maskedColumn';
-import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer, withKnownObjects, RICH_TEXT_FIELD_TYPES, resolveRecordPointer } from '@object-ui/fields';
+import { formatCurrency, formatCompactCurrency, formatDate, formatDateTime, formatRelativeDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer, withKnownObjects, RICH_TEXT_FIELD_TYPES, resolveRecordPointer } from '@object-ui/fields';
 import { RecordPointerCell, type RecordPointerSource } from './RecordPointerCell';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
@@ -61,7 +61,7 @@ import {
   toast,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, isDeadlineSettled, leadWithNameField, declaredNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
+import { resolveConditionalFormatting, isDeadlineSettled, leadWithNameField, declaredNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, toDisplayDate, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -1684,6 +1684,58 @@ function FooterSummaryReport({
   }, [key]);
   useEffect(() => () => onChangeRef.current(null), []);
   return null;
+}
+
+/**
+ * [objectui#13234] The face a date-family CELL paints, for one grouping field:
+ * the renderer key from the cells' one shared resolve
+ * (`resolveGridCellRendering`), and the object field's `format`, which is the
+ * `format` the cell's field metadata carries.
+ */
+interface TemporalGroupFace {
+  rendererType: 'date' | 'datetime';
+  format?: string;
+}
+
+/**
+ * [objectui#13234] A `date` / `datetime` group's key, drawn as the grid's cell
+ * draws the same value. `undefined` for a key the cell has no face for (empty
+ * or unparsable), so the band keeps the group's own label: "(empty)" for an
+ * empty key, the stored text otherwise.
+ *
+ * The formatting CALLS are the cells' own, with the cells' arguments:
+ * `DateCellRenderer` paints `formatDate(value, format || 'relative', …)`;
+ * `DateTimeCellRenderer` paints `formatRelativeDate` for `'relative'`, the
+ * compact face for no format and for `'short'`, and `formatDateTime` with the
+ * authored word otherwise (the compact face's string is the cell's two halves
+ * joined by the one space the cell draws between them). No date is formatted
+ * here. The face SELECTION is the one part those renderers do not export, and
+ * it is restated here only: `groupDateHeading-13234.test.tsx` holds every
+ * heading to the cell under it for every face, so a move on either side turns
+ * it red.
+ *
+ * A heading names a DAY, not one row's deadline, so it reads the face's
+ * neutral phrase: `dueLike`'s "Overdue" wording and red are a per-row verdict
+ * (`settledWhen` is judged per row), and the rows of one group can judge it
+ * differently.
+ */
+function temporalGroupHeading(
+  face: TemporalGroupFace,
+  key: unknown,
+  locale: string | undefined,
+): string | undefined {
+  if (typeof key !== 'string' && typeof key !== 'number') return undefined;
+  // The cells' floor: every falsy scalar is empty, the numeric epoch included.
+  if (!key) return undefined;
+  // The cells' validity guard, the shared parse step.
+  if (isNaN(toDisplayDate(key).getTime())) return undefined;
+  if (face.rendererType === 'date') return formatDate(key, face.format || 'relative', { locale });
+  // A `datetime` cell renders an INSTANT, from the engine's parse.
+  const instant = new Date(key);
+  const style = !face.format || face.format === 'short' ? 'compact' : face.format;
+  return style === 'relative'
+    ? formatRelativeDate(instant, { locale })
+    : formatDateTime(instant, { style, locale });
 }
 
 export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
@@ -3339,6 +3391,38 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       return undefined;
     };
   }, [schema.grouping, schema.columns, schema.objectName, objectFields, translateOptions, t]);
+
+  // [objectui#13234] Per grouping field whose cell paints a date-family face,
+  // that face; `temporalGroupHeading` draws the field's group headings through
+  // it. The type is the one `groupValueFormatter` reads (the authored column's
+  // `type` over the object field's), taken through the cells' one shared
+  // resolve, so a heading is drawn as a date exactly when the cell under it is.
+  //
+  // ⚠️ Drawn at the band (`groupBandsOf`), NOT returned from
+  // `groupValueFormatter`: the grouping hook ORDERS groups by the label that
+  // formatter returns, and a stored day sorts in calendar order only as the
+  // stored string ("Aug 1" < "Oct 1" < "Sep 1" alphabetically). The group keeps
+  // the stored key as its label, so its order and count are what they were;
+  // only the text in its band changes.
+  const temporalGroupFaces = React.useMemo(() => {
+    const faces = new Map<string, TemporalGroupFace>();
+    const cols: ReadonlyArray<string | ListColumn> = normalizeColumns(schema.columns) ?? [];
+    for (const gf of usableGroupingFields(schema.grouping?.fields)) {
+      const objectDefField = objectFields?.[gf.field];
+      const colOverride = cols.find(
+        (c): c is ListColumn => typeof c === 'object' && c !== null && c.field === gf.field,
+      );
+      const { rendererType } = resolveGridCellRendering({
+        type: colOverride?.type || objectDefField?.type,
+        format: objectDefField?.format,
+        widget: objectDefField?.widget,
+      });
+      if (rendererType === 'date' || rendererType === 'datetime') {
+        faces.set(gf.field, { rendererType, format: objectDefField?.format || undefined });
+      }
+    }
+    return faces;
+  }, [schema.grouping, schema.columns, objectFields]);
 
   const groupingForRender = groupingRefusesNothing || !schema.grouping
     ? schema.grouping
@@ -7169,6 +7253,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     const bands: NonNullable<ObjectGridDataTableSchema['rowGroups']> = [];
     const visit = (group: typeof groups[number]) => {
       const { fieldLabel, labelColorClass, labelColorStyle } = resolveGroupHeader(group.field, group.label);
+      // [objectui#13234] A date-family key reads as its cell reads; the
+      // group's own label (its sort key) everywhere else.
+      const temporalFace = temporalGroupFaces.get(group.field);
+      const heading = (temporalFace && temporalGroupHeading(temporalFace, group.keyValues[group.field], displayLocale))
+        || group.label;
       const openLeaf = !group.collapsed && group.subgroups.length === 0;
       bands.push({
         key: group.key,
@@ -7176,7 +7265,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         band: (
           <GroupRow
             groupKey={group.key}
-            label={group.label}
+            label={heading}
             count={group.count}
             collapsed={group.collapsed}
             aggregations={group.aggregations}

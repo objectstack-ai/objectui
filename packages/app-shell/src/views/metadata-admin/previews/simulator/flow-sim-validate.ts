@@ -30,6 +30,7 @@ import { EVALUATED_EXPRESSION_SOURCE_REQUIRED, EvaluatedExpressionSchema } from 
 import type { FlowSimDiagnostic, FlowValidation, SimEdge, SimNode } from './flow-sim-types.js';
 import { conditionText } from '../flow-canvas-layout.js';
 import { missingNodePositions } from '../flow-node-refs.js';
+import { flowNodeDisplayName } from '../flow-canvas-parts.js';
 import { valueEnvelopeRefusal } from '../../inspectors/flow-value-envelope.js';
 import { t as tr, tFormat } from '../../i18n.js';
 
@@ -366,8 +367,11 @@ export function validateFlowDraft(nodes: SimNode[], edges: SimEdge[], locale?: s
     if (n.type !== 'decision') continue;
     const out = edges.filter((e) => e.source === n.id);
     const defaults = out.filter((e) => e.isDefault);
+    // Named by the author's label, with the id kept beside it so two decisions
+    // that share a label stay apart (objectui#13143).
+    const name = flowNodeDisplayName(n, locale);
     if (defaults.length > 1) {
-      errors.push({ level: 'error', nodeId: n.id, message: tFormat('engine.flowValidate.decisionMultipleDefaults', locale, { id: n.id, count: defaults.length }) });
+      errors.push({ level: 'error', nodeId: n.id, message: tFormat('engine.flowValidate.decisionMultipleDefaults', locale, { name, id: n.id, count: defaults.length }) });
     }
     // "Every branch is guarded" is read through `conditionText`, the same ONE
     // reader the stepper routes on (objectui#3216) — a decision whose guards
@@ -375,9 +379,9 @@ export function validateFlowDraft(nodes: SimNode[], edges: SimEdge[], locale?: s
     // dead-ending as one written with bare strings, and used to be silently
     // exempt from this warning.
     if (out.length === 0) {
-      warnings.push({ level: 'warning', nodeId: n.id, message: tFormat('engine.flowValidate.decisionNoBranches', locale, { id: n.id }) });
+      warnings.push({ level: 'warning', nodeId: n.id, message: tFormat('engine.flowValidate.decisionNoBranches', locale, { name, id: n.id }) });
     } else if (defaults.length === 0 && out.every((e) => conditionText(e.condition))) {
-      warnings.push({ level: 'warning', nodeId: n.id, message: tFormat('engine.flowValidate.decisionNoDefault', locale, { id: n.id }) });
+      warnings.push({ level: 'warning', nodeId: n.id, message: tFormat('engine.flowValidate.decisionNoDefault', locale, { name, id: n.id }) });
     }
   }
 

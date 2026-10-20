@@ -41,7 +41,7 @@ import { appendArray } from '../inspectors/_shared.js';
 import { useObjectCatalog, type ObjectCatalogEntry } from '../inspectors/ObjectPicker.js';
 import { t as tr, translateFlowMeta } from '../i18n.js';
 import { FlowCanvas } from './FlowCanvas.js';
-import { defaultNodeLabel } from './flow-canvas-parts.js';
+import { defaultNodeLabel, flowEdgeDisplayName } from './flow-canvas-parts.js';
 import { edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
 import { NESTED_NODE_KIND, parseNestedNodeId, encodeNestedNodeId, locateFlowNode } from '../inspectors/flow-nested-selection.js';
 import { FlowSimulatorPanel } from './FlowSimulatorPanel.js';
@@ -124,7 +124,7 @@ export function FlowPreviewChromeProvider({ value, children }: { value: FlowPrev
  * aside, under `InspectorShellHostProvider`): the eyebrow names the kind — a
  * node with its type's display name ("Node · Decision"), or a connection — and
  * the title is the one the inspector's own header would show (the node's label
- * or id; the connection's selection label, else `source → target`).
+ * or id; the connection's `source → target`, each end by its node's name).
  */
 export function flowSelectionHeading(
   draft: Record<string, unknown>,
@@ -136,7 +136,11 @@ export function flowSelectionHeading(
     const edge = edges.find((e, i) => edgeKey(e, i) === selection.id);
     return {
       eyebrow: tr('engine.inspector.flowEdge.kind', locale),
-      title: selection.label ?? (edge ? `${edge.source} → ${edge.target}` : selection.id),
+      // Each end by its node's name (objectui#13143), read off the edge, as
+      // `FlowEdgeInspector` titles it.
+      title: edge
+        ? flowEdgeDisplayName(edge, Array.isArray(draft.nodes) ? draft.nodes : [], locale)
+        : (selection.label ?? selection.id),
     };
   }
   const kind = tr('engine.inspector.flowNode.kind', locale);
@@ -544,7 +548,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
             <div className="min-h-0 overflow-hidden">
               <div className="mx-auto h-full max-w-3xl px-3 py-2">
                 {/* The engine keys runs by the flow's name; the host offers this section only with one. */}
-                {flowName && <FlowRunsPanel flowName={flowName} locale={locale} />}
+                {flowName && <FlowRunsPanel flowName={flowName} nodes={nodes} locale={locale} />}
               </div>
             </div>
           )}
@@ -677,7 +681,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
             </div>
           ) : showRuns && flowName ? (
             <div className="border-l bg-muted/20">
-              <FlowRunsPanel flowName={flowName} locale={locale} />
+              <FlowRunsPanel flowName={flowName} nodes={nodes} locale={locale} />
             </div>
           ) : showVars ? (
             <div className="border-l bg-muted/20 p-3 text-xs space-y-2">

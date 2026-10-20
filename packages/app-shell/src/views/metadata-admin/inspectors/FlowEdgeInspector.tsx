@@ -49,6 +49,7 @@ import { VariableTextInput } from './VariableTextInput.js';
 import { findUnknownRefs, scopeRoots, describeUnknownRefs } from './flow-ref-check.js';
 import { writeExpressionSource } from './expression-envelope.js';
 import { describeEdgeConnectionRefusal, edgeConnectionRefusal } from '../previews/flow-problems.js';
+import { flowEdgeDisplayName } from '../previews/flow-canvas-parts.js';
 // objectui#7265 — the selected edge as this panel reads it out of the draft.
 // This file used to declare its own `interface FlowEdge`, a THIRD hand copy of
 // the designer dialect below: `FlowNodeInspector` and `FlowPreview` already
@@ -153,7 +154,7 @@ export function FlowEdgeInspector({
     }
     setEndpointRefusal(null);
     patchEdge({ source, target });
-    onSelectionChange?.({ kind: 'edge', id: edgeKey({ ...edge, source, target }, index), label: `${source} → ${target}` });
+    onSelectionChange?.({ kind: 'edge', id: edgeKey({ ...edge, source, target }, index), label: flowEdgeDisplayName({ source, target }, nodes, locale) });
   };
   const branches =
     sourceNode?.type === 'decision' &&
@@ -202,7 +203,10 @@ export function FlowEdgeInspector({
   return (
     <InspectorShell
       kindLabel={t('engine.inspector.flowEdge.kind', locale)}
-      title={selection.label ?? `${edge.source} → ${edge.target}`}
+      // Read off the edge itself, each end by its node's name (objectui#13143):
+      // a selection's label is written once, by whoever selected, and goes
+      // stale when an end node is renamed.
+      title={flowEdgeDisplayName(edge, nodes, locale)}
       onClose={onClearSelection}
       closeLabel={t('engine.inspector.flowEdge.close', locale)}
       footer={

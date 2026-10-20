@@ -22,8 +22,10 @@ import * as React from 'react';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Clock, Loader2, PauseCircle, RefreshCw, SkipForward } from 'lucide-react';
 import { EmptyDescription, cn } from '@object-ui/components';
+import { collectFlowGraphs } from '@objectstack/spec/automation';
 import { apiBase } from './useFlowNodePalette.js';
 import { t as tr, tFormat } from '../i18n.js';
+import { flowNodeDisplayName } from './flow-canvas-parts.js';
 
 /** An error on a run/step. The engine sends the run-level `error` as a plain
  *  string (`ExecutionLog.error`) while a step-level error is a `{code,message}`
@@ -257,6 +259,28 @@ const STATUS_META: Record<string, { icon: React.ComponentType<{ className?: stri
 
 /** Resolve a run status to its icon, tone and localized label. Unknown statuses
  *  fall back to the raw status string (no key). */
+/** Node id → the name the designer gives that node, at every depth. */
+type NodeNames = ReadonlyMap<string, string>;
+
+/**
+ * The name of every node of the flow, at every depth: a body step runs a
+ * region's node, so the walk is the spec's `collectFlowGraphs`. Each name is
+ * {@link flowNodeDisplayName}'s (objectui#13143). A step whose node is not in
+ * the flow any more (deleted since the run) has no name here and reads as its
+ * id.
+ */
+function flowNodeNames(nodes: readonly unknown[] | undefined, locale?: string): NodeNames {
+  const names = new Map<string, string>();
+  if (!nodes?.length) return names;
+  const graphs = collectFlowGraphs({ nodes, edges: [] } as Parameters<typeof collectFlowGraphs>[0]);
+  for (const graph of graphs) {
+    for (const node of graph.nodes) {
+      if (typeof node.id === 'string' && node.id && !names.has(node.id)) names.set(node.id, flowNodeDisplayName(node, locale));
+    }
+  }
+  return names;
+}
+
 function statusMeta(status: string, locale?: string) {
   const meta = STATUS_META[status];
   if (meta) return { icon: meta.icon, cls: meta.cls, label: tr(meta.labelKey, locale) };
@@ -281,7 +305,7 @@ function fmtDuration(ms?: number): string | null {
   return `${Math.round(ms / 60_000)}m`;
 }
 
-function StepRow({ step, depth = 0 }: { step: RunStep; depth?: number }) {
+function StepRow({ step, depth = 0, names }: { step: RunStep; depth?: number; names: NodeNames }) {
   const cls =
     step.status === 'success'
       ? 'text-emerald-600 dark:text-emerald-400'
@@ -300,7 +324,7 @@ function StepRow({ step, depth = 0 }: { step: RunStep; depth?: number }) {
     <>
       <li className="flex items-baseline gap-1.5 py-0.5" style={depth ? { paddingLeft: depth * 12 } : undefined}>
         <span className={cn('shrink-0 text-[9px] font-semibold uppercase', cls)}>{step.status}</span>
-        <span className="truncate font-mono text-[10px]" title={step.nodeId}>{step.nodeId}</span>
+        <span className="truncate font-mono text-[10px]" title={step.nodeId}>{names.get(step.nodeId) ?? step.nodeId}</span>
         {step.nodeType && <span className="shrink-0 text-[9px] uppercase text-muted-foreground">{step.nodeType}</span>}
         {warnings.length > 0 && (
           <AlertTriangle aria-hidden className="h-2.5 w-2.5 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -347,11 +371,11 @@ function RegionHeader({ label, depth }: { label: string; depth: number }) {
 
 /** Render a step and, nested beneath it, its structured-region body steps —
  *  grouped by iteration / branch / handler (objectstack-ai/objectstack#1505). Recurses for nested regions. */
-function StepNode({ node, depth, locale }: { node: StepTreeNode; depth: number; locale?: string }) {
+function StepNode({ node, depth, locale, names }: { node: StepTreeNode; depth: number; locale?: string; names: NodeNames }) {
   const groups = node.children.length > 0 ? groupChildren(node.children, locale) : [];
   return (
     <>
-      <StepRow step={node.step} depth={depth} />
+      <StepRow step={node.step} depth={depth} names={names} />
       {groups.map((g, gi) => (
         <React.Fragment key={gi}>
           {g.label != null && <RegionHeader label={g.label} depth={depth + 1} />}
@@ -361,6 +385,7 @@ function StepNode({ node, depth, locale }: { node: StepTreeNode; depth: number; 
               node={child}
               depth={g.label != null ? depth + 2 : depth + 1}
               locale={locale}
+              names={names}
             />
           ))}
         </React.Fragment>
@@ -369,7 +394,7 @@ function StepNode({ node, depth, locale }: { node: StepTreeNode; depth: number; 
   );
 }
 
-function RunRow({ run, locale }: { run: FlowRun; locale?: string }) {
+function RunRow({ run, locale, names }: { run: FlowRun; locale?: string; names: NodeNames }) {
   const displayLocale = useDisplayLocale();
   const [open, setOpen] = React.useState(false);
   const meta = statusMeta(run.status, locale);
@@ -412,7 +437,7 @@ function RunRow({ run, locale }: { run: FlowRun; locale?: string }) {
           ) : (
             <ul>
               {buildStepTree(steps).map((node, i) => (
-                <StepNode key={`${node.step.nodeId}#${i}`} node={node} depth={0} locale={locale} />
+                <StepNode key={`${node.step.nodeId}#${i}`} node={node} depth={0} locale={locale} names={names} />
               ))}
             </ul>
           )}
@@ -422,7 +447,17 @@ function RunRow({ run, locale }: { run: FlowRun; locale?: string }) {
   );
 }
 
-export function FlowRunsPanel({ flowName, locale }: { flowName: string; locale?: string }) {
+export function FlowRunsPanel({
+  flowName,
+  nodes,
+  locale,
+}: {
+  flowName: string;
+  /** The flow's `nodes`, so a step reads by its node's name (objectui#13143). */
+  nodes?: readonly unknown[];
+  locale?: string;
+}) {
+  const names = React.useMemo(() => flowNodeNames(nodes, locale), [nodes, locale]);
   const [runs, setRuns] = React.useState<FlowRun[]>([]);
   const [state, setState] = React.useState<LoadState>('loading');
   const [reloadKey, setReloadKey] = React.useState(0);
@@ -469,7 +504,7 @@ export function FlowRunsPanel({ flowName, locale }: { flowName: string; locale?:
       ) : (
         <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto">
           {runs.map((r) => (
-            <RunRow key={r.id} run={r} locale={locale} />
+            <RunRow key={r.id} run={r} locale={locale} names={names} />
           ))}
         </ul>
       )}

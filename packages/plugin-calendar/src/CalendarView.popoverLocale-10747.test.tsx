@@ -74,7 +74,8 @@ function headerTrigger(): HTMLElement {
 
 /** The month the header names, which is the month view's own label. */
 function headerMonth(): string {
-  return (headerTrigger().textContent ?? '').trim()
+  // The full label; the trigger also holds the short form shown at phone widths.
+  return (headerTrigger().querySelector('[data-date-label="full"]')?.textContent ?? '').trim()
 }
 
 function popoverCaption(): string {

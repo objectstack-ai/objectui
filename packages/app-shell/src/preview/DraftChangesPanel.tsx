@@ -473,6 +473,9 @@ type Translate = ReturnType<typeof useObjectTranslation>['t'];
  * (`preview.changes.typeCount.*`), so every pack picks its own CLDR slot and
  * word order. The keys are spelled out, not built from `type`: a type with no
  * row keeps the raw-name `summaryType` segment rather than a guessed plural.
+ *
+ * objectui#13221 — each per-type group heading reads the same segment, so a
+ * heading and the summary line name a type the same way, in the user's locale.
  */
 const TYPE_COUNT: Readonly<Record<string, (t: Translate, count: number) => string>> = {
   object: (t, count) => t('preview.changes.typeCount.object', { count, defaultValue: '{{count}} objects' }),
@@ -1092,7 +1095,7 @@ export function DraftChangesPanel({
             [...byType.entries()].map(([type, items]) => (
               <div key={type}>
                 <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {type} · {items.length}
+                  {summaryTypeSegment(t, type, items.length)}
                 </h4>
                 <ul className="flex flex-col gap-1">
                   {items.map((entry) => {

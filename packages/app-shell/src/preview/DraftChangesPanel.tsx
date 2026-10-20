@@ -27,7 +27,7 @@
  * footer's call as the door's `backfill` option.
  */
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, Equal, FilePlus2, FilePen, Loader2, Rocket, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -84,7 +84,11 @@ import { MetadataProtectionFields, stripReadDecorations } from '@objectstack/spe
 // same function the batch door's backfill judgement calls. Moves nothing onto
 // the eager graph for the reason recorded above (`vendor-objectstack`).
 import { discriminateDefaultValueShape } from '@objectstack/spec/data';
-import { diffFields } from '../views/metadata-admin/previews/object-fields-io.js';
+import { diffFields, readFields } from '../views/metadata-admin/previews/object-fields-io.js';
+// objectui#13125 — the Data pillar's rule for a column the platform injected
+// and hides (objectui#11780), reused rather than restated. A leaf module with
+// no imports, so it adds nothing else to the eager graph described above.
+import { isStudioHiddenSystemField } from '../views/studio-design/studioHiddenSystemField.js';
 // The live `?surface=` channel, and NOT `useSurfaceDeepLink` beside it: this
 // import must stay React-only, because that module reaches `nav-selection.js`
 // and through it the App-nav inspector, and this panel sits in the console's
@@ -252,11 +256,23 @@ async function fetchItemBody(
 }
 
 export interface EntryChangeDetail {
-  /** Field-level diff — present when either side carries a `fields` map. */
+  /**
+   * Field-level diff — present when either side carries a `fields` map. A
+   * field the platform injected and hides is never listed (objectui#13125):
+   * see {@link computeChangeDetail}.
+   */
   fields: {
     added: string[];
     changed: Array<{ name: string; keys: string[] }>;
     removed: string[];
+    /**
+     * The label of each listed field that declares one (objectui#13125), read
+     * off the definition the row describes: the draft's for an added or a
+     * changed field, the published one's for a removed field. The row leads
+     * with it, as the item row leads with the item's label (objectui#11862).
+     * A Map, never a plain object: `__proto__` is a legal field name.
+     */
+    labels: ReadonlyMap<string, string>;
   } | null;
   /**
    * Top-level keys (other than `fields`) whose values differ, split the way the
@@ -303,6 +319,22 @@ function withoutProtectionEnvelope(body: Record<string, unknown>): Record<string
   return rest;
 }
 
+/** Each field's definition by name, in either `fields` shape the diff reads. */
+function fieldDefsByName(fieldsInput: unknown): Map<string, Record<string, unknown>> {
+  return new Map(readFields(fieldsInput).entries.map((e) => [e.name, e.def] as const));
+}
+
+/**
+ * A field definition's label, as the spec declares it (`label` is a string on
+ * a field): anything else, or a blank one, is no label.
+ */
+function fieldLabelOf(def: Record<string, unknown> | undefined): string | undefined {
+  const label = def?.label;
+  if (typeof label !== 'string') return undefined;
+  const trimmed = label.trim();
+  return trimmed === '' ? undefined : trimmed;
+}
+
 /**
  * What publishing this draft actually changes, computed client-side from the
  * published body (null when the item is NEW) and the pending draft body.
@@ -312,6 +344,16 @@ function withoutProtectionEnvelope(body: Record<string, unknown>): Record<string
  * Both bodies lose their protection envelope first (above), here and nowhere
  * else, so every list this returns and the no-change mark read the same
  * envelope-free pair.
+ *
+ * A field row is dropped, here and nowhere else for the same reason, when the
+ * platform injected that column and hides it (objectui#13125): every
+ * definition of it the two bodies carry has `system: true` and `hidden: true`,
+ * the Data pillar's own test (`isStudioHiddenSystemField`, objectui#11780).
+ * The `/meta` reads serve an object with the platform's columns already
+ * stamped on, so a NEW object's drill-in listed the search companion
+ * `__search` as a field the author added. Only that rule decides: a column
+ * the platform injects but does not hide (the audit columns, `owner_id`) is
+ * still listed.
  *
  * Why not `computeDiffRows` from `LayeredDiff.tsx`, which splits top-level keys
  * the same way: that module imports the metadata-admin string table
@@ -328,17 +370,31 @@ export function computeChangeDetail(
   let fields: EntryChangeDetail['fields'] = null;
   if (pub.fields != null || cur.fields != null) {
     const d = diffFields(pub.fields, cur.fields);
-    fields = {
-      added: Object.values(d.byName)
-        .filter((e) => e.status === 'added')
-        .map((e) => e.name)
-        .sort(),
-      changed: Object.values(d.byName)
-        .filter((e) => e.status === 'changed')
-        .map((e) => ({ name: e.name, keys: e.changedKeys }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-      removed: d.removed.map((e) => e.name).sort(),
+    const pubDefs = fieldDefsByName(pub.fields);
+    const curDefs = fieldDefsByName(cur.fields);
+    const listed = (name: string): boolean => {
+      const defs = [pubDefs.get(name), curDefs.get(name)].filter((def) => def !== undefined);
+      return !(defs.length > 0 && defs.every((def) => isStudioHiddenSystemField(def)));
     };
+    const added = Object.values(d.byName)
+      .filter((e) => e.status === 'added' && listed(e.name))
+      .map((e) => e.name)
+      .sort();
+    const changed = Object.values(d.byName)
+      .filter((e) => e.status === 'changed' && listed(e.name))
+      .map((e) => ({ name: e.name, keys: e.changedKeys }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const removed = d.removed
+      .map((e) => e.name)
+      .filter(listed)
+      .sort();
+    const labels = new Map<string, string>();
+    for (const name of [...added, ...changed.map((f) => f.name), ...removed]) {
+      // The draft's definition where there is one: it is what publishing installs.
+      const label = fieldLabelOf(curDefs.get(name) ?? pubDefs.get(name));
+      if (label !== undefined) labels.set(name, label);
+    }
+    fields = { added, changed, removed, labels };
   }
   const names = new Set([...Object.keys(pub), ...Object.keys(cur)]);
   names.delete('fields');
@@ -424,6 +480,50 @@ interface EntryBackfillControl {
   selected: ReadonlySet<string>;
   onToggle: (entry: DraftBackfillEntry, checked: boolean) => void;
   disabled: boolean;
+}
+
+const FIELD_ROW_MARK = { added: '+', changed: '~', removed: '−' } as const;
+const FIELD_ROW_TONE = {
+  added: 'text-emerald-700 dark:text-emerald-400',
+  changed: 'text-amber-700 dark:text-amber-400',
+  removed: 'text-red-700 line-through dark:text-red-400',
+} as const;
+
+/**
+ * One field row of the drill-in (objectui#13125). The field's label leads and
+ * its machine name follows as secondary text, the way the item row reads
+ * (objectui#11862). With no label, or a label that is the name itself, the name
+ * alone is the row's text, in monospace, as before.
+ */
+function FieldRow({
+  kind,
+  name,
+  label,
+  children,
+}: {
+  kind: keyof typeof FIELD_ROW_MARK;
+  name: string;
+  label: string | undefined;
+  children?: ReactNode;
+}) {
+  const lead = label !== undefined && label !== name ? label : undefined;
+  return (
+    <p
+      data-testid="draft-field-row"
+      className={`${lead === undefined ? 'font-mono ' : ''}text-xs ${FIELD_ROW_TONE[kind]}`}
+    >
+      {FIELD_ROW_MARK[kind]}{' '}
+      {lead === undefined ? (
+        name
+      ) : (
+        <>
+          {lead}{' '}
+          <span className="font-mono text-[11px] text-muted-foreground">{name}</span>
+        </>
+      )}
+      {children}
+    </p>
+  );
 }
 
 /**
@@ -563,7 +663,7 @@ function EntryDetail({
         const id = `${optionId}-backfill-${name}`;
         return (
           <div key={`+${name}`}>
-            <p className="font-mono text-xs text-emerald-700 dark:text-emerald-400">+ {name}</p>
+            <FieldRow kind="added" name={name} label={fields.labels.get(name)} />
             {backfill && candidate ? (
               // objectui#12929 — unchecked until the author checks it: nothing
               // is backfilled that was not asked for.
@@ -593,15 +693,12 @@ function EntryDetail({
         );
       })}
       {fields?.changed.map((f) => (
-        <p key={`~${f.name}`} className="font-mono text-xs text-amber-700 dark:text-amber-400">
-          ~ {f.name}
+        <FieldRow key={`~${f.name}`} kind="changed" name={f.name} label={fields.labels.get(f.name)}>
           {f.keys.length > 0 && <span className="text-muted-foreground"> · {f.keys.join(', ')}</span>}
-        </p>
+        </FieldRow>
       ))}
       {fields?.removed.map((name) => (
-        <p key={`-${name}`} className="font-mono text-xs text-red-700 line-through dark:text-red-400">
-          − {name}
-        </p>
+        <FieldRow key={`-${name}`} kind="removed" name={name} label={fields.labels.get(name)} />
       ))}
       {hasKeyRows && (
         <p className="text-xs text-muted-foreground">

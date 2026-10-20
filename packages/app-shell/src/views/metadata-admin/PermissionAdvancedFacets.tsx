@@ -151,25 +151,17 @@ function asArray<T = unknown>(v: unknown): T[] {
   return [];
 }
 
-/** Whether a policy as the draft holds it has a name at all (blank counts as none). */
+/**
+ * objectui#13113 — whether a policy as the draft holds it has a name at all
+ * (blank counts as none). "Add policy" inserts a row without one: it is
+ * INCOMPLETE, not wrong, so the row says beside itself what it needs, and the
+ * host's autosave holds while any row is in that state (`rlsUnnamedCount` in
+ * `PermissionMatrixEditor`, the same emptiness test). ⛔ The spec's name format
+ * is not restated here: a non-empty name the server refuses is sent, and the
+ * host renders that refusal in the author's words (objectui#7715's rule).
+ */
 function policyNamed(policy: RlsPolicy | null | undefined): boolean {
   return typeof policy?.name === 'string' && policy.name.trim() !== '';
-}
-
-/**
- * objectui#13113 — the indexes of the RLS policies in `rowLevelSecurity` (the
- * draft's value, parsed or a JSON string) that have no name yet.
- *
- * Such a row is INCOMPLETE, not wrong: "Add policy" inserts it blank and the
- * author has not typed yet. The host's autosave holds while any row is
- * incomplete, the same way a CEL lint error holds it, and each row says beside
- * itself what it needs. The test is emptiness only: ⛔ the spec's name format is
- * not restated here. A non-empty name the server refuses is sent, and the
- * host renders that refusal in the author's words (objectui#7715's rule: the
- * editor reads the refusal the door gives).
- */
-export function rlsPoliciesWithoutName(rowLevelSecurity: unknown): number[] {
-  return asArray<RlsPolicy>(rowLevelSecurity).flatMap((p, i) => (policyNamed(p) ? [] : [i]));
 }
 
 /** Tolerantly coerce a facet value (parsed value or JSON string) to an object. */

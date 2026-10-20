@@ -99,7 +99,7 @@ import {
   translateValidationMessage,
   useMetadataLocale,
 } from './i18n.js';
-import { PermissionAdvancedFacets, rlsPoliciesWithoutName } from './PermissionAdvancedFacets.js';
+import { PermissionAdvancedFacets } from './PermissionAdvancedFacets.js';
 import { AssignedUsersSection } from './AssignedUsersSection.js';
 import { isEnvironmentScope, useWalledCatalogReadOnly } from './catalog-scope.js';
 import { useCanAuthorMetadata, useCanReadAuthoringTrail } from '../../hooks/useCanAuthorMetadata.js';
@@ -860,9 +860,17 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   const [celErrorCount, setCelErrorCount] = React.useState(0);
   // objectui#13113 — RLS rows with no name yet ("Add policy" inserts one
   // blank). Incomplete, not wrong: like a CEL error, they hold the save, and
-  // each row says beside itself what it needs. Read from the draft itself, so
-  // the hold moves with the very edit that adds or names a row.
-  const rlsUnnamedCount = rlsPoliciesWithoutName(draft.rowLevelSecurity).length;
+  // each row says beside itself what it needs (`policyNamed` in
+  // `PermissionAdvancedFacets`, the same emptiness test). Read from the draft
+  // itself, so the hold moves with the very edit that adds or names a row.
+  // Emptiness only: ⛔ the spec's name format is not restated; a non-empty name
+  // the server refuses is sent, and its refusal worded (`rlsNameRefusal`).
+  const rlsUnnamedCount = (Array.isArray(draft.rowLevelSecurity) ? draft.rowLevelSecurity : []).filter(
+    (p) => {
+      const n = (p as { name?: unknown } | null)?.name;
+      return !(typeof n === 'string' && n.trim() !== '');
+    },
+  ).length;
   const saveHeld = celErrorCount > 0 || rlsUnnamedCount > 0;
 
   // Dirty detection — cheap JSON snapshot comparison against the last

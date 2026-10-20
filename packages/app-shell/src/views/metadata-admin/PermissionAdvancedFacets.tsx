@@ -151,6 +151,27 @@ function asArray<T = unknown>(v: unknown): T[] {
   return [];
 }
 
+/** Whether a policy as the draft holds it has a name at all (blank counts as none). */
+function policyNamed(policy: RlsPolicy | null | undefined): boolean {
+  return typeof policy?.name === 'string' && policy.name.trim() !== '';
+}
+
+/**
+ * objectui#13113 — the indexes of the RLS policies in `rowLevelSecurity` (the
+ * draft's value, parsed or a JSON string) that have no name yet.
+ *
+ * Such a row is INCOMPLETE, not wrong: "Add policy" inserts it blank and the
+ * author has not typed yet. The host's autosave holds while any row is
+ * incomplete, the same way a CEL lint error holds it, and each row says beside
+ * itself what it needs. The test is emptiness only: ⛔ the spec's name format is
+ * not restated here. A non-empty name the server refuses is sent, and the
+ * host renders that refusal in the author's words (objectui#7715's rule: the
+ * editor reads the refusal the door gives).
+ */
+export function rlsPoliciesWithoutName(rowLevelSecurity: unknown): number[] {
+  return asArray<RlsPolicy>(rowLevelSecurity).flatMap((p, i) => (policyNamed(p) ? [] : [i]));
+}
+
 /** Tolerantly coerce a facet value (parsed value or JSON string) to an object. */
 function asObject<T extends object = Record<string, unknown>>(v: unknown): T {
   if (v && typeof v === 'object' && !Array.isArray(v)) return v as T;
@@ -522,6 +543,12 @@ export function PermissionAdvancedFacets({
                   </Button>
                 )}
               </div>
+              {/* objectui#13113 — an unnamed row is held unsent; say what it needs. */}
+              {writable && !policyNamed(pol) && (
+                <p className="text-xs text-muted-foreground" data-testid={`rls-name-needed-${i}`}>
+                  {t('perm.rls.nameNeeded')}
+                </p>
+              )}
               <div className="grid gap-2 sm:grid-cols-2">
                 <CelPredicateField
                   label={t('perm.rls.using')}

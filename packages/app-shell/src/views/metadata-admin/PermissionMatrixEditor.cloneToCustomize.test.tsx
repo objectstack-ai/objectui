@@ -527,3 +527,79 @@ describe('PermissionMatrixEditPage — a save the server refuses as a packaged s
     expect(cloneButtons()).toHaveLength(0);
   });
 });
+
+describe('PermissionMatrixEditPage — the clone notice is point-in-time: a saved copy is past it (objectui#13272)', () => {
+  it('control: right after the clone, with no save, the copy shows the server\'s notice verbatim', async () => {
+    await renderRouted();
+    await fillDialog();
+    fireEvent.click(createCopy());
+
+    await screen.findByRole('button', { name: /^Save$/ });
+    const notice = screen.getByTestId('perm-clone-notice');
+    // Verbatim: the whole server string, not a rewording or an excerpt.
+    expect(notice.textContent).toBe(NOTICE);
+  });
+
+  it('clone, then Save the copy: the notice is gone', async () => {
+    const saved: string[] = [];
+    saveImpl = async (_t, name, payload) => {
+      saved.push(name);
+      return payload;
+    };
+    await renderRouted();
+    await fillDialog();
+    fireEvent.click(createCopy());
+
+    const save = await screen.findByRole('button', { name: /^Save$/ });
+    expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
+    fireEvent.click(save);
+
+    await waitFor(() => expect(saved).toEqual([CLONE_NAME]));
+    await waitFor(() => expect(screen.queryByTestId('perm-clone-notice')).toBeNull());
+  });
+
+  it('control: a refused save of the copy keeps the notice — the copy is not saved', async () => {
+    await renderRouted();
+    await fillDialog();
+    fireEvent.click(createCopy());
+
+    const save = await screen.findByRole('button', { name: /^Save$/ });
+    saveImpl = async () => {
+      throw Object.assign(new Error('[Security] Access denied'), { status: 403, code: 'PERMISSION_DENIED' });
+    };
+    fireEvent.click(save);
+
+    await screen.findByText('[Security] Access denied');
+    expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
+  });
+
+  it('control: on an embedded host the notice sits on the base, and saving the BASE keeps it', async () => {
+    // The base reads writable; its first save is refused as packaged, which
+    // offers the clone (the only way onto the clone dialog from a writable set).
+    codeLayerByName = {};
+    const saved: string[] = [];
+    saveImpl = async () => {
+      throw Object.assign(new Error('packaged'), { status: 403, code: 'NOT_OVERRIDABLE' });
+    };
+    await renderPlain({ embedded: true });
+    fireEvent.click(saveButton()!);
+    const alert = await screen.findByRole('alert');
+    fireEvent.click(within(alert).getByRole('button', { name: CLONE_EN }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('New machine name'), { target: { value: CLONE_NAME } });
+    fireEvent.change(within(dialog).getByLabelText('New label'), { target: { value: CLONE_LABEL } });
+    fireEvent.click(createCopy());
+    const notice = await screen.findByTestId('perm-clone-notice');
+    expect(notice).toHaveTextContent(new RegExp(`Cloned as ${CLONE_NAME}`));
+
+    saveImpl = async (_t, name, payload) => {
+      saved.push(name);
+      return payload;
+    };
+    fireEvent.click(saveButton()!);
+
+    await waitFor(() => expect(saved).toEqual([BASE_SET]));
+    // The base's save says nothing about the copy, which is still unsaved and unheld.
+    expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
+  });
+});

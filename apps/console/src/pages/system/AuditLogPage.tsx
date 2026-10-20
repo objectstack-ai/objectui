@@ -12,9 +12,10 @@
  * snake_case columns).
  *
  * Scope (MVP):
- *  - Filter by action / object (picked from the served objects, objectui#13165;
- *    see `objectFilterOptionsOf` below) / actor (a `sys_user` lookup) /
- *    date range
+ *  - Filter by action (the declared options of `sys_audit_log.action`,
+ *    objectui#13175; see `actionFilterOptionsOf` in `auditLogActions.ts`) /
+ *    object (picked from the served objects, objectui#13165; see
+ *    `objectFilterOptionsOf` below) / actor (a `sys_user` lookup) / date range
  *  - Presets: the list views `sys_audit_log` SERVES (Writes, Auth, …), read
  *    from the console's object metadata, never copied here (objectui#12667).
  *    See `auditPresetsOf` below
@@ -73,7 +74,7 @@ import {
 import { LookupField, objectRefOptionLabel } from '@object-ui/fields';
 import { ConsolePageHeader, useAdapter, useMetadata } from '@object-ui/app-shell';
 import { Search, X, AlertCircle, ScrollText, ExternalLink } from 'lucide-react';
-import { ACTION_OPTIONS, ACTION_VARIANT } from './auditLogActions';
+import { actionBadgeVariant, actionFilterOptionsOf } from './auditLogActions';
 
 const SERVER_URL = (import.meta.env.VITE_SERVER_URL || '').replace(/\/$/, '');
 const API_BASE = `${SERVER_URL}/api/v1`;
@@ -106,6 +107,11 @@ const PAGE_SIZE = 50;
 
 /** The object this page browses. */
 const AUDIT_OBJECT = 'sys_audit_log';
+
+/** The served `sys_audit_log` document among the console's served objects, if any. */
+function auditObjectOf(objects: readonly unknown[]): unknown {
+  return objects.find((o) => (o as { name?: unknown } | null)?.name === AUDIT_OBJECT);
+}
 
 /**
  * One served list view of `sys_audit_log`, as this browser offers it
@@ -290,10 +296,10 @@ export function AuditLogPage() {
   // The served `sys_audit_log` document, read through the console's metadata
   // cache — the same read the object list's view switcher draws from.
   const { objects, getTypeStatus } = useMetadata();
-  const presets = useMemo(
-    () => auditPresetsOf(objects.find((o) => (o as { name?: unknown } | null)?.name === AUDIT_OBJECT)),
-    [objects],
-  );
+  const presets = useMemo(() => auditPresetsOf(auditObjectOf(objects)), [objects]);
+  // The Action filter offers what the same document declares for
+  // `sys_audit_log.action` (objectui#13175), never a list kept here.
+  const actionOptions = useMemo(() => actionFilterOptionsOf(auditObjectOf(objects)), [objects]);
   // The Object filter picks from the same served objects (objectui#13165).
   const objectOptions = useMemo(() => objectFilterOptionsOf(objects, displayLocale), [objects, displayLocale]);
   const objectsLoading = getTypeStatus?.('object') === 'loading';
@@ -471,8 +477,8 @@ export function AuditLogPage() {
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All actions</SelectItem>
-                {ACTION_OPTIONS.map((a) => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                {actionOptions.map((a) => (
+                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -570,7 +576,7 @@ export function AuditLogPage() {
               </TableHeader>
               <TableBody>
                 {rows.map((r) => {
-                  const variant = ACTION_VARIANT[r.action || ''] || 'outline';
+                  const variant = actionBadgeVariant(r.action);
                   return (
                     <TableRow
                       key={r.id}
@@ -612,7 +618,7 @@ export function AuditLogPage() {
         <SheetContent side="right" className="sm:max-w-2xl w-full overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
-              <Badge variant={selected ? (ACTION_VARIANT[selected.action || ''] || 'outline') : 'outline'}>
+              <Badge variant={actionBadgeVariant(selected?.action)}>
                 {selected?.action || '—'}
               </Badge>
               {selected?.object_name || 'Audit Event'}

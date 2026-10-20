@@ -18,7 +18,9 @@
  * The transport is stubbed at the seams the page reads through:
  *  - the console's metadata cache (`useMetadata().objects`) serves the
  *    objects. `nightly_widget` is a name no code names, so an option for it
- *    can only come from the served list, never from a list in the page;
+ *    can only come from the served list, never from a list in the page.
+ *    `sys_audit_log` is served too, as on a real console: its `action` field's
+ *    declared options are what the Action filter offers (objectui#13175);
  *  - `fetch` answers `/data/sys_audit_log`, honouring `$filter` equality on
  *    `object_name`, `action` and `user_id`, and `$top` / `$skip`;
  *  - the console adapter (`useAdapter`) serves `sys_user` to the actor lookup.
@@ -64,6 +66,20 @@ const { ADAPTER, ADMIN, OBJECTS } = vi.hoisted(() => {
       { name: 'crm_contact', label: 'Contacts' },
       { name: 'nightly_widget' },
       { name: 'crm_account', label: 'Accounts' },
+      {
+        name: 'sys_audit_log',
+        label: 'Audit Log',
+        fields: {
+          action: {
+            type: 'select',
+            label: 'Action',
+            options: [
+              { label: 'create', value: 'create' },
+              { label: 'update', value: 'update' },
+            ],
+          },
+        },
+      },
     ]),
   };
 });
@@ -213,7 +229,7 @@ describe('AuditLogPage — the object filter is picked, never typed (objectui#13
 
     await openObjectPicker();
     const options = screen.getAllByRole('option').map((o) => o.textContent);
-    expect(options).toEqual(['Accounts (crm_account)', 'Contacts (crm_contact)', 'nightly_widget']);
+    expect(options).toEqual(['Accounts (crm_account)', 'Audit Log (sys_audit_log)', 'Contacts (crm_contact)', 'nightly_widget']);
   });
 
   it("finds the Accounts object when the admin types the card's own example, `account`", async () => {

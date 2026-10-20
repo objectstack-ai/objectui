@@ -111,9 +111,7 @@ describe('ImportWizard: a finished import no longer says "Review data before imp
     expect(screen.getByText(copy('grid.import.skippedCount').replace('{{count}}', '1'))).toBeInTheDocument();
 
     expect(screen.queryByText(PREVIEW_SENTENCE)).not.toBeInTheDocument();
-    // One row skipped reads as a partial import since objectui#13230; what this
-    // file pins is that the result headline, whichever it is, is the description.
-    expect(accessibleDescription()).toEqual({ text: copy('grid.import.importPartial'), carriers: 1 });
+    expect(accessibleDescription()).toEqual({ text: copy('grid.import.importComplete'), carriers: 1 });
   });
 
   it('a cancelled import shows no preview sentence, and its headline is the dialog description', async () => {

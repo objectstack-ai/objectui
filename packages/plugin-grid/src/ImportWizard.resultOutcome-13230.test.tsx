@@ -20,13 +20,16 @@
  * Driven through the real wizard and a stubbed data source, one case per
  * measured shape:
  * - (a) every row created: Success ("Import Complete");
- * - (b) one row created, one rejected: Partial;
- * - (c) every row rejected: Failed, and the "0 imported" badge is not drawn
+ * - (b) one row created, one rejected (`ok: false`): Partial;
+ * - (c) every row rejected (`ok: false`): Failed, and the "0 imported" badge is not drawn
  *   in the primary variant;
  * - (d1) the import refused with 405: Failed, the refusal message still shows;
  * - (d2) the request throws: Failed;
  * - (e) the background job ends `failed`: Failed — also when the worker had
  *   committed a row before it crashed;
+ * - (f) deliberately skipped rows (`ok: true`, `skipped`) beside created ones:
+ *   Success — a deliberate skip is not an error;
+ * - (g) every row deliberately skipped, none errored: Success, not Failed;
  * - CONTROL: a cancelled job still reads "Import cancelled".
  *
  * Each asserts the headline, that "Import Complete" is absent where it does
@@ -108,15 +111,16 @@ function expectHeadline(expected: string) {
 const importedBadge = (count: number) =>
   screen.getByText(copy('grid.import.imported').replace('{{count}}', String(count)));
 
-function serverResult(created: number, failed: number): ImportRecordsResult {
+function serverResult(created: number, failed: number, skipped = 0): ImportRecordsResult {
   const results: ImportRecordsResult['results'] = [];
   for (let i = 0; i < created; i++) results.push({ row: results.length + 1, ok: true, action: 'created', id: `t${i}` });
+  for (let i = 0; i < skipped; i++) results.push({ row: results.length + 1, ok: true, action: 'skipped' });
   for (let i = 0; i < failed; i++) {
     results.push({ row: results.length + 1, ok: false, action: 'failed', field: 'name', code: 'validation_failed', error: 'Name is invalid' });
   }
   return {
-    object: 'task', dryRun: false, writeMode: 'insert', total: created + failed, ok: created,
-    errors: failed, created, updated: 0, skipped: 0, results,
+    object: 'task', dryRun: false, writeMode: 'insert', total: created + failed + skipped, ok: created + skipped,
+    errors: failed, created, updated: 0, skipped, results,
   };
 }
 
@@ -161,6 +165,22 @@ describe('ImportWizard: the result screen says what happened (objectui#13230)', 
     await runSync({ importRecords: vi.fn(async () => { throw new Error('Network request failed'); }) });
     expectHeadline(FAILED);
     expect(screen.getByText('Network request failed')).toBeInTheDocument();
+  });
+
+  it('(f) deliberately skipped rows beside created ones read Success', async () => {
+    await runSync({ importRecords: vi.fn(async () => serverResult(1, 0, 1)) });
+    expectHeadline(COMPLETE);
+    expect(screen.getByTestId('import-result-headline')).toHaveAttribute('data-outcome', 'success');
+    expect(screen.getByText(copy('grid.import.skippedCount').replace('{{count}}', '1'))).toBeInTheDocument();
+    expect(screen.queryByText(PARTIAL)).not.toBeInTheDocument();
+  });
+
+  it('(g) every row deliberately skipped, none errored, reads Success, not Failed', async () => {
+    await runSync({ importRecords: vi.fn(async () => serverResult(0, 0, 2)) });
+    expectHeadline(COMPLETE);
+    expect(screen.queryByText(FAILED)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('import-result-failed-icon')).not.toBeInTheDocument();
+    expect(screen.getByText(copy('grid.import.skippedCount').replace('{{count}}', '2'))).toBeInTheDocument();
   });
 
   it('(e) a background job that ends `failed` reads Failed', async () => {

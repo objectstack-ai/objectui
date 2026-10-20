@@ -472,26 +472,29 @@ const RESULT_HEADLINE_CLASS = 'text-lg font-semibold text-foreground';
 
 /**
  * What a finished import amounts to, read from the result the wizard already
- * holds (objectui#13230). Every failure path — a refused (405) or thrown
- * request, every row rejected — publishes a result with zero imported rows,
- * so the count alone separates them from a success; a background job that
- * ended `failed` is read from the job's own final status, since a worker can
- * crash after committing some rows.
- * - `success`: at least one row imported, nothing skipped or errored.
- * - `partial`: at least one row imported, at least one skipped or errored.
- * - `failed`: zero rows imported, or the background job ended `failed`.
+ * holds (objectui#13230). A row the import deliberately skipped (`ok: true`,
+ * action `skipped` — a skip-existing or no-match choice) is not an error, so
+ * only `errors` counts against the import. Every failure path leaves an entry
+ * there: an `ok: false` row carries its row number, while a refused (405) or
+ * thrown request, and a failed job with no row report, carry one row-0 entry
+ * with the request's message. A background job that ended `failed` is read
+ * from the job's own final status, since a worker can crash after committing
+ * some rows.
+ * - `failed`: the job ended `failed`, or nothing was imported and something errored.
+ * - `partial`: at least one row imported and at least one errored.
+ * - `success`: otherwise — including every row deliberately skipped.
  * - `cancelled`: the user cancelled the job.
  */
 type ImportOutcome = 'success' | 'partial' | 'failed' | 'cancelled';
 
 function importResultOutcome(
-  result: Pick<ImportResult, 'importedRows' | 'skippedRows' | 'errors' | 'cancelled'>,
+  result: Pick<ImportResult, 'importedRows' | 'errors' | 'cancelled'>,
   jobStatus?: ImportJobStatus | null,
 ): ImportOutcome {
   if (result.cancelled) return 'cancelled';
-  if (jobStatus === 'failed' || result.importedRows <= 0) return 'failed';
-  if (result.skippedRows > 0 || result.errors.length > 0) return 'partial';
-  return 'success';
+  if (jobStatus === 'failed') return 'failed';
+  if (result.errors.length === 0) return 'success';
+  return result.importedRows > 0 ? 'partial' : 'failed';
 }
 
 const RESULT_HEADLINE_KEY: Record<ImportOutcome, string> = {

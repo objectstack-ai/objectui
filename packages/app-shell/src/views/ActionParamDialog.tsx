@@ -545,28 +545,27 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
     // Map upload params (file/image) from their rich widget objects to the
     // storage id(s) the API expects before resolving.
     const collected = serializeParamValues(visibleParams, values);
-    if (!state.run) {
-      state.resolve?.(collected);
-      onOpenChange(false);
-      return;
+    if (state.run) {
+      // Run from inside the dialog and close only on success (objectui#13161).
+      // Closing first is what lost the input: the refusal landed on a dialog
+      // that no longer existed, and only the toast remained.
+      setRefusal(null);
+      setSubmitting(true);
+      let result: ActionResult;
+      try {
+        result = await state.run(collected);
+      } finally {
+        setSubmitting(false);
+      }
+      if (!result.success) {
+        setRefusal(refusalText(result));
+        return;
+      }
     }
-    // Run from inside the dialog and close only on success (objectui#13161).
-    // Closing first is what lost the input: the refusal landed on a dialog
-    // that no longer existed, and only the toast remained.
-    setRefusal(null);
-    setSubmitting(true);
-    let result: ActionResult;
-    try {
-      result = await state.run(collected);
-    } finally {
-      setSubmitting(false);
-    }
-    if (result.success) {
-      state.resolve?.(collected);
-      onOpenChange(false);
-      return;
-    }
-    setRefusal(refusalText(result));
+    // Settled with the values that ran, even if the user typed on while the
+    // run was in flight.
+    state.resolve?.(collected);
+    onOpenChange(false);
   };
 
   const handleCancel = () => {

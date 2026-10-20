@@ -50,7 +50,7 @@
  * no-op", which is true of promises and beside the point. `onOpenChange` is
  * called from exactly three places, all inside `ActionParamDialog`:
  *
- *   1. `handleSubmit`  — `state.resolve?.(serializeParamValues(...))` first.
+ *   1. `handleSubmit`  — `state.resolve?.(collected)` (the serialized values) first.
  *   2. `handleCancel`  — `state.resolve?.(null)` first.
  *   3. the Radix root's own `onOpenChange`, which delegates to `handleCancel`
  *      and is the single route taken by Escape, an overlay/outside click, and

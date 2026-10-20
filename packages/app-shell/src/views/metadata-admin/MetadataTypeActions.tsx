@@ -266,7 +266,7 @@ export function MetadataTypeActions({ entry, location, recordId, onAfter }: Meta
         "resolving twice is a no-op". This callback is reachable from exactly
         three places, all inside `ActionParamDialog`, and every one settles the
         promise BEFORE it asks for the close: `handleSubmit`
-        (`state.resolve?.(serializeParamValues(...))`), `handleCancel`
+        (`state.resolve?.(collected)`, the serialized values), `handleCancel`
         (`state.resolve?.(null)`), and the Radix root's own `onOpenChange`,
         which delegates to `handleCancel` and is the route Escape, an
         overlay/outside click and the header X button all take. No path arrives

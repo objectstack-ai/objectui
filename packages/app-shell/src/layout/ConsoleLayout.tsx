@@ -34,6 +34,7 @@ import { useResponsiveSidebar } from '../hooks/useResponsiveSidebar.js';
 import { useAiSurfaceEnabled } from '../hooks/useAiSurface.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
 import { CommandPaletteProvider } from '../context/CommandPaletteProvider.js';
+import { confirmUnsavedLeave } from '../chrome/unsavedEdits.js';
 import {
   useAdvertiseShortcut,
   type AdvertisedShortcut,
@@ -168,14 +169,19 @@ export function ConsoleLayout({
   // land on a prior /ai URL after in-page conversation switches).
   // objectui#10926 — a build thread bound to this app maximizes to that app's
   // build surface, which resolves the same `app:PKG:build` thread.
+  // objectui#13253 — maximizing leaves the page from a dock button, which no
+  // page's link guard sees, so it asks first while the page holds unsaved
+  // edits. On Cancel nothing is recorded and the page stays.
   const openDockFullPage = useCallback(
     (boundPackageId?: string) => {
-      rememberDockReturnLocation(`${location.pathname}${location.search}`);
-      if (!boundPackageId) {
-        navigate('/ai');
-        return;
-      }
-      navigate(`/ai/build?package=${encodeURIComponent(boundPackageId)}`);
+      confirmUnsavedLeave(() => {
+        rememberDockReturnLocation(`${location.pathname}${location.search}`);
+        if (!boundPackageId) {
+          navigate('/ai');
+          return;
+        }
+        navigate(`/ai/build?package=${encodeURIComponent(boundPackageId)}`);
+      });
     },
     [location.pathname, location.search, navigate],
   );

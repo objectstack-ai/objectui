@@ -100,6 +100,7 @@ import {
   useMetadataLocale,
 } from './i18n.js';
 import { PermissionAdvancedFacets } from './PermissionAdvancedFacets.js';
+import { useRegisterUnsavedEdits } from '../../chrome/unsavedEdits.js';
 import { AssignedUsersSection } from './AssignedUsersSection.js';
 import { isEnvironmentScope, useWalledCatalogReadOnly } from './catalog-scope.js';
 import { useCanAuthorMetadata, useCanReadAuthoringTrail } from '../../hooks/useCanAuthorMetadata.js';
@@ -917,6 +918,11 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [isDirty]);
+  // objectui#13253 — the shell's own departures (header menus, palette, inbox,
+  // AI entry) navigate from buttons, which neither guard above sees. While the
+  // matrix holds edits it registers them with the shell's seam, with the
+  // question its hosts already ask before dropping them.
+  useRegisterUnsavedEdits(isDirty, translate('engine.edit.unsavedLeaveConfirm', locale));
 
   function toggleExpand(objectName: string) {
     setExpanded((prev) => {

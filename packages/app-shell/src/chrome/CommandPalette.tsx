@@ -52,6 +52,7 @@ import { useRecentItemLabel } from '../hooks/useRecentItemLabel.js';
 import { recentItemObject } from '../console/home/recentItemTypeLabel.js';
 import type { RecentItem } from '../context/RecentItemsProvider.js';
 import { useCommandPalette } from '../context/CommandPaletteProvider.js';
+import { confirmUnsavedLeave } from './unsavedEdits.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { resolveHref, resolveNavItemLabel } from '@object-ui/layout';
 import type { NavigationItem } from '@object-ui/types';
@@ -152,6 +153,11 @@ export function CommandPalette(props: CommandPaletteProps) {
     setOpen(false);
     command();
   };
+  // A command that leaves the page closes the palette, then asks first while
+  // the page holds unsaved edits (objectui#13253): it navigates from a
+  // palette item, which no page's link guard sees. Cancel keeps the page and
+  // its edits; OK, or a clean page, goes at once.
+  const leaveTo = (to: string) => runCommand(() => confirmUnsavedLeave(() => navigate(to)));
 
   // Extract navigation items from active app, filtering by visibility expressions
   const navItems = flattenNavigation(activeApp?.navigation || []).filter(
@@ -358,7 +364,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                 <CommandItem
                   key={`recent:${item.id}`}
                   value={`recent ${recentLabel(item)} ${item.id}`}
-                  onSelect={() => runCommand(() => navigate(item.href))}
+                  onSelect={() => leaveTo(item.href)}
                 >
                   <Icon className="mr-2 h-4 w-4" />
                   <span className="truncate">{recentLabel(item)}</span>
@@ -403,7 +409,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                   // Embed the live query so cmdk's client-side filter doesn't
                   // hide async hits that don't textually match the input.
                   value={`record ${inputValue} ${hit.display} ${hit.objectLabel} ${hit.objectName} ${hit.recordId}`}
-                  onSelect={() => runCommand(() => navigate(`${baseUrl}/${hit.objectName}/record/${hit.recordId}`))}
+                  onSelect={() => leaveTo(`${baseUrl}/${hit.objectName}/record/${hit.recordId}`)}
                 >
                   <Icon className="mr-2 h-4 w-4" />
                   <span className="truncate">{hit.display}</span>
@@ -427,7 +433,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                   <CommandItem
                     key={item.id}
                     value={`object ${navLabel(item)} ${item.objectName}`}
-                    onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
+                    onSelect={() => leaveTo(resolveHref(item, baseUrl, templateContext).href)}
                   >
                     <Icon className="mr-2 h-4 w-4" />
                     <span>{navLabel(item)}</span>
@@ -445,7 +451,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                 <CommandItem
                   key={item.id}
                   value={`dashboard ${navLabel(item)} ${item.dashboardName}`}
-                  onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
+                  onSelect={() => leaveTo(resolveHref(item, baseUrl, templateContext).href)}
                 >
                   <LayoutDashboard className="mr-2 h-4 w-4" />
                   <span>{navLabel(item)}</span>
@@ -462,7 +468,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                 <CommandItem
                   key={item.id}
                   value={`page ${navLabel(item)} ${item.pageName}`}
-                  onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
+                  onSelect={() => leaveTo(resolveHref(item, baseUrl, templateContext).href)}
                 >
                   <FileText className="mr-2 h-4 w-4" />
                   <span>{navLabel(item)}</span>
@@ -479,7 +485,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                 <CommandItem
                   key={item.id}
                   value={`report ${navLabel(item)} ${item.reportName}`}
-                  onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
+                  onSelect={() => leaveTo(resolveHref(item, baseUrl, templateContext).href)}
                 >
                   <BarChart3 className="mr-2 h-4 w-4" />
                   <span>{navLabel(item)}</span>
@@ -489,7 +495,7 @@ export function CommandPalette(props: CommandPaletteProps) {
               <CommandItem
                 key={`app-report:${entry.name}`}
                 value={`report ${entry.label} ${entry.name}`}
-                onSelect={() => runCommand(() => navigate(`${baseUrl}/report/${encodeURIComponent(entry.name)}`))}
+                onSelect={() => leaveTo(`${baseUrl}/report/${encodeURIComponent(entry.name)}`)}
               >
                 <BarChart3 className="mr-2 h-4 w-4" />
                 <span>{entry.label}</span>
@@ -507,7 +513,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                 kind="studio-package"
                 entry={entry}
                 Icon={Boxes}
-                onOpen={() => runCommand(() => navigate(entry.href))}
+                onOpen={() => leaveTo(entry.href)}
               />
             ))}
           </CommandGroup>
@@ -520,7 +526,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                 kind="studio-object"
                 entry={entry}
                 Icon={Database}
-                onOpen={() => runCommand(() => navigate(entry.href))}
+                onOpen={() => leaveTo(entry.href)}
               />
             ))}
           </CommandGroup>
@@ -533,7 +539,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                 kind="studio-flow"
                 entry={entry}
                 Icon={Workflow}
-                onOpen={() => runCommand(() => navigate(entry.href))}
+                onOpen={() => leaveTo(entry.href)}
               />
             ))}
           </CommandGroup>
@@ -551,7 +557,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                     <CommandItem
                       key={app.name}
                       value={`app ${resolveKeyedI18nLabel(app.label, t)} ${app.name}`}
-                      onSelect={() => runCommand(() => onAppChange(appRouteSegment(app) ?? app.name))}
+                      onSelect={() => runCommand(() => confirmUnsavedLeave(() => onAppChange(appRouteSegment(app) ?? app.name)))}
                     >
                       <Icon className="mr-2 h-4 w-4" />
                       <span>{resolveKeyedI18nLabel(app.label, t)}</span>
@@ -588,7 +594,7 @@ export function CommandPalette(props: CommandPaletteProps) {
               {/* Manual "Create App" deprecated — AI-first builder is the path. */}
               <CommandItem
                 value={FULL_SEARCH_VALUE}
-                onSelect={() => runCommand(() => navigate(`${baseUrl}/search`))}
+                onSelect={() => leaveTo(`${baseUrl}/search`)}
               >
                 <Search className="mr-2 h-4 w-4" />
                 <span>{t('console.commandPalette.openFullSearch')}</span>

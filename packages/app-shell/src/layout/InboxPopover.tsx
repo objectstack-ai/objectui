@@ -43,6 +43,7 @@ import { timeAgo } from '../utils/relativeTime.js';
 import { groupNotifications } from './inboxGrouping.js';
 import type { InboxNotification, NotificationGroup } from './inboxGrouping.js';
 import { ActivityObjectLabel } from './ActivityObjectLabel.js';
+import { confirmUnsavedLeave } from '../chrome/unsavedEdits.js';
 
 // Re-exported so importers of the notification/group shapes keep resolving
 // through this module (the pure logic itself lives in inboxGrouping.ts).
@@ -253,16 +254,21 @@ export function InboxPopover({
    */
   const hostAppSegment = resolveHostAppSegment(apps, currentAppName ?? params.appName);
 
+  // Every drill below leaves the page from a popover button, which no page's
+  // link guard sees, so it asks first while the page holds unsaved edits
+  // (objectui#13253). The popover closes either way; Cancel keeps the page.
+  const leaveTo = (to: string) => confirmUnsavedLeave(() => navigate(to));
+
   const goToApprovals = () => {
     setOpen(false);
-    navigate(`/apps/${hostAppSegment}/system/approvals`);
+    leaveTo(`/apps/${hostAppSegment}/system/approvals`);
   };
 
   const goToAllNotifications = () => {
     setOpen(false);
     // `?view=mine` selects the user-scoped "Notifications" view, matching the
     // popover's own scope.
-    navigate(`/apps/${hostAppSegment}/sys_inbox_message?view=mine`);
+    leaveTo(`/apps/${hostAppSegment}/sys_inbox_message?view=mine`);
   };
 
   const goToAllActivity = () => {
@@ -270,7 +276,7 @@ export function InboxPopover({
     // Mirror of goToAllNotifications: drill from the popover Activity tab
     // (capped at 20 rows) into the full sys_activity list page. Org-wide
     // scope — no `?view=` qualifier — to match what the popover already shows.
-    navigate(`/apps/${hostAppSegment}/sys_activity`);
+    leaveTo(`/apps/${hostAppSegment}/sys_activity`);
   };
 
   const handleNotificationClick = (n: InboxNotification) => {
@@ -311,7 +317,7 @@ export function InboxPopover({
       window.open(target.url, '_blank', 'noopener,noreferrer');
       return;
     }
-    navigate(target.path);
+    leaveTo(target.path);
   };
 
   const toggleGroup = (key: string) => {

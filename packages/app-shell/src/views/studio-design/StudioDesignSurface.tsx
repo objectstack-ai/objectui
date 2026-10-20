@@ -266,6 +266,7 @@ import { SurfaceDeepLinkProvider, useRequestedSurface, useSurfaceNavigator } fro
 import { buildObjectSkeleton, buildFlowSkeleton, buildAppSkeleton, buildPermissionSkeleton, type AppNavSeed } from './skeletons.js';
 import { OWD_CREATE_MODELS, OWD_DEFAULT, type OwdCreateModel } from './owd-sharing.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadata-admin/i18n.js';
+import { useRegisterUnsavedEdits } from '../../chrome/unsavedEdits.js';
 import { fieldsForNodeType, localizeFlowFields, type FlowConfigField } from '../metadata-admin/inspectors/flow-node-config.js';
 import { ObjectPicker } from '../metadata-admin/inspectors/ObjectPicker.js';
 import { IconPickerWidget } from '../metadata-admin/widgets.js';
@@ -1342,6 +1343,12 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [pillarDirty]);
+  // objectui#13253 — the shell's own departures (header menus, palette, inbox,
+  // AI entry) leave from buttons this surface never sees, so a dirty pillar
+  // registers with the shell's seam, with the same question the header asks.
+  // While registered, the seam's link guard also asks before a pillar link
+  // leaves, so the pillar links below no longer ask a second time.
+  useRegisterUnsavedEdits(pillarDirty, t('engine.edit.unsavedLeaveConfirm', locale));
 
   // The shared authenticated metadata client for this surface. Declared here
   // rather than beside its other reader below because the publish immediately
@@ -1952,15 +1959,12 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   key={p.key}
                   to={`/studio/${scopeSegment}/${p.key}`}
                   aria-current={tab === p.key ? 'page' : undefined}
-                  onClick={(e) => {
-                    // Re-clicking the open pillar re-navigates to the same URL —
-                    // nothing unmounts. Modified/aux clicks open a new tab and
-                    // leave this one (and its edits) alone; react-router defers
-                    // those to the browser, so don't veto them either.
-                    if (tab === p.key) return;
-                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-                    if (!confirmLeavePillar()) e.preventDefault();
-                  }}
+                  // No click handler of its own (objectui#13253): a dirty
+                  // pillar is registered with the shell's seam, whose
+                  // capture-phase link guard asks before this link leaves and
+                  // skips what this handler used to skip (the open pillar's
+                  // own URL, a modified or non-primary click). Asking here as
+                  // well would be a second question after OK.
                   title={t(`engine.studio.pillar.${p.key}`, locale)}
                   className={
                     STUDIO_HEADER_PILLAR +

@@ -6,7 +6,7 @@
  * Env-locked fields are read-only and show <EnvLockBadge>.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ConsolePageHeader } from '@object-ui/app-shell';
@@ -131,6 +131,56 @@ function refusedSettingLabels(
   return named;
 }
 
+/**
+ * Specifier types that draw no value of their own: a `required` on one of
+ * these names nothing an admin can fill, so the pre-save check skips it.
+ */
+const NON_INPUT_TYPES = new Set(['group', 'info_banner', 'child_pane', 'title_value', 'action_button']);
+
+/**
+ * The empty test the settings service applies to a `required` key: null,
+ * undefined, or a string that is blank once trimmed. `false` and `0` are
+ * values. Kept to the server's own predicate so the page and the server never
+ * disagree about what "filled" means.
+ */
+function isEmptySettingValue(value: unknown): boolean {
+  return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
+}
+
+/**
+ * The visible `required` keys that hold no value, in manifest order
+ * (objectui#13239). The spec declares `required` as "renderer + server-side
+ * validation"; the server judges only the keys a save touches, so a required
+ * key nobody edited is the renderer's half to check.
+ *
+ * - Visibility is the same `evalVisibility` reading the page renders by, over
+ *   the live values (draft over stored): a hidden key is not checked.
+ * - The value judged is the effective one: the draft's when the key is in it,
+ *   the stored value otherwise. A set secret reads back as the mask, so it
+ *   counts as filled.
+ * - A locked row is not checked. An env lock reads back as `locked: true` with
+ *   the environment's value in `value`, and the row's control is disabled, so
+ *   nothing on this page could fill it either way.
+ */
+function emptyRequiredKeys(
+  specifiers: ReadonlyArray<Specifier>,
+  values: SettingsNamespacePayload['values'],
+  draft: Record<string, unknown>,
+  liveValues: Record<string, unknown>,
+): string[] {
+  const empty: string[] = [];
+  for (const spec of specifiers) {
+    const key = spec.key;
+    if (!key || !spec.required || NON_INPUT_TYPES.has(spec.type)) continue;
+    if (!evalVisibility(spec.visible, liveValues)) continue;
+    const resolved = values[key];
+    if (resolved?.locked) continue;
+    const effective = key in draft ? draft[key] : resolved?.value;
+    if (isEmptySettingValue(effective)) empty.push(key);
+  }
+  return empty;
+}
+
 export function SettingsView() {
   const params = useParams<{ namespace?: string }>();
   const navigate = useNavigate();
@@ -168,6 +218,29 @@ export function SettingsView() {
    * false: a new save attempt, a save that succeeds, a discard, or a reload.
    */
   const [cryptoRefusal, setCryptoRefusal] = useState<CryptoRefusal | null>(null);
+  /**
+   * The row a blocked save moves focus to (objectui#13239). A fresh object per
+   * request, so a second blocked save on the same key focuses it again.
+   */
+  const [focusKey, setFocusKey] = useState<{ key: string } | null>(null);
+  const fieldListRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!focusKey) return;
+    const row = Array.from(
+      fieldListRef.current?.querySelectorAll<HTMLElement>('[data-settings-key]') ?? [],
+    ).find((el) => el.dataset.settingsKey === focusKey.key);
+    if (!row) return;
+    // The control the row's label names, else the row's first focusable
+    // control (a radio or checkbox group names itself from its label instead).
+    const labelFor = row.querySelector('label[for]')?.getAttribute('for');
+    const target =
+      (labelFor ? row.ownerDocument.getElementById(labelFor) : null) ??
+      row.querySelector<HTMLElement>(
+        'input:not([type="hidden"]), textarea, [role="combobox"], [role="radio"], [role="checkbox"], [role="switch"], [role="slider"]',
+      );
+    target?.focus();
+  }, [focusKey]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -252,6 +325,29 @@ export function SettingsView() {
 
   const onSave = async () => {
     if (dirtyKeys.length === 0) return;
+    // objectui#13239 — a visible required field left empty blocks the save
+    // here: no request goes out, each such row is marked through the same
+    // field-error slot a server refusal uses, and focus moves to the first.
+    const missing = emptyRequiredKeys(manifest.specifiers, values, draft, liveValues);
+    if (missing.length > 0) {
+      const message = t('form.fieldRequired');
+      setFieldErrors(Object.fromEntries(missing.map((key) => [key, message])));
+      setFocusKey({ key: missing[0] });
+      const named = refusedSettingLabels(
+        missing.map((field) => ({ field })),
+        manifest.specifiers,
+        labels,
+      );
+      if (named.length > 0) {
+        toast.error(
+          t('console.settingsView.fieldErrorsToast', {
+            count: named.length,
+            settings: named.join(t('validation.formInvalidJoiner')),
+          }),
+        );
+      }
+      return;
+    }
     setSaving(true);
     // Each attempt re-derives the refusal from scratch, so the panel always
     // reflects THIS save's verdict rather than a stale one from a previous try.
@@ -426,7 +522,7 @@ export function SettingsView() {
         </Card>
       ) : null}
 
-      <div className="mt-6 divide-y">
+      <div className="mt-6 divide-y" ref={fieldListRef}>
         {manifest.specifiers
           .filter((spec) => evalVisibility(spec.visible, liveValues))
           .map((spec, idx) => {

@@ -450,8 +450,10 @@ export function SettingsField(props: SettingsFieldProps) {
   // control is a group that names itself from `labelId` instead.
   // A value already cleared in the draft has nothing left to reset.
   const onReset = value === null ? undefined : () => onChange(null);
+  // `data-settings-key` lets the page find this row to focus it when a save is
+  // blocked on it (objectui#13239).
   const wrapper = (children: React.ReactNode, labelFor: string | undefined = id) => (
-    <div className="space-y-1.5 py-2">
+    <div className="space-y-1.5 py-2" data-settings-key={spec.key}>
       <FieldHeader
         spec={spec}
         resolved={resolved}
@@ -537,7 +539,7 @@ export function SettingsField(props: SettingsFieldProps) {
       );
     case 'toggle':
       return (
-        <div className="flex items-center justify-between py-3">
+        <div className="flex items-center justify-between py-3" data-settings-key={spec.key}>
           <div>
             <FieldHeader
               spec={spec}
@@ -549,10 +551,16 @@ export function SettingsField(props: SettingsFieldProps) {
               onReset={onReset}
               resetDisabled={disabled}
             />
-            <FieldDescription description={fieldHelp} />
+            {error ? (
+              <FieldError id={errorId} message={error} />
+            ) : (
+              <FieldDescription description={fieldHelp} />
+            )}
           </div>
           <Switch
             id={id}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
             checked={Boolean(value)}
             disabled={disabled}
             onCheckedChange={(checked) => onChange(checked)}

@@ -89,6 +89,7 @@ import { getRuntimeConfig } from '../../runtime-config.js';
 import { readMarketplaceInstalls, type LocalInstallEntry } from '../../console/marketplace/marketplaceApi.js';
 import { MarketplaceNotLoaded, MarketplaceRowActions } from '../../console/marketplace/MarketplaceRowActions.js';
 import type { InstalledPackageAtEitherStage } from '@objectstack/spec/api-assembled';
+import type { PackagePublishResult } from '@objectstack/spec/system';
 import {
   PACKAGES_SOURCE_PARAM,
   PackageSourceRefusal,
@@ -315,6 +316,42 @@ class PackageWritableRefusal extends Error {
   }
 }
 
+/** One `validationErrors` element of the package publish door's answer (the spec's shape). */
+type PackagePublishValidationError = NonNullable<PackagePublishResult['validationErrors']>[number];
+
+/**
+ * A package publish the server refused, carrying the server's own reasons
+ * (objectui#13160).
+ *
+ * `POST /packages/:id/publish` answers a refusal on a 200: its
+ * `PackagePublishResult` says `success: false`, nothing was published, and
+ * `validationErrors` holds one `message` per reason, each against the item
+ * (`type`, `name`) it judged. The sheet used to throw the count sentence alone,
+ * so the author read "Publish blocked by 1 validation error(s)." and never the
+ * reason. `message` stays that count sentence, the heading the sheet shows;
+ * `reasons` are the lines under it, in the server's words.
+ */
+class PackagePublishRefusal extends Error {
+  readonly reasons: readonly string[];
+
+  constructor(heading: string, reasons: readonly string[]) {
+    super(heading);
+    this.name = 'PackagePublishRefusal';
+    this.reasons = reasons;
+  }
+}
+
+/**
+ * A `validationErrors` element as one line: the item it names, then the
+ * server's message. The producer leaves `type` and `name` empty where a reason
+ * belongs to no one item (a package with no items, a namespace the whole
+ * package lacks), and the line is then the message alone.
+ */
+function publishRefusalLine(error: PackagePublishValidationError): string {
+  const subject = [error.type, error.name].filter(Boolean).join('/');
+  return subject ? `${subject}: ${error.message}` : error.message;
+}
+
 /**
  * One line of the list: a registry package with its served Source, or a
  * marketplace install the runtime did not load (it has no registry row, but it
@@ -436,7 +473,13 @@ export function PackageDetailSheet({
   // write no metadata and stay on `apiJson`.
   const client = useMetadataClient();
   const [busy, setBusy] = React.useState<string | null>(null);
-  const [msg, setMsg] = React.useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  // `details`: the lines a refusal carries under its sentence, in the server's
+  // own words (objectui#13160).
+  const [msg, setMsg] = React.useState<{
+    kind: 'ok' | 'err';
+    text: string;
+    details?: readonly string[];
+  } | null>(null);
   // ADR-0033 — pending DRAFT items bound to this package. AI-authored metadata
   // lands as drafts that the active-only browsers hide, so without this the
   // package looks empty right after a build. We list them here with a link to
@@ -506,7 +549,11 @@ export function PackageDetailSheet({
       setMsg({ kind: 'ok', text: okText });
       onChanged();
     } catch (e: any) {
-      setMsg({ kind: 'err', text: e?.message ?? t('engine.packages.detail.actionFailed', locale) });
+      setMsg({
+        kind: 'err',
+        text: e?.message ?? t('engine.packages.detail.actionFailed', locale),
+        ...(e instanceof PackagePublishRefusal ? { details: e.reasons } : {}),
+      });
     } finally {
       setBusy(null);
     }
@@ -516,18 +563,23 @@ export function PackageDetailSheet({
     run(
       'publish',
       () =>
-        apiJson(`${API}/${encodeURIComponent(id)}/publish`, {
+        apiJson<PackagePublishResult>(`${API}/${encodeURIComponent(id)}/publish`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
-        }).then((r: any) => {
+        }).then((r) => {
           if (r && r.success === false) {
-            const n = r.validationErrors?.length ?? 0;
-            throw new Error(
-              n
-                ? tFormat('engine.packages.detail.publishBlocked', locale, { count: n })
-                : r.validationErrors?.[0]?.message || t('engine.packages.detail.nothingToPublish', locale),
-            );
+            // objectui#13160 — the count is the heading, and each reason the
+            // server returned is a line under it; the count alone told the
+            // author that something was wrong, never what.
+            const errors = r.validationErrors ?? [];
+            if (errors.length > 0) {
+              throw new PackagePublishRefusal(
+                tFormat('engine.packages.detail.publishBlocked', locale, { count: errors.length }),
+                errors.map(publishRefusalLine),
+              );
+            }
+            throw new Error(t('engine.packages.detail.nothingToPublish', locale));
           }
           return r;
         }),
@@ -990,6 +1042,16 @@ export function PackageDetailSheet({
             }`}
           >
             {msg.text}
+            {msg.details && msg.details.length > 0 && (
+              // Not capped: the sheet scrolls (`overflow-y-auto`), as it does
+              // for the pending-drafts list above. `break-words` keeps a long
+              // item id inside the sheet's width.
+              <ul className="mt-1 list-disc space-y-0.5 pl-4 break-words">
+                {msg.details.map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 

@@ -212,6 +212,14 @@ const NO_OBJECTS: ObjectCatalogEntry[] = [];
  * status the same way (objectui#11779). `bar` keeps the info bar's glyphs;
  * `header` drops them and separates the items with dots, at the header's meta
  * size. Each item keeps its `Label:` caption and its value as sibling spans.
+ *
+ * objectui#13135 — the header lays its items out as a one-row grid whose
+ * columns may shrink to nothing (`minmax(0, max-content)`), so the row's own
+ * minimum width is near zero and it fits the meta slot instead of overflowing
+ * it. Each item then truncates with an ellipsis, and a cut item names its
+ * whole `Label: value` on hover. The row never wraps, so the header keeps its
+ * height. (A flex row cannot do it: its minimum width is the sum of its
+ * items' text, so the slot clipped it mid-word with no ellipsis.)
  */
 export function FlowMetaPills({
   draft,
@@ -262,7 +270,9 @@ export function FlowMetaPills({
   if (version) {
     items.push(
       header ? (
-        <span key="version">v{version}</span>
+        <span key="version" className="truncate">
+          v{version}
+        </span>
       ) : (
         <Pill key="version" label="v" value={version} />
       ),
@@ -281,7 +291,7 @@ export function FlowMetaPills({
   }
   if (!header) return <>{items}</>;
   return (
-    <span className="inline-flex min-w-0 items-center gap-1.5">
+    <span className="inline-grid min-w-0 max-w-full auto-cols-[minmax(0,max-content)] grid-flow-col items-center gap-x-1.5">
       {items.map((item, i) => (
         <React.Fragment key={i}>
           {i > 0 && (
@@ -710,6 +720,11 @@ function Pill({
   /** The item header's meta (objectui#12454): the value at the caption's weight, plain text muted. */
   compact?: boolean;
 }) {
+  const ref = React.useRef<HTMLSpanElement | null>(null);
+  const cut = useCutText(ref, compact);
+  // objectui#13135 — a cut header item says its whole text first, then the
+  // hover text it already had (the run status's reason, the object's name).
+  const hover = cut ? [`${label}: ${value}`, title].filter(Boolean).join('\n') : title;
   const cls =
     tone === 'green'
       ? 'text-emerald-700 dark:text-emerald-400'
@@ -719,12 +734,35 @@ function Pill({
           ? 'text-muted-foreground'
           : 'text-foreground';
   return (
-    <span className={compact ? 'inline-flex shrink-0 items-center gap-1 whitespace-nowrap' : 'inline-flex items-center gap-1'} title={title}>
+    <span ref={ref} className={compact ? 'min-w-0 truncate' : 'inline-flex items-center gap-1'} title={hover}>
       {Icon && <Icon className="h-3 w-3 text-muted-foreground" />}
       <span className="text-muted-foreground">{label}:</span>
-      <span className={compact ? cls : `font-medium ${cls}`}>{value}</span>
+      <span className={compact ? `ml-1 ${cls}` : `font-medium ${cls}`}>{value}</span>
     </span>
   );
+}
+
+/**
+ * objectui#13135 — whether the element's text is cut (wider than its box),
+ * measured on every render and on resize, as the Studio header's title
+ * measures its own (objectui#12897). `false` while `enabled` is off.
+ */
+function useCutText(ref: React.RefObject<HTMLElement | null>, enabled: boolean): boolean {
+  const [cut, setCut] = React.useState(false);
+  const measure = React.useCallback(() => {
+    const el = ref.current;
+    setCut(enabled && !!el && el.scrollWidth > el.clientWidth + 0.5);
+  }, [ref, enabled]);
+  // Every render: the text can change without the box resizing.
+  React.useLayoutEffect(measure);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!enabled || !el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref, enabled, measure]);
+  return cut;
 }
 
 /** The flow's declared variables: the designer's side panel, and the Studio's Variables body (objectui#12454). */

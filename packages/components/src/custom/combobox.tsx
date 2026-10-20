@@ -114,7 +114,19 @@ export function Combobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
+                  // `value` stays the option's value: it is what cmdk hands
+                  // `onSelect`, so it is what a pick commits.
                   value={option.value}
+                  // objectui#13229 — cmdk filters on `value` plus `keywords`
+                  // and never reads the children, so with `value` alone a
+                  // visible label that is not inside the value ("Opportunities"
+                  // for `crm_opp`, a user's name for a record id, a 中文 label)
+                  // matched nothing. The label is passed as a keyword, so
+                  // typing either the label or the value finds the option.
+                  // `label` is declared `string` on both faces of
+                  // `ComboboxOption` (the TS interface and the zod mirror),
+                  // so it is passed as is, with no fallback around it.
+                  keywords={[option.label]}
                   // objectui#7687 — `options[].disabled` is declared by
                   // `@object-ui/types` and validated by the zod mirror, so it
                   // has to be READ; the sibling select renderer already spells

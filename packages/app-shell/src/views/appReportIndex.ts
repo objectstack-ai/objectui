@@ -18,11 +18,22 @@
  *
  * ## Which reports an app ships
  *
- * The reports whose `_packageId` is the app's own: the owner link
- * `preferLocal` (ADR-0048) resolves a report route by, and the one `AppHeader`
- * names the report crumb by. An app with no `_packageId` (created in the
- * console) owns no package; it lists the reports no package owns, the ones
- * `preferLocal` likewise resolves with no owner preference.
+ * What the app's navigation ships (objectui#13273): the union of
+ *
+ * - the reports whose `_packageId` is the app's own: the owner link
+ *   `preferLocal` (ADR-0048) resolves a report route by, and the one
+ *   `AppHeader` names the report crumb by. An app with no `_packageId`
+ *   (created in the console) owns no package; it owns the reports no package
+ *   owns, the ones `preferLocal` likewise resolves with no owner preference;
+ * - every report a `type: 'report'` entry of the app's served navigation
+ *   names, at any depth. The served navigation carries what a module
+ *   contributes through `navigationContributions`, merged into the app's
+ *   groups with no package stamp, so a module's reports are the app's too.
+ *
+ * One per report name: the owned document first, else the first served. A
+ * navigation entry naming a report the report list does not hold is left out:
+ * it could not be opened. The walk is {@link flattenNavigation}, the one the
+ * ⌘K palette reads its navigation entries through.
  *
  * ## Which a member may open
  *
@@ -83,22 +94,61 @@ function packageOf(app: unknown): string | undefined {
 }
 
 /**
- * The reports `app` ships: those its package owns, or, for an app with no
- * package, those no package owns. One per name, the first served.
+ * Every entry of a navigation tree, its groups opened at any depth: a group
+ * with children stands for them. The ⌘K palette's walk, shared so the palette
+ * and the report index read the same navigation.
+ */
+export function flattenNavigation(items: readonly any[]): any[] {
+  const result: any[] = [];
+  for (const item of items) {
+    if (item.type === 'group' && item.children) {
+      result.push(...flattenNavigation(item.children));
+    } else {
+      result.push(item);
+    }
+  }
+  return result;
+}
+
+/** The report names `type: 'report'` entries of the app's served navigation name. */
+function navigationReportNames(app: unknown): Set<string> {
+  const navigation = app && typeof app === 'object' ? (app as { navigation?: unknown }).navigation : undefined;
+  const out = new Set<string>();
+  if (!Array.isArray(navigation)) return out;
+  for (const item of flattenNavigation(navigation)) {
+    if (item && typeof item === 'object' && item.type === 'report' && nonEmptyString(item.reportName)) {
+      out.add(item.reportName);
+    }
+  }
+  return out;
+}
+
+/**
+ * The reports `app` ships: those its package owns (for an app with no
+ * package, those no package owns), and those its served navigation names. One
+ * per name: the owned document first, else the first served.
  */
 export function appShippedReports(reports: readonly unknown[] | undefined, app: unknown): ServedReport[] {
   const owner = packageOf(app);
-  const seen = new Set<string>();
-  const out: ServedReport[] = [];
+  const named = navigationReportNames(app);
+  const served: ServedReport[] = [];
   for (const item of reports ?? []) {
     if (!item || typeof item !== 'object') continue;
     const report = item as ServedReport;
-    if (!nonEmptyString(report.name) || seen.has(report.name)) continue;
-    const pkg = nonEmptyString(report._packageId) ? report._packageId : undefined;
-    if (pkg !== owner) continue;
-    seen.add(report.name);
-    out.push(report);
+    if (nonEmptyString(report.name)) served.push(report);
   }
+  const seen = new Set<string>();
+  const out: ServedReport[] = [];
+  const take = (keep: (report: ServedReport) => boolean) => {
+    for (const report of served) {
+      const name = report.name as string;
+      if (seen.has(name) || !keep(report)) continue;
+      seen.add(name);
+      out.push(report);
+    }
+  };
+  take((report) => (nonEmptyString(report._packageId) ? report._packageId : undefined) === owner);
+  take((report) => named.has(report.name as string));
   return out;
 }
 

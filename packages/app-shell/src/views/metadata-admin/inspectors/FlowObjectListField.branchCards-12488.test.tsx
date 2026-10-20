@@ -97,7 +97,8 @@ describe('an edge-routed decision shows its out-edges as read-only branch cards 
     renderInspector(EDGE_ROUTED, 'check_campaign_open', { onSelectionChange });
     const [, second] = screen.getAllByTestId('flow-branch-card');
     fireEvent.click(within(second).getByRole('button', { name: en('engine.inspector.flowNode.branch.openEdge') }));
-    expect(onSelectionChange).toHaveBeenCalledWith({ kind: 'edge', id: 'e7', label: 'check_campaign_open → find_contacts' });
+    // Labelled by the nodes' names, as the canvas labels it (objectui#13200).
+    expect(onSelectionChange).toHaveBeenCalledWith({ kind: 'edge', id: 'e7', label: 'Campaign Open? → Find Eligible Contacts' });
     // Under a host the shell draws no header of its own.
     expect(screen.queryByRole('button', { name: en('engine.inspector.flowNode.close') })).toBeNull();
   });

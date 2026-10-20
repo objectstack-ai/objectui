@@ -13,7 +13,7 @@
  * Aligns with @objectstack/spec FormView type: 'drawer'
  */
 
-import React, { startTransition, useState, useCallback, useEffect, useMemo, useRef, useId } from 'react';
+import React, { Suspense, startTransition, useState, useCallback, useEffect, useMemo, useRef, useId } from 'react';
 import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSection } from '@object-ui/types';
 import {
   Sheet,
@@ -31,6 +31,7 @@ import {
   AlertDialogDescription,
   AlertDialogAction,
   AlertDialogCancel,
+  Skeleton,
   toast,
 } from '@object-ui/components';
 import { Loader2 } from 'lucide-react';
@@ -306,13 +307,13 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   // objectui#13246 — a section toggle is a TRANSITION, as in `ModalForm`.
   // Opening a group draws its `React.lazy` field widgets, so the first time a
-  // type is drawn the render suspends. The drawer has no boundary of its own,
-  // so as an ordinary update that suspension hid everything under the HOST's
-  // nearest boundary — the drawer and the header the user had just pressed
-  // included — and a browser drops focus from an element it stops rendering.
-  // As a transition React keeps what is drawn on screen until the group's rows
-  // can be drawn: the header keeps focus, and the next Tab reaches the group's
-  // first field.
+  // type is drawn the render suspends. As an ordinary update that suspension
+  // hid what the nearest boundary already showed — the header the user had
+  // just pressed included — and a browser drops focus from an element it stops
+  // rendering. As a transition React keeps what is drawn on screen until the
+  // group's rows can be drawn: the header keeps focus, and the next Tab reaches
+  // the group's first field. (The nearest boundary was the HOST's until
+  // objectui#13238 gave the drawer its own, `DrawerFormBodyPending`.)
   const setSectionCollapsed = (key: string, next: boolean) =>
     startTransition(() => setCollapsedSections(prev => ({ ...prev, [key]: next })));
 
@@ -982,7 +983,11 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         <div className="@container py-4">
           {/* Every upload widget below reports into this scope, however deep —
               a section, a tab, a subform row (objectui#10166). */}
-          <UploadGateProvider gate={uploadGate}>{drawerBody}</UploadGateProvider>
+          <UploadGateProvider gate={uploadGate}>
+            {/* The drawer owns its body's wait (objectui#13238) — see
+                `DrawerFormBodyPending`. */}
+            <Suspense fallback={<DrawerFormBodyPending />}>{drawerBody}</Suspense>
+          </UploadGateProvider>
         </div>
 
         {/* Sticky footer — own action buttons. Cancel calls the discard guard
@@ -1051,5 +1056,41 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     </Sheet>
   );
 };
+
+/**
+ * What the drawer's body shows while a field widget's code loads
+ * (objectui#13238) — the drawer half of `ModalForm`'s `ModalFormBodyPending`
+ * (objectui#12559).
+ *
+ * The field widgets `@object-ui/fields` registers are `React.lazy`, so the
+ * first time a page session draws a type its render suspends — on a first
+ * open, the moment the read ends and the body is first drawn. With no boundary
+ * inside the drawer, that suspension left `DrawerForm` and landed on the
+ * HOST's nearest `<Suspense>`: in the console, the route's, so the whole page
+ * was swapped for the loading screen while the chunks loaded. When the route
+ * came back, its effects re-ran, the page view re-rendered, and a `kind:'react'`
+ * page that hosts the drawer was compiled again and remounted — taking its own
+ * state, and with it the drawer it had opened, down with it. No dismiss event
+ * ran: the drawer was unmounted, a second or two after its first open. Once
+ * the chunks are cached nothing suspends, which is why only the first open
+ * closed.
+ *
+ * So the drawer owns its body's wait: the header and the sheet stay, the body
+ * shows this placeholder, and the sheet keeps focus until the first field
+ * lands (`useInitialFieldFocus`). Distinct from the record READ's loading
+ * line, which `renderContent` draws while the drawer has nothing to draw.
+ */
+function DrawerFormBodyPending() {
+  return (
+    <div className="space-y-4" data-testid="drawer-form-body-pending" aria-hidden="true">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default DrawerForm;

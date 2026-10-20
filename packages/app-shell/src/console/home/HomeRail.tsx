@@ -215,7 +215,10 @@ export function HomePendingDraftsRow({
   count: number;
   /** The first draft names to list — the caller caps them. */
   names: string[];
-  /** The package every listed draft belongs to, when they share one. */
+  /**
+   * The name of the package every listed draft belongs to, when they share
+   * one: the name Studio shows for it, not its id (objectui#13136).
+   */
   packageName?: string;
   publishing: boolean;
   onPublish: () => void;

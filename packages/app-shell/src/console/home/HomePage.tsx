@@ -15,7 +15,7 @@
  * @module
  */
 
-import { useId, useMemo } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMetadata } from '../../providers/MetadataProvider.js';
 import { useRecentItems, type RecentItem } from '../../hooks/useRecentItems.js';
@@ -62,6 +62,7 @@ import {
 import { Sparkles, MessageSquareText, Hammer, LayoutGrid } from 'lucide-react';
 import { usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { usePublishAllDrafts } from '../../preview/usePublishAllDrafts.js';
+import { fetchPackages } from '../../views/studio-design/packages-io.js';
 import { resolveAiApiBase } from '../../hooks/useAiSurface.js';
 import { isAiStudioEnabled, isMarketplaceEnabled } from '../../runtime-config.js';
 
@@ -245,6 +246,41 @@ function pickGreetingKey(hour: number): string {
 const DRAFT_NAMES_SHOWN = 3;
 
 /**
+ * The name Studio shows for the package `packageId` (objectui#13136): its
+ * row's `name` in `fetchPackages()`, the package list the Studio top bar and
+ * landing read. `_drafts` serves a draft's `packageId` and no package name
+ * (`ListDraftsResponseSchema`), so without this read the drafts row named the
+ * package by its reverse-domain id where Studio names it.
+ *
+ * The id stands in exactly where Studio's top bar shows it too: a package
+ * whose producer declared no name (`parsePackages` hands the id back as its
+ * `name`), a package the list does not carry, and a read that failed.
+ *
+ * `undefined` until the list has answered for THIS id, so the row names no
+ * package rather than flash the id before the name lands. Read once per id,
+ * keyed on the id string (AGENTS.md #10), and only while the drafts share one
+ * package: `null` sends no request.
+ */
+function usePackageName(packageId: string | null): string | undefined {
+  const [answer, setAnswer] = useState<{ packageId: string; name: string } | null>(null);
+  useEffect(() => {
+    if (packageId === null) return undefined;
+    let cancelled = false;
+    const settle = (name: string) => {
+      if (!cancelled) setAnswer({ packageId, name });
+    };
+    fetchPackages().then(
+      (packages) => settle(packages.find((p) => p.id === packageId)?.name ?? packageId),
+      () => settle(packageId),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [packageId]);
+  return packageId !== null && answer?.packageId === packageId ? answer.name : undefined;
+}
+
+/**
  * The pending drafts, read for Home's drafts row (objectui#12602) — the read
  * and the publish the retired banner above the greeting ran, unchanged. After
  * the metadata assistant drafts objects, views or apps (ADR-0033 draft-gated
@@ -260,21 +296,24 @@ const DRAFT_NAMES_SHOWN = 3;
 function usePendingDraftsRow(t: (key: string, opts?: any) => string, language: string): React.ReactNode {
   const { publishAll, publishing } = usePublishAllDrafts(t);
   const { count, entries } = usePendingDrafts({});
-  if ((count ?? 0) <= 0) return null;
+  const drafted = (count ?? 0) > 0;
+  // Named only when every draft is in one package: a row naming one package
+  // for drafts spread over several would misplace the rest. Named by the name
+  // Studio shows for it, not by its id (objectui#13136).
+  const packages = new Set(drafted ? entries.map((e) => e.packageId) : []);
+  const [onlyPackage] = packages;
+  const packageName = usePackageName(packages.size === 1 && onlyPackage ? onlyPackage : null);
+  if (!drafted) return null;
   // The draft's own label in the console language (objectui#11862), its
   // name only where `_drafts` served none.
   const names = entries
     .slice(0, DRAFT_NAMES_SHOWN)
     .map((e) => resolveI18nLabel(e.label, language)?.trim() || e.name);
-  // Named only when every draft is in one package: a row naming one package
-  // for drafts spread over several would misplace the rest.
-  const packages = new Set(entries.map((e) => e.packageId));
-  const [onlyPackage] = packages;
   return (
     <HomePendingDraftsRow
       count={count ?? 0}
       names={names}
-      packageName={packages.size === 1 && onlyPackage ? onlyPackage : undefined}
+      packageName={packageName}
       publishing={publishing}
       onPublish={() => void publishAll()}
       t={t}

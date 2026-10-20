@@ -6599,8 +6599,29 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     const colMap = new Map<string, ObjectGridColumnDraft>();
     displayColumns.forEach((col) => colMap.set(col.accessorKey, col));
 
+    // [objectui#13150] The card is titled by the object's DECLARED name field,
+    // read through `declaredNameField` (the resolver's single spelling of the
+    // pointer, the one the bulk confirm step names records by), never by
+    // whichever column a view happens to show first: a view leading with
+    // Owner titled every card with the owner's name and pushed the record's
+    // own name down into a body row. Where the name field is a shown column,
+    // that column is the title. Where it is not, the title reads the row's
+    // value of it: both fetches that feed this grid ask for the declared name
+    // field whether or not a column shows it (`getSelectFields` here,
+    // objectui#13107; `ListView`'s harvest, objectui#13116), and a value the
+    // row lacks (the viewer may not read it) draws the card's empty title,
+    // never another field's value. Only an object that declares no name field
+    // keeps the first shown column as its title.
+    const declaredName = declaredNameField(objectSchema);
+    const nameFieldKey = typeof declaredName === 'string' && declaredName !== '' ? declaredName : undefined;
+    const titleCol = nameFieldKey !== undefined ? colMap.get(nameFieldKey) : displayColumns[0];
+    const titleKey = titleCol?.accessorKey ?? nameFieldKey;
+    // The body never repeats the title: it is every shown column but the one
+    // that titles the card, so a first column the name field displaced (the
+    // Owner above) reads as an ordinary body row.
+    const bodyColumns = displayColumns.filter((c) => c !== titleCol);
+
     // Identify special columns by inferred type for visual hierarchy
-    const titleCol = displayColumns[0]; // First column is always the title
     const amountKeys = ['amount', 'price', 'total', 'revenue', 'cost', 'value', 'budget', 'salary'];
     const stageKeys = ['stage', 'status', 'priority', 'category', 'severity', 'level'];
     const dateKeys = ['date', 'due', 'created', 'updated', 'deadline', 'start', 'end', 'expires'];
@@ -6693,7 +6714,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         <div className="space-y-2 p-2" {...anchorCaptureProps}>
           {data.map((row, idx) => {
             // Collect secondary fields (skip the title column)
-            const secondaryCols = displayColumns.slice(1, 5);
+            const secondaryCols = bodyColumns.slice(0, 4);
             const amountCol = secondaryCols.find((c: any) => classify(c.accessorKey) === 'amount');
             const stageCol = secondaryCols.find((c: any) => classify(c.accessorKey) === 'stage');
             const dateCols = secondaryCols.filter((c: any) => classify(c.accessorKey) === 'date');
@@ -6717,11 +6738,15 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                 onClick={() => navigation.handleClick(row)}
               >
                 {/* Title row - Name as bold prominent title */}
-                {titleCol && (
-                  <div className="font-semibold text-sm truncate mb-1">
-                    {isMaskedCardColumn(titleCol.accessorKey)
-                      ? titleCol.cell?.(row[titleCol.accessorKey], row)
-                      : (coerceToSafeValue(row[titleCol.accessorKey]) ?? '—')}
+                {titleKey !== undefined && (
+                  <div data-testid="grid-card-title" className="font-semibold text-sm truncate mb-1">
+                    {isMaskedCardColumn(titleKey)
+                      ? (titleCol
+                          ? titleCol.cell?.(row[titleKey], row)
+                          // A masked name field no column shows has no `cell`
+                          // to draw its mask, so the mask is drawn here.
+                          : <MaskedCellRenderer value={row[titleKey]} />)
+                      : (coerceToSafeValue(row[titleKey]) ?? '—')}
                   </div>
                 )}
 

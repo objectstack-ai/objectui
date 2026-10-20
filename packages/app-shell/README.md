@@ -290,6 +290,29 @@ invitation redirect is an
 affordance, not an authorization: the server still refuses a non-invitee's
 sign-up.
 
+## Unsaved edits
+
+A page that keeps edits in component state registers them while it holds them,
+and every departure the shell can see asks before dropping them (objectui#13231).
+
+- `useRegisterUnsavedEdits(dirty, message)` — call it in the page, beside the
+  state that holds the edits. While the page is mounted and `dirty` is true, its
+  edits are registered with `message`, the question to ask, already translated.
+  Registrations are counted, and the page registered last supplies the question.
+- `confirmUnsavedLeave(go)` — how a departure that starts from a button leaves.
+  It runs `go` at once when nothing is registered, and otherwise only after
+  `window.confirm(message)` answers OK; on Cancel `go` never runs. The shell's
+  header menus and go-home shortcut, its workspace switcher and a sidebar
+  entry's ⋯ menu go through it, and an organization switch asks before it is
+  sent. A `go` that returns a promise keeps the browser's leave prompt quiet
+  until it settles, so the user is asked once.
+
+While anything is registered, the seam also holds a tab close or reload with the
+browser's own leave prompt, and asks before an in-app link to another page. It
+does not guard browser Back and Forward, which `BrowserRouter` gives a page no
+way to hold, nor a departure that does not go through `confirmUnsavedLeave` yet,
+such as picking a page in the command palette.
+
 ## Components
 
 ### AppShell

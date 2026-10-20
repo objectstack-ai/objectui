@@ -143,6 +143,7 @@ import { useCanAuthorMetadata, useCanReadAuthoringTrail } from '../../hooks/useC
 import { environmentScopeSuffix, isEnvironmentScope, useWalledCatalogReadOnly } from './catalog-scope.js';
 import { PositionHoldersSection } from './PositionHoldersSection.js';
 import { declarationOnlyAuthoredObject } from './sharing-rule-catalog.js';
+import { useRegisterUnsavedEdits } from '../../chrome/unsavedEdits.js';
 
 /**
  * objectui#7611 — the Setup half of an item, rendered under its definition in
@@ -2146,49 +2147,15 @@ function MetadataResourceEditPageImpl({
     return () => window.removeEventListener('keydown', handler);
   }, [canWrite, readOnly, editing, createMode, saving, isDirty, inspectorBlocking, refusalBlocking]);
 
-  // Beforeunload guard — browser-native "leave site?" prompt when the
-  // user closes the tab / reloads with unsaved changes.
-  React.useEffect(() => {
-    if (!isDirty) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      // Required for Chrome to actually show the prompt.
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [isDirty]);
-
-  // In-app navigation guard — intercept anchor / link clicks before the
-  // router consumes them. Cheaper and more compatible than useBlocker,
-  // which requires a data router (the host app uses BrowserRouter).
-  React.useEffect(() => {
-    if (!isDirty) return;
-    const handler = (e: MouseEvent) => {
-      if (e.defaultPrevented) return;
-      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      const target = e.target as HTMLElement | null;
-      const anchor = target?.closest?.('a[href]') as HTMLAnchorElement | null;
-      if (!anchor) return;
-      // Allow new-tab / download / external links — they don't replace
-      // the current page.
-      if (anchor.target && anchor.target !== '_self') return;
-      if (anchor.hasAttribute('download')) return;
-      try {
-        const url = new URL(anchor.href, window.location.href);
-        if (url.origin !== window.location.origin) return;
-        if (url.pathname === window.location.pathname) return;
-      } catch {
-        return;
-      }
-      if (!confirm(t('engine.edit.unsavedLeaveConfirm', locale))) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-    document.addEventListener('click', handler, true);
-    return () => document.removeEventListener('click', handler, true);
-  }, [isDirty, locale]);
+  // Leave guard (objectui#13231) — registered with the shell's unsaved-edits
+  // seam, which guards every departure it can see while the draft is dirty:
+  // the browser-native "leave site?" prompt on a tab close / reload, an in-app
+  // link click (intercepted before the router consumes it — cheaper and more
+  // compatible than useBlocker, which requires a data router; the host app
+  // uses BrowserRouter), and the shell's own departures from its header,
+  // workspace and sidebar menus, which navigate from a button no link
+  // listener sees.
+  useRegisterUnsavedEdits(isDirty, t('engine.edit.unsavedLeaveConfirm', locale));
 
   // Publish "what's being edited" to the global AI chat so the agent can
   // act on the open item (and offer item-specific starter prompts). Kept

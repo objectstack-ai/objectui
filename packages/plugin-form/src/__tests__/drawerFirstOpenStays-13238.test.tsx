@@ -22,10 +22,10 @@
  *  2. `DrawerForm` had no boundary of its own, so the suspension landed on the
  *     console route's `<Suspense>`: the whole page was swapped for the loading
  *     screen while the chunks loaded;
- *  3. when the route came back, its effects re-ran, the page view re-rendered
- *     and handed the react page a fresh schema, and the react page was compiled
- *     again and REMOUNTED — its `editId` state reset to `null`, and the drawer
- *     it rendered went with it.
+ *  3. when the route came back, its effects re-ran (`StrictMode`, below), the
+ *     page view re-rendered and handed the react page a fresh schema, and the
+ *     react page was compiled again and REMOUNTED — its `editId` state reset
+ *     to `null`, and the drawer it rendered went with it.
  * A second open stays because the chunks are cached and nothing suspends. The
  * modal does not close because `ModalForm` owns its body's wait
  * (objectui#12559).
@@ -38,7 +38,12 @@
  * a route `<Suspense>` whose fallback counts its mounts, and a route component
  * that re-renders when its effects re-run and remounts its page on that render
  * (the page view handing the react page a fresh schema, which recompiles it).
- * The `url` widget is replaced by one whose chunk resolves only when the test
+ * The whole is mounted under `StrictMode`, as the console is: the remount in
+ * step 3 is driven by React re-running the route's effects as its content
+ * reappears, which React does under `StrictMode` (measured: with the console's
+ * `StrictMode` removed, the first open stays open on the unfixed drawer, and
+ * the route still shows its loading screen for the length of the load). The
+ * `url` widget is replaced by one whose chunk resolves only when the test
  * releases it, so the first open's wait is observable instead of racing the
  * module loader.
  */
@@ -99,7 +104,7 @@ function dataSource(): DataSource {
 /** The console's mount, reduced: route boundary → route → page → drawer. */
 function mountTaskDesk() {
   const ds = dataSource();
-  const counts = { routeFallbackMounts: 0, pageMounts: 0 };
+  const counts = { routeFallbackMounts: 0 };
   const onOpenChange = vi.fn();
 
   function RouteFallback() {
@@ -111,7 +116,6 @@ function mountTaskDesk() {
   // `onOpenChange(false)` closes it.
   function Page() {
     const [editId, setEditId] = useState<string | null>(null);
-    useEffect(() => { counts.pageMounts++; }, []);
     return (
       <div>
         <button type="button" onClick={() => setEditId('T1')}>Warehouse schema</button>
@@ -145,13 +149,19 @@ function mountTaskDesk() {
     return <Page key={generation} />;
   }
 
+  // Under `StrictMode`, as `apps/console/src/main.tsx` mounts the console.
   render(
-    <Suspense fallback={<RouteFallback />}>
-      <Route />
-    </Suspense>,
+    <React.StrictMode>
+      <Suspense fallback={<RouteFallback />}>
+        <Route />
+      </Suspense>
+    </React.StrictMode>,
   );
   return { counts, onOpenChange };
 }
+
+/** The page's own row; the same element before and after means no remount. */
+const pageRow = () => screen.getByRole('button', { name: 'Warehouse schema', hidden: true });
 
 const openRow = (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole('button', { name: 'Warehouse schema' }));
@@ -179,7 +189,7 @@ describe('a record drawer stays open on its first open (objectui#13238)', () => 
     const { counts, onOpenChange } = mountTaskDesk();
     await screen.findByRole('button', { name: 'Warehouse schema' });
     const fallbacksBefore = counts.routeFallbackMounts;
-    const pageMountsBefore = counts.pageMounts;
+    const rowBefore = pageRow();
 
     await openRow(user);
     const sheet = await screen.findByRole('dialog');
@@ -199,7 +209,7 @@ describe('a record drawer stays open on its first open (objectui#13238)', () => 
     // remounted, because the route showed its fallback — and the drawer never
     // asked to close.
     expect.soft(screen.queryByRole('dialog'), 'the drawer is still open past the load').toBe(sheet);
-    expect.soft(counts.pageMounts - pageMountsBefore, 'page remounts').toBe(0);
+    expect.soft(pageRow(), 'the page is the one that opened the drawer (not remounted)').toBe(rowBefore);
     expect.soft(routeFallbackMidLoad, 'route fallback mounts while the body loaded').toBe(0);
     expect.soft(onOpenChange, 'the drawer never asked to close').not.toHaveBeenCalledWith(false);
     expect.soft(waitedInsideSheet, 'the body waited inside the sheet').toBe(true);
@@ -265,13 +275,13 @@ describe('a record drawer stays open on its first open (objectui#13238)', () => 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     onOpenChange.mockClear();
     const fallbacksBefore = counts.routeFallbackMounts;
-    const pageMountsBefore = counts.pageMounts;
+    const rowBefore = pageRow();
 
     const sheet = await openPastTheLoad(user);
 
     expect(screen.getByRole('dialog')).toBe(sheet);
     expect(counts.routeFallbackMounts).toBe(fallbacksBefore);
-    expect(counts.pageMounts).toBe(pageMountsBefore);
+    expect(pageRow()).toBe(rowBefore);
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
     await waitFor(() => expect(document.activeElement).toBe(titleInput()));
   });

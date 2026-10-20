@@ -11,4 +11,4 @@ These now ask the page's own question first, and so do the other header departur
 
 `@object-ui/app-shell` exports the seam behind it: a page calls `useRegisterUnsavedEdits(dirty, message)` while it holds edits, with the question to ask, and a departure that starts from a button goes through `confirmUnsavedLeave(go)`, which runs `go` at once when nothing is held and otherwise only after the user confirms. While anything is registered the seam also guards a tab close or reload and a click on an in-app link, so the settings pages and the metadata editor now register with it instead of each installing those listeners.
 
-Not covered: browser Back and Forward, which the console's router gives a page no way to hold, and departures that do not go through `confirmUnsavedLeave` yet.
+Not covered: browser Back and Forward, which the console's router gives a page no way to hold, and departures that do not go through `confirmUnsavedLeave` yet, such as picking a page in the command palette.

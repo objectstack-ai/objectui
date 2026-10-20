@@ -56,6 +56,7 @@ import { isStudioHiddenSystemField } from './studioHiddenSystemField.js';
 import { formDndAccessibility, type FormDndLookups, type FormDndSlot } from './formDndAnnouncements.js';
 import { AddFieldPopover } from './AddFieldPopover.js';
 import type { FieldTypeId } from '../metadata-admin/previews/field-types.js';
+import { fieldTypeName } from '../metadata-admin/previews/fieldTypeName.js';
 
 const UNGROUPED = '__ungrouped__';
 
@@ -367,9 +368,11 @@ function SortableField({
   // width, so it stays correct as the responsive grid collapses to one column.
   // `isWideFieldType` reads FORM vocabulary, so the raw object type is
   // normalized to its widget id first (see `toFormFieldType`). `type` itself
-  // stays the spec spelling — that is what the type hint shows the admin and
-  // what `FieldControlPreview` switches on.
+  // stays the spec spelling — that is what `FieldControlPreview` switches on.
   const spanFull = columns > 1 && isWideFieldType(toFormFieldType(type));
+  // objectui#13148 — the type tag names the type the way the type picker and
+  // the inspector do (`select` reads "Picklist"), never by its spec id.
+  const typeName = fieldTypeName(type, locale);
   return (
     <div
       ref={setNodeRef}
@@ -412,7 +415,7 @@ function SortableField({
             selected ? 'text-primary' : 'text-muted-foreground',
           )}
         >
-          {type}
+          {typeName}
         </span>
       </div>
       <FieldControlPreview type={type} />

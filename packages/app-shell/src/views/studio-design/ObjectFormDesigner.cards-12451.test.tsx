@@ -57,7 +57,10 @@ describe('ObjectFormDesigner — section and field cards (objectui#12451)', () =
     renderDesigner({ selectedField: 'name' });
     const selected = card('Account Name');
     expect(selected).toHaveClass('border-primary', 'ring-[3px]');
-    expect(screen.getAllByText('text').find((el) => selected.contains(el))).toHaveClass('text-primary');
+    // The tag reads the type's display name (objectui#13148), not the spec id.
+    expect(
+      screen.getAllByText(t('engine.fieldType.text', 'en-US')).find((el) => selected.contains(el)),
+    ).toHaveClass('text-primary');
 
     const other = card('Industry');
     expect(other).toHaveClass('border-transparent');

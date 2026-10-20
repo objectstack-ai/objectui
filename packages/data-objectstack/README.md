@@ -990,6 +990,24 @@ names the package. A save that sets both options throws before any request;
 the door refuses the pair with a `400`. A save whose pin no longer holds is
 refused `409 METADATA_CONFLICT`, and nothing is written.
 
+## Reading a Draft and Who Changed It
+
+`MetadataClient.getDraft(type, name, { packageId })` answers the draft read's
+wire envelope (`{ type, name, item, version }`, plus `draftChanges` when the
+server recorded them), or `null` when nothing is pending. Read it through the
+package's readers rather than by hand: `extractDraftBody` answers the body
+with the read decorations removed; `readDraftChanges` answers the per-key
+provenance, one `{ path, by, actor, at }` per changed key path, or `null` when
+the key is absent, which means not recorded, never "nothing changed";
+`governingDraftChange(changes, path)` answers the entry that governs a key, the
+longest path that is the key or one of its ancestors, with `[]` standing for
+the whole body and segments compared whole; and `draftChangesUnder(changes,
+path)` answers the entries strictly under the key. A save names the surface it
+is made through with the `surface` option, `'studio' | 'api'`, sent once as
+`?surface=` and recorded as `by` on each key path a draft save changes; a save
+that omits it is recorded as `api`, and `copilot` is the server's own (its
+HTTP door refuses it), so this client cannot send it.
+
 ## User-Scoped State Adapter
 
 In addition to the main `DataSource` adapter, this package ships

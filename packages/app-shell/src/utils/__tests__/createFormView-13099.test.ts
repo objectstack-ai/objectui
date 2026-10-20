@@ -33,7 +33,7 @@ import {
 } from '../recordFormNavigation';
 import { mergeViewsIntoObjects } from '../../providers/MetadataProvider';
 
-const row = (object: string, key: string, config: Record<string, any>, extra: Record<string, any> = {}) => ({
+const row = (object: string, key: string, config: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({
   name: `${object}.${key}`,
   object,
   viewKind: 'form' as const,
@@ -59,7 +59,7 @@ const contact = mergeViewsIntoObjects(
   ],
 )[0];
 
-const names = (sections: any[] | undefined) => sections?.map((s: any) => s.name);
+const names = (sections: Array<{ name?: string }> | undefined) => sections?.map((s) => s.name);
 
 describe('the create entry uses the `create` form view when declared (objectui#13099)', () => {
   it('(a) a create selects the `create` form view: its sections, layout and size', () => {

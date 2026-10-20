@@ -174,6 +174,8 @@ test('record inline-edit polish (#2572) — showcase Project end-to-end', async 
   //    lock signal is the pending request from the approvals API, the second
   //    branch of RecordDetailView's approval state, and its `lock_record` flag
   //    carries the step's `lockRecord` policy.) ──
+  /** The approvals API's request row, as far as this test reads it. */
+  type ApprovalRequestRow = { id: string; status: string; flow_node_id?: string; lock_record?: boolean };
   const pendingRequests = async () => {
     const res = await request.get(
       `${API}/api/v1/approvals/requests?object=showcase_project&recordId=${recordId}`,
@@ -181,7 +183,7 @@ test('record inline-edit polish (#2572) — showcase Project end-to-end', async 
     );
     expect(res.ok(), await res.text()).toBeTruthy();
     const body = await res.json();
-    return ((body?.data ?? []) as any[]).filter((r) => r.status === 'pending');
+    return ((body?.data ?? []) as ApprovalRequestRow[]).filter((r) => r.status === 'pending');
   };
   const budgetGroupOnPage = () =>
     page.locator('div.group').filter({ has: page.getByText('Budget', { exact: true }) }).last();
@@ -190,7 +192,7 @@ test('record inline-edit polish (#2572) — showcase Project end-to-end', async 
   //     `lockRecord: false` — the showcase's unlocked-step fixture
   //     (objectui#2902). The re-read approval state reads "In approval ·
   //     editable" and the inline edit affordances stay live.
-  let managerReview: any;
+  let managerReview: ApprovalRequestRow | undefined;
   await expect
     .poll(
       async () => {
@@ -217,7 +219,7 @@ test('record inline-edit polish (#2572) — showcase Project end-to-end', async 
   // 2b. Approve `manager_review` through the approvals API (the seeded admin
   //     holds the `manager` position). The budget is above 500k, so the run
   //     moves on to `exec_review`, which declares `lockRecord: true`.
-  const approveRes = await request.post(`${API}/api/v1/approvals/requests/${managerReview.id}/approve`, {
+  const approveRes = await request.post(`${API}/api/v1/approvals/requests/${managerReview!.id}/approve`, {
     headers: authHeader,
     data: { comment: 'e2e: route the request on to exec_review' },
   });

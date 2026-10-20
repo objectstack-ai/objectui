@@ -314,6 +314,30 @@ export function findCycle(nodeIds: string[], edges: SimEdge[]): string[] | null 
   return null;
 }
 
+/**
+ * A cycle as the Problems row reads it (objectui#13242): each node named by
+ * {@link flowNodeDisplayName}, joined by ` → ` (`Check budget → Notify team →
+ * Check budget`). A name two distinct nodes of the cycle share is followed by
+ * the node's id in parentheses, so the loop still says which node is which; an
+ * id naming no node reads as itself.
+ */
+function cycleDisplayName(cycle: string[], nodes: SimNode[], locale?: string): string {
+  const named = new Map<string, string>();
+  for (const id of cycle) {
+    if (named.has(id)) continue;
+    const node = nodes.find((n) => n.id === id);
+    named.set(id, node ? flowNodeDisplayName(node, locale) : id);
+  }
+  const holders = new Map<string, number>();
+  for (const name of named.values()) holders.set(name, (holders.get(name) ?? 0) + 1);
+  return cycle
+    .map((id) => {
+      const name = named.get(id)!;
+      return (holders.get(name) ?? 0) > 1 ? `${name} (${id})` : name;
+    })
+    .join(' → ');
+}
+
 /** Static structural checks; `errors` block Run, `warnings` are advisory. */
 export function validateFlowDraft(nodes: SimNode[], edges: SimEdge[], locale?: string): FlowValidation {
   const errors: FlowSimDiagnostic[] = [];
@@ -419,7 +443,7 @@ export function validateFlowDraft(nodes: SimNode[], edges: SimEdge[], locale?: s
       level: 'error',
       nodeId: cycle[0],
       cycle,
-      message: tFormat('engine.flowValidate.cycleDetected', locale, { cycle: cycle.join(' → ') }),
+      message: tFormat('engine.flowValidate.cycleDetected', locale, { cycle: cycleDisplayName(cycle, nodes, locale) }),
     });
   }
 
@@ -455,7 +479,8 @@ export function missingNodeRefDiagnostics(
   for (const p of missingNodePositions(flow)) {
     let diag: FlowSimDiagnostic;
     if (p.kind === 'boundary-host') {
-      diag = { level: 'error', nodeId: p.nodeId, message: tFormat('engine.flowValidate.boundaryHostMissing', locale, { id: p.nodeId, host: p.id }) };
+      const name = flowNodeDisplayName(p.node, locale);
+      diag = { level: 'error', nodeId: p.nodeId, message: tFormat('engine.flowValidate.boundaryHostMissing', locale, { name, id: p.nodeId, host: p.id }) };
     } else if (p.kind === 'expression-root') {
       const message = tFormat('engine.flowValidate.exprRefNodeMissing', locale, { ref: p.ref.text, id: p.id });
       const owner = p.site.owner;

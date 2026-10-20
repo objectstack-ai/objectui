@@ -2546,6 +2546,11 @@ const fr = {
         verifying: "Vérification…",
         invalidCode: "Code invalide. Veuillez réessayer.",
       },
+      impersonation: {
+        passwordTitle: "{{user}} doit changer son mot de passe",
+        mfaTitle: "{{user}} doit configurer l'authentification à deux facteurs",
+        body: "Vous incarnez {{user}}, et seule cette personne peut le faire elle-même. Arrêtez l'usurpation pour revenir à votre propre compte.",
+      },
     },
   },
   // objectui#3546 slice three — the /oauth/consent screen.

@@ -2501,6 +2501,11 @@ const ja = {
         verifying: "確認しています…",
         invalidCode: "コードが無効です。もう一度お試しください。",
       },
+      impersonation: {
+        passwordTitle: "{{user}} はパスワードを変更する必要があります",
+        mfaTitle: "{{user}} は二要素認証を設定する必要があります",
+        body: "{{user}} になりすまして操作しています。この操作はユーザー本人にしか行えません。なりすましを終了して、ご自身のアカウントに戻ってください。",
+      },
     },
   },
   // objectui#3546 slice three — the /oauth/consent screen.

@@ -49,6 +49,13 @@ const IMPERSONATED_SESSION = {
   user: { id: 'usr_dave', name: 'RT8 Dave', email: 'rt8-dave@example.com' },
   session: { token: IMPERSONATED_TOKEN, impersonatedBy: 'usr_admin' },
 };
+// A SECOND impersonation, started after the first one ended — a new session
+// with its own token, the way the server mints one per impersonate call.
+const SECOND_IMPERSONATED_TOKEN = 'second-impersonated-token';
+const SECOND_IMPERSONATED_SESSION = {
+  user: { id: 'usr_erin', name: 'RT8 Erin', email: 'rt8-erin@example.com' },
+  session: { token: SECOND_IMPERSONATED_TOKEN, impersonatedBy: 'usr_admin' },
+};
 
 /**
  * A client that resolves identity FROM THE STORED TOKEN, the way the server
@@ -60,6 +67,7 @@ function tokenBoundClient(): AuthClient {
     getSession: vi.fn(async () => {
       const token = TokenStorage.get();
       if (token === IMPERSONATED_TOKEN) return IMPERSONATED_SESSION;
+      if (token === SECOND_IMPERSONATED_TOKEN) return SECOND_IMPERSONATED_SESSION;
       if (token === ADMIN_TOKEN) return ADMIN_SESSION;
       return null;
     }),
@@ -196,5 +204,29 @@ describe('ImpersonationBanner (#4467)', () => {
     const stranded = await screen.findByTestId('impersonation-not-restored');
     expect(stranded.textContent).toMatch(/RT8 Dave/);
     expect(screen.getByTestId('impersonation-banner')).toBeTruthy();
+  });
+
+  it('a LATER impersonation, after a stop that worked, is not reported as a failed stop', async () => {
+    TokenStorage.set(IMPERSONATED_TOKEN);
+    stubStopEndpoint(() =>
+      new Response('{}', { status: 200, headers: { 'set-auth-token': ADMIN_TOKEN } }),
+    );
+    renderBanner();
+
+    await screen.findByTestId('impersonation-banner');
+    await userEvent.click(screen.getByTestId('impersonation-stop'));
+    await waitFor(() => expect(screen.queryByTestId('impersonation-banner')).toBeNull());
+
+    // The administrator, still on the same page, impersonates someone else:
+    // the impersonate action's response rotates the token, and the provider
+    // re-resolves identity from it. No reload in between, so the banner that
+    // ran the first stop is the one that renders the second impersonation.
+    TokenStorage.set(SECOND_IMPERSONATED_TOKEN);
+
+    const banner = await screen.findByTestId('impersonation-banner');
+    expect(banner.textContent).toMatch(/RT8 Erin/);
+    // Nobody pressed Stop on THIS impersonation, so nothing may say it failed.
+    expect(screen.queryByTestId('impersonation-not-restored')).toBeNull();
+    expect(screen.queryByTestId('impersonation-stop-error')).toBeNull();
   });
 });

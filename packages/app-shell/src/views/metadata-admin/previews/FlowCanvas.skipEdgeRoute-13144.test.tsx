@@ -22,6 +22,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import { FlowCanvas } from './FlowCanvas';
 import { FlowRegionView } from './flow-region-view';
+import { flowEdgeDisplayName } from './flow-canvas-parts';
 import { edgePath, type FlowDesignerEdge, type FlowDesignerNode, type Point } from './flow-canvas-layout';
 
 // The palette's engine overlay answers "engine absent", so no read reaches a
@@ -60,10 +61,10 @@ function cardBox(container: HTMLElement, id: string): Box {
   return { x: px(el.style.left), y: px(el.style.top), width: px(el.style.width), height: px(el.style.height) };
 }
 
-/** The `<g>` the canvas draws one edge in, found by its hit path's `source → target` title. */
+/** The `<g>` the canvas draws one edge in, found by its hit path's title — the ends' names (objectui#13242). */
 function edgeGroup(container: HTMLElement, source: string, target: string): SVGGElement {
   const g = Array.from(container.querySelectorAll<SVGGElement>('svg g')).find(
-    (el) => el.querySelector('path > title')?.textContent === `${source} → ${target}`,
+    (el) => el.querySelector('path > title')?.textContent === flowEdgeDisplayName({ source, target }, nodes),
   );
   if (!g) throw new Error(`no drawn edge ${source} → ${target}`);
   return g;

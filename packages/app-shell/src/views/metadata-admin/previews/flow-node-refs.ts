@@ -618,7 +618,8 @@ export type NodeIdPositionKind = (typeof NODE_ID_POSITION_KINDS)[number];
 /** One place in a flow that names a node id. */
 export type NodeIdPosition =
   | { kind: 'edge-source' | 'edge-target'; id: string; edge: { source: string; target: string } }
-  | { kind: 'boundary-host'; id: string; nodeId: string }
+  /** `node` is the boundary event itself, for naming it (objectui#13242). */
+  | { kind: 'boundary-host'; id: string; nodeId: string; node: { id: string; type?: unknown; label?: unknown } }
   | { kind: 'expression-root'; id: string; site: ExprSite; ref: ExprRef };
 
 function edgePositions(edges: unknown, out: NodeIdPosition[]): void {
@@ -654,7 +655,8 @@ export function nodeIdPositions(flow: { nodes?: unknown; edges?: unknown; variab
   for (const node of nodes) {
     const bc = node.boundaryConfig;
     if (isRec(bc) && typeof bc.attachedToNodeId === 'string') {
-      out.push({ kind: 'boundary-host', id: bc.attachedToNodeId, nodeId: str(node.id) ?? '' });
+      const nodeId = str(node.id) ?? '';
+      out.push({ kind: 'boundary-host', id: bc.attachedToNodeId, nodeId, node: { id: nodeId, type: node.type, label: node.label } });
     }
   }
   const ids = flowNodeIds(flow);

@@ -2550,6 +2550,11 @@ const es = {
         verifying: "Verificando…",
         invalidCode: "Código no válido. Inténtelo de nuevo.",
       },
+      impersonation: {
+        passwordTitle: "{{user}} debe cambiar su contraseña",
+        mfaTitle: "{{user}} debe configurar la autenticación en dos pasos",
+        body: "Está suplantando a {{user}} y solo esa persona puede hacerlo por sí misma. Deje de suplantar para volver a su propia cuenta.",
+      },
     },
   },
   // objectui#3546 slice three — the /oauth/consent screen.

@@ -2697,6 +2697,11 @@ const ar = {
         verifying: "جارٍ التحقق…",
         invalidCode: "رمز غير صالح. حاول مرة أخرى.",
       },
+      impersonation: {
+        passwordTitle: "يجب على {{user}} تغيير كلمة المرور",
+        mfaTitle: "يجب على {{user}} إعداد المصادقة الثنائية",
+        body: "أنت تنتحل هوية {{user}}، ولا يمكن لأحد غيره القيام بذلك. أنهِ انتحال الهوية للعودة إلى حسابك.",
+      },
     },
   },
   // objectui#3546 slice three — the /oauth/consent screen.

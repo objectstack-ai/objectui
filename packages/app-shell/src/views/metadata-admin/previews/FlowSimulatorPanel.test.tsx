@@ -74,6 +74,8 @@ describe('FlowSimulatorPanel — successor diagnostics (objectui#10692)', () => 
     render(<FlowSimulatorPanel nodes={gatewayFlow.nodes} edges={gatewayFlow.edges} variables={[]} />);
     fireEvent.click(screen.getByRole('button', { name: /^run$/i }));
     expect(screen.getByText('1 > 5')).toBeInTheDocument();
-    expect(screen.getByText('→ lo')).toBeInTheDocument();
+    // By its target's name, the rule the canvas reads (objectui#13242).
+    expect(screen.getByText('→ Low')).toBeInTheDocument();
+    expect(screen.queryByText('→ lo')).toBeNull();
   });
 });

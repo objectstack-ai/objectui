@@ -2499,6 +2499,11 @@ const de = {
         verifying: "Wird überprüft…",
         invalidCode: "Ungültiger Code. Bitte erneut versuchen.",
       },
+      impersonation: {
+        passwordTitle: "{{user}} muss das Passwort ändern",
+        mfaTitle: "{{user}} muss die Zwei-Faktor-Authentifizierung einrichten",
+        body: "Sie handeln als {{user}}, und nur diese Person kann das selbst erledigen. Beenden Sie den Identitätswechsel, um zu Ihrem eigenen Konto zurückzukehren.",
+      },
     },
   },
   // objectui#3546 slice three — the /oauth/consent screen.

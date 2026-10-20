@@ -29,10 +29,10 @@ import {
 import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope, useDataInvalidation, useFilterScope, useResolvedFilter, NonGridRowCeilingNote } from '@object-ui/react';
 import type { LoadErrorKind } from '@object-ui/react';
 import { useDensityMode, resolveInlineAriaProps } from '@object-ui/react';
-import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
+import type { DependsOnInput, ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { type ListViewVisualization, resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveAffordance, type SchemaLike, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, applyNonGridRowCeiling, type NonGridCeilingResult, resolveNameField, declaredNameField } from '@object-ui/core';
+import { type ListViewVisualization, resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveAffordance, type SchemaLike, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, applyNonGridRowCeiling, type NonGridCeilingResult, resolveNameField, declaredNameField, resolveDependsOnFields } from '@object-ui/core';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -3196,6 +3196,31 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           // same arm for the fetch a grouped grid owns.
           const pointerDefs = objectDef?.fields as Record<string, { referenceVia?: unknown } | undefined> | undefined;
           for (const c of cols) addSpeculative(pointerDefs?.[c]?.referenceVia);
+
+          // [objectui#13214] A shown column's DECLARED `dependsOn` siblings.
+          // A faced column reads them off the ROW (`dependentValues={row}`):
+          // the `recipient-picker` face names a stored id by the row's
+          // `recipient_type`, and draws the stored text when it is absent. So
+          // a list showing `recipient_id` but not `recipient_type` fetched
+          // rows without the kind and drew the raw user id. Driven by the
+          // declaration alone: every sibling the field names, nothing mapped
+          // by name here. Asked of the columns that survived the FLS gate
+          // (`cols`) and that the grid draws: a column authored `hidden: true`
+          // pulls nothing. Through `addSpeculative`, like every binding here:
+          // a sibling the viewer may not read is never requested, and a name
+          // the object does not declare is never sent. `ObjectGrid`'s
+          // `getSelectFields` carries the same arm for the fetch a grouped
+          // grid owns.
+          const hiddenColumns = new Set(
+            (Array.isArray(schema.columns) ? (schema.columns as unknown[]) : [])
+              .filter((c) => !!c && typeof c === 'object' && (c as { hidden?: unknown }).hidden === true)
+              .map((c) => columnIdentity(c)),
+          );
+          const dependsOnDefs = objectDef?.fields as Record<string, { dependsOn?: DependsOnInput } | undefined> | undefined;
+          for (const c of cols) {
+            if (hiddenColumns.has(c)) continue;
+            for (const f of resolveDependsOnFields(dependsOnDefs?.[c]?.dependsOn)) addSpeculative(f);
+          }
 
           // [objectui#13116] The object's DECLARED name field. The bulk
           // confirm step names each affected record from the rows this fetch

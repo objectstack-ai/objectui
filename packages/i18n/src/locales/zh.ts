@@ -2577,6 +2577,11 @@ const zh = {
         verifying: '正在验证…',
         invalidCode: '验证码无效，请重试。',
       },
+      impersonation: {
+        passwordTitle: '{{user}} 必须修改密码',
+        mfaTitle: '{{user}} 必须设置双重验证',
+        body: '您正在以 {{user}} 的身份操作，此操作只能由该用户本人完成。请结束模拟登录，返回您自己的账户。',
+      },
     },
   },
   // objectui#3546 slice three — the /oauth/consent screen.

@@ -2545,6 +2545,11 @@ const pt = {
         verifying: "Verificando…",
         invalidCode: "Código inválido. Tente novamente.",
       },
+      impersonation: {
+        passwordTitle: "{{user}} precisa alterar a senha",
+        mfaTitle: "{{user}} precisa configurar a autenticação em duas etapas",
+        body: "Você está personificando {{user}}, e somente essa pessoa pode fazer isso. Pare a personificação para voltar à sua própria conta.",
+      },
     },
   },
   // objectui#3546 slice three — the /oauth/consent screen.

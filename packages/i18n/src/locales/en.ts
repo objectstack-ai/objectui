@@ -3017,6 +3017,14 @@ const en = {
         verifying: 'Verifying…',
         invalidCode: 'Invalid code. Try again.',
       },
+      // objectui#13208 — the overlay on an IMPERSONATION session: the held
+      // credential is the impersonated user's, so it offers the way out instead
+      // of their forms. `{{user}}` is the impersonated user's display name.
+      impersonation: {
+        passwordTitle: '{{user}} must change their password',
+        mfaTitle: '{{user}} must set up two-factor authentication',
+        body: 'You are impersonating {{user}}, and only they can do this themselves. Stop impersonating to return to your own account.',
+      },
     },
   },
   // The OAuth authorization-code consent screen (`/oauth/consent`). A third

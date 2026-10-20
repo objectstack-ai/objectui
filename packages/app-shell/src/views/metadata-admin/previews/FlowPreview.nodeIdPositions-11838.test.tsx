@@ -46,6 +46,7 @@ import { t, tFormat } from '../i18n';
 import { FlowPreview } from './FlowPreview';
 import { FlowInspector } from '../inspectors/FlowInspector';
 import { buildFlowProblems } from './flow-problems';
+import { flowNodeDisplayName } from './flow-canvas-parts';
 import { missingNodePositions, nodeIdPositions, NODE_ID_POSITION_KINDS, type NodeIdPosition } from './flow-node-refs';
 import type { MetadataSelection } from '../preview-registry';
 
@@ -243,7 +244,7 @@ function rowFor(p: NodeIdPosition): string {
     case 'edge-target':
       return tFormat('engine.flowValidate.edgeTargetMissing', 'en-US', { target: p.id });
     case 'boundary-host':
-      return tFormat('engine.flowValidate.boundaryHostMissing', 'en-US', { id: p.nodeId, host: p.id });
+      return tFormat('engine.flowValidate.boundaryHostMissing', 'en-US', { name: flowNodeDisplayName(p.node, 'en-US'), id: p.nodeId, host: p.id });
     case 'expression-root':
       return tFormat('engine.flowValidate.exprRefNodeMissing', 'en-US', { ref: p.ref.text, id: p.id });
   }

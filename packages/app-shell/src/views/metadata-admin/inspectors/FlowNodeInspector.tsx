@@ -60,7 +60,7 @@ import {
 } from './connector-input-fields.js';
 import { applyDecisionBranches, syncDecisionEdgesByOrder, withBranchTargets } from './flow-decision-edges.js';
 import { useActionConfigSchemas, useFlowNodePalette } from '../previews/useFlowNodePalette.js';
-import { defaultNodeLabel, paletteTypeOptions } from '../previews/flow-canvas-parts.js';
+import { defaultNodeLabel, flowNodeDisplayName, paletteTypeOptions } from '../previews/flow-canvas-parts.js';
 import { FlowNodeConfigField } from './FlowNodeConfigField.js';
 import { specRequiredColumns, specRequiresField } from './flow-required-keys.js';
 import { useFlowScope } from './useFlowScope.js';
@@ -670,7 +670,7 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     const built = renamePatch(nextId);
     if (!built || !('patch' in built)) return;
     onPatch(built.patch);
-    onSelectionChange?.({ kind: 'node', id: nextId, label: node.label || nextId });
+    onSelectionChange?.({ kind: 'node', id: nextId, label: flowNodeDisplayName({ ...node, id: nextId }, locale) });
   };
 
   // objectui#11778 — the palette's list (it once was a hand list here that
@@ -708,7 +708,7 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     >
       {nested && (
         <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground" aria-label={t('engine.inspector.flowNode.nestedLocation', locale)}>
-          <span className="max-w-[45%] truncate font-medium">{loc?.container?.label || loc?.container?.id}</span>
+          <span className="max-w-[45%] truncate font-medium">{loc?.container ? flowNodeDisplayName(loc.container, locale) : null}</span>
           <span aria-hidden>›</span>
           {/* The region's English structural fallback (`Try` / `Catch` / `Branch N`,
               and a loop body's `Body`) reads its catalogue row through the same
@@ -718,7 +718,7 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
             {loc?.regionKey ? displayRegionLabel({ key: loc.regionKey, label: loc.regionLabel }, locale) : loc?.regionLabel}
           </span>
           <span aria-hidden>›</span>
-          <span className="max-w-[45%] truncate font-medium text-foreground">{node.label || node.id}</span>
+          <span className="max-w-[45%] truncate font-medium text-foreground">{flowNodeDisplayName(node, locale)}</span>
         </div>
       )}
       <FlowNodeIdField

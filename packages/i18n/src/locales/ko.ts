@@ -2499,6 +2499,11 @@ const ko = {
         verifying: "확인 중…",
         invalidCode: "코드가 올바르지 않습니다. 다시 시도하세요.",
       },
+      impersonation: {
+        passwordTitle: "{{user}} 님이 비밀번호를 변경해야 합니다",
+        mfaTitle: "{{user}} 님이 2단계 인증을 설정해야 합니다",
+        body: "{{user}} 계정을 대행하고 있습니다. 이 작업은 해당 사용자 본인만 할 수 있습니다. 대행을 종료하고 본인 계정으로 돌아가세요.",
+      },
     },
   },
   // objectui#3546 slice three — the /oauth/consent screen.

@@ -14,6 +14,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildFlowProblems, deriveInvalidElements, edgeRouteKey } from './flow-problems';
 import { tFormat } from '../i18n';
+import { flowNodeDisplayName } from './flow-canvas-parts';
 import type { FlowDesignerEdge } from './flow-canvas-layout';
 
 const NODES = [
@@ -22,9 +23,15 @@ const NODES = [
   { id: 'end', type: 'end' },
 ];
 
+/** The row for a repeat of `source → target`: each end named by the rule, its id beside it (objectui#13242). */
+const repeatedRow = (source: string, target: string, locale?: string) => {
+  const name = (id: string) => flowNodeDisplayName(NODES.find((n) => n.id === id)!, locale);
+  return tFormat('engine.flowProblems.repeatedEdge', locale, { sourceName: name(source), source, targetName: name(target), target });
+};
+
 const repeats = (edges: FlowDesignerEdge[], locale?: string) =>
   buildFlowProblems({ nodes: NODES, edges, locale }).filter(
-    (p) => p.message === tFormat('engine.flowProblems.repeatedEdge', locale, { source: p.target.kind === 'edge' ? p.target.source : '', target: p.target.kind === 'edge' ? p.target.target : '' }),
+    (p) => p.target.kind === 'edge' && p.message === repeatedRow(p.target.source, p.target.target, locale),
   );
 
 describe('buildFlowProblems — a repeated connection (objectui#11772)', () => {
@@ -62,8 +69,8 @@ describe('buildFlowProblems — a repeated connection (objectui#11772)', () => {
   it('zh-CN reads the zh row', () => {
     const found = repeats(published, 'zh-CN');
     expect(found).toHaveLength(2);
-    expect(found[0].message).toBe(tFormat('engine.flowProblems.repeatedEdge', 'zh-CN', { source: 'start', target: 'node_1' }));
-    expect(found[0].message).not.toBe(tFormat('engine.flowProblems.repeatedEdge', 'en-US', { source: 'start', target: 'node_1' }));
+    expect(found[0].message).toBe(repeatedRow('start', 'node_1', 'zh-CN'));
+    expect(found[0].message).not.toBe(repeatedRow('start', 'node_1', 'en-US'));
   });
 
   it('a guard in either spelling is the same guard', () => {

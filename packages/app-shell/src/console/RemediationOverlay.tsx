@@ -6,11 +6,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@object-ui/auth';
 import { Button, Input, Label } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { toCanvas } from 'qrcode';
+import { useImpersonationExit, type ImpersonationExit } from '../layout/useImpersonationExit.js';
 
 /**
  * ADR-0069 — full-screen remediation overlay.
@@ -21,15 +22,48 @@ import { toCanvas } from 'qrcode';
  * through the fix (change the password — expired, or reset by an
  * administrator — or enrol an authenticator) instead of leaving them staring
  * at failing requests. On success it reloads so the app re-fetches cleanly.
+ *
+ * ## On an impersonation session (objectui#13208)
+ *
+ * The overlay covers the whole console, the impersonation banner included, so
+ * an administrator impersonating a held user would otherwise be left with the
+ * held user's own credential forms and "Sign out instead". The posture is the
+ * impersonated user's to clear, not the administrator's: when the session
+ * carries `impersonatedBy` the overlay offers neither form. It says the user
+ * has to do it themselves and offers "Stop impersonating", the banner's own
+ * exit (`useImpersonationExit`, shared, not copied). The overlay still appears
+ * for whatever posture the server reports; what it offers is what changes.
+ * Once the stop has restored the administrator, it clears the gate and
+ * reloads, the way its other two successes do. A stop that fails, or that
+ * restores nobody, keeps the overlay up and says so.
  */
 export function RemediationOverlay() {
-  const { remediationRequired } = useAuth();
+  const { remediationRequired, setRemediationRequired } = useAuth();
+  const exit = useImpersonationExit();
+  const { restored } = exit;
+
+  // Back as the administrator: the gate was raised against the impersonated
+  // user's session, so it is not the administrator's to clear.
+  useEffect(() => {
+    if (!restored) return;
+    setRemediationRequired(null);
+    window.location.reload();
+  }, [restored, setRemediationRequired]);
+
   if (!remediationRequired) return null;
+  const passwordPosture =
+    remediationRequired.code === 'PASSWORD_EXPIRED' ||
+    remediationRequired.code === 'PASSWORD_RESET_REQUIRED';
+  // Held on `stopping` and `restored` too: the re-resolved session drops
+  // `impersonatedBy` before the reload, and in that moment the administrator
+  // must not be shown the impersonated user's forms as if they were their own.
+  const impersonating = Boolean(exit.impersonatedBy) || exit.stopping || restored;
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background/95 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl">
-        {remediationRequired.code === 'PASSWORD_EXPIRED' ||
-        remediationRequired.code === 'PASSWORD_RESET_REQUIRED' ? (
+        {impersonating ? (
+          <ImpersonationExitPanel exit={exit} passwordPosture={passwordPosture} />
+        ) : passwordPosture ? (
           <ChangePasswordForm
             forcedReset={remediationRequired.code === 'PASSWORD_RESET_REQUIRED'}
             message={remediationRequired.message}
@@ -38,6 +72,57 @@ export function RemediationOverlay() {
           <MfaEnrollForm message={remediationRequired.message} />
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The impersonation-session face of the overlay: who is held and why, that
+ * only they can clear it, and the way back to the administrator's own session.
+ * The server's `message` is not shown: it is written to the held user.
+ */
+function ImpersonationExitPanel({
+  exit,
+  passwordPosture,
+}: {
+  exit: ImpersonationExit;
+  passwordPosture: boolean;
+}) {
+  const { t } = useObjectTranslation();
+  const user = exit.impersonatedName;
+  const busy = exit.stopping || exit.restored;
+  return (
+    <div className="space-y-4" data-testid="remediation-impersonation-exit">
+      <div>
+        <h2 className="text-lg font-semibold">
+          {passwordPosture
+            ? t('auth.remediation.impersonation.passwordTitle', { user })
+            : t('auth.remediation.impersonation.mfaTitle', { user })}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t('auth.remediation.impersonation.body', { user })}
+        </p>
+      </div>
+      {exit.stopError ? (
+        <p role="alert" data-testid="remediation-impersonation-stop-error" className="text-sm text-destructive">
+          {t('impersonation.banner.stopFailed', { reason: exit.stopError })}
+        </p>
+      ) : null}
+      {exit.notRestored ? (
+        <p role="alert" data-testid="remediation-impersonation-not-restored" className="text-sm text-destructive">
+          {t('impersonation.banner.notRestored', { user })}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        className="w-full"
+        onClick={() => { void exit.stop(); }}
+        disabled={busy}
+        data-testid="remediation-impersonation-stop"
+      >
+        {busy ? t('impersonation.banner.stopping') : t('impersonation.banner.stop')}
+      </Button>
+      <SignOutLink />
     </div>
   );
 }

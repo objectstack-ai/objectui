@@ -34,76 +34,22 @@
  * the operator would go back to ordinary work believing they were themselves.
  */
 
-import { useCallback, useMemo, useState } from 'react';
 import { UserCog } from 'lucide-react';
-import { toast } from 'sonner';
-import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { Button } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
+import { useImpersonationExit } from './useImpersonationExit.js';
 
 export function ImpersonationBanner() {
-  const { user, session, refreshSession } = useAuth();
   const { t } = useObjectTranslation();
-  const [stopping, setStopping] = useState(false);
-  const [stopError, setStopError] = useState<string | null>(null);
-  const [stopAttempted, setStopAttempted] = useState(false);
-
-  // The DATA lane — the same wrapper the impersonate action itself goes
-  // through. It adopts the restored administrator token the server hands back
-  // in `set-auth-token` (#4467's lane fix); calling `stop-impersonating` on a
-  // bare `fetch` would leave the browser holding the impersonated token and
-  // strand the operator exactly where the exit was meant to release them.
-  const authFetch = useMemo(() => createAuthenticatedFetch(), []);
-
-  const impersonatedBy = session?.impersonatedBy;
-
-  const stop = useCallback(async () => {
-    setStopping(true);
-    setStopError(null);
-    try {
-      const baseUrl = import.meta.env.VITE_SERVER_URL || '';
-      const res = await authFetch(`${baseUrl}/api/v1/auth/admin/stop-impersonating`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // The administrator is resolved from the `admin_session` cookie, not
-        // from the bearer we are sending — which is the impersonated user's.
-        credentials: 'include',
-        body: '{}',
-      });
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as
-          | { message?: string; error?: { message?: string } }
-          | null;
-        throw new Error(payload?.error?.message ?? payload?.message ?? `HTTP ${res.status}`);
-      }
-      // Adopt the restored identity: the rotated administrator token is already
-      // in TokenStorage (captured by `authFetch` above), so this re-resolves as
-      // the administrator. Awaited, so the check below reads a settled session.
-      await refreshSession();
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      setStopError(reason);
-      toast.error(
-        t('impersonation.banner.stopFailed', {
-          defaultValue: 'Could not stop impersonating: {{reason}}',
-          reason,
-        }),
-      );
-    } finally {
-      setStopAttempted(true);
-      setStopping(false);
-    }
-  }, [authFetch, refreshSession, t]);
+  // The exit itself — request, token adoption, outcome — is shared with the
+  // remediation overlay, which covers this banner when the session is held
+  // (objectui#13208). See `useImpersonationExit`.
+  const { impersonatedBy, impersonatedName, stop, stopping, stopError, notRestored } =
+    useImpersonationExit();
 
   // Nothing to say on an ordinary session. Below every hook, so the hook order
   // is stable across the transition out of impersonation.
   if (!impersonatedBy) return null;
-
-  const impersonatedName = user?.name || user?.email || user?.id || '';
-  // A stop that RESOLVED and left us still impersonating is the cookie-blocked
-  // deployment: the request was accepted-looking but the administrator was
-  // never restored. Say so instead of leaving a dead button.
-  const notRestored = stopAttempted && !stopping && !stopError;
 
   return (
     <div

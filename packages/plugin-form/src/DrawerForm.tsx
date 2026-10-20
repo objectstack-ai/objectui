@@ -74,6 +74,7 @@ import {
 } from './loadFailure';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 import { useRecordInvalidation } from './recordInvalidation';
+import { useInitialFieldFocus } from './initialFieldFocus';
 
 // Localized strings for the unsaved-changes guard and, since objectui#11039,
 // the form's own chrome (the default submit and cancel labels, the loading
@@ -291,6 +292,12 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   // inner <form> via the `form` attribute (actions live in the footer, not
   // inside the form renderer — see baseFormSchema.showActions below).
   const formId = useId();
+
+  // objectui#13219 — the drawer opens on its first editable field, not on the
+  // sheet's Close button: the body loads after the sheet content mounts, so
+  // Radix's own first-tabbable pick found only Close. The same pair the
+  // record dialog takes (objectui#13130); see `initialFieldFocus.ts`.
+  const initialFieldFocus = useInitialFieldFocus();
 
   // Per-section LIVE collapse state, keyed by section name or index. Unseeded
   // on purpose: an untoggled section falls back to its declared `collapsed`
@@ -943,6 +950,8 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     >
       <SheetContent
         side={side}
+        onOpenAutoFocus={initialFieldFocus.onOpenAutoFocus}
+        onCloseAutoFocus={initialFieldFocus.onCloseAutoFocus}
         className={cn('overflow-y-auto', className, schema.className)}
         style={widthStyle}
       >

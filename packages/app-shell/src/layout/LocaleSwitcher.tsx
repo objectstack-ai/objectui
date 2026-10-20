@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
+import { confirmUnsavedLeave } from '../chrome/unsavedEdits.js';
 import { useLanguageSelection } from '../hooks/useUserLocale.js';
 
 /**
@@ -93,6 +94,17 @@ export function LocaleSwitcher() {
   // past on an app that only ships two.
   if (offerableLanguages === null) return null;
 
+  // objectui#13254 — a switch drops a page's unsaved edits: the console shell
+  // remounts every page on a language change (`key={language}` in
+  // `ConnectedShellInner`, which relabels the labels the server translates). So
+  // while a page holds edits the switch asks that page's own question first;
+  // Cancel keeps the language and the edits. The entry already checked asks
+  // too: picking it still rewrites `sys_user.locale` and hands every reader a
+  // new `t`, so it is not a no-op a dirty page can be sure to survive.
+  // The promise is returned, as the header's other menu entries do, so the
+  // tab-close prompt does not ask a second time while the switch is under way.
+  const pick = (code: string) => confirmUnsavedLeave(() => selectLanguage(code));
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -105,7 +117,7 @@ export function LocaleSwitcher() {
         {offerableLanguages.map((code) => (
           <DropdownMenuItem
             key={code}
-            onClick={() => void selectLanguage(code)}
+            onClick={() => pick(code)}
             className="gap-2"
           >
             {localeLabel(code)}

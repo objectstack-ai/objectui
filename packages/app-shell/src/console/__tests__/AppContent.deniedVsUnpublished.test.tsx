@@ -601,7 +601,9 @@ describe('AppContent — every screen here states what the probe measured (objec
     expect(screen.getByTestId('home-launcher')).toBeInTheDocument();
   });
 
-  it.each(RETRYABLE_VERDICTS)('CONTROL — Retry on the $testId screen still re-checks, and the way home stays', async ({ testId, arrange }) => {
+  // Independent of the way home on purpose: dropping that button leaves these
+  // green, so a red here is Retry itself, never the button beside it.
+  it.each(RETRYABLE_VERDICTS)('CONTROL — Retry on the $testId screen is still drawn and still re-checks', async ({ testId, arrange }) => {
     arrange();
 
     renderConsoleAt('/apps/finance');
@@ -611,7 +613,7 @@ describe('AppContent — every screen here states what the probe measured (objec
     retry.click();
 
     await waitFor(() => expect(refreshMetadata.mock.calls.length).toBeGreaterThan(before));
-    expect(await screen.findByTestId(`${testId}-home`)).toBeInTheDocument();
+    expect(await screen.findByTestId(`${testId}-retry`)).toBeInTheDocument();
     expect(screen.getByTestId('pathname').textContent).toBe('/apps/finance');
   });
 });

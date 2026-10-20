@@ -137,6 +137,7 @@ import {
   // objectui#10872 batch 8 — the node-level `responsiveStyles` every public-block arm declares.
   ResponsiveStylesSchema as SpecResponsiveStylesSchema,
   objectNavTargetExclusivity,
+  navItemVisibleDataNeedsDataSource,
   checkListViewCalendarVisualization,
   checkListViewChartBinding,
   checkPageSourceCompleteness,
@@ -698,6 +699,9 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
      */
     const REFINEMENT_EXCEPTIONS = new Map<string, unknown>([
       ['objectNavTargetExclusivity', objectNavTargetExclusivity],
+      // objectui#13076: the spec's `visible`-reads-`data` rule, which `@objectstack/spec` mounts on its
+      // whole navigation union; chained on `NavigationItemSchema`'s flat arm and its `doc` arm.
+      ['navItemVisibleDataNeedsDataSource', navItemVisibleDataNeedsDataSource],
       // objectui#7715 (ruling B1): the spec's exported object-level checks that
       // `ListViewSchema` and `PageNodeSchema` re-attach after `specFieldsExcept`
       // rebuilt them without the spec object's own checks.

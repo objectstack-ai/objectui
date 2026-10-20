@@ -15,15 +15,15 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 
 vi.mock('recharts', async () => {
-  const actual = await vi.importActual<any>('recharts');
+  const actual = await vi.importActual<typeof import('recharts')>('recharts');
   return {
     ...actual,
-    ResponsiveContainer: ({ children }: any) =>
+    ResponsiveContainer: ({ children }: { children: React.ReactElement<{ width?: number; height?: number }> }) =>
       React.cloneElement(children, { width: 480, height: 320 }),
   };
 });
 
-import AdvancedChartImpl from './AdvancedChartImpl';
+import AdvancedChartImpl, { type AdvancedChartImplProps } from './AdvancedChartImpl';
 
 afterEach(cleanup);
 
@@ -55,7 +55,7 @@ function axesWithTicks(container: HTMLElement) {
   return axes;
 }
 
-const CASES: Array<{ name: string; axes: number; props: Record<string, any> }> = [
+const CASES: Array<{ name: string; axes: number; props: Partial<AdvancedChartImplProps> }> = [
   { name: 'bar', axes: 2, props: { chartType: 'bar', series: [{ dataKey: 'total' }] } },
   { name: 'line', axes: 2, props: { chartType: 'line', series: [{ dataKey: 'total' }] } },
   { name: 'area', axes: 2, props: { chartType: 'area', series: [{ dataKey: 'total' }] } },
@@ -89,7 +89,7 @@ const CASES: Array<{ name: string; axes: number; props: Record<string, any> }> =
 
 describe('AdvancedChartImpl — axis tick text uses the muted foreground (objectui#13129)', () => {
   it.each(CASES)('$name: every drawn axis paints its ticks in the muted foreground', ({ axes, props }) => {
-    const { container } = render(<AdvancedChartImpl data={DATA} xAxisKey="stage" {...(props as any)} />);
+    const { container } = render(<AdvancedChartImpl data={DATA} xAxisKey="stage" {...props} />);
     const drawn = axesWithTicks(container);
     expect(drawn).toHaveLength(axes);
     for (const { axis, fills } of drawn) {

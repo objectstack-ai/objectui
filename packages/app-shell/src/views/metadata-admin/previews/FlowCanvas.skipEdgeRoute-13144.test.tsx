@@ -149,7 +149,10 @@ describe('flow canvas: a Decision branch that skips a node is drawn around it (o
     for (const id of ['start', 'decide', 'notify', 'end']) expect(overlaps(box, cardBox(container, id)), id).toBe(false);
   });
 
-  it('selects the skip edge from its pill', () => {
+  // A control, not the pin: happy-dom does no hit-testing, so this passes with
+  // the pill under a card too. What made a real click land on the card is the
+  // pill's box, which the test above pins; the PR's browser reading clicks it.
+  it('wires the skip edge’s pill to select that edge', () => {
     const { container, onSelectEdge } = mount();
     fireEvent.click(edgeGroup(container, 'decide', 'end').querySelector('[data-branch-label]')!);
     expect(onSelectEdge).toHaveBeenCalledTimes(1);

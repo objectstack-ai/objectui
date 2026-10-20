@@ -6520,7 +6520,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.landing.mineHeading': '我的软件包(可写)',
   'engine.studio.landing.noneWritable': '还没有可写软件包 — 新建一个开始。',
   'engine.studio.landing.dup': '复制',
-  'engine.studio.landing.dupTitle': '复制这个软件包为新的可写副本(类似 duplicate base)',
+  'engine.studio.landing.dupTitle': '复制这个软件包为新的可写副本(类似「复制基座」)',
   'engine.studio.landing.dupDefaultName': '{name} 副本',
   'engine.studio.landing.dupNamePlaceholder': '副本名称',
   'engine.studio.landing.dupIdPlaceholder': '副本包 ID',
@@ -6680,7 +6680,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.pkg.heading': '软件包(应用)',
   'engine.studio.pkg.none': '暂无应用软件包',
   'engine.studio.pkg.createWritable': '创建可写软件包',
-  'engine.studio.pkg.new': '新建软件包(可写 base)',
+  'engine.studio.pkg.new': '新建软件包(可写基座)',
   'engine.studio.pkg.created': '软件包 {name} 已创建(可写)',
   // Nav item inspector (Interfaces pillar)
   'engine.studio.nav.selectItem': '在左侧选择一个菜单项。',

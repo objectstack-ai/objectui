@@ -28,14 +28,18 @@
  * #1927 by-order mirror.
  *
  * objectui#13138 — every fallback pairing (the by-order mirror, the derived
- * Target column, and "same target node" when a target is picked) only ever
- * pairs a branch with an out-edge that carries NO routing of its own (no
- * `condition`, `label` or `isDefault`). An edge that does carry routing is
- * driven only by the branch that binds it; a branch that binds no edge stays a
- * branch with no edge until its target is chosen, and then gets its own edge.
- * Before this, "Add branch" on a decision whose connection held a condition
- * written in the connection inspector stamped the new branch over that edge
- * and the condition was gone.
+ * Target column, and "same target node" when a target is picked) only pairs a
+ * branch with an out-edge that carries NO routing of its own (no `condition`,
+ * `label` or `isDefault`), or with one the branch list already owned before
+ * this commit (`prior`: the stored `config.conditions` the commit replaces —
+ * so a one-cell edit of a branch keeps driving its own edge even when the
+ * edit leaves nothing that names it). An edge no branch owns — a connection
+ * whose routing was written in the connection inspector — is driven only by
+ * a branch that binds it; a new branch that binds no edge stays a branch with
+ * no edge until its target is chosen, and then gets its own edge; and only an
+ * owned edge is ever detached. Before this, "Add branch" on a decision whose
+ * connection held a condition stamped the new branch over that edge and the
+ * condition was gone.
  *
  * "Bound to a branch" follows the same matching the `FlowEdgeInspector`
  * Branch picker uses: a default-ish branch (expression empty or `true`) binds
@@ -126,6 +130,14 @@ function carriesRouting(edge: DecisionEdge): boolean {
   );
 }
 
+/**
+ * objectui#13138 — the out-edges the branch list owned before this commit:
+ * those `prior` (the stored branches the commit replaces) pairs with.
+ */
+function ownedEdges(decisionId: string, prior: unknown, edges: DecisionEdge[]): Set<number> {
+  return new Set(pairBranchesWithEdges(decisionId, asBranchArray(prior), edges).values());
+}
+
 /** The decision's plain out-edges (fault / back edges never carry branches). */
 const isCandidate = (decisionId: string) => (e: DecisionEdge): boolean =>
   e.source === decisionId && e.type !== 'fault' && e.type !== 'back';
@@ -157,14 +169,15 @@ function mirrorBranchOntoEdge(edge: DecisionEdge, branch: DecisionBranch): Decis
 /**
  * Pair each branch with an out-edge (branch index → edge index): first every
  * branch with the edge it claims, then the remaining branches, in order, with
- * the remaining out-edges that carry no routing of their own (the #1927
- * by-order pairing, narrowed by objectui#13138). A branch left unpaired has no
- * edge.
+ * the remaining out-edges that carry no routing of their own, or that are in
+ * `owned` (the #1927 by-order pairing, narrowed by objectui#13138). A branch
+ * left unpaired has no edge.
  */
 function pairBranchesWithEdges(
   decisionId: string,
   branches: DecisionBranch[],
   edges: DecisionEdge[],
+  owned: ReadonlySet<number> = new Set(),
 ): Map<number, number> {
   const candidates = edges
     .map((_, i) => i)
@@ -180,7 +193,7 @@ function pairBranchesWithEdges(
   });
   branches.forEach((_, bi) => {
     if (pairing.has(bi)) return;
-    const ei = candidates.find((i) => !claimed.has(i) && !carriesRouting(edges[i]));
+    const ei = candidates.find((i) => !claimed.has(i) && (owned.has(i) || !carriesRouting(edges[i])));
     if (ei !== undefined) {
       claimed.add(ei);
       pairing.set(bi, ei);
@@ -191,18 +204,22 @@ function pairBranchesWithEdges(
 
 /**
  * The legacy #1927 by-order mirror: each branch stamps the out-edge it is
- * paired with (`pairBranchesWithEdges`) — its own edge, else the next plain
- * out-edge that carries no routing. Used when no committed branch carries an
+ * paired with (`pairBranchesWithEdges`) — the edge it binds, else the next
+ * plain out-edge that carries no routing or that `prior` (the stored branches
+ * this commit replaces) owned. Used when no committed branch carries an
  * explicit target (see module doc).
  */
 export function syncDecisionEdgesByOrder(
   decisionId: string,
   conditions: unknown,
   edges: DecisionEdge[],
+  prior: unknown,
 ): DecisionEdge[] {
   const branches = asBranchArray(conditions);
   const branchOfEdge = new Map<number, DecisionBranch>();
-  pairBranchesWithEdges(decisionId, branches, edges).forEach((ei, bi) => branchOfEdge.set(ei, branches[bi]));
+  pairBranchesWithEdges(decisionId, branches, edges, ownedEdges(decisionId, prior, edges)).forEach((ei, bi) =>
+    branchOfEdge.set(ei, branches[bi]),
+  );
   return edges.map((e, i) => {
     const branch = branchOfEdge.get(i);
     return branch ? mirrorBranchOntoEdge(e, branch) : e;
@@ -239,11 +256,16 @@ export function withBranchTargets(
  *
  * With no targets anywhere the edge pass is the legacy by-order mirror.
  * Otherwise branches claim edges in three deterministic tiers — exact target
- * AND binding, exact target on an edge that carries no routing of its own
- * (objectui#13138: never a conditioned / labelled / default edge another branch
- * or the connection inspector wrote), binding alone (a retarget keeps the
- * edge's identity and extra keys) — unmatched targeted branches create a fresh edge,
- * and a target-less branch detaches (removes) the edge still bound to it.
+ * AND binding, exact target on an edge that carries no routing of its own or
+ * that `prior` owned (objectui#13138: never a conditioned / labelled / default
+ * edge the connection inspector wrote), binding alone (a retarget keeps the
+ * edge's identity and extra keys) — unmatched targeted branches create a fresh
+ * edge, and a target-less branch detaches (removes) the edge still bound to
+ * it, provided `prior` owned that edge (a new branch never deletes one).
+ *
+ * `prior` is the stored branch list this commit replaces (the node's
+ * `config.conditions`, spec-clean): it is what tells "this branch's own edge,
+ * edited" apart from "a connection no branch has ever routed".
  *
  * Every created edge carries an `id` (objectui#3202). This output is a
  * COMMITTED state — it goes straight to `onPatch` → draft → save — and the
@@ -260,6 +282,7 @@ export function applyDecisionBranches(
   decisionId: string,
   committed: unknown,
   edges: DecisionEdge[],
+  prior: unknown,
 ): { conditions: DecisionBranch[]; edges: DecisionEdge[] } {
   const branches = asBranchArray(committed);
   const conditions = branches.map((b) => {
@@ -268,8 +291,10 @@ export function applyDecisionBranches(
   });
 
   if (!branches.some((b) => branchTarget(b) !== '')) {
-    return { conditions, edges: syncDecisionEdgesByOrder(decisionId, conditions, edges) };
+    return { conditions, edges: syncDecisionEdgesByOrder(decisionId, conditions, edges, prior) };
   }
+
+  const owned = ownedEdges(decisionId, prior, edges);
 
   const candidates = edges
     .map((_, i) => i)
@@ -277,15 +302,15 @@ export function applyDecisionBranches(
   const claimed = new Set<number>();
   const pairing = new Map<number, number>();
 
-  const tiers: Array<(b: DecisionBranch, e: DecisionEdge) => boolean> = [
+  const tiers: Array<(b: DecisionBranch, e: DecisionEdge, i: number) => boolean> = [
     (b, e) => e.target === branchTarget(b) && edgeClaimedByBranch(b, e),
-    (b, e) => e.target === branchTarget(b) && !carriesRouting(e),
+    (b, e, i) => e.target === branchTarget(b) && (owned.has(i) || !carriesRouting(e)),
     (b, e) => edgeClaimedByBranch(b, e),
   ];
   for (const matches of tiers) {
     branches.forEach((b, bi) => {
       if (pairing.has(bi) || branchTarget(b) === '') return;
-      const ei = candidates.find((i) => !claimed.has(i) && matches(b, edges[i]));
+      const ei = candidates.find((i) => !claimed.has(i) && matches(b, edges[i], i));
       if (ei !== undefined) {
         claimed.add(ei);
         pairing.set(bi, ei);
@@ -303,8 +328,10 @@ export function applyDecisionBranches(
     const target = branchTarget(b);
     if (target === '') {
       // Explicitly unbound: detach the edge still bound to this branch (never
-      // a claimed edge, never an edge bound to no branch at all).
-      const ei = candidates.find((i) => !claimed.has(i) && edgeBindsBranch(b, edges[i]));
+      // a claimed edge, never an edge bound to no branch at all, and never one
+      // the branch list did not own — objectui#13138: a new, empty branch
+      // binds the default edge by the #1930 matcher, but it never wired it).
+      const ei = candidates.find((i) => !claimed.has(i) && owned.has(i) && edgeBindsBranch(b, edges[i]));
       if (ei !== undefined) {
         claimed.add(ei);
         removed.add(ei);

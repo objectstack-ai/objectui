@@ -508,14 +508,18 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
       const draftEdges = Array.isArray((draft as { edges?: unknown }).edges)
         ? ((draft as { edges: FlowEdge[] }).edges)
         : [];
+      // objectui#13138 — the stored branches this commit replaces: what tells a
+      // branch's own edge (kept driving through a one-cell edit) apart from a
+      // connection no branch has routed (never rewritten, never detached).
+      const prior = getFieldValue(node, field);
       if (isBranchTargetField(field)) {
-        const applied = applyDecisionBranches(node.id, value, draftEdges);
+        const applied = applyDecisionBranches(node.id, value, draftEdges, prior);
         stored = applied.conditions.length ? applied.conditions : undefined;
         nextEdges = applied.edges;
       } else if (node.type === 'decision' && path.length === 2 && path[0] === 'config' && path[1] === 'conditions') {
         // A decision branch list without a Target column (engine-published
         // configSchema form) keeps the legacy by-order mirror.
-        nextEdges = syncDecisionEdgesByOrder(node.id, value, draftEdges);
+        nextEdges = syncDecisionEdgesByOrder(node.id, value, draftEdges, prior);
       }
     }
     // objectui#11660 — a block whose EXISTENCE is its switch (`switchedBlockOf`:

@@ -3108,16 +3108,25 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
           <TableHeader className="sticky top-0 bg-background z-10">
             <TableRow ref={headerRowRef}>
               {selectable && (
-                <TableHead className={cn("w-10 bg-background px-3", frozenColumns > 0 && "sticky left-0 z-20")}>
+                <TableHead className={cn("w-10 bg-background", showRowNumbers ? "px-0" : "px-3", frozenColumns > 0 && "sticky left-0 z-20")}>
                   {/* Select-all is a multi-select affordance; a 'single' view
                       keeps the column (alignment) but offers no way to select
                       more than one row (#2941). */}
+                  {/* objectui#13293 — with row numbers on, the rows centre their
+                      checkbox and number in the leading cell, so select-all is
+                      centred too; without them both sit at the cell's start.
+                      The centred cells drop their side padding: the base cell
+                      zeroes the right padding of any cell holding a checkbox,
+                      and a 12px/0 cell centres its text 6px right of the
+                      absolutely placed checkbox. */}
                   {selectionMode === 'multiple' && (
-                    <Checkbox
-                      checked={allPageRowsSelected ? true : somePageRowsSelected ? 'indeterminate' : false}
-                      onCheckedChange={handleSelectAll}
-                      aria-label={t('table.selectAllRows')}
-                    />
+                    <div data-slot="select-all" className={cn("flex items-center", showRowNumbers && "justify-center")}>
+                      <Checkbox
+                        checked={allPageRowsSelected ? true : somePageRowsSelected ? 'indeterminate' : false}
+                        onCheckedChange={handleSelectAll}
+                        aria-label={t('table.selectAllRows')}
+                      />
+                    </div>
                   )}
                 </TableHead>
               )}
@@ -3502,7 +3511,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                             if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
                             handleSelectRow(rowId, !isSelected);
                           }}
-                          className={cn(cellClassName, "w-10 px-3 relative cursor-pointer", showRowNumbers && "text-center", frozenColumns > 0 && ["sticky left-0 z-10 bg-background", STICKY_ROW_TINT])}
+                          className={cn(cellClassName, "w-10 relative cursor-pointer", showRowNumbers ? "px-0 text-center" : "px-3", frozenColumns > 0 && ["sticky left-0 z-10 bg-background", STICKY_ROW_TINT])}
                         >
                           {/* objectui#12423 — the leading cell (see
                               `leadingCellCount`): the row number by default,

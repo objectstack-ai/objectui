@@ -2064,6 +2064,8 @@ const pt = {
       deprecatedBadge: "Obsoleto",
       deprecatedBadgeReplacedBy: "Obsoleto → {{replacedBy}}",
       unsupportedSpecifierType: "Tipo de configuração não suportado: {{type}}",
+      invalidPhone: "Insira um número de telefone usando apenas dígitos, espaços e + ( ) - .",
+      invalidColor: "Insira uma cor hexadecimal, como #1a2b3c",
     },
     workspaceTimezonePrompt: {
       title: "Definir o fuso horário do sistema",

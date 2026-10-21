@@ -2021,6 +2021,8 @@ const ko = {
       deprecatedBadge: "지원 중단됨",
       deprecatedBadgeReplacedBy: "지원 중단됨 → {{replacedBy}}",
       unsupportedSpecifierType: "지원되지 않는 설정 항목 유형: {{type}}",
+      invalidPhone: "숫자, 공백, + ( ) - . 만 사용하여 전화번호를 입력해주세요",
+      invalidColor: "#1a2b3c 와 같은 16진수 색상을 입력해주세요",
     },
     workspaceTimezonePrompt: {
       title: "시스템 시간대 설정",

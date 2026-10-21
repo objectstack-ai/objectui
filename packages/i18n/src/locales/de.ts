@@ -2021,6 +2021,8 @@ const de = {
       deprecatedBadge: "Veraltet",
       deprecatedBadgeReplacedBy: "Veraltet → {{replacedBy}}",
       unsupportedSpecifierType: "Nicht unterstützter Einstellungstyp: {{type}}",
+      invalidPhone: "Geben Sie eine Telefonnummer nur mit Ziffern, Leerzeichen und + ( ) - . ein",
+      invalidColor: "Geben Sie eine Hex-Farbe ein, z. B. #1a2b3c",
     },
     workspaceTimezonePrompt: {
       title: "Zeitzone des Systems festlegen",

@@ -2119,6 +2119,8 @@ const ru = {
       deprecatedBadge: "Устарело",
       deprecatedBadgeReplacedBy: "Устарело → {{replacedBy}}",
       unsupportedSpecifierType: "Неподдерживаемый тип настройки: {{type}}",
+      invalidPhone: "Введите номер телефона, используя только цифры, пробелы и + ( ) - .",
+      invalidColor: "Введите цвет в шестнадцатеричном формате, например #1a2b3c",
     },
     workspaceTimezonePrompt: {
       title: "Задайте часовой пояс системы",

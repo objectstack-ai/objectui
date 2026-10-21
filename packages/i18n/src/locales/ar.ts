@@ -2204,6 +2204,8 @@ const ar = {
       deprecatedBadge: "مهمل",
       deprecatedBadgeReplacedBy: "مهمل ← {{replacedBy}}",
       unsupportedSpecifierType: "نوع إعداد غير مدعوم: {{type}}",
+      invalidPhone: "أدخل رقم هاتف يتكون من الأرقام والمسافات و + ( ) - . فقط",
+      invalidColor: "أدخل لونًا سداسيًا عشريًا، مثل #1a2b3c",
     },
     workspaceTimezonePrompt: {
       title: "تعيين المنطقة الزمنية للنظام",

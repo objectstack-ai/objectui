@@ -2157,6 +2157,11 @@ const en = {
       deprecatedBadge: 'Deprecated',
       deprecatedBadgeReplacedBy: 'Deprecated → {{replacedBy}}',
       unsupportedSpecifierType: 'Unsupported specifier type: {{type}}',
+      // A settings value that misses its type's declared format blocks Save
+      // (objectui#13287). `email` and `url` reuse `validation.email` and
+      // `validation.url`; these two name what a phone number and a colour take.
+      invalidPhone: 'Enter a phone number using only digits, spaces and + ( ) - .',
+      invalidColor: 'Enter a hex color, such as #1a2b3c',
     },
     // The one-time workspace-timezone prompt (objectui#11758): asked of an
     // administrator while `localization.timezone` is still the manifest default.

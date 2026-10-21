@@ -2069,6 +2069,8 @@ const es = {
       deprecatedBadge: "Obsoleto",
       deprecatedBadgeReplacedBy: "Obsoleto → {{replacedBy}}",
       unsupportedSpecifierType: "Tipo de ajuste no admitido: {{type}}",
+      invalidPhone: "Introduzca un número de teléfono solo con dígitos, espacios y + ( ) - .",
+      invalidColor: "Introduzca un color hexadecimal, como #1a2b3c",
     },
     workspaceTimezonePrompt: {
       title: "Configure la zona horaria del sistema",

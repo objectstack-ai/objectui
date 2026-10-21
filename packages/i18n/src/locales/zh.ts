@@ -1809,6 +1809,8 @@ const zh = {
       deprecatedBadge: '已弃用',
       deprecatedBadgeReplacedBy: '已弃用 → {{replacedBy}}',
       unsupportedSpecifierType: '不支持的设置项类型:{{type}}',
+      invalidPhone: '请输入仅由数字、空格和 + ( ) - . 组成的电话号码',
+      invalidColor: '请输入十六进制颜色，例如 #1a2b3c',
     },
     workspaceTimezonePrompt: {
       title: '设置系统时区',

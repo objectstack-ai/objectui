@@ -2023,6 +2023,8 @@ const ja = {
       deprecatedBadge: "非推奨",
       deprecatedBadgeReplacedBy: "非推奨 → {{replacedBy}}",
       unsupportedSpecifierType: "サポートされていない設定項目の種類: {{type}}",
+      invalidPhone: "数字、スペース、+ ( ) - . のみで電話番号を入力してください",
+      invalidColor: "#1a2b3c のような16進カラーを入力してください",
     },
     workspaceTimezonePrompt: {
       title: "システムのタイムゾーンを設定",

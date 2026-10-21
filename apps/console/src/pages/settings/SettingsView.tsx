@@ -148,10 +148,52 @@ function isEmptySettingValue(value: unknown): boolean {
 }
 
 /**
- * The visible `required` keys that hold no value, in manifest order
- * (objectui#13239). The spec declares `required` as "renderer + server-side
- * validation"; the server judges only the keys a save touches, so a required
- * key nobody edited is the renderer's half to check.
+ * The value format each format-bearing specifier TYPE declares (objectui#13287):
+ * ADR-0007's specifier table, "`email` / `url` / `phone` | typed input | string
+ * | format validation" and "`color` | colour picker | hex string".
+ *
+ * Each grammar is the settings service's own, `DECLARED_VALUE_FORMATS` in
+ * objectstack's `service-settings` (objectstack#24882), which refuses a miss at
+ * the save door with one `FieldError` per key. Kept to the server's grammar so
+ * the page never blocks a value the server and its readers accept, nor lets
+ * through one the server will refuse:
+ *
+ *  - `email` — `local@domain` with a dotted domain.
+ *  - `url` — `scheme://…`, a root-relative `/path`, a `data:` URI or a
+ *    `blob:` URL (`branding.logo_url`'s reader takes absolute or relative).
+ *  - `phone` — digits, spaces and `+ ( ) - .` only, at least 5 characters.
+ *  - `color` — CSS hex, `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa`.
+ *
+ * A `Map`, so a type spelled like an `Object.prototype` member looks up nothing.
+ */
+const DECLARED_VALUE_FORMATS: ReadonlyMap<string, RegExp> = new Map([
+  ['email', /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/],
+  ['url', /^(?:[a-z][a-z0-9+.-]*:\/\/\S+|\/\S*|data:\S+|blob:\S+)$/i],
+  ['phone', /^[+()\-\s\d.]{5,}$/],
+  ['color', /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i],
+]);
+
+/**
+ * True when `value` misses the format its specifier `type` declares. A type
+ * with no declared format, a non-string value, or an empty one passes: "no
+ * value" is the `required` rule's business. Judged trimmed, as the server
+ * judges it.
+ */
+function missesDeclaredFormat(type: string, value: unknown): boolean {
+  const re = DECLARED_VALUE_FORMATS.get(type);
+  if (!re || typeof value !== 'string' || value.trim() === '') return false;
+  return !re.test(value.trim());
+}
+
+/** Why the page blocked a save on one key: an empty `required`, or a format miss. */
+type PreSaveBlock = { key: string; rule: 'required' | 'format'; type: string };
+
+/**
+ * The visible keys a save is blocked on, in manifest order: a `required` key
+ * that holds no value (objectui#13239), or a value that misses the format its
+ * type declares (objectui#13287). The spec declares `required` as "renderer +
+ * server-side validation"; the server judges only the keys a save touches, so a
+ * required key nobody edited is the renderer's half to check.
  *
  * - Visibility is the same `evalVisibility` reading the page renders by, over
  *   the live values (draft over stored): a hidden key is not checked.
@@ -160,25 +202,29 @@ function isEmptySettingValue(value: unknown): boolean {
  *   counts as filled.
  * - A locked row is not checked. An env lock reads back as `locked: true` with
  *   the environment's value in `value`, and the row's control is disabled, so
- *   nothing on this page could fill it either way.
+ *   nothing on this page could fill or fix it either way.
  */
-function emptyRequiredKeys(
+function preSaveBlocks(
   specifiers: ReadonlyArray<Specifier>,
   values: SettingsNamespacePayload['values'],
   draft: Record<string, unknown>,
   liveValues: Record<string, unknown>,
-): string[] {
-  const empty: string[] = [];
+): PreSaveBlock[] {
+  const blocks: PreSaveBlock[] = [];
   for (const spec of specifiers) {
     const key = spec.key;
-    if (!key || !spec.required || NON_INPUT_TYPES.has(spec.type)) continue;
+    if (!key || NON_INPUT_TYPES.has(spec.type)) continue;
     if (!evalVisibility(spec.visible, liveValues)) continue;
     const resolved = values[key];
     if (resolved?.locked) continue;
     const effective = key in draft ? draft[key] : resolved?.value;
-    if (isEmptySettingValue(effective)) empty.push(key);
+    if (spec.required && isEmptySettingValue(effective)) {
+      blocks.push({ key, rule: 'required', type: spec.type });
+    } else if (missesDeclaredFormat(spec.type, effective)) {
+      blocks.push({ key, rule: 'format', type: spec.type });
+    }
   }
-  return empty;
+  return blocks;
 }
 
 export function SettingsView() {
@@ -341,13 +387,21 @@ export function SettingsView() {
     // objectui#13239 — a visible required field left empty blocks the save
     // here: no request goes out, each such row is marked through the same
     // field-error slot a server refusal uses, and focus moves to the first.
-    const missing = emptyRequiredKeys(manifest.specifiers, values, draft, liveValues);
-    if (missing.length > 0) {
-      const message = t('form.fieldRequired');
-      setFieldErrors(Object.fromEntries(missing.map((key) => [key, message])));
-      setFocusKey({ key: missing[0] });
+    // objectui#13287 — a value that misses its type's declared format blocks
+    // the same way, with one message per format naming what is expected.
+    const blocked = preSaveBlocks(manifest.specifiers, values, draft, liveValues);
+    if (blocked.length > 0) {
+      const messageFor = ({ rule, type }: PreSaveBlock): string => {
+        if (rule === 'required') return t('form.fieldRequired');
+        if (type === 'email') return t('validation.email');
+        if (type === 'url') return t('validation.url');
+        if (type === 'phone') return t('console.settingsView.invalidPhone');
+        return t('console.settingsView.invalidColor');
+      };
+      setFieldErrors(Object.fromEntries(blocked.map((b) => [b.key, messageFor(b)])));
+      setFocusKey({ key: blocked[0].key });
       const named = refusedSettingLabels(
-        missing.map((field) => ({ field })),
+        blocked.map(({ key }) => ({ field: key })),
         manifest.specifiers,
         labels,
       );

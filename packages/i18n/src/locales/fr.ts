@@ -2065,6 +2065,8 @@ const fr = {
       deprecatedBadge: "Obsolète",
       deprecatedBadgeReplacedBy: "Obsolète → {{replacedBy}}",
       unsupportedSpecifierType: "Type de paramètre non pris en charge : {{type}}",
+      invalidPhone: "Saisissez un numéro de téléphone composé uniquement de chiffres, d’espaces et de + ( ) - .",
+      invalidColor: "Saisissez une couleur hexadécimale, par exemple #1a2b3c",
     },
     workspaceTimezonePrompt: {
       title: "Définir le fuseau horaire du système",

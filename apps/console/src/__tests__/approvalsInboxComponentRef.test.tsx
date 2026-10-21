@@ -21,8 +21,9 @@
  *      either one moves both;
  *   3. the page mounted through that route still sees `:appName` and
  *      `?request=<id>` — the two router inputs `ApprovalsInboxPage` reads
- *      (`useParams().appName` for record deep links, `useSearchParams()` for
- *      the notification drawer opener).
+ *      (`useParams().appName` for record and request deep links,
+ *      `useSearchParams()` for the notification deep link, which opens the
+ *      request on its served page since objectui#12484).
  *
  * Property 3 is the one worth measuring rather than assuming: the standalone
  * `system/approvals` route and the `component/:ns/:name/*` route are different
@@ -40,7 +41,7 @@
  * ## Scope of the stub
  *
  * `ApprovalsInboxPage` itself is stubbed at its module boundary. Its internals
- * (tabs, drawer, decision actions) are objectui#2762's subject and are being
+ * (tabs, queue, decision actions) are objectui#2762's subject and are being
  * rebuilt wholesale by objectui#2763; what belongs to THIS change is only what
  * the routing hands the page. The stub is a probe that echoes exactly those two
  * inputs, and it is mocked at the same specifier the registration lazy-imports,

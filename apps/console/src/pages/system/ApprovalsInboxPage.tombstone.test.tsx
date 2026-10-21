@@ -342,14 +342,10 @@ describe('Approvals Inbox — dead record reference tombstone (objectui#7108)', 
     );
   });
 
-  it('tombstones the same reference in the drawer — not one click deeper', async () => {
-    await renderAllTab();
-
-    fireEvent.click(rowFor('Dana Deleter'));
-    const drawer = await screen.findByRole('dialog');
-
-    expect(within(drawer).getAllByText(TOMBSTONE).length).toBeGreaterThan(0);
-    expect(drawer.innerHTML).not.toContain('9SEmly');
-    expect(within(drawer).queryByRole('link', { name: /LR-00007/ })).toBeNull();
-  });
+  // The drawer case ("tombstones the same reference in the drawer — not one
+  // click deeper") retired with the inbox side sheet (objectui#12484). A request
+  // now opens on its served page, whose deleted state is pinned by
+  // `approvalRequestsDataSource.servedPageReferenceStates-12489.test.tsx`
+  // ("deleted (sheet: tombstone)": the tombstone, no link, and the bare id
+  // nowhere on the page, the H1 included), in `apps/console/src/services/`.
 });

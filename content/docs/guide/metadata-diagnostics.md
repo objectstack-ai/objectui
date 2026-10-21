@@ -229,6 +229,15 @@ The verdict is unchanged in every case: this is a diagnostic about a
 predicate, not a change to what the gate decides. A node gate that fails open
 renders exactly as it always did; the difference is that it now says so.
 
+One gate in this family fails **closed** instead: a `page:tabs` item's
+`visibleWhen` (objectui#13286). A declared item predicate that cannot be
+evaluated — over the CEL engine's AST bound, a type error, an unbound root, a
+missing function — withholds its tab, header and panel, rather than drawing it
+for a viewer the predicate was written to exclude, and the console line says
+the tab was **withheld**. If that tab was the active one, the strip falls back
+to the first visible tab. An item with no `visibleWhen`, or a blank one, is
+still shown.
+
 The **app shell's own `visible` gate** joins the same reporter and the same
 rate limit: a `visible` predicate on a navigation item, on an area's
 navigation, or on an object field rendered by the record form page. This one

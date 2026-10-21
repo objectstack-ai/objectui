@@ -36,12 +36,12 @@
  * dedupe `Set`, and one authored predicate would then be entitled to one line
  * per package instead of one line. The last case here is what pins that.
  *
- * ## Reverse verification (direction predicted BEFORE running)
+ * ## The verdict moved later (objectui#13286)
  *
- * Dropping the `onFault` option from `isItemVisible` turns RED exactly the
- * report cases and leaves every VERDICT case green — the tabs render
- * identically either way, which is this card's observability-only constraint
- * restated on this surface.
+ * This card was observability-only and left the fail-open verdict alone.
+ * objectui#13286 made a faulting item predicate fail CLOSED, so the cases
+ * below that render a faulting tab now assert it is NOT drawn; the verdict
+ * itself is pinned in `page-tabs-visible-when-fail-closed-13286.test.tsx`.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -91,9 +91,9 @@ describe('objectui#6038 — a faulting `page:tabs` item predicate is reported', 
     expect(reports(warn)).toHaveLength(0);
   });
 
-  it('THE acceptance criterion: a faulting item `visibleWhen` warns, and the tab still renders', () => {
+  it('THE acceptance criterion: a faulting item `visibleWhen` warns, and the tab is withheld', () => {
     const warn = spyWarn();
-    const { getByText } = render(
+    const { queryByText } = render(
       <SchemaRenderer
         schema={tabsSchema([
           { label: 'Details', value: 'details', children: [] },
@@ -101,9 +101,10 @@ describe('objectui#6038 — a faulting `page:tabs` item predicate is reported', 
         ])}
       />,
     );
-    // VERDICT UNCHANGED — fail-open, so the tab is still there. This card does
-    // not get to move that; it only gets to say so.
-    expect(getByText('Contracts')).toBeTruthy();
+    // objectui#13286 moved the verdict this card left alone: a faulting item
+    // predicate now fails CLOSED, so the tab is not drawn. The report below is
+    // still this card's pin.
+    expect(queryByText('Contracts')).toBeNull();
 
     const lines = reports(warn);
     expect(lines).toHaveLength(1);
@@ -215,7 +216,7 @@ describe('objectui#6487 — the `page:tabs` item gate keeps the node tier`s root
   it('names `record` / `current_user` / `page.<var>`, and not the app-shell roots', () => {
     const warn = spyWarn();
     const fault = 'nosuchroot6487tabs.x > 1';
-    const { getByText } = render(
+    const { queryByText } = render(
       <SchemaRenderer
         schema={tabsSchema([
           { label: 'Details', value: 'details', children: [] },
@@ -223,7 +224,7 @@ describe('objectui#6487 — the `page:tabs` item gate keeps the node tier`s root
         ])}
       />,
     );
-    expect(getByText('Contracts')).toBeTruthy(); // fail-open, unchanged
+    expect(queryByText('Contracts')).toBeNull(); // fail-closed since objectui#13286
 
     const lines = reports(warn);
     expect(lines).toHaveLength(1); // the fault reached the reporter in THIS run

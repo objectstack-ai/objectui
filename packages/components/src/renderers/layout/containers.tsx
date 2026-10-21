@@ -19,7 +19,7 @@
  */
 
 import React from 'react';
-import { ComponentRegistry, ExpressionEvaluator, declaredNameField, evalRowPredicate, formatTitleTemplate, getRecordDisplayName, recordDisplayValueAt, resolveNameField, toPredicateRecord } from '@object-ui/core';
+import { ComponentRegistry, ExpressionEvaluator, declaredNameField, evalRowPredicate, formatTitleTemplate, hasDeclaredPredicate, getRecordDisplayName, recordDisplayValueAt, resolveNameField, toPredicateRecord } from '@object-ui/core';
 import type { ComponentInput } from '@object-ui/core';
 import { actionRendersAt, resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
@@ -691,21 +691,30 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       record: recordData,
       data: recordData,
     });
-    // evaluateCondition is fail-open (unparseable predicate → visible) — the
-    // same semantics SchemaRenderer applies to component-level `visibleWhen`,
-    // and objectui#6038 gives it the same VOICE. The verdict is untouched: a
-    // faulting predicate still resolves to `true` and the tab still renders.
+    // objectui#13286 — a declared item predicate that FAULTS hides its tab
+    // (fail-CLOSED). `evaluateCondition` answers a fault with its fail-soft
+    // `true`, so this site reads the fault off the same single engine call's
+    // `onFault` and overrides that answer, rather than paying for a second
+    // `throwOnError` evaluation. The gate is a visibility gate whose `false`
+    // removes the whole tab (header and panel): a predicate over the CEL
+    // bounds, a type error or a missing function used to draw the tab for a
+    // viewer the predicate was written to exclude.
     //
-    // This site is in the census for the reason the card's census clause names
-    // — it swallows the identical fault under a different helper. It is worse
-    // than the node gate was, in fact: `SchemaRenderer` at least reported in
-    // development, while an item-level `visibleWhen` that faulted here was
-    // silent in BOTH builds, on a gate whose false verdict removes an entire
-    // tab (header and panel) rather than one block. Reported through the SAME
-    // reporter and the SAME dedupe `Set` as the node gate, so one authored
-    // predicate is one line no matter which surface evaluates it.
-    return evaluator.evaluateCondition(it.visibleWhen, {
-      onFault: (reason) =>
+    // A gate that declares nothing — `''`, whitespace, an empty-`source`
+    // envelope (`hasDeclaredPredicate` is false) — still means "no gate": it is
+    // diagnosed through the same `onFault` but stays visible, like an absent
+    // `visibleWhen`. A hidden ACTIVE tab falls back to the first visible tab
+    // through the same filter a predicate that says `false` goes through.
+    //
+    // Reported through the SAME reporter and the SAME dedupe `Set` as the node
+    // gate (objectui#6038), so one authored predicate is one line however
+    // often it is re-rendered. The `'withholding'` consequence is the shared
+    // reporter's fail-closed visibility copy: the tab is withheld, not drawn.
+    const declared = hasDeclaredPredicate(it.visibleWhen);
+    let faulted = false;
+    const verdict = evaluator.evaluateCondition(it.visibleWhen, {
+      onFault: (reason) => {
+        faulted = true;
         // `'page-component'`, not a tier of its own (objectui#6487): the bag
         // built above binds `record`, `current_user` and `page.<var>` — the
         // three roots the node tier's advice paragraph names — so an author who
@@ -719,8 +728,11 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           it.visibleWhen,
           reason,
           'page-component',
-        ),
+          declared ? 'withholding' : 'visibility',
+        );
+      },
     });
+    return declared && faulted ? false : verdict;
   };
   const visibleFlags = rawItems.map(isItemVisible);
   // Keep the filtered array's identity stable while visibility is unchanged

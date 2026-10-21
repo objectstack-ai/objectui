@@ -184,17 +184,18 @@ describe('objectui#9308 b2 — `useDataScope` reads the scope channel', () => {
 });
 
 describe('objectui#9308 — the verdict this card MOVES, stated as a pin', () => {
-  it('leg 7: a `data.*` visibility gate becomes unresolvable — shown, and LOUD', () => {
+  it('leg 7: a `data.*` visibility gate becomes unresolvable — withheld, and LOUD', () => {
     const warn = spyWarn();
     render(
       <SchemaRendererProvider dataSource={BAG as unknown as DataSource}>
         <SchemaRenderer schema={{ type: TYPE, visible: "data.status == 'draft'" } as never} />
       </SchemaRendererProvider>,
     );
-    // Fail-soft: `evaluateCondition` answers an unevaluable predicate `true`.
-    // Before this card the same gate was a clean constant `false` and the node
-    // was hidden on every row.
-    expect(screen.queryByTestId('probe')).not.toBeNull();
+    // Fail-CLOSED since objectui#13299: a declared visibility predicate that
+    // cannot be evaluated withholds its node. (Before this card the same gate
+    // was a clean constant `false`; between this card and objectui#13299 the
+    // evaluator's fail-soft `true` drew it.)
+    expect(screen.queryByTestId('probe')).toBeNull();
     // …and it is not silent. objectui#5454's reporter is the one that is TRUE
     // about this predicate now: it cannot be evaluated at all.
     expect(linesWith(warn, UNRESOLVABLE_VISIBILITY_PREFIX).length).toBeGreaterThan(0);

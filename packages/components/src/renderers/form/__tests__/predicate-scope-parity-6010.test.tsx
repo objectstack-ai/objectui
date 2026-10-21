@@ -264,14 +264,19 @@ function fieldVisibleOnSurface(predicate: unknown, scope: Record<string, unknown
 type Surface = {
   label: string;
   show: (predicate: unknown, scope: Record<string, unknown>) => boolean | Promise<boolean>;
+  /**
+   * What a FAULTING predicate answers on this surface. The page node gate
+   * fails CLOSED since objectui#13299; the form rules keep their fail-open.
+   */
+  shownOnFault: boolean;
 };
 
 const SURFACES: Surface[] = [
-  { label: 'page component / app-nav node `visibleWhen`', show: pageSurface },
-  { label: 'per-option `visibleWhen` (select options)', show: optionSurface },
-  { label: 'form SECTION `visibleWhen`', show: sectionSurface },
-  { label: 'form FIELD `visibleWhen`', show: fieldSurface },
-  { label: 'form FIELD `visibleOn` (ADR-0089 D2 alias)', show: fieldVisibleOnSurface },
+  { label: 'page component / app-nav node `visibleWhen`', show: pageSurface, shownOnFault: false },
+  { label: 'per-option `visibleWhen` (select options)', show: optionSurface, shownOnFault: true },
+  { label: 'form SECTION `visibleWhen`', show: sectionSurface, shownOnFault: true },
+  { label: 'form FIELD `visibleWhen`', show: fieldSurface, shownOnFault: true },
+  { label: 'form FIELD `visibleOn` (ADR-0089 D2 alias)', show: fieldVisibleOnSurface, shownOnFault: true },
 ];
 
 afterEach(() => {
@@ -298,12 +303,13 @@ describe('#6010 — `current_user` binds identically on every `visibleWhen` surf
     }
   });
 
-  describe('FAULTED — a genuinely unbound root still fails OPEN (unchanged by #6010)', () => {
+  describe('FAULTED — a genuinely unbound root: the form rules fail OPEN, the page node fails CLOSED (objectui#13299)', () => {
     // Existing behaviour, pinned so the DENIED rows above mean "evaluated and
     // false" rather than "could not be evaluated". Asserted against the DENIED
     // user on purpose: the only difference from the DENIED block is the ROOT
-    // the predicate names, so a fail-CLOSED regression cannot hide behind the
-    // membership.
+    // the predicate names, so a fail-CLOSED regression on a form rule cannot
+    // hide behind the membership. The page node is the exception, by ruling:
+    // it fails CLOSED since objectui#13299.
     for (const surface of SURFACES) {
       it(surface.label, async () => {
         // Fail-open is loud (#5149 / #5454 leg 3) — the warning is another
@@ -311,7 +317,7 @@ describe('#6010 — `current_user` binds identically on every `visibleWhen` surf
         // verdict.
         vi.spyOn(console, 'warn').mockImplementation(() => {});
         vi.spyOn(console, 'error').mockImplementation(() => {});
-        expect(await surface.show(UNBOUND_ROOT, DENIED)).toBe(true);
+        expect(await surface.show(UNBOUND_ROOT, DENIED)).toBe(surface.shownOnFault);
       });
     }
   });

@@ -23,10 +23,10 @@
  *     `isPlatformAdmin` is not a capability, and the predicate names the
  *     capability, not a proxy for it.
  *
- * Then: not loaded faults LOUDLY (a diagnostic naming the predicate, and the
- * node is NOT silently hidden — the fail-soft node gate shows it, which is the
- * shipped node policy, not this binding's answer); an empty list answers
- * `false`; `can()` is unchanged.
+ * Then: not loaded faults LOUDLY (a diagnostic naming the predicate; the node
+ * is withheld by the node gate, which fails CLOSED on a fault since
+ * objectui#13299 — the node policy, not this binding's answer); an empty list
+ * answers `false`; `can()` is unchanged.
  *
  * The watch item: the capability list and the permissions map are bound from
  * one answer, so they change together. `packages/react`'s `ActionProvider`
@@ -141,9 +141,9 @@ describe('a page node gated on current_user.hasCapability (objectui#13006)', () 
   it('not loaded: the predicate FAULTS loudly — reported, and not a silent false', () => {
     render(page(PRINCIPALS.owner.user, [gatedNode('gated-not-loaded'), COMPANION]));
     expect(screen.getByTestId('companion')).toBeInTheDocument();
-    // The node gate is fail-soft (the shipped node policy): a fault shows the
-    // node. A silent `false` would have hidden it with nothing said.
-    expect(screen.getByTestId('gated-not-loaded')).toBeInTheDocument();
+    // The node gate fails CLOSED on a fault (objectui#13299): the node is
+    // withheld, and — unlike a silent `false` — the fault is said out loud.
+    expect(screen.queryByTestId('gated-not-loaded')).toBeNull();
     expect(warnings.some((w) => w.includes("current_user.hasCapability('manage_org_users')"))).toBe(true);
   });
 
@@ -153,7 +153,8 @@ describe('a page node gated on current_user.hasCapability (objectui#13006)', () 
         {page(PRINCIPALS.owner.user, [gatedNode('gated-unreported')])}
       </MePermissionsProvider>,
     );
-    expect(screen.getByTestId('gated-unreported')).toBeInTheDocument();
+    // Withheld: the node gate fails closed on a fault (objectui#13299).
+    expect(screen.queryByTestId('gated-unreported')).toBeNull();
     expect(warnings.some((w) => w.includes("current_user.hasCapability('manage_org_users')"))).toBe(true);
   });
 
@@ -246,9 +247,10 @@ describe('the capability list and the permissions map change together (objectui#
         {page(PRINCIPALS.owner.user, [gatedNode('gated-refused')])}
       </MePermissionsProvider>,
     );
-    // Not bound: the call faults (shown by the fail-soft node gate, reported),
-    // rather than answering from a list whose answer's map was refused.
-    expect(screen.getByTestId('gated-refused')).toBeInTheDocument();
+    // Not bound: the call faults (withheld by the fail-closed node gate since
+    // objectui#13299, and reported), rather than answering from a list whose
+    // answer's map was refused.
+    expect(screen.queryByTestId('gated-refused')).toBeNull();
     expect(warnings.some((w) => w.includes("current_user.hasCapability('manage_org_users')"))).toBe(true);
     expect(errors).toHaveBeenCalled();
   });

@@ -230,11 +230,12 @@ describe('#4807 group C — end to end, on the plain authored node', () => {
     expect(verdicts(alertNode(CANON))).toEqual({ onMatchingRow: true, onOtherRow: false });
   });
 
-  it('row-action shorthand no longer gates the banner (objectui#5741) — SHOWN on both rows', () => {
-    // The pair objectui#4807 fixed is back by ruling: `status` is unbound on
-    // every runtime record surface, so an author-declared gate spelled this way
-    // never hides the banner, and the console line naming the variable is the
+  it('row-action shorthand does not gate the banner on the row (objectui#5741) — WITHHELD on both rows', () => {
+    // `status` is unbound on every runtime record surface (objectui#5741), so
+    // a gate spelled this way cannot be evaluated. Since objectui#13299 a
+    // declared node predicate that faults fails CLOSED, so the banner is
+    // withheld on both rows, and the console line naming the variable is the
     // notice. The canon case above is the control that the gate still works.
-    expect(verdicts(alertNode(SHORTHAND))).toEqual({ onMatchingRow: true, onOtherRow: true });
+    expect(verdicts(alertNode(SHORTHAND))).toEqual({ onMatchingRow: false, onOtherRow: false });
   });
 });

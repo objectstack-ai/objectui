@@ -15,8 +15,10 @@
  * rate-limited, deduplicated warning (one per distinct failing predicate) when
  * a `visibleWhen` / node-gate predicate faults, replacing the current
  * `__DEV__`-only silence. […] A is rejected — the silence is no longer an
- * accepted property." Observability only: the fail-open semantics are NOT this
+ * accepted property." Observability only: the fail-open semantics were NOT this
  * card's to change, so every case below pins the verdict alongside the line.
+ * objectui#13299 later moved that verdict: a declared node predicate that
+ * faults now fails CLOSED, and the verdict pins below were flipped with it.
  *
  * ## What "the silence" actually was — measured, not assumed
  *
@@ -205,9 +207,9 @@ describe('#6038 group 1 — a faulting node gate is loud in production', () => {
       const warn = spyWarn();
       mount([{ id: 'n1', visibleWhen: FAULT_BARE }]);
 
-      // Verdict FIRST — observability only. The gate still fails open, which
-      // is exactly the property that made the silence dangerous.
-      expect(shownCount()).toBe(1);
+      // Verdict FIRST. The gate fails CLOSED since objectui#13299 (it failed
+      // open when this card landed, which is what made the silence dangerous).
+      expect(shownCount()).toBe(0);
 
       const lines = reports(warn);
       expect(lines).toHaveLength(1);
@@ -230,7 +232,7 @@ describe('#6038 group 1 — a faulting node gate is loud in production', () => {
     await inProduction((mount) => {
       const warn = spyWarn();
       mount([{ id: 'n1', visibleWhen: FAULT_CEL }]);
-      expect(shownCount()).toBe(1);
+      expect(shownCount()).toBe(0);
       const lines = reports(warn);
       expect(lines).toHaveLength(1);
       expect(lines[0]).toContain('record.bad(');
@@ -248,7 +250,7 @@ describe('#6038 group 1 — a faulting node gate is loud in production', () => {
         { id: 'n2', visibleWhen: FAULT_TEMPLATE },
         { id: 'n3', visibleWhen: FAULT_TEMPLATE },
       ]);
-      expect(shownCount()).toBe(3);
+      expect(shownCount()).toBe(0);
       expect(reports(warn)).toHaveLength(1);
       expect(allWarnings(warn)).toHaveLength(1);
     });
@@ -284,7 +286,7 @@ describe('#6038 group 2 — deduped per predicate SOURCE, not per render and not
         { id: 'beta', visibleWhen: FAULT_BARE },
         { id: 'gamma', visibleWhen: FAULT_BARE },
       ]);
-      expect(shownCount()).toBe(3);
+      expect(shownCount()).toBe(0);
       expect(reports(warn)).toHaveLength(1);
     });
   });
@@ -311,7 +313,7 @@ describe('#6038 group 2 — deduped per predicate SOURCE, not per render and not
         { id: 'n1', visibleWhen: FAULT_BARE },
         { id: 'n2', visibleWhen: FAULT_BARE_2 },
       ]);
-      expect(shownCount()).toBe(2);
+      expect(shownCount()).toBe(0);
       const lines = reports(warn);
       expect(lines).toHaveLength(2);
       expect(lines.some((l) => l.includes(FAULT_BARE))).toBe(true);
@@ -326,7 +328,7 @@ describe('#6038 group 2 — deduped per predicate SOURCE, not per render and not
     await inProduction((mount) => {
       const warn = spyWarn();
       mount(Array.from({ length: 200 }, (_, i) => ({ id: `row-${i}`, visibleWhen: FAULT_BARE })));
-      expect(shownCount()).toBe(200);
+      expect(shownCount()).toBe(0);
       expect(reports(warn)).toHaveLength(1);
       expect(allWarnings(warn)).toHaveLength(1);
     });
@@ -411,8 +413,9 @@ describe('#6038 group 4 — dev and production print the IDENTICAL line', () => 
     expect(devLines).toHaveLength(1);
     expect(devLines[0]).toContain(TYPE);
     expect(devLines[0]).toContain(FAULT_BARE);
-    // Dev still fails open too — the verdict is one behaviour, not two.
-    expect(shownCount()).toBe(1);
+    // Dev fails closed too (objectui#13299) — the verdict is one behaviour,
+    // not two.
+    expect(shownCount()).toBe(0);
     ComponentRegistry.unregister?.(NAME, 'element');
 
     // Restore before spying again: `vi.spyOn` on an already-spied method hands

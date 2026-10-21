@@ -763,12 +763,15 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // the same three hooks — NOT the item-level scope of `isItemVisible` above,
   // which also spreads the row flat and binds `data`.
   //
-  // A predicate that cannot be evaluated yet (a root still loading, a
-  // malformed source) is treated as the body treats it: `evaluateCondition`
-  // is fail-open, so the block is drawn and its list is counted. The verdicts
-  // are re-taken every render, so a gate that closes once its scope arrives
-  // drops the list from the badge on that render. A fault is reported through
-  // the body's reporter, whose dedupe key is (node type, key, source), so one
+  // A predicate that cannot be evaluated (a root still loading, a malformed
+  // source, a source over the CEL bounds) is treated as the body treats it
+  // (objectui#13299): a DECLARED gate that faults is closed, so the block is
+  // withheld and its list is not counted; a blank gate that declares nothing
+  // stays open. The fault is read off this single engine call's `onFault`,
+  // as the body reads it. The verdicts are re-taken every render, so a gate
+  // that opens once its scope arrives adds the list to the badge on that
+  // render. A fault is reported through the body's reporter, with the body's
+  // consequence copy, whose dedupe key is (node type, key, source), so one
   // broken predicate is still one line.
   //
   // The walk runs per render (a tab's subtree is small) and its verdicts are
@@ -787,8 +790,14 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     blockEvaluator ??= new ExpressionEvaluator(
       buildNodeEvaluationScope(predicateScope, recordData, pageVariables),
     );
+    let declared = true;
+    let faulted = false;
     const verdict = blockEvaluator.evaluateCondition(gate.visibleWhen, {
-      onFault: (reason) =>
+      onFault: (reason) => {
+        faulted = true;
+        // Asked only on a fault, as the body asks it: `hasDeclaredPredicate`
+        // reports a blank gate as a side effect.
+        declared = hasDeclaredPredicate(gate.visibleWhen);
         reportUnresolvableVisibilityPredicate(
           gate.type,
           gate.id,
@@ -796,10 +805,13 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           gate.visibleWhen,
           reason,
           'page-component',
-        ),
+          declared ? 'withholding' : 'visibility',
+        );
+      },
     });
-    gateVerdicts.set(gate, verdict);
-    return verdict;
+    const open = declared && faulted ? false : verdict;
+    gateVerdicts.set(gate, open);
+    return open;
   };
   const shownListsByItem = listsByItem.map((lists) =>
     lists.filter((entry) => entry.gates.every(isGateOpen)),

@@ -770,10 +770,13 @@ const ENABLEMENT_TAIL =
   'CEL syntax.';
 
 /** The shipped visibility copy, which must not move. */
+// The `visibleWhen` leg fails CLOSED since objectui#13299, so a declared
+// predicate that faults prints the `'withholding'` consequence.
 const VISIBILITY_TAIL =
-  'The node was treated as its safe default, which on this surface means the\n' +
-  'gate did NOT bite - a predicate that cannot be evaluated reads on screen\n' +
-  'exactly like one that said yes.\n' +
+  'The entry was treated as its safe default, which on THIS gate is the one\n' +
+  'that BITES: a navigation entry whose predicate cannot be evaluated is\n' +
+  'WITHHELD - not drawn - until it can be, so a missing entry may be this\n' +
+  'fault rather than a gate that said no.\n' +
   'Page-component predicates bind `record` (the row on a record page),\n' +
   '`current_user`, and page state as `page.<var>`. Check those roots and the\n' +
   'CEL syntax.';
@@ -811,10 +814,11 @@ describe('#6445 group 4 — the message is true for THIS polarity', () => {
     });
   });
 
-  it('and the visibility gate still prints its own copy, unchanged', async () => {
+  it('and the visibility gate still prints its own copy', async () => {
     // The other half of the same claim: this card added a second message, it
-    // did not edit the first. A regression here would be shipped bytes moving
-    // on six legs that objectui#6487 landed on hours earlier.
+    // did not edit the first. The visibility leg's copy moved later, with its
+    // verdict, to the fail-closed `'withholding'` paragraph (objectui#13299);
+    // it is still its OWN copy, not the enablement one.
     await inProduction((mount) => {
       const warn = spyWarn();
       mount([{ id: 'n1', visibleWhen: FAULT_BARE }]);

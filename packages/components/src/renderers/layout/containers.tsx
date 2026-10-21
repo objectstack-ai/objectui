@@ -57,6 +57,7 @@ import {
   AvatarImage,
 } from '../../ui';
 import { RecordTitleChip } from '../../custom/RecordTitleChip';
+import { resolveFieldFace } from '../../lib/field-face';
 import { PageDescriptionContext } from './page-description-context';
 import { renderBlockChildren } from './page-block-grid';
 import { isFileIdToken } from '@objectstack/spec/data';
@@ -331,6 +332,16 @@ const translateLabel = (
 type FieldOptionLabel = (objectName: string, fieldName: string, value: string, fallback: string) => string;
 
 /**
+ * `fieldName`'s declaration on `objectSchema`, in either shape `fields` takes:
+ * a map keyed by field name, or a list of entries that carry their `name`.
+ * `undefined` when the object declares no such field.
+ */
+const declaredFieldDef = (objectSchema: any, fieldName: string): any =>
+  Array.isArray(objectSchema?.fields)
+    ? objectSchema.fields.find((f: any) => f?.name === fieldName)
+    : objectSchema?.fields?.[fieldName];
+
+/**
  * The option label a user reads for one select-field VALUE, or `undefined`
  * when `fieldName` is not an options-bearing field of `objectSchema` (or a
  * piece needed to translate it is absent).
@@ -348,9 +359,7 @@ const optionLabelFor = (
   raw: string,
 ): string | undefined => {
   if (!objectSchema?.fields || !fieldOptionLabel || !objectName) return undefined;
-  const fieldDef: any = Array.isArray(objectSchema.fields)
-    ? objectSchema.fields.find((f: any) => f?.name === fieldName)
-    : objectSchema.fields[fieldName];
+  const fieldDef: any = declaredFieldDef(objectSchema, fieldName);
   const options: any[] | undefined = fieldDef?.options;
   if (!Array.isArray(options)) return undefined;
   const match = options.find((opt: any) => String(opt?.value ?? opt) === raw);
@@ -2668,6 +2677,38 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       const resolved = recordDisplayValueAt(labelledData, declaredNameField(objSchema));
       return resolved && !isResolverFloor(resolved) ? resolved : '';
     })();
+    // The declared pointer drawn through its field's FACE (objectui#13216).
+    // When the pointer rung is the one that answers (no explicit `title`, a
+    // value on this record) and the pointer's field declares a widget whose
+    // read face is a component of its own, the H1 draws the value through that
+    // face instead of printing the stored text: a `recipient_id` declaring
+    // `widget: 'recipient-picker'` heads a record share with the recipient's
+    // name, not the user id it stores.
+    //
+    // The rule is the field registry's, asked through the field-face seam
+    // (`lib/field-face.ts`), which `@object-ui/fields` fills when it loads with
+    // the same `getCellRenderer(resolveCellRendererType(field))` lookup the
+    // grid's cells make. This file names no widget: the declaration decides.
+    // No resolver (a host that never loads `@object-ui/fields`), no field
+    // declaration, no widget, or a widget with no face of its own answers
+    // `undefined`, and the H1 draws `resolvedTitle` exactly as before.
+    //
+    // The face gets the stored value and the whole record as
+    // `dependentValues`, as a grid cell gets its row, so a face whose value
+    // only means something beside a sibling (`dependsOn: ['recipient_type']`)
+    // reads it. `resolvedTitle` stays the stored text: no face string exists
+    // synchronously, so nothing that reads the title as text changes.
+    const declaredFace = (() => {
+      if (explicitTitle || !declaredTitle) return undefined;
+      const nameFieldName: unknown = declaredNameField(objSchema);
+      if (typeof nameFieldName !== 'string' || !nameFieldName) return undefined;
+      const fieldDef: unknown = declaredFieldDef(objSchema, nameFieldName);
+      if (!fieldDef || typeof fieldDef !== 'object') return undefined;
+      const field: any = { ...fieldDef, name: nameFieldName };
+      const Face = resolveFieldFace(field);
+      if (!Face) return undefined;
+      return <Face value={data?.[nameFieldName]} field={field} dependentValues={data} />;
+    })();
     const titleCandidate =
       explicitTitle ||
       declaredTitle ||
@@ -2772,6 +2813,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         <div className="flex flex-col min-w-0 sm:min-w-48 flex-1">
           <RecordTitleChip
             title={resolvedTitle}
+            titleNode={declaredFace}
             icon={recordPicture}
             objectLabel={objectLabel}
             resourceId={data?.id ? String(data.id) : undefined}

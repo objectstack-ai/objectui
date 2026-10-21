@@ -109,12 +109,13 @@ export function deriveDataPageUserFilterFields(
   canRead: (field: string) => boolean,
 ): Array<{ field: string }> {
   if (!fields || typeof fields !== 'object') return [];
-  const offered = Object.entries(fields as Record<string, any>).filter(
+  type FieldDef = { type?: string; hidden?: boolean; multiple?: boolean } | null | undefined;
+  const offered = Object.entries(fields as Record<string, FieldDef>).filter(
     ([name, f]) => f && !f.hidden && canRead(name),
   );
-  const picklists = offered.filter(([, f]) => USER_FILTER_TYPES.has(f.type));
+  const picklists = offered.filter(([, f]) => USER_FILTER_TYPES.has(f?.type ?? ''));
   const relations = offered.filter(
-    ([, f]) => USER_FILTER_RELATION_TYPES.has(f.type) && f.multiple !== true,
+    ([, f]) => USER_FILTER_RELATION_TYPES.has(f?.type ?? '') && f?.multiple !== true,
   );
   return [...picklists, ...relations]
     .slice(0, MAX_USER_FILTERS)

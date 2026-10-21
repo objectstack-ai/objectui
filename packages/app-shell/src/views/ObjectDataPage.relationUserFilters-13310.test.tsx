@@ -76,7 +76,15 @@ vi.mock('@object-ui/plugin-list', async (importOriginal) => {
   const UserFilters = actual.UserFilters;
   return {
     ...actual,
-    ListView: ({ schema, userFilterSelections, onUserFilterSelectionsChange }: any) => {
+    ListView: ({
+      schema,
+      userFilterSelections,
+      onUserFilterSelectionsChange,
+    }: {
+      schema: { objectName: string; userFilters?: React.ComponentProps<typeof UserFilters>['config'] };
+      userFilterSelections?: Record<string, string[]>;
+      onUserFilterSelectionsChange?: (s: Record<string, Array<string | number | boolean>>) => void;
+    }) => {
       const objectDef = OBJECTS.find((o) => o.name === schema.objectName);
       if (!schema.userFilters) return <div data-testid="no-user-filters" />;
       return (
@@ -153,7 +161,7 @@ const MEMBER_ROWS = [{ id: 'm1', user_id: 'u_ada', role: 'member' }];
 
 function makeDataSource() {
   return {
-    find: vi.fn(async (object: string, params: any = {}) => {
+    find: vi.fn(async (object: string, params: { $filter?: { id?: { $in?: string[] } } } = {}) => {
       // The related object the caller may not read answers as the server
       // does: a refusal, never rows.
       if (object === 'demo_vault') throw new Error('Forbidden');
@@ -172,9 +180,12 @@ function makeDataSource() {
 }
 
 /** The router location, so a test can read the `uf_*` params the page wrote. */
-let lastSearch = '';
+const probe = { search: '' };
 function LocationProbe() {
-  lastSearch = useLocation().search;
+  const { search } = useLocation();
+  React.useEffect(() => {
+    probe.search = search;
+  }, [search]);
   return null;
 }
 
@@ -242,7 +253,7 @@ async function pick(field: string, label: string) {
 
 beforeEach(() => {
   emitted = [];
-  lastSearch = '';
+  probe.search = '';
 });
 
 afterEach(() => {
@@ -306,8 +317,8 @@ describe('objectui#13310 — the /data filter bar offers single-value relation f
     renderDataPage('sys_member');
     await waitFor(() => expect(barFields()).toContain('user_id'));
     await pick('user_id', 'Ada Lovelace');
-    await waitFor(() => expect(new URLSearchParams(lastSearch).get('uf_user_id')).toBe('u_ada'));
-    const persisted = lastSearch;
+    await waitFor(() => expect(new URLSearchParams(probe.search).get('uf_user_id')).toBe('u_ada'));
+    const persisted = probe.search;
     cleanup();
     emitted = [];
 

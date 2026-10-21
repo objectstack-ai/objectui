@@ -70,13 +70,14 @@ const REQUEST_DEF = {
   name: APPROVAL_REQUEST_OBJECT,
   label: 'Approval Request',
   pluralLabel: 'Approval Requests',
-  nameField: 'display_title',
-  titleFormat: '{process_name} · {record_id}',
-  highlightFields: ['process_name', 'object_name', 'record_id', 'status', 'current_step', 'submitter_id', 'updated_at'],
+  nameField: 'process_label',
+  titleFormat: '{process_name}',
+  highlightFields: ['process_label', 'record_id', 'status', 'current_step_label', 'submitter_id', 'updated_at'],
   fields: {
     id: { label: 'Request ID', type: 'text', readonly: true, group: 'System' },
     display_title: { label: 'Title', type: 'formula', returnType: 'text', group: 'Target' },
     process_name: { label: 'Source', type: 'text', group: 'Target' },
+    process_label: { label: 'Flow', type: 'text', readonly: true, group: 'Target' },
     object_name: { label: 'Object', type: 'text', group: 'Target' },
     record_id: { label: 'Record ID', type: 'text', referenceVia: 'object_name', group: 'Target' },
     submitter_id: { label: 'Submitter', type: 'lookup', reference: 'sys_user', group: 'Target' },
@@ -85,6 +86,7 @@ const REQUEST_DEF = {
       options: [{ value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }],
     },
     current_step: { label: 'Current Step', type: 'text', group: 'State' },
+    current_step_label: { label: 'Approval Step', type: 'text', readonly: true, group: 'State' },
     updated_at: { label: 'Updated At', type: 'datetime', group: 'System' },
   },
   actions: [],
@@ -125,7 +127,7 @@ const SERVED_PAGE = {
     highlights: {
       type: 'record:highlights',
       properties: {
-        fields: ['process_name', 'object_name', 'status', 'current_step', 'submitter_id', 'updated_at'],
+        fields: ['process_label', 'status', 'current_step_label', 'submitter_id', 'updated_at'],
       },
     },
     tabs: {
@@ -213,7 +215,8 @@ function WhereAmI() {
 
 function openServedPage(row: Record<string, unknown>) {
   served = {
-    id: REQ, process_name: 'invoice_approval', object_name: 'invoice', current_step: 'manager_review',
+    id: REQ, process_name: 'flow:invoice_approval', process_label: 'Invoice Approval', object_name: 'invoice',
+    current_step: 'manager_review', current_step_label: 'Manager Review', submitter_id: 'u2',
     updated_at: '2026-10-02T09:00:00Z', viewer: { can_act: false, is_submitter: false, can_override: false },
     pending_approvers: [], ...row,
   };

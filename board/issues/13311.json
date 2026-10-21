@@ -1,0 +1,35 @@
+{
+  "number": 13311,
+  "kind": "pull_request",
+  "title": "test(data-objectstack): state the batch-6 DroppedFieldsEvent reason pin with stored_expression subtracted (objectui#13309)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-21T09:42:54Z",
+  "updated_at": "2026-10-21T10:09:47Z",
+  "closed_at": "2026-10-21T10:09:45Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-21T10:09:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13311",
+  "body": "Fixes #13309\nClause-②: no\n\n## What was red\n\nobjectstack-ai/objectstack#24778 (merge `7532ea3c08`) added a fifth arm, `stored_expression`, to `DroppedFieldsEventSchema.reason`. The batch-6 pin `_ReasonIsTheEnum` in `packages/data-objectstack/src/spec-symbol-batch6.test.ts` stated the union as exactly four members, so objectstack's hourly Spec Shape Gate (objectui `main` compiled against the spec built from objectstack `main`) reports `TS2344` on it.\n\n## The change\n\nThe objectui#11206 shape, as the card prescribes: `_ReasonIsTheEnum` now asserts `Equal` of (`DroppedFieldsEvent['reason']` with `'stored_expression'` removed by `Exclude`) against `'readonly' | 'readonly_when' | 'primary_key' | 'computed'`. `_ReasonIsNotString` is kept unchanged. The comment above it says: the `Exclude` is a no-op at the pin; on objectstack `main` it subtracts exactly the new arm, so any other new arm is still a remainder `Equal` refuses; at the pin bump that carries `stored_expression` the `Exclude` is dropped and the union becomes five members (the objectui#13178 tripwire in `writeWarningToast.test.ts` fails on that bump to say so).\n\nNo source file changed. `.objectstack-sha` did not move. A `.changeset/13309-dropped-fields-reason-pin.md` with an empty frontmatter is added because `check-changeset-presence` counts a test file under `src/` as published source (it exits 1 without it, measured).\n\n## Measurements (test file blob identical at `7f58b8c400` and head `6ee70cebc3`; the head commit adds only the changeset)\n\n| spec compiled against | tree | `pnpm --filter @object-ui/data-objectstack run type-check` |\n|:--|:--|:--|\n| pinned spec (`.objectstack-sha` `06cab4849a`) | this branch | exit 0 |\n| pinned spec | base `2794254099` | exit 0 (control) |\n| spec built from objectstack `main` `28c9a2cb66` | base `2794254099` | exit 2, `TS2344` on `_ReasonIsTheEnum` (the card's red, reproduced) |\n| spec built from objectstack `main` `28c9a2cb66` | this branch | exit 0 |\n\nThe `main` side reproduces the gate's own wiring: an objectstack worktree at `origin/main`, `pnpm install --frozen-lockfile --filter @objectstack/spec...`, `pnpm --filter @objectstack/spec build`, `npm pack --ignore-scripts`, then `node scripts/ci/spec-shape-gate.mjs inject` into this worktree (marker file present in the resolved copy, `stored_expression` in its declarations). The closure (`@object-ui/data-objectstack^...`) was rebuilt against it before the type-check. Afterwards the injected copy was removed and `pnpm run setup` reinstalled the pin (no marker left, no `stored_expression` in the installed declarations), and the pin row above was re-measured after a fresh closure rebuild.\n\n**Sixth-arm probe (one-shot, not kept):** a local alias `_ProbeReason` = the reason union plus `'sixth_arm_probe'` was put in place of `DroppedFieldsEvent['reason']` inside the `Exclude`. On-disk anchor count checked before compiling (1). Result: `TS2344` on `_ReasonIsTheEnum`, exit 2, against both the `main`-built spec and the pinned spec. Restored with `git checkout HEAD -- PATH` under an `EXIT INT TERM` trap; proof is the HEAD blob hash comparison (match) and `git diff HEAD` empty.\n\n## Gates (local, at the branch head)\n\n- vitest, root form, `--maxWorkers=1`: `spec-symbol-batch6.test.ts` + `writeWarningToast.test.ts` 2 files / 36 tests passed; `deleteViewContract.types.test.ts` + `queryDataset.test.ts` (the other tests naming the file) 2 files / 38 tests passed. The full `packages/data-objectstack/` and `packages/app-shell/` directories are declared to CI.\n- `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs`, `scripts/check-changeset-presence.mjs`: all exit 0.\n- `check:spec-floors`: exit 1, the known prerelease-floor reading for `@object-ui/types` on `main`; not touched here.\n- Lint, narrowed: `eslint --no-inline-config --format json` on the one changed `.ts` file: 1 file, 0 errors, 0 warnings. The package's `lint` is `eslint .`, so the file is in its population; type-aware linting is off (no `project` / `projectService` in the printed config), so this diff cannot move any untouched file's verdict.\n\n## Acceptance notes\n\n- objectstack-ai/objectstack#25055 (the objectstack half) has PR objectstack-ai/objectstack#25091 open, not merged, registering this diagnostic in `scripts/ci/spec-shape-retirements.json` with this card as `downstream_card`. Once this lands, that entry reads \"matched nothing in this run\" and is deleted when this card closes.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 13314,
+  "kind": "pull_request",
+  "title": "fix(app-shell): register the console home blocks under the app-shell namespace",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: cli",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-21T10:40:24Z",
+  "updated_at": "2026-10-21T11:07:11Z",
+  "closed_at": "2026-10-21T11:07:09Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-21T11:07:09Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13314",
+  "body": "Fixes #13301\nClause-②: no\n\n## What\n\nThe five console home blocks (`hero`, `stat`, `usage-bar`, `checklist`, `tile-grid`) now register under `namespace: 'app-shell'`, as every other console registration does, so the registry no longer logs `Registering component \"…\" without a namespace is deprecated` for each on every console boot. This is the maintainer's ruling B (comment 6312301934), executed in its dispatch shape:\n\n1. `packages/app-shell/src/console/blocks/productBlocks.tsx`: one `namespace: 'app-shell'` line on each of the five `ComponentRegistry.register` calls. Nothing else in the file moves.\n2. `packages/cli/src/utils/known-schema-types.ts`: regenerated with `node scripts/regenerate-known-schema-types.mjs`, not by hand. The diff adds exactly `app-shell:checklist`, `app-shell:hero`, `app-shell:stat`, `app-shell:tile-grid` and `app-shell:usage-bar`, and nothing else; `--check` exits 0 on the head.\n3. `registered-types-validate-ratchet-10859.test.ts`: `NAMESPACED_REFUSED_AT_TYPE` 302 to 307. The docblock entry beside it names this card and the ruling, in the same form as the earlier `objectui#7611 PR-5` named stopgap raise, and says the raise covers these five keys only.\n4. Pin tests (below) and a patch changeset for `@object-ui/app-shell` and `@object-ui/cli` (the regenerated list is published `src` of the CLI).\n\nOptions A (`app-shell:` arms in `@object-ui/types`) and C (a `packages/core` Registry policy change) are not touched. No spec or protocol change.\n\n## Pins\n\n- **(a) bare key still renders.** `productBlocks-namespace-13301.test.tsx` renders a node authoring bare `type` for each of the five through the real `SchemaRenderer` and finds its text, with no unknown-component panel. It also pins that the bare key and the `app-shell:` key resolve to the same renderer.\n- **(b) validate refuses the namespaced spelling.** `product-blocks-namespace-13301.test.ts` (cli): for each block the bare key is claimed and the `app-shell:` key is refused at `type` (an `invalid_union` at path `type`); end to end, `objectui validate` passes a page with a bare `hero` (exit 0) and fails the same page with `app-shell:hero` (exit 1).\n- **(c) no deprecation line.** The app-shell test installs a `console.warn` capture in `vi.hoisted`, before `../productBlocks` evaluates (the `dom` project is isolated, so that evaluation is the file's own), and asserts none of the five is named in a deprecation line. A lit control registers a bare probe key and sees its line captured.\n- **(d) the ratchet.** It passes at 307. Two one-shot probes, each through `ablation-replace.mjs` with its blob-hash restore:\n  - pin set to 306: red, `objectui validate refuses 307 registered namespaced key(s) at type; the pin is 306.`\n  - a sixth unarmed key `app-shell:probe-sixth-13301` added to the generated list: red, `refuses 308 ...; the pin is 307.`, with the probe named in the refused list.\n  - Both restored: blob equals HEAD, `git diff HEAD` empty.\n\n## Ablation\n\nFix committed first (6ccc16f38e). `ablation-replace.mjs --delete --expect 5` on the five `namespace: 'app-shell'` lines: anchor 5 to 0, blob 2f944edbf050 to 4e044375ef7d (the `origin/main` blob). Result: `Tests 2 failed | 6 passed (8)`. Red: the deprecation pin (c) and the same-renderer pin. Green: the five bare-key renders (a) and the capture control. Restore: blob after restore 2f944edbf050 equals HEAD, `git diff HEAD` empty. No `dist/` build is involved: the test imports `../productBlocks` from source.\n\n## Verification (head 6ccc16f38e)\n\n- Targeted vitest, `--maxWorkers=1`, one package group at a time, under the shared lock. app-shell blocks: 3 files, 30 passed. cli + the generator pins (ratchet, new cli pin, `known-schema-types-derivation-5115`, `report-namespace-agreement-6416`): 4 files, 62 passed. Families naming the touched files: cli 5 files, 61 passed; types 4 files, 88 passed; plugin-report 1 file, 12 passed; scripts `check-lucide-icon-record-names` 51 passed; `examples/schema-catalog` gallery render 588 passed.\n- Closure build `turbo run build --filter=@object-ui/app-shell^... --filter=@object-ui/cli^...`: 28/28. `type-check` for `@object-ui/app-shell` exit 0 and `@object-ui/cli` exit 0; each new test is in a checked program (`--listFilesOnly` count 1 each).\n- Lint narrowed to the 5 changed source and test files: `eslint --no-inline-config --format json` read 5 files, 0 errors, 1 warning (`react-refresh/only-export-components` on an untouched line of `productBlocks.tsx`, pre-existing). The population is the repo `eslint.config.js`, which sets no type-aware `parserOptions` project, so this diff cannot move a verdict on any untouched file.\n- Battery, exit 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `doc-types`, `registry-bare-names`, `prompt-keys`, `entry-guard`, `new-line-citations` (0 new), `check-hand-rolled-comment-mask`, `check-doc-expression-carriage`, `regenerate-known-schema-types --check`, `check-changeset-fixed`, `check-changeset-presence`. `check:spec-floors` exits 1 with six findings: five `no-artifact` (packages not built in this worktree, `app-shell` and `cli` among them, since only their dependency closure was built) and one `floor-too-low` on `@object-ui/types`, a package this diff does not touch. Recorded per the order, not fixed; NOT MEASURED for this diff.\n- Declared to CI: the full `packages/app-shell/` and `packages/cli/` directories (no whole-directory runs here).\n\n## Acceptance notes\n\n- The raise is a named stopgap. The ratchet's \"never rises\" rule still applies to every other change, and the sixth-key probe above shows it still fires.\n\nThe implementing session is `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

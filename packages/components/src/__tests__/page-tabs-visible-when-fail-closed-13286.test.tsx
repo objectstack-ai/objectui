@@ -55,7 +55,7 @@ const spyWarn = () => vi.spyOn(console, 'warn').mockImplementation(() => {});
 const reports = (warn: WarnSpy): string[] =>
   warn.mock.calls.map((c) => String(c[0])).filter((m) => m.includes(UNRESOLVABLE_VISIBILITY_PREFIX));
 
-function Writer({ name, value }: { name: string; value: any }) {
+function Writer({ name, value }: { name: string; value: string }) {
   const { setVariable } = usePageVariables();
   return (
     <button type="button" onClick={() => setVariable(name, value)}>

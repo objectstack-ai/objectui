@@ -206,7 +206,7 @@ declaration on the field is the whole contract.
 
 The heading lives in `@object-ui/components`, which this package depends on and so cannot be
 imported from here the other way round. `@object-ui/components` therefore owns a slot,
-`setFieldFaceResolver` / `resolveFieldFace`, and this package fills it when it loads with the
+`setFieldReadFaceResolver` / `resolveFieldReadFace`, and this package fills it when it loads with the
 lookup the list cells make. The widget's key draws the stored text until a host registers a
 face under it (the console registers its own), and while it does, the heading prints the
 stored value as before. So does a host that does not load `@object-ui/fields`.

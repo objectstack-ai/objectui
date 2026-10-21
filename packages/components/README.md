@@ -162,7 +162,7 @@ const posture: PageRegionPosture | null = usePageRegionPosture(); // 'compact' |
 The posture is measured, never authored, and no schema key sets it. The
 `list-view` block in `@object-ui/plugin-list` reads it to draw a compact list.
 
-#### Record heading through a field's face — `resolveFieldFace()`
+#### Record heading through a field's face — `resolveFieldReadFace()`
 
 On a record page, `page:header` heads the page with the object's declared
 `nameField`. When that field declares a widget whose read face is a component
@@ -176,20 +176,20 @@ this package and so cannot be imported here. This package owns a slot, and
 `@object-ui/fields` fills it when it loads:
 
 ```ts
-import { resolveFieldFace, type FieldFace } from '@object-ui/components';
+import { resolveFieldReadFace, type FieldReadFace } from '@object-ui/components';
 
 // `undefined`: no face of the field's own, so the stored text is drawn.
-const face: FieldFace | undefined = resolveFieldFace({ name: 'subject', type: 'text' });
+const face: FieldReadFace | undefined = resolveFieldReadFace({ name: 'subject', type: 'text' });
 ```
 
 - A host that loads `@object-ui/fields` has nothing to wire.
-- `resolveFieldFace(field)` answers `undefined` when no resolver is installed
+- `resolveFieldReadFace(field)` answers `undefined` when no resolver is installed
   (`@object-ui/fields` is not loaded), the field declares no widget with a read
   face of its own, or no face is registered under that widget's key. The
   heading then prints the stored text, as it did before.
-- `setFieldFaceResolver(resolver)` installs the resolver. The last install
+- `setFieldReadFaceResolver(resolver)` installs the resolver. The last install
   wins and `undefined` removes it. `@object-ui/fields` is its caller.
-- A face is drawn with the props of a read cell (`FieldFaceProps`): the stored
+- A face is drawn with the props of a read cell (`FieldReadFaceProps`): the stored
   `value`, the `field` declaration and the whole record as `dependentValues`,
   so a face that reads a sibling field (`dependsOn`) finds it.
 - `RecordTitleChip` draws the face in its heading through the optional

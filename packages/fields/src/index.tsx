@@ -16,7 +16,7 @@ import { ComponentRegistry, percentDisplayValue, type PercentScale, getRecordDis
 // means is the protocol's answer, not this package's (objectui#9843).
 import { valueSchemaFor, resolveFieldScale } from '@objectstack/spec/data';
 import { useLocalization, useDisplayLocale, formatDisplayNumber } from '@object-ui/i18n';
-import { Badge, Avatar, AvatarImage, AvatarFallback, Button, Checkbox, EmptyValue, cn, setFieldFaceResolver } from '@object-ui/components';
+import { Badge, Avatar, AvatarImage, AvatarFallback, Button, Checkbox, EmptyValue, cn, setFieldReadFaceResolver } from '@object-ui/components';
 import { Check, Copy, Phone as PhoneIcon, MapPin, CircleQuestionMark, Star } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/react';
 import { SchemaRendererContext as _SchemaRendererContext } from '@object-ui/react';
@@ -4137,7 +4137,7 @@ setCellRendererResolver(getCellRenderer);
  * (`TextCellRenderer`): that is the text the heading already prints, so a host
  * that registers no face under the key keeps the heading it had.
  *
- * Not exported: the seam's reader, `resolveFieldFace` from
+ * Not exported: the seam's reader, `resolveFieldReadFace` from
  * `@object-ui/components`, is the one way to ask, so this package's published
  * surface does not move.
  */
@@ -4150,7 +4150,7 @@ function resolveDeclaredFieldFace(field: FieldMetadata): React.FC<CellRendererPr
 
 // Fill the seam when this module loads: `@object-ui/components` cannot import
 // this package (it depends on that one), so the slot is filled from here.
-setFieldFaceResolver(resolveDeclaredFieldFace);
+setFieldReadFaceResolver(resolveDeclaredFieldFace);
 
 
 

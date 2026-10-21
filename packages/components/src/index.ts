@@ -100,8 +100,8 @@ export type { PageHeaderActionsProps } from './renderers/layout/containers';
 // with its read-face registry when it loads, so `page:header` can draw a
 // declared `nameField` through its widget's face without importing that
 // package (which depends on this one, so the import would close a cycle).
-export { setFieldFaceResolver, resolveFieldFace } from './lib/field-face';
-export type { FieldFace, FieldFaceProps, FieldFaceResolver } from './lib/field-face';
+export { setFieldReadFaceResolver, resolveFieldReadFace } from './lib/field-face';
+export type { FieldReadFace, FieldReadFaceProps, FieldReadFaceResolver } from './lib/field-face';
 
 // THE icon-name seam (objectui#5935) — `name -> LucideIcon | null`, one
 // tokeniser and one rename map for the whole repo.

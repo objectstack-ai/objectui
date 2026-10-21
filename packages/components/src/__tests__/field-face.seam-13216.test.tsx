@@ -19,54 +19,54 @@
 
 import * as React from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
-import { setFieldFaceResolver, resolveFieldFace } from '../index';
+import { setFieldReadFaceResolver, resolveFieldReadFace } from '../index';
 
 const Face = () => <span>face</span>;
 const field = { name: 'recipient_id', type: 'text' } as const;
 
-afterEach(() => setFieldFaceResolver(undefined));
+afterEach(() => setFieldReadFaceResolver(undefined));
 
 describe('the field-face seam (#13216)', () => {
   it('answers no face while no resolver is installed', () => {
-    expect(resolveFieldFace(field)).toBeUndefined();
+    expect(resolveFieldReadFace(field)).toBeUndefined();
   });
 
   it('asks the installed resolver, with the field declaration', () => {
     const asked: unknown[] = [];
-    setFieldFaceResolver((f) => {
+    setFieldReadFaceResolver((f) => {
       asked.push(f);
       return Face;
     });
 
-    expect(resolveFieldFace(field)).toBe(Face);
+    expect(resolveFieldReadFace(field)).toBe(Face);
     expect(asked).toEqual([field]);
   });
 
   it("passes on the resolver's `undefined` (no face of the field's own)", () => {
-    setFieldFaceResolver(() => undefined);
+    setFieldReadFaceResolver(() => undefined);
 
-    expect(resolveFieldFace(field)).toBeUndefined();
+    expect(resolveFieldReadFace(field)).toBeUndefined();
   });
 
   it('answers no face for an absent field, without asking the resolver', () => {
     let calls = 0;
-    setFieldFaceResolver(() => {
+    setFieldReadFaceResolver(() => {
       calls += 1;
       return Face;
     });
 
-    expect(resolveFieldFace(undefined)).toBeUndefined();
-    expect(resolveFieldFace(null)).toBeUndefined();
+    expect(resolveFieldReadFace(undefined)).toBeUndefined();
+    expect(resolveFieldReadFace(null)).toBeUndefined();
     expect(calls).toBe(0);
   });
 
   it('`undefined` removes the installed resolver; the last install wins', () => {
     const Other = () => <span>other</span>;
-    setFieldFaceResolver(() => Face);
-    setFieldFaceResolver(() => Other);
-    expect(resolveFieldFace(field)).toBe(Other);
+    setFieldReadFaceResolver(() => Face);
+    setFieldReadFaceResolver(() => Other);
+    expect(resolveFieldReadFace(field)).toBe(Other);
 
-    setFieldFaceResolver(undefined);
-    expect(resolveFieldFace(field)).toBeUndefined();
+    setFieldReadFaceResolver(undefined);
+    expect(resolveFieldReadFace(field)).toBeUndefined();
   });
 });

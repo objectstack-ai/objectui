@@ -20,8 +20,8 @@
  *
  * ## What is pinned
  *
- * The heading asks the field-face seam (`setFieldFaceResolver` /
- * `resolveFieldFace`) for the pointer field's face, the slot
+ * The heading asks the field-face seam (`setFieldReadFaceResolver` /
+ * `resolveFieldReadFace`) for the pointer field's face, the slot
  * `@object-ui/fields` fills when it loads. This package cannot load that
  * registry, so these pins install a resolver standing in for it, one that
  * answers a face only for a declared `recipient-picker` widget and names a
@@ -44,7 +44,7 @@ import { ActionProvider, RecordContextProvider } from '@object-ui/react';
 // Registers `page:header` at module scope, NOT inside a `beforeAll` (see
 // page-header-title.oneInterpolator-10447.test.tsx).
 import '../renderers';
-import { setFieldFaceResolver, type FieldFaceProps } from '../lib/field-face';
+import { setFieldReadFaceResolver, type FieldReadFaceProps } from '../lib/field-face';
 
 function PageHeader({ schema }: { schema: any }) {
   const Component = ComponentRegistry.get('page:header');
@@ -74,10 +74,10 @@ function h1Of(objectSchema: any, record: any, schema: any = { type: 'page:header
 const USERS: Record<string, string> = { usr_9f3: 'Ada Lovelace' };
 
 /** Every call the stand-in face received, so a pin can read its inputs. */
-const faceCalls: FieldFaceProps[] = [];
+const faceCalls: FieldReadFaceProps[] = [];
 
 /** Stands in for the registry's `recipient-picker` face. */
-function RecipientFace(props: FieldFaceProps) {
+function RecipientFace(props: FieldReadFaceProps) {
   faceCalls.push(props);
   const kind = props.dependentValues?.recipient_type;
   const label = kind === 'user' ? USERS[String(props.value)] : undefined;
@@ -90,7 +90,7 @@ const resolveRecipientFace = (field: any) =>
 
 afterEach(() => {
   cleanup();
-  setFieldFaceResolver(undefined);
+  setFieldReadFaceResolver(undefined);
   faceCalls.length = 0;
 });
 
@@ -122,7 +122,7 @@ const share = { id: 'shr_1', record_id: 'acc_7', recipient_type: 'user', recipie
 
 describe('page:header H1 — a widget-hinted nameField heads the page through its face (#13216)', () => {
   it("THE CARD — a `recipient-picker` nameField heads with the face's name, not the stored id", () => {
-    setFieldFaceResolver(resolveRecipientFace);
+    setFieldReadFaceResolver(resolveRecipientFace);
 
     const h1 = h1Of(recordShare(), share);
 
@@ -132,7 +132,7 @@ describe('page:header H1 — a widget-hinted nameField heads the page through it
   });
 
   it('the face gets the stored value, the field declaration and the whole record', () => {
-    setFieldFaceResolver(resolveRecipientFace);
+    setFieldReadFaceResolver(resolveRecipientFace);
 
     h1Of(recordShare(), share);
 
@@ -145,7 +145,7 @@ describe('page:header H1 — a widget-hinted nameField heads the page through it
   });
 
   it('the array form of `fields` resolves the same face', () => {
-    setFieldFaceResolver(resolveRecipientFace);
+    setFieldReadFaceResolver(resolveRecipientFace);
     const schema = recordShare();
     const arrayFields = Object.entries(schema.fields).map(([name, def]) => ({ name, ...def }));
 
@@ -153,7 +153,7 @@ describe('page:header H1 — a widget-hinted nameField heads the page through it
   });
 
   it('the face draws over a titleFormat too: the declared pointer still outranks the template', () => {
-    setFieldFaceResolver(resolveRecipientFace);
+    setFieldReadFaceResolver(resolveRecipientFace);
 
     expect(h1Of(recordShare({ titleFormat: '{record_id}' }), share)?.textContent).toBe('Ada Lovelace');
   });
@@ -163,7 +163,7 @@ describe('page:header H1 — a widget-hinted nameField heads the page through it
   });
 
   it('CONTROL — a plain text nameField heads with its value; the resolver answers no face', () => {
-    setFieldFaceResolver(resolveRecipientFace);
+    setFieldReadFaceResolver(resolveRecipientFace);
     const schema = {
       name: 'ticket',
       label: 'Ticket',
@@ -178,7 +178,7 @@ describe('page:header H1 — a widget-hinted nameField heads the page through it
   });
 
   it('CONTROL — a select nameField still heads with its option label (#13103)', () => {
-    setFieldFaceResolver(resolveRecipientFace);
+    setFieldReadFaceResolver(resolveRecipientFace);
     const schema = {
       name: 'audit_log',
       label: 'Audit Log',
@@ -197,7 +197,7 @@ describe('page:header H1 — a widget-hinted nameField heads the page through it
   });
 
   it('CONTROL — a title template on an object with no nameField heads with the template', () => {
-    setFieldFaceResolver(resolveRecipientFace);
+    setFieldReadFaceResolver(resolveRecipientFace);
     const schema = {
       name: 'deal',
       label: 'Deal',
@@ -210,7 +210,7 @@ describe('page:header H1 — a widget-hinted nameField heads the page through it
   });
 
   it('CONTROL — a record with no nameField heads as before (derived title)', () => {
-    setFieldFaceResolver(resolveRecipientFace);
+    setFieldReadFaceResolver(resolveRecipientFace);
     const schema = { name: 'note', label: 'Note', fields: { name: { type: 'text' } } };
 
     expect(h1Of(schema, { id: 'n-1', name: 'Kickoff notes' })?.textContent).toBe('Kickoff notes');
@@ -218,7 +218,7 @@ describe('page:header H1 — a widget-hinted nameField heads the page through it
   });
 
   it('CONTROL — an explicit `title` outranks the pointer and its face', () => {
-    setFieldFaceResolver(resolveRecipientFace);
+    setFieldReadFaceResolver(resolveRecipientFace);
 
     const h1 = h1Of(recordShare(), share, { type: 'page:header', title: 'Share {record_id}' });
 
@@ -227,7 +227,7 @@ describe('page:header H1 — a widget-hinted nameField heads the page through it
   });
 
   it('CONTROL — an empty pointer value falls through to the next rung, not to the face', () => {
-    setFieldFaceResolver(resolveRecipientFace);
+    setFieldReadFaceResolver(resolveRecipientFace);
 
     const h1 = h1Of(recordShare({ titleFormat: 'Share of {record_id}' }), { ...share, recipient_id: '' });
 

@@ -23,15 +23,19 @@
  *
  * ## The contract
  *
- * - {@link setFieldFaceResolver} installs the one resolver (the last call
+ * - {@link setFieldReadFaceResolver} installs the one resolver (the last call
  *   wins; `undefined` clears it).
- * - {@link resolveFieldFace} asks it for a field's face. `undefined` means
+ * - {@link resolveFieldReadFace} asks it for a field's face. `undefined` means
  *   "draw what you drew before": no resolver is installed, the field is
  *   absent, or the resolver has no face of the field's own to offer.
  *
  * A face is answered for the field's DECLARATION, never for a field name or an
  * object: the rule is the registry's, so a caller holds no list of widgets and
  * no name-to-label mapping of its own.
+ *
+ * The names say READ face on purpose: `@object-ui/app-shell`'s metadata form
+ * already exports the bare name, for the union naming which edit control its
+ * form draws, and one exported name may have one meaning in this repository.
  *
  * ⚠️ The value is read when a caller renders; installing a resolver does not
  * re-render anything already drawn. Every host measured loads
@@ -45,7 +49,7 @@ import type * as React from 'react';
 import type { FieldMetadata } from '@object-ui/types';
 
 /** The props a field face is drawn with: the read-cell shape of the registry. */
-export interface FieldFaceProps {
+export interface FieldReadFaceProps {
   /** The field's stored value on the record. */
   value: unknown;
   /** The field's declaration, as the object's schema carries it. */
@@ -58,22 +62,22 @@ export interface FieldFaceProps {
 }
 
 /** A component that draws one field's value. */
-export type FieldFace = React.ComponentType<FieldFaceProps>;
+export type FieldReadFace = React.ComponentType<FieldReadFaceProps>;
 
 /**
  * Answers the face a field's declaration draws its value with, or `undefined`
  * when the declaration names no face of its own.
  */
-export type FieldFaceResolver = (field: FieldMetadata) => FieldFace | undefined;
+export type FieldReadFaceResolver = (field: FieldMetadata) => FieldReadFace | undefined;
 
-let installedResolver: FieldFaceResolver | undefined;
+let installedResolver: FieldReadFaceResolver | undefined;
 
 /**
- * Install the resolver {@link resolveFieldFace} asks. `@object-ui/fields`
+ * Install the resolver {@link resolveFieldReadFace} asks. `@object-ui/fields`
  * calls this when its entry module loads; a host has no call to make.
  * `undefined` removes the installed resolver.
  */
-export function setFieldFaceResolver(resolver: FieldFaceResolver | undefined): void {
+export function setFieldReadFaceResolver(resolver: FieldReadFaceResolver | undefined): void {
   installedResolver = resolver;
 }
 
@@ -81,7 +85,7 @@ export function setFieldFaceResolver(resolver: FieldFaceResolver | undefined): v
  * The face `field`'s declaration draws its value with, or `undefined` when no
  * resolver is installed, `field` is absent, or the resolver answers none.
  */
-export function resolveFieldFace(field: FieldMetadata | null | undefined): FieldFace | undefined {
+export function resolveFieldReadFace(field: FieldMetadata | null | undefined): FieldReadFace | undefined {
   if (!field || !installedResolver) return undefined;
   return installedResolver(field);
 }

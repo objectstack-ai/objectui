@@ -57,7 +57,7 @@ import {
   AvatarImage,
 } from '../../ui';
 import { RecordTitleChip } from '../../custom/RecordTitleChip';
-import { resolveFieldFace } from '../../lib/field-face';
+import { resolveFieldReadFace } from '../../lib/field-face';
 import { PageDescriptionContext } from './page-description-context';
 import { renderBlockChildren } from './page-block-grid';
 import { isFileIdToken } from '@objectstack/spec/data';
@@ -2707,9 +2707,9 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       // The map form of `fields` keys a declaration by its name; the face
       // reads the name off the declaration, as a grid column's carries it.
       const field = { ...fieldDef, name: nameFieldName };
-      const Face = resolveFieldFace(field);
+      const Face = resolveFieldReadFace(field);
       if (!Face) return undefined;
-      // eslint-disable-next-line react-hooks/static-components -- resolveFieldFace returns a renderer registered in the field registry (a stable module-level component), not one created during render
+      // eslint-disable-next-line react-hooks/static-components -- resolveFieldReadFace returns a renderer registered in the field registry (a stable module-level component), not one created during render
       return <Face value={data?.[nameFieldName]} field={field} dependentValues={data} />;
     })();
     const titleCandidate =

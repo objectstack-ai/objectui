@@ -771,12 +771,13 @@ const ENABLEMENT_TAIL =
 
 /** The shipped visibility copy, which must not move. */
 // The `visibleWhen` leg fails CLOSED since objectui#13299, so a declared
-// predicate that faults prints the `'withholding'` consequence.
+// predicate that faults prints the `'withholding'` consequence, which names
+// the withheld thing as "an element", not a navigation entry (objectui#13303).
 const VISIBILITY_TAIL =
-  'The entry was treated as its safe default, which on THIS gate is the one\n' +
-  'that BITES: a navigation entry whose predicate cannot be evaluated is\n' +
-  'WITHHELD - not drawn - until it can be, so a missing entry may be this\n' +
-  'fault rather than a gate that said no.\n' +
+  'The element was treated as its safe default, which on THIS gate is the\n' +
+  'one that BITES: an element whose visibility predicate cannot be evaluated\n' +
+  'is WITHHELD - not drawn - until it can be, so a missing element may be\n' +
+  'this fault rather than a gate that said no.\n' +
   'Page-component predicates bind `record` (the row on a record page),\n' +
   '`current_user`, and page state as `page.<var>`. Check those roots and the\n' +
   'CEL syntax.';

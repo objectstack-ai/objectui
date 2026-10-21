@@ -15,7 +15,8 @@
  * Rows:
  *  (a) a throwing `visibleWhen` is not rendered, and two renders log ONE
  *      warning — in the production branch (one engine call, `onFault`) and in
- *      the development branch (`throwOnError`);
+ *      the development branch (`throwOnError`); that line names no navigation
+ *      surface (objectui#13303);
  *  (b) every other leg with a faulting declared predicate is not rendered:
  *      `visible`, `visibleOn` (SHOW legs, negated) and `hidden`, `hiddenOn`
  *      (HIDE legs, not negated — their fail-soft `true` already hid);
@@ -58,6 +59,13 @@ const orChain = (n: number) => Array.from({ length: n }, (_, i) => `${i} == ${i}
 
 /** The line the shared reporter prints for the fail-closed SHOW legs. */
 const WITHHELD = 'WITHHELD';
+
+/**
+ * The navigation surface's nouns. The `'withholding'` copy was written for the
+ * app-shell navigation gate and told a page-node author that "a navigation
+ * entry" was withheld (objectui#13303); a page node's line names neither.
+ */
+const NAVIGATION_SURFACE = /navigation|\bentry\b/i;
 
 type WarnSpy = { mock: { calls: unknown[][] } };
 const spyWarn = () => vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -179,6 +187,7 @@ describe('objectui#13299 (a) — a faulting `visibleWhen` withholds its node, re
       expect(lines[0]).toContain('visibleWhen');
       expect(lines[0]).toContain(FAULT);
       expect(lines[0]).toContain(WITHHELD);
+      expect(lines[0]).not.toMatch(NAVIGATION_SURFACE);
     });
   });
 });

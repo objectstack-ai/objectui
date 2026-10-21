@@ -2702,11 +2702,14 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       if (explicitTitle || !declaredTitle) return undefined;
       const nameFieldName: unknown = declaredNameField(objSchema);
       if (typeof nameFieldName !== 'string' || !nameFieldName) return undefined;
-      const fieldDef: unknown = declaredFieldDef(objSchema, nameFieldName);
+      const fieldDef = declaredFieldDef(objSchema, nameFieldName);
       if (!fieldDef || typeof fieldDef !== 'object') return undefined;
-      const field: any = { ...fieldDef, name: nameFieldName };
+      // The map form of `fields` keys a declaration by its name; the face
+      // reads the name off the declaration, as a grid column's carries it.
+      const field = { ...fieldDef, name: nameFieldName };
       const Face = resolveFieldFace(field);
       if (!Face) return undefined;
+      // eslint-disable-next-line react-hooks/static-components -- resolveFieldFace returns a renderer registered in the field registry (a stable module-level component), not one created during render
       return <Face value={data?.[nameFieldName]} field={field} dependentValues={data} />;
     })();
     const titleCandidate =

@@ -57,6 +57,14 @@ to nothing collapses to an empty string rather than leaking the raw template: wi
 in scope, `"Hello {name}"` renders `Hello`. Without a record, a header with no `title` draws
 no `<h1>` at all. On a record page, omit `title` and the heading is derived from the record.
 
+When the heading is the object's declared `nameField` and that field declares a widget whose
+read face is a component of its own, as `recipient-picker` and `object-ref` are, the heading
+draws the value through that face, the one the field's list column draws. A record share
+(`nameField: 'recipient_id'`, which declares `widget: 'recipient-picker'`) heads its page with
+the recipient's name, not the user id it stores. The face comes from the
+[field registry](/docs/guide/fields#a-widgets-face-on-the-record-heading); where no face is
+registered for the widget, the heading prints the stored value.
+
 There is no `description` key on this node: the contract refuses it and names `subtitle`.
 
 The favorites star beside the record title draws where the host wires a favorites toggle, and metadata does not control it.

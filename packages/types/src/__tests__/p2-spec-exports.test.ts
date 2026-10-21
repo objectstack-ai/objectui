@@ -136,12 +136,10 @@ describe('P2.4 Spec Protocol Type Re-exports — View Configuration', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should validate a full AddRecordConfig', () => {
+    it('should validate an AddRecordConfig with enabled and position', () => {
       const config: AddRecordConfig = {
         enabled: true,
         position: 'top',
-        mode: 'inline',
-        formView: 'new-contact-form',
       };
       const result = AddRecordConfigZod.safeParse(config);
       expect(result.success).toBe(true);

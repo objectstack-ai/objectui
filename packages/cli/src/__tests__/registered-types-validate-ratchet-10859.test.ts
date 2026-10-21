@@ -167,8 +167,14 @@ const REFUSED_AT_TYPE = 0;
  * the registry with the view. objectui#12954: minus `cloud:onboarding-next` and
  * its `app-shell:` twin, retired from the registry with the widget; the armed
  * `cloud:plan-status` left with its arm, so it moved nothing here.
+ * objectui#13301: plus `app-shell:hero`, `app-shell:stat`,
+ * `app-shell:usage-bar`, `app-shell:checklist` and `app-shell:tile-grid`, the
+ * console home blocks namespaced so the registry stops warning on every boot,
+ * refused at `type` by design so the bare spelling stays the one authorable
+ * key (maintainer ruling 6312301934), a named stopgap raise. The raise covers
+ * these five keys only; any other rise is still a regression.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 302;
+const NAMESPACED_REFUSED_AT_TYPE = 307;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));

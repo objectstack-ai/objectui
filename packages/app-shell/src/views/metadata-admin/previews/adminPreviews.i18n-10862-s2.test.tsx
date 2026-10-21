@@ -410,6 +410,21 @@ describe('PositionPreview reads the designer locale (objectui#10862)', () => {
       ]);
       expectAsWritten(['Sales Rep', 'sales_rep', 'Works the pipeline.']);
     });
+
+    // objectui#13304 — a position that declares its sets lists them instead.
+    it(`${lang}: the declared permission sets`, () => {
+      const draft = { name: 'sales_rep', label: 'Sales Rep', permissionSets: ['sales_user', 'report_viewer'] };
+      inLang(lang, <PositionPreview type="position" name="sales_rep" draft={draft} locale={LOCALE[lang]} />);
+      expectSites(lang, [
+        { key: 'engine.positionPreview.permissionSets' },
+        {
+          key: 'engine.positionPreview.grantsVia',
+          vars: { permissionSets: row(lang, 'engine.positionPreview.permissionSets') },
+        },
+        { key: 'engine.positionPreview.visibility' },
+      ]);
+      expectAsWritten(['Sales Rep', 'sales_rep', 'sales_user', 'report_viewer']);
+    });
   }
 });
 

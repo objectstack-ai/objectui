@@ -1717,6 +1717,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.positionPreview.bind':
     'Bind {name} to one or more {permissionSets} to control CRUD-VAMA, field access, and tab visibility. Record visibility comes from the business-unit tree and sharing rules, not from the position.',
   'engine.positionPreview.permissionSets': 'Permission Sets',
+  // objectui#13304 — a position that declares `permissionSets` (ADR-0131 D4).
+  'engine.positionPreview.grantsVia': 'This position grants access through these {permissionSets}:',
+  'engine.positionPreview.visibility':
+    'Record visibility comes from the business-unit tree and sharing rules, not from the position.',
   // objectui#10202 — the read-only picklist page (the kind is package-owned).
   'engine.picklistPreview.empty': 'This picklist has no name.',
   'engine.picklistPreview.readOnly':
@@ -5306,6 +5310,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.positionPreview.bind':
     '将 {name} 绑定到一个或多个 {permissionSets}，以控制 CRUD-VAMA、字段访问和标签页可见性。记录的可见性来自业务单元树和共享规则，而不是岗位。',
   'engine.positionPreview.permissionSets': '权限集',
+  // objectui#13304 — a position that declares `permissionSets` (zh).
+  'engine.positionPreview.grantsVia': '该岗位通过以下{permissionSets}授予访问权限：',
+  'engine.positionPreview.visibility': '记录的可见性来自业务单元树和共享规则，而不是岗位。',
   // objectui#10202 — the read-only picklist page (zh).
   'engine.picklistPreview.empty': '该选项列表没有名称。',
   'engine.picklistPreview.readOnly': '只读：选项列表归声明它的软件包所有，不能在这里新建、编辑或删除。',

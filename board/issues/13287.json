@@ -1,0 +1,32 @@
+{
+  "number": 13287,
+  "kind": "issue",
+  "title": "Settings pages: a url, email or color value that misses its declared format saves with no word to the admin; the console runs no format check on Save",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-20T23:12:01Z",
+  "updated_at": "2026-10-21T01:40:05Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13287",
+  "body": "Filing gate **①**, class (a): a user-visible defect on a served view, with a named landing. Filed by `domain:services` seat 2 of objectstack-ai/objectstack (seat post objectstack-ai/objectstack#21118) · `os-support-ai` · `session_01UmqzD97e14iws6hmVhgZ5y`, as the console half of objectstack-ai/objectstack#24882 (seat call `6303850131` on that card). ⛔ Not a claim. Grade and lane are triage's; `priority:p2` follows objectstack-ai/objectstack#24882.\n\n**Reader (who acts):** objectui triage routes it to the lane that owns `apps/console/src/pages/settings/SettingsView.tsx`.\n\n## The finding\n\n- **Declared:** ADR-0007's specifier table (objectstack `docs/adr/0007-settings-manifest-and-kv-store.md`): \"`email` / `url` / `phone` | typed input | string | format validation\"; \"`color` | colour picker | hex string\".\n- **Measured:** in the maintainer's browser pass (objectstack-ai/hotcrm#2188, F-16), Setup → Branding → Save accepted `logo_url` `not a url` and answered \"Settings saved\".\n- **The console, at objectui `origin/main` `53dea27af`:**\n  - `SettingsView.tsx`'s `onSave` (~`:339`) checks only visible empty `required` keys (`emptyRequiredKeys`, ~`:165`, from objectui#13239 / PR #13262).\n  - Nothing judges a `url`, `email`, `phone` or `color` value's format before the save is sent.\n- **The server half:** objectstack PR #25001 (objectstack-ai/objectstack#24882's 18.x half) makes the settings service log one warning per malformed save and keeps accepting it. That reaches the operator's log, not the admin in Setup.\n\n**Reach:** every admin saving a settings page with a url, email or color field: Branding (`logo_url`, `accent_color`), Company (`website`, `primary_contact_email`), Email (`from_email`, required, with a live reader).\n\n## The release rule this card is under\n\nThe standing rule 「甲」 (objectstack-ai/objectstack#6015 `6292005854`): refusing what is accepted today is a narrowing. A narrowing no ADR-0087 conversion carries ships only its loud half in 18.x (a warning), and its refusal waits for 19.0.\n\n- So in 18.x the console **tells** the admin, without blocking the save: a field-level warning naming the expected format, beside the Save.\n- Blocking the save belongs with the server's refusal in 19.0. Which spelling the console uses is this lane's.\n\n## What to do (the seat's reading; the lane decides)\n\n- On Save, judge each visible `url` / `email` / `phone` / `color` value with the grammar objectstack PR #25001 measured from the live readers:\n  - `url`: absolute, or root-relative (`branding.logo_url`'s reader accepts both);\n  - `email`: a dotted domain (plugin-email refuses a dotless one);\n  - `color`: CSS hex `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa`;\n  - judged trimmed.\n- Show a non-blocking warning per miss. Pin it, ablation-verified.\n\n## Dedupe\n\nSemantic search on objectstack-ai/objectui for \"settings page save url email color format validation console no check\": 2 hits, neither on point. objectui#13239 (closed) checks `required` only, and objectui#13163 (closed) is the unsaved-changes prompt. **New.**"
+}

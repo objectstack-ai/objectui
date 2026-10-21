@@ -950,11 +950,6 @@ const STICKY_ROW_TINT =
   'bg-[image:linear-gradient(var(--os-row-tint,transparent),var(--os-row-tint,transparent))]';
 
 /**
- * A right-pinned column: its sticky utilities arrive on `col.className` (the
- * auto-pinned row-actions column, and an author's `pinned: 'right'`, both
- * from `ObjectGrid`).
- */
-/**
  * objectui#13188 — whether the viewer has selected text that touches `el`.
  * A drag that selects text ends in a `click` on the row or cell it started
  * in, so the row's open-record and the cell's start-edit read this first
@@ -968,6 +963,11 @@ function hasTextSelectionIn(el: Element): boolean {
   return selection.getRangeAt(0).intersectsNode(el);
 }
 
+/**
+ * A right-pinned column: its sticky utilities arrive on `col.className` (the
+ * auto-pinned row-actions column, and an author's `pinned: 'right'`, both
+ * from `ObjectGrid`).
+ */
 function isPinnedRightColumn(col: { className?: unknown }): boolean {
   return typeof col.className === 'string'
     && /\bsticky\b/.test(col.className)

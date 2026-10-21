@@ -38,8 +38,10 @@
  * hidden one. Trimmed, the row renders THAT — so the drop happens inside the
  * scan, before the field is chosen, and "the amount is gone" cannot be
  * satisfied by a row that simply stopped rendering amounts. It is the same
- * promotion signal `ApprovalsInboxPage.hiddenFieldTrim.test.tsx` uses for the
- * drawer's 6-field cut, transposed onto the pick.
+ * promotion signal the side sheet's `ApprovalsInboxPage.hiddenFieldTrim.test.tsx`
+ * used for its 6-field cut, transposed onto the pick; that pin retired with the
+ * sheet (objectui#12484), against
+ * `approvalRequestsDataSource.servedPageSummary-12483.test.tsx`.
  *
  * ## Why every figure is asserted TWICE
  *

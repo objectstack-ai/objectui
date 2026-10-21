@@ -21,10 +21,12 @@
  * The names come from the row the get serves (`pending_approver_names`,
  * `pending_approver_groups`) and, for a `position:` slot the server left
  * unnamed, from the `position` registry the metadata store lists and the
- * seat's holders the adapter reads. The face the sheet asserts is the
+ * seat's holders the adapter reads. The face the sheet asserted is the
  * reference: two people sharing a name in two groups stay two labelled chips
  * (`ApprovalsInboxPage.characterizationPins.test.tsx`), and a position reads its
  * registry label, never `positi…ager` (`ApprovalsInboxPage.approverHeadline-12110.test.tsx`).
+ * Both sheet pins retired with the sheet (objectui#12484), against this file
+ * and the decision panel's own pins.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, within } from '@testing-library/react';

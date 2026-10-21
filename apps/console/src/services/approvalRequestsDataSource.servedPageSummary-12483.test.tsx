@@ -17,8 +17,9 @@
  * whole. Only the HTTP transport, the console adapter and the metadata store
  * are doubled.
  *
- * The sheet's pins are the spec of the face, matched by assertion and not by
- * markup: `ApprovalsInboxPage.summaryFaces-11677.test.tsx` (declared labels,
+ * The sheet's pins were the spec of the face, matched by assertion and not by
+ * markup, and the first two retired with the sheet (objectui#12484), against
+ * this file: `ApprovalsInboxPage.summaryFaces-11677.test.tsx` (declared labels,
  * the record page's cell, an undeclared key takes no row, labels told apart),
  * `ApprovalsInboxPage.hiddenFieldTrim.test.tsx` (a hidden field is dropped
  * before the row cut and never leads) and

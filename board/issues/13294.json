@@ -1,0 +1,33 @@
+{
+  "number": 13294,
+  "kind": "pull_request",
+  "title": "fix(components): select-all, the row checkboxes and the row numbers share one centre line (objectui#13293)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-21T02:46:35Z",
+  "updated_at": "2026-10-21T03:12:43Z",
+  "closed_at": "2026-10-21T03:12:41Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-10-21T03:12:41Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13294",
+  "body": "Fixes #13293\n\n## What\n\nWith selection and row numbers both on, the leading column drew three things on three different vertical lines:\n\n- the row checkbox, centred over the whole cell (`row-select` is `absolute inset-0 justify-center`);\n- the row number, centred over the cell's content box (`text-center`);\n- the header's select-all, left-aligned after `px-3`.\n\nThe base `TableCell`/`TableHead` drops the right padding of any cell holding a checkbox (`[&:has([role=checkbox])]:pr-0`), so the content box is 12px/0 and its centre sits 6px right of the cell's.\n\nNow, when `showRowNumbers` is on, the leading header and body cells use `px-0` and select-all is wrapped in a `flex justify-center` (`data-slot=\"select-all\"`). Without row numbers nothing changes: everything stays at the cell start with `px-3`.\n\nMeasured in Chromium (leading cell 141px wide, frozen column on):\n\n| | header select-all | row checkbox | row number |\n|---|---|---|---|\n| before | x=21 | x=71.7 | x=77.7 |\n| after | x=71.7 | x=71.7 | x=71.7 |\n| no row numbers (unchanged) | x=21 | x=21 | — |\n\nAlso: puts `isPinnedRightColumn`'s docblock back above it. The objectui#13188 helper had been inserted between them (acceptance note (1) on that card). No code change.\n\n## Tests\n\nNew `data-table-selectAllAlign-13293.test.tsx`: select-all is centred exactly when the rows are, and the leading cells drop their side padding exactly then (both `showRowNumbers` values). Both cases fail without the fix. All 28 `data-table*` test files pass.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01XV4S9ReSgn5hj61n1VbimV"
+}

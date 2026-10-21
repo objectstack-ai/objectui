@@ -1,0 +1,36 @@
+{
+  "number": 13298,
+  "kind": "pull_request",
+  "title": "fix(console): a settings value that misses its declared format blocks Save (objectui#13287)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-21T03:54:11Z",
+  "updated_at": "2026-10-21T04:21:14Z",
+  "closed_at": "2026-10-21T04:21:12Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-21T04:21:12Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13298",
+  "body": "Fixes #13287\nClause-②: no\n\n## What changed\n\nOn Save, the Settings page now judges every visible, unlocked `url`, `email`, `phone` and `color` row whose effective value (draft over stored) is non-empty. A miss blocks the save on the same path as the `required` check from objectui#13239: no request goes out, each row is marked inline through the `fieldErrors` slot (`aria-invalid` plus `aria-describedby` to the message), focus moves to the first blocked row in manifest order, and the existing blocked-save toast names the rows. An empty value is left to `required`.\n\n- `apps/console/src/pages/settings/SettingsView.tsx`: `emptyRequiredKeys` becomes `preSaveBlocks`. It runs one pass with the same visibility, lock and non-input skips, and returns `required` or `format` per key. `DECLARED_VALUE_FORMATS` with `missesDeclaredFormat` does the judging, on the trimmed value.\n- Messages, one per format: `email` reuses `validation.email` and `url` reuses `validation.url`. Two new keys, `console.settingsView.invalidPhone` and `console.settingsView.invalidColor`, name what a phone number and a hex colour take. Both are added to all ten locale packs.\n- A server `SETTINGS_VALIDATION` refusal renders as before. That branch is untouched.\n\n## Grammars: the settings service's own, copied from objectstack main\n\nThey come from `DECLARED_VALUE_FORMATS` in `service-settings` (objectstack PR #25022, merged), so the page never blocks a value the server accepts and never passes one it refuses:\n\n- `email`: `local@domain` with a dotted domain.\n- `url`: `scheme://...`, root-relative `/path`, `data:` or `blob:`. **This is wider than the dispatch's gloss \"scheme http/https\".** The server accepts any `scheme://`. The `branding.logo_url` reader takes absolute or relative values, and platform storage hands back root-relative file URLs. An http(s)-only console would block values the server and the reader both serve.\n- `phone`: digits, spaces and `+ ( ) - .`, at least 5 characters. The server has this grammar, so `phone` is checked rather than left out.\n- `color`: `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa`.\n\n## Acceptance notes\n\n- **Untouched stored values.** The page judges the effective value, so a stored malformed value on a visible row blocks a save that edits a different row. That row is shown marked so the admin can fix it. This is what the dispatch ruling asks (\"effective value\"), and the `required` check works the same way. The server, by contrast, judges only the keys a save touches. It is pinned by the test \"a stored malformed value on a visible row blocks a save that edits another row\".\n- **Colour rows.** On a `color` row, `aria-invalid` and `aria-describedby` land on the wrapper `div`, not on the two inputs. This is how `SettingsField`'s `wrapper` already handles a server refusal on that row type: `cloneElement` applies to the outer child. The message itself still renders in the row, and focus goes to the picker. This was found by reading the code and has not been measured in a browser. It is not changed here.\n\n## Tests (at `a1dd56fed7`)\n\n- New: `apps/console/src/pages/settings/__tests__/SettingsView.formatCheck-13287.test.tsx`, 15 tests.\n  - (a) Logo URL `not a url` blocks: no request, row marked, focus on it. `https://...`, `/logo.png` and a padded `/logo.png` all save.\n  - (b) `no-reply@localhost` blocks; a valid email saves.\n  - (c) `red` and `#12` block; `#1a2b3c` saves.\n  - Phone: a value with letters blocks, a valid one saves. Four misses get four distinct messages, with focus on the first.\n  - (d) control: an empty optional url saves.\n  - (e) control: a url hidden by `visible` and an env-locked malformed url do not block.\n  - Editing a marked row clears its message.\n- `pnpm exec vitest run --maxWorkers=1 apps/console/src/pages/settings/`: `Test Files 28 passed (28)`, `Tests 233 passed (233)`. This covers the family that reads `SettingsView.tsx`, including the required-check suite.\n- The 56 `packages/i18n/src/__tests__` files that read the locale packs: `Test Files 56 passed (56)`, `Tests 1003 passed (1003)`. The full `apps/console` and `packages/i18n` directories are left to CI.\n- Ablation via `ablation-replace.mjs`, run at the commit above. The mutation `} else if (missesDeclaredFormat(` became `} else if (false && missesDeclaredFormat(`; anchor count went 1 to 0 and the blob went `4f3bc9f9bb64` to `c0bd531ba548`. Result: 8 failed, 7 passed. Every (a), (b) and (c) block test went red; the save cases and the (d) and (e) controls stayed green. Restore: blob `4f3bc9f9bb64` equals the HEAD blob and `git diff HEAD` is empty.\n- `type-check` for `@object-ui/i18n` and `@object-ui/console`, after the `@object-ui/console^...` closure build: both `Done`, exit 0. Console `tsc --listFiles` includes the new test.\n- `eslint` over the 12 changed files (JSON count 12): 0 errors and 3 warnings, all `no-explicit-any` on pre-existing `catch (err: any)` lines. With `--no-inline-config` there is one more, the pre-existing suppressed `react-hooks/static-components`. The base file gives the same four findings. Type-aware linting is not configured in `eslint.config.js`, so this diff cannot change the verdict on any untouched file.\n- Gates, all exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:i18n-dead-keys`, `check:control-bytes`, `scripts/check-hand-rolled-comment-mask.mjs` and `scripts/check-changeset-fixed.mjs`.\n\nChangeset: `.changeset/13287-settings-format-check.md` (`@object-ui/console` patch, `@object-ui/i18n` patch).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

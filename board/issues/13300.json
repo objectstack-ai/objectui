@@ -1,0 +1,36 @@
+{
+  "number": 13300,
+  "kind": "pull_request",
+  "title": "fix(fields): password inputs carry an autocomplete token (objectui#13295)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: fields",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-21T05:47:35Z",
+  "updated_at": "2026-10-21T06:14:28Z",
+  "closed_at": "2026-10-21T06:14:27Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-21T06:14:27Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13300",
+  "body": "Part of #13295\nClause-②: no\n\nThe card's three findings, each measured on objectui `main` (base `0093b2c826`) first. One still needs code that can land now (the missing `autocomplete` on password inputs). One is already fixed on `main` (`html lang`). One is held for a seat decision (block namespaces). This PR carries the first. The card stays open for item 2, so the first line is `Part of`.\n\n## What changed\n\n`@object-ui/fields`' `PasswordField` now sets `autocomplete` on its editable input:\n\n- `current-password` when the field name contains the word `current`, `old` or `existing`. The name is split into words at `_`, `-`, `.`, spaces and camelCase boundaries, so `current_password`, `oldPassword` and `existing-pass` all match.\n- `new-password` for every other name, including every `secret`.\n\nWhy the name: `@objectstack/spec` declares no autocomplete key on a field or an action param, so the widget derives the token from the one input every caller already gives it. Why `new-password` as the default instead of `off`: browsers ignore `off` on password inputs and offer the saved login password anyway. That is the wrong answer for a new password or an API key. `new-password` keeps the saved login out and lets a password manager suggest and save a new value. The helper is module-local, so there is no new export.\n\nAn action param of type `password` or `secret` reaches this widget through `paramToField` → `resolveParamWidgetType`. A change-password dialog therefore gets `current-password` and `new-password` with no change in app-shell.\n\n## Acceptance notes — per-item verdicts on `main`\n\n| # | Finding | Verdict on `main` | Reading |\n|---|---|---|---|\n| 1 | password dialog input is plaintext | **Partly fixed on `main`; the rest is fixed in this PR** | A probe rendered the real `ActionParamDialog` with `current_password` (`password`) and `tok` (`secret`) params. Both inputs came out `type=\"password\"`, each with the show/hide toggle button beside it, and neither had an `autocomplete` attribute. `paramToField` maps `password`, `secret` and `text` to `password`, `password` and `text`. So the masking and the toggle are already on `main`, and cloud's pin bump brings them. The missing `autocomplete` is what this PR fixes. |\n| 2 | five home blocks registered without a namespace | **Still present; held for a decision** | Importing `productBlocks` on `main` logs five `Registering component \"X\" without a namespace is deprecated` warnings, one each for `hero`, `stat`, `usage-bar`, `checklist` and `tile-grid`. The ruled change, `namespace: 'app-shell'` on the five calls, works. Bare `type: 'hero'` still renders, `app-shell:hero` renders too, and no warning is logged. But regenerating `KNOWN_SCHEMA_TYPES` adds five `app-shell:` keys that `objectui validate` refuses at `type`. That raises `registered-types-validate-ratchet-10859`'s `NAMESPACED_REFUSED_AT_TYPE` from 302 to 307, and that pin says it never rises. The fork goes to the seat (see the report on the card). The item-2 diff is not in this PR. |\n| 3 | `html lang` stays `en` after switching to Chinese | **Already fixed on `main`; no code** | A probe mounted `I18nProvider` in `en`, saw `document.documentElement.lang` read `en`, called `changeLanguage('zh')`, and then read `zh`. `provider.tsx`'s `languageChanged` handler writes it, and `apps/console/index.html`'s `lang=\"en\"` is only the first-paint value. Cloud's pin bump brings this. |\n\nNot touched here: the card's appendix items, objectui#13161 and objectui#5544.\n\n## Tests\n\nNew file `packages/app-shell/src/views/ActionParamDialog.passwordParam-13295.test.tsx` renders the real dialog with real widgets:\n\n- a `current_password` / `new_password` pair renders `type=\"password\"` with `current-password` / `new-password`;\n- the name `oldPassword` reads as the current password;\n- the toggle switches the input to `type=\"text\"` and back to `password`;\n- a `secret` param renders `type=\"password\"` with `new-password`;\n- CONTROL: a `text` param renders `type=\"text\"` with no `autocomplete`.\n\n**Ablation** (fix committed at `94e4f8d720`, then mutated). Deleting the `autoComplete=` line through `ablation-replace.mjs` (anchor count 1 → 0, blob `ccc024acdfac` → `f634dd6ee3ec`) turned the three `autocomplete` tests red. The toggle and `text` controls stayed green: `Tests 3 failed | 2 passed (5)`. Restore: blob after restore `ccc024acdfac` equals the HEAD blob, and `git diff HEAD` is empty.\n\n## Gates (at `94e4f8d720`)\n\n- Closure build `turbo run build --filter=@object-ui/app-shell^...`: 28/28 tasks. `type-check` passed for `@object-ui/fields` and `@object-ui/app-shell`. The new test is in app-shell's `tsconfig.test.json` program (`--listFilesOnly` count 1).\n- Targeted vitest, one package at a time, `--maxWorkers=1`, all green:\n  - app-shell: 7 files, 113 tests. This covers the new file plus `ActionParamDialog.test`, `ActionParamDialog.ariaRequired`, `paramToField.test` and the two product-block files.\n  - fields: 4 files, 415 tests. These are the families that name `PasswordField`.\n  - others: 6 files, 717 tests.\n  - scripts: 3 files, 74 tests.\n\n  The full `packages/fields/` and `packages/app-shell/` directories are left to CI.\n- Narrowed `eslint --no-inline-config` on the two changed source files: 2 files, 0 errors, 0 warnings. The repo config enables no type-aware linting, so this diff cannot change the lint result for any file it does not touch.\n- Each of these exited 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `check-hand-rolled-comment-mask`, `check-changeset-fixed`, `check-changeset-presence` and `check:new-line-citations`.\n\nChangeset: `.changeset/13295-cloud-console-findings.md`, a patch for `@object-ui/fields`.\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

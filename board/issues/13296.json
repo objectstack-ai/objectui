@@ -1,0 +1,35 @@
+{
+  "number": 13296,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): show an object-level rule refusal without the _record label",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-21T03:47:15Z",
+  "updated_at": "2026-10-21T04:13:38Z",
+  "closed_at": "2026-10-21T04:13:36Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-21T04:13:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13296",
+  "body": "Fixes #13292\nClause-②: no\n\n## What changed\n\n`InlineEditSaveBar` (`@object-ui/plugin-detail`) now sorts a `VALIDATION_FAILED` refusal into field-level and record-level entries before presenting it.\n\n- **Record-level:** an entry whose `field` is the `_record` sentinel (the engine's documented name for an object-level rule: a `script` rule, or a rule whose `fields` is empty), or names no field of the record. Its message shows alone in the banner, with no label in front of it, and it is not published as a per-field hint. This matches how `form.tsx` falls back to the envelope text for entries that name no rendered field.\n- **Field-level:** unchanged. The banner shows \"Label: message\" and the hint is published beside the input.\n- **Mixed refusal:** field entries are labelled, and record-level messages follow them unlabelled.\n- `extractFieldErrors` (shared, in `@object-ui/react`) is not changed. The decision is made in the save bar (ruling 4).\n\n**How \"a field of the record\" is decided.** The bar has no object schema, so it uses what it can see. A name counts as a field when:\n- it is a staged draft key; or\n- it is a key of the server record (`data`); or\n- the host's `fieldLabelFor` resolves it to a label other than the machine name. The console host echoes the machine name back for an unknown field, so that answer counts as no label.\n\n`_record` is always record-level, whatever these signals say.\n\n**Record-level lines in the banner.** They are kept in local state beside the exact `error` text they were rendered into. They show only while the session's `error` is still that text. The context's own clears (`enter()`, teardown, the next save) therefore retire them, with no second reset path.\n\n## Pins (`InlineEditSaveBar.recordLevelRefusal-13292.test.tsx`)\n\n- (a) A 400 with one `_record` entry: the banner text is exactly the rule message, `_record` appears nowhere in the document, and no hint is published.\n- (b) A `field` naming a non-existent field: the same as (a).\n- (c) CONTROL: a real field (`converted`) still shows \"Converted: message\" and publishes its hint.\n- (d) Mixed: \"Status: ...\" is labelled, the `_record` message is bare, and only `status` is published as a hint.\n- The record-level line is retired with the session (cancel, then re-enter).\n\n**Existing pin adjusted.** In `InlineEditSaveBar.serverVerdictFieldHint-6868.test.tsx`, the test \"falls back to the field machine name when the host resolves no label\" refused `close_date`. That name was neither staged nor in the record, so under ruling 1 it can no longer be told apart from a non-existent field. The test now puts `close_date` on the record (`data`), which keeps what it pins: a real field with no host label falls back to its machine name.\n\n## Ablation (one-off, no permanent file)\n\nI mutated the split condition through `scripts/ablation-replace.mjs`, so that every entry is labelled again: anchor `if (entry.field !== RECORD_LEVEL_FIELD && isRecordField(entry.field)) {` x1 -> x0, replacement x0 -> x1. The blob changed 2861661d -> a1929103.\n\n- Result: the new file went red, 3 failed | 2 passed. (a), (b) and (d) failed; (c) CONTROL and the session-retire test stayed green.\n- Restore: `git checkout HEAD -- …` under an `EXIT INT TERM` trap with an absolute path. The blob after restore is 2861661d3901a20672537abdcf8f758115b9d911, equal to the HEAD blob. `git diff HEAD` is 0 bytes, and the marker count is 0.\n- The test imports the source by relative path, so there is no `dist/` leg.\n\n## Gates (at 8338edd4ef)\n\n- Targeted vitest, `--maxWorkers=1`, under the shared lock:\n  - the 6 `InlineEditSaveBar.*` files: 30 passed;\n  - the 13 other test files naming `InlineEditSaveBar`, plus `DetailSection.inlineEdit.test.tsx`: 147 passed | 10 skipped. The skips are the `describe.runIf(DRIVEN)` timezone legs.\n  - The full `packages/plugin-detail/` directory is declared to CI.\n- `turbo run build --filter='@object-ui/plugin-detail^...'`: 11/11 tasks. `pnpm --filter @object-ui/plugin-detail run type-check` (both `tsc` legs) exit 0. The test tsconfig lists the new test file.\n- `eslint --no-inline-config` narrowed to the 3 changed `.ts(x)` files: 0 errors, 9 `no-explicit-any` warnings. All 9 are on lines this diff does not touch. Measured on a shared box.\n  - Narrowing evidence: the population is the 3 changed files, counted from the `--format json` output (3 results).\n  - `eslint.config.js` sets no `parserOptions.project` / `projectService` (type-aware linting is off), so this diff cannot change the verdict on any untouched file. The repo-wide `pnpm lint` is CI's.\n- Battery, all exit 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `new-line-citations`, `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs`, `scripts/check-changeset-presence.mjs`.\n\n## Acceptance notes\n\n- The field-set signal is what the bar can see, not the object schema. A real field that is not staged, not a key of the server record, and has no host label would read as record-level: its message shows without a label, and no hint is published. A host could pass the object's field names explicitly, but that needs a host change in `packages/app-shell` (`RecordDetailView`), which is outside this card's file surface. It is not done here.\n- The changeset is `.changeset/13292-record-level-refusal.md` (`@object-ui/plugin-detail` patch).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

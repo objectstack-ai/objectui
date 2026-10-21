@@ -2,8 +2,8 @@
   "number": 13188,
   "kind": "issue",
   "title": "data-table: 列表单元格文字难以复制，拖选/双击选词时会触发行点击进入详情",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "baozhoutao",
@@ -22,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-20T07:47:13Z",
-  "updated_at": "2026-10-21T02:29:57Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-21T02:55:29Z",
+  "closed_at": "2026-10-21T02:54:35Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 5,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13188",
   "body": "## 现象\n\n列表页（如「排班计划」全部视图）里想复制某个单元格的文字（编号、项目、作业对象等）：按住鼠标拖动选中文字，松开鼠标的那一刻页面就跳进了记录详情；双击选一个词也一样，第一下点击就已经打开详情。结果是单元格内容几乎没法复制。\n\n## 原因\n\n`data-table.tsx` 里行的 `onClick` 只按点击目标过滤（button、链接、勾选框、菜单等），不看用户是不是在选文字：\n\n- **拖选**：按下和松开都在同一行里时，浏览器会在这一行上派发 `click`，行的处理函数就当成普通点击，调用 `onRowClick`，打开详情。\n- **双击选词**：双击的第一下就是一次完整的 `click`，在第二下到来之前就已经打开详情。\n\n行上还挂着 `cursor-pointer`，鼠标在文字上也显示成手型，看起来就像文字不能选。\n\n## 方案\n\n1. **选中了文字就不打开详情（主修复）**：行的 `onClick` 开头检查 `window.getSelection()`。如果当前有非空的选区，且选区落在这一行里，就直接返回，不调用 `onRowClick`。拖选、三击选整段都会被这一条覆盖。点一下空白处取消选区后，再单击行仍然正常打开详情。\n2. **双击选词**：需要定一个取舍，两种做法：\n   - (a) 单击延迟约 250ms 再打开详情，期间如果出现第二下点击（`e.detail >= 2`）就取消。双击选词和复制都能正常用，代价是每次单击打开详情都慢 250ms。\n   - (b) 不处理双击，只保证拖选可以复制，打开详情没有延迟。\n3. **复测**：拖选复制不触发 `onRowClick`；单击仍然打开详情；Cmd/Ctrl 点击在新标签打开的行为（objectui#9462）不变；可编辑单元格的单击/双击进入编辑不受影响。\n4. `plugin-grid` 的 `VirtualGrid` 行点击也是同样的写法，一并加上第 1 条的检查。\n\nRelated: objectui#13016\n\n---\n由 Claude Code 代用户提交（https://claude.ai/code/session_01XV4S9ReSgn5hj61n1VbimV）"

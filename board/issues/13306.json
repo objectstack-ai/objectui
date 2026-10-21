@@ -1,0 +1,35 @@
+{
+  "number": 13306,
+  "kind": "pull_request",
+  "title": "fix(react): the withholding console line names an element, not a navigation entry",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: react",
+    "tests"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-21T07:31:01Z",
+  "updated_at": "2026-10-21T07:57:25Z",
+  "closed_at": "2026-10-21T07:57:23Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-21T07:57:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13306",
+  "body": "Fixes #13303\n\nClause-②: no\n\n## What\n\nThe `'withholding'` consequence paragraph of the shared visibility diagnostic (`GATE_KIND_COPY.withholding` in `packages/react/src/utils/visibilityDiagnostic.ts`) was written for the app-shell navigation `visible` gate (objectui#12700) and said \"a navigation entry whose predicate cannot be evaluated is WITHHELD\". The `page:tabs` item gate (objectui#13286) and a page node's `visibleWhen` / `visible` / `visibleOn` (objectui#13299) report through the same paragraph, so an author whose block or tab was withheld was told that a navigation entry was.\n\nThe paragraph now reads the same on all three surfaces:\n\n```text\nThe element was treated as its safe default, which on THIS gate is the\none that BITES: an element whose visibility predicate cannot be evaluated\nis WITHHELD - not drawn - until it can be, so a missing element may be\nthis fault rather than a gate that said no.\n```\n\nThe line keeps its shape: the prefix (`UNRESOLVABLE_VISIBILITY_PREFIX`), the line breaks, the hyphen style of the other gates' copy, and the \"WITHHELD - not drawn\" clause. The `PredicateGateKind` docblock's `'withholding'` entry now lists the three gates that report through it.\n\n**Route:** the surface-neutral copy, the card's first route. The second route (\"the reporter takes the surface from its caller\") would add a parameter to `reportUnresolvableVisibilityPredicate` and `formatUnresolvableVisibilityMessage`, both published exports of `@object-ui/react`. The neutral sentence reads right for a navigation entry, a `page:tabs` item and a page node, so no signature, export, type member or `PredicateGateKind` member moved. The gates' verdicts are untouched.\n\nMeasured at the head: `formatUnresolvableVisibilityMessage(..., 'withholding')` called with each caller's own arguments (`element:probe-13299` with `visibleWhen`; `page:tabs` with `visibleWhen`; `app-shell:visible` with `visible` and the `app-shell` tier) prints the paragraph above, byte for byte, between the `Reason:` line and that tier's advice paragraph.\n\n## Pins\n\n- `SchemaRenderer.disabledGateFaultDiagnostic.test.tsx`: `VISIBILITY_TAIL` was the only pin that asserted the navigation wording. It checked the whole consequence and advice string with `endsWith`, and it keeps checking the whole new string.\n- `SchemaRenderer.nodeVisibilityFailClosed-13299.test.tsx`, row (a): the console line for a faulting page node (`element:probe-13299`, production and development builds) now also asserts `not.toMatch(/navigation|\\bentry\\b/i)`. This is the acceptance pin.\n- The other pins of the withholding line read only `WITHHELD` or `WITHHELD - not drawn`, which the new copy keeps, so none changed: `SchemaRenderer.concealmentGateFaultDiagnostic`, `SchemaRenderer.visibleWhenRecordBinding`, components' `page-node-visibility-fail-closed-13299` and `page-tabs-visible-when-fail-closed-13286`, app-shell's `navigationVisibility-12700` and `UnifiedSidebar.navCanPermissions-12700`.\n- Re-grep after the change, whole tree: `git grep` for \"navigation entry whose predicate\", \"missing entry may be\" and \"The entry was treated\" gives 0 hits each (exit 1). Control: \"missing element may be\" gives 2 hits (the source and the pin).\n\n## Tests, at head `8625ff893`\n\nAll runs went through the shared verify lock, from the repo root.\n\n- The named family (`SchemaRenderer.concealmentGateFaultDiagnostic`, `SchemaRenderer.disabledGateFaultDiagnostic`, `SchemaRenderer.nodeVisibilityFailClosed-13299`, `visibilityDiagnostic.adviceTier`): `Test Files 4 passed (4)`, `Tests 84 passed (84)`.\n- Consumer sweep, every test file that reads the diagnostic line (`git grep -l` for `UNRESOLVABLE_VISIBILITY_PREFIX`, `visibilityDiagnostic` or `app-shell:visible` over test files; 21 files across react, components, app-shell and console): `Test Files 21 passed (21)`, `Tests 288 passed (288)`.\n- Ablation (one-shot, nothing kept): `ablation-replace.mjs` put the old navigation copy back (anchor 1 to 0, blob `29e7a2cce1a9` to `1bbd67872431`) and ran the disabled-gate, node-visibility and concealment files: `Tests 3 failed | 61 passed (64)`. Red: `and the visibility gate still prints its own copy` (the `VISIBILITY_TAIL` check) and row (a) in both builds (`expected '[ObjectUI] A visibility predicate cou…' not to match /navigation|\\bentry\\b/i`). The concealment file stayed green as the control, because both copies carry `WITHHELD - not drawn`. Restore: blob back to `29e7a2cce1a9`, equal to the HEAD blob, and `git diff HEAD` empty. There is no dist step: the subject is reached through relative source imports.\n\n## Gates\n\n- `pnpm --filter @object-ui/react type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`; the test project lists both changed test files), after the `@object-ui/react^...` closure build: exit 0.\n- `pnpm --filter @object-ui/react lint`: exit 0, 0 errors, no warning in a changed file.\n- `pnpm check:new-line-citations`: exit 0, 0 new citations. `pnpm check:control-bytes`: exit 0. `node scripts/check-changeset-presence.mjs`: exit 0. `node scripts/check-changeset-no-major.mjs`: exit 0.\n- Left to CI: the full `packages/react` directory and the rest of `pnpm test`, and the repo-wide lint.\n\nChangeset: `.changeset/13303-withholding-copy.md`, `@object-ui/react` patch.\n\n## Acceptance notes\n\n- `packages/react/src/index.ts` re-exports `PredicateGateKind` under a comment that still describes `'withholding'` only as the app-shell's fail-closed navigation gate. That comment became incomplete with objectui#13286 and objectui#13299, not with this change, and it is outside this claim's file surface, so it is left as it is. Carrier: none.\n- The line's first row still names each subject as `node \"TYPE\"`: the app-shell's constant `app-shell:visible`, and for a tab the `page:tabs` container whose item was withheld. Every gate kind shares that row, and the card names only the consequence paragraph, so it is unchanged here. Not filed.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_014MXhk1yjWh37d634hLy3p7)_\n"
+}

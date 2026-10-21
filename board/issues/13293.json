@@ -1,0 +1,36 @@
+{
+  "number": 13293,
+  "kind": "issue",
+  "title": "data-table: 开启行号时，表头全选框与各行勾选框/行号没有对齐",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-21T02:42:12Z",
+  "updated_at": "2026-10-21T03:12:43Z",
+  "closed_at": "2026-10-21T03:12:43Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13293",
+  "body": "## 现象\n\n列表（如「工单」全部视图）同时开启选择和行号时，表头的全选框比下面各行的勾选框、行号偏左，两者不在一条竖线上。\n\n## 原因\n\n`data-table.tsx` 里行首这一格两边的写法不一样：\n\n- **行**（`data-slot=\"row-leading-cell\"`）：开启 `showRowNumbers` 时，单元格加 `text-center`，勾选框的包裹层 `data-slot=\"row-select\"` 是 `absolute inset-0 justify-center`，所以行号和勾选框都在格子里**居中**。\n- **表头**（选择列的 `TableHead`，class 为 `w-10 bg-background px-3`）：全选 `Checkbox` 直接放在 `px-3` 的内边距之后，**靠左**。\n\n这一列实际宽度比 16px 的勾选框宽，所以\"居中\"和\"靠左 12px\"落在不同位置。不开行号时，行里的勾选框也是靠左（`flex items-center`），和表头一致，不受影响。\n\n## 方案\n\n开启 `showRowNumbers` 时，表头全选框和行一样在格子里居中（例如包一层 `flex justify-center`）。不开行号时保持现状。加一条测试，固定\"表头与行的对齐方式相同\"。\n\nRelated: objectui#13016\n\n---\n由 Claude Code 代用户提交（https://claude.ai/code/session_01XV4S9ReSgn5hj61n1VbimV）"
+}

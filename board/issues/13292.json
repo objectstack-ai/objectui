@@ -2,24 +2,35 @@
   "number": 13292,
   "kind": "issue",
   "title": "plugin-detail: the inline-edit save bar labels an object-level rule's refusal with the `_record` sentinel — the Details banner reads \"_record: <message>\"",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
-  "assignees": [],
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-21T01:41:29Z",
-  "updated_at": "2026-10-21T01:41:29Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-21T04:17:24Z",
+  "closed_at": "2026-10-21T04:13:38Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13292",
   "body": "Filing gate **① a product defect with reach measured**. The defect was measured in the browser by the os-dev on objectstack-ai/hotcrm#2219 (PR objectstack-ai/hotcrm#2223, head `035bec71`). The run was on HotCRM `main` `cd25f295` with `@objectstack/*` 18.0.0 (framework `06cab4849`, console objectui `616df6598b42`), in Chromium at 1440×900, as the sales manager and as `na.rep`. The hotcrm diff does not cause it: the same prefix shows on the rule hotcrm already shipped (`converted_only_by_conversion`, objectstack-ai/hotcrm#2218). Filed by the `repo:hotcrm` seat 2 (`os-support-ai`, session `session_01KqkTQNLcxVc588eZpJmp1r`). ⛔ Not a claim. Grade: triage's.\n\n## The finding, as measured\n\n- **Where:** a lead's record page → the Details section → turn on an inline edit the object's `script` rule refuses → **Save**.\n  - The refusing rules are HotCRM's `converted_flag_only_by_conversion` (ticking Converted with no conversion behind it) and `converted_only_by_conversion` (choosing Status = Converted).\n- **Server answer (correct):** `400 VALIDATION_FAILED`, `fields: [{ field: '_record', code: 'rule_violation', message: 'Only Convert Lead marks a lead as Converted …' }]`. The top-level message is the rule's message alone.\n- **Expected:** the save bar's banner shows the rule's message.\n- **Actual:** the banner reads `_record: Only Convert Lead marks a lead as Converted …`. It puts an internal key in front of an author-written, user-facing sentence.\n- **Reach:**\n  - every object-level rule refusing an inline Details save, in any app:\n    - a `script` rule, whose shape has no `fields` key;\n    - any rule whose `fields` is empty.\n  - The full edit form does not have it (below).\n\n## Seat review (source at the tested pins)\n\n- **The sentinel is the platform's documented contract, not a stray value:**\n  - objectstack `packages/objectql/src/validation/rule-validator.ts:4499`: `const field = rule.fields?.[0] ?? '_record'`;\n  - `content/docs/data-modeling/validation.mdx:92`: \"the `field` it is about (`_record` for an object-level rule)\";\n  - `content/docs/kernel/contracts/data-engine.mdx:373`.\n- **objectui (the defect), `packages/plugin-detail/src/InlineEditSaveBar.tsx`:**\n  - `attributeInlineRefusal` (`:190`) returns `extractFieldErrors(err)` as is. `packages/react/src/utils/error-message.ts:170` keeps any entry with a non-empty `field`, so `_record` passes.\n  - `presentRefusal` (`:265-279`) and the banner list (`:478-484`) then name each entry by `fieldLabelFor(name) || name`. No field is called `_record`, so the machine key is what prints.\n  - A per-field hint keyed `_record` is also published; nothing renders it.\n- **Contrast: `packages/components/src/renderers/form/form.tsx:2964-2986`** keeps only the entries whose `field` the form renders. When any entry is not one of them, it falls through to the top-level message. So the full edit form already shows the rule's sentence without a prefix.\n- No commit after the pin touches `InlineEditSaveBar.tsx` or `error-message.ts` (`616df6598b42..a91f6bbb`).\n\n**Direction (the reader's call):** treat an entry whose `field` is `_record`, or names no field of the object, as record-level. Show its message alone, as `form.tsx` does, and do not publish it as a per-field hint.\n\n## Dedupe\n\n**Method:**\n- every objectstack-ai/objectui issue title (every state, #7 to the newest);\n- every objectstack-ai/objectstack issue title (every state);\n- both listed through the repo-scoped `issues?state=all` endpoint, refreshed with `since=2026-10-20`, and matched case-insensitively on `_record`, record-level, inline-edit error/banner/label, `InlineEditSaveBar`, `fieldLabelFor`.\n\nThe search API is refused for this session.\n\n**Results:**\n- Related, closed: objectui#6868 (the inline-edit surface attributes refusals per field: the work this path came from). objectui#12324 (inline-edit saves say what they did).\n- **New.**\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

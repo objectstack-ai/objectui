@@ -68,7 +68,10 @@ function Harness() {
 
 const LABELS: Record<string, string> = { status: 'Stage', budget: 'Budget' };
 
-function renderAtomic(update: ReturnType<typeof vi.fn>) {
+function renderAtomic(
+  update: ReturnType<typeof vi.fn>,
+  data: Record<string, unknown> = { updated_at: 'v1' },
+) {
   return render(
     <InlineEditProvider canEdit>
       <Harness />
@@ -76,7 +79,7 @@ function renderAtomic(update: ReturnType<typeof vi.fn>) {
         dataSource={{ update }}
         objectName="crm_opportunity"
         recordId="o1"
-        data={{ updated_at: 'v1' }}
+        data={data}
         refresh={vi.fn()}
         fieldLabelFor={(n) => LABELS[n]}
       />
@@ -131,7 +134,9 @@ describe('objectui#6868 — a VALIDATION_FAILED becomes a per-field hint (atomic
     const update = vi.fn().mockRejectedValue(
       validationRefusal([{ field: 'close_date', message: 'Close date must be in the future' }]),
     );
-    renderAtomic(update);
+    // `close_date` is a field of the record (objectui#13292: a name the bar
+    // cannot place on the record is record-level, not an unlabelled field).
+    renderAtomic(update, { updated_at: 'v1', close_date: null });
     stageBoth();
     save();
     await waitFor(() =>

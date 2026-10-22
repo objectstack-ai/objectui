@@ -1,0 +1,36 @@
+{
+  "number": 13319,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid,types): read bulk confirmText as a string or a template envelope",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-22T07:58:41Z",
+  "updated_at": "2026-10-22T08:25:25Z",
+  "closed_at": "2026-10-22T08:25:23Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-22T08:25:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13319",
+  "body": "Refs #13183\n\nStep 1 of the landing order for objectstack-ai/objectstack#24947 (the order set in the seat-hold comment 6296947690 on objectstack-ai/objectstack#24798): objectui reads a bulk action's `confirmText` in both shapes, so objectstack's `.objectui-sha` can move past this before objectstack-ai/objectstack#24947 lands. The fill step of #13183 (`{{ count }}`, then the param roots) is not part of this PR, so #13183 remains open.\n\n## What changes\n\n- `@object-ui/types`: `BulkActionDef.confirmText` is `string | { dialect?: 'template'; source: string }`. The envelope arm is the shape objectstack-ai/objectstack#24947 serves: there a bare string is shorthand for `{ dialect: 'template', source }`, and a parsed def carries the envelope (read from `BulkConfirmTextSchema` in objectstack-ai/objectstack#24947's `packages/spec/src/ui/bulk-action.zod.ts`; a blank string still parses as itself there).\n- `@object-ui/types` zod mirror: `ObjectGridBulkActionDefSchema.confirmText` takes the same two arms. The `zod-mirror-parity` ledger (`assertionDriftMatchesLedger`) compares the mirror with the interface member for member and went red on the type change alone. This file was not in the claim's declared file surface; it is the same member's mirror in the same package.\n- `@object-ui/plugin-grid`: new helper `bulkConfirmTextSource` (in `components/bulkConfirmText.ts`) returns the string, or the envelope's `source` verbatim, and `undefined` when the value is absent, blank or has no string `source`. It follows the precedent of core's `formatTitleTemplate`, which reads `titleFormat` as `string | { source }`. `BulkActionDialog`'s confirm step renders through it and keeps the default sentence (`grid.bulk.confirmDefault`) when it returns `undefined`. Holes are not filled.\n- Changeset: `.changeset/13183-bulk-confirm-text-envelope.md` (patch, types + plugin-grid).\n\nBehaviour change to note: a blank `confirmText` (`''` or whitespace) used to render an empty description, because the dialog used `??`. It now shows the default sentence, as the claim asked.\n\n## Other readers of a bulk def's confirmText\n\nGrepped every `confirmText` in `packages/*/src` and `apps/*/src`. `BulkActionDialog` is the only place that reads a bulk def's `confirmText` for display. The others either read an object action's `confirmText` (a different slot; objectstack-ai/objectstack#24947 does not change it), for example `toBulkActionDef` in `resolveBulkActions.ts`, which forwards `action.confirmText` only when it is a string, or just destructure it away (`stripCollectedActionKeys` in `ObjectGrid.tsx`). No other TypeScript module outside plugin-grid and types imports `BulkActionDef`. objectui has no i18n extractor for bulk defs; the extractor gap is on the objectstack side and objectstack-ai/objectstack#24947 fixes it.\n\n## Verification (head fef2d040e)\n\n- `pnpm exec vitest run --maxWorkers=2 packages/types/ packages/plugin-grid/`: Test Files 629 passed (629), Tests 12745 passed (12745).\n- New test file `packages/plugin-grid/src/__tests__/bulkConfirmTextEnvelope-13183.test.tsx`, 10 tests. Reader: string, envelope, envelope without `dialect`, blank string or blank source, absent or null, envelope with no source. Real `BulkActionDialog`: the envelope's source is the sentence and `[object Object]` is absent; a plain string renders unchanged; absent and blank keep the default sentence.\n- Reverse check: with the render site set back to `def.confirmText` (committed fix first, mutation checked on disk, then restored with `git checkout HEAD`; restore proven by an empty `git diff HEAD` and a matching HEAD blob hash), 2 failed and 8 passed: \"renders an envelope's source, never [object Object]\" and \"keeps the default sentence when the slot is blank\".\n- `pnpm --filter @object-ui/types --filter @object-ui/plugin-grid run type-check`: exit 0, both scripts named in the output, after building plugin-grid's dependency closure (13 turbo tasks).\n- `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`: 260 passed.\n- eslint on the 5 touched source and test files: 0 errors (warnings only, `no-explicit-any` and hook warnings already in the files plus two `as any` casts in the new test). The repo-wide lint is left to CI.\n- Gates: `check:new-line-citations`, `check:control-bytes`, `check:spec-symbols`, `check:changeset-claims`, `check:pending-changeset-literals`, `check:unreferenced-sources`, `check:test-path-roots` and `scripts/check-changeset-presence.mjs` all exit 0.\n\n## Acceptance notes\n\n- The `@object-ui/types` member is widened ahead of the installed spec, which still types the slot as a plain string. The claim's order asks for this (a renderer that reads both shapes, Clause-2 no). When objectstack-ai/objectstack#24947 is released and pinned here, the `string` arm stays: a bare string is still valid authoring.\n- The commit `bbb06a1f1` carries a `Refs #13183` line in its message body. Force-push is not allowed in this repo, so it stays.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D6F9axfoPzR7t8G1J7Ytzz)_\n"
+}

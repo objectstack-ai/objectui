@@ -266,9 +266,18 @@ describe('CONTROLS: no prompt where nothing would be lost (objectui#13163)', () 
     fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
     await waitFor(() => expect(screen.queryByTestId('settings-unsaved-count')).toBeNull());
 
-    const unload = new Event('beforeunload', { cancelable: true });
-    window.dispatchEvent(unload);
-    expect(unload.defaultPrevented).toBe(false);
+    // The bar goes in the commit that clears the draft; the guard goes a step
+    // later, in the passive effect that releases the page's registration
+    // (`useRegisterUnsavedEdits`). The save settles outside `act`, so React
+    // runs that effect as a task of its own, and on a loaded machine the wait
+    // above can return in between (objectui#13317). So wait on the guard
+    // itself, the fact this case asserts. The link listener is removed in the
+    // same step, so once a tab close is not held, the click below meets none.
+    await waitFor(() => {
+      const unload = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(unload);
+      expect(unload.defaultPrevented).toBe(false);
+    });
 
     fireEvent.click(link('Business Units'));
     expect(await screen.findByText('Business Units page')).toBeTruthy();

@@ -284,11 +284,13 @@ host names the open (the console names each visit of a history entry); `readElem
 takes it as its third argument (`useElementApiOpen()` reads it).
 
 ```tsx
+import type { ReactNode } from 'react'
 import { ElementApiOpenScope } from '@object-ui/react'
 
-<ElementApiOpenScope open={location.key}>
-  <SchemaRenderer schema={page} />
-</ElementApiOpenScope>
+// `visit` names the host's open: a new value for each visit of a page.
+function PageOpen({ visit, children }: { visit: string; children: ReactNode }) {
+  return <ElementApiOpenScope open={visit}>{children}</ElementApiOpenScope>
+}
 ```
 
 ### useSettledSchema

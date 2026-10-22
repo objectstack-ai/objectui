@@ -172,6 +172,39 @@ Console affordances do not pick the question themselves: they read it from the
 affordance-to-grant map in `@object-ui/core` (`AFFORDANCE_GRANTS`,
 `resolveAffordance`, `resolveFieldAffordance`).
 
+### ServerReadScope
+
+`MePermissionsProvider`'s read verdicts — `check(object, 'read')` and
+`checkField(object, field, 'read')` — mirror the data API's rule. Records of
+some objects reach a page through another door: a service route that admits
+the caller by its own rule and serves only what that rule allows. A caller the
+data API keeps out of such an object is absent from the permissions answer for
+it, both read verdicts fail closed, and the page would hide or strip everything
+the door served.
+
+Below `ServerReadScope`, both read verdicts answer "allowed" for the named
+objects (matched case-insensitively): whatever the server serves is what the
+viewer may read. Every other action, the field `'write'` and `'create'`
+verdicts, `getFieldPermissions`, `effectiveObjects` and every other object keep
+the enclosing provider's answer:
+
+```tsx
+import { ServerReadScope } from '@object-ui/permissions';
+
+function ApprovalSurfaces({ children }: { children: React.ReactNode }) {
+  // Every read of these two objects below goes through the approvals routes,
+  // which serve each party to a request what it may see.
+  return (
+    <ServerReadScope objects={['sys_approval_request', 'sys_approval_action']}>
+      {children}
+    </ServerReadScope>
+  );
+}
+```
+
+Mount it only over surfaces whose reads of those objects all come back
+server-filtered. With no enclosing provider it renders its children unchanged.
+
 ### PermissionGuard
 
 Conditionally renders children based on permissions. `fallback` selects the

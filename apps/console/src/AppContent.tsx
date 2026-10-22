@@ -13,12 +13,12 @@ import { lazy, Suspense, useMemo, type ReactNode } from 'react';
 import { Route, useParams, useLocation, Navigate } from 'react-router-dom';
 import { DefaultAppContent, ENVIRONMENT_SCOPE_QUERY, LoadingScreen, useAdapter } from '@object-ui/app-shell';
 import { AdapterCtx } from '@object-ui/react';
-import { MePermissionsProvider } from '@object-ui/permissions';
+import { MePermissionsProvider, ServerReadScope } from '@object-ui/permissions';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import type { DataSource } from '@object-ui/types';
 import { LocalizationFetchProvider } from './LocalizationFetchProvider';
 import { WorkspaceTimezonePrompt } from './pages/settings/WorkspaceTimezonePrompt';
-import { routeApprovalRecordReads } from './services/approvalRequestsDataSource';
+import { APPROVAL_ACTION_OBJECT, APPROVAL_REQUEST_OBJECT, routeApprovalRecordReads } from './services/approvalRequestsDataSource';
 
 const AppManagementPage = lazy(() => import('./pages/system/AppManagementPage').then(m => ({ default: m.AppManagementPage })));
 const ProfilePage = lazy(() => import('./pages/system/ProfilePage').then(m => ({ default: m.ProfilePage })));
@@ -332,15 +332,35 @@ function approvalRecordReadsFor<T extends DataSource>(adapter: T): T {
  * The routed adapter is cached on the adapter object in a `WeakMap`, never in
  * a `useMemo`: every surface below keys its reads on this identity, and
  * React may discard a memo (AGENTS.md #10).
+ *
+ * The same surfaces gate what they draw on the client's read verdicts, which
+ * mirror the DATA API's rule from `/auth/me/permissions` (objectui#13324):
+ * every row is folded down to the fields the caller may read, and a related
+ * list of an object the caller may not read is not drawn. That answer is the
+ * wrong rule for what the approvals routes serve: objectstack keeps the data
+ * API closed on both approval objects to everyone but administrators, so a
+ * member's answer names neither, both verdicts fail closed for both, and the
+ * record page folded the request down to its `id` — no fields, no `viewer`, so
+ * no decision action — and dropped its Timeline
+ * (objectstack-ai/objectstack#25228). So this provider also leaves the reads of
+ * both objects to the server (`ServerReadScope`): the approvals routes serve
+ * each party what it may see, and a list of requests, still read through the
+ * data API, is refused to a member or comes back with the fields the caller
+ * may not read already removed. Writes and every other object keep the
+ * enclosing answer. ⛔ The fix is not a read grant on either object: the data
+ * API stays closed to members, as objectstack intends.
  */
 export function ApprovalRecordReads({ children }: { children: ReactNode }) {
   const adapter = useAdapter();
   return (
     <AdapterCtx.Provider value={adapter ? approvalRecordReadsFor(adapter) : null}>
-      {children}
+      <ServerReadScope objects={APPROVAL_READ_OBJECTS}>{children}</ServerReadScope>
     </AdapterCtx.Provider>
   );
 }
+
+/** The objects whose rows `ApprovalRecordReads` reads through the approvals routes. */
+const APPROVAL_READ_OBJECTS = [APPROVAL_REQUEST_OBJECT, APPROVAL_ACTION_OBJECT] as const;
 
 /**
  * The console's ONE `/auth/me/permissions` source, shared by Home and every app

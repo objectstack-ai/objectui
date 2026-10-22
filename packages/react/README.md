@@ -280,7 +280,7 @@ answer across readers that mount at different times, mount
 `<ElementApiOpenScope open={name}>` around them: a read that has answered under
 the same `open` is answered again with no request, while a failed read, a read
 under another `open`, and any read after a `notifyDataChanged` ask again. The
-host names the open (the console uses its history entry); `readElementApi`
+host names the open (the console names each visit of a history entry); `readElementApi`
 takes it as its third argument (`useElementApiOpen()` reads it).
 
 ```tsx

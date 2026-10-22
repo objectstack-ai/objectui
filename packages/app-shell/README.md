@@ -528,7 +528,7 @@ answer through `${…}` holes:
 The read, its loading and error states, and the `data` root are
 `SchemaRenderer`'s (see "Binding a page element to an API endpoint" in the data
 source guide). `ConnectedShell` keeps one open's reads (`ElementApiOpenScope`,
-one open per history entry; a replace stays in it), so a block bound to the
+one open per visit of a history entry; a replace stays in it), so a block bound to the
 same read as a navigation entry's `dataSource` takes the answer the sidebar
 already read instead of asking again. The blocks' arms are `@object-ui/types`'
 `zod/product-blocks.zod.ts`; the console's preview gallery draws every block at

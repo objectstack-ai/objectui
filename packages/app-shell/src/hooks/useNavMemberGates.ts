@@ -60,7 +60,7 @@
  * through `@object-ui/react`'s element reader (`readElementApi`, the request a
  * page element's binding makes, with the host's `apiFetch`), so there is no
  * second fetch; and in the open the read is asked in (`ElementApiOpenScope`,
- * which the console mounts per history entry), so a page element bound to the
+ * which the console mounts per visit of a history entry), so a page element bound to the
  * same read takes the answer this read already holds instead of asking again
  * (objectui#13323). An entry is drawn only once its read has answered and its
  * `visible` holds over that value: while the read is pending, when it fails,

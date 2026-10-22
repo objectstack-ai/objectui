@@ -570,11 +570,11 @@ Elements that bind the same URL at the same time share one request. A host can
 also keep one open's answers: inside `ElementApiOpenScope` (from
 `@object-ui/react`), a read that has already answered in the same open is
 answered again with no request. The console mounts it and counts one open per
-history entry, so a navigation entry's `visible` and a page element bound to
+visit of a history entry, so a navigation entry's `visible` and a page element bound to
 the same URL make one request, even when the entry's read settled first:
 
 - following a link, a navigation entry, or Back and Forward starts a new open,
-  and the page reads again;
+  and the page reads again, even on an entry visited before;
 - a redirect that replaces the address (the app root's landing on its first
   entry) stays in the open;
 - a failed read is not kept, and any declared data change (`notifyDataChanged`,

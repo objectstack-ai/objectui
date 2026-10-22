@@ -20,6 +20,9 @@
  *  (a) one open: the element takes the nav gate's answer — one call;
  *  (b) the app root's landing replaces its address with the page: still one;
  *  (c) a new open (a PUSH, then a POP) reads again;
+ *  (c') Back to an entry visited before is a new open too, even when nothing
+ *       was read in between (a history entry keeps its key; the open's name
+ *       must not);
  *  (d) a declared data change (an action's write) ends the reuse;
  *  (e) a failed nav read is not reused: the element asks again;
  *  (f) CONTROL: with no open scope, two calls — the defect as it was.
@@ -144,6 +147,7 @@ function mount(url: string, apiFetch: ApiFetch, opts: { scope?: boolean; at?: st
         }
       />
       <Route path="/apps/crm" element={<><NavHost items={app.navigation} /><Landing /></>} />
+      <Route path="/apps/crm/plain" element={<><NavHost items={app.navigation} /><Landing /></>} />
     </Routes>
   );
   render(
@@ -243,6 +247,29 @@ describe('objectui#13323 — a nav entry and a page element bound to the same re
     await waitFor(() => expect(screen.getByTestId('page-welcome')).toBeInTheDocument());
     await mountPageElement('3');
     expect(callsFor(apiFetch, url)).toBe(3);
+  });
+
+  it("(c') Back to the page after a page that reads nothing is a new open: the element reads again", async () => {
+    const url = freshUrl();
+    let total = 1;
+    const apiFetch = vi.fn<ApiFetch>(async () => jsonResponse({ data: { total } }));
+    mount(url, apiFetch);
+    await navSettled();
+    await mountPageElement('1');
+    expect(callsFor(apiFetch, url)).toBe(1);
+
+    // A page with no binding: nothing is read on this visit, so nothing the
+    // first visit kept is replaced by a read of this one.
+    act(() => navigateTo('/apps/crm/plain'));
+    await waitFor(() => expect(screen.getByTestId('landing')).toBeInTheDocument());
+    expect(callsFor(apiFetch, url)).toBe(1);
+
+    // Back restores the first entry, and its key with it.
+    total = 5;
+    act(() => navigateTo(-1));
+    await waitFor(() => expect(screen.getByTestId('page-welcome')).toBeInTheDocument());
+    await mountPageElement('5');
+    expect(callsFor(apiFetch, url)).toBe(2);
   });
 
   it('(d) a declared data change ends the reuse: the element reads after it', async () => {

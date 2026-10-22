@@ -17,7 +17,9 @@
  *
  *  - A `PUSH` (following a link, a navigation entry, an in-app redirect that
  *    adds an entry) or a `POP` (Back, Forward) starts a new open, so the page it
- *    shows reads again: no answer outlives the visit it was read in.
+ *    shows reads again: no answer outlives the visit it was read in, not even
+ *    on an entry visited before (its key comes back with it; the open's name
+ *    does not).
  *  - A `REPLACE` stays in the open. The app root's landing replaces
  *    `/apps/:appName` with its first entry once the navigation's reads have
  *    answered (`<Navigate to={landing} replace />`): the page it lands on is
@@ -47,9 +49,12 @@ function RoutedElementApiOpen({ children }: { children?: ReactNode }) {
 }
 
 /**
- * The name of the open the console is in: the key of the history entry that
- * started it. A `REPLACE` keeps the name; any other navigation takes the new
- * entry's key.
+ * The name of the open the console is in. A `REPLACE` keeps the name; any
+ * other navigation starts a new open with a name no earlier visit had: the
+ * new entry's key AND a count of the opens this scope has seen. The key alone
+ * is not enough, because `POP` (Back, Forward) restores an entry's ORIGINAL
+ * key, and a page visited again under its old name would be handed the answer
+ * its first visit kept.
  */
 function useConsoleOpen(): string {
   const location = useLocation();
@@ -57,9 +62,14 @@ function useConsoleOpen(): string {
   // Derived from the previous render's entry (React's "adjust state when a
   // prop changes" pattern): set during render, so no reader below ever runs
   // with the previous open's name on the new entry.
-  const [state, setState] = useState({ entry: location.key, open: location.key });
+  const [state, setState] = useState({ entry: location.key, opens: 0, open: `${location.key}#0` });
   if (state.entry !== location.key) {
-    const next = { entry: location.key, open: navigationType === 'REPLACE' ? state.open : location.key };
+    const opens = navigationType === 'REPLACE' ? state.opens : state.opens + 1;
+    const next = {
+      entry: location.key,
+      opens,
+      open: navigationType === 'REPLACE' ? state.open : `${location.key}#${opens}`,
+    };
     setState(next);
     return next.open;
   }

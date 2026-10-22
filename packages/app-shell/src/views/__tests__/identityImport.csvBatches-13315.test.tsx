@@ -125,7 +125,7 @@ function fakeEndpoint(passwordFor: (batch: number, row: number) => string | unde
   return { bodies, authFetch };
 }
 
-function renderIdentityWizard(authFetch: ReturnType<typeof vi.fn>, initialFile?: File) {
+function renderIdentityWizard(authFetch: (url: string, init?: RequestInit) => Promise<Response>, initialFile?: File) {
   const ds = createIdentityImportDataSource({
     base: {}, authFetch, baseUrl: 'http://srv', getPasswordPolicy: () => 'temporary',
   }) as { importRecords: (o: string, r: ImportRequestOptions) => Promise<unknown> };

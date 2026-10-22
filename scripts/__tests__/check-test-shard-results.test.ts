@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  ACTIONS_CHECK_RUN_APP,
   EXIT_BREACHED,
   EXIT_CANNOT_RUN,
   EXIT_OK,
@@ -16,8 +17,10 @@ import {
   TRANSIENT_RETRY_LIMIT,
   TRANSIENT_RETRY_WAIT_MS,
   carryForward,
+  concludeFromCheckRun,
   evaluate,
   exitCodeFor,
+  fetchCheckRun,
   fetchJob,
   renderReading,
   run,
@@ -363,23 +366,56 @@ type Answer = Response | Error;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 const jobsPage = (jobs: unknown[]) => json({ total_count: jobs.length, jobs });
 
+/** A job's page, as both its job record (`html_url`) and its own check run (`html_url`) name it. */
+const jobUrl = (id: number) => `https://github.com/${REPO}/actions/runs/42/job/${id}`;
+
 /** One attempt's job list as the endpoint answers it: ids, statuses, `run_attempt`, and the aggregator's own job. */
 function attemptJobs(attempt: number, conclusionOf: (name: string) => string | null | undefined = () => 'success', shards = 8) {
   const jobs: Record<string, unknown>[] = [];
   shardContexts(shards).forEach((name, i) => {
     const conclusion = conclusionOf(name);
     if (conclusion === undefined) return; // not in this attempt
-    jobs.push({ id: attempt * 1000 + i, name, status: conclusion === null ? 'in_progress' : 'completed', conclusion, run_attempt: attempt });
+    const id = attempt * 1000 + i;
+    jobs.push({ id, name, status: conclusion === null ? 'in_progress' : 'completed', conclusion, run_attempt: attempt, html_url: jobUrl(id) });
   });
-  jobs.push({ id: attempt * 1000 + 999, name: 'Test', status: 'in_progress', conclusion: null, run_attempt: attempt });
+  const own = attempt * 1000 + 999;
+  jobs.push({ id: own, name: 'Test', status: 'in_progress', conclusion: null, run_attempt: attempt, html_url: jobUrl(own) });
   return jobs;
 }
 
+/** The name `attemptJobs` gives the job with this id. */
+const nameOf = (id: number, shards = 8) => (id % 1000 === 999 ? 'Test' : shardContexts(shards)[id % 1000]);
+
+/** A job's own check run as the Checks API answers it: `completed` with the conclusion given, else still running. */
+const checkRunOf = (id: number, conclusion: string | null = null, shards = 8) =>
+  json({
+    id,
+    name: nameOf(id, shards),
+    status: conclusion === null ? 'in_progress' : 'completed',
+    conclusion,
+    app: { slug: 'github-actions' },
+    html_url: jobUrl(id),
+  });
+
+const checkRunId = (url: string) => Number(/\/check-runs\/(\d+)$/.exec(url)?.[1] ?? Number.NaN);
+
 const attemptOf = (url: string) => Number(/\/attempts\/(\d+)\/jobs/.exec(url)?.[1] ?? Number.NaN);
 
-function gate(answer: (url: string, call: number) => Answer, env: Record<string, string | undefined> = {}, shards = 8) {
+/**
+ * `run` over a scripted API. `answer` serves every route but the Checks API's;
+ * `checkRun` serves that one, by default as a check run that has no conclusion
+ * yet, so a case written before objectui#13327 reads exactly as it did.
+ * `urls` records the former and `checkRunUrls` the latter.
+ */
+function gate(
+  answer: (url: string, call: number) => Answer,
+  env: Record<string, string | undefined> = {},
+  shards = 8,
+  checkRun: (id: number, call: number) => Answer = (id) => checkRunOf(id, null, shards),
+) {
   let clock = 0;
   const urls: string[] = [];
+  const checkRunUrls: string[] = [];
   const slept: number[] = [];
   const out: string[] = [];
   const err: string[] = [];
@@ -393,8 +429,15 @@ function gate(answer: (url: string, call: number) => Answer, env: Record<string,
       ...env,
     },
     fetchImpl: (async (url: string | URL | Request) => {
-      urls.push(String(url));
-      const reply = answer(String(url), urls.length);
+      const at = String(url);
+      let reply: Answer;
+      if (at.includes('/check-runs/')) {
+        checkRunUrls.push(at);
+        reply = checkRun(checkRunId(at), checkRunUrls.length);
+      } else {
+        urls.push(at);
+        reply = answer(at, urls.length);
+      }
       if (reply instanceof Error) throw reply;
       return reply;
     }) as typeof fetch,
@@ -410,7 +453,7 @@ function gate(answer: (url: string, call: number) => Answer, env: Record<string,
       err.push(line);
     },
   });
-  return { result, urls, slept, out, err, elapsed: () => clock };
+  return { result, urls, checkRunUrls, slept, out, err, elapsed: () => clock };
 }
 
 /** The connection-reset and timeout shapes the script's header records as measured on Node 22's `fetch`. */
@@ -771,13 +814,276 @@ describe('check-test-shard-results — staleness past the first re-read bound (o
           url.includes('/attempts/')
             ? jobsPage(attemptJobs(1, (name) => (name === stale ? null : 'success')))
             : call > REREAD_LIMIT + 2
-              ? json({ id: 1005, name: stale, status: 'completed', conclusion: 'success', run_attempt: 1 })
-              : json({ id: 1005, name: stale, status: 'in_progress', conclusion: null, run_attempt: 1 }),
+              ? json({ id: 1005, name: stale, status: 'completed', conclusion: 'success', run_attempt: 1, html_url: jobUrl(1005) })
+              : json({ id: 1005, name: stale, status: 'in_progress', conclusion: null, run_attempt: 1, html_url: jobUrl(1005) }),
         { TEST_MATRIX_ROLLUP: rollup },
       );
 
     expect(await replay('success').result).toBe(EXIT_OK);
     expect(await replay(undefined).result).toBe(EXIT_BREACHED);
+  });
+});
+
+/**
+ * objectui#13327 — merge-group run 39812942829, replayed through `run`.
+ *
+ * Its job log printed seven of sixteen shards with no conclusion, status
+ * `in_progress`, at the first read and at every one of the seventeen re-reads,
+ * until the budget ended them, beside a `needs.test.result` of `success`; the
+ * same jobs read `success` afterwards. That reading is the card's and the
+ * log's, taken by hand. The replay below is its worst form: the jobs API never
+ * settles at all, so whatever turns the run green is the check run speaking.
+ */
+const LAGGED = ['Test (shard 4/16)', 'Test (shard 5/16)', 'Test (shard 6/16)', 'Test (shard 7/16)', 'Test (shard 12/16)', 'Test (shard 13/16)', 'Test (shard 16/16)'];
+const OWN_JOB = 1999;
+const idOf = (name: string) => 1000 + shardContexts(16).indexOf(name);
+const singleJobId = (url: string) => Number(/\/actions\/jobs\/(\d+)$/.exec(url)?.[1] ?? Number.NaN);
+
+/** The jobs API as that run's gate read it: the lagged shards `in_progress` on the list and on every re-read. */
+function lagging(conclusionOf: (name: string) => string | null | undefined = (name) => (LAGGED.includes(name) ? null : 'success')) {
+  return (url: string) => {
+    if (url.includes('/attempts/')) return jobsPage(attemptJobs(1, conclusionOf, 16));
+    const id = singleJobId(url);
+    return json({ id, name: nameOf(id, 16), status: 'in_progress', conclusion: null, run_attempt: 1, html_url: jobUrl(id) });
+  };
+}
+
+const replayLag = (checkRun: (id: number, call: number) => Answer, conclusionOf?: (name: string) => string | null | undefined) =>
+  gate(lagging(conclusionOf), { TEST_MATRIX_ROLLUP: 'success' }, 16, checkRun);
+
+describe('check-test-shard-results — a shard the jobs API serves without a conclusion is asked of its own check run (objectui#13327)', () => {
+  it('⭐ the recorded false red passes when each lagged shard’s own check run reads success, before any wait', async () => {
+    const g = replayLag((id) => checkRunOf(id, id === OWN_JOB ? null : 'success', 16));
+
+    expect(await g.result).toBe(EXIT_OK);
+    expect(g.slept, 'the check run answers at once; nothing waits').toEqual([]);
+    expect(g.checkRunUrls.map(checkRunId)).toEqual([OWN_JOB, ...LAGGED.map(idOf)]);
+    const printed = g.out.join('\n');
+    expect(printed).toContain('all 16 shards reported success');
+    for (const name of LAGGED) {
+      expect(printed).toContain(`success  ${name}  (from its own check run; the jobs API served no conclusion)`);
+    }
+    // The shards the jobs API answered are not marked: their conclusion is its own.
+    expect(printed).toContain('success  Test (shard 1/16)\n');
+  });
+
+  it('⛔ the control: the same replay, with check runs that have no conclusion either, stays red after the budget', async () => {
+    const g = replayLag((id) => checkRunOf(id, null, 16));
+
+    expect(await g.result).toBe(EXIT_BREACHED);
+    expect(g.elapsed()).toBeLessThanOrEqual(GATE_BUDGET_MS);
+    const printed = g.out.join('\n');
+    for (const name of LAGGED) expect(printed).toContain(`no conclusion (status in_progress)  ${name}`);
+    // Asked once before the first wait and again after every re-read, never past the budget.
+    const asked = g.checkRunUrls.filter((url) => checkRunId(url) === idOf(LAGGED[0])).length;
+    expect(asked).toBe(REREAD_LIMIT + STALE_REREAD_LIMIT + 1);
+  });
+
+  it('⛔ a check run that answers anything but success is that, and red at once', async () => {
+    for (const conclusion of ['failure', 'cancelled', 'skipped', 'timed_out']) {
+      const g = replayLag((id) => checkRunOf(id, id === idOf('Test (shard 5/16)') ? conclusion : id === OWN_JOB ? null : 'success', 16));
+
+      expect(await g.result, `a ${conclusion} check run`).toBe(EXIT_BREACHED);
+      expect(g.slept, 'an answer is never waited out').toEqual([]);
+      expect(g.out.join('\n')).toContain(`did not report success: Test (shard 5/16) (${conclusion})`);
+    }
+  });
+
+  it('⛔ an answer the jobs API gave is never replaced: a `failure` there stays red whatever its check run says', async () => {
+    const g = replayLag(
+      (id) => checkRunOf(id, id === OWN_JOB ? null : 'success', 16),
+      (name) => (name === 'Test (shard 3/16)' ? 'failure' : LAGGED.includes(name) ? null : 'success'),
+    );
+
+    expect(await g.result).toBe(EXIT_BREACHED);
+    expect(g.checkRunUrls.map(checkRunId), 'only shards with no conclusion are asked').not.toContain(idOf('Test (shard 3/16)'));
+    expect(g.out.join('\n')).toContain('Test (shard 3/16) (failure)');
+  });
+
+  it('⛔ an absent shard is not asked, and stays ABSENT', async () => {
+    const g = replayLag(
+      (id) => checkRunOf(id, id === OWN_JOB ? null : 'success', 16),
+      (name) => (name === 'Test (shard 9/16)' ? undefined : LAGGED.includes(name) ? null : 'success'),
+    );
+
+    expect(await g.result).toBe(EXIT_BREACHED);
+    expect(g.checkRunUrls.map(checkRunId)).not.toContain(idOf('Test (shard 9/16)'));
+    expect(g.out.join('\n')).toContain('ABSENT  Test (shard 9/16)');
+  });
+
+  it('⛔ a check run that is not the job’s own — another id, name, app or page — is refused: exit 2, never a pass', async () => {
+    const lagged = idOf('Test (shard 4/16)');
+    const own = (id: number) => ({
+      id,
+      name: nameOf(id, 16),
+      status: 'completed',
+      conclusion: 'success',
+      app: { slug: ACTIONS_CHECK_RUN_APP },
+      html_url: jobUrl(id),
+    });
+    for (const [what, change] of [
+      ['id', { id: lagged + 1 }],
+      ['name', { name: 'Test (shard 5/16)' }],
+      ['app', { app: { slug: 'some-other-app' } }],
+      ['page', { html_url: jobUrl(lagged + 1) }],
+    ] as const) {
+      const g = replayLag((id) => (id === OWN_JOB ? checkRunOf(id, null, 16) : json(id === lagged ? { ...own(id), ...change } : own(id))));
+
+      expect(await g.result, `another ${what}`).toBe(EXIT_CANNOT_RUN);
+      expect(g.err.join('\n')).toContain("which is not that job's own");
+      expect(g.out.join('\n')).not.toContain('reported success');
+    }
+  });
+
+  it('⛔ a re-run shard is asked by its own attempt’s job id, and the attempt before it cannot stand in', async () => {
+    // Attempt 2 re-ran shard 3 and lists it without a conclusion yet.
+    const shard = 'Test (shard 3/8)';
+    const rerun = 2000 + shardContexts(8).indexOf(shard);
+    const before = 1000 + shardContexts(8).indexOf(shard);
+    const answer = (url: string) => {
+      if (url.includes('/attempts/2/')) return jobsPage(attemptJobs(2, (name) => (name === shard ? null : undefined)));
+      if (url.includes('/attempts/1/')) return jobsPage(attemptJobs(1));
+      return json({ id: rerun, name: shard, status: 'in_progress', conclusion: null, run_attempt: 2, html_url: jobUrl(rerun) });
+    };
+
+    // Its own check run says success: green, asked by the attempt-2 id.
+    const good = gate(answer, { GITHUB_RUN_ATTEMPT: '2' }, 8, (id) => checkRunOf(id, id === 2999 ? null : 'success'));
+    expect(await good.result).toBe(EXIT_OK);
+    expect(good.checkRunUrls.map(checkRunId)).toEqual([2999, rerun]);
+
+    // The Checks API answering with attempt 1's check run of the same shard is refused.
+    const stale = gate(answer, { GITHUB_RUN_ATTEMPT: '2' }, 8, (id) => (id === 2999 ? checkRunOf(id) : checkRunOf(before, 'success')));
+    expect(await stale.result).toBe(EXIT_CANNOT_RUN);
+    expect(stale.err.join('\n')).toContain("which is not that job's own");
+  });
+
+  it('⛔ a check run that cannot be read is a request like any other: 4xx exit 2 at once, 5xx retried, then exit 2', async () => {
+    for (const status of [403, 404]) {
+      const g = replayLag((id) => (id === OWN_JOB ? checkRunOf(id, null, 16) : json({ message: 'no' }, status)));
+      expect(await g.result, `HTTP ${status}`).toBe(EXIT_CANNOT_RUN);
+      expect(g.checkRunUrls, `HTTP ${status} must not be retried`).toHaveLength(2);
+      expect(g.slept).toEqual([]);
+    }
+
+    const persistent = replayLag((id) => (id === OWN_JOB ? checkRunOf(id, null, 16) : json({ message: 'Bad Gateway' }, 502)));
+    expect(await persistent.result).toBe(EXIT_CANNOT_RUN);
+    expect(persistent.slept).toEqual(Array.from({ length: TRANSIENT_RETRY_LIMIT }, () => TRANSIENT_RETRY_WAIT_MS));
+    expect(persistent.err.join('\n')).toContain('HTTP 502');
+
+    const once = replayLag((id, call) =>
+      id === OWN_JOB ? checkRunOf(id, null, 16) : call === 2 ? json({ message: 'Bad Gateway' }, 502) : checkRunOf(id, 'success', 16),
+    );
+    expect(await once.result).toBe(EXIT_OK);
+    expect(once.slept).toEqual([TRANSIENT_RETRY_WAIT_MS]);
+  });
+
+  it('asks the Checks API for the job by its id', async () => {
+    const urls: string[] = [];
+    const fetchImpl = (async (url: string | URL | Request) => {
+      urls.push(String(url));
+      return checkRunOf(1003);
+    }) as typeof fetch;
+
+    await fetchCheckRun(1003, { repository: REPO, apiUrl: API, token: 't', fetchImpl });
+    expect(urls).toEqual([`${API}/repos/${REPO}/check-runs/1003`]);
+  });
+
+  it('never replaces a conclusion, keeps a record its check run cannot conclude, and refuses a record with no page to compare', async () => {
+    const id = 1003;
+    const record = { id, name: nameOf(id), status: 'in_progress', conclusion: null, html_url: jobUrl(id) };
+    const answered = { ...record, status: 'completed', conclusion: 'failure' };
+    const said = async (conclusion: string | null) => (await checkRunOf(id, conclusion).json()) as unknown;
+
+    expect(concludeFromCheckRun(answered, await said('success'))).toBe(answered);
+    expect(concludeFromCheckRun(record, await said(null))).toBe(record);
+    expect(concludeFromCheckRun(record, await said('success'))).toMatchObject({ conclusion: 'success', conclusion_from: 'check-run' });
+
+    const withoutPage: Record<string, unknown> = { ...record };
+    delete withoutPage.html_url;
+    const pageless = { ...((await said('success')) as object), html_url: undefined };
+    expect(() => concludeFromCheckRun(withoutPage, pageless)).toThrow(/not that job's own/);
+  });
+
+  it('starts no check-run read that the gate budget cannot finish', async () => {
+    const asked: number[] = [];
+    const logged: string[] = [];
+    const jobs = attemptJobs(1, (name) => (name === 'Test (shard 6/8)' ? null : 'success'));
+    const { reading, budgetSpent } = await settleReading({
+      jobs,
+      shards: 8,
+      selfJobName: 'Test',
+      rereadJob: async () => {
+        throw new Error('no re-read fits either');
+      },
+      readCheckRun: async (jobId: number) => {
+        asked.push(jobId);
+        return checkRunOf(jobId, 'success').json();
+      },
+      sleep: async () => {},
+      now: () => 0,
+      deadline: REQUEST_TIMEOUT_MS - 1,
+      log: (line: string) => {
+        logged.push(line);
+      },
+    });
+
+    expect(asked).toEqual([]);
+    expect(budgetSpent).toBe(true);
+    expect(reading.verdict).toBe('breached');
+    expect(logged[0]).toContain("not asking the check runs");
+  });
+});
+
+describe('check-test-shard-results — the check-run reader is walked on every run (objectui#13327)', () => {
+  it('⭐ an all-green run reads this job’s own check run once, and nothing else', async () => {
+    const g = gate(() => jobsPage(attemptJobs(1)));
+
+    expect(await g.result).toBe(EXIT_OK);
+    expect(g.checkRunUrls.map(checkRunId)).toEqual([999 + 1000]);
+    expect(g.out.join('\n')).toContain('the check-run reader answers');
+  });
+
+  it('⛔ a check-run reader that cannot read is red on every run, not only in the next lag', async () => {
+    for (const status of [403, 404]) {
+      const g = gate(() => jobsPage(attemptJobs(1)), {}, 8, () => json({ message: 'Resource not accessible by integration' }, status));
+      expect(await g.result, `HTTP ${status}`).toBe(EXIT_CANNOT_RUN);
+      expect(g.err.join('\n')).toContain("could not read this job's own check run");
+      expect(g.out.join('\n')).not.toContain('reported success');
+    }
+  });
+
+  it('⛔ refuses an own check run that is not this job’s', async () => {
+    const g = gate(() => jobsPage(attemptJobs(1)), {}, 8, () => checkRunOf(1003));
+    expect(await g.result).toBe(EXIT_CANNOT_RUN);
+    expect(g.err.join('\n')).toContain("which is not that job's own");
+  });
+
+  it('does not read it over a job list this job is not in: that reading is `unreadable` already', async () => {
+    const g = gate(() => jobsPage(attemptJobs(1).filter((job) => job.name !== 'Test')));
+    expect(await g.result).toBe(EXIT_CANNOT_RUN);
+    expect(g.checkRunUrls).toEqual([]);
+  });
+
+  it('reads no check run at all over a recorded fixture', async () => {
+    const asked: string[] = [];
+    const out: string[] = [];
+    const code = await run(
+      ['--shards', '8', '--fixture', path.join(repoRoot, 'scripts/__tests__/fixtures/test-shard-results/run-36042402511-attempt-1.json')],
+      {
+        env: {},
+        fetchImpl: (async (url: string | URL | Request) => {
+          asked.push(String(url));
+          throw new Error('a fixture run must not reach the network');
+        }) as typeof fetch,
+        out: (line: string) => {
+          out.push(line);
+        },
+        err: () => {},
+      },
+    );
+
+    expect(code).toBe(EXIT_OK);
+    expect(asked).toEqual([]);
   });
 });
 

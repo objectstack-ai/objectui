@@ -144,6 +144,50 @@
  * absent, ends the extension at once, because there is nothing left for
  * waiting to fix.
  *
+ * ## A shard the jobs API serves without a conclusion is asked of its own check run (objectui#13327)
+ *
+ * Recorded three times on 2026-10-22, the third ejecting an all-green merge
+ * group again: run 39799233894, run 39799289611 and merge-group run
+ * 39812942829 each read shards as `in_progress` or `queued`, with no
+ * conclusion, through both re-read stretches and the whole of
+ * `GATE_BUDGET_MS`, the single-job endpoint answering exactly as the list
+ * did. The longest still had no conclusion 7 min 46 s after its own
+ * `completed_at`, when the gate gave up. Outwaiting that would need a budget
+ * past the job's `timeout-minutes`. These readings are the card's and the job
+ * logs', taken by hand; nothing here re-derives them.
+ *
+ * GitHub Actions publishes every job as a check run with the job's own id
+ * (the job record's `check_run_url` names it). That is a second record of the
+ * same job, kept by the Checks API rather than the Actions one. So every shard
+ * the jobs API serves present without a conclusion is also read on
+ * `GET /check-runs/{id}`: once before any wait, and again after each re-read
+ * that still finds it without one. When the check run reads `completed`, its
+ * conclusion is the shard's.
+ *
+ * ⛔ It is that very job's OWN conclusion, never a rollup and never a guess. A
+ * check run is refused unless its id, its name, its app (`github-actions`) and
+ * its `html_url` are the job record's own. The id and the URL are per job and
+ * per attempt: a shard re-run in attempt N is asked by attempt N's job id, so
+ * the check run of the attempt before it can never stand in for it. A refused
+ * check run is a reading that could not be taken (exit 2), exactly as a re-read
+ * about another job is. ⛔ Only a shard with no conclusion is asked: an answer
+ * the jobs API gave is never replaced, so a `failure` there stays a failure. A
+ * check run that reads `failure`, `cancelled` or `skipped` is that, and red. One
+ * with no conclusion either leaves the shard to the re-reads above, unchanged.
+ * An absent shard is not asked: drift is not lateness. A check run that cannot
+ * be read is a request like any other here: a 4xx is exit 2 at once, a 5xx is
+ * retried and then exit 2.
+ *
+ * ## That second reader is exercised on every run, not only in the lag it is for
+ *
+ * A read taken only while the jobs API lags would be a path no green run ever
+ * walks: a lost permission or a moved route would surface only in the next
+ * platform lag, as a red nobody can act on. So every run also reads THIS job's
+ * own check run once, before judging, and refuses it on the same four keys. ⛔
+ * Nothing is judged from it. Whether this job's token may read check runs is
+ * deliberately not written here: this read re-derives it on every run, and a
+ * red is its answer.
+ *
  * ## One budget for the whole gate
  *
  * Every wait above (a retry, a re-read) starts only if it and one more full
@@ -212,6 +256,9 @@ export const REQUEST_TIMEOUT_MS = 20_000;
  * `test-aggregate` job's `timeout-minutes` with room for the checkout.
  */
 export const GATE_BUDGET_MS = 450_000;
+
+/** The app whose check runs are Actions jobs. A check run any other app posted is not a job's. */
+export const ACTIONS_CHECK_RUN_APP = 'github-actions';
 
 /**
  * The check-run names the `test` matrix produces at a given width.
@@ -302,12 +349,12 @@ export function evaluate({ jobs, shards, selfJobName, attempt = null }) {
     throw new Error('selfJobName is required: it is the control that the reading reached this run');
   }
 
-  /** @type {Map<string, { conclusion: string|null, status: string|null, jobId: number|null, attempt: number|null }>} */
+  /** @type {Map<string, { conclusion: string|null, status: string|null, jobId: number|null, attempt: number|null, fromCheckRun: boolean }>} */
   const byName = new Map();
   for (const job of jobs) {
     if (!job || typeof job !== 'object') continue;
-    const { name, conclusion, status, id, run_attempt: runAttempt } =
-      /** @type {{ name?: unknown, conclusion?: unknown, status?: unknown, id?: unknown, run_attempt?: unknown }} */ (job);
+    const { name, conclusion, status, id, run_attempt: runAttempt, conclusion_from: conclusionFrom } =
+      /** @type {{ name?: unknown, conclusion?: unknown, status?: unknown, id?: unknown, run_attempt?: unknown, conclusion_from?: unknown }} */ (job);
     // ⛔ Never fall back to a neighbouring field. A job whose `name` this
     // cannot read is a job this gate did not see, and counting it as seen is
     // how a membership test goes vacuous.
@@ -318,6 +365,7 @@ export function evaluate({ jobs, shards, selfJobName, attempt = null }) {
       status: typeof status === 'string' ? status : null,
       jobId: typeof id === 'number' ? id : null,
       attempt: typeof runAttempt === 'number' ? runAttempt : null,
+      fromCheckRun: conclusionFrom === 'check-run',
     });
   }
 
@@ -332,6 +380,7 @@ export function evaluate({ jobs, shards, selfJobName, attempt = null }) {
       status: seen?.status ?? null,
       jobId: seen?.jobId ?? null,
       carriedFrom: attempt !== null && from !== null && from < attempt ? from : null,
+      fromCheckRun: seen?.fromCheckRun ?? false,
     };
   });
   const missing = observed.filter((s) => !s.present).map((s) => s.name);
@@ -403,6 +452,63 @@ export function onlyUnconcluded(reading) {
   );
 }
 
+/**
+ * Refuse a check run that is not this job record's own: its id, its name, its
+ * app and its `html_url` must all be the record's. The id and the URL are per
+ * job and so per attempt, which is what keeps an earlier attempt's check run
+ * from standing in for a re-run shard. Throws; a record without an
+ * `html_url` to compare against is refused too, never waved through.
+ *
+ * @param {unknown} job the jobs-API record the check run was read for
+ * @param {unknown} checkRun the answer of `GET /check-runs/{id}`
+ */
+export function assertOwnCheckRun(job, checkRun) {
+  const record = /** @type {{ id?: unknown, name?: unknown, html_url?: unknown }} */ (job && typeof job === 'object' ? job : {});
+  const answer = /** @type {{ id?: unknown, name?: unknown, html_url?: unknown, app?: unknown }} */ (
+    checkRun && typeof checkRun === 'object' ? checkRun : {}
+  );
+  const app = answer.app && typeof answer.app === 'object' ? /** @type {{ slug?: unknown }} */ (answer.app).slug : undefined;
+  const own =
+    typeof record.html_url === 'string' &&
+    answer.id === record.id &&
+    answer.name === record.name &&
+    app === ACTIONS_CHECK_RUN_APP &&
+    answer.html_url === record.html_url;
+  if (!own) {
+    throw new Error(
+      `the check run read for job ${String(record.id)} (${String(record.name)}) answered ` +
+        `${JSON.stringify({ id: answer.id, name: answer.name, app, html_url: answer.html_url })}, which is not that job's own`,
+    );
+  }
+}
+
+/**
+ * A job record the jobs API served without a conclusion, concluded by its own
+ * check run when that has one. Pure. The record comes back unchanged when the
+ * check run has no conclusion either, and when the record already has one: an
+ * answer the jobs API gave is never replaced. A check run that is not the
+ * record's own throws (`assertOwnCheckRun`).
+ *
+ * @param {unknown} job
+ * @param {unknown} checkRun
+ * @returns {unknown}
+ */
+export function concludeFromCheckRun(job, checkRun) {
+  assertOwnCheckRun(job, checkRun);
+  if (typeof /** @type {{ conclusion?: unknown }} */ (job).conclusion === 'string') return job;
+  const { status, conclusion } = /** @type {{ status?: unknown, conclusion?: unknown }} */ (checkRun);
+  if (status !== 'completed' || typeof conclusion !== 'string') return job;
+  return { .../** @type {object} */ (job), status, conclusion, conclusion_from: 'check-run' };
+}
+
+/**
+ * The record with the given id in a job list, or `undefined`.
+ *
+ * @param {unknown[]} jobs
+ * @param {number} id
+ */
+const recordWithId = (jobs, id) => jobs.find((job) => job && typeof job === 'object' && /** @type {{ id?: unknown }} */ (job).id === id);
+
 /** @param {number} ms */
 const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -418,15 +524,21 @@ const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * apart. Every re-read starts only if its wait and one more full request
  * (`requestTimeoutMs`) fit before `deadline`.
  *
- * A re-read that answers about a different job, or a shard with no id to
- * re-read it by, throws: the caller reports that as a reading that could not
- * be taken, never as a pass.
+ * With `readCheckRun`, every shard still present without a conclusion is
+ * also asked of its own check run (`concludeFromCheckRun`): once before the
+ * first wait, and again after each re-read. Like a re-read, that read starts
+ * only if one more full request fits before `deadline`.
+ *
+ * A re-read or a check run that answers about a different job, or a shard
+ * with no id to read it by, throws: the caller reports that as a reading that
+ * could not be taken, never as a pass.
  *
  * @param {{
  *   jobs: unknown,
  *   shards: number,
  *   selfJobName: string,
  *   rereadJob: (jobId: number) => Promise<unknown>,
+ *   readCheckRun?: ((jobId: number) => Promise<unknown>)|null,
  *   attempt?: number|null,
  *   sleep?: (ms: number) => Promise<unknown>,
  *   now?: () => number,
@@ -445,6 +557,7 @@ export async function settleReading({
   shards,
   selfJobName,
   rereadJob,
+  readCheckRun = null,
   attempt = null,
   sleep = defaultSleep,
   now = Date.now,
@@ -462,7 +575,41 @@ export async function settleReading({
   let current = /** @type {unknown[]} */ (jobs);
   let rereads = 0;
   let stale = 0;
+  let checkRunReads = 0;
   let budgetSpent = false;
+
+  /** Ask every shard still present without a conclusion of its own check run, and judge the list again. */
+  const askCheckRuns = async () => {
+    const pending = unconcludedShards(reading);
+    if (!readCheckRun || pending.length === 0) return;
+    if (now() + requestTimeoutMs > end) {
+      budgetSpent = true;
+      log("not asking the check runs: one more request would run past the gate's budget");
+      return;
+    }
+    /** @type {Map<number, unknown>} */
+    const concluded = new Map();
+    for (const shard of pending) {
+      if (shard.jobId === null) throw new Error(`${shard.name} has no job id to read its check run by`);
+      const record = recordWithId(current, shard.jobId);
+      checkRunReads += 1;
+      const answer = concludeFromCheckRun(record, await readCheckRun(shard.jobId));
+      if (answer === record) continue;
+      concluded.set(shard.jobId, answer);
+      log(
+        `${shard.name} (job ${shard.jobId}): the jobs API serves no conclusion (status ${shard.status ?? 'unknown'}); ` +
+          `its own check run reads ${/** @type {{ conclusion: string }} */ (answer).conclusion}`,
+      );
+    }
+    if (concluded.size === 0) return;
+    current = current.map((job) => {
+      const id = job && typeof job === 'object' ? /** @type {{ id?: unknown }} */ (job).id : undefined;
+      return typeof id === 'number' && concluded.has(id) ? concluded.get(id) : job;
+    });
+    reading = evaluate({ jobs: current, shards, selfJobName, attempt });
+  };
+
+  await askCheckRuns();
   for (let pending = unconcludedShards(reading); pending.length > 0; pending = unconcludedShards(reading)) {
     const base = rereads < limit;
     const extend = !base && stale < staleLimit && rollup === 'success' && onlyUnconcluded(reading);
@@ -509,8 +656,9 @@ export async function settleReading({
       return said === undefined ? answer : { run_attempt: said, ...answer };
     });
     reading = evaluate({ jobs: current, shards, selfJobName, attempt });
+    await askCheckRuns();
   }
-  return { reading, rereads, stale, budgetSpent };
+  return { reading, rereads, stale, budgetSpent, checkRunReads };
 }
 
 /**
@@ -534,7 +682,8 @@ export function renderReading(reading, rereads = 0, { stale = 0, budgetSpent = f
   for (const shard of reading.observed) {
     const answer = shard.conclusion ?? `no conclusion (status ${shard.status ?? 'unknown'})`;
     const from = shard.carriedFrom !== null ? `  (attempt ${shard.carriedFrom}; not re-run in attempt ${reading.attempt})` : '';
-    lines.push(`  ${shard.present ? answer : 'ABSENT'}  ${shard.name}${from}`);
+    const source = shard.fromCheckRun ? '  (from its own check run; the jobs API served no conclusion)' : '';
+    lines.push(`  ${shard.present ? answer : 'ABSENT'}  ${shard.name}${from}${source}`);
   }
   if (rereads > 0) {
     const still = unconcludedShards(reading).map((s) => s.name);
@@ -667,6 +816,52 @@ export async function fetchJob(
 ) {
   if (!repository) throw new Error('GITHUB_REPOSITORY is not set');
   return apiGet(`/repos/${repository}/actions/jobs/${jobId}`, { ...transport, token, apiUrl, fetchImpl });
+}
+
+/**
+ * One job's own check run, by the job's id: the second record of a shard the
+ * jobs API serves without a conclusion, and of this job itself
+ * (`confirmCheckRunReader`). The caller refuses an answer that is not the
+ * job's own (`assertOwnCheckRun`).
+ *
+ * @param {number} jobId
+ * @param {ReadOptions} [input]
+ */
+export async function fetchCheckRun(
+  jobId,
+  {
+    token = process.env.GITHUB_TOKEN ?? '',
+    apiUrl = process.env.GITHUB_API_URL ?? 'https://api.github.com',
+    repository = process.env.GITHUB_REPOSITORY ?? '',
+    fetchImpl = globalThis.fetch,
+    ...transport
+  } = {},
+) {
+  if (!repository) throw new Error('GITHUB_REPOSITORY is not set');
+  return apiGet(`/repos/${repository}/check-runs/${jobId}`, { ...transport, token, apiUrl, fetchImpl });
+}
+
+/**
+ * Read THIS job's own check run once and refuse it unless it is this job's
+ * own, so the second reader is walked on every run and not only in the lag it
+ * is for. ⛔ Nothing is judged from the answer. A job list without this job is
+ * left alone: `evaluate` reports that reading as `unreadable`, and nothing
+ * here would add to it.
+ *
+ * @param {{ jobs: unknown, selfJobName: string, readCheckRun: (jobId: number) => Promise<unknown> }} input
+ * @returns {Promise<string|null>} the line to log, or `null` when there was no own job to read
+ */
+export async function confirmCheckRunReader({ jobs, selfJobName, readCheckRun }) {
+  if (!Array.isArray(jobs)) return null;
+  const own = /** @type {{ id?: unknown }|undefined} */ (
+    jobs.find((job) => job && typeof job === 'object' && /** @type {{ name?: unknown }} */ (job).name === selfJobName)
+  );
+  if (!own) return null;
+  if (typeof own.id !== 'number') throw new Error(`'${selfJobName}' has no job id to read its check run by`);
+  const answer = await readCheckRun(own.id);
+  assertOwnCheckRun(own, answer);
+  const { status } = /** @type {{ status?: unknown }} */ (answer);
+  return `read this job's own check run (job ${own.id}, status ${String(status)}): the check-run reader answers`;
 }
 
 /**
@@ -836,6 +1031,21 @@ export async function run(
     return EXIT_CANNOT_RUN;
   }
 
+  // A fixture is one recorded answer, with no check runs behind it.
+  const readCheckRun = fixture ? null : (/** @type {number} */ jobId) => fetchCheckRun(jobId, read);
+  if (readCheckRun) {
+    try {
+      const line = await confirmCheckRunReader({ jobs, selfJobName: jobName, readCheckRun });
+      if (line) out(line);
+    } catch (error) {
+      err(
+        `::error title=Test::could not read this job's own check run, the second record a shard the jobs API serves ` +
+          `without a conclusion is asked of: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return EXIT_CANNOT_RUN;
+    }
+  }
+
   /** @type {Awaited<ReturnType<typeof settleReading>>} */
   let settled;
   try {
@@ -845,6 +1055,7 @@ export async function run(
       selfJobName: jobName,
       attempt,
       rereadJob: (jobId) => fetchJob(jobId, read),
+      readCheckRun,
       // A fixture is one recorded answer; there is no later answer to re-read.
       limit: fixture ? 0 : REREAD_LIMIT,
       staleLimit: fixture ? 0 : STALE_REREAD_LIMIT,

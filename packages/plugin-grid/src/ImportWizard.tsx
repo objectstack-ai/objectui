@@ -36,7 +36,7 @@ import type {
   ImportJobUndoResult,
 } from '@object-ui/types';
 import {
-  parseSpreadsheetFile, parseClipboardTable, inferColumnType, isTypeCompatible,
+  parseSpreadsheetFile, delimitedFileDelimiter, parseClipboardTable, inferColumnType, isTypeCompatible,
   suggestColumnMappings, ImportParseError,
   type InferredType, type ColumnSuggestion, type MappingConfidence,
 } from './importParsers';
@@ -952,7 +952,8 @@ function csvCell(value: string): string {
   return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
-/** CSV text of SOURCE-keyed rows (see buildSourceRows): a header row naming
+/** CSV text of the request's rows — SOURCE-keyed for a named mapping (see
+ *  buildSourceRows), field-keyed on the hand-mapped path: a header row naming
  *  every column the rows carry, then one line per row. The cells are the ones
  *  the JSON rows would carry, so a corrected cell, a pasted table and an .xlsx
  *  sheet travel exactly as the preview shows them (objectui#13156). The columns
@@ -999,22 +1000,37 @@ function assembleImportRequest(
      *  server serves and never inferred from the uploaded file's name. The
      *  import door judges the declaration against the payload and refuses JSON
      *  rows for a `csv` mapping (`400 MAPPING_FORMAT_MISMATCH`, objectui#13156),
-     *  so a `csv` mapping's rows travel as CSV text; any other keeps JSON rows. */
+     *  so a `csv` mapping's rows travel as CSV text from any source, and a
+     *  `json` mapping's as JSON rows from any source. An undeclared one follows
+     *  the source, as the hand-mapped path does (`csvFile`). */
     mappingSourceFormat?: SavedMapping['sourceFormat'];
+    /** The rows were read from a CSV file: a delimited-text file, by the name
+     *  test `parseSpreadsheetFile` picks its text arm with
+     *  (`delimitedFileDelimiter`). Its rows travel as CSV text, so the import
+     *  door reads the file's cells through its own CSV rule — the one its CSV
+     *  export pairs with (objectui#13315). The text is `sourceRowsToCsv(rows)`,
+     *  the cells the preview parsed, never the file as uploaded. An .xlsx sheet
+     *  and a paste keep JSON rows. */
+    csvFile?: boolean;
   },
 ): ImportRequestOptions {
+  // A `json`-declared mapping is the one CSV-file request that keeps JSON rows:
+  // the door refuses CSV text for it (`MAPPING_FORMAT_MISMATCH`).
+  const asCsv = opts.mappingName
+    ? opts.mappingSourceFormat === 'csv' || (opts.csvFile === true && opts.mappingSourceFormat !== 'json')
+    : opts.csvFile === true;
+  const payload = asCsv
+    ? { format: 'csv' as const, csv: sourceRowsToCsv(rows) }
+    : { format: 'json' as const, rows };
   if (opts.mappingName) {
     return {
-      ...(opts.mappingSourceFormat === 'csv'
-        ? { format: 'csv' as const, csv: sourceRowsToCsv(rows) }
-        : { format: 'json' as const, rows }),
+      ...payload,
       mappingName: opts.mappingName,
       ...(opts.dryRun ? { dryRun: true } : {}),
     };
   }
   return {
-    format: 'json',
-    rows,
+    ...payload,
     writeMode: opts.writeMode,
     ...(opts.writeMode !== 'insert' ? { matchFields: opts.matchFields } : {}),
     createMissingOptions: opts.createMissingOptions,
@@ -1301,7 +1317,9 @@ function parseErrorMessage(err: unknown, t: (k: string, v?: Record<string, unkno
 
 // Step 1: File Upload (CSV / Excel / paste)
 const StepUpload: React.FC<{
-  onFileLoaded: (headers: string[], rows: string[][]) => void;
+  /** `csvFile`: the grid was read from a delimited-text file, not from a
+   *  workbook or a paste (see `assembleImportRequest`). */
+  onFileLoaded: (headers: string[], rows: string[][], csvFile: boolean) => void;
   /** Fetches the server's import template (objectui#9600). Absent ⇒ the
    *  template is not offered: there is no client-built fallback. */
   downloadTemplate?: () => Promise<Blob>;
@@ -1333,16 +1351,16 @@ const StepUpload: React.FC<{
   };
 
   /** Validate a freshly-parsed grid and hand it to the wizard, or report why not. */
-  const acceptParsed = useCallback((parsed: string[][]) => {
+  const acceptParsed = useCallback((parsed: string[][], csvFile: boolean) => {
     if (parsed.length < 2) { setError(t('grid.import.fileNeedsHeader')); return false; }
-    onFileLoaded(parsed[0], parsed.slice(1));
+    onFileLoaded(parsed[0], parsed.slice(1), csvFile);
     return true;
   }, [onFileLoaded, t]);
 
   const processFile = useCallback(async (file: File) => {
     setError(null); setBusy(true);
     try {
-      acceptParsed(await parseSpreadsheetFile(file));
+      acceptParsed(await parseSpreadsheetFile(file), delimitedFileDelimiter(file.name) !== null);
     } catch (err) {
       setError(parseErrorMessage(err, t));
     } finally {
@@ -1362,7 +1380,7 @@ const StepUpload: React.FC<{
     if (!parsed) return;
     e.preventDefault();
     setError(null);
-    if (!acceptParsed(parsed)) { /* message already set */ }
+    if (!acceptParsed(parsed, false)) { /* message already set */ }
   }, [acceptParsed]);
 
   useEffect(() => {
@@ -2207,6 +2225,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const [step, setStep] = useState<WizardStep>('upload');
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<string[][]>([]);
+  // The rows came from a CSV file (a delimited-text file), so the request
+  // travels as CSV text (assembleImportRequest, objectui#13315).
+  const [csvFile, setCsvFile] = useState(false);
   const [mapping, setMapping] = useState<Record<number, string>>({});
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -2345,7 +2366,8 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   // Select a registered mapping: the server owns rename + transforms, so we
   // set a read-only display mapping (for the preview grid) and reflect the
   // artifact's write semantics; submit sends source rows + mappingName, as CSV
-  // text when the mapping declares `sourceFormat: 'csv'`.
+  // text when the mapping declares `sourceFormat: 'csv'` or the source is a CSV
+  // file the mapping does not declare `json` for (assembleImportRequest).
   const handleSelectSavedMapping = useCallback((name: string) => {
     const m = availableMappings.find((sm) => sm.name === name);
     if (!m) return;
@@ -2424,8 +2446,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const missingRequiredHintId = React.useId();
   const nextHeldByRequired = !mappingName && missingRequired.length > 0;
 
-  const handleFileLoaded = useCallback((h: string[], r: string[][]) => {
-    setHeaders(h); setRows(r); setMapping(autoMapColumns(h, fields, r)); setCorrections({}); setStep('mapping');
+  const handleFileLoaded = useCallback((h: string[], r: string[][], fromCsvFile: boolean) => {
+    setHeaders(h); setRows(r); setCsvFile(fromCsvFile);
+    setMapping(autoMapColumns(h, fields, r)); setCorrections({}); setStep('mapping');
   }, [fields]);
 
   // cloud#797 Excel→App: when opened with a pre-loaded file (from the AI build
@@ -2444,7 +2467,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
         const parsed = await parseSpreadsheetFile(initialFile);
         if (cancelled) return;
         if (parsed.length < 2) return; // needs a header + at least one row
-        handleFileLoaded(parsed[0], parsed.slice(1));
+        handleFileLoaded(parsed[0], parsed.slice(1), delimitedFileDelimiter(initialFile.name) !== null);
       } catch {
         // Parse failed — leave the wizard on the upload step so the user can
         // retry / pick a different file; the upload UI shows its own errors.
@@ -2707,16 +2730,16 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const mappingSourceFormat = activeMapping?.sourceFormat;
   const buildImportRequest = useCallback((dryRun = false): ImportRequestOptions =>
     assembleImportRequest(
-      // A named mapping is applied server-side over SOURCE-header rows, sent in
-      // the format it declares; the hand-mapped, field-keyed rows are for the
-      // manual path only.
+      // A named mapping is applied server-side over SOURCE-header rows; the
+      // hand-mapped, field-keyed rows are for the manual path only. Either
+      // travels as CSV text for a CSV file (assembleImportRequest).
       mappingName ? buildSourceRows(headers, rows, corrections) : buildRawRows(),
       {
-        writeMode, matchFields, createMissingOptions, skipBlankMatchKey, dryRun,
+        writeMode, matchFields, createMissingOptions, skipBlankMatchKey, dryRun, csvFile,
         ...(mappingName ? { mappingName, mappingSourceFormat } : {}),
       },
     ),
-  [buildRawRows, mappingName, mappingSourceFormat, headers, rows, corrections, writeMode, matchFields, createMissingOptions, skipBlankMatchKey]);
+  [buildRawRows, mappingName, mappingSourceFormat, headers, rows, corrections, writeMode, matchFields, createMissingOptions, skipBlankMatchKey, csvFile]);
 
   const handleImport = useCallback(async () => {
     setImporting(true); setProgress(0);
@@ -2915,7 +2938,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const reset = useCallback(() => {
     cancelPollRef.current = false;
     setFinishedJob(null); setUndoOutcome(null);
-    setStep('upload'); setHeaders([]); setRows([]); setMapping({}); setProgress(0); setResult(null);
+    setStep('upload'); setHeaders([]); setRows([]); setCsvFile(false); setMapping({}); setProgress(0); setResult(null);
     setCorrections({}); setSelectedTemplateId(null); setMappingName(null);
     setWriteMode(defaultWriteMode); setMatchFields([]);
     setCreateMissingOptions(false); setSkipBlankMatchKey(false);

@@ -132,17 +132,33 @@ export function decodeSpreadsheetText(buffer: ArrayBuffer): string {
 }
 
 /**
+ * The delimiter a delimited-text import file is read with, picked off its
+ * name: `.tsv` is tab-delimited, `.csv` and `.txt` are comma-delimited, and
+ * every other file answers `null`. {@link parseSpreadsheetFile} picks its text
+ * arm by this answer, and the import wizard sends a file it answers for to the
+ * server's CSV import door (objectui#13315), so the two read "a CSV file" the
+ * same way.
+ */
+export function delimitedFileDelimiter(fileName: string): ',' | '\t' | null {
+  const name = fileName.toLowerCase();
+  if (name.endsWith('.tsv')) return '\t';
+  if (name.endsWith('.csv') || name.endsWith('.txt')) return ',';
+  return null;
+}
+
+/**
  * Parse any supported import file into `string[][]`. Delimited text is
  * decoded via {@link decodeSpreadsheetText} (UTF-8 with GB18030 fallback);
  * .xlsx is parsed via {@link parseExcelArrayBuffer}. Throws an
  * {@link ImportParseError} code for unsupported / legacy formats.
  */
 export async function parseSpreadsheetFile(file: File): Promise<string[][]> {
-  const name = file.name.toLowerCase();
-  if (name.endsWith('.csv') || name.endsWith('.tsv') || name.endsWith('.txt')) {
+  const delimiter = delimitedFileDelimiter(file.name);
+  if (delimiter) {
     const text = decodeSpreadsheetText(await file.arrayBuffer());
-    return parseDelimited(text, name.endsWith('.tsv') ? '\t' : ',');
+    return parseDelimited(text, delimiter);
   }
+  const name = file.name.toLowerCase();
   if (name.endsWith('.xlsx') || name.endsWith('.xlsm')) {
     return parseExcelArrayBuffer(await file.arrayBuffer());
   }

@@ -5,16 +5,25 @@
 
 /**
  * Parity of the server's CSV import parse with the wizard's own parse,
- * MEASURED before a CSV file source is sent to the server's CSV import door
+ * MEASURED before a CSV file source was sent to the server's CSV import door
  * (objectui#13315, item 2). This file records the inputs on which the two
- * differ in a way that changes an imported value. It changes no behaviour:
- * the wizard still sends a CSV file's rows as JSON on its default path.
+ * differ in a way that changes an imported value.
  *
  * Two ways for the wizard to hand a CSV file to that door were measured:
  *   - FILE TEXT: the server parses the file's own decoded text.
  *   - RE-SPELLED: the server parses `sourceRowsToCsv(rows)`, the rows the
  *     preview shows written back out as CSV — what a csv-declared named
- *     mapping already sends (objectui#13156).
+ *     mapping already sent (objectui#13156).
+ *
+ * RE-SPELLED is the route that shipped (the maintainer's ruling A on
+ * objectui#13315): a CSV file source sends `format: 'csv'` with
+ * `sourceRowsToCsv(rows)`. Its pins are in
+ * `ImportWizard.csvFileSource-13315.test.tsx`. The FILE TEXT cases below record
+ * why the file's own text was not sent. The RE-SPELLED cases record the three
+ * shapes that route was accepted with: a last row whose sent cells are all
+ * empty is dropped (B1, driven through the real wizard below), an exported
+ * +/- cell with trailing whitespace keeps its mark (B2), and a space before a
+ * mark is trimmed, so the mark is removed (B3).
  *
  * The browser half runs live here: `decodeSpreadsheetText`, `parseDelimited`,
  * `sourceRowsToCsv`, `buildSourceRows`, and the real wizard's default-path
@@ -91,7 +100,7 @@ describe('FILE TEXT: the server parsing the file itself reads different cells fr
   });
 });
 
-describe('RE-SPELLED: the wizard trims a cell before the server reads its mark (objectui#13315)', () => {
+describe('RE-SPELLED (shipped): the wizard trims a cell before the server reads its mark (objectui#13315)', () => {
   it('an exported +/- cell with trailing whitespace keeps its mark when re-spelled, and loses it when the server reads the file', () => {
     // The CSV the server's own export writes for the stored values
     // `+1 555 0100` + LF and `-42` + TAB (RECORDED: `formatCsvCell` at the PR head).
@@ -112,7 +121,8 @@ describe('RE-SPELLED: the wizard trims a cell before the server reads its mark (
     const grid = wizardGrid(text);
     expect(grid).toEqual([['name', 'note'], [`${MARK}=x`, 'y']]);
     expect(respelled(grid)).toBe(`name,note\r\n${MARK}=x,y`);
-    // RECORDED at the PR head; today's JSON rows import `'=x`, as the file read does.
+    // RECORDED at the PR head; the JSON rows the wizard sent before it switched
+    // to CSV imported `'=x`, as the file read does.
     const fileText = { cells: [{ name: ` ${MARK}=x`, note: 'y' }], imported: [{ name: `${MARK}=x`, note: 'y' }] };
     const respelledRead = { cells: [{ name: '=x', note: 'y' }], imported: [{ name: '=x', note: 'y' }] };
     expect(respelledRead.imported).not.toEqual(fileText.imported);
@@ -133,13 +143,13 @@ describe('RE-SPELLED: the wizard trims a cell before the server reads its mark (
   });
 });
 
-describe('RE-SPELLED, default path: a last row with every mapped cell empty is dropped by the server (objectui#13315)', () => {
+describe('RE-SPELLED, default path (shipped): a last row with every mapped cell empty is dropped by the server (objectui#13315)', () => {
   beforeAll(() => {
     if (!Element.prototype.hasPointerCapture) Element.prototype.hasPointerCapture = vi.fn(() => false);
     if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = vi.fn();
   });
 
-  it('today the wizard sends that row as JSON; written out as CSV it is gone after the server reads it', async () => {
+  it('the wizard sends that row as CSV text, and it is gone after the server reads it (B1)', async () => {
     const sent: ImportRequestOptions[] = [];
     const importRecords = vi.fn(async (_object: string, request: ImportRequestOptions): Promise<ImportRecordsResult> => {
       sent.push(request);
@@ -175,13 +185,15 @@ describe('RE-SPELLED, default path: a last row with every mapped cell empty is d
 
     const real = sent.filter((r) => !r.dryRun);
     expect(real).toHaveLength(1);
-    expect(real[0]).toMatchObject({ format: 'json', rows: [{ name: 'Ada' }, { name: '' }] });
-
-    const csv = sourceRowsToCsv(real[0].rows as Array<Record<string, string>>);
-    expect(csv).toBe('name\r\nAda\r\n');
+    // The preview's two rows, the second with its one mapped cell empty,
+    // re-spelled: `sourceRowsToCsv([{ name: 'Ada' }, { name: '' }])`.
+    expect(real[0]).toEqual({
+      format: 'csv', csv: 'name\r\nAda\r\n', writeMode: 'insert', createMissingOptions: false, skipBlankMatchKey: false,
+    });
+    expect(sourceRowsToCsv([{ name: 'Ada' }, { name: '' }])).toBe(real[0].csv);
     // RECORDED, main and PR head alike: the server drops trailing rows whose
-    // cells are all empty, so the request's second row never reaches the runner.
+    // cells are all empty, so the preview's second row never reaches the runner.
     const server = [{ name: 'Ada' }];
-    expect(server).toHaveLength((real[0].rows ?? []).length - 1);
+    expect(server).toHaveLength(2 - 1);
   });
 });

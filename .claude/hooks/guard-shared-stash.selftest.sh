@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# copied from objectstack@7c2c5aedd94d7b0d94c91432bc607862e9c83c6c
+# copied from objectstack@338297e46018ae96256262590a308c8be735f825
 # Self-test for guard-shared-stash.sh — run it after touching that hook:
 #
 #   .claude/hooks/guard-shared-stash.selftest.sh
@@ -147,6 +147,43 @@ expect block 'echo "a \\" ; git stash pop'
 # Inside '…' nothing is special — that asymmetry is what the q='"' gate pins. Applied to
 # single quotes the branch would swallow the closing `'` and pass the stash behind it.
 expect block "echo 'a \\' ; git stash pop"
+
+echo "== a \$(…), backtick or \${…} inside \"…\" is its own quoting context (objectstack#24901) =="
+# Reading the `"` inside the body as CLOSING the outer string split the body at its `;`, so a
+# pure read became a stash. The first three were BLOCKED before subst_end() existed here; the
+# fourth (both kinds nested) was allowed then only because two misread quotes cancelled out,
+# and the single-level `echo "x; git stash pop"` was allowed throughout.
+expect allow 'echo "a $(echo "x; git stash pop")"'
+expect allow 'echo "a `echo "x; git stash pop"`"'
+expect allow 'echo "${x:-"a; git stash pop"}"'
+expect allow 'echo "${x:-"$(echo "a; git stash pop")"}"'
+expect allow 'echo "x; git stash pop"'
+# Recall: a stash behind or beside a quoted expansion is still seen.
+expect block 'echo "${x:-"a"}" ; git stash pop'
+expect block 'X="${Y:-"z"}" && git stash push -m wip'
+expect block 'git stash push -m "${msg:-"wip; x"}"'
+# The fail-OPEN mirror: the `"` inside the single quotes left the outer string hanging, so the
+# separator behind it went inert and the real stash rode through as text. Both were ALLOWED
+# before subst_end() existed here.
+expect block "echo \"\$(printf '\"')\" ; git stash pop"
+expect block "echo \"\${x:-\$(printf '\"')}\" ; git stash pop"
+# Deliberately not claimed, as before: a stash INSIDE a quoted substitution is one inert word.
+expect allow 'echo "$(git stash pop)"'
+
+echo "== the shared quoting rule is guard-main-checkout-bash.sh's, byte for byte (objectstack#24901) =="
+# subst_end() lives in three hooks here. A copy that drifts is a quoting rule the guards no longer
+# share, and nothing else notices: each hook's own cases keep passing on its own dialect.
+fn_text() { sed -n "/^$1() {\$/,/^}\$/p" "$2"; }
+same_fn() { # same_fn <function> <file holding the copy this hook must equal>
+  local mine theirs
+  mine="$(fn_text "$1" "$hook")"; theirs="$(fn_text "$1" "$2")"
+  if [ -n "$mine" ] && [ "${mine%%$'\n'*}" = "$1() {" ] && [ "$mine" = "$theirs" ]; then
+    pass=$((pass + 1)); printf '  ok   same   %s() as %s\n' "$1" "${2##*/}"
+  else
+    fail=$((fail + 1)); printf '  FAIL %s() is missing here or differs from %s\n' "$1" "${2##*/}"
+  fi
+}
+same_fn subst_end "$here/guard-main-checkout-bash.sh"
 
 echo "== escape hatch =="
 expect allow 'git stash pop' OS_ALLOW_STASH=1

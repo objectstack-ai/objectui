@@ -127,9 +127,9 @@ fi
 # taken for a redirect whose "target" was the next fragment — a false BLOCK (objectstack#24812);
 # the same reading of `echo "${x:-"a > b"}"` named `b}` as a target (objectstack#24901). All
 # three quote-aware scanners hand such a body to this ONE function, so they agree on where it
-# ends. objectstack's guard-shared-stash.sh, guard-process-kill.sh and guard-tree-enum.sh segment
-# commands the same way and carry a byte-identical copy of it, pinned by their self-tests. A
-# hook here that segments commands the same way takes the same copy.
+# ends. guard-shared-stash.sh and guard-tree-enum.sh segment commands the same way and carry a
+# byte-identical copy; their self-tests fail when a copy differs from this one. (objectstack's
+# guard-process-kill.sh carries one too; it has no twin in this repo.)
 #
 # subst_end S I: when S[I] opens such a context (the `$` of a `$(` or a `${`, or a backtick),
 # sets SUBST_END to the index of the character that closes it and returns 0; otherwise returns 1

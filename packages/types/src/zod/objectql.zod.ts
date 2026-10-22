@@ -584,7 +584,9 @@ const ObjectGridBulkActionDefSchema = z.strictObject({
   operation: stripImportedDefaults(SpecBulkActionOperationSchema),
   patch: z.record(z.string(), z.unknown()).optional(),
   params: z.array(ObjectGridBulkActionParamSchema).optional(),
-  confirmText: z.string().optional(),
+  // The twin's two arms (objectui#13183): a string, or the `template` envelope a
+  // parsed def carries once the spec makes the slot a template slot (objectstack#24947).
+  confirmText: z.union([z.string(), z.object({ dialect: z.literal('template').optional(), source: z.string() })]).optional(),
   confirmLabel: z.string().optional(),
   visible: z.union([ExpressionWireSchema, stripImportedDefaults(SpecBulkActionDefSchema).shape.visible]).optional(),
   requiredPermissions: z.array(z.string()).optional(),

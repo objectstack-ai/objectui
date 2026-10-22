@@ -1,0 +1,37 @@
+{
+  "number": 13326,
+  "kind": "pull_request",
+  "title": "fix(console,permissions): a non-admin approver sees the whole approval request page (objectui#13324)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "package: permissions",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-22T14:50:44Z",
+  "updated_at": "2026-10-22T17:00:38Z",
+  "closed_at": "2026-10-22T17:00:36Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-22T17:00:36Z",
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13326",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-sales\"} -->\n_Requested by **Sales** · [project thread](https://claude.ai/code/project/chan_01D5bWFY3rFzgJcytD5gD4Uu?thread=cmsg_01D5bWFY3rFzgJcytD5gD4UuWZuY6ULhRUicdkMU9wSQGt)_\n\nFixes #13324\n\nRefs: objectstack-ai/objectstack#25228 (the 18.1.0 release blocker; the console pin move there follows this merge)\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer). `ServerReadScope` is named for what it does and takes the object names as a prop; the approval object names live in the console app (`ApprovalRecordReads`), which already owns the approvals routing.\n\nClause-②: yes (one new export from `@object-ui/permissions`: `ServerReadScope` and `ServerReadScopeProps`)\n\n## What was wrong\n\nA non-admin approver who opened a request from the account app's Approvals inbox got a blank record page: a heading and a chip, empty Details and Timeline, no decision actions. Every request the page made answered 2xx.\n\nThe console reads a request (`findOne`) and its timeline through the approvals routes (`ApprovalRecordReads` / `routeApprovalRecordReads`), which serve a request to each party to it. The record page then gated what it drew on `MePermissionsProvider`, whose answer mirrors the DATA API. objectstack keeps the data API closed on `sys_approval_request` and `sys_approval_action` to non-administrators on purpose, so a member's answer names neither object, and for an absent object a signed-in caller gets \"closed\" from both read verdicts:\n\n- `checkField(object, field, 'read')` is false for every field, so `withoutDeniedFields` (the record page's `readableRow`, `record:details`, the highlights binding) folded the served row down to `id`. `viewer` went with it, so every declared decision action's `visible` predicate failed;\n- `check(object, 'read')` is false, so `record:related_list`'s automatic object-level read gate dropped the Timeline.\n\n## The change\n\n- `@object-ui/permissions` adds `ServerReadScope`. Below it, `check(object, 'read')` and `checkField(object, field, 'read')` answer \"allowed\" for the objects it names (case-insensitively). Every other action (`create`, `update`, `delete`, `export`, …), the field `write` / `create` verdicts, `getFieldPermissions`, `getObjectApiOperations`, `effectiveObjects` and every other object keep the enclosing provider's answer. The derived context value is cached in a module-level `WeakMap` on the enclosing value and keyed on the sorted, lower-cased object list (AGENTS.md #10). With no enclosing provider it renders its children unchanged.\n- `ApprovalRecordReads` (console) mounts it for `sys_approval_request` and `sys_approval_action`, the two objects whose record reads it already routes to the approvals routes. A list of requests still goes through the data API, which refuses a member or removes the fields the caller may not read before it answers.\n- ⛔ No read grant on either object, and nothing asks objectstack for one: the data API stays closed to members (ADR-0103, objectstack's request read gate).\n- Docs: `packages/permissions/README.md` (new `ServerReadScope` section, with a neutral example) and `content/docs/guide/console.md` (an \"Approval Request Pages\" row). Changeset: `@object-ui/permissions` minor (new export), `@object-ui/console` patch; no `major`.\n\n## Verification\n\n- New pin `apps/console/src/services/approvalRequestsDataSource.servedPageMemberPermissions-13324.test.tsx` renders the served `sys_approval_request_detail` page on the real `RecordDetailView` under a REAL `MePermissionsProvider` whose signed-in member answer names neither approval object. It asserts the decision panel's tally and the Approve / Reject actions, the flow and step chips, and the Timeline rows. Its control mounts the same routed reads WITHOUT `ApprovalRecordReads` under the same answer and pins the blank page (heading only, no actions, no chips, Timeline never read).\n- Red before the change: the pin's first run against the base commit's `ApprovalRecordReads` failed every page assertion and the scope probe, on the blank page the report describes. Green after: 5/5. A reverse run on this head (`AppContent.tsx` at the base commit, everything else in place) is recorded in a comment below.\n- `packages/permissions/src/__tests__/ServerReadScope-13324.test.tsx`: the truth table (scoped reads allowed, writes and other actions unchanged, other objects and explicit field entries unchanged, data members handed on, one identity for the same names in any order or case, pass-through with no provider). `pnpm exec vitest run packages/permissions/`: 12 files, 139 tests passed.\n- `turbo run type-check --filter=@object-ui/permissions`: passed. ESLint on every changed source file: 0 errors (one pre-existing `react-refresh/only-export-components` warning in `AppContent.tsx`, on a line this PR does not touch). `check-changeset-presence` and `check-changeset-no-major`: pass.\n- Remote CI is the record for the full suite and the console type-check.\n\n## Acceptance notes\n\n- None out of scope. Other surfaces that read an object through a non-data door would need the same scope where they mount; none other was found reading through such a door in the console today.\n\nSession: `session_016ZEJXR398Mp5xcwuMncpK9`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_016ZEJXR398Mp5xcwuMncpK9\n"
+}

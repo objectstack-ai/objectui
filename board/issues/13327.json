@@ -1,0 +1,37 @@
+{
+  "number": 13327,
+  "kind": "issue",
+  "title": "CI: the aggregate Test gate still ejects all-green runs — the jobs API served finished shards without a conclusion for longer than the gate's 450 s budget (4 hits on 2026-10-22)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-22T16:49:20Z",
+  "updated_at": "2026-10-22T18:54:44Z",
+  "closed_at": "2026-10-22T18:52:29Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13327",
+  "body": "Filing gate: **① a reproduced defect** (`reach:` below). Filed by `domain:ui` seat 1 (`session_01WJozybDmRH8z2c5SD7vJkj`). ⛔ Not a claim; grade and routing are triage's.\n\n## What happens\n\n`scripts/check-test-shard-results.mjs` (the aggregate `Test` job in `ci.yml`) fails a run whose 16 test shards all completed `success`, because the jobs API keeps serving finished shard jobs as `in_progress` / `queued` with no conclusion until after the gate's re-read stretches and `GATE_BUDGET_MS` (450 000 ms) are spent. objectui#13064 added the second, rollup-gated re-read stretch (`STALE_REREAD_LIMIT` 9 × `STALE_REREAD_WAIT_MS` 30 s); the lag measured today outlasted it.\n\n## reach: measured 2026-10-22 (job logs read with `get_job_logs`)\n\n| run | PR | head | what the gate read |\n|:--|:--|:--|:--|\n| 39799233894, job 119902177625 | #13325 | `f20f73c` | 17 re-reads; shard 10/16 still `in_progress` though every one of its steps had completed `success` → exit 3. Re-run once: green |\n| 39799289611 attempt 1, job 119901506109 | #13326 | `8a3ef97` | shard 3/16 completed at 15:02:28Z, still served `in_progress` → exit 3 |\n| 39799289611 attempt 2, job 119908654881 | #13326 | `8a3ef97` | a different signature: `GET …/attempts/2/jobs` answered HTTP 502 three times → exit 2 |\n| merge-group run 39812942829 | #13326 | `66f43f5` | all 16 shards `success` (last at 16:30:16Z); 7 shards served without a conclusion for about 7 minutes from 16:30:18Z → exit 3; the PR was ejected from the merge queue (`CI_FAILURE`) |\n\nIn every row `TEST_MATRIX_ROLLUP` (`needs.test.result`) read `success`. Cost: each hit is a re-run or a re-queue by a seat or a person; the merge-group hit ejected an 18.1.0 release blocker (objectui#13324).\n\n## Expected\n\nAn all-green run passes the gate when the platform only lags on reporting conclusions, and the gate still never reads a rollup as a pass (objectui#10931's rule stays: the verdict is each shard's own conclusion).\n\n## Not asked here\n\nThe route is the dev's and triage's to choose (a longer stretch inside a larger budget, reading the shard's `completed_at` together with its steps' conclusions, or another reading). ⛔ No new gate.\n\nDedupe: objectui#10931 and objectui#13064 (both closed) cover the earlier bounds; nothing open names `check-test-shard-results`. Dedupe words: check-test-shard-results, no conclusion, jobs API lag, aggregate Test gate, merge queue ejection."
+}

@@ -1,0 +1,34 @@
+{
+  "number": 13325,
+  "kind": "pull_request",
+  "title": "fix(pin): the missing-entry remedy builds with declarations whatever OS_SKIP_DTS is exported",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-22T14:50:24Z",
+  "updated_at": "2026-10-22T15:31:20Z",
+  "closed_at": "2026-10-22T15:31:18Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-22T15:31:18Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13325",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-sales\"} -->\n_Requested by **Sales** · [project thread](https://claude.ai/code/project/chan_01D5bWFY3rFzgJcytD5gD4Uu?thread=cmsg_01D5bWFY3rFzgJcytD5gD4UuQsA4oacuXitsZSz3thMBc7)_\n\nFixes #13017\n\nThe branch was named by the PM seat (`claude/issue-13017-pin-remedy-skip-dts`).\n\n## What changed\n\nWhen `OBJECTSTACK_ROOT` names a tree whose `@objectstack/*` packages were built without declarations, `scripts/objectstack-pin.mjs build` refuses it (\"... is not built in TREE: its manifest points at `dist/index.d.ts`, which is not there\") and prints a command that builds the tree. That command ran under the caller's shell, so with `OS_SKIP_DTS` exported it rebuilt the tree typeless and the same refusal repeated.\n\n- The printed remedy now reads `(cd TREE && env -u OS_SKIP_DTS pnpm --filter-prod NAME... run build)`. The unset is part of the command, so it holds whatever the shell exported.\n- When the shell did export `OS_SKIP_DTS`, one more line names the variable and says the command builds without it.\n- The refusal itself, its conditions and exit are unchanged. No new gate.\n- One new test in `scripts/__tests__/objectstack-pin.test.ts` pins the remedy command with `OS_SKIP_DTS` unset and set; the existing refusal test is untouched and still passes.\n\nFiles: `scripts/objectstack-pin.mjs` (+3 -1), `scripts/__tests__/objectstack-pin.test.ts` (+26).\n\n## Gates (hand-derived from `.github/workflows/lint.yml` and `package.json`; objectui has no `dispatch-gates.mjs`)\n\nHead `f20f73c`. Exit codes captured before any pipe.\n\n- `pnpm exec vitest run scripts/__tests__/objectstack-pin.test.ts` (from the worktree root, under the shared verify lock) :: exit 0, 1 file, 38 tests passed.\n- Ablation (fix committed first, then `scripts/objectstack-pin.mjs` replaced by its parent's bytes, `env -u OS_SKIP_DTS` count 0 on disk): same command :: exit 1, 1 failed / 37 passed, the failure is the new test. Restored with `git checkout HEAD -- scripts/objectstack-pin.mjs`; `git diff HEAD` empty afterwards.\n- `pnpm exec eslint --no-inline-config scripts/objectstack-pin.mjs scripts/__tests__/objectstack-pin.test.ts` :: exit 0\n- `node scripts/check-test-path-roots.mjs` :: exit 0\n- `node scripts/check-vi-mock-override-shape.mjs` :: exit 0\n- `node scripts/check-new-cross-file-line-citations.mjs` :: exit 0 (0 new citations)\n- `node scripts/check-lint-coverage.mjs` :: exit 0\n- `node scripts/check-changeset-presence.mjs` :: exit 0 (no changeset owed: the diff touches no published source)\n- `node scripts/check-governed-queue-guard.mjs --test scripts/objectstack-pin.mjs scripts/__tests__/objectstack-pin.test.ts` :: exit 0, NOT GOVERNED (ordinary PR)\n- Everything else CI runs is left to the PR's check-runs.\n\n## Acceptance notes\n\n- Premise re-read at `main` `1aa88519`: the `--filter-prod NAME...` list is built in `build()` and the remedy named no `OS_SKIP_DTS`. It holds, and the remedy is printed only on the `OBJECTSTACK_ROOT` path.\n- Route taken: always prefix `env -u OS_SKIP_DTS` (the PM-suggested route). `OS_SKIP_DTS` is read as \"any non-empty value skips declarations\" by the build scripts in objectstack, so an unconditional unset is correct for every state, including unset.\n- The test asserts the command shape and the variable name, with `OS_SKIP_DTS` unset and set. It does not pin the explanatory sentence word for word.\n- NOT MEASURED, not touched: the pin path (no `OBJECTSTACK_ROOT`) passes the caller's environment on to its own nested `pnpm install` and `pnpm run build` in the fetched tree, so an exported `OS_SKIP_DTS` may reach it too. It prints no remedy, so it is outside this card; measuring it needs a network checkout of the pin.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

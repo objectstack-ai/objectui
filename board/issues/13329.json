@@ -1,0 +1,35 @@
+{
+  "number": 13329,
+  "kind": "pull_request",
+  "title": "fix(ci): the Test gate asks a shard's own check run when the jobs API serves it without a conclusion (objectui#13327)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-22T18:25:45Z",
+  "updated_at": "2026-10-22T18:52:29Z",
+  "closed_at": "2026-10-22T18:52:27Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-22T18:52:27Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13329",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-sales\"} -->\n_Requested by **Sales** · [project thread](https://claude.ai/code/project/chan_01D5bWFY3rFzgJcytD5gD4Uu?thread=cmsg_01D5bWFY3rFzgJcytD5gD4Uu2b3Jzu5fuwfkzS71ak414T)_\n\nFixes #13327\n\n## What was wrong\n\nThe aggregate `Test` gate (`scripts/check-test-shard-results.mjs`) failed runs whose 16 shards had all finished `success`. The Actions jobs API went on serving finished shards as `in_progress` or `queued`, with no conclusion and no `completed_at`, for longer than the gate's whole 450 s budget. The single-job endpoint the re-reads use answered exactly as the list did. Read by hand from the job logs and the settled job records:\n\n| run | lagged shard | its `completed_at` | still no conclusion at |\n|:--|:--|:--|:--|\n| 39799233894 (PR 13325) | shard 10/16 | 15:03:04Z | 15:10:50Z, when the gate gave up (7 min 46 s) |\n| merge group 39812942829 (PR 13326) | shard 4/16 | 16:29:44Z | 16:37:27Z (7 min 43 s); the PR was ejected from the queue |\n\nShards that did settle in the first run took about 6 to 7.5 minutes. Outwaiting that would need a budget past the job's `timeout-minutes: 10`.\n\n## The fix: ask the job's own check run\n\nEvery Actions job is also published as a check run with the job's own id (the job record's `check_run_url` names it). That is a second record of the same job, kept by the Checks API rather than the Actions one.\n\n- A shard the jobs API serves **present without a conclusion** is also read on `GET /check-runs/{id}`, once before any wait and again after each re-read. When the check run reads `completed`, its conclusion is the shard's.\n- The check run counts only when its **id, name, app (`github-actions`) and `html_url`** are the job record's own. The id and the URL are per job and per attempt, so a shard re-run in attempt N is asked by attempt N's job id and the attempt before it can never stand in (pinned: the Checks API answering with attempt 1's check run of the same shard is refused, exit 2).\n- An answer the jobs API already gave is **never replaced**: a `failure` there stays red whatever its check run says, and such a shard is never even asked.\n- A check run reading `failure`, `cancelled`, `skipped` or `timed_out` is that, and red at once. One with no conclusion either leaves the shard to the existing re-reads, which still end red.\n- An **absent** shard is never asked: drift is not lateness, and it stays `ABSENT` and red.\n- A check run that cannot be read is a request like any other: a 4xx is exit 2 at once, a 5xx (502 included) is retried and then exit 2.\n- The rollup (`needs.test.result`) is still read only to decide whether to wait longer, never whether to pass.\n\nThe gate also reads **its own job's check run once per run**, refused on the same four keys and judged on nothing. A read taken only during a lag would be a path no green run walks, so a lost permission or a moved route would surface only in the next lag. This way it reds every run at once instead.\n\n## No workflow change, and how that is measured\n\n`ci.yml` is not touched; the `test-aggregate` job keeps `contents: read` and `actions: read`. GitHub's REST reference for \"Get a check run\" says the endpoint can be used without the `checks` permission when only public resources are requested, and this repository is public. That is a document, not a measurement: the measurement is this PR's own `Test` check. The per-run self-read means the CI log of this PR's run prints either `read this job's own check run (job N, status in_progress): the check-run reader answers`, or a red with the HTTP status. If it reds, the remedy is one `checks: read` line on `test-aggregate`, a governed-surface change that would wait for an authorized approval.\n\n## Verification\n\n- `pnpm exec vitest run scripts/__tests__/check-test-shard-results.test.ts`: 69 passed (53 before, 16 new). The ⭐ case replays merge-group run 39812942829 through `run` with the jobs API never settling: the run passes with zero waits once the lagged shards' check runs read success, and the control (same replay, check runs also without a conclusion) stays red within the budget.\n- Ablations, each on the committed fix and restored after: no check-run cross-read reds 7 cases; the own-check-run keys reduced to nothing reds 4; no self-read reds 6.\n- Every test file that reads the changed files (`git grep` over `**/__tests__/**` for `ci-cd-pipeline.md` and `check-test-shard-results`): 18 files, 812 tests passed. `scripts/__tests__/shard-headroom.test.ts`: 10 passed.\n- `pnpm run type-check:scripts` exit 0; `eslint` on both changed script files exit 0; `pnpm check:new-line-citations` 0 new; `node scripts/check-changeset-presence.mjs` no changeset owed (an empty-frontmatter one is added as the declaration); `node scripts/check-governed-queue-guard.mjs --test` on the four paths: NOT GOVERNED.\n\n## Acceptance notes\n\n- `scripts/shard-headroom.mjs` (report-only) prints NOT MEASURED for a lagged shard because it reads the same jobs API. Left as is: it is a reading, not a gate.\n- The triage floor holds and is pinned: all green passes; a failed, cancelled, skipped or absent shard stays red; a persistent 502 stays exit 2.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nImplemented by the ui lane card thread, session `https://claude.ai/code/session_01XHL1s9Rq8nZsFhjyct1QpT`; claim on the card, comment 6347924204.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01XHL1s9Rq8nZsFhjyct1QpT\n"
+}

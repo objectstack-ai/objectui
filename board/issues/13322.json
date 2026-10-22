@@ -1,0 +1,35 @@
+{
+  "number": 13322,
+  "kind": "pull_request",
+  "title": "test(console): wait on the leave guard itself after a settings save, not on the bar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-22T09:55:51Z",
+  "updated_at": "2026-10-22T10:22:55Z",
+  "closed_at": "2026-10-22T10:22:53Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-22T10:22:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13322",
+  "body": "Fixes #13317\n\n## The race\n\nThe case \"after a successful save the page is clean again: no prompt\" in `SettingsView.leaveGuard-13163.test.tsx` waited for the unsaved bar (`settings-unsaved-count`) to go and then asserted, synchronously, that a `beforeunload` is not held. Those are two different moments:\n\n- the bar goes in the **commit** that renders `setDraft({})` after the save resolves;\n- the guard goes one step later, in the **passive effect** cleanup of `useRegisterUnsavedEdits` (app-shell's unsaved-edits seam), which removes the `beforeunload` and capture-phase `click` listeners.\n\nThe save settles after an `await`, outside `act()`, so the update renders on the default lane and react-dom 19.2.8 hands the passive flush to the scheduler as a task of its own (only sync-lane commits flush passive effects inline). When the commit task overruns the scheduler's 5ms frame budget, the scheduler yields, and RTL's `waitFor` (whose wrapper ends on a `setTimeout(0)`) can return before that task runs. The assertion then reads the still-registered guard: `expected true to be false`, the CI signature.\n\nProduct code is not changed: the release is one task after the bar disappears, before any paint a user could react to. What was wrong is the test, which waited on a stand-in for the thing it asserts. The fix waits on the guard itself (a `waitFor` around the `beforeunload` check), the same shape `discardGuard.test.tsx` in `plugin-form` already uses for its dirty case. The link listener is removed in the same uninstall, so the click assertion that follows needs no wait of its own.\n\n## Measured\n\nPM mechanism assumption 1 holds, with one correction: the draft reset is not late. The bar goes on time, and what lands later is the guard's release, in a passive effect. Assumption 2 holds: the diff from the base commit touches neither file, and the race is the test's own.\n\n- **The gap, on an unloaded run (probe, not committed):** a MutationObserver that fires when the bar leaves the DOM read the guard **still held 20/20**. Right after `waitFor` returned it was released 20/20, which is why the file passes locally (5/5 reruns on the card, 1/1 here at the base commit, 12/12 tests).\n- **Same probe with a slow machine modelled** (`performance.now` skewed +10ms per read, so React's scheduler yields after every task): right after `waitFor`, the guard was **still held 13/20**.\n- **The real case, before and after, under that same load** (uncommitted copies of the file with the case repeated 20 times):\n  - before (base commit): `Tests  10 failed | 21 passed (31)`, every failure `AssertionError: expected true to be false` at `expect(unload.defaultPrevented).toBe(false)` in that case; the file's other 11 cases are green;\n  - after (this branch): `Tests  31 passed (31)`.\n- **Ablation** (a mutation, run once and restored): with `useUnsavedLeaveGuard` registering unconditionally (`useRegisterUnsavedEdits(true, message)`), the fixed case goes red inside the new wait (`Tests  1 failed | 11 skipped`, `expected true to be false`). So the wait does not pass when the guard is never released. The mutation was applied through `ablation-replace.mjs`: anchor 1 to 0, blob `42a45f17ddd5` to `97ee57239286`, then restored to the HEAD blob with `git diff HEAD` empty.\n\n## Verification (head `42cc11c`)\n\n- `pnpm exec vitest run apps/console/`: `Test Files  236 passed (236)`, `Tests  2408 passed (2408)`.\n- `node scripts/check-changeset-presence.mjs` 0 · `node scripts/check-changeset-no-major.mjs` 0 · `pnpm check:new-line-citations` 0 · `pnpm check:control-bytes` 0 · `pnpm check:test-path-roots` 0 · `pnpm check:changeset-claims` 0 · `pnpm check:pending-changeset-literals` 0 · `eslint` on the changed file (console config) 0.\n- NOT MEASURED locally: `type-check` for `@object-ui/console` exits 2 in this worktree because the workspace packages' `dist` is not built. Every error is module resolution or cascades from it, and the only error reported in the changed file is on its existing `@object-ui/i18n` import, a line this diff does not touch. CI's `type-check` and repository-wide `pnpm lint` decide these.\n\nThe changeset `.changeset/13317-settings-leaveguard-race.md` has an empty frontmatter: test-only, releases nothing (AGENTS.md section 9).\n\n## Acceptance notes\n\n- I surveyed the other suites that assert a `beforeunload` (`git grep -ln beforeunload` over tests). None of them checks a guard that is released after an awaited save while waiting on a DOM stand-in; their clean checks follow `act`-wrapped events or a pristine mount. No other instance of this shape was found.\n\nSession: `https://claude.ai/code/session_019Bd3muSBdHUFdJiKqnsM2W`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019Bd3muSBdHUFdJiKqnsM2W)_\n"
+}

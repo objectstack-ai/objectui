@@ -1,0 +1,32 @@
+{
+  "number": 13323,
+  "kind": "issue",
+  "title": "console open: a nav entry and a page element bound to the same API dataSource read it twice — the page does not reuse the answer the nav gate already read",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "area:api",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-22T12:29:21Z",
+  "updated_at": "2026-10-22T12:55:31Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13323",
+  "body": "Filing-gate category: ① a reproduced defect (`reach:` below), and ③ directed by the maintainer on cloud#3103:\n> 「在 objectui 立卡修重复读（导航门读到的结果给页面元素复用），挂 pm:queue。」\n\n**Reader:** the `domain:ui` lane, through `pm:queue`. The change is in two files:\n- `packages/react/src/element-data-source/useElementApiDataSource.ts` (`readElementApi`);\n- `packages/app-shell/src/hooks/useNavMemberGates.ts`.\n\nIt reaches cloud through a cloud pin move. Cloud's `console-boots` (pin-smoke, `verify-console-pin.mjs`, the cloud#2914 call budget) then measures it.\n\n**Dedupe:** `gh api search/issues`, counting closed cards. Nothing open covers it.\n- `repo:objectstack-ai/objectui readElementApi`: 3, all closed (#13095, #13029, #12928).\n- `repo:objectstack-ai/objectui useNavMemberGates`: 25, all closed among the shown; nearest #13029, #13095, #13105.\n- `repo:objectstack-ai/objectui \"second fetch\"`: 108; the nearest is #12701, the record page's request count, a different surface.\n\n#13029 is the closest: it added the nav entry's read. Its scope said \"The reader reuses `useElementApiDataSource`, with no second fetch\". Its contract review set the request count at \"once per distinct binding per hook instance, sharing in flight\" ([comment](https://github.com/objectstack-ai/objectui/issues/13029#issuecomment-6279555268)). The duplicate below is outside that bound. This card asks for the next property: one read per open, across the nav gate and the page.\n\n## What happens\n\nA nav entry declares an API `dataSource`, and the page it opens binds the **same** read on an element. Two things then happen:\n1. The nav gate reads the URL first (`useNavMemberGates` → `readElementApi`).\n2. About 300 ms later, the page element reads it again (`useElementApiDataSource` → `readElementApi`).\n\n`readElementApi` shares a request only while it is in flight: `.finally(() => IN_FLIGHT.delete(url))`. When the nav read has settled before the page element mounts, a second `GET` goes out for an answer the console already holds.\n\n## reach: measured on cloud's control-plane console\n\n**Setup:**\n- objectui `56cf4d8e` (production console build).\n- The cloud rig: `run-stack.sh --seed --with-ui --prod-console`.\n- An ordinary organization owner, warm opens, `zh-CN`, 1299×1119.\n\n**The bindings in cloud:**\n- The sidebar entry `nav_environments` declares `dataSource: { provider: 'api', read: { url: '/api/v1/cloud/home' }, path: 'data' }` (cloud#3002, cloud `packages/app-cloud/src/cloud.app.ts`).\n- The `welcome` and `pricing` pages bind the same read on their root element (`HOME_SUMMARY_BINDING`).\n\n**Readings,** 8 opens per page, counted from the page's `performance` entries and from a `window.fetch` tracer:\n\n| | `page/welcome` | `page/pricing` |\n|:--|:--|:--|\n| as served | `GET /api/v1/cloud/home` ×2 on 8 of 8 opens | ×2 on 8 of 8 |\n| only `nav_environments.dataSource` stripped from `/api/v1/meta/app` in the browser | ×1 on 8 of 8 | ×1 on 8 of 8 |\n\n**The tracer's two stacks:**\n- the first `GET` from the nav gate's effect, `readElementApi` via `useNavMemberGates`;\n- the second from `useElementApiDataSource`'s effect.\n\n**Cloud CI** (`console-boots`) failed twice on it: [run 39755148162](https://github.com/objectstack-ai/cloud/actions/runs/39755148162), [run 39759792471](https://github.com/objectstack-ai/cloud/actions/runs/39759792471). The failures:\n- `page/welcome (home): 1 URL(s) asked more than once: …/api/v1/cloud/home x2`\n- `page/pricing (billing): 23 API calls, budget 22`\n\nThe maintainer waived `console-boots` once, for cloud#3150 only. Every later cloud pin PR's `console-boots` stays red on this until it lands.\n\n## Expected\n\nOn one console open, a nav entry's API `dataSource` and a page element bound to the same read make **one** request. The page element takes the answer the nav gate already read.\n\nRenderer only: no spec or contract change. Both bindings are already the spec's `ElementApiDataSource`.\n\nThese hold as today:\n- **Fail-closed nav gate:** a nav entry stays hidden while its read is pending or failed (#13029).\n- **No stale answer across opens:** a new open, or an element's own refresh after an action, reads again. \"It caches no answer\" stays true beyond the one open. Only the second read within an open is the defect.\n\n## Acceptance notes\n\n- **A test in `packages/app-shell` or `packages/react`:** an app whose nav entry and whose page's element bind the same `{ provider: 'api', read: { url } }` mounts and settles. It records exactly one call of the host `apiFetch` for that URL, including when the nav read settles before the page element mounts (the case `IN_FLIGHT` misses).\n- **Ablation:** without the reuse, 2 calls.\n- **A second test:** a later open (a new route visit), or the element's refresh, makes a new call.\n- **The consumer reading:** cloud's `console-boots` on the pin PR that carries the fix shows `page/welcome` with no duplicate URL, and `page/pricing` within its budget of 22. The budget is not moved.\n\nSuggested priority: p2. The cost is one extra control-plane request per open of these pages, and a red `console-boots` on each cloud pin PR until this lands.\n"
+}

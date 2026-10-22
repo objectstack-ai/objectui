@@ -1,0 +1,35 @@
+{
+  "number": 13321,
+  "kind": "pull_request",
+  "title": "fix(app-shell): offer Sync objects only on a federation-source datasource",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-22T09:41:18Z",
+  "updated_at": "2026-10-22T10:09:31Z",
+  "closed_at": "2026-10-22T10:09:29Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-22T10:09:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13321",
+  "body": "Fixes #13318\n\nClause-②: no\n\n## What changes\n\nSetup → Datasources showed **Sync objects** on every datasource row. Since objectstack#24837 (merged as objectstack `72a302a9d`), every Sync door refuses a datasource that is not a federation source with a `400`: a `managed` one, declared or by default, and the platform's `default` datasource by name. On such a row the button opened a dialog that could only show the refusal.\n\n`DatasourceResourcePage` now renders the existing button only when `offersSync(row)` holds: the row's `schemaMode`, read from the `GET /api/v1/datasources` payload the page already holds, is `external` or `validate-only`, and the row is not `default`. Nothing else changes: no new widget, dialog, hook, request or locale key.\n\n- `DatasourceRow` declares `schemaMode`, typed with the spec's own `SchemaMode` (`@objectstack/spec/data`).\n- The `default` name is a literal beside a comment naming the server's `DEFAULT_DATASOURCE_NAME`: that constant lives in `@objectstack/service-datasource`, a server package the console does not depend on, and the spec does not export it.\n\n## The card's acceptance, met\n\nFrom the card's **Expected**:\n\n> The Sync action is offered only on a row whose `schemaMode` is `external` or `validate-only`, read from the list payload the page already holds.\n\nMet: `offersSync` is an allow-list over the row's own `schemaMode`.\n\n> A missing `schemaMode` reads as `managed`: the spec's default, and the editor's own reading.\n\nMet without a fallback: a missing value is not in the allow-list, so it offers no Sync. (The server's list summary already serves `schemaMode: effective.schemaMode ?? 'managed'` on every row, at objectui's objectstack pin `06cab4849` and at objectstack `origin/main`.)\n\n> On a managed row nothing starts a Sync. If the row says anything, it names the remedy the server's refusal names [...]\n\nMet by hiding the button: nothing starts a Sync, and the row says nothing. A disabled button with a native tooltip was not chosen: the Button primitive's disabled state sets `pointer-events-none`, so the tooltip would not show without a new wrapper. The remedy stays the editor's existing Schema mode select.\n\n> The platform's `default` datasource offers no Sync either; the server already refuses it by name.\n\nMet: `offersSync` refuses the name first, whatever its `schemaMode`.\n\n> No new widget, dialog or hook: the existing button's visibility or disabled state, and the existing editor.\n\nMet: the existing button's visibility only.\n\nFrom the card's **Pins**, in the new `DatasourceResourcePage.syncFederationOnly-13318.test.tsx`:\n\n- (a) a row with no `schemaMode` and a `managed` row show no Sync button (both rows render their Test button);\n- (b) an `external` row and a `validate-only` row show it;\n- (c) the `default` row shows none, even declared `external`;\n- (d) CONTROL: on an `external` row, Sync opens the dialog, requests `GET /api/v1/datasources/warehouse/remote-tables`, and lists the remote tables.\n\nFixture triage: the objectui#13207 suite (`DatasourceResourcePage.refusals-13207.test.tsx`) drove Sync on a `managed` row. Its row now declares `external`: its refusal cases pin how a refused introspection is drawn, which still applies to a federation source (an unreachable driver, say), and `managed` was incidental.\n\n## Measured premises\n\n- The list payload carries `schemaMode`: `DatasourceAdminService.listDatasources` sets it on every summary, and the contract `DatasourceSummary.schemaMode` is required, at the pin `06cab4849` and at objectstack `origin/main`. No new request.\n- The pin does not need to move: the console reads the row's own `schemaMode`. `git merge-base --is-ancestor 72a302a9d origin/main` in the objectstack checkout answers exit 0.\n- The server's guard is `ExternalDatasourceService.assertFederationSource`: the `default` name first, then `isFederationSource` (a declared `schemaMode` that is not `managed`).\n\n## Verification (head `46bd4f4`)\n\n- `pnpm exec vitest run packages/app-shell/src/views/metadata-admin/datasource/`: Test Files 4 passed (4), Tests 27 passed (27).\n- Narrowed app-shell set (the datasource directory, `packages/app-shell/src/__tests__/`, and three tree-wide ratchet/census tests): Test Files 31 passed (31), Tests 488 passed (488). The full app-shell suite (1674 test files) is left to CI.\n- `pnpm --filter @object-ui/app-shell type-check`: exit 0. `tsc -p tsconfig.test.json --listFiles` lists both datasource test files the diff touches.\n- Ablation, one run: `{offersSync(ds) && (` replaced with `{true && (` through `ablation-replace.mjs` (anchor 1 to 0, blob `1ef26d74d6e7` to `2c02bcdbca5f`): pins (a) and (c) went red, (b) and (d) stayed green, Tests 2 failed, 25 passed. Restored: blob equals HEAD, `git diff HEAD` empty.\n- `eslint --no-inline-config` over the datasource directory: 0 errors; 2 warnings, both on lines this diff does not touch.\n- `check-changeset-presence`, `check-changeset-no-major`, `check:new-line-citations`, `check:control-bytes`, `check:test-path-roots`, the three `check:vi-mock-*`, `check:changeset-claims`, `check:pending-changeset-literals`, `check:spec-symbols`: exit 0 each. `check-governed-queue-guard --test` on the diff: NOT GOVERNED.\n\n## Acceptance notes\n\n- The page header still reads \"Connect external databases and sync their tables in as objects.\" It is still true of the page and was left alone.\n- Changeset: `.changeset/13318-datasource-sync-managed.md`, `@object-ui/app-shell` patch.\n\nImplemented in session `https://claude.ai/code/session_019Bd3muSBdHUFdJiKqnsM2W`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019Bd3muSBdHUFdJiKqnsM2W)_\n"
+}

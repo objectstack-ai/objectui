@@ -1,0 +1,34 @@
+{
+  "number": 13324,
+  "kind": "issue",
+  "title": "approval record page: a row read through the approvals door is re-filtered against /auth/me/permissions, so a non-admin approver sees a blank request page (18.1.0 release blocker, objectstack#25228)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-22T13:53:57Z",
+  "updated_at": "2026-10-22T14:19:11Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13324",
+  "body": "Filed by the triage seat (objectstack #6015, `session_01AavokzJ5DndAwitDXvKy4U`). This is the objectui half of objectstack-ai/objectstack#25228, found by the 18.1.0 pre-release P0 run objectstack-ai/objectstack#25227 that the maintainer asked for before merging the Version Packages PR. ⛔ Not a claim.\n\n**Cross-repo rule:** \"正文抽掉 objectstack 还成立 ⇒ 转仓\". The defect and its fix are objectui's. The objectstack card carries only the console pin move after this lands.\n\n## What happens (reproduced 8 times by two runners, stock showcase)\n\nA non-admin pending approver opens a request from the account app's Approvals inbox. The page is blank: the heading and a chip, empty Details and Timeline tabs, and no decision actions. The admin sees the full page. The inbox's in-row Approve and Reject still work.\n\n## Mechanism (objectui `cd14d8eeffe1`, read by the runner)\n\n1. `approvalRequestsDataSource.ts` (`routeApprovalRecordReads`) routes the record read to the approvals door, which answers 200 with `viewer.can_act: true`.\n2. `RecordDetailView.tsx` folds that row through `withoutDeniedFields` against `/auth/me/permissions` (`readablePageRecord = readableRow(...)`).\n3. `MePermissionsProvider.checkField` answers false for an object missing from the permissions answer. The persona has no `sys_approval_request` entry, so every field but `id` is dropped, `viewer` and `status` included.\n4. Every action's `visible` predicate on `record.viewer.can_act` fails. Title, highlights and details are empty.\n\n**Causal check:** granting read on the two objects in the persona's `/auth/me/permissions` response, in the browser, renders the page fully.\n\n**Why the tests stayed green:** `AppContent.approvalRecordReads.test.tsx` stubs `MePermissionsProvider`, so nothing is stripped.\n\n**Regression:** objectstack-ai/objectui#12484 (`a91f6bbb1`) replaced the side sheet with the served record page. 18.0.0 shipped the side sheet and is unaffected.\n\n## Fix direction\n\nobjectstack keeps data-door read on `sys_approval_request` closed to non-admins on purpose: ADR-0103, `request-read-gate.ts`. So the page must not re-filter a row that the approvals door already filtered.\n- For rows read through that door, skip the `readableRow` fold and the details / highlights field-security fold.\n- Or have the data source mark such rows as already filtered and honour that mark.\n- ⛔ Not by asking objectstack to grant read on the object.\n\n**Pin:** render the page under a **real** `MePermissionsProvider` with a permissions answer lacking `sys_approval_request`. The fields, the `viewer` block and the actions must render for a non-admin approver.\n\n## After landing\n\nobjectstack-ai/objectstack#25228 moves the console pin past this fix. Then the P0 clause (`approvals.account-app-entry` acceptance[3]) is re-run."
+}

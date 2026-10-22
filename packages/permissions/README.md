@@ -191,11 +191,11 @@ the enclosing provider's answer:
 ```tsx
 import { ServerReadScope } from '@object-ui/permissions';
 
-function ApprovalSurfaces({ children }: { children: React.ReactNode }) {
-  // Every read of these two objects below goes through the approvals routes,
-  // which serve each party to a request what it may see.
+function CaseSurfaces({ children }: { children: React.ReactNode }) {
+  // Every read of these two objects below goes through a service route that
+  // serves each party to a case what it may see, not through the data API.
   return (
-    <ServerReadScope objects={['sys_approval_request', 'sys_approval_action']}>
+    <ServerReadScope objects={['support_case', 'support_case_event']}>
       {children}
     </ServerReadScope>
   );

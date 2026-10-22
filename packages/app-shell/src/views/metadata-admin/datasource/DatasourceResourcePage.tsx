@@ -31,6 +31,7 @@
  *  - **Sync objects**: introspect remote tables (`GET …/remote-tables`), pick
  *    which to import, generate an object definition for each (`POST …/object-draft`),
  *    and create it through the normal metadata channel (`MetadataClient.save('object', …)`).
+ *    Offered only on a federation source (`offersSync`, objectui#13318).
  *  - **Delete** a runtime datasource (`DELETE …/:name`; blocked by the backend
  *    while objects are still bound).
  *
@@ -84,11 +85,17 @@ import { t, useMetadataLocale } from '../i18n.js';
 // defence in depth. Importing the spec's type keeps this page's row and that
 // client's row incapable of disagreeing.
 import type { RemoteTable } from '@objectstack/spec/contracts';
+import type { SchemaMode } from '@objectstack/spec/data';
 
 interface DatasourceRow {
   name: string;
   label?: string;
   driver?: string;
+  /**
+   * The datasource's `schemaMode`. `GET /datasources` serves it on every row,
+   * already resolved to `managed` when the record declares none.
+   */
+  schemaMode?: SchemaMode;
   /**
    * Last connect verdict, from the framework's retained connection state
    * (framework#3827): `ok` (live driver registered) | `error` (connect
@@ -173,6 +180,32 @@ const SCHEMA_MODES = [
   { value: 'external', label: 'External (read existing schema as-is)' },
   { value: 'validate-only', label: 'Validate only' },
 ];
+
+/**
+ * The platform's primary datasource, the name the server's
+ * `DEFAULT_DATASOURCE_NAME` holds. Every Sync door refuses it by name,
+ * whatever its `schemaMode`.
+ */
+const PRIMARY_DATASOURCE = 'default';
+
+/** The `schemaMode` values that make a datasource a federation source. */
+const FEDERATION_SCHEMA_MODES: ReadonlySet<SchemaMode> = new Set<SchemaMode>(['external', 'validate-only']);
+
+/**
+ * Does this row offer "Sync objects"? (objectui#13318)
+ *
+ * The Sync doors (remote tables, object draft, import) refuse every datasource
+ * that is not a federation source with a `400` (objectstack#24837): a managed
+ * one, declared or by default, and the primary datasource by name. ADR-0015
+ * reserves federation for a datasource whose `schemaMode` is not `managed`, so
+ * the row offers Sync only when its `schemaMode` is `external` or
+ * `validate-only`. A row with no `schemaMode` is managed, the spec's default,
+ * and offers none. The remedy is the editor's own Schema mode select.
+ */
+function offersSync(row: DatasourceRow): boolean {
+  if (row.name === PRIMARY_DATASOURCE) return false;
+  return row.schemaMode !== undefined && FEDERATION_SCHEMA_MODES.has(row.schemaMode);
+}
 
 const SERVER = ((import.meta as { env?: Record<string, string> }).env?.VITE_SERVER_URL || '').replace(/\/+$/, '');
 
@@ -609,9 +642,11 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
                 <Button variant="ghost" size="sm" disabled={busy === `test:${ds.name}`} onClick={() => void test(ds.name)}>
                   {busy === `test:${ds.name}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plug className="mr-1.5 h-4 w-4" />} Test
                 </Button>
-                <Button variant="secondary" size="sm" onClick={() => void openSync(ds.name)}>
-                  <Boxes className="mr-1.5 h-4 w-4" /> Sync objects
-                </Button>
+                {offersSync(ds) && (
+                  <Button variant="secondary" size="sm" onClick={() => void openSync(ds.name)}>
+                    <Boxes className="mr-1.5 h-4 w-4" /> Sync objects
+                  </Button>
+                )}
                 {!isCode && (
                   <>
                     <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit" disabled={busy === `edit:${ds.name}`} onClick={() => void openEdit(ds)}>

@@ -64,7 +64,8 @@ const ok = (data: unknown) => reply(200, { success: true, data });
 const refuse = (status: number, message: string) =>
   reply(status, { success: false, error: { code: 'DATASOURCE_ADMIN_ERROR', message } });
 
-const ROW = { name: 'warehouse', driver: 'postgres', schemaMode: 'managed', origin: 'runtime', active: true, status: 'unvalidated' };
+// `external`: only a federation source offers Sync (objectui#13318).
+const ROW = { name: 'warehouse', driver: 'postgres', schemaMode: 'external', origin: 'runtime', active: true, status: 'unvalidated' };
 
 /** The admin door, reduced to the list read plus the one route under test. */
 function renderPage(route: (url: string, init?: RequestInit) => Promise<Reply> | Reply | undefined) {

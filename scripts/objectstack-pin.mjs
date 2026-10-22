@@ -986,7 +986,9 @@ export function build({ root = REPO_ROOT, env = process.env, writeManifests = fa
           throw new PinRefusal(
             `${name} is not built in ${tree}: its manifest points at ${missing.join(', ')}, which ${missing.length === 1 ? 'is' : 'are'} not there.` +
               (external
-                ? ` Build it in that tree first:\n    (cd ${tree} && pnpm ${filters.join(' ')} run build)`
+                ? ` Build it in that tree first:\n    (cd ${tree} && env -u OS_SKIP_DTS pnpm ${filters.join(' ')} run build)` +
+                  // Under OS_SKIP_DTS the packages build with no declarations and this refusal repeats.
+                  (env.OS_SKIP_DTS ? `\n  OS_SKIP_DTS is set in this shell: the command above builds without it, so the declarations this check needs are emitted.` : '')
                 : ''),
           );
         }

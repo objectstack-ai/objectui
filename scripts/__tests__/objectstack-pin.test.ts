@@ -508,6 +508,32 @@ describe('OBJECTSTACK_ROOT stands an existing tree in (objectui#12957, objectsta
     expect(fs.readdirSync(path.dirname(path.join(root, CACHE_DIR))).filter((n) => n.includes('staging'))).toEqual([]);
   });
 
+  it('prints a remedy that builds WITH declarations whatever OS_SKIP_DTS the shell exported', () => {
+    // Run verbatim under an exported OS_SKIP_DTS, a remedy without the unset builds typeless again
+    // and the same refusal repeats. The unset is part of the command, so it holds in both states.
+    const command = /\(cd [^\n]+ && env -u OS_SKIP_DTS pnpm --filter-prod @objectstack\/core\.\.\. --filter-prod @objectstack\/spec\.\.\. run build\)/;
+    const refusal = (name: string, skipDts: string | undefined) => {
+      const tree = makeObjectstack(name, { built: false });
+      const root = makeObjectui(name);
+      const env: NodeJS.ProcessEnv = { ...process.env, OBJECTSTACK_ROOT: tree };
+      if (skipDts === undefined) delete env.OS_SKIP_DTS;
+      else env.OS_SKIP_DTS = skipDts;
+      try {
+        build({ root, env });
+      } catch (error) {
+        expect(error).toBeInstanceOf(PinRefusal);
+        return (error as Error).message;
+      }
+      throw new Error('the unbuilt tree was not refused');
+    };
+    const unset = refusal('remedy-skip-dts-unset', undefined);
+    expect(unset).toMatch(command);
+    expect(unset, 'the shell did not export it, so there is nothing to name').not.toMatch(/OS_SKIP_DTS is set/);
+    const set = refusal('remedy-skip-dts-set', '1');
+    expect(set).toMatch(command);
+    expect(set, 'the shell exported it: the refusal names the variable').toMatch(/OS_SKIP_DTS is set in this shell/);
+  });
+
   it('REFUSES, after the write, a tree whose packages declare dependencies the lockfile does not record', () => {
     const tree = makeObjectstack('drift');
     const specPath = path.join(tree, 'packages/spec/package.json');

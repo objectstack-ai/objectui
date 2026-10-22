@@ -566,8 +566,23 @@ instead of the rows of an object:
   absolute or protocol-relative `url`, a credential key, or a `method` other
   than `GET` is refused with the spec's message, and no request is sent.
 
-Elements that bind the same URL at the same time share one request. Nothing is
-cached: a page that mounts again reads again.
+Elements that bind the same URL at the same time share one request. A host can
+also keep one open's answers: inside `ElementApiOpenScope` (from
+`@object-ui/react`), a read that has already answered in the same open is
+answered again with no request. The console mounts it and counts one open per
+history entry, so a navigation entry's `visible` and a page element bound to
+the same URL make one request, even when the entry's read settled first:
+
+- following a link, a navigation entry, or Back and Forward starts a new open,
+  and the page reads again;
+- a redirect that replaces the address (the app root's landing on its first
+  entry) stays in the open;
+- a failed read is not kept, and any declared data change (`notifyDataChanged`,
+  which every save and action reports) drops what the open kept, so a read
+  after a write asks the server.
+
+Outside such a scope nothing is kept beyond the request in flight: a page that
+mounts again reads again.
 
 The console's product-page blocks — `hero`, `stat`, `usage-bar`, `checklist` and
 `tile-grid` — accept this binding in their arms; see the `@object-ui/app-shell`

@@ -59,7 +59,10 @@
  * command palette directly. It reads each binding an app's navigation declares
  * through `@object-ui/react`'s element reader (`readElementApi`, the request a
  * page element's binding makes, with the host's `apiFetch`), so there is no
- * second fetch. An entry is drawn only once its read has answered and its
+ * second fetch; and in the open the read is asked in (`ElementApiOpenScope`,
+ * which the console mounts per history entry), so a page element bound to the
+ * same read takes the answer this read already holds instead of asking again
+ * (objectui#13323). An entry is drawn only once its read has answered and its
  * `visible` holds over that value: while the read is pending, when it fails,
  * when `path` selects nothing, or when the spec refuses the binding, the entry
  * is hidden. An entry without the key is evaluated exactly as before, with no
@@ -78,6 +81,7 @@ import {
   judgeElementApiDataSource,
   readElementApi,
   selectElementApiPath,
+  useElementApiOpen,
   type ApiFetch,
 } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
@@ -160,10 +164,17 @@ type SettledRead = { ok: true; data: unknown } | { ok: false };
  * through `readElementApi` with the host's `apiFetch` (the page element's
  * reader), and its `path` selected with `selectElementApiPath`; a binding the
  * spec refuses is judged by `judgeElementApiDataSource` and never read.
+ *
+ * Each read is asked in the open the shell is in (objectui#13323), so the page
+ * that open shows reuses it. A new open does not re-read the navigation's
+ * bindings: they are read once per change of the set, as before.
  */
 function useNavEntryData(app: unknown): (entry: NavigationItem) => NavEntryDataRead {
   const context = useContext(SchemaRendererContext);
   const doFetch: ApiFetch = context?.apiFetch ?? fetch;
+  const scope = useElementApiOpen();
+  const open = scope?.open;
+  const reads = scope?.reads;
   // Keyed on the bindings' CONTENT, never on the identity of the tree that
   // holds them (AGENTS.md #10).
   const signature = navBindingKeys(app).join('\n');
@@ -179,7 +190,7 @@ function useNavEntryData(app: unknown): (entry: NavigationItem) => NavEntryDataR
       const judged = judgeElementApiDataSource(JSON.parse(key));
       if (judged.status !== 'parsed') continue;
       const { read, path } = judged.config;
-      readElementApi(read.url, doFetch).then(
+      readElementApi(read.url, doFetch, reads && open !== undefined ? { open, reads } : null).then(
         (body) => {
           const selected = selectElementApiPath(body, path);
           settle(key, selected.found ? { ok: true, data: selected.value } : { ok: false });
@@ -190,7 +201,9 @@ function useNavEntryData(app: unknown): (entry: NavigationItem) => NavEntryDataR
     return () => {
       cancelled = true;
     };
-  }, [signature, doFetch]);
+    // `open` is left out on purpose: a new open does not re-read the set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature, doFetch, reads]);
 
   return useCallback(
     (entry: NavigationItem): NavEntryDataRead => {

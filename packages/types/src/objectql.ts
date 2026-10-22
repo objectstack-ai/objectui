@@ -676,8 +676,19 @@ export interface BulkActionDef {
    * dialog skips the params step and jumps straight to confirm.
    */
   params?: BulkActionParam[];
-  /** Confirmation text shown above the affected-record summary. */
-  confirmText?: string;
+  /**
+   * Confirmation text shown above the affected-record summary.
+   *
+   * Two arms, because the protocol is moving this slot to ADR-0032's
+   * `template` dialect (objectstack#24798, landed by objectstack#24947): there
+   * a bare string is shorthand for `{ dialect: 'template', source }`, and a
+   * parsed definition (what `os compile` serializes) carries the envelope. The
+   * installed spec still types the slot as a plain string, so both arms reach
+   * the renderer during the move. Read it through plugin-grid's
+   * `bulkConfirmTextSource`, never as a React child: the envelope arm is an
+   * object.
+   */
+  confirmText?: string | { dialect?: 'template'; source: string };
   /** Custom Confirm button label (default: "Run"). */
   confirmLabel?: string;
   /**

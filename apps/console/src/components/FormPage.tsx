@@ -743,8 +743,9 @@ function widgetLabelling(widgetKey: string): 'control' | 'group' | 'display' {
  * per-locale map such as `{ en, 'zh-CN' }`. The public resolver serves the map
  * unchanged, and every row slot below is a `string` that reaches JSX — the
  * label as `fieldLabel`'s fallback, which hands an unmatched fallback back
- * untouched. So one map in one entry rendered an object as a React child and
- * blanked the page for every visitor, on both routes.
+ * untouched. So one map on a label or help line rendered an object as a React
+ * child and blanked the page for every visitor, on both routes; on a
+ * placeholder it read `[object Object]`.
  *
  * The map is reduced with `pickLocalized`, the resolver
  * `useActionTextLocalizer` collapses an action's `I18nLabel` copy with, BEFORE

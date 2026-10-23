@@ -26,12 +26,13 @@
  *
  * ## Discrimination
  *
- * One entry per key carries the map, so each key has its own leg: putting the
- * map back on any one of the three slots blanks the page and turns every leg
- * red. The zh-CN and en-US legs read different strings out of the same map,
- * which a resolver that took the first entry, or always `en`, cannot both
- * pass. `PLAIN_STRING_CONTROL` is a sibling entry written with plain strings,
- * asserted unchanged in both languages.
+ * One entry per key carries the map, so each key has its own leg. Putting the
+ * map back on `label` or `helpText` blanks the page and turns every leg red;
+ * on `placeholder` it reaches an attribute and renders `[object Object]`, so
+ * only that key's legs go red. The zh-CN and en-US legs read different
+ * strings out of the same map, which a resolver that took the first entry, or
+ * always `en`, cannot both pass. `PLAIN_STRING_CONTROL` is a sibling entry
+ * written with plain strings, asserted unchanged in both languages.
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';

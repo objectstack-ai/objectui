@@ -221,7 +221,7 @@ describe('objectui#13404 — the sankey footnote is translated', () => {
   it('zh reads the zh pack, with the counts filled in and the key drawn as a chip', () => {
     const { container } = withLocale('zh', THINNED);
     const note = noteOf(container)!;
-    const expected = (builtInLocales.zh.chart as Record<string, string>).sankeyOmittedRows_other
+    const expected = builtInLocales.zh.chart.sankeyOmittedRows_other
       .replace('{{shown}}', '1')
       .replace('{{total}}', '3')
       .replace('{{count}}', '2')
@@ -232,9 +232,9 @@ describe('objectui#13404 — the sankey footnote is translated', () => {
   });
 
   it('every pack carries the family, translated, with every placeholder', () => {
-    const en = (builtInLocales.en.chart as Record<string, string>).sankeyOmittedRows;
+    const en = builtInLocales.en.chart.sankeyOmittedRows;
     for (const [lang, pack] of Object.entries(builtInLocales)) {
-      const value = ((pack as typeof builtInLocales.en).chart as Record<string, string>).sankeyOmittedRows;
+      const value = (pack as typeof builtInLocales.en).chart.sankeyOmittedRows as string;
       expect(typeof value, `${lang} defines chart.sankeyOmittedRows`).toBe('string');
       for (const hole of ['{{shown}}', '{{total}}', '{{count}}', '{{field}}']) {
         expect(value, `${lang} keeps ${hole}`).toContain(hole);

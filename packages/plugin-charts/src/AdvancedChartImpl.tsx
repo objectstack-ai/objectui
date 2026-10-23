@@ -479,6 +479,52 @@ function estimateLabelWidthPx(label: string): number {
 /** recharts' default chart margin, left plus right (5px each side). */
 const CHART_MARGIN_X_PX = 10;
 
+/**
+ * The inset, in px, a line or area chart's categorical x axis keeps at BOTH
+ * ends of the plot (objectui#13390).
+ *
+ * ## What it fixes
+ *
+ * On a line or area chart recharts draws a categorical x axis as a POINT
+ * scale: the first category sits ON the plot's left edge and the last ON its
+ * right edge, and each tick label is centred on its point. With no value axis
+ * beside it, the right edge has only recharts' 5px chart margin before the
+ * chart surface ends, so the right half of the last label is cut off: the
+ * showcase's monthly trend charts drew "2026-10" as "2026". The tick text in
+ * the DOM is whole; only the painted part is lost. A bar chart's axis is a
+ * BAND scale, which centres each category in its band, so it never had this.
+ *
+ * ## Why `padding`
+ *
+ * Recharts' axis `padding` insets the pixel range the points are laid along
+ * (`[left + padding.left, right - padding.right]`) and leaves the categories
+ * alone, the same mechanism the scatter axes use for their edge marks
+ * (`SCATTER_AXIS_EDGE_PADDING`). It moves the edge points, and the lines and
+ * dots drawn on them, inward together, so a label stays centred on its point.
+ * Both ends, because a lone value axis declared on the right leaves the FIRST
+ * label just as exposed on the left.
+ *
+ * ## Why this size
+ *
+ * Half of a `YYYY-MM` label, the bucket a monthly trend chart draws, at the
+ * tick font, by the same upper estimate the rotated band is sized from
+ * ({@link estimateLabelWidthPx}), less the chart margin already on that side.
+ * A fixed figure, not one sized from each chart's labels, so every line and
+ * area chart lays out the same way. It is not a bound on every label: a long
+ * name drawn unrotated on the last point (its band was wide enough to hold
+ * it) can still overhang by what it exceeds this. A rotated label hangs left
+ * of its point, and above `X_AXIS_ALL_LABELS_MAX_BUCKETS` recharts' own
+ * `preserveStartEnd` pulls the edge labels inside the plot. This figure is
+ * derived from recharts' layout, not measured in a browser.
+ */
+const POINT_X_AXIS_EDGE_PADDING_PX =
+  Math.ceil(estimateLabelWidthPx('0000-00') / 2) - CHART_MARGIN_X_PX / 2;
+/** A module constant so recharts' axis settings memo is not defeated per render. */
+const POINT_X_AXIS_PADDING = {
+  left: POINT_X_AXIS_EDGE_PADDING_PX,
+  right: POINT_X_AXIS_EDGE_PADDING_PX,
+} as const;
+
 /** The width every value axis of the vertical cartesian families draws (`YAxis width={48}`). */
 const VALUE_AXIS_WIDTH_PX = 48;
 
@@ -2979,7 +3025,16 @@ function AdvancedChartImplInner({
           </>
         ) : (
           <>
-            <XAxis dataKey={xAxisKey} {...xAxisCommonProps} />
+            {/* objectui#13390: line and area draw this axis as a point scale,
+                which puts the edge categories on the plot edges, so it is
+                inset (see `POINT_X_AXIS_PADDING`). Bar's band scale already
+                centres them, and the combo branch above draws a value axis on
+                each side of its plot, so neither is padded. */}
+            <XAxis
+              dataKey={xAxisKey}
+              {...xAxisCommonProps}
+              {...(chartType === 'line' || chartType === 'area' ? { padding: POINT_X_AXIS_PADDING } : {})}
+            />
             {/* Each value axis carries the entry `placeYAxes` drew in its slot
                 (objectui#10654): with two entries, one per side; with one, the
                 only axis, on the side that entry named. */}

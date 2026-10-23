@@ -61,6 +61,7 @@ import { usePermissions } from '@object-ui/permissions';
 import { extractWriteErrorMessage, useAdapter, useMetadata } from '@object-ui/react';
 import { AlertCircle, Loader2, Plus, UserCheck, X } from 'lucide-react';
 import { useMetadataLocale } from './i18n.js';
+import { membershipOrganization, readOrganizationMemberIds, type MemberFilter } from './organization-members.js';
 
 export interface PositionHoldersSectionProps {
   /** The position's machine name. */
@@ -78,13 +79,6 @@ interface HolderRow {
 /** The assignment object, and the column that names the position. */
 const USER_POSITION_OBJECT = 'sys_user_position';
 const USER_POSITION_NAME_FIELD = 'position';
-
-/** The membership object, and its two columns the picker's candidates are read from. */
-const MEMBERSHIP_OBJECT = 'sys_member';
-const MEMBERSHIP_ORGANIZATION_FIELD = 'organization_id';
-const MEMBERSHIP_USER_FIELD = 'user_id';
-/** Page size of the membership read; it pages until a short page. */
-const MEMBERSHIP_PAGE = 500;
 
 /** Rows of a `find()` answer, read as `QueryResult` declares them (`data`). */
 const asArray = (res: any): any[] => (Array.isArray(res) ? res : res?.data ?? []);
@@ -167,7 +161,7 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
    * or `undefined` where the server judges no membership (see the module note).
    * Read when the picker opens, so a member added or removed since is counted.
    */
-  const [memberFilter, setMemberFilter] = React.useState<{ id: { $in: string[] } } | undefined>(undefined);
+  const [memberFilter, setMemberFilter] = React.useState<MemberFilter | undefined>(undefined);
   const [openingPicker, setOpeningPicker] = React.useState(false);
   const activeOrganizationId = useAuth().activeOrganization?.id ?? null;
 
@@ -202,9 +196,7 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
   };
   const canAdd = resolveAffordance('relatedNew', holdingSource).allowed;
   const canRemove = resolveAffordance('relatedRowDelete', holdingSource).allowed;
-  const membershipRegistered = (objects ?? []).some(
-    (o) => (o as { name?: unknown } | null)?.name === MEMBERSHIP_OBJECT,
-  );
+  const memberOrganization = membershipOrganization(activeOrganizationId, objects);
 
   const load = React.useCallback(async () => {
     if (!adapter) return;
@@ -273,46 +265,33 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
 
   /**
    * Open the picker over the active organization's members. The user ids are
-   * the server's `sys_member` rows of that organization, every page of them;
-   * a refused read is said in the server's words and the picker stays shut,
+   * the server's `sys_member` rows of that organization, every page of them
+   * (`readOrganizationMemberIds`, shared with `AssignedUsersSection`); a
+   * refused read is said in the server's words and the picker stays shut,
    * since its list would otherwise offer people the server will refuse.
    */
   const openPicker = React.useCallback(async () => {
     setError(null);
-    if (!activeOrganizationId || !membershipRegistered) {
+    if (!memberOrganization) {
       setMemberFilter(undefined);
       setPickerOpen(true);
       return;
     }
     setOpeningPicker(true);
     try {
-      const ids = new Set<string>();
-      for (let skip = 0; ; skip += MEMBERSHIP_PAGE) {
-        const page = asArray(
-          await adapter.find(MEMBERSHIP_OBJECT, {
-            $filter: { [MEMBERSHIP_ORGANIZATION_FIELD]: activeOrganizationId },
-            $top: MEMBERSHIP_PAGE,
-            $skip: skip,
-          }),
-        );
-        for (const m of page) {
-          const uid = m?.[MEMBERSHIP_USER_FIELD];
-          if (uid != null && uid !== '') ids.add(String(uid));
-        }
-        if (page.length < MEMBERSHIP_PAGE) break;
-      }
-      if (ids.size === 0) {
+      const ids = await readOrganizationMemberIds(adapter, memberOrganization);
+      if (ids.length === 0) {
         setError(c.noMembers);
         return;
       }
-      setMemberFilter({ id: { $in: [...ids] } });
+      setMemberFilter({ id: { $in: ids } });
       setPickerOpen(true);
     } catch (err) {
       setError(refusalSentence(err) || c.membersFailed);
     } finally {
       setOpeningPicker(false);
     }
-  }, [adapter, activeOrganizationId, membershipRegistered, c]);
+  }, [adapter, memberOrganization, c]);
 
   const removeHolder = React.useCallback(
     async (assignmentId: string) => {

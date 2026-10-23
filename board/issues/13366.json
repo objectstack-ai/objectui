@@ -1,0 +1,37 @@
+{
+  "number": 13366,
+  "kind": "pull_request",
+  "title": "fix(layout): AppShell draws one main landmark, not two nested ones (objectui#13334)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: app-shell",
+    "package: layout",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T13:12:13Z",
+  "updated_at": "2026-10-23T13:57:27Z",
+  "closed_at": "2026-10-23T13:57:24Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T13:57:24Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13366",
+  "body": "Closes #13334\nClause-②: no\n\n## What changed\n\nEvery console page under `/apps/*` drew two nested `main` landmarks, Setup record pages included (the Organization and permission-set pages were the measured ones). So a screen reader announced two main regions. The cause is `@object-ui/layout`'s `AppShell`. Its content element was a `main` element, and it sat inside `SidebarInset`, which renders a `main` element itself. `SidebarInset` lives in `packages/components/src/ui/sidebar.tsx`, a shadcn no-touch file (AGENTS.md #7).\n\n- `packages/layout/src/AppShell.tsx`: the content element is now a `div`, so `SidebarInset` is the page's one `main` landmark. It keeps the same classes, and `className` still lands on it.\n- The skip link is unchanged. It targets the console route slot `#console-main-content` (objectui#13130), not the `main` element, so its target and its focus move still work.\n- `packages/layout/README.md` and `content/docs/guide/layout.md`: the prose that said `className` lands on the `main` element now says it lands on the content element, inside the shell's one `main` landmark.\n- Tests:\n  - New: `ConsoleLayout.oneMainLandmark-13334.test.tsx`.\n  - `ConsoleLayout.inPageScroll-12463.test.tsx`: its tagName pin now reads `DIV`, inside a `main`.\n  - `guide-layout-sidebar-nav-doc.test.ts`: its padding-steps source pin now finds the content element inside `SidebarInset` instead of matching a `main` tag.\n  - `readme-app-shell-example.test.ts`: one comment word.\n- `.changeset/13334-one-main-landmark.md`: `@object-ui/layout` patch.\n\n## Tests\n\n- New pin `packages/app-shell/src/layout/__tests__/ConsoleLayout.oneMainLandmark-13334.test.tsx`, run against the real `ConsoleLayout`, `AppShell` and `SidebarInset`. It checks five things:\n  - A Setup record page has exactly one `main` landmark, and that landmark holds the route slot and the page.\n  - axe's `landmark-no-duplicate-main`, `landmark-main-is-top-level` and `landmark-one-main` report no violations, with a control that the rules ran.\n  - The skip link's href is `#console-main-content`, and Enter moves focus to the slot.\n  - `OrganizationsLayout` draws one `main`.\n  - `OrganizationLayout` draws one `main`, and it holds its tab page.\n  - Result: 5 passed.\n- Ablation: I committed the fix, then restored `AppShell.tsx` from the base `2c4e5f5af`. The new file went red (2 failed, 3 passed: the one-main case and the axe case). Restoring the file gave an empty `git diff HEAD`.\n- Ablation of the updated padding pin: I removed `p-3` from the content element and the pin went red (1 failed, 13 passed). Restored.\n- `pnpm exec vitest run --maxWorkers=2 packages/layout/` at head `5ba03c687`: Test Files 44 passed (44), Tests 374 passed (374). This run was unlocked, with 2 workers.\n- Under the verify lock: `pnpm exec vitest run packages/app-shell/src/layout/__tests__/ConsoleLayout packages/app-shell/src/chrome/KeyboardShortcutsDialog.wiredOnly-11674.test.tsx packages/layout/src/__tests__/app-shell packages/layout/src/__tests__/readme-app-shell-example.test.ts packages/layout/src/__tests__/guide-layout-app-shell-doc.test.ts` gave Test Files 17 passed (17), Tests 90 passed (90). This includes `ConsoleLayout.skipToContent-13130`.\n- `consoleTopBar.height-12639` and `scripts/__tests__/one-authority-per-exported-name-6273`, the other tests that read `AppShell.tsx`'s source: Test Files 2 passed (2), Tests 23 passed (23).\n- `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec turbo run type-check --filter=@object-ui/layout --filter=@object-ui/app-shell`: Tasks 31 successful, 31 total, lock VERDICT command-exit 0.\n- ESLint on the touched TS files: 0 errors. The one warning (`react-refresh/only-export-components` in `AppShell.tsx`) is already there on the base.\n- `node scripts/check-changeset-presence.mjs`: pass.\n- `pnpm check:new-line-citations`: 0 new.\n\n## Acceptance notes\n\n- The landing was re-attributed. The card named three app-shell layouts (`OrganizationLayout`, `OrganizationsLayout`, `HomeLayout`) and `packages/app-shell/src/components/AppShell.tsx`. The first three are top-level routes outside `ConsoleLayout`, and each draws exactly one `main`. The last is not the console shell. The nesting came from `@object-ui/layout`'s `AppShell`, measured on the real `ConsoleLayout`: 2 nested mains before, 1 after. The seat's surface revision on #13334 records this: https://github.com/objectstack-ai/objectui/issues/13334#issuecomment-6365576782\n- Beyond that revision's list, this PR also updates `packages/layout/src/__tests__/guide-layout-sidebar-nav-doc.test.ts`, whose source pin matched the old tag. The whole `packages/layout/` run exposed it.\n- Noted, not changed:\n  - `packages/app-shell/src/components/AppShell.tsx` also renders a `main`, but no console route mounts it.\n  - `StudioDesignSurface` and `AiChatPage` carry their own `main` elements on non-Setup surfaces. Their nesting was not measured.\n  - A page schema may author `aria.role: 'main'` (objectui#11083). That is authoring only and not a default.\n- The objectui#13336 PR also edits `@object-ui/layout`, in other files. The two PRs share no file.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

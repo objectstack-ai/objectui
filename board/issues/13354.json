@@ -1,0 +1,38 @@
+{
+  "number": 13354,
+  "kind": "pull_request",
+  "title": "feat(plugin-dashboard): a dataset chart's null bucket reads the name its dataset declares",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "package: app-shell",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T11:17:17Z",
+  "updated_at": "2026-10-23T12:31:01Z",
+  "closed_at": "2026-10-23T12:30:59Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T12:30:59Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13354",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-tesla\"} -->\n_Requested by **Tesla** · [project thread](https://claude.ai/code/project/chan_01AXsQkLFKRdQCqQ3RTr6Jao?thread=cmsg_01AXsQkLFKRdQCqQ3RTr6JaoJ8yb43iqvYRAnady5tqTZG)_\n\nRefs objectstack-ai/objectstack#25330\n\nThis is the renderer half of objectstack#25330's label fix, landing 2 of 3. Ruling A (objectstack#25330, comment 6358843349) was approved by the maintainer.\n\nSystem Overview's \"Events by User\" bar draws the rows the platform writes itself, which have no user, under the global `chart.nullCategory` default, \"(None)\". That bucket is the chart's largest bar. objectstack#25402 (merged as 830a63a6) made the audit dataset declare `nullLabel` on its `user_id` dimension. It also made the server carry that name on the dimension column's descriptor as `fields[].nullLabel`, resolved at the request locale the same way `label` is. This PR draws the bucket under that name.\n\n## Changes\n\n- **`.objectstack-sha`:** moved from 06cab484 to 830a63a6, the merge commit of objectstack#25402, which first ships `AnalyticsResult.fields[].nullLabel`. The bump leaves the packed `.objectstack-pin` manifests and `pnpm-lock.yaml` unchanged.\n- **`plugin-dashboard` `DatasetWidget`:**\n  - A new helper, `declaredNullCategoryLabel`, reads the null-bucket name the answer declares for the chart's category dimension.\n  - The widget passes that name as the chart's `nullCategoryLabel`, with `tt('chart.nullCategory', '(None)')` as the fallback when no name is declared.\n  - The drill reads the same label, so a click on the renamed bar still drills to `{ <field>: { $null: true } }`. This keeps #4498's dead-click rule.\n- **Pivots:** `buildChartSeries` takes one null label for both arms of a two-dimension, single-measure pivot. So a declared name applies there only when both dimensions declare the same one. Otherwise the series dimension's null group would wrongly read the category's name, and the default is kept.\n- **Changeset:** `@object-ui/plugin-dashboard` patch.\n\nWhen a column declares no `nullLabel`, the chart draws exactly what it drew before.\n\n## Tests\n\n`packages/plugin-dashboard/src/__tests__/DatasetWidget.declaredNullLabel-25330.test.tsx` has 5 tests:\n- Under `en`, the null bucket is drawn as `System` and carries its 740 events.\n- A zh-CN answer's `系统` wins over the zh default `(未指定)`.\n- A click on the renamed bar drills to `{ user_id: { $null: true } }`.\n- Boundary: a column with no `nullLabel` keeps `(None)` / `(未指定)`.\n- Pivot: a name declared on only one dimension keeps the default, and a name both dimensions declare applies.\n\n**Ablation:** with the declared read removed (default only), 4 tests fail and the boundary test passes. The file was restored byte-identical.\n\n## Verification (at 333e308, pin 830a63a6)\n\n- `pnpm exec vitest run packages/plugin-dashboard/`: 187 files, 1833 passed, 6 skipped.\n- `tsc --noEmit -p packages/plugin-dashboard`: exit 0.\n- Exit 0 for each of: plugin-dashboard `lint`, `changeset:check`, `check:installed-pin-claims`, `check:changeset-claims`, `check:pending-changeset-literals`, `check:new-line-citations`, `check:control-bytes`, `check:lockfile-integrity`, `objectstack:status`.\n- **NOT MEASURED:** `check:spec-floors`. It needs every published package's build output (`no-artifact`), and CI's full build runs it. The change reads a member of a spec type that already exists (`AnalyticsResult['fields'][number]`) and imports no new spec symbol.\n\n## Acceptance notes\n\n- `DatasetReportRenderer` and `ObjectChart` still read only `chart.nullCategory`. This card's consumer is the dashboard chart; the others can read the same descriptor member later.\n- The landing order is set by the pin. objectstack#25402 had to merge first so this pin could reach the member. objectstack's PR 3 then flips the `dimensions.nullLabel` liveness row to live and cites this reader.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer). The renderer reads a name the dataset declares; it hard-codes none.\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_016qAuAwFXMw94v5vFqTVcw2\n"
+}

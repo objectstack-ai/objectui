@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "repo": "objectstack-ai/objectui",
-  "generated_at": "2026-10-23T08:31:53.083Z",
+  "generated_at": "2026-10-23T14:28:28.173Z",
   "walk_phase": "incremental",
   "walk": {
     "open_set": {
@@ -11,8 +11,8 @@
     },
     "delta": {
       "complete": true,
-      "cursor": "2026-10-23T08:00:19Z",
-      "since": "2026-10-23T01:48:33Z",
+      "cursor": "2026-10-23T14:26:13Z",
+      "since": "2026-10-23T08:00:19Z",
       "slice": 300
     },
     "history": {
@@ -20,27 +20,27 @@
       "cursor": "2026-09-29T14:23:58Z"
     }
   },
-  "since": "2026-10-23T01:48:33Z",
-  "since_reason": "incremental from the previous run's next_since (2026-10-23T01:48:33Z)",
-  "next_since": "2026-10-23T08:00:19Z",
+  "since": "2026-10-23T08:00:19Z",
+  "since_reason": "incremental from the previous run's next_since (2026-10-23T08:00:19Z)",
+  "next_since": "2026-10-23T14:26:13Z",
   "resume": null,
   "counts": {
-    "issues_open": 44,
-    "issues_closed": 5348,
-    "pulls_open": 5,
-    "pulls_closed": 7570,
-    "records": 12967
+    "issues_open": 41,
+    "issues_closed": 5356,
+    "pulls_open": 15,
+    "pulls_closed": 7579,
+    "records": 12991
   },
   "board": {
-    "open_issues_count": 48,
-    "open_pull_requests": 5,
-    "read_at": "2026-10-23T08:31:52.650Z"
+    "open_issues_count": 55,
+    "open_pull_requests": 15,
+    "read_at": "2026-10-23T14:28:27.698Z"
   },
   "count_check": {
     "verdict": "surplus",
     "reason": null,
-    "expected": 43,
-    "archived": 44,
+    "expected": 40,
+    "archived": 41,
     "shortfall": 0,
     "surplus": 1,
     "gone_ledger": 0,
@@ -51,14 +51,15 @@
     "pending_since": null,
     "reason": null
   },
-  "requests": 23,
+  "requests": 88,
   "run": {
-    "numbers_read": 26,
-    "files_written": 36,
+    "numbers_read": 45,
+    "files_written": 84,
     "walk_complete": true,
     "open_set_completed_here": false,
     "delta_ran": false,
     "delta_completed_here": false,
-    "delta_requests": 0
+    "delta_requests": 0,
+    "blank_pages_reasked": 0
   }
 }

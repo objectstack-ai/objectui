@@ -1,0 +1,36 @@
+{
+  "number": 13365,
+  "kind": "pull_request",
+  "title": "fix(layout): a navigation group opens unless it declares otherwise (objectui#13336)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: layout",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T13:08:15Z",
+  "updated_at": "2026-10-23T13:44:22Z",
+  "closed_at": "2026-10-23T13:44:20Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T13:44:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13365",
+  "body": "Closes #13336\nClause-②: no\nRuling-ref: 6364601849\n\n## Root cause\n\nThe collapse was not in the console sidebar. `@object-ui/layout`'s `NavigationRenderer` group row computed its initial open state as: open when the group holds the active route; else the declared `expanded` / `defaultOpen`; else **closed when the group has `AUTO_COLLAPSE_THRESHOLD` (8) or more children**. Setup's Configuration group has 13 children and declares no `expanded`, so it started collapsed beside Advanced, the only group that declares `expanded: false`. Studio's navigation preview (`StudioDesignSurface` `NavTreeGroup`) carried a second copy of the same rule (`NAV_GROUP_AUTO_COLLAPSE`).\n\n## What changed (ruling A, objectui half)\n\n- `NavigationRenderer`: the count rule is gone. Initial open state is: a group holding the active route opens; else its declared `expanded` (spec) or `defaultOpen` (legacy) decides; else it opens.\n- `StudioDesignSurface` `NavTreeGroup`: `NAV_GROUP_AUTO_COLLAPSE` is removed the same way, and its docblock is reworded, so the preview still opens groups as the running sidebar does.\n- Comment-only rewording where the old heuristic was explained: the home Administration group in `UnifiedSidebar` (objectui#3609; its explicit `expanded: true` is kept), the matching comment in `systemNavSettingsTarget.test.tsx`, and the bar-specific list in `AppSchemaRenderer.mobileTabOrder-11395.test.tsx`.\n- One changeset: `@object-ui/layout` and `@object-ui/app-shell`, patch. It tells an app that relied on a long undeclared group starting closed to declare `expanded: false`.\n\n**Not done here:** the spec default. objectstack `GroupNavItemSchema.expanded` declares `.default(false)` in `packages/spec/src/ui/app.zod.ts`. That belongs to the spec lane and was requested on objectstack#6017 (comment 6364612240). The served nav does not apply that default on the wire today (only Advanced arrives with `expanded: false`), so objectui now reads an absent `expanded` as open.\n\n## Tests\n\n- New `NavigationRenderer.groupDefaultOpen-13336.test.tsx` (layout): an undeclared 13-child group opens with every child linked; `expanded: false` stays collapsed; legacy `defaultOpen: false` stays collapsed; a declared-closed group holding the active route opens.\n- New `UnifiedSidebar.groupDefaultOpen-13336.test.tsx` (app-shell, real `NavigationRenderer`): an undeclared 13-entry group opens with every entry linked; `expanded: false` stays collapsed; the active-route override opens it.\n- Reverse check: with `NavigationRenderer.tsx` restored to the base commit, the two \"undeclared 13-child group opens\" cases fail (2 failed, 5 passed); with the fix, all 7 pass.\n- `pnpm exec vitest run packages/layout/ packages/app-shell/src/layout/__tests__/UnifiedSidebar packages/app-shell/src/layout/__tests__/systemNavSettingsTarget.test.tsx`: 62 files, 450 tests passed.\n- `StudioDesignSurface` nav-tree tests (the 14 `StudioDesignSurface.*nav*` / `*Nav*` files, `interfacesNavTree-12455` among them): 116 tests passed. The full `StudioDesignSurface*` set was not run locally: two attempts through the shared verify lock timed out in the queue. CI runs it.\n- `turbo run type-check --filter=@object-ui/layout --filter=@object-ui/app-shell`: 31 of 31 tasks successful.\n- ESLint on the touched files: 0 errors (existing warnings only). `check-changeset-presence` and `check-changeset-no-major` pass; `check:new-line-citations` reports 0 new citations.\n\n## Acceptance notes\n\n- No test pinned the old count rule, and no other copy of the threshold exists under `packages/layout/src` or `packages/app-shell/src`.\n- Studio's preview has no dedicated pin for an undeclared long group. Its test files were outside the declared file surface, so none was added.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

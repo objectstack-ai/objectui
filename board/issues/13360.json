@@ -1,0 +1,34 @@
+{
+  "number": 13360,
+  "kind": "pull_request",
+  "title": "ci(repo-gates): restore the build's turbo cache, save and prune on push only",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "documentation",
+    "needs-user-decision",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T12:01:56Z",
+  "updated_at": "2026-10-23T12:16:44Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13360",
+  "body": "Closes #13348\nClause-②: no\n\n## Governed surface\n\n`.github/workflows/**` is on objectui's governed surface (`node scripts/check-governed-queue-guard.mjs --test .github/workflows/repo-gates.yml` → GOVERNED). This PR stays **draft** until an approval from a governed approver (`os-zhuang` / `hotlong`) is on record.\n\n## What changed (3 files)\n\n- **`.github/workflows/repo-gates.yml`**: the build step now has a Turbo cache, set up the same way as `performance-budget.yml`'s `bundle-analysis` cache (objectui#12276):\n  - **Restore Turbo Cache** runs before \"Build every package the gates below read\". It uses `actions/cache/restore@v6` on `.turbo/cache`, with the key `turbo-${{ runner.os }}-repo-gates-${{ github.sha }}` and one restore key, `turbo-${{ runner.os }}-repo-gates-`. It runs on the same condition as the build: `!cancelled() && steps.install.outcome == 'success'`.\n  - The build step sets `TURBO_RUN_SUMMARY: 'true'`. The build command and its filter set are unchanged, and it is still never an unfiltered `turbo run build` (header, `repo-gates.yml:55`).\n  - Three bookkeeping steps run after the last gate, all bounded and `continue-on-error`:\n    - **Report what the turbo cache replayed** runs on every run (`!cancelled()`).\n    - **Prune the turbo cache to what this run used** runs on push only.\n    - **Save Turbo Cache** runs on push only, and only when `cache-hit != 'true'`, with a 5 min bound. The existing save of the pinned `@objectstack` build stays the last step.\n  - Pull-request and merge-group runs restore the cache and never save it.\n- **`scripts/__tests__/check-action-ref-convention.test.ts`**: this test pins the exact list of `uses:` refs in `repo-gates.yml`. The new restore and save add two refs, so the list now has them, in file order.\n- **`content/docs/guide/ci-cd-pipeline.md`**: the Repo Gates section now names the cache and `scripts/report-turbo-cache.mjs`. `ci-cd-pipeline-doc.test.ts` requires the page to name every first-party command a workflow runs, and it has no exception list.\n\n## `$SKILL_FILTER` / `$SNIPPET_FILTER`\n\nOn this PR's base, the two derived filters add no tasks to the build. Checked with `turbo run build --dry=json`: `--filter='./packages/*'` alone gives 40 tasks, and adding both derived filters gives the same 40. That is also the task set `bundle-analysis` builds. The filters are derived on every run, so they could change it later. If one ever names a package outside `packages/`, that run gets fewer cache hits. It does not break the cache.\n\n## How acceptance will be measured\n\n- **Baseline:** the latest `main` push run, 39921589107: the build step took 247 s and the job took 419 s.\n- **This PR's own run will miss the cache.** Pull requests restore from `main`'s entry, and no `repo-gates-` entry exists yet. The ≤90 s build step can only show up after a push to `main` has saved an entry. To read it:\n  - check the `::notice` that \"Report what the turbo cache replayed\" writes on the first PR run after that push;\n  - check that the push run's prune and save steps ran.\n- **Caveat on push runs:** push runs share the ref's concurrency group with `cancel-in-progress: true`, so a merge can cancel the previous merge's run before it saves. Of the 20 newest `main` push runs, 18 succeeded and 2 were cancelled, so the save should land on most merges.\n\n## Judgment calls\n\n1. **The restore is gated on the install outcome**, the same condition as the build it serves, so a run that will not build does not spend a restore. `bundle-analysis`'s restore has no `if:`, and the turbo cache policy test does not constrain this.\n2. **The save's 5 min bound is not yet derived from this step's own runs**, because no run of this job has saved this cache. The workflow comment says so. The bound rests on the nearest measured save of the same 40-task entry, `bundle-analysis`'s 1 s save (objectui#7048's arithmetic), and the comment says to re-derive it from this step's own runs. Including the pinned build's 2 min save, this job's save bounds total 7 of its 30 minutes.\n\n## Checks run\n\n- All 90 `scripts/__tests__/*.test.ts` files that read workflows, `repo-gates` or the CI/CD page pass. This includes `report-turbo-cache.test.ts` (each job has its own prefix and only one restore key, only push saves, the prune runs before the save, the report reads the summary) and `workflow-cache-save-bound.test.ts` (saves use the split form, run after the last command and stay within the job ceiling). Before the 2 pin updates, those 2 tests failed.\n- `check-governed-queue-guard --test` → GOVERNED.\n- `repo-gates.yml` parses with the `yaml` package.\n- These checks pass: `check-action-ref-convention`, `check-pre-install-import-graph`, `check-control-bytes`, `check-doc-links`, `check-new-cross-file-line-citations` (0 new) and `check-changeset-presence` (no changeset owed: no released package source changed).\n- actionlint is not installed and the repo has no wrapper for it, so it was not run.\n\n## Checklist\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj"
+}

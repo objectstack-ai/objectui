@@ -1,0 +1,32 @@
+{
+  "number": 13374,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Packaged automation Clone opens with a proposed name and label (objectui#13344)",
+  "state": "open",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T13:59:18Z",
+  "updated_at": "2026-10-23T14:16:00Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13374",
+  "body": "Closes #13344\nClause-②: no\n\n## What changed\n\nSetup › Packaged automation: the Clone dialog used to open with both the machine name and the label empty. It now opens on `SOURCE_copy` and the translated \"SOURCE LABEL (copy)\". Both fields stay editable, and the dialog can be submitted as it opens.\n\n- `PackagedAutomationPage.tsx` (the Clone button's `setClone` call): the draft starts with `name` set to the source name plus `_copy`, and `label` set to the new key `packagedAutomation.cloneCopyLabel` filled with `row.label`. `row.label` is already the machine name when the flow declares no label (the row builder in `packagedFlows.ts`), so that fallback needs no new code.\n- **Does the default pass the form's own name check?** Yes. The dialog's only client check is that both fields are non-blank (`cloneNameValid`). On the server, `FlowSchema.name` in `@objectstack/spec` requires the regex `^[a-z_][a-z0-9_]*$` and sets no length limit. Adding `_copy` to a name that already matches still matches. It is also exactly the name the runtime's own taken-name refusal suggests (`suggestCloneName` in the runtime's `flow-clone.ts`).\n- **A taken name** still gets the server's 409 message, shown as sent. `onCloneSubmit` is unchanged.\n- **Strings:** the page's strings live in the `@object-ui/i18n` locale packs. There is one new key, `packagedAutomation.cloneCopyLabel`, in all ten packs (en, zh, ja, ko, de, es, fr, pt, ru, ar).\n- One changeset: `.changeset/13344-clone-name-prefill.md`, a patch for `@object-ui/app-shell` and `@object-ui/i18n`.\n\n## Tests\n\nAll runs are at head `d26bb5557`.\n\n- `pnpm exec vitest run --maxWorkers=2` on `PackagedAutomationPage.test.tsx`, `PackagedAutomationPage.navContribution.test.tsx` and `PackagedActionsSection.test.tsx`: **3 files passed, 47 tests passed**.\n- New describe block `the clone dialog opens on a usable default name`, with five tests:\n  - the dialog opens on the defaults, the default name matches the flow-name regex, and submitting as-is sends exactly `{ name: 'pkg_notify_copy', label: 'Notify owner (copy)' }`\n  - the prefill comes from the row that was clicked\n  - a flow with no label falls back to its machine name\n  - both fields stay editable and the typed values are sent\n  - a taken default gets the server's 409 message unchanged, and the defaults stay in the fields\n- Updated test: `will not submit until both the new machine name and the new label are given` now clears the prefilled fields first.\n- **Ablation:** I put the page back to its base version (empty `name` and `label`) and re-ran the page test. **4 failed, 26 passed**: the four prefill tests failed, and the editability test still passed, as expected because typing works either way. Then I restored the file from `HEAD` and checked that its blob hash matched the commit and that `git diff HEAD` was empty.\n- `pnpm exec vitest run --maxWorkers=2 packages/i18n/`: 84 files passed, 1319 tests passed, 13 skipped. This covers `all-locales-key-parity`.\n- `product-neutral-renderer.ratchet.test.ts`: 32 passed.\n- `pnpm check:i18n-keys`, `pnpm check:i18n-drift` and `pnpm check:i18n-dead-keys`: all exit 0. Drift reports 1 key added and 0 en values changed.\n- `node scripts/check-changeset-presence.mjs`: exit 0, 1 changeset declared.\n- `pnpm check:new-line-citations`: 0 new citations.\n- Type-check, `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec turbo run type-check --concurrency=2 --filter=@object-ui/app-shell`: exit 0, 30 of 30 tasks passed. That includes `tsc -p tsconfig.test.json`.\n- ESLint on the 12 touched source files: 0 errors and 1 warning. The warning (`react-hooks/set-state-in-effect` on the load effect's `setLoadError(null)`) was already there and is on a line this PR does not change.\n\n## Acceptance notes\n\n- The prefill does not try to skip names that are already taken. The list on this page shows only packaged flows, and a tenant clone is never listed there, so the page cannot know which `_copy` names exist. The server decides, and its 409 suggests a free name.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

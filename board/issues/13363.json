@@ -1,0 +1,36 @@
+{
+  "number": 13363,
+  "kind": "pull_request",
+  "title": "fix(app-shell): toasts sit top-centre, clear of the page header's actions (objectui#13340)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T12:38:23Z",
+  "updated_at": "2026-10-23T13:16:42Z",
+  "closed_at": "2026-10-23T13:16:40Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T13:16:40Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13363",
+  "body": "Closes #13340\nClause-②: no\n\n## The two emitters: measured, and the second one does not reproduce on `origin/main`\n\nThe card asks for the second emitter behind each refusal on the Setup forms. I traced both Setup form paths on `origin/main` (`2c4e5f5`) and counted toasts in a real browser, at 1440×900, against a live `@objectstack` 18.0.0 backend (`objectstack dev --fresh`, Setup app). I ran the same check on the console that 18.0.0 ships at `/_console`.\n\n| Form (Setup) | Path | Toast emitter | Error toasts per refusal |\n|---|---|---|---|\n| Business Units → New (`A record with this value already exists`) | `ModalForm` → `handleSubmit` → `dataSource.create` rejects → rethrown | components `form.tsx`, the submit catch: `toast.error(errorMessage, { id: outcomeToastId })` | 1 (main), 1 (18.0.0) |\n| Users → Create User (`Either email or phoneNumber is required`) | `ActionParamDialog` → runner `run` → console `apiHandler` returns the refusal | core `ActionRunner.handlePostExecution` → console `toastHandler` → `toast.error(message)` | 1 (main), 1 (18.0.0) |\n| Teams → Add Member | same as Create User (`add_team_member`, `type: 'api'`) | same | same path (the live run succeeded, so no refusal was counted) |\n\nEach refusal is also written inside the form: the form's banner above the fields (`setSubmitError`), or the parameter dialog's refusal line (`action-param-refusal`, objectui#13161). It is the same sentence as the toast, so the screen shows it twice: once in the form and once as a toast. That matches the report's \"×2\". It is not a second toast. Under the card's own rule (find the second emitter, never de-duplicate by text) there is no second toast emitter to remove. Dropping the toast while the banner shows would be a design change: the toast exists because the banner can be scrolled out of view in long forms. That decision belongs to the maintainer and is not made here.\n\nSo this PR pins the measured behaviour: one error toast per refusal on both paths. It also fixes the placement, which did reproduce.\n\n## Placement: did reproduce, fixed\n\nAt 1440×900 the toaster sat top-right at sonner's 24px offset. On Setup → Business Units the toast box measured `[1060,24,1416,78]`. The header buttons measured New `[1198,63,1275,99]` and Import `[1283,63,1376,99]`, so the toast covered both for its 4s life. After the change the toast measures `[542,56,898,110]`, clear of both buttons. With the record dialog open it sits in the empty middle of the dialog's title row, clear of the title, the close button and the error banner.\n\n`ConsoleToaster` change, through the one existing Toaster config, so it applies to every page:\n- No drawer open: `position=\"top-center\"`, with `offset={{ top: 56 }}` (the `AppShell` top bar is `h-12`, 48px, plus an 8px gap). The top-right corner holds every page header's actions (a list's New and Import, a record's Edit and header actions, dashboard controls). Top-centre is the strip a page header leaves free: title on the left, actions on the right. The offset keeps the toast off the top bar's centred global search.\n- A right-side drawer open: unchanged from objectui#11685. The toaster goes back to `top-right` and steps into the strip beside the drawer, or below the drawer's header.\n- Bottom-right stays unused (objectui#7482: the assistant's FAB and composer). Phone offsets are unchanged.\n\n## What changed\n- `packages/app-shell/src/chrome/ConsoleToaster.tsx`: the default anchor and offset (`DEFAULT_OFFSET`), and its comments.\n- `packages/app-shell/src/chrome/ConsoleToaster.autoDismiss-7482.test.tsx`: the default anchor is now `['top', 'center']`.\n- `packages/app-shell/src/chrome/ConsoleToaster.drawerClearance-11685.test.tsx`: with no drawer, top-centre at `--offset-top: 56px`. With a drawer, top-right as before. The test now re-reads the toaster region, because sonner mounts a new element when the position changes.\n- New `packages/app-shell/src/hooks/__tests__/useConsoleActionRuntime.oneToastPerRefusal-13340.test.tsx`: the console's own `toastHandler`, `apiHandler` and `paramCollectionHandler` are wired into a real `ActionRunner`. Only the fetch is faked, answering the create-user door's 400. Checks: one refused Confirm gives exactly one `toast.error`, each further refusal adds one, and Cancel adds none. Reverse-checked: adding a `toast.error` in `apiHandler`'s refusal branch turns both tests red.\n- New `packages/components/src/renderers/form/__tests__/form-one-toast-per-refusal-13340.test.tsx`: one refused submit gives exactly one `toast.error`, carrying the server's sentence. A refused retry gives one more under the same outcome id, so it replaces the first instead of stacking.\n- `.changeset/13340-toaster-top-center.md` (`@object-ui/app-shell` patch).\n\n## Tests run\n- `pnpm exec vitest run packages/app-shell/src/chrome/ packages/app-shell/src/hooks/__tests__/useConsoleActionRuntime.oneToastPerRefusal-13340.test.tsx packages/app-shell/src/hooks/__tests__/useConsoleActionRuntime.paramRefusal-13161.test.tsx packages/app-shell/src/views/ActionParamDialog.refusalKeepsInput-13161.test.tsx packages/components/src/renderers/form/__tests__/`: 99 files passed, 680 tests passed, 17 skipped.\n- The other `ConsoleToaster` consumers' tests (`ObjectView.inviteFeedback-11817`, `ObjectView.toolbarScriptSelection-12331`, plugin-form `WizardForm.outcomeToastSupersede`): 3 files, 18 tests passed.\n- `turbo run type-check --filter=@object-ui/app-shell --filter=@object-ui/components`: 31 of 31 tasks successful.\n- `node scripts/check-changeset-presence.mjs`: pass. `pnpm check:new-line-citations`: 0 new citations.\n- NOT MEASURED live: the drawer-open position switch in a real browser. The unit tests above cover the mechanism.\n\n## Acceptance notes\n- The double-toast half of the card did not reproduce, on `origin/main` or on the 18.0.0 console. What reads as \"×2\" is the toast plus the in-form banner or refusal line. Whether a form whose own banner is visible should also toast is a maintainer decision, not made here.\n- I could not read the hotcrm QA report (no access from this session). The forms above were measured on the platform's own Setup objects, not on a HotCRM build.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj"
+}

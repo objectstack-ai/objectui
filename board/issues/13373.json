@@ -1,0 +1,33 @@
+{
+  "number": 13373,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): record header highlights write the year on every date (#13331)",
+  "state": "open",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: core",
+    "package: fields",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T13:57:49Z",
+  "updated_at": "2026-10-23T14:14:31Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13373",
+  "body": "Closes #13331\nClause-②: no\n\nThe record header's highlights wrote a current-year date without its year beside a past-year date with it (\"Start Date Sep 15, 2025 | End Date Sep 15\"), so a contract that ended this September read as ending next month. The strip now asks for the year on every date. The shared default face, which drops the current year for cards and grid cells, is unchanged for every caller that does not ask.\n\n## What changed\n\n- `packages/core/src/utils/date-display.ts`: a new opt-in key on `DateDisplayOptions`, `alwaysShowYear`. `formatDate`'s default face reads it and keeps `year: 'numeric'` for a current-year date. It also reaches that face through `formatRelativeDate`'s out-of-window fallback, because `absoluteFallbackOptions` strips only `style`. Absent means `false`, so the default stays as it was.\n- `packages/fields/src/index.tsx`: `CellRendererProps.alwaysShowYear`, read by `DateCellRenderer` (handed to `formatDate`) and by `DateTimeCellRenderer`'s `'relative'` branch (handed to `formatRelativeDate`, whose out-of-window fallback is the same date face). The datetime `compact` and verbose faces already write the year.\n- `packages/plugin-detail/src/HeaderHighlight.tsx`: the chip's `CellRenderer` gets `alwaysShowYear`. `HeaderHighlight` is what the detail view, the `record:highlights` renderer and the app-shell record preview card all draw, so one prop covers the three.\n- `.changeset/13331-highlight-date-year.md`: patch for `@object-ui/core`, `@object-ui/fields`, `@object-ui/plugin-detail`.\n\n## Tests\n\n- New `date-display.alwaysShowYear-13331.test.ts` (core, clock pinned to 2026-10-23): with the option, a current-year and a past-year date both carry the year (`Sep 15, 2026` / `Sep 15, 2025`), including through the `'relative'` path; the in-window relative phrase is unchanged (`In 2 days`); without the option the default face still drops the current year (`Sep 15`).\n- New `HeaderHighlight.dateYear-13331.test.tsx` (plugin-detail): the strip renders `Sep 15, 2025` and `Sep 15, 2026` for a record's two `date` highlights, and a `datetime` declared `relative` reads `Sep 15, 2026`; the bare `date` cell (the grid's face) still reads `Sep 15`.\n- `pnpm exec vitest run --maxWorkers=2` over the core `date-display*` / `dataset-format*` tests and the fields date and cell-renderer tests: 42 files passed, 1 skipped; 824 tests passed, 7 skipped.\n- `packages/plugin-detail/`: 297 files passed, 1 skipped; 2789 tests passed, 18 skipped.\n- `packages/app-shell/src/views/record-preview/`: 3 files, 42 tests passed.\n- `turbo run type-check` for `@object-ui/core`, `@object-ui/fields`, `@object-ui/plugin-detail`: 15/15 tasks successful.\n- ESLint on the touched files: 0 errors. `check:new-line-citations`: 0 new. `check-changeset-presence`: pass.\n- Ablation: with the `alwaysShowYear` read in `formatDate` reverted, 3 of the 6 new tests went red (both core option cases and the strip case); with only the strip's prop removed, the strip case went red. Restored, all green.\n\n## Acceptance notes\n\n- Grids use the same compact default, measured on `main` and not changed: an `ObjectGrid` `date` column renders through `DateCellRenderer` (default style `'relative'`, whose out-of-window fallback is the face that drops the current year), `temporalGroupHeading` calls `formatDate(key, face.format || 'relative', …)`, and the grid's untyped date fallback calls `formatDate(value, undefined, …)`. All three still drop the current year.\n- Within the ±7-day window a highlight date still reads as a relative phrase (\"In 2 days\"), which names no calendar date. This PR keeps that, so the year is always written on a calendar date, not on a relative phrase.\n- No README or guide page names the date faces' year rule, so no docs page changed.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj"
+}

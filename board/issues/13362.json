@@ -1,0 +1,33 @@
+{
+  "number": 13362,
+  "kind": "pull_request",
+  "title": "ci(test-shard-timings-refresh): push and open the refresh pull request as the fleet App so it runs CI",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "documentation",
+    "needs-user-decision"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T12:24:04Z",
+  "updated_at": "2026-10-23T12:58:59Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13362",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-sales\"} -->\n_Requested by **Sales** · [project thread](https://claude.ai/code/project/chan_01D5bWFY3rFzgJcytD5gD4Uu?thread=cmsg_01D5bWFY3rFzgJcytD5gD4Uu2XCfGL2rwSd3BXynetsBjb)_\n\nClause-②: no\nMetadata-protocol: none\n\nPart of #13349 (step 2). Step 1, the one-time landing of #13028, is on that pull request.\n\n## 维护者速读(草稿)\n\n- **改了什么：** 每周刷新分片耗时的 workflow，推分支和开 PR 不再用 Actions 自带的 token，改为在 runner 上用 fleet App（`objectstack-fleet[bot]`）临时铸一个 token：只对 objectui 一个仓、只给 contents / pull-requests / workflows 写权限，job 结束即吊销。job 自己的 token 降为只读。文档 `ci-cd-pipeline.md` 同步改写那一节，并在密钥表里登记这对组织级凭据。\n- **为什么改：** Actions token 发出的事件 GitHub 不触发 CI，所以刷新 PR 每周都拿不到 CI，只能等人推一下。#13028 从 10-19 等到 10-23，这期间分片不均 1.3–1.8 倍，拖慢每一张 PR。\n- **风险与代价（含回滚）：** objectui 的一个 workflow 步骤开始读组织密钥 `OS_FLEET_PRIVATE_KEY`，这是唯一新增的信任面；PR 跑（含 fork）不铸 token、不读密钥。凭据对本仓不可见时，周一那次 run 会红并写明原因，不会悄悄退回旧 token。回滚就是 revert 这一个提交。\n- **席位意见：**\n- **你要做的：** 确认组织密钥 `OS_FLEET_PRIVATE_KEY` 与变量 `OS_FLEET_APP_ID` 对 objectui 可见，并确认 #5397 对 App token 的否决只管 release PR；两点都同意就批准本 PR。\n\n## What changed\n\n`.github/workflows/test-shard-timings-refresh.yml`:\n\n- New step `Check the fleet App credential is visible to this repository`: reads `vars.OS_FLEET_APP_ID != ''` and `secrets.OS_FLEET_PRIVATE_KEY != ''` as booleans (nothing printed) and goes red with a message naming the missing one. It also writes the token's one repository name.\n- New step `Mint the fleet App token, narrowed to this repository`: `actions/create-github-app-token@v3` (the same action and credential pair objectstack's `fleet-write.yml` mints with), `repositories` = this repository only, `permission-contents`, `permission-pull-requests` and `permission-workflows` write. The last is there because the weekly force-push moves the branch from last week's base to today's `main`, across whatever workflow files landed in between, which GitHub refuses for an App token without it; the workflow writes no workflow file.\n- `Open or update the refresh pull request` now uses that token (`gh auth setup-git` for the push), commits as `objectstack-fleet[bot]`, and its pull request body says the PR runs its own CI instead of asking for a human push.\n- The job's `GITHUB_TOKEN` drops from `contents: write` + `pull-requests: write` to `contents: read` (plus the existing `actions: read`); checkout no longer persists a credential.\n- Both new steps share the existing `github.event_name != 'pull_request'` guard, so a pull-request run (including a fork's) never reads the App secret.\n- The header's \"The cost it carries, stated\" section is rewritten as \"Whose identity opens the pull request, and why\", carrying the #5397 / #13349 reasoning and the two prohibitions (no personal access token, no fallback to `GITHUB_TOKEN`).\n\n`content/docs/guide/ci-cd-pipeline.md`: the workflow's section, its inventory row, and the secrets table.\n\nNo changeset: `node scripts/check-changeset-presence.mjs` says no released package's source or contract moved.\n\n## Governing text\n\n- The ruling recorded on #13349 (Sales, 2026-10-23, option A), and the two maintainer confirmations it asks for there: the organization credential's visibility to this repository, and #5397's rejection read as scoped to the release pull request.\n- objectui#5397 (no personal access token in automation): kept.\n\n## Verification\n\nAt head `c543446`, exit codes captured before any pipe:\n\n- `pnpm exec vitest run scripts/__tests__` :: exit 0 (190 files passed, 2 skipped; 5727 tests passed)\n- `node scripts/check-action-ref-convention.mjs` :: exit 0 (14 distinct refs, 0 off-convention)\n- `pnpm run check:control-bytes` / `check:doc-fences` / `docs:check-links` / `check:new-line-citations` :: exit 0 each\n- `node scripts/check-changeset-presence.mjs` :: exit 0 (no changeset owed)\n- YAML parses.\n\nNot observable before merge, stated plainly: the mint, the push and the pull request open only on `schedule` / `workflow_dispatch` on `main`. The first proof is a `workflow_dispatch` of this workflow after merge (or the Monday 06:47 UTC run): the refresh PR should show check runs within minutes with no human push. The `workflows: write` need on a force-push across workflow-file changes is GitHub's documented App-token behaviour, not measured here.\n\n## Acceptance notes\n\n- #13028's run on its synced head (`17b3796`, a full-suite PR run) put the 16 test legs at 6.7 to 11.9 minutes of wall clock, about 1.8x. The card's ≤1.2x reading belongs to the first full battery on `main` after #13028 lands; the card session reads it and reports on #13349.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01Cr2pnminvpXPZAG6sKgzgN)_\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01Cr2pnminvpXPZAG6sKgzgN\n"
+}

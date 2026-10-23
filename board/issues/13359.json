@@ -1,0 +1,35 @@
+{
+  "number": 13359,
+  "kind": "pull_request",
+  "title": "feat(app-shell): confirm a permission set or position deactivation, naming the holder count (objectui#13338)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T11:59:14Z",
+  "updated_at": "2026-10-23T12:26:46Z",
+  "closed_at": "2026-10-23T12:26:44Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T12:26:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13359",
+  "body": "Closes #13338\nClause-②: no\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n## What changed\n\nSetup's Permission Sets and Positions lists (the metadata list in its environment scope, `DefaultMetadataList` in `ResourceListPage.tsx`, the row's `CatalogActiveCell` switch):\n\n- **Switching OFF asks first.** A permission set's or a position's switch opens an in-app `AlertDialog` (the `@object-ui/components` one, as `PackagesPage` uses; never `window.confirm`) titled with the item's label, naming how many users lose the access. Nothing is written until **Deactivate** is pressed; **Cancel** leaves the item on and writes nothing.\n- **The count is the server's, read when the confirm opens** (new `catalog-holders.ts`, through the console's data source `useAdapter().find`, the same reads the item's own holders sections make):\n  - position: its `sys_user_position` rows, by the position's name;\n  - permission set: its `sys_user_permission_set` rows by the set's name, plus the `sys_user_position` holders of every position whose registry definition lists the set (`positionsDistributing`, reused from `AssignedUsersSection`), one person counted once;\n  - a set bound to the `everyone` anchor is said to reach every signed-in member (not counted);\n  - an answer the server reports as longer than one read is said as \"At least N users\";\n  - a refused read is said as such with the server's sentence, never as \"0 users\", and Deactivate stays available (the confirm informs; it is not a gate). While the count is being read the dialog says so and Deactivate waits.\n- **Switching ON asks nothing** and writes at once.\n- **A toast confirms the change either way** (`sonner`, as the rest of metadata-admin uses): \"NAME activated.\" / \"NAME deactivated.\"\n- Strings live in the engine table `metadata-admin/i18n.ts` (en + zh), where every other `engine.catalog.*` string of this page lives; no locale pack under `packages/i18n` is touched.\n- Out of scope by the ruling and not done: any refusal of a deactivation. The declared sharing rules list shares the switch and is unchanged (no confirm, no toast).\n\n## Tests\n\n- New `ResourceListPage.deactivateConfirm-13338.test.tsx`: on both lists (a `describe.each` over Permission Sets and Positions) the confirm names the count and writes nothing until confirmed, then writes off and toasts; Cancel writes nothing and leaves it on; a refused count is said and not read as zero. Switching on writes at once with no confirm and no holder read, and toasts, on both lists. Singular, everyone-anchor and the exact reads (grant by set name, position holders by position name) are pinned.\n- New `catalog-holders.test.ts`: one person once, a `hasMore` answer as a lower bound (with control), rejection on no data source and on a refused read.\n- `ResourceListPage.environmentScope-7611.test.tsx` and `ResourceListPage.positionGrants-25333.test.tsx`: the two existing tests that switch an item off now go through the confirm.\n\nRun from the worktree root:\n\n- `pnpm exec vitest run` over `packages/app-shell/src/views/metadata-admin/ResourceListPage` (all seven list-page files), `catalog-holders.test.ts`, `walledCatalogReadOnly-12183.test.tsx`, `metadata-form-i18n.test.ts`, `zh-base-term.i18n-13131.test.ts`, `studio-locale.i18n.test.tsx`, `AssignedUsersSection.test.tsx` and `packages/app-shell/src/__tests__/product-neutral-renderer.ratchet.test.ts`: 13 files, 147 tests passed.\n- `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec turbo run type-check --filter=@object-ui/app-shell`: 30/30 tasks successful.\n- `pnpm exec eslint` on the changed files: 0 errors; `ResourceListPage.tsx` warning count equal to its base.\n- `node scripts/check-changeset-presence.mjs`, `node scripts/check-changeset-no-major.mjs`, `pnpm check:new-line-citations`: pass.\n\nSession: `https://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 13369,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): the import wizard preselects the object's only applicable saved mapping (objectui#13343)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T13:40:23Z",
+  "updated_at": "2026-10-23T14:07:20Z",
+  "closed_at": "2026-10-23T14:07:18Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T14:07:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13369",
+  "body": "Closes #13343\nClause-②: no\n\n## What changed\n\n`ImportWizard` (`packages/plugin-grid/src/ImportWizard.tsx`) now opens the mapping step with the object's saved mapping already applied when the object ships exactly one mapping that the target accepts. Before, the step always opened on \"— Map columns manually —\", so a user who never opened the \"Saved mapping\" menu imported without the mapping's renames and transforms.\n\n- A new effect makes the choice. It runs when the mapping step has headers and a non-empty mapping list, and it calls `handleSelectSavedMapping`, the same function a pick from the menu calls. That keeps the read-only display mapping, write mode, `upsertKey` match fields and request (`mappingName` plus the source rows) the same either way.\n- \"Applicable\" means the mapping's write mode is one the target accepts. A new helper, `savedMappingAccepted`, holds that rule, and the selector's disabled state, the guard in `handleSelectSavedMapping` and the preselection all use it. A mapping that is listed disabled because the target refuses its mode (objectui#12697) is not counted.\n- **The choice is made once.** `preselectDecidedRef` is set the first time the choice is made, whether or not anything was applied. After that, a re-fetched list, a new list object or a re-render does not run it again, so a user who switches to manual mapping stays on manual mapping. `reset` (which runs when the dialog closes) clears it for the next opening. The once-only behavior depends on that ref and not on any memoised callback's identity (AGENTS.md rule 10, memo identity). `handleSelectSavedMapping` is in the dependency list only because exhaustive-deps asks for it.\n- With no applicable mapping, or with two or more, the effect makes no change.\n- One changeset: `@object-ui/plugin-grid` patch.\n\n## Tests\n\nNew `ImportWizard.preselectOnlyMapping-13343.test.tsx` drives the real wizard and has 7 cases:\n- one mapping: the step opens with it applied, and the import request equals (`toEqual`) the request sent when a user picks the same mapping by hand;\n- no mapping: no selector, and the request has no `mappingName`;\n- two applicable mappings: the step opens on manual mapping;\n- one applicable mapping plus one whose mode the target refuses: the applicable one is preselected;\n- CONTROL: a single mapping whose mode the target refuses is not preselected;\n- a mapping fetched through `listImportMappings` is preselected;\n- the user switches to manual, then two re-renders hand over fresh list objects, and the step stays on manual.\n\nUpdated `__tests__/importWriteModes-12697.test.tsx`, case \"is listed disabled, its mode named, and picking it applies nothing\". It gives the wizard one accepted mapping and one refused mapping, so the accepted one is now preselected. Before, the case read \"no summary mounted\" as proof that the refused pick applied nothing. Now it checks that, after the refused click, the summary and the selector still show the accepted mapping and never the refused one. A refused pick that did apply would still fail this case.\n\nResults at head `c82760eec`:\n- `pnpm exec vitest run --maxWorkers=2` over every test file that `git grep -l ImportWizard` lists in `packages/` (44 files): `Test Files 44 passed (44)`, `Tests 366 passed (366)`. `scripts/__tests__/doc-version-claims.test.ts` (the one hit under `scripts/`): `29 passed (29)`.\n- `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec turbo run type-check --concurrency=2 --filter=@object-ui/plugin-grid`: exit 0, `Tasks: 15 successful, 15 total`. That covers `tsc -p tsconfig.test.json`, so the test files are type-checked too.\n- `eslint` on the three touched source and test files: 0 errors. One new warning, `react-hooks/set-state-in-effect`, on the preselection effect. The file already had 5 warnings of that kind. Applying a choice once the mapping list arrives is a state update from inside an effect, so the warning cannot be avoided here. The lint workflow sets no `--max-warnings`.\n- `node scripts/check-changeset-presence.mjs`: ✅ 1 changeset declared. `pnpm check:new-line-citations`: `0 new citation(s)`.\n\nAblation, run on the committed fix and restored with `git checkout HEAD --`. The restored file's blob hash matched HEAD and `git diff HEAD` was empty afterwards.\n- Leg A, `ImportWizard.tsx` put back to the base commit (`preselectDecidedRef` count 0): `Tests 4 failed | 3 passed (7)`. The four failures are the one-mapping, one-applicable-plus-refused, fetched and switch-to-manual cases. The none, two and refused-only cases stay green, as expected, because they pin \"nothing changes\".\n- Leg B, only the `if (preselectDecidedRef.current) return;` guard removed (count 0): `Tests 1 failed | 6 passed (7)`. The failure is the switch-to-manual case: without the guard, the mapping is applied again as soon as the user picks manual mapping.\n\n## Acceptance notes\n\n- If a user edits columns by hand while the mapping list is still loading, a single applicable mapping that arrives later is applied over those edits. The fetch starts when the wizard mounts, before a file is picked, so this needs a list that arrives after the file is parsed. It is not pinned.\n- Behavior from before this change, left untouched: going Back to upload and loading a different file keeps a mapping that is already active. The preselection is decided once per opening and does not change that.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nSession: `https://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

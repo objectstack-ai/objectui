@@ -1,0 +1,31 @@
+{
+  "number": 13364,
+  "kind": "pull_request",
+  "title": "fix(app-shell): SchemaForm rows show the label only, machine key on demand (#13352)",
+  "state": "open",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T13:05:36Z",
+  "updated_at": "2026-10-23T13:18:13Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13364",
+  "body": "Closes #13352\nClause-②: no\n\n## What changed\n\n`SchemaForm`'s default row (`packages/app-shell/src/views/metadata-admin/SchemaForm.tsx`, `FieldRow`) no longer draws the field's machine key in a `<code>` chip beside the label. Setup → Packages → New package now reads `Display name*`, not `Display name* name`.\n\nThe key is offered on demand instead: the label gets `title=\"Machine name: <key>\"` (the existing `engine.form.machineName` string, translated) and a `data-machine-name` attribute. It is offered under the same rule as before: only when the label does not already spell the key, judged on the untranslated source label (objectui#8231), so the hint is the same in every locale. The control's accessible name is the label alone. Boolean rows never had the chip and are unchanged. No new widget, string key, or product-specific code.\n\n## Pins\n\n- **New:** `SchemaForm.labelOnly-13352.test.tsx` covers a form-labelled `name` → \"Display name\" row (label text is exactly `Display name*`, no `<code>`, accessible name `Display name`, tooltip `Machine name: name`), a row whose label spells its key (no hint), and a raw-schema `title` row. 3 of its 4 tests fail on `origin/main` and all 4 pass with the fix.\n- **Updated:** three existing pins read the inline `<code>`. I read why each one exists before changing it. None of them requires the key to be drawn inline, so each keeps its original claim and now reads the tooltip:\n  - `SchemaForm.machineNameChip-8231.test.tsx`: the hinted set is the same in both locales. It now reads `label[data-machine-name]` and also checks that no `label code` remains.\n  - `SchemaForm.deDeveloperize-8218.test.tsx`: the hint word is translated (`机器名` / `Machine name`) and the source-label predicate holds. It now reads the label's `title`.\n  - `SchemaForm.widgetLabelling.test.tsx`: the control channel and the group channel give a field the same name. It used the chip as its fixture. It now checks that both channels give the label text `Tone`, the same `title`, and the accessible name `Tone`.\n\n## Tests run\n\n- `pnpm exec vitest run packages/app-shell/src/views/metadata-admin/SchemaForm*.test.tsx`: 27 files, 326 tests passed.\n- The 107 other test files under `packages/` and `apps/` that mention `SchemaForm` / `ResourceEditPage` / `MetadataForm` (`ResourceEditPage.*`, `PackageFormDialog.*`, `CreatePackageDialog.*`, inspectors, previews, console routes), run with `pnpm exec vitest run --maxWorkers=2 <files>`: 107 files, 982 tests passed.\n- `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec turbo run type-check --filter=@object-ui/app-shell`: 30/30 tasks passed.\n- `pnpm exec eslint` on the 5 touched files: 0 errors. The 16 warnings were already there and none is on a changed line.\n- `node scripts/check-changeset-presence.mjs` and `node scripts/check-changeset-no-major.mjs`: both pass. Changeset: `@object-ui/app-shell` patch.\n\nA full `packages/app-shell/` run did not finish on this shared container: it was killed once and stalled once under contention, so I don't claim it. CI covers it.\n\n## Checklist\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj"
+}

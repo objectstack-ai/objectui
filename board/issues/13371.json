@@ -1,0 +1,31 @@
+{
+  "number": 13371,
+  "kind": "pull_request",
+  "title": "fix(app-shell): a refused screen-flow end shows its message alone (objectui#13342)",
+  "state": "open",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T13:50:57Z",
+  "updated_at": "2026-10-23T14:12:40Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13371",
+  "body": "Closes #13342\nClause-②: no\n\n## What changed\n\nA screen-flow run that ends `outcome: 'refused'` used to keep the screen it paused on mounted under the refusal notice: the inputs stayed visible and editable, though a refused run is never resumed and nothing would submit them (measured on HotCRM, hotcrm R3-D2).\n\n`FlowRunner` (`packages/app-shell/src/views/FlowRunner.tsx`) now draws no screen body on a refused end:\n\n- A new `showScreenBody` flag (`refused === null`) gates the scrolling screen body. It is deliberately narrower than the existing `terminal` flag: a terminal FAILURE keeps the screen and the typed values under the reason, as the resume-result rule in the file header already says.\n- An `object-form` step used to get its Close from the form's own button bar, which lives inside the body that now goes, so the runner's footer (Close only, via `terminal`) is drawn on that step once the body is gone.\n- The dialog takes the narrow width on a refused end, since nothing wide is left in it.\n- The header (the flow's label and the step's heading) and the notice are unchanged; no toast, `onComplete` or invalidation behaviour moves (objectui#7707's pins stay green).\n- A new header section in `FlowRunner.tsx`, \"A refused end shows the message alone (objectui#13342)\", records the rule and its boundary.\n\n`utils/flowResponse.ts` is not touched: objectui#13285 (open, blocked) changes how the `FLOW_FAILED` message is chosen there, and this change keys only on the `refused` kind, so that work lands on the same failed-arm rendering it reads today.\n\nOne changeset: `.changeset/13342-refused-flow-message-only.md` (`@object-ui/app-shell` patch).\n\n## Tests\n\nNew: `packages/app-shell/src/views/__tests__/FlowRunner.refusedMessageOnly-13342.test.tsx`\n\n1. A flat screen with a field: after typing and submitting into a `refused` answer, the textbox, the field label and the `flow-screen-body` region are absent; the refusal sentence, the step heading and the footer Close are present, and Close calls `onClose`.\n2. An `object-form` step: `ScreenView` is stubbed for that step only (a button calling the runner's `objectForm.onSuccess`); before the refusal the runner draws no footer, after it the form is gone and the runner footer's Close calls `onClose`.\n3. Control: a screen waiting for input renders its field, Cancel and Submit; a `paused` resume draws the next screen's field.\n4. Control: a terminal `FLOW_FAILED` (400) keeps the screen body and the typed value under the reason.\n\nResults at head `1aed850ae`:\n\n- `pnpm exec vitest run --maxWorkers=2` over every test file that names `FlowRunner` (92 files, from `git grep -l FlowRunner` over test files): 91 files / 645 tests passed; the 92nd was the new file, failing on a test-name quoting slip corrected in the head commit, then re-run: `Test Files 1 passed (1)`, `Tests 4 passed (4)`; with the objectui#7707 file beside it, `Tests 10 passed (10)`.\n- `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec turbo run type-check --concurrency=2 --filter=@object-ui/app-shell`: `Tasks: 30 successful, 30 total` (runs `tsc --noEmit && tsc -p tsconfig.test.json`, the latter compiles the package's tests).\n- `eslint` on the two touched source files: 0 errors; 4 warnings, all on lines this diff does not change.\n- `node scripts/check-changeset-presence.mjs`: pass (1 changeset declared). `pnpm check:new-line-citations`: 0 new citations.\n\nAblation (fix committed first, mutation restored by `git checkout HEAD --` and proved by an empty `git diff HEAD` and a matching blob hash): replacing `const showScreenBody = refused === null;` with `const showScreenBody = true;` (anchor count 1 to 0, mutation count 0 to 1) turned pins 1 and 2 RED (`expect(element).not.toBeInTheDocument()` on the textbox and on the stub's button) while controls 3 and 4 stayed GREEN: `Tests 2 failed | 2 passed (4)`, as predicted.\n\n## Acceptance notes\n\n- When the engine serves a `refused` answer with no `refusalMessage`, the dialog now shows only its header and Close (the notice was already omitted for an empty message; the screen under it is now omitted too). No copy is invented for that case.\n- The step's `description` (in the header) is kept on a refused end, as the objectui#7707 pins expect the heading to stay; only the body goes.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

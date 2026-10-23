@@ -28,7 +28,9 @@ const POSITIONS = [
 
 function sourceOf(grants: unknown, assignments: unknown) {
   return {
-    find: vi.fn(async (resource: string) => (resource === 'sys_user_permission_set' ? grants : assignments)),
+    find: vi.fn(async (resource: string, _params?: Record<string, unknown>) =>
+      resource === 'sys_user_permission_set' ? grants : assignments,
+    ),
   };
 }
 const registry = { ensureType: vi.fn(async () => POSITIONS) };

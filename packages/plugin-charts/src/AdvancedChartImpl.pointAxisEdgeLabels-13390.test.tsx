@@ -74,14 +74,16 @@ const MONTHS = [
 /** Upper estimate of half a tick label's painted width at the 12px tick font. */
 const halfLabelPx = (label: string) => ([...label].length * 0.65 * 12) / 2;
 
-function draw(chartType: string, extra: Record<string, unknown> = {}) {
+type Family = NonNullable<React.ComponentProps<typeof AdvancedChartImpl>['chartType']>;
+
+function draw(chartType: Family, extra: Record<string, unknown> = {}) {
   vi.stubGlobal('ResizeObserver', SurfaceResizeObserver);
   const { container } = render(
     <AdvancedChartImpl
-      chartType={chartType as any}
+      chartType={chartType}
       data={MONTHS}
       xAxisKey="month"
-      series={[{ dataKey: 'tasks', label: 'Tasks' }] as any}
+      series={[{ dataKey: 'tasks', label: 'Tasks' }]}
       showLegend={false}
       isAnimationActive={false}
       {...extra}
@@ -115,7 +117,7 @@ function xTicksOf(container: HTMLElement) {
 }
 
 describe('objectui#13390 — a line or area chart keeps its edge x labels on the chart surface', () => {
-  for (const chartType of ['line', 'area']) {
+  for (const chartType of ['line', 'area'] as const) {
     it(`draws the last month whole on a ${chartType} chart`, () => {
       const container = draw(chartType);
       const ticks = xTicksOf(container);

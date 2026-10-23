@@ -1379,6 +1379,15 @@ export function PackagesPage() {
   // same moment its cells do.
   const showActionsColumn = showMarketplaceActions && filtered.some((r) => rowActionEntry(r) !== null);
 
+  // objectui#13356 — Setup's "Installed Apps" entry opens this page with
+  // `?source=marketplace` (its nav item's `params`, sent as the query string).
+  // That view is titled for the entry that opened it, and when no row is a
+  // marketplace install its empty state says so, instead of blaming a filter
+  // the administrator never set. "No packages match your filters." stays for
+  // the case where marketplace installs exist and the search hides them.
+  const installedAppsView = sourceFilter.value === 'marketplace';
+  const noMarketplaceInstalls = installedAppsView && !rows.some((r) => r.source === 'marketplace');
+
   const clearSourceFilter = () => {
     const next = new URLSearchParams(searchParams);
     next.delete(PACKAGES_SOURCE_PARAM);
@@ -1452,7 +1461,11 @@ export function PackagesPage() {
           description under the title inside Setup, beside it elsewhere — is
           the header's own. Refresh is its icon button; New stays rightmost. */}
       <PageHeader
-        title={t('engine.packages.title', locale)}
+        title={
+          installedAppsView
+            ? t('engine.packages.installedApps.title', locale)
+            : t('engine.packages.title', locale)
+        }
         subtitle={t('engine.packages.description', locale)}
         icon={<PackageIcon className="h-4 w-4" />}
         refresh={{ onRefresh: () => void load(), label: t('engine.packages.refresh', locale), busy: loading }}
@@ -1572,6 +1585,13 @@ export function PackagesPage() {
                 words in here are the server's, so a test that located this
                 banner BY those words could not assert what is absent from it. */}
             <span data-testid="packages-load-error">{error}</span>
+          </div>
+        ) : filtered.length === 0 && noMarketplaceInstalls ? (
+          <div className="p-8">
+            <Empty data-testid="packages-installed-apps-empty">
+              <EmptyTitle>{t('engine.packages.installedApps.empty', locale)}</EmptyTitle>
+              <EmptyDescription>{t('engine.packages.installedApps.emptyHint', locale)}</EmptyDescription>
+            </Empty>
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-8">

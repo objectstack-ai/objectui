@@ -115,6 +115,8 @@ describe('AssignedUsersSection — a refused read is said, not drawn as empty (o
     await waitFor(() => expect(screen.getByText('Direct Dana')).toBeTruthy());
 
     fireEvent.click(screen.getByLabelText('Remove'));
+    // Remove confirms first (objectui#13408); the delete follows the confirm.
+    fireEvent.click(await screen.findByTestId('assigned-user-remove-confirm'));
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe(REFUSAL);

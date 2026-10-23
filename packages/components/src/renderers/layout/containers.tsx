@@ -2843,6 +2843,9 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
             titleNode={declaredFace}
             icon={recordPicture}
             objectLabel={objectLabel}
+            // Host-injected (objectui#13385): the note a host attaches to the
+            // object label, e.g. how a Setup record's object is managed.
+            objectLabelNote={ctx?.objectLabelNote}
             resourceId={data?.id ? String(data.id) : undefined}
             showCopyId={showCopyId}
             isFavorite={ctx?.isFavorite}

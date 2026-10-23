@@ -749,6 +749,9 @@ const zh = {
     viewAll: '查看全部',
     tabs: '标签页',
     allRecords: '全部记录',
+    userFilters: {
+      allRecords: '全部记录',
+    },
     search: '搜索',
     filter: '筛选',
     filterRecords: '筛选记录',

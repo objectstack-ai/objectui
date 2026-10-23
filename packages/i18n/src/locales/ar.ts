@@ -867,6 +867,9 @@ const ar = {
     viewAll: "عرض الكل",
     tabs: "علامات التبويب",
     allRecords: "جميع السجلات",
+    userFilters: {
+      allRecords: "جميع السجلات",
+    },
     search: "بحث",
     filter: "تصفية",
     filterRecords: "تصفية السجلات",

@@ -50,7 +50,7 @@ one has its own section below.
 | `merge-queue-head-patrol.yml` | Merge queue head patrol | Every 15 minutes (cron `7,22,37,52 * * * *`); manual | No — it gates no branch and blocks no queue, but it **goes red on a finding**: a merge-queue head with no `merge_group` build is a live repo-wide block |
 | `required-check-set-patrol.yml` | Required check set patrol | Daily (cron `23 5 * * *`); manual | No — it gates no branch and blocks no queue, but it **goes red on a finding**: a merge queue whose required set has lost `Type Check` validates nothing that a type error would fail |
 | `hook-selftests.yml` | Hook Self-Tests | PR / push touching `.claude/hooks/**` or the workflow | **Yes** |
-| `test-shard-timings-refresh.yml` | Regenerate the per-file test timings | Weekly cron `47 6 * * 1`; manual; PR touching the workflow or the two scripts it loads | No — it is path-filtered, so it does not report on most PRs; **blocking when it does run**. Its scheduled run opens a pull request and gates nothing |
+| `test-shard-timings-refresh.yml` | Regenerate the per-file test timings | Weekly cron `47 6 * * 1`; manual; PR touching the workflow or the two scripts it loads | No — it is path-filtered, so it does not report on most PRs; **blocking when it does run**. Its scheduled run opens a pull request as the fleet App, so that pull request runs CI, and gates nothing |
 
 The path filters explain most "why did nothing run on my PR?" questions:
 
@@ -2993,11 +2993,17 @@ full suite on the new split before it lands.
 timings, or after a week of red — the selector exits 3, the job prints a warning naming the reason
 and stays green, and nothing is written. A NOT MEASURED that persists is the finding.
 
-**The refresh pull request arrives without CI.** It is opened with the run's `GITHUB_TOKEN`, and
-GitHub starts no workflow for an event that token raised — the same limitation the release pull
-request carries, which [#5397](https://github.com/objectstack-ai/objectui/issues/5397)'s ruling
-kept rather than add a personal access token. Whoever lands it pushes to its branch once (a merge
-of `main` is enough). The branch, `ci/test-shard-timings-refresh`, is this workflow's own and is
+**The refresh pull request runs its own CI.** GitHub starts no workflow for an event raised by a
+run's `GITHUB_TOKEN`, so until [#13349](https://github.com/objectstack-ai/objectui/issues/13349)
+every refresh pull request arrived without CI and waited for someone to push to its branch. The
+push and the pull request now go out as the fleet App (`objectstack-fleet[bot]`):
+`actions/create-github-app-token` mints a token on the runner from the organization variable
+`OS_FLEET_APP_ID` and secret `OS_FLEET_PRIVATE_KEY`, narrowed to this repository and to
+`contents`, `pull-requests` and `workflows` write (the force-push moves the branch across any
+workflow files `main` changed since the last refresh), and revokes it when the job ends. The job's
+own token only reads. ⛔ No personal access token ([#5397](https://github.com/objectstack-ai/objectui/issues/5397)),
+and ⛔ no fallback to `GITHUB_TOKEN`: when the credential is not visible to this repository the run
+goes red and says so. The branch, `ci/test-shard-timings-refresh`, is this workflow's own and is
 overwritten by each refresh, as `changeset-release.yml` does with its version branch.
 
 **A pull-request run writes nothing.** It runs the selection, the downloads and the regeneration,
@@ -3452,6 +3458,7 @@ on:
 |-------------------|---------|---------|
 | `GITHUB_TOKEN` | All workflows | GitHub API access (automatic) |
 | `NPM_TOKEN` | `changeset-release.yml` | npm package publishing |
+| `OS_FLEET_APP_ID` (variable), `OS_FLEET_PRIVATE_KEY` (secret) | `test-shard-timings-refresh.yml` | Mint the fleet App token the refresh pushes its branch and opens its pull request with, so that pull request runs CI. Both are **organization**-level. If either is not visible to this repository, the run fails red. |
 | `CROSS_REPO_ISSUE_TOKEN` | `cross-repo-issue-closer.yml` | Closing issues in sibling repositories. `GITHUB_TOKEN` cannot do this — it is scoped to the repository running the workflow. When absent the workflow reports instead of closing. |
 | `VERCEL_TOKEN` | `docs-deploy.yml` | Vercel API token for the Object Stack team, used by `vercel pull` and `vercel deploy`. It is stored as an **organization** secret. If it is missing, the run fails red. |
 | `TURBO_TOKEN` | Build workflows | Turbo remote cache authentication |

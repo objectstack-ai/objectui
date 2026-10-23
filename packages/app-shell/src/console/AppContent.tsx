@@ -55,7 +55,7 @@ import { OnboardingWalkthrough } from '../chrome/OnboardingWalkthrough.js';
 import { RouteFader } from '../chrome/RouteFader.js';
 import { NavigationSyncEffect } from '../hooks/useNavigationSync.js';
 import { AppNoAccessEmptyState } from './AppNoAccessEmptyState.js';
-import { appServesNoNavigation } from './appServesNoNavigation.js';
+import { appNamesOnlyUnreadableObjects, appServesNoNavigation } from './appServesNoNavigation.js';
 import {
   useNavMemberGates,
   navEntriesShownToMember,
@@ -1649,6 +1649,14 @@ function AppRootLanding({
   setupPath: string | null;
 }) {
   const gates = useNavMemberGates();
+  // objectstack#25338 — an app that names objects, none of which this member
+  // may read, has nothing for them: its dashboards and pages would answer a
+  // grid of "You don't have access" tiles. Say so once, before any landing is
+  // chosen. The verdict is the object-read prune's own (`gates.can`), already
+  // held for the whole shell, so nothing here waits on a read.
+  if (appNamesOnlyUnreadableObjects(app, gates.can)) {
+    return <AppNoAccessEmptyState app={app} setupPath={setupPath} reason="no-readable-object" />;
+  }
   const navigation = navEntriesShownToMember(app?.navigation || [], gates);
   const landing = resolveLandingRoute(navigation, ctx);
   const areas = (app?.areas || []) as Array<{ navigation?: NavigationItem[] } | null | undefined>;

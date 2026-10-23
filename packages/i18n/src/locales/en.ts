@@ -3437,6 +3437,8 @@ const en = {
     appNothingAvailable: 'Nothing in {{app}} is available to you yet',
     appNothingAvailableDescription: 'This app has no pages your account can open. Ask an administrator to grant you access.',
     appNothingAvailableGrantDescription: 'This app has no pages your account can open. You can grant access in Setup.',
+    appNoReadableObjectDescription: 'Your account cannot read any of the records in this app yet. Ask an administrator to assign you a permission set.',
+    appNoReadableObjectGrantDescription: 'Your account cannot read any of the records in this app yet. You can grant access in Setup.',
     openSetup: 'Open Setup',
     createFirstApp: 'Create Your First App',
     systemSettings: 'System Settings',

@@ -2933,6 +2933,8 @@ const es = {
     appNothingAvailable: "Aún no hay nada disponible para usted en {{app}}",
     appNothingAvailableDescription: "Esta aplicación no tiene páginas que su cuenta pueda abrir. Solicite acceso a un administrador.",
     appNothingAvailableGrantDescription: "Esta aplicación no tiene páginas que su cuenta pueda abrir. Puede conceder el acceso en la configuración.",
+    appNoReadableObjectDescription: "Su cuenta aún no puede leer ningún registro de esta aplicación. Pida a un administrador que le asigne un conjunto de permisos.",
+    appNoReadableObjectGrantDescription: "Su cuenta aún no puede leer ningún registro de esta aplicación. Puede conceder el acceso en la configuración.",
     openSetup: "Abrir la configuración",
     createFirstApp: "Crear primera aplicación",
     systemSettings: "Configuración del sistema",

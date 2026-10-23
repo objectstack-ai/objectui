@@ -2929,6 +2929,8 @@ const fr = {
     appNothingAvailable: "Rien dans {{app}} ne vous est encore accessible",
     appNothingAvailableDescription: "Cette application ne contient aucune page que votre compte peut ouvrir. Demandez l'accès à un administrateur.",
     appNothingAvailableGrantDescription: "Cette application ne contient aucune page que votre compte peut ouvrir. Vous pouvez accorder l'accès dans la configuration.",
+    appNoReadableObjectDescription: "Votre compte ne peut encore lire aucun enregistrement de cette application. Demandez à un administrateur de vous attribuer un ensemble d'autorisations.",
+    appNoReadableObjectGrantDescription: "Votre compte ne peut encore lire aucun enregistrement de cette application. Vous pouvez accorder l'accès dans la configuration.",
     openSetup: "Ouvrir la configuration",
     createFirstApp: "Créer la première application",
     systemSettings: "Paramètres système",

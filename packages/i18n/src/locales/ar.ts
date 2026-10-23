@@ -3095,6 +3095,8 @@ const ar = {
     appNothingAvailable: "لا يتوفر لك أي شيء في {{app}} بعد",
     appNothingAvailableDescription: "لا يحتوي هذا التطبيق على صفحات يمكن لحسابك فتحها. اطلب من المسؤول منحك حق الوصول.",
     appNothingAvailableGrantDescription: "لا يحتوي هذا التطبيق على صفحات يمكن لحسابك فتحها. يمكنك منح حق الوصول من الإعداد.",
+    appNoReadableObjectDescription: "لا يمكن لحسابك قراءة أي سجلات في هذا التطبيق بعد. اطلب من المسؤول تعيين مجموعة أذونات لك.",
+    appNoReadableObjectGrantDescription: "لا يمكن لحسابك قراءة أي سجلات في هذا التطبيق بعد. يمكنك منح حق الوصول من الإعداد.",
     openSetup: "فتح الإعداد",
     createFirstApp: "إنشاء أول تطبيق",
     systemSettings: "إعدادات النظام",

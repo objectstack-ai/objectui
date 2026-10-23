@@ -2928,6 +2928,8 @@ const pt = {
     appNothingAvailable: "Ainda não há nada disponível para você em {{app}}",
     appNothingAvailableDescription: "Este aplicativo não tem páginas que sua conta possa abrir. Peça acesso a um administrador.",
     appNothingAvailableGrantDescription: "Este aplicativo não tem páginas que sua conta possa abrir. Você pode conceder acesso na configuração.",
+    appNoReadableObjectDescription: "Sua conta ainda não pode ler nenhum registro deste aplicativo. Peça a um administrador que atribua um conjunto de permissões a você.",
+    appNoReadableObjectGrantDescription: "Sua conta ainda não pode ler nenhum registro deste aplicativo. Você pode conceder acesso na configuração.",
     openSetup: "Abrir a configuração",
     createFirstApp: "Criar primeiro aplicativo",
     systemSettings: "Configurações do sistema",

@@ -10,6 +10,7 @@
 
 import { hasVisibleNavigationItems } from '@object-ui/layout';
 import type { NavigationItem } from '@object-ui/types';
+import { mayReadObject, type ObjectReadCheck } from '../utils/navObjectReadGate.js';
 
 /** The two trees an app's sidebar draws from: the top level and every area. */
 interface AppNavigationLike {
@@ -39,4 +40,45 @@ export function appServesNoNavigation(app: AppNavigationLike | null | undefined)
   const options = { hasActionHandler: true };
   if (hasVisibleNavigationItems(app?.navigation ?? [], options)) return false;
   return !(app?.areas ?? []).some((area) => hasVisibleNavigationItems(area?.navigation ?? [], options));
+}
+
+/**
+ * Whether the app names objects in its navigation and the caller may read none
+ * of them (objectstack#25338).
+ *
+ * The object-read prune (`withoutUnreadableObjectEntries`) drops every
+ * `type: 'object'` entry such a caller may not read, but it keeps the
+ * `dashboard`, `report` and `page` entries, which name no object in a declared
+ * key. So a new user who holds no permission set was still landed on the app's
+ * first dashboard, where every tile answered "You don't have access": a grid of
+ * refusals as their first screen, and nothing saying what to do.
+ *
+ * The question is asked of the app as SERVED, before any gate: every
+ * `objectName` of a `type: 'object'` entry in `navigation` and in every
+ * `areas[].navigation`, at every depth. It answers yes only when there is at
+ * least one and the caller may read none, so an app that names no object (a
+ * dashboard-only app) is not judged by it: nothing here says what such an app
+ * reads. A caller who may read any one named object is not refused here.
+ */
+export function appNamesOnlyUnreadableObjects(
+  app: AppNavigationLike | null | undefined,
+  can: ObjectReadCheck,
+): boolean {
+  const named = new Set<string>();
+  const collect = (items: NavigationItem[] | null | undefined): void => {
+    for (const item of items ?? []) {
+      if (item?.type === 'object' && typeof item.objectName === 'string' && item.objectName !== '') {
+        named.add(item.objectName);
+      }
+      const children = item?.type === 'separator' ? undefined : item?.children;
+      if (Array.isArray(children)) collect(children);
+    }
+  };
+  collect(app?.navigation);
+  for (const area of app?.areas ?? []) collect(area?.navigation);
+  if (named.size === 0) return false;
+  for (const objectName of named) {
+    if (mayReadObject(can, objectName)) return false;
+  }
+  return true;
 }

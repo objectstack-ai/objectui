@@ -2878,6 +2878,8 @@ const de = {
     appNothingAvailable: "In {{app}} ist für Sie noch nichts verfügbar",
     appNothingAvailableDescription: "Diese App enthält keine Seiten, die Ihr Konto öffnen kann. Bitten Sie einen Administrator um Zugriff.",
     appNothingAvailableGrantDescription: "Diese App enthält keine Seiten, die Ihr Konto öffnen kann. Sie können den Zugriff in der Einrichtung gewähren.",
+    appNoReadableObjectDescription: "Ihr Konto kann noch keine Datensätze in dieser App lesen. Bitten Sie einen Administrator, Ihnen einen Berechtigungssatz zuzuweisen.",
+    appNoReadableObjectGrantDescription: "Ihr Konto kann noch keine Datensätze in dieser App lesen. Sie können den Zugriff in der Einrichtung gewähren.",
     openSetup: "Einrichtung öffnen",
     createFirstApp: "Erste App erstellen",
     systemSettings: "Systemeinstellungen",

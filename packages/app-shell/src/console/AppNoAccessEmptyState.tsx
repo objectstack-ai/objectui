@@ -17,6 +17,12 @@
  * This is an app-level empty state instead. It names the app and says the
  * caller has no access in it yet. A caller who can grant access gets a link to
  * Setup; everyone else is told to ask an administrator.
+ *
+ * objectstack#25338 — the same screen answers a second case: an app that names
+ * objects in its navigation, none of which the caller may read. The sidebar
+ * still draws its dashboards and pages, but every tile on them would refuse,
+ * so the description says the caller can read nothing here yet and asks for a
+ * permission set, instead of claiming the app has no pages.
  */
 
 import { Link } from 'react-router-dom';
@@ -36,9 +42,15 @@ export interface AppNoAccessEmptyStateProps {
    * else, which hides the link and asks them to contact an administrator.
    */
   setupPath: string | null;
+  /**
+   * Why the app has nothing for this caller: it shows them no navigation
+   * (`'no-navigation'`, the default), or it names only objects they may not
+   * read (`'no-readable-object'`, objectstack#25338).
+   */
+  reason?: 'no-navigation' | 'no-readable-object';
 }
 
-export function AppNoAccessEmptyState({ app, setupPath }: AppNoAccessEmptyStateProps) {
+export function AppNoAccessEmptyState({ app, setupPath, reason = 'no-navigation' }: AppNoAccessEmptyStateProps) {
   const { t } = useObjectTranslation();
   const { appLabel } = useObjectLabel();
   // The same label the header's app switcher shows for this app.
@@ -56,14 +68,23 @@ export function AppNoAccessEmptyState({ app, setupPath }: AppNoAccessEmptyStateP
             defaultValue: 'Nothing in {{app}} is available to you yet',
           })}
         </EmptyTitle>
-        <EmptyDescription>
-          {setupPath
-            ? t('empty.appNothingAvailableGrantDescription', {
-                defaultValue: 'This app has no pages your account can open. You can grant access in Setup.',
-              })
-            : t('empty.appNothingAvailableDescription', {
-                defaultValue: 'This app has no pages your account can open. Ask an administrator to grant you access.',
-              })}
+        <EmptyDescription data-reason={reason}>
+          {reason === 'no-readable-object'
+            ? setupPath
+              ? t('empty.appNoReadableObjectGrantDescription', {
+                  defaultValue: 'Your account cannot read any of the records in this app yet. You can grant access in Setup.',
+                })
+              : t('empty.appNoReadableObjectDescription', {
+                  defaultValue:
+                    'Your account cannot read any of the records in this app yet. Ask an administrator to assign you a permission set.',
+                })
+            : setupPath
+              ? t('empty.appNothingAvailableGrantDescription', {
+                  defaultValue: 'This app has no pages your account can open. You can grant access in Setup.',
+                })
+              : t('empty.appNothingAvailableDescription', {
+                  defaultValue: 'This app has no pages your account can open. Ask an administrator to grant you access.',
+                })}
         </EmptyDescription>
         {setupPath && (
           <Button asChild variant="outline">

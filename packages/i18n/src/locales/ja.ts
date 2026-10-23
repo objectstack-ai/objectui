@@ -2880,6 +2880,8 @@ const ja = {
     appNothingAvailable: "{{app}} で利用できるものはまだありません",
     appNothingAvailableDescription: "このアプリには、お使いのアカウントで開けるページがありません。管理者にアクセス権の付与を依頼してください。",
     appNothingAvailableGrantDescription: "このアプリには、お使いのアカウントで開けるページがありません。設定でアクセス権を付与できます。",
+    appNoReadableObjectDescription: "お使いのアカウントでは、このアプリのレコードをまだ読み取れません。管理者に権限セットの割り当てを依頼してください。",
+    appNoReadableObjectGrantDescription: "お使いのアカウントでは、このアプリのレコードをまだ読み取れません。設定でアクセス権を付与できます。",
     openSetup: "設定を開く",
     createFirstApp: "最初のアプリを作成",
     systemSettings: "システム設定",

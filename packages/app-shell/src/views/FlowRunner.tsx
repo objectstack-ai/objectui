@@ -221,6 +221,7 @@ import {
   cn,
 } from '@object-ui/components';
 import { notifyDataChanged, useObjectTranslation } from '@object-ui/react';
+import type { ActionCopyTemplate } from '@object-ui/core';
 import {
   FLOW_SCREEN_FIELD_COPY_KEYS,
   resolveFlowScreenFieldOptions,
@@ -353,8 +354,10 @@ export interface ScreenFlowState extends Pick<AutomationResult, 'flowLabel'> {
    * toasts when the run completes without pausing (objectui#12234 — see the
    * header). Absent when no action launched the run or the action declares
    * none; the runner then keeps the flow-completed toast it always had.
+   * A string or the `template` envelope (objectui#13367), read by
+   * `flowSuccessCopy`.
    */
-  actionSuccessMessage?: string;
+  actionSuccessMessage?: ActionCopyTemplate;
 }
 
 /**

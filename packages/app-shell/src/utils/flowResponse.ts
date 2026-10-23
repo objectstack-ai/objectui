@@ -186,7 +186,7 @@
  * own failure prose (`error`) is passed through untouched — it has no key.
  */
 
-import { actionErrorDetail } from '@object-ui/core';
+import { actionCopySource, actionErrorDetail } from '@object-ui/core';
 import type { ActionResult } from '@object-ui/core';
 import { errorCodeIs } from '@object-ui/types';
 import type { AutomationResult } from '@objectstack/spec/contracts';
@@ -457,14 +457,19 @@ function usableCopy(copy: unknown): copy is string {
  * neither is usable; the caller then speaks its own default sentence.
  *
  * `actionMessage` is the action's copy exactly as it reached the host's flow
- * handler, so already localized by the surface that dispatched it.
+ * handler, so already localized by the surface that dispatched it. It is a
+ * string or the `template` envelope (objectui#13367), read through core's
+ * `actionCopySource` as the action runner reads it, so an envelope still
+ * outranks the flow's own copy. The text is answered as written: on the
+ * straight-through run the runner speaks it and fills its holes.
  * `flowMessage` is the flow's own `successMessage` as `interpretFlowResponse`
  * answered it — the served `AutomationResult.successMessage`, translated
  * against `flows.FLOW.successMessage` where the bundle carries one
  * (objectui#12075).
  */
 export function flowSuccessCopy(actionMessage: unknown, flowMessage: unknown): FlowSuccessCopy | undefined {
-    if (usableCopy(actionMessage)) return { text: actionMessage, from: 'action' };
+    const actionText = actionCopySource(actionMessage);
+    if (usableCopy(actionText)) return { text: actionText, from: 'action' };
     if (usableCopy(flowMessage)) return { text: flowMessage, from: 'flow' };
     return undefined;
 }

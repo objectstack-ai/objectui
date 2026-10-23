@@ -1,6 +1,7 @@
 ---
 '@object-ui/core': minor
 '@object-ui/react': patch
+'@object-ui/app-shell': patch
 ---
 
 An action's `confirmText`, `successMessage` and `errorMessage` read the `template` envelope and fill `{{ }}` holes (objectui#13367).
@@ -13,7 +14,7 @@ An action's `confirmText`, `successMessage` and `errorMessage` read the `templat
 
 A sentence with no `{{ }}` hole keeps today's `${…}` reading, so the platform's own `${result.email}`-style success sentences still work until the spec converts them. A sentence is read in one dialect only: a value filled into a `{{ }}` hole is never read again as `${…}`. An envelope with no text never reaches the dialog or a toast as an object; a `confirmText` envelope with no text still asks for confirmation.
 
-`useActionTextLocalizer` keeps the envelope: it used to read it as a per-locale map and hand the runner the word `template`. A bundle entry replaces the envelope's `source`. `@object-ui/core` exports the reader it uses: `ActionCopyTemplate`, `isActionCopyEnvelope`, `actionCopySource`, `hasTemplateHoles` and `fillTemplateHoles`.
+`useActionTextLocalizer` keeps the envelope: it used to read it as a per-locale map and hand the runner the word `template`. A bundle entry replaces the envelope's `source`. On a flow action the console reads the envelope too, so the action's own success copy still outranks the flow's (`flowSuccessCopy`). `@object-ui/core` exports the reader it uses: `ActionCopyTemplate`, `isActionCopyEnvelope`, `actionCopySource`, `hasTemplateHoles` and `fillTemplateHoles`.
 
 Clause-②: yes
 Metadata-protocol: none

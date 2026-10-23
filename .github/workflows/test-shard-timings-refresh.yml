@@ -97,6 +97,10 @@
 # all -- the selection, the downloads, the regeneration -- and stops before
 # the two acts that leave the runner: the push and the pull request. It mints
 # no fleet token either, so a pull request's run never reads the App secret.
+#
+# The same three steps run only from `main`: a manual dispatch on any other
+# branch regenerates and prints, and pushes nothing, so the refresh branch is
+# only ever built from `main`'s tree.
 
 name: Test Shard Timings Refresh
 
@@ -192,7 +196,7 @@ jobs:
       # credential beats `create-github-app-token`'s own error, which does not.
       - name: Check the fleet App credential is visible to this repository
         id: credential
-        if: steps.select.outputs.status == '0' && github.event_name != 'pull_request'
+        if: steps.select.outputs.status == '0' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           HAS_APP_ID: ${{ vars.OS_FLEET_APP_ID != '' }}
           HAS_PRIVATE_KEY: ${{ secrets.OS_FLEET_PRIVATE_KEY != '' }}
@@ -208,7 +212,7 @@ jobs:
 
       - name: Mint the fleet App token, narrowed to this repository
         id: fleet
-        if: steps.select.outputs.status == '0' && github.event_name != 'pull_request'
+        if: steps.select.outputs.status == '0' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.OS_FLEET_APP_ID }}
@@ -220,7 +224,7 @@ jobs:
           permission-workflows: write # the force-push crosses workflow files main changed (header)
 
       - name: Open or update the refresh pull request
-        if: steps.select.outputs.status == '0' && github.event_name != 'pull_request'
+        if: steps.select.outputs.status == '0' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ steps.fleet.outputs.token }}
           BRANCH: ci/test-shard-timings-refresh

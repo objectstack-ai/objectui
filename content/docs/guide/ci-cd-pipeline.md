@@ -3006,8 +3006,9 @@ and ⛔ no fallback to `GITHUB_TOKEN`: when the credential is not visible to thi
 goes red and says so. The branch, `ci/test-shard-timings-refresh`, is this workflow's own and is
 overwritten by each refresh, as `changeset-release.yml` does with its version branch.
 
-**A pull-request run writes nothing.** It runs the selection, the downloads and the regeneration,
-and skips the push and the pull request.
+**A pull-request run writes nothing**, and neither does a manual dispatch on any branch but `main`.
+It runs the selection, the downloads and the regeneration, and skips the mint, the push and the
+pull request.
 
 ### Merge Queue Head Patrol (`merge-queue-head-patrol.yml`)
 

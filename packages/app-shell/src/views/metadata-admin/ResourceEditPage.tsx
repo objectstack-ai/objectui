@@ -2314,6 +2314,23 @@ function MetadataResourceEditPageImpl({
   // sheets (Layers / References / Related). Anything else is ignored —
   // the main work area is always the form+preview.
 
+  // The Save button's name: the shortcut hint, or why Save is withheld. It is
+  // the button's accessible name and tooltip both, so the word drawn beside
+  // the icon (objectui#13337) leaves the name a reader hears unchanged.
+  const saveTitle = saving
+    ? t('engine.edit.saving', locale)
+    : inspectorBlocking > 0
+      // Neutral: the inspector channel carries CEL faults AND the
+      // objectui#6900 required-field refusal (ruling 5831744213).
+      ? t('perm.inspector.saveBlocked', locale)
+      : refusalBlocking > 0
+        ? tFormat('engine.validation.serverRefused', locale, {
+            issue: saveRefusal?.summary ?? '',
+          })
+        : !createMode && !isDirty
+          ? t('engine.edit.noChanges', locale)
+          : `${t('engine.edit.save', locale)} (⌘S)`;
+
   // Action group rendered identically in either the PageShell header
   // (form-only types) or the canvas toolbar (types with a PreviewComponent).
   // Centralising it lets us merge the two top bars into one when a
@@ -2534,28 +2551,18 @@ function MetadataResourceEditPageImpl({
           size="sm"
           onClick={() => doSave(false)}
           disabled={saving || (!createMode && !isDirty) || inspectorBlocking > 0 || refusalBlocking > 0}
-          className="h-7 w-7 p-0 relative"
-          title={
-            saving
-              ? t('engine.edit.saving', locale)
-              : inspectorBlocking > 0
-                // Neutral: the inspector channel carries CEL faults AND the
-                // objectui#6900 required-field refusal (ruling 5831744213).
-                ? t('perm.inspector.saveBlocked', locale)
-                : refusalBlocking > 0
-                  ? tFormat('engine.validation.serverRefused', locale, {
-                      issue: saveRefusal?.summary ?? '',
-                    })
-                : !createMode && !isDirty
-                  ? t('engine.edit.noChanges', locale)
-                  : `${t('engine.edit.save', locale)} (⌘S)`
-          }
+          className="h-7 gap-1 px-2.5 text-xs relative"
+          aria-label={saveTitle}
+          title={saveTitle}
+          data-testid="resource-save"
         >
           {saving ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <Save className="h-3.5 w-3.5" />
           )}
+          {/* objectui#13337 — labelled, not an icon alone. */}
+          <span>{t('engine.edit.save', locale)}</span>
           {isDirty && !saving && (
             <span
               aria-hidden

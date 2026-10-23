@@ -5045,9 +5045,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // column from a text one. It floors a chip column at its widest drawn
       // chip. Written only when true, so every other column is unchanged.
       const chips = !masked && isChipFieldType(producerType ?? objectFields?.[col.accessorKey]?.type);
+      // objectui#13377 — THE FOREIGN-KEY FLAG, for the same reason again: the
+      // fold drops `lookup` / `master_detail` / `tree` / `user`, so `data-table`
+      // could not tell that the raw value its cell `title` shows is the
+      // referenced record's id. Read as a union of the authored and the
+      // object-declared type, like the masked flag, since it only withholds.
+      // A masked column already carries no tooltip. Written only when true.
+      const foreignKey = !masked && (
+        isExpandableFieldType({ type: producerType }) || isExpandableFieldType(objectFields?.[col.accessorKey])
+      );
       const rest = masked
         ? { ...draft, masked: true }
-        : chips ? { ...draft, chips: true } : draft;
+        : { ...draft, ...(chips ? { chips: true } : {}), ...(foreignKey ? { foreignKey: true } : {}) };
       if (producerType == null) return rest;
       const normalized = normalizeTableColumnType(producerType);
       if (normalized === undefined) return rest;

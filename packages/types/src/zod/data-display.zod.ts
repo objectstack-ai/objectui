@@ -351,6 +351,13 @@ export const TableColumnSchema = z.object({
     .boolean()
     .optional()
     .describe('Chip column: its cells draw chips, so the table floors its width at the widest drawn chip of the loaded rows and a single-word value is never ellipsized'),
+  // objectui#13377. Serializable metadata, so the mirror TYPES it —
+  // `z.boolean()`, like `masked` and `chips`; without this line the
+  // non-strict object would silently STRIP it.
+  foreignKey: z
+    .boolean()
+    .optional()
+    .describe('Foreign-key column: its raw value is the id of a referenced record, so the cell carries no title tooltip showing that id; copy, export, edit, search and sort are unchanged'),
 });
 
 /**
@@ -409,6 +416,7 @@ export const StaticTableColumnSchema = z.object({
   wrap: retirementTombstone('NOT on the static table surface (objectui#6650) — declared on the rich TableColumn only; use data-table'),
   masked: retirementTombstone('NOT on the static table surface (objectui#10583) — declared on the rich TableColumn only; use data-table'),
   chips: retirementTombstone('NOT on the static table surface (objectui#12708) — declared on the rich TableColumn only; use data-table'),
+  foreignKey: retirementTombstone('NOT on the static table surface (objectui#13377) — declared on the rich TableColumn only; use data-table'),
 });
 
 /**

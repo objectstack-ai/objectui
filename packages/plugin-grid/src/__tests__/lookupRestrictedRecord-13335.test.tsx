@@ -82,8 +82,9 @@ describe('objectui#13335 — ObjectGrid: an unreadable lookup cell reads "Restri
     const marks = container.querySelectorAll('[data-slot="restricted-reference"]');
     expect(marks).toHaveLength(1);
     // What the lookup renderer draws carries no id and no link. (The table's
-    // own cell wrapper still puts the raw value in its `title`, as it does for
-    // every primitive cell; that wrapper is `data-table`'s, not this renderer's.)
+    // own cell wrapper, `data-table`'s and not this renderer's, put the raw
+    // value in its `title` too, until objectui#13377: that half is pinned in
+    // `lookupCellTooltip-13377.test.tsx`.)
     expect(marks[0]!.outerHTML).not.toContain(RESTRICTED_ID);
     expect(marks[0]!.closest('td')!.querySelector('a')).toBeNull();
     expect(container.querySelectorAll('[data-slot="unresolved-reference"]')).toHaveLength(0);

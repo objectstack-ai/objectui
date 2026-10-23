@@ -832,6 +832,22 @@ export interface TableColumn {
    * renderer is opaque to it (objectui#12708).
    */
   chips?: boolean;
+  /**
+   * The column's raw value is a FOREIGN KEY: the id of a referenced record
+   * (a `lookup`, `master_detail`, `tree` or `user` field), while its `cell`
+   * renderer draws that record's name (for a lookup the viewer cannot read,
+   * "Restricted record"). The cell carries no `title` tooltip, which would show
+   * the raw id the drawn cell withholds. Absent or `false`, the tooltip is as
+   * before.
+   *
+   * Unlike {@link TableColumn.masked}, it withholds nothing else: copy, CSV
+   * export, inline edit, search and sort are unchanged.
+   *
+   * Written by `ObjectGrid` from the column's field type, because the table
+   * cannot tell a reference from text: `type` has no reference member
+   * (objectui#13377).
+   */
+  foreignKey?: boolean;
 }
 
 /**
@@ -907,6 +923,14 @@ export interface StaticTableColumn {
    * @deprecated Not part of the static `table` renderer's contract.
    */
   chips?: never;
+  /**
+   * NOT on the static `table` surface (objectui#13377) — declared on the rich
+   * {@link TableColumn} only, where `data-table`'s cell tooltip reads it. The
+   * static renderer draws no `title` tooltip for it to withhold.
+   * Use `data-table` for the interactive set.
+   * @deprecated Not part of the static `table` renderer's contract.
+   */
+  foreignKey?: never;
   /**
    * RETIRED from the static `table` surface (objectui#5474, ADR-0049) — the
    * static renderer never read it; a right-aligned column authored here was

@@ -151,8 +151,10 @@ const OBJECTS = [
   },
 ];
 
-// The business app whose route segment is its package id (ADR-0048).
+// Business apps whose route segment is their package id (ADR-0048). HR is
+// active too, so a handler reading the shell's published app would land there.
 const CRM_APP = { name: 'crm', _packageId: 'com.acme.crm' };
+const HR_APP = { name: 'hr', _packageId: 'com.acme.hr' };
 
 function makeDataSource() {
   return {
@@ -165,7 +167,7 @@ function makeDataSource() {
 }
 
 const METADATA = {
-  apps: [CRM_APP],
+  apps: [CRM_APP, HR_APP],
   objects: OBJECTS,
   pages: [],
   loading: false,

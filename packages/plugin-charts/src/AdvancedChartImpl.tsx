@@ -1775,9 +1775,10 @@ function AdvancedChartImplInner({
 
   // Per-category colour: a select/lookup dimension's option colour (passed via
   // `categoryColors`, keyed by value OR label) wins per slice/bar; categories
-  // with no option colour fall back to their positional palette slot. Used by
-  // pie/donut and single-series categorical bars so semantic colours (health
-  // green/red/yellow) survive even when a generic brand palette is also set.
+  // with no option colour fall back to the `palette` the caller passes — the
+  // positional palette for pie/donut slices, the one series colour for
+  // single-series bars — so semantic colours (health green/red/yellow)
+  // survive even when a generic brand palette is also set.
   const colorForCategory = React.useCallback((rawKey: any, index: number, palette: string[]): string => {
     const mapped = categoryColors && categoryColors[rawKey == null ? '' : String(rawKey)];
     return mapped || palette[index % palette.length];
@@ -3052,17 +3053,23 @@ function AdvancedChartImplInner({
           const valueFormatter = formatterFor(axisOfSeries(s)?.format, displayLocale);
 
           if (chartType === 'bar' || chartType === 'horizontal-bar') {
-            // For categorical bar charts with a single primary series,
-            // color each bar distinctly. With a comparison overlay the
-            // chart effectively has two series, so revert to one color
-            // per series for visual consistency.
+            // One series, one colour: a bar's colour names its SERIES, so a
+            // single-series bar chart draws every bar in the series colour.
+            // A positional palette slot per bar carried no meaning — the
+            // System Overview "Events by User" board drew each user in a
+            // different hue (objectstack#25330). The one per-bar colour that
+            // does carry meaning is a dimension's semantic option colour
+            // (`categoryColors`, e.g. health green/red/yellow): a category
+            // that has one keeps it, every other bar takes the series colour.
+            // With a comparison overlay the chart has two series, so each
+            // keeps its own series colour.
             const primaryCount = series.filter((p: any) => p.variant !== 'comparison').length;
-            const colorPerCategory = primaryCount === 1 && !isComparison && series.length === 1 && data.length > 1;
+            const semanticPerCategory = !!categoryColors && primaryCount === 1 && !isComparison && series.length === 1 && data.length > 1;
             const pres = seriesStyle(s, 'bar');
             return (
               <Bar key={s.dataKey} dataKey={s.dataKey} fill={`url(#bg-${gslug(seriesColor)})`} radius={4} fillOpacity={pres.fillOpacity} strokeOpacity={pres.strokeOpacity} strokeDasharray={pres.strokeDasharray} {...stackProps} {...axisProps} {...animProps} {...markClickProps(s)}>
-                {colorPerCategory && data.map((entry, idx) => (
-                  <Cell key={`cell-${idx}`} fill={`url(#bg-${gslug(resolveColor(colorForCategory(entry?.[xAxisKey], idx, palette)))})`} />
+                {semanticPerCategory && data.map((entry, idx) => (
+                  <Cell key={`cell-${idx}`} fill={`url(#bg-${gslug(resolveColor(colorForCategory(entry?.[xAxisKey], idx, [seriesColor])))})`} />
                 ))}
                 {dataLabel(valueFormatter)}
               </Bar>

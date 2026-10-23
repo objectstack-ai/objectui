@@ -310,10 +310,14 @@ export function AppShell({
       {/* 2. Lower section: sidebar + main content (+ optional right rail) */}
       <div className="flex flex-1 min-h-0 w-full">
         {sidebar}
+        {/* `SidebarInset` is the page's one `main` landmark (it renders a
+            `<main>`), so the content element inside it is a plain `<div>`: a
+            second `<main>` here made every console page announce two main
+            regions (objectui#13334). */}
         <SidebarInset className="min-w-0">
-          <main className={cn("flex-1 min-w-0 overflow-auto p-3 sm:p-4 md:p-6 pb-20 sm:pb-4 md:pb-6", className)}>
+          <div className={cn("flex-1 min-w-0 overflow-auto p-3 sm:p-4 md:p-6 pb-20 sm:pb-4 md:pb-6", className)}>
             {children}
-          </main>
+          </div>
         </SidebarInset>
         {/* ADR-0057 P3a — additive right rail (ChatDock); absent → unchanged. */}
         {rightRail}

@@ -15,7 +15,8 @@
  *
  * Out of scope on purpose (the card's exclusions): `console.settingsView`,
  * where 「环境变量」 means environment variables, and `cloudOnboarding.*`,
- * which explains the cloud noun once.
+ * which explained the cloud noun once (that family has since retired with its
+ * widget, objectui#12954).
  */
 import { describe, it, expect } from 'vitest';
 import { builtInLocales } from '../locales';

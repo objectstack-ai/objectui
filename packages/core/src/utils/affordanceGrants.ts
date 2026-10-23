@@ -183,6 +183,12 @@ export const AFFORDANCE_GRANTS = {
    * child on Save.
    */
   relatedRowDelete: { crud: 'delete', grant: 'delete' },
+  /**
+   * Setup's Clone of a declared item (objectui#12982): a declared sharing
+   * rule's Clone creates an organization rule, asked of the object the
+   * environment authors such items as (`sys_sharing_rule`).
+   */
+  declarationClone: { crud: 'create', grant: 'create' },
   /** A lookup picker's "Create new", asked of the TARGET object. */
   lookupCreateNew: { crud: 'create', grant: 'create' },
   /** The record Attachments panel's Upload, asked of `sys_attachment` (storage route, not the data door). */

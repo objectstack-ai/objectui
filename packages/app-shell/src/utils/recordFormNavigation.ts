@@ -164,8 +164,50 @@ export interface FormViewDefinition {
  * runtime objects list (`useMetadata().objects`).
  */
 export interface ObjectDefinitionForFormView {
+  /** API name — the prefix of the object's served form-view names. */
+  name?: string;
   form?: FormViewDefinition | null;
-  formViews?: { default?: FormViewDefinition | null } | null;
+  /**
+   * The object's form views by served name. A container's named form views
+   * arrive as `OBJECT.KEY` (`expandViewContainer` in `@objectstack/spec/ui`,
+   * merged by `MetadataProvider`); `default` is the legacy container shape.
+   */
+  formViews?: Record<string, FormViewDefinition | null | undefined> | null;
+}
+
+/**
+ * Which record flow a form view is selected for (objectui#13099). A create
+ * and an edit can read different form views, so every caller states the
+ * flow it opens rather than leaving the resolver to infer it.
+ */
+export type RecordFormFlow = 'create' | 'edit';
+
+/**
+ * Select the form view a record flow renders (objectui#13099, ruling B′ on
+ * objectstack-ai/objectstack#24692).
+ *
+ *   - EDIT (and a caller that names no flow): the default form view —
+ *     `objectDef.form`, else the legacy `objectDef.formViews.default`.
+ *   - CREATE: the object's `create` form view when it declares one, else that
+ *     same default. This is the documented create-vs-edit model: author
+ *     `formViews.create` on the view container and the create entry uses it.
+ *
+ * The `create` form view is looked up under the name it is SERVED by: a
+ * container's `formViews.create` expands to the form item `OBJECT.create`
+ * (`expandViewContainer` in `@objectstack/spec/ui`), and `MetadataProvider`
+ * keys `formViews` by that served name. No other named form view is ever
+ * picked for a create — a named form (a public intake form, a wizard) is
+ * reached only by its name.
+ */
+export function selectRecordFormView(
+  objectDef: ObjectDefinitionForFormView | null | undefined,
+  flow: RecordFormFlow = 'edit',
+): FormViewDefinition | undefined {
+  if (flow === 'create' && objectDef?.name) {
+    const createView = objectDef.formViews?.[`${objectDef.name}.create`];
+    if (createView) return createView;
+  }
+  return objectDef?.form ?? objectDef?.formViews?.default ?? undefined;
 }
 
 /**
@@ -188,16 +230,20 @@ export interface FormViewModalLayout {
 }
 
 /**
- * Resolve a `<ModalForm>`'s layout props from an object's DEFAULT FORM VIEW
- * (curated sections + field selection/order, plus master-detail subforms).
+ * Resolve a `<ModalForm>`'s layout props from the form view the record flow
+ * selects ({@link selectRecordFormView}): the object's DEFAULT FORM VIEW, or
+ * for a create its `create` form view when declared (objectui#13099) —
+ * curated sections + field selection/order, plus master-detail subforms.
  *
  * The create / edit record modal otherwise falls back to the raw object
  * schema — rendering every field in schema order and ignoring the curated
  * form view entirely. This resolver lets the New/Edit modal honor the same
  * view-driven layout the full-screen record page (`RecordFormPage`) does.
  *
- * Resolution mirrors `RecordFormPage`: prefer `objectDef.form` (the default
- * ViewItem) and fall back to `objectDef.formViews.default` (legacy container).
+ * The default resolution mirrors `RecordFormPage`: prefer `objectDef.form`
+ * (the default ViewItem) and fall back to `objectDef.formViews.default`
+ * (legacy container). `flow` is the flow being opened; a caller that names
+ * none gets the default form view.
  *
  * Returns an EMPTY object when the object has no form view, or a form view
  * that declares no sections, subforms or `modalSize` — the caller then keeps
@@ -214,8 +260,9 @@ export interface FormViewModalLayout {
  */
 export function resolveFormViewLayout(
   objectDef: ObjectDefinitionForFormView | null | undefined,
+  flow?: RecordFormFlow,
 ): FormViewModalLayout {
-  const formView = objectDef?.form ?? objectDef?.formViews?.default;
+  const formView = selectRecordFormView(objectDef, flow);
   if (!formView) return {};
 
   const layout: FormViewModalLayout = {};
@@ -254,13 +301,15 @@ export function resolveFormViewLayout(
  *      itself (its bounded default) exactly as before.
  *
  * `derivedSize` is the `size` of `deriveRecordFlowSurface(objectDef, flow)`
- * for the flow being opened.
+ * for the flow being opened; `flow` selects the form view
+ * ({@link selectRecordFormView}, objectui#13099).
  */
 export function resolveRecordFormModalLayout(
   objectDef: ObjectDefinitionForFormView | null | undefined,
   derivedSize: RecordFlowSurface['size'],
+  flow?: RecordFormFlow,
 ): FormViewModalLayout {
-  const { modalSize: authoredSize, ...layout } = resolveFormViewLayout(objectDef);
+  const { modalSize: authoredSize, ...layout } = resolveFormViewLayout(objectDef, flow);
   const modalSize = derivedSize === 'full' ? 'full' : authoredSize;
   return modalSize ? { ...layout, modalSize } : layout;
 }

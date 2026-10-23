@@ -290,6 +290,29 @@ invitation redirect is an
 affordance, not an authorization: the server still refuses a non-invitee's
 sign-up.
 
+## Unsaved edits
+
+A page that keeps edits in component state registers them while it holds them,
+and every departure the shell can see asks before dropping them (objectui#13231).
+
+- `useRegisterUnsavedEdits(dirty, message)` — call it in the page, beside the
+  state that holds the edits. While the page is mounted and `dirty` is true, its
+  edits are registered with `message`, the question to ask, already translated.
+  Registrations are counted, and the page registered last supplies the question.
+- `confirmUnsavedLeave(go)` — how a departure that starts from a button leaves.
+  It runs `go` at once when nothing is registered, and otherwise only after
+  `window.confirm(message)` answers OK; on Cancel `go` never runs. The shell's
+  header menus and go-home shortcut, its workspace switcher, a sidebar entry's
+  ⋯ menu, the command palette, the inbox popover and the AI entry go through it
+  (objectui#13253), and an organization switch asks before it is sent. A `go` that returns a promise keeps the browser's leave prompt quiet
+  until it settles, so the user is asked once.
+
+While anything is registered, the seam also holds a tab close or reload with the
+browser's own leave prompt, and asks before an in-app link to another page. It
+does not guard browser Back and Forward, which `BrowserRouter` gives a page no
+way to hold, nor a departure a component starts with `navigate()` without going
+through `confirmUnsavedLeave`.
+
 ## Components
 
 ### AppShell
@@ -504,7 +527,10 @@ answer through `${…}` holes:
 
 The read, its loading and error states, and the `data` root are
 `SchemaRenderer`'s (see "Binding a page element to an API endpoint" in the data
-source guide). The blocks' arms are `@object-ui/types`'
+source guide). `ConnectedShell` keeps one open's reads (`ElementApiOpenScope`,
+one open per visit of a history entry; a replace stays in it), so a block bound to the
+same read as a navigation entry's `dataSource` takes the answer the sidebar
+already read instead of asking again. The blocks' arms are `@object-ui/types`'
 `zod/product-blocks.zod.ts`; the console's preview gallery draws every block at
 `/preview-gallery.html?only=product_blocks` (`&theme=dark` for dark mode).
 
@@ -610,12 +636,17 @@ family for them: it uses the same metadata-admin list and editors at
   of the affordance-to-grant map in `@object-ui/core`, asked of the assignment
   object (`sys_user_permission_set`, `sys_user_position`): Add reads
   `relatedNew` (the create grant) and Remove `relatedRowDelete` (the delete
-  grant). Reaching Setup is not that grant. The Setup app asks `setup.access`,
-  and objectstack's shipped organization administrator set holds it while it is
-  read-only on both assignment objects (objectstack's own pin for that is the
-  test `organization_admin is read-only on global RBAC tables to prevent
-  privilege escalation`), so that administrator sees the holders with no Add and
-  no Remove. When the server refuses the holders read itself, each section
+  grant). Reaching Setup is not that grant: the Setup app asks `setup.access`,
+  and a caller can hold it without either grant, so that caller sees the
+  holders with no Add and no Remove. objectstack's shipped organization
+  administrator set (`organization_admin`, and `organization_admin_no_bypass`)
+  creates and removes rows on both assignment objects and never edits them, so
+  that administrator sees Add and Remove. What it may create or remove is
+  bounded on the server by the delegated-administration gate (its own
+  organization, its own members, in-boundary sets only). objectstack's own pin
+  for that grant is the test `organization_admin creates and removes assignment
+  rows, never edits them — both variants`. When the server refuses the holders
+  read itself, each section
   says the refusal in the server's words and draws neither its count nor its
   empty copy: the empty copy follows only a read that succeeded and came back
   empty (objectui#12706).
@@ -645,6 +676,29 @@ the capability registry (the platform's curated capabilities beside every
 package-declared one), read-only, because the type offers no runtime write
 channel. That page has no switch, because a capability has no activation. The
 capability picker in the permission-set editor lists the same registry.
+
+**Declared sharing rules** (objectui#12982) are listed by the same scope,
+`…/metadata/sharing_rule?scope=environment`. objectstack ADR-0131 D6 charts
+`sharing_rule` under regime C: a rule a package declares lives in the
+registry, is read-only and clonable, and is switched through the activation
+ledger. A rule an organization authors is a `sys_sharing_rule` record, and its
+page is that object's ordinary data view. Each page reads one source, and no
+page merges the two lists (`views/metadata-admin/sharing-rule-catalog.ts`).
+On the declared page:
+
+- the list shows each rule's object, recipient, access level and declaring
+  package, offers no New, and opens a rule read-only. A link leads to the
+  organization rules page, where New lives;
+- the active switch is the ledger's state, written through
+  `POST /security/_activation/sharing_rule/:name`, and a refusal is shown in
+  the server's words;
+- **Clone** pre-fills a new organization rule from the server's compiled
+  projection of that rule (`GET /sharing/rules/:name`), under a name no
+  declared rule holds, and writes it through the `sys_sharing_rule` data door.
+  The server's `409 RESOURCE_CONFLICT` for a declared name is shown as sent.
+  Once the copy exists, the dialog offers to switch the declared rule off. A
+  rule already switched off has no served projection, so its clone continues
+  in the pre-filled New form, which asks for the criteria.
 
 ### Package-less flows (`/studio/~org/automations`)
 
@@ -690,16 +744,23 @@ behavior (full object list, whole-record save). The scope/merge helpers
 Below the object matrix, `PermissionAdvancedFacets` edits the three advanced
 facets (Row-Level Security, Tab Visibility, Delegated Admin Scope). RLS is the
 highest-risk surface: `USING` (read filter) / `CHECK` (write filter) predicates
-are hand-typed CEL, and a typo silently mis-scopes rows — some paths **fail
-open**, *widening* access with no error. The `USING`/`CHECK` editors therefore
+are hand-typed CEL, and a typo silently mis-scopes rows — a predicate the
+runtime cannot lower to a row filter is **dropped**, so the policy grants (or
+admits) nothing. The `USING`/`CHECK` editors therefore
 run three author-time safeties, all delegated to the framework's canonical CEL
 engine (`@objectstack/formula`) so the GUI reaches the **same verdict as the
 server** instead of maintaining a second grammar:
 
 - **Inline lint** (`CelPredicateField`) — `validateExpression` flags parse
   faults inline (blocking Save) and unknown-field near-misses as non-blocking
-  "did-you-mean" warnings; a non-pushdown-able `USING` filter is flagged as a
-  fail-open blast-radius advisory (`isPushdownableCel`).
+  "did-you-mean" warnings; a `USING` or `CHECK` predicate `@objectstack/lint`'s
+  `rls-predicate-*` rule refuses is an error that blocks Save, carrying the
+  rule's message as written — the verdict publish and `os build` give. The
+  editor asks the rule about the clause alone: a predicate the runtime cannot
+  lower, and, for one that lowers, a `current_user` member nothing resolves, a
+  `current_user` value of the wrong type for its position or a refused `null`
+  comparand. The verdicts that read the object's field map or field types, or
+  the server's engine, stay at publish.
 - **Field autocomplete** — `introspectScope` supplies the target object's
   fields plus scope vars (`current_user`, `record`, …) and stdlib functions as
   you type, so an identifier that would silently never match is caught early.

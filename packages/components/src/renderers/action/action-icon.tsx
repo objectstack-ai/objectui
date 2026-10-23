@@ -183,12 +183,12 @@ const ActionIconRenderer = forwardRef<
           bodyExtra: schema.bodyExtra,
           // See action-button.tsx — the body-WRAPPING key (objectstack#6938).
           bodyShape: schema.bodyShape,
-          // The declarative single-record field write — forwarded as a PAIR, for
-          // the reason spelled out at `action:button`'s forward: the runner
-          // dispatches on `operation` ahead of `type`, and `patch` carries the
-          // field values, so dropping either POSTs an empty write.
+          // The declarative single-record field write: `operation` alone, for the
+          // reasons spelled out at `action:button`'s forward. The runner
+          // dispatches on `operation` ahead of `type`; the route writes the
+          // named declaration's `patch`, never this node's, so ⛔ no `patch`
+          // (objectui#13022).
           operation: schema.operation,
-          patch: schema.patch,
           confirmText: schema.confirmText,
           successMessage: schema.successMessage,
           // See action-button.tsx — success copy per handler outcome, the
@@ -411,18 +411,15 @@ ComponentRegistry.register('icon', ActionIconRenderer, {
       description:
         'How an `api` action shapes its request body: `flat` (the default) or `{ wrap: KEY }` to nest the collected values under that key, with `bodyExtra` beside it',
     },
+    // objectui#12971: no `patch` input. `@objectstack/spec` retired a row's own
+    // `patch` (objectstack#24394): the row runs the declared action its `name`
+    // names, and the route writes THAT action's `patch`.
     {
       name: 'operation',
       type: 'enum',
       enum: ['update'],
       description:
-        '`update` declares a single-record field write: the runner dispatches it to the platform action route with `patch` merged under the collected values',
-    },
-    {
-      name: 'patch',
-      type: 'object',
-      description:
-        'For `operation: update`: the field values written, merged UNDER the values the user supplies, so a collected value of the same name wins',
+        '`update` declares a single-record field write: the row runs the declared action its `name` names, so it needs a `name`. The runner posts the collected values to the platform action route under that name, and the route writes that action\'s own `patch`',
     },
     {
       name: 'confirmText',

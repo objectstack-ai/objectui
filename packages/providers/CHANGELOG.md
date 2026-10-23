@@ -1,5 +1,135 @@
 # @object-ui/providers — Changelog
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- 7282c6a: `createObjectStackUploadAdapter` no longer sends an upload's `path` as the storage scope (objectui#12055).
+  
+  The adapter used to send `scope: opts.scope ?? options.path` in its presigned upload request, so an adapter built without a `scope` turned the `path` a caller passed to `upload(file, { path })` into the scope. A path is a key prefix for the S3 and Azure presign callbacks, not a scope: the ObjectStack storage service accepts only the values of the `scope` select on its `sys_file` object and refuses any other, so such an upload failed at the presign step. The adapter now sends only the `scope` it was built with, or none, and the server applies its default. `UploadResult.meta.scope` reports the same value.
+  
+  The `scope` option's documentation no longer teaches free key prefixes ("avatars", "logos", "attachments/case"). It names the server's `sys_file` scope select as the vocabulary.
+  
+  BREAKING (`@object-ui/providers`), for a caller that relied on `path` to choose the scope of an adapter built without one: the upload is now filed under the server's default scope. Remedy: pass one of the server's scopes as the adapter's `scope`, or none to take the server's default. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  **Clause-②: no (narrowing)**: no export, type member or option is added, and no type changes. The request the adapter sends narrows: a `path` no longer reaches it.
+- 24804dc: `createObjectStackUploadAdapter`'s `scope` option is typed from the spec's upload-scope vocabulary (objectui#12055).
+  
+  `ObjectStackUploadAdapterOptions.scope` was an open `string`, so a caller could build an adapter with a scope the ObjectStack storage service refuses with `400`. It is now `UploadScope` from `@objectstack/spec/api`, the one list the spec's upload request, the `scope` select on `sys_file` and the upload doors share. `@object-ui/providers` reaches it through the `API` namespace `@object-ui/types` already re-exports, so no dependency and no export is added. Omitting `scope` still sends none, and the server applies the default the spec's upload request declares.
+  
+  BREAKING (`@object-ui/providers`), TypeScript only, for a caller that builds the adapter with a scope outside the vocabulary (for example `'avatars'` or `'attachments/case'`): it no longer compiles. The server already refused such a request at runtime. Remedy: pass one of the vocabulary's values, or omit `scope` to take the server's default. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  **Clause-②: no (narrowing)**: the option's accepted values narrow from any string to the spec's upload scopes. No export, option or type member is added; the declaration file gains a type-only import of `API` from `@object-ui/types`, a package `@object-ui/providers` already depends on.
+- 12ff256: The props of this package's `ThemeProvider` are declared and exported as `ThemePreferenceProviderProps` instead of `ThemeProviderProps` (objectui#6349, batch 10). `@object-ui/react` publishes a different `ThemeProviderProps`: the props of its theme-system `ThemeProvider`, which registers whole `Theme` documents, takes a theme name as `defaultTheme` and the mode as `defaultMode`, and writes the active theme as CSS variables. This package's provider stores one `ThemePreference` (`auto | light | dark | system`) and takes that mode as `defaultTheme`. One exported name stood for two props types across the two packages, and react keeps it.
+  
+  **Type change, breaking for some consumers.** `ThemeProviderProps` is no longer exported from `@object-ui/providers`. Replace `import type { ThemeProviderProps } from '@object-ui/providers'` with `ThemePreferenceProviderProps`; the members (`defaultTheme`, `storageKey`, `children`) are unchanged. The old import fails to compile with TS2724 ("has no exported member named 'ThemeProviderProps'"). That error's "Did you mean" names the `ThemeProvider` component, not the replacement; using the component's name as a type fails too (TS2749), so write `ThemePreferenceProviderProps`. The `ThemeProvider` component and `useTheme` keep their names.
+  
+  No runtime behaviour changes.
+
+### Patch Changes
+
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [2e818d0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [96fcf30]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [f34e877]
+- Updated dependencies [aaba865]
+- Updated dependencies [45d5853]
+- Updated dependencies [2312bd9]
+- Updated dependencies [c5406c2]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [69bca0a]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [c08c933]
+- Updated dependencies [c4dd707]
+- Updated dependencies [923504f]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [8106db1]
+- Updated dependencies [093d55b]
+- Updated dependencies [a8051d6]
+- Updated dependencies [524136e]
+- Updated dependencies [6f3299f]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [ff9df88]
+- Updated dependencies [a2225f9]
+- Updated dependencies [21f9577]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [619e3f7]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [4839f5c]
+- Updated dependencies [c999d4c]
+- Updated dependencies [26323c4]
+- Updated dependencies [c219165]
+- Updated dependencies [30083da]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [a928aaa]
+- Updated dependencies [1b94d50]
+- Updated dependencies [fb85637]
+- Updated dependencies [df71568]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [088e0f7]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

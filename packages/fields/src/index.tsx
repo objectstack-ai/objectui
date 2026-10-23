@@ -16,7 +16,7 @@ import { ComponentRegistry, percentDisplayValue, type PercentScale, getRecordDis
 // means is the protocol's answer, not this package's (objectui#9843).
 import { valueSchemaFor, resolveFieldScale } from '@objectstack/spec/data';
 import { useLocalization, useDisplayLocale, formatDisplayNumber } from '@object-ui/i18n';
-import { Badge, Avatar, AvatarImage, AvatarFallback, Button, Checkbox, EmptyValue, cn } from '@object-ui/components';
+import { Badge, Avatar, AvatarImage, AvatarFallback, Button, Checkbox, EmptyValue, cn, setFieldReadFaceResolver } from '@object-ui/components';
 import { Check, Copy, Phone as PhoneIcon, MapPin, CircleQuestionMark, Star } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/react';
 import { SchemaRendererContext as _SchemaRendererContext } from '@object-ui/react';
@@ -4125,6 +4125,32 @@ registerFieldRenderer('recipient-picker', TextCellRenderer);
 // via LookupField without circular imports.
 import { setCellRendererResolver } from './widgets/_cell-renderer-bridge.js';
 setCellRendererResolver(getCellRenderer);
+
+/**
+ * The face `@object-ui/components`' field-face seam answers for a field
+ * (objectui#13216): the read cell a declared `widget` promotes the field to
+ * (`WIDGET_CELL_RENDERER_TYPES`), through the same
+ * `getCellRenderer(resolveCellRendererType(field))` lookup the grid's cells
+ * make, so `page:header` draws a widget-hinted `nameField` the way a list
+ * column draws it. `undefined` when the field's key is not a widget's, and
+ * while the key still draws its default face, the stored text
+ * (`TextCellRenderer`): that is the text the heading already prints, so a host
+ * that registers no face under the key keeps the heading it had.
+ *
+ * Not exported: the seam's reader, `resolveFieldReadFace` from
+ * `@object-ui/components`, is the one way to ask, so this package's published
+ * surface does not move.
+ */
+function resolveDeclaredFieldFace(field: FieldMetadata): React.FC<CellRendererProps> | undefined {
+  const key = resolveCellRendererType(field);
+  if (!WIDGET_CELL_RENDERER_TYPES.has(key)) return undefined;
+  const face = getCellRenderer(key);
+  return face === TextCellRenderer ? undefined : face;
+}
+
+// Fill the seam when this module loads: `@object-ui/components` cannot import
+// this package (it depends on that one), so the slot is filled from here.
+setFieldReadFaceResolver(resolveDeclaredFieldFace);
 
 
 

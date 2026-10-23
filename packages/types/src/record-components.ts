@@ -17,7 +17,7 @@
  * @packageDocumentation
  */
 
-import type { ElementDataSource, I18nLabel, ViewFilterRule } from '@objectstack/spec/ui';
+import type { ElementDataSource, EmptyState, I18nLabel, ViewFilterRule } from '@objectstack/spec/ui';
 
 /**
  * ARIA props shared across all record components.
@@ -107,7 +107,7 @@ export interface RecordDetailsComponentProps {
    * It was `number` here until objectui#8604, which is the wrong PRIMITIVE
    * TYPE, not merely a wider range: `{ columns: 2 }` compiled locally and the
    * contract refused it at publish with `invalid_value` at `columns` (measured
-   * on the installed pin, 18.0.0-next.3, against a control — `columns: '2'` — that
+   * on the installed pin, 18.0.0, against a control — `columns: '2'` — that
    * parses green on the same instrument). Contract-first (Commandment #0.1):
    * the code moves to the contract's spelling, and today's `columns: 2`
    * authors are the defect surfacing rather than collateral damage.
@@ -329,6 +329,15 @@ export interface RecordDetailsComponentProps {
    * `enforceFieldSecurity` above for the declaration's standing.
    */
   requiredPermissions?: string[];
+  /**
+   * What the block draws in its place when its node-level `dataSource`
+   * binding answers no row (`@objectstack/spec` `RecordDetailsProps.emptyState`, the list
+   * view's own `EmptyStateSchema` by reference — objectstack#24266). Drawn
+   * only for a bound block whose read settled with no row; never while the
+   * read loads, in place of a failed read's error, or on an unbound block.
+   * Omitted, the block keeps its own no-record placeholder (objectui#12932).
+   */
+  emptyState?: EmptyState;
   /** ARIA accessibility attributes */
   aria?: RecordComponentAriaProps;
 }
@@ -358,7 +367,7 @@ export interface RecordHighlightsComponentProps {
    * `RecordHighlightsProps.fields[]`'s object arm declares exactly
    * `name`/`label`/`type`/`readonly` and carries a `never` catchall, i.e. it is
    * `$strict`: an unlisted key is REFUSED, not stripped, and the refusal takes
-   * the WHOLE document with it. Measured on the installed pin, 18.0.0-next.3,
+   * the WHOLE document with it. Measured on the installed pin, 18.0.0,
    * `RecordHighlightsProps.safeParse({ fields: [{ name: 'x', icon: 'star' }] })`
    * is RED with `invalid_union` at `fields.0`. So `{ name: 'amount', icon:
    * 'dollar-sign' }` type-checked here and was refused at the door — a green
@@ -390,7 +399,7 @@ export interface RecordHighlightsComponentProps {
    * `z.enum(['horizontal','vertical'])` behind a `.default('horizontal')`).
    *
    * It offered a third value, `grid`, until objectui#9187, and the contract
-   * never accepted it: measured on the installed pin, 18.0.0-next.3,
+   * never accepted it: measured on the installed pin, 18.0.0,
    * `RecordHighlightsProps.safeParse({ fields: ['name'], layout: 'grid' })` is
    * RED with `invalid_value` at `layout`. So `{ layout: 'grid' }` type-checked
    * here and was refused at the door — a green local build and a rejection at
@@ -437,6 +446,15 @@ export interface RecordHighlightsComponentProps {
    * where the client cannot resolve the viewer's capabilities.
    */
   requiredPermissions?: string[];
+  /**
+   * What the block draws in its place when its node-level `dataSource`
+   * binding answers no row (`@objectstack/spec` `RecordHighlightsProps.emptyState`, the list
+   * view's own `EmptyStateSchema` by reference — objectstack#24266). Drawn
+   * only for a bound block whose read settled with no row; never while the
+   * read loads, in place of a failed read's error, or on an unbound block.
+   * Omitted, the block keeps its own no-record placeholder (objectui#12932).
+   */
+  emptyState?: EmptyState;
   /** ARIA accessibility attributes */
   aria?: RecordComponentAriaProps;
 }

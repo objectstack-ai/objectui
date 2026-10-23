@@ -153,6 +153,9 @@ function headerAndBadge(rowLabel: string, layerLabel: string) {
   const hits = within(header).getAllByText((_, el) => {
     const text = el?.textContent ?? '';
     // `within` offers the container itself too, and its text holds the badge's.
+    // The Overrides row's "Reset to default" action (objectui#13145) is a
+    // button, never the badge; zh spells it with the default layer's word.
+    if (el?.closest('button')) return false;
     return el !== header && el !== label && text.includes(layerLabel) && text !== layerLabel;
   });
   expect(hits).toHaveLength(1);

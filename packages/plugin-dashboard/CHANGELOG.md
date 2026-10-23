@@ -1,5 +1,524 @@
 # @object-ui/plugin-dashboard
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- d92b2a1: The metric sub-caption is retired on the reader side (objectui#11389, ruling C, the objectui half after `@objectstack/spec` 17.7.0). **BREAKING** for any dashboard that drew a caption under a metric's value.
+  
+  A metric tile used to draw a sub-caption under its value from the widget's `options.description`, translated by a client bundle entry at `dashboards.NAME.widgets.ID.subCaption`. The spec never declared that options key, and its only writer was the server's `translateDashboard` overlay. `@objectstack/spec` 17.7.0 removed the overlay and refuses a `subCaption` translation entry by name. objectui now stops reading both:
+  
+  - **`@object-ui/plugin-dashboard`.** No metric tile draws a sub-caption, on either dashboard surface (`DashboardRenderer`, `DashboardGridLayout`), whether the tile is dataset-bound or a stored inline metric. An authored `options.description` (a string or a per-locale map) draws nothing, and neither does a bundle `subCaption` entry. A widget's one authored description, `widget.description`, still draws as the card-header subtitle on `DashboardRenderer`, translated through the widget's `description` bundle key. Nothing on the package entry is removed: the sub-caption resolver module and `DatasetWidget`'s `subCaption` prop were internal.
+  - **`@object-ui/i18n`.** `useObjectLabel()` no longer returns `widgetSubCaption`. This removes a member of a published hook's return value: a caller that destructured it no longer compiles, and has nothing to call instead, because the key it read is refused by the spec.
+  - **`@object-ui/sdui-parser`.** `CONSUMED_WIDGET_OPTION_KEYS` drops `'description'` and is now exactly the five keys the spec declares (`dateGranularity`, `limit`, `sortBy`, `sortOrder`, `stageOrder`). So `validateTree` reports an authored `options.description` on a dataset-bound dashboard widget as an `unconsumed-widget-option` **warning**, where it used to report nothing. It is a warning, not an error, and the widget's `suppressWarnings` escape hatch still applies.
+  
+  **Clause-②: no (narrowing).** One export member is removed (`useObjectLabel().widgetSubCaption`) and one exported constant loses a member (`CONSUMED_WIDGET_OPTION_KEYS`). Nothing is added and no accepted input widens.
+  
+  If a caption under a metric's value is wanted again, it returns as a declared widget-level key outside `options`, not as `options.description` (ruling C).
+- fd060f0: The `object-metric` and `object-pivot` registrations no longer declare
+  `objectName` required, so the page compile accepts a node whose `dataSource`
+  binding names the object, and a node that names its object in neither place
+  shows a hint instead of a value or an empty table (objectui#11605).
+  
+  `@objectstack/spec`'s `object-metric` row leaves `objectName` optional, because
+  the node's `dataSource` binding can supply it; `object-pivot` has no spec row,
+  and the binding doc says a bound node needs no `objectName` of its own. Both
+  renderers agree: `dataSource.object` lands on `objectName` before the block
+  reads the node. The registrations still declared `required: true`, and the page
+  compile reads them, so a bound node with no `objectName` of its own was refused
+  with `missing-required-prop` and the save failed.
+  
+  **Clause-②: yes (widening)** — an `object-metric` or `object-pivot` node that
+  names its object through `dataSource.object` and sets no `objectName` now
+  compiles and saves. A node that names its object in neither place also compiles
+  now, and shows "No object named: set objectName or dataSource.object." where the
+  metric used to draw a bare dash and the pivot an empty state saying its query
+  returned no records. A metric with an authored `fallbackValue`, and a pivot with
+  inline `data` or a `bind` path, show no hint and render as before.
+  `object-data-table` is unchanged: it reads no binding, so its `objectName` stays
+  required. The published `objectName` inputs now carry a description that says
+  the binding can supply them.
+- c5406c2: Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
+  
+  Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18 (raised to `^18.0.0-next.1` by objectui#12370 before release).
+  
+  **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.1` (objectui#12370), at the same time as it takes this release.
+  
+  **objectui's own surface moves with it:**
+  
+  - `element:record_picker`'s registration stops publishing the `object`, `filter`, `sort` and `limit` inputs, which spec 18 retires; a JSX page that writes one now gets `unknown-prop`.
+  - The `CapabilityMultiSelectField` widget's curated capability set (`@object-ui/fields`) follows spec 18: `manage_mailboxes` in, `manage_org_presentation` out.
+  - `element:number` and `element:repeater` nodes that bind no object are accepted, as spec 18's row and `PageComponentSchema` accept them; the two `ELEMENT_*_OBJECT_REQUIRED` refusals are gone.
+  
+  **Retired with the spec:** `@objectstack/spec` 18 tombstones `object-grid`'s `defaultFilters` and refuses it by name, and `ObjectGrid` and `ObjectView` stop reading it (`table.defaultFilters` on an `object-view` included). A view that still carries it renders unfiltered: rename the key to `filter`, whose value is the same rule array.
+- e8fc452: Both dashboard surfaces draw a widget's legacy `component` envelope the way it is authored: a `metric-card` node draws as before, and any other node draws the retired-format prompt (objectui#12254, the follow-on ruling C on objectui#12163 named).
+  
+  BREAKING (`@object-ui/plugin-dashboard`): a stored widget whose `component` holds any node other than a `metric-card` (a `custom` widget's `text`, `statistic`, `object-chart`, `object-data-table`, `card`, a node with no `type`, or a primitive) no longer draws that node. `DashboardRenderer` and `DashboardGridLayout` draw "This widget uses a retired data format. Edit it to bind a dataset." in its tile instead, and the node sends no query. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  - FROM `{ "id": "w", "type": "custom", "component": { "type": "object-chart", "objectName": "invoice", "chartType": "bar" } }` drawing the chart, the dashboard filter bar scoping its query.
+  - TO the same stored widget drawing the retired-format prompt. Write it in the spec form, bound to a dataset (ADR-0021): `{ "id": "w", "type": "bar", "dataset": "invoices", "dimensions": ["region"], "values": ["amount"] }`, or put a `metric-card` in the slot: `{ "id": "w", "component": { "type": "metric-card", "title": "Revenue", "value": "$1.2M" } }`.
+  
+  Why: since objectui#12163 both zod faces and `DashboardWidgetSchema['component']` take a `metric-card` only in this slot and refuse every other node by name, while the surfaces still drew whatever a stored envelope held. `@objectstack/spec` declares neither the envelope nor a `custom` widget, and its strict `DashboardWidget` refuses a `component` key outright. A read-only census of stored use found no producer of a non-`metric-card` envelope node outside tests and docs (the count is on objectui#12254), so the draw now matches the authoring rule. The accept set is read from the same closed list, `DASHBOARD_COMPONENT_WIDGET_TYPES`, through one predicate both surfaces share, `isRetiredEnvelopeNode`. The `object-metric` node objectui#11466 retired in this slot is one case of it.
+  
+  Also changed with it:
+  
+  - A `custom` widget with no `component` drew a prompt to "set `component` to a UIComponent schema" on `DashboardRenderer`, which this change made false. It now draws the labelled placeholder `DashboardGridLayout` already drew for it, "「custom」chart type is not supported yet".
+  - The dashboard filter bar no longer scopes an `object-chart` or `object-data-table` placed in the envelope, since neither draws there.
+  
+  Unchanged: a `metric-card` in the envelope or directly in `widgets[]`, a widget with no `component`, and the retired-format prompt's wording. No placeholder, prop, export or i18n key is added.
+- ff9df88: Depend on `@objectstack/*` `18.0.0-next.1` (objectui#12370).
+  
+  Every `@objectstack/*` range these packages declare moves from `^18.0.0-next.0` to `^18.0.0-next.1`; the console and the runner bundle `18.0.0-next.1`. A consumer moves its own `@objectstack/*` packages to `18.0.0-next.1` with this release.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates page action rows and view data bindings through the spec's own rows, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.1` refuses. Each was accepted on `18.0.0-next.0`:
+  
+  - `onSuccess` on an `action:button` / `action:icon` row, or an `action:group` / `action:menu` member, whose executor is the `url`, `navigation`, `modal`, `flow` or `form` built-in, or that has no executor at all. Write the hop on an `api` or `script` action (or a host handler name), or drop it.
+  - `onSuccess` beside `operation: 'update'`, and an `onSuccess` block carrying a key outside `{ navigate, openIn }`.
+  - `actionType: 'navigation'` on a row (and `type: 'navigation'` on a container member): write `'url'`.
+  - A `url` executor's `target` that is not openable, judged on the executor the runner runs, including a row whose `name` selects it.
+  - A view `data` binding with `provider: 'api'`: bind the object or static rows; an API call is the page element's binding.
+- 96dea1b: **A dashboard's "Refresh All" sits in the console page header** (objectui#12554). The console's dashboard page draws the button at the right of its page header's one row, among its actions. The renderer no longer draws a second one in its own row below the header.
+  
+  **Clause-②: yes (widening).** `DashboardRenderer` gains one optional prop, `onRefreshStateChange`. Nothing else on the public surface changes.
+  
+  - **`@object-ui/plugin-dashboard`.** Set `onRefreshStateChange` and the renderer draws no refresh button of its own. It calls the callback with `{ refreshing, handleRefresh }`: on mount, each time `refreshing` changes, and with `null` when no `onRefresh` is wired or the renderer unmounts. `handleRefresh` is the run the renderer's own button calls. The auto-refresh timer stays the renderer's: `onRefresh` still arms the authored `refreshIntervalSeconds`. The record-count badge stays where the renderer draws it. A host that leaves the prop unset gets the renderer's button, exactly as before.
+  - **`@object-ui/app-shell`.** `DashboardView` passes the prop and draws the button from the report, with the same three `dashboard.*` pack keys, icon, spin and disabled-while-refreshing as the renderer's own button. A click runs the renderer's refresh, so the button spins on manual and timed runs alike. When the dashboard declares a filter bar, the bar keeps its row; when it declares nothing else above its widgets, the row the button stood in is gone.
+
+### Patch Changes
+
+- 2e818d0: The dashboard surfaces read every `widgets[]` entry without leaning on `BaseSchema`'s index signature: a widget key is read on the widget arm alone, and the `chart` node is built as a private hand-off type (objectui#11598).
+  
+  **N1, the `chart` producers.** `DashboardRenderer` and `DashboardGridLayout` build a `chart` node for a series widget bound to inline rows, and compose two render keys onto it: the dashboard palette (`colors`) and `isAnimationActive: false`, the deterministic first paint inside the grid (#2756). `ChartSchema` declares neither key, on either face, and the chart renderer reads both. Each producer now checks its literal against a hand-off type private to this package, `ChartSchema` plus those two keys, and hands the node on with no cast; the type is not exported, and the keys stay off `@object-ui/types`, because the strict authoring face refuses both on an authored `chart` node. Nothing drawn changes.
+  
+  **N2, widget keys on the slot entry.** An entry of `widgets[]` is a widget or a component node placed in the slot (a `metric-card`), and only the widget declares the widget keys (`dataset`, `options`, `chartConfig`, `filter`, `component`, `colorVariant`, `values`, `dimensions`, …). Every read of one now narrows the entry to the widget first, on `DashboardRenderer`, `DashboardGridLayout`, `DashboardWithConfig` and `DashboardEditor`. What changes is confined to a `metric-card` entry that carries a widget key, which `@object-ui/types/zod`'s strict face refuses and only the tolerant face accepts:
+  
+  - a `metric-card` carrying `dataset` draws its card; it used to draw the dataset tile in the card's place, on both dashboard surfaces;
+  - a `metric-card` carrying `options` draws its own keys; `options` used to be spread over them, so `options.value` replaced `value`;
+  - a `metric-card` carrying a `component` draws its card; the envelope's node used to be drawn instead.
+  
+  A document the strict face accepts draws exactly as before. `@object-ui/types`' docblocks on `DASHBOARD_COMPONENT_WIDGET_TYPES` and the Zod widget vocabulary, which described the dataset tile in the card's place and the `options` spread as live, were corrected to match; no type in it changes. In `DashboardEditor`, a `metric-card` entry is no longer offered the Color Variant select: the card declares no `colorVariant`, `MetricCard` draws nothing from it, and a pick stored a key publish refuses. A widget is offered it as before.
+- e398a54: A dataset-bound dashboard widget names its comparison window from `compareTo.kind` (objectui#11632). `previousPeriod` reads "vs previous period" and `previousYear` reads "vs last year", in every locale the `dashboard.trend.*` keys already cover. The label used to be guessed from the widget filter's date-macro tokens. A dashboard date range of `last_30_days` (`{30_days_ago}` to `{today}`) with `compareTo: { kind: 'previousPeriod' }` therefore read "vs yesterday", although the analytics executor had compared the previous 30 days. A quarter's macros read "vs last quarter" in the same way, although the executor compares the equal-length window before the quarter. The fix applies to every place the widget names the window: the KPI delta, the table's comparison column header and its CSV export, the cross-tab caption, and the chart's comparison series. The compared values were already right and do not change.
+  
+  Inline (non-dataset) metric and chart widgets keep their filter-based label. There the comparison filter really does swap `{today}` for `{yesterday}` and `current_*` tokens for `last_*`, so the label matches what was compared.
+  
+  **Clause-②: no.** No export, prop, type member or i18n key is added or removed.
+- 96fcf30: **Clause-②: yes (an export widens, and an accept set narrows)**
+  
+  A chart's value axis over a count now draws whole-number ticks (objectui#11681). Dashboard charts over a `count` measure ("Tasks by Status", "Projects by Health", "Invoices by Month") used to read 0.5, 0.8, 1.5 or 2.3 on their value axis. The dataset answer states each measure column's aggregate (`fields[].aggregate`, from `@objectstack/spec` 18). The chart now carries it to the axis, and an axis whose series all plot `count` or `count_distinct` sets `allowDecimals: false`. Any other measure on the axis keeps the previous ticks, so a sum over currency keeps its decimals. Every cartesian value axis is covered, including the horizontal-bar value axis that runs across the plot. Each side of a dual-axis chart decides for itself.
+  
+  - `@object-ui/core` (widens): `buildChartSeries` copies a result field's `aggregate` onto the series it derives. `ChartResultField` and `ChartSeriesBinding` gain an optional `aggregate`. `INTEGER_AGGREGATES` and `isIntegerAggregate` are new exports.
+  - `@object-ui/plugin-dashboard`: the dataset widget keeps the aggregate on the series it builds. That includes the comparison overlay and the series a dimensionless chart transposes, which states an aggregate only when every measure shares it.
+  - `@object-ui/plugin-charts` (widens): the `dataKey` arm of `ChartRendererProps.schema.series` and `NormalizedSeries` (carried by the exported `NormalizedChartSchema`) gain an optional `aggregate`, read by `normalizeSeries`. The accept set only widens: nothing that compiled before is refused. The member is renderer-internal.
+  - `@object-ui/types` (narrows): `aggregate` on a chart series is refused by name. FROM: `ChartDataSeriesSchema` (and so `ChartSchema.series[]`) accepted `{ name, aggregate: 'count' }` and stripped the key. TO: it refuses that series with an `invalid_type` issue at `aggregate`, and `ChartDataSeries.aggregate` is typed `?: never`. The key is internal: declare the aggregate on the dataset measure instead.
+- 02a3896: Dashboards and reports no longer waste the first screen (objectui#11694).
+  
+  - **"Refresh All" shares a row instead of taking one.** On a dashboard the refresh button (with its record count) was a full-width row of its own between the filter bar and the widgets. It now sits at the right end of the filter bar's row. On a dashboard without filters it sits at the right of the dashboard's own header when the dashboard draws one, and otherwise stands alone in a row only as tall as the button.
+  - **The rows above the widgets are as tall as their content.** On a dashboard that declares `columns`, every grid row had a 5rem minimum, the floor chart widgets need. The header and the filter bar row no longer take that minimum. On a filtered dashboard the first row of charts moves up by the height of the old refresh row plus the space the filter bar row left below its controls.
+  - **A report's card follows its content.** The console report page drew every report inside a card with a 37.5rem minimum height, so a short table sat at the top of a mostly empty frame. The card is now as tall as the report.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- c0862c1: objectui now resolves `@objectstack/*` 17.7.0 (objectui#11717). Two declared `@objectstack/spec` floors move, each because the package's published code now imports something an older release does not export:
+  
+  - `@object-ui/types`: `^17.6.0` to `^17.7.0`. Its zod mirrors chain `checkDashboardWidgetChartMeasureArity` and `checkPageRequiresKind`, which the spec first exports in 17.7.0.
+  - `@object-ui/plugin-dashboard`: `^17.5.0` to `^17.6.0`. `DatasetWidget` reads `DASHBOARD_WIDGET_MULTI_MEASURE_TYPES`, which the spec first exports in 17.6.0, instead of restating it. What the widget draws does not change.
+  
+  No other declared range moves.
+  
+  - `@object-ui/console`: the bundle inlines the 17.7.0 packages, so its client-side validation answers as a 17.7.0 server does, refusals included. The first screen is heavier: the eager closure grows by 183,008 gzipped bytes against a `main` build, nearly all of it in the `vendor-objectstack` chunk, and the bundle budget is re-pinned over the new reading on a maintainer ruling. It comes down again by whatever objectstack#22044 recovers.
+- 8aebc6f: A grid grouped by a select field, and a dashboard chart over a select dimension, now list the field's values in the order the field declares its options, not in alphabetical order (objectui#11809).
+  
+  Grouped by a task's Status, a grid read Backlog, Done, In Progress, In Review, To Do. A dataset chart drew its bars in the same order, and a donut over Priority listed its legend as High, Low, Medium, Urgent. The field declares Backlog → To Do → In Progress → In Review → Done and Low → Medium → High → Urgent, and the Kanban board over the same field already draws its lanes in that order.
+  
+  - **Grid grouping.** When the grouping field has options, the groups follow the declared order, and `order: 'desc'` reverses it. A stored value that no option declares comes after the declared ones, sorted by label, and the empty group comes last, in both directions. A grouping field with no options keeps label order, as before. This holds whether the grid groups the rows itself or the server answers the groups.
+  - **Dataset charts.** A dashboard dataset widget charts the first dimension's values in its declared order on the category axis, and on a pie or donut in the slices and the legend. A value no option declares comes after the declared ones, in the order the dataset returned it, and the empty bucket comes last. When a chart splits one measure by a second select dimension, its series and legend follow that dimension's declared order. An explicit `options.sortBy` on the widget is the author's order and is left as the dataset returned it. Clicking a bar still opens that bar's records. Tables and pivot tables keep the dataset's row order.
+  
+  Nothing is added to either package's entry: no export, prop, type member or language-pack key. The published `useGroupedData` hook keeps its signature, and with no option order to read it keeps label order.
+- 74964ad: A dashboard header action of type `url`, or of no declared type, now goes through the action runner, like every other header action (objectui#12275).
+  
+  The click used to navigate by a url check of its own and never reached the runner's `classifyNavigationTarget`, which decides what a click may open (ruling A+ on objectui#12191). So:
+  
+  - **A protocol-relative `//host` target is refused at the click.** It used to be opened with `location.assign`. A bare relative value such as `thanks` is refused too; it used to be pushed as a route. Under the console the runner's error toast reports the refusal; with no action provider the dashboard logs it.
+  - **A `mailto:` target opens the mail client in place.** It used to throw in `history.pushState`.
+  - **A header action with no `actionType` runs as a `url` action.** The contract and the dashboard's own action list read an omitted type as `url`, but the click dropped it with a "missing actionType" warning, so the button did nothing.
+  - **An `https://` target opens the way every runner `url` action opens one**: through the host's navigation handler, which in the console opens it in a new tab. It used to replace the current page.
+  - **An in-app path such as `/apps/...` still navigates in the app**: through the host's router under the console, and, with no action provider, by the same history push as before.
+  
+  Following a `url` header action raises no success toast, as before.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- d88e351: A dataset-bound metric tile on a dashboard is two lines, not four (objectui#12528).
+  
+  `DashboardRenderer` framed a dataset-bound `metric` widget in its shared card: a header with the title and, under a rule, the description as a paragraph, then the tile with the value and, under it, the measure label. That is four lines for one number. The card now draws no header for that widget. The tile draws the title and the measure label on one line above the value, and the widget's description is the title's tooltip. The spec declares no widget key to show it inline, so it is not drawn anywhere else. Loading, refused and failed tiles keep the title line. Every other widget's card, and `DashboardGridLayout`, are unchanged.
+  
+  **Clause-②: no.** `DatasetWidget` and its new `heading` parameter are not exported from the package entry.
+- f96f771: A dataset-bound metric tile on `DashboardGridLayout` is two lines, not three (objectui#12573).
+  
+  `DashboardGridLayout` framed a dataset-bound `metric` widget in its card: a header with the title (and, in edit mode, the drag handle), then the value, then the measure label. It now draws the tile the way `DashboardRenderer` does since objectui#12528: no card header, and `DatasetWidget` draws the title and the measure label on one line above the value. Both surfaces hand `DatasetWidget` the same `heading`, so that line has one derivation. The widget's description, which this surface did not draw before, is the title's tooltip. In edit mode the drag handle sits over the tile's top-right corner. Every other widget's card is unchanged, and so is what `layout.h` buys.
+- 63d00da: Metric tiles keep their title readable in narrow tiles. The title now owns the first line (up to two lines, with an ellipsis on the second), the value never wraps and steps down one size in a tile narrower than 160 px, and a dataset-bound tile's measure label moves to a small line under the value, hidden below 160 px and always available in the title's tooltip. The width rules follow the tile's own width, not the window's, so dashboard tiles, page KPI blocks and the Studio canvas all behave the same.
+- 0666a66: A period-over-period delta from a zero baseline no longer claims "100%" (objectui#12677).
+  
+  A metric whose comparison window was 0 drew "↑100% vs previous period" when the current value was anything but 0. Going from 0 to 10 is not a 100% increase: a percent change from zero is undefined. The delta now keeps its arrow and draws an em dash in place of the number, on every surface that shows one: the dataset metric tile, the cross-tab's in-cell comparison, and the `object-metric` tile. `0 → 0` still reads a neutral `0%`, and a non-zero baseline keeps its percentage. The spec declares no marker for "new from zero", so the face is a symbol and no locale pack changes.
+  
+  `MetricWidget` gains a host-only `derivedTrend` prop, the `compareTo`-derived trend whose `value` may be `null`; it replaces `trend` when set. It is not a node key, and the authored `trend.value` stays a number.
+- db4417e: A metric widget with no `layout` on a dashboard that declares `columns` now spans one grid row instead of two, the same height the dashboard designer gives a new widget. The tile grows to its content, so it no longer draws an empty lower half. Widgets with an authored `layout.h` keep it, and other widget types keep their four-row default.
+- 1e6d83b: Data-bound blocks title their "data source could not be resolved" panel in the page's language (objectui#12920, the family of objectui#12910). The panel shows when a block's `dataSource.view` names a view its object does not have. Each block's title now reads `@object-ui/i18n` through `useObjectTranslation`, with the `en` pack's value as the inline default, so a page with no `I18nProvider` draws the same English it drew before.
+  
+  - **Plugin blocks.** `object-calendar`, `object-chart`, `object-metric`, `object-pivot`, `detail-view`, `record:related_list`, `object-form`, `embeddable-form`, `object-master-detail-form`, `record:line_items`, `object-gantt`, `object-grid`, `object-kanban`, `list-view`, `object-map` and `object-timeline` read one `element.KIND.sourceUnresolved` key per block kind. `object-metric` reads `element.number.sourceUnresolved`, the key `element:number` already reads for the same sentence. The three forms share `element.form.sourceUnresolved`. `record:related_list`'s panel for a failed `parentDataSource` read reads `element.relatedList.parentUnreadable` ("This related list’s parent record could not be read").
+  - **`@object-ui/react` panel defaults.** `ElementDataSourceErrorPanel` with no `title` reads `element.component.sourceUnresolved`, and `NoDataSourcePanel` with no `title` reads `element.component.noDataSource`. A passed `title` still wins, an empty string included. Props and markup do not change.
+  
+  Clause-②: yes
+  
+  The new keys in `@object-ui/i18n` widen its exported `TranslationKeys`. No prop, input or export of these packages changes.
+- 0707b4a: A metric tile's value now scales before it would clip. A long value, such as a seven-digit money figure with cents (`1,290,000.00`), steps down from 24 px to 14 px as the tile narrows, so it fits whole in a 156 px tile instead of ending in an ellipsis. A short value keeps its 20 px / 24 px face. A value too wide for its tile even at 14 px keeps the ellipsis and shows the full figure as its tooltip. This applies to `MetricCard`, `MetricWidget` and every `object-metric` page block.
+- a600924: The metric cards no longer write authored keys they do not read onto the page (objectui#4425). Rendered through `SchemaRenderer`, which is how every dashboard draws its KPI tiles (`plugin-dashboard:metric` and `plugin-dashboard:metric-card` nodes), `MetricWidget` and `MetricCard` now spread onto their card element only what `toDomProps` from `@object-ui/core` passes: `id`, `className`, `role`, `tabIndex`, the `aria-*` and `data-*` families and the rest of that whitelist. They used to strip seven named non-DOM props and spread everything else, so `name`, and any key an author wrote that the card does not read (a `colorVariant` or a `label` on a `metric-card`, an extra key in a `metric` widget's `options`), landed on the element as an attribute, with objects written as `[object Object]`.
+  
+  **Behaviour change.** On a dashboard node, an HTML attribute outside that whitelist no longer reaches the card either: an authored `name` or `style` on either node, or a `title` on a `metric` node (a card reads `title` as its heading), is now dropped. An authored `label` on a `metric-card` is no longer a `label="…"` attribute. It is still not the card's heading, which is `title`.
+  
+  Rendering the components directly as React components is unchanged: `<MetricWidget …>` and `<MetricCard …>` still forward every `HTMLAttributes` key their props interfaces declare.
+  
+  **Clause-②: no.** No exported type, prop, registration input or export changes. The helper that tells the two paths apart is internal and is not exported from the package entry.
+- d758f2f: The props of the dashboard's read-only record drill drawer are declared as `DashboardRecordDetailDrawerProps` instead of `RecordDetailDrawerProps` (objectui#6349, batch 8). `@object-ui/plugin-detail` publishes `RecordDetailDrawerProps` for its own record drawer, which is a different, editable component. This package's entry does not export the dashboard drawer, so no import changes and the props are the same.
+  
+  No runtime behaviour changes.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [96fcf30]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [055d350]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [db4cb6b]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [e06365c]
+- Updated dependencies [3035948]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [5ab2f19]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [2312bd9]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [c5406c2]
+- Updated dependencies [c5406c2]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [a368ccb]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [417e245]
+- Updated dependencies [69bca0a]
+- Updated dependencies [023f00d]
+- Updated dependencies [158c75d]
+- Updated dependencies [7525045]
+- Updated dependencies [5af42db]
+- Updated dependencies [ce991bd]
+- Updated dependencies [3c0f806]
+- Updated dependencies [1071393]
+- Updated dependencies [5f75cfa]
+- Updated dependencies [29b9949]
+- Updated dependencies [6757a93]
+- Updated dependencies [b7cd5c8]
+- Updated dependencies [5330038]
+- Updated dependencies [2498a07]
+- Updated dependencies [898bd2c]
+- Updated dependencies [c9fc10b]
+- Updated dependencies [dc6d28e]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [e723f58]
+- Updated dependencies [82bb1d5]
+- Updated dependencies [f3d5408]
+- Updated dependencies [b231607]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [54159d3]
+- Updated dependencies [fa778e6]
+- Updated dependencies [334f0cf]
+- Updated dependencies [c08c933]
+- Updated dependencies [92f979d]
+- Updated dependencies [c4dd707]
+- Updated dependencies [c4dd707]
+- Updated dependencies [7578323]
+- Updated dependencies [a491b64]
+- Updated dependencies [38bb373]
+- Updated dependencies [923504f]
+- Updated dependencies [5b45c0d]
+- Updated dependencies [923504f]
+- Updated dependencies [5c2982a]
+- Updated dependencies [97e7d4e]
+- Updated dependencies [5d3f437]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [51c661e]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [b434f5f]
+- Updated dependencies [9f282ef]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [cea429b]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [8106db1]
+- Updated dependencies [068a540]
+- Updated dependencies [ca45c6d]
+- Updated dependencies [093d55b]
+- Updated dependencies [b64fda3]
+- Updated dependencies [a8051d6]
+- Updated dependencies [72594f2]
+- Updated dependencies [524136e]
+- Updated dependencies [2b06a91]
+- Updated dependencies [6f3299f]
+- Updated dependencies [065a1cf]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [789cb16]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [37db09f]
+- Updated dependencies [ff9df88]
+- Updated dependencies [70e843f]
+- Updated dependencies [caac3b2]
+- Updated dependencies [a2225f9]
+- Updated dependencies [5c4deb5]
+- Updated dependencies [a8e5b73]
+- Updated dependencies [d9d9d98]
+- Updated dependencies [c950345]
+- Updated dependencies [21f9577]
+- Updated dependencies [044f231]
+- Updated dependencies [f8267df]
+- Updated dependencies [023087f]
+- Updated dependencies [9b82ced]
+- Updated dependencies [3821a3a]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [92c2a69]
+- Updated dependencies [518a8e3]
+- Updated dependencies [646caea]
+- Updated dependencies [1ffd6a2]
+- Updated dependencies [5f8ecf6]
+- Updated dependencies [7d0c174]
+- Updated dependencies [8ed7e5a]
+- Updated dependencies [6c4d00d]
+- Updated dependencies [db8ce2f]
+- Updated dependencies [726d8c9]
+- Updated dependencies [f0e760a]
+- Updated dependencies [a5bb7ac]
+- Updated dependencies [f78efdd]
+- Updated dependencies [8a8bcf3]
+- Updated dependencies [f74638c]
+- Updated dependencies [278bc29]
+- Updated dependencies [ef71a09]
+- Updated dependencies [8614705]
+- Updated dependencies [619e3f7]
+- Updated dependencies [ca7a4c3]
+- Updated dependencies [c9e6742]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [608033b]
+- Updated dependencies [c6b7d82]
+- Updated dependencies [611566b]
+- Updated dependencies [efa9cb4]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [9d857c9]
+- Updated dependencies [670ea10]
+- Updated dependencies [ff215d9]
+- Updated dependencies [71243db]
+- Updated dependencies [a8add5c]
+- Updated dependencies [33ee9de]
+- Updated dependencies [4839f5c]
+- Updated dependencies [a23e804]
+- Updated dependencies [c7462e7]
+- Updated dependencies [36e2f7b]
+- Updated dependencies [ac59073]
+- Updated dependencies [44cb469]
+- Updated dependencies [e058d76]
+- Updated dependencies [c999d4c]
+- Updated dependencies [8df2608]
+- Updated dependencies [5483297]
+- Updated dependencies [ed43c79]
+- Updated dependencies [260ef71]
+- Updated dependencies [655e897]
+- Updated dependencies [655e897]
+- Updated dependencies [020d178]
+- Updated dependencies [8d80845]
+- Updated dependencies [69a408f]
+- Updated dependencies [d2b21a1]
+- Updated dependencies [5ff64ef]
+- Updated dependencies [64acb7e]
+- Updated dependencies [4ff5b6b]
+- Updated dependencies [473e5a0]
+- Updated dependencies [b279016]
+- Updated dependencies [bb6c38c]
+- Updated dependencies [26323c4]
+- Updated dependencies [9753811]
+- Updated dependencies [2727527]
+- Updated dependencies [3da39ae]
+- Updated dependencies [bc281f4]
+- Updated dependencies [d637be3]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [8523e81]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [32b492b]
+- Updated dependencies [6058bf8]
+- Updated dependencies [c219165]
+- Updated dependencies [a7ae252]
+- Updated dependencies [fb501bc]
+- Updated dependencies [30083da]
+- Updated dependencies [7f9cc37]
+- Updated dependencies [b7fe09e]
+- Updated dependencies [025130c]
+- Updated dependencies [76f91f8]
+- Updated dependencies [ea34d9b]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [024b7b6]
+- Updated dependencies [cb80001]
+- Updated dependencies [909c64e]
+- Updated dependencies [9e7e1a5]
+- Updated dependencies [2493e85]
+- Updated dependencies [d0b9648]
+- Updated dependencies [46dbf32]
+- Updated dependencies [a928aaa]
+- Updated dependencies [47508f3]
+- Updated dependencies [61ed5ad]
+- Updated dependencies [1b94d50]
+- Updated dependencies [6f877f1]
+- Updated dependencies [988aa9f]
+- Updated dependencies [1ce0711]
+- Updated dependencies [fb85637]
+- Updated dependencies [9f1dd79]
+- Updated dependencies [df71568]
+- Updated dependencies [d11174a]
+- Updated dependencies [2d8a8b7]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [5129caa]
+- Updated dependencies [9eb1479]
+- Updated dependencies [74e37aa]
+- Updated dependencies [961b69f]
+- Updated dependencies [52907d7]
+- Updated dependencies [f466b0a]
+- Updated dependencies [673a71c]
+- Updated dependencies [616df65]
+- Updated dependencies [f48a4d5]
+- Updated dependencies [58798ec]
+- Updated dependencies [8803ca5]
+- Updated dependencies [e70c21d]
+- Updated dependencies [4b92c5a]
+- Updated dependencies [06be396]
+- Updated dependencies [3650d94]
+- Updated dependencies [7c05f21]
+- Updated dependencies [8cd4db4]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [35a2b59]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [53ee2f8]
+- Updated dependencies [088e0f7]
+- Updated dependencies [78b07f4]
+- Updated dependencies [0df67f2]
+- Updated dependencies [f962cdc]
+- Updated dependencies [b403bb3]
+- Updated dependencies [8a25fee]
+- Updated dependencies [4016370]
+- Updated dependencies [12dc7b4]
+  - @object-ui/types@18.0.0
+  - @object-ui/components@18.0.0
+  - @object-ui/core@18.0.0
+  - @object-ui/i18n@18.0.0
+  - @object-ui/react@18.0.0
+  - @object-ui/fields@18.0.0
+  - @object-ui/permissions@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

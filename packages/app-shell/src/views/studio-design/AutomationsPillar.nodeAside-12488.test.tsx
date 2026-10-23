@@ -182,6 +182,7 @@ describe('a decision routed on its out-edges shows them as branch cards (objectu
     fireEvent.click(within(first).getByRole('button', { name: en('engine.inspector.flowNode.branch.openEdge') }));
     const header = () => aside().querySelector('header')!;
     await waitFor(() => expect(within(header()).getByText(en('engine.inspector.flowEdge.kind'))).toBeInTheDocument());
-    expect(within(header()).getByText('check_hot → end_hot')).toBeInTheDocument();
+    // Each end by its node's name (objectui#13143).
+    expect(within(header()).getByText('Hot lead? → Hot')).toBeInTheDocument();
   });
 });

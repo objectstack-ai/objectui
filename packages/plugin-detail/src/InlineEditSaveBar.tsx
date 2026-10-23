@@ -202,6 +202,53 @@ function attributeInlineRefusal(
 }
 
 /**
+ * The `field` the server names on an OBJECT-LEVEL refusal (objectui#13292).
+ *
+ * `@objectstack/objectql`'s rule validator attributes a rule to its first
+ * declared field and, when the rule declares none (a `script` rule, or a rule
+ * whose `fields` is empty), to this sentinel instead — the documented contract
+ * ("`_record` for an object-level rule"). It names no input, so it is never a
+ * label and never a per-field hint.
+ */
+const RECORD_LEVEL_FIELD = '_record';
+
+/**
+ * A refusal split by what each entry is ABOUT (objectui#13292): `fieldLevel`
+ * entries name a field of the record and are presented as today — labelled in
+ * the banner and published as a per-field hint; `recordLevel` messages name no
+ * field, so they are shown alone, the way `form.tsx` falls back to the
+ * envelope's own text when an entry names no field it renders.
+ */
+interface SplitRefusal {
+  fieldLevel: WriteFieldError[];
+  recordLevel: string[];
+}
+
+/**
+ * Sort attributed entries into field-level and record-level.
+ *
+ * `extractFieldErrors` is shared and keeps any entry with a non-empty `field`,
+ * so the `_record` sentinel (and a `field` naming nothing on the object) passes
+ * through it; deciding what such an entry is belongs HERE, on the surface that
+ * presents it — not in the shared normaliser.
+ */
+function splitRefusal(
+  entries: WriteFieldError[],
+  isRecordField: (name: string) => boolean,
+): SplitRefusal {
+  const fieldLevel: WriteFieldError[] = [];
+  const recordLevel: string[] = [];
+  for (const entry of entries) {
+    if (entry.field !== RECORD_LEVEL_FIELD && isRecordField(entry.field)) {
+      fieldLevel.push(entry);
+    } else if (entry.message) {
+      recordLevel.push(entry.message);
+    }
+  }
+  return { fieldLevel, recordLevel };
+}
+
+/**
  * Issue a partial-record update through whichever method the DataSource
  * exposes. Mirrors the update/updateOne/patch fallback + `ifMatch` OCC token
  * that `record:details` used for its per-field save.
@@ -251,6 +298,37 @@ export const InlineEditSaveBar: React.FC<InlineEditSaveBarProps> = ({
   const canAtomic = !!dataSource && !!objectName && recordId != null;
 
   /**
+   * Record-level lines of the last refusal, held beside the banner text they
+   * were rendered into (objectui#13292). Shown only while the session's
+   * `error` is still that same text, so the context's own clears (`enter()`,
+   * teardown, the next save) retire them without a second reset path.
+   */
+  const [recordRefusal, setRecordRefusal] = React.useState<{
+    error: string;
+    messages: string[];
+  } | null>(null);
+
+  /**
+   * Whether `name` is a field of the record this bar is editing — the only
+   * names that may carry a label and a per-field hint (objectui#13292). This
+   * surface holds no object schema, so it accepts what it can see: a key the
+   * user staged, a key of the server record, or a name the host resolves to a
+   * label of its own (a host that echoes the machine name back resolves
+   * nothing).
+   */
+  const isRecordField = React.useCallback(
+    (name: string) => {
+      if (inline && Object.prototype.hasOwnProperty.call(inline.draft, name)) return true;
+      if (data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, name)) {
+        return true;
+      }
+      const label = fieldLabelFor?.(name);
+      return !!label && label !== name;
+    },
+    [inline, data, fieldLabelFor],
+  );
+
+  /**
    * Present a rejected save. A field-scoped refusal is published to the shared
    * session as a per-field map, which the field renderers (`DetailSection`,
    * `HeaderHighlight`) draw beside the input the server named — the in-place
@@ -267,15 +345,27 @@ export const InlineEditSaveBar: React.FC<InlineEditSaveBarProps> = ({
       if (!inline) return;
       const attributed = attributeInlineRefusal(err, inFlightField);
       if (!attributed) {
+        setRecordRefusal(null);
         inline.setFieldErrors(null);
         inline.setError(cleanError(err));
         return;
       }
       const labelOf = (name: string) => fieldLabelFor?.(name) || name;
-      inline.setFieldErrors(Object.fromEntries(attributed.map((r) => [r.field, r.message])));
-      inline.setError(attributed.map((r) => `${labelOf(r.field)}: ${r.message}`).join('; '));
+      const { fieldLevel, recordLevel } = splitRefusal(attributed, isRecordField);
+      // objectui#13292: an object-level rule's refusal names no field, so its
+      // message reads alone — no label prefix, and no per-field hint.
+      const lines = [
+        ...fieldLevel.map((r) => `${labelOf(r.field)}: ${r.message}`),
+        ...recordLevel,
+      ];
+      const error = lines.length > 0 ? lines.join('; ') : cleanError(err);
+      setRecordRefusal(recordLevel.length > 0 ? { error, messages: recordLevel } : null);
+      inline.setFieldErrors(
+        fieldLevel.length > 0 ? Object.fromEntries(fieldLevel.map((r) => [r.field, r.message])) : null,
+      );
+      inline.setError(error);
     },
-    [inline, fieldLabelFor],
+    [inline, fieldLabelFor, isRecordField],
   );
 
   /**
@@ -446,6 +536,9 @@ export const InlineEditSaveBar: React.FC<InlineEditSaveBarProps> = ({
   // Render nothing unless a provider is present and the record is being edited.
   if (!inline || !inline.editing) return null;
 
+  const recordMessages =
+    recordRefusal && recordRefusal.error === inline.error ? recordRefusal.messages : [];
+
   return (
     <>
       <div
@@ -473,12 +566,19 @@ export const InlineEditSaveBar: React.FC<InlineEditSaveBarProps> = ({
             role="alert"
             className="mr-auto max-w-md rounded-md border border-destructive/20 bg-destructive/10 px-2 py-1 text-xs text-destructive"
           >
-            {inline.fieldErrors ? (
+            {inline.fieldErrors || recordMessages.length > 0 ? (
               <ul className="space-y-0.5">
-                {Object.entries(inline.fieldErrors).map(([field, message]) => (
+                {Object.entries(inline.fieldErrors ?? {}).map(([field, message]) => (
                   <li key={field} data-inline-field-error={field}>
                     <span className="font-medium">{labelForField(field)}</span>
                     {': '}
+                    {message}
+                  </li>
+                ))}
+                {/* objectui#13292: record-level reasons name no field — the
+                    rule's own sentence, with no label in front of it. */}
+                {recordMessages.map((message, i) => (
+                  <li key={`record-${i}`} data-inline-record-error="">
                     {message}
                   </li>
                 ))}

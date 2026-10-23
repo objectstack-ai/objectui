@@ -242,6 +242,19 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.list.col.object': 'Object',
   'engine.list.col.type': 'Type',
   'engine.list.col.description': 'Description',
+  'engine.list.col.sharedWith': 'Shared with',
+  'engine.list.col.accessLevel': 'Access',
+  'engine.list.col._packageId': 'Package',
+  'engine.list.col.criteria': 'Criteria',
+  'engine.list.col.actions': 'Actions',
+  // objectstack#25333 — the position list's served columns (`PositionGrantCells.tsx`).
+  'engine.list.col._holderCount': 'Holders',
+  'engine.list.col._grantedPermissionSets': 'Permission sets',
+  'engine.position.holders.unknown': 'The server did not count the holders for you (no active organization, or no read on position assignments).',
+  'engine.position.grants.none': 'None',
+  'engine.position.grants.byName': '(by name)',
+  'engine.position.grants.byNameHint':
+    'Granted because this permission set has the same name as the position. The position does not list it, but holders get it.',
   'engine.list.emptyType': 'No {type} items registered',
   'engine.list.emptyQuery': 'No matches for "{query}"',
   'engine.list.createHint': 'Click "New" above to create the first {type}.',
@@ -257,11 +270,38 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.catalog.active.anchor':
     'An audience anchor: it carries the baseline every principal of the deployment holds, so it cannot be switched off. Change what it grants through the permission sets bound to it.',
   'engine.catalog.active.unknown': 'Activation state could not be read.',
+  'engine.catalog.active.notVisible': 'Not visible to you',
   'engine.catalog.active.failed': 'The switch was not saved: {message}',
   'engine.catalog.readOnly.single':
     'Read-only for your account. {type} items are defined by the platform administrator (the `manage_metadata` capability); your organization assigns them.',
   'engine.catalog.readOnly.walled':
     'Read-only for organization administrators. On this deployment the platform operator defines {type} items for every organization in Studio; your organization assigns them.',
+  // objectui#12982 — a declaration-only catalog (declared sharing rules). See
+  // `sharing-rule-catalog.ts`.
+  'engine.catalog.declaredOnly.hint.sharing_rule':
+    'These sharing rules are declared by installed packages and are read-only. Switch one off, or clone it into a rule your organization owns. Rules your organization authors are on the Organization rules page.',
+  'engine.catalog.declaredOnly.authoredLink.sharing_rule': 'Organization rules',
+  'engine.catalog.declaredOnly.switchReadOnly':
+    'Read-only for your account: switching a declared item on or off requires the `manage_metadata` capability.',
+  'engine.sharingRule.clone.action': 'Clone',
+  'engine.sharingRule.clone.title': 'Clone sharing rule',
+  'engine.sharingRule.clone.body':
+    'Creates a sharing rule your organization owns from the declared rule "{name}", under a new name. The declared rule itself does not change.',
+  'engine.sharingRule.clone.copyLabel': '{label} (copy)',
+  'engine.sharingRule.clone.name': 'New rule name',
+  'engine.sharingRule.clone.label': 'New label',
+  'engine.sharingRule.clone.loading': 'Reading the rule…',
+  'engine.sharingRule.clone.noCriteria':
+    'The server serves no criteria for "{name}" while it is switched off. Continue in the New form and enter them there.',
+  'engine.sharingRule.clone.confirm': 'Create rule',
+  'engine.sharingRule.clone.continueInForm': 'Continue in New form',
+  'engine.sharingRule.clone.failed': 'The rule was not created.',
+  'engine.sharingRule.clone.created':
+    'Created "{name}". The declared rule "{source}" still grants access until you switch it off.',
+  'engine.sharingRule.clone.disableSource': 'Switch "{source}" off',
+  'engine.sharingRule.clone.sourceOff': 'The declared rule "{source}" is switched off.',
+  'engine.sharingRule.clone.openCopy': 'Open the new rule',
+  'engine.sharingRule.clone.done': 'Done',
   'engine.edit.capabilityReadOnly':
     'Read-only for your account: changing this item requires the `manage_metadata` capability, which the platform administrator holds.',
   'engine.edit.save': 'Save',
@@ -1685,6 +1725,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.positionPreview.bind':
     'Bind {name} to one or more {permissionSets} to control CRUD-VAMA, field access, and tab visibility. Record visibility comes from the business-unit tree and sharing rules, not from the position.',
   'engine.positionPreview.permissionSets': 'Permission Sets',
+  // objectui#13304 — a position that declares `permissionSets` (ADR-0131 D4).
+  'engine.positionPreview.grantsVia': 'This position grants access through these {permissionSets}:',
+  'engine.positionPreview.visibility':
+    'Record visibility comes from the business-unit tree and sharing rules, not from the position.',
   // objectui#10202 — the read-only picklist page (the kind is package-owned).
   'engine.picklistPreview.empty': 'This picklist has no name.',
   'engine.picklistPreview.readOnly':
@@ -1721,18 +1765,16 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.translationPreview.more': '+{count} more…',
   'engine.translationPreview.keyCountOne': '{{count} key}',
   'engine.translationPreview.keyCountOther': '{{count} keys}',
-  // objectui#10862 (slice 2) — the two advisories `celAuthoring.lintCelPredicate`
+  // objectui#10862 (slice 2) — the advisory `celAuthoring.lintCelPredicate`
   // words itself, shown beneath the CEL editors: the wrong-layer root (the
   // local instrument's sentence; a slot `@objectstack/lint` covers ships that
-  // package's own message instead) and the non-pushdown-able read filter. The
-  // lint returns them as a `messageKey` plus its values and `CelPredicateField`
-  // reads them through the designer `t` its host binds. `{detail}` is the
-  // engine's own reason and `Unknown variable: …` is the runtime's own fault
-  // text; both stay as written.
+  // package's own message instead). The lint returns it as a `messageKey` plus
+  // its values and `CelPredicateField` reads it through the designer `t` its
+  // host binds. `Unknown variable: …` is the runtime's own fault text and stays
+  // as written. (An RLS clause the runtime cannot lower has no row here: it
+  // ships `@objectstack/lint`'s own message, objectui#13061.)
   'engine.celLint.notTheRow':
     '`{identifier}` is not the row on this surface: a row predicate binds the record as `{canonical}` and nothing else. The CEL scope vocabulary still accepts `{identifier}`, so nothing here blocks the save, but at runtime the expression faults with `Unknown variable: {identifier}` and the rule never fires. Re-root the reference on `{canonical}`.',
-  'engine.celLint.notPushdownable':
-    "This read filter isn't a simple field comparison ({detail}), so the server may be unable to push it down to the query — depending on the evaluation path it can be dropped and WIDEN access. Prefer a pushdown-able predicate (field vs. value or scope variable).",
   // objectui#10862 (slice 3) — the object / data previews (`ObjectPreview`,
   // `DatasetPreview`, `ViewPreview`, `ReportPreview`, `PagePreview`,
   // `PageBlockCanvas` and its add-block picker, `SourcePageEditor`,
@@ -1966,16 +2008,16 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowValidate.edgeTargetMissing': 'Edge target "{target}" does not exist.',
   // objectui#11838 — the other positions that name a node by id.
   'engine.flowValidate.exprRefNodeMissing': 'Expression "{ref}" reads node "{id}", which does not exist.',
-  'engine.flowValidate.boundaryHostMissing': 'Boundary event "{id}" is attached to node "{host}", which does not exist.',
+  'engine.flowValidate.boundaryHostMissing': 'Boundary event "{name}" ({id}) is attached to node "{host}", which does not exist.',
   'engine.flowValidate.startHasIncoming': 'Start node has an incoming edge.',
   'engine.flowValidate.multipleStart': 'Flow has {count} start nodes; expected one.',
   'engine.flowValidate.noStartUsingRoot': 'No "start" node; using the only root node as the entry.',
   'engine.flowValidate.noEntry': 'No entry node (every node has an incoming edge — the graph is fully cyclic).',
   'engine.flowValidate.ambiguousEntry': 'Cannot determine a single entry node ({count} candidates). Add a "start" node.',
-  'engine.flowValidate.decisionMultipleDefaults': 'Decision "{id}" has {count} default branches.',
-  'engine.flowValidate.decisionNoBranches': 'Decision "{id}" has no outgoing branches.',
-  'engine.flowValidate.decisionNoDefault': 'Decision "{id}" has no default branch; it may dead-end when no condition matches.',
-  'engine.flowValidate.nodeUnreachable': 'Node "{id}" is unreachable from the entry.',
+  'engine.flowValidate.decisionMultipleDefaults': 'Decision "{name}" ({id}) has {count} default branches.',
+  'engine.flowValidate.decisionNoBranches': 'Decision "{name}" ({id}) has no outgoing branches.',
+  'engine.flowValidate.decisionNoDefault': 'Decision "{name}" ({id}) has no default branch; it may dead-end when no condition matches.',
+  'engine.flowValidate.nodeUnreachable': 'Node "{name}" ({id}) is unreachable from the entry.',
   'engine.flowValidate.cycleDetected': 'Cycle detected ({cycle}). Mark the connection that closes the loop as a back-edge (Connection type → Back-edge) to declare an intentional revise/rework loop.',
   // Unknown-reference (scope) warnings (flow-ref-check) — Problems panel + the
   // inline expression-field warnings.
@@ -2029,7 +2071,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowProblems.sourceExpression': 'expression',
   // objectui#11772 — one extra copy of a connection (`edgeRouteKey`): the
   // engine follows every copy, so the target runs once per copy.
-  'engine.flowProblems.repeatedEdge': 'Connection {source} → {target} is repeated; the flow runs "{target}" once for each copy. Remove this copy.',
+  'engine.flowProblems.repeatedEdge': 'Connection "{sourceName}" ({source}) → "{targetName}" ({target}) is repeated; the flow runs "{targetName}" once for each copy. Remove this copy.',
   // objectui#11905 — why a connection between two existing nodes is refused,
   // shown by both doors that draw one: the canvas's connect handle and the
   // connection inspector's From / To (`edgeConnectionRefusal`).
@@ -2305,7 +2347,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.packages.import.success': 'Imported "{id}". Refresh the app switcher to use it.',
   'engine.packages.import.failed': 'Import failed',
   'engine.packages.create.title': 'New Package',
-  'engine.packages.create.description': 'Create a project-scoped package to author and publish your own metadata. The id should be reverse-domain (e.g. {example}).',
+  'engine.packages.create.description': 'Create a writable package to author and publish your own metadata. The id should be reverse-domain (e.g. {example}).',
   'engine.packages.create.id': 'Package ID',
   'engine.packages.create.namespace': 'Object namespace',
   'engine.packages.create.name': 'Display name',
@@ -2334,6 +2376,14 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.packages.form.defaultDatasource': 'Default datasource',
   'engine.packages.form.scope': 'Scope',
   'engine.packages.form.dependencies': 'Dependencies',
+  // objectui#13278 — the Dependencies row's key/value editor.
+  'engine.packages.dependencies.package': 'Package',
+  'engine.packages.dependencies.range': 'Version range',
+  'engine.packages.dependencies.add': 'Add dependency',
+  'engine.packages.dependencies.remove': 'Remove dependency',
+  'engine.packages.dependencies.empty': 'No dependencies.',
+  'engine.packages.dependencies.nameRequired': 'Enter a package name.',
+  'engine.packages.dependencies.duplicate': 'This package is already listed.',
   'engine.packages.view.title': 'Package info',
   'engine.packages.detail.viewInfo': 'View info',
   'engine.packages.detail.type': 'Type',
@@ -2461,6 +2511,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.rls.checkPlaceholder': 'optional — defaults to USING',
   'perm.rls.empty': 'No row-level policies.',
   'perm.rls.add': 'Add policy',
+  'perm.rls.nameNeeded': 'Give the policy a name to save it.',
+  'perm.rls.nameRefused': 'Not saved. Policy name, on row {row}: {problem}',
   // CEL authoring safety for RLS predicates (objectui#2413).
   'perm.cel.valid': 'Valid CEL',
   'perm.cel.suggestions': 'Field and scope suggestions',
@@ -3062,6 +3114,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // objectui#11807 — the publish toast names how many items went live.
   'engine.studio.publishedAllCount': 'Published {count} items in this package (one atomic release)',
   'engine.studio.publishedAllCountOne': 'Published {count} item in this package (one atomic release)',
+  // objectui#12929 — the batch door's backfill receipt, one clause per field
+  // the review sheet named: the rows the server wrote, and why a field stopped.
+  'engine.studio.backfillWritten': 'Default backfilled into {field}: {count} record(s)',
+  'engine.studio.backfillStopped': 'Default backfill of {field} stopped after {count} record(s): {error}',
   'engine.studio.app.open': 'Open app',
   'engine.studio.app.openTitle': 'Open app “{label}” (the published front-end)',
   'engine.studio.app.create': 'Create app',
@@ -3384,10 +3440,15 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.inspector.listView.kind': 'List view',
   'engine.studio.inspector.listView.intro':
     'The list on the canvas. Its columns, filter and sort save to this package\'s draft and show on the canvas at once.',
+  // objectui#13151 — a view with no label is named by its object's display
+  // name and its role, never by its qualified name (`{view}` below is the
+  // panel's title, the same string).
+  'engine.studio.inspector.listView.defaultTitle': '{object} · Default view',
+  'engine.studio.inspector.listView.namedTitle': '{object} · {view}',
   'engine.studio.inspector.listView.notCreated':
-    'There is no list view {view} yet. Your first change here creates it in this package\'s draft.',
+    'There is no list view “{view}” yet. Your first change here creates it in this package\'s draft.',
   'engine.studio.inspector.listView.readOnly': 'This package is read-only: the list view is shown here, not edited.',
-  'engine.studio.inspector.listView.notList': '{view} is not a list view, so it is not edited here.',
+  'engine.studio.inspector.listView.notList': '“{view}” is not a list view, so it is not edited here.',
   'engine.studio.inspector.listView.filter': 'Filter',
   'engine.studio.inspector.listView.sort': 'Sort',
   'engine.studio.inspector.listView.addSort': '+ Add sort…',
@@ -3411,6 +3472,17 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.inspector.listView.kanbanCard.mode.none': "Don't open",
   'engine.studio.inspector.listView.kanbanCard.groupBy': 'Group by field',
   'engine.studio.inspector.listView.kanbanCard.pickField': 'Pick a field',
+  // objectui#12725 — the copilot's draft marks on a field or a view setting it changed.
+  'engine.studio.draftMark.chip': 'Draft',
+  'engine.studio.draftMark.sourceLabel': 'Source',
+  'engine.studio.draftMark.source': 'Added as a draft by the AI copilot {when}',
+  'engine.studio.draftMark.sourceJustNow': 'Added as a draft by the AI copilot just now',
+  'engine.studio.draftMark.sourceItems': '{items}: {count} added as a draft by the AI copilot {when}',
+  'engine.studio.draftMark.sourceItemsJustNow': '{items}: {count} added as a draft by the AI copilot just now',
+  'engine.studio.draftMark.item': '"{label}"',
+  'engine.studio.draftMark.minutesAgo': '{n} min ago',
+  'engine.studio.draftMark.hoursAgo': '{n} h ago',
+  'engine.studio.draftMark.daysAgo': '{n} d ago',
   // objectui#11823 (steps 2 and 3) — the Interfaces pillar's New dashboard / New report / New page.
   'engine.studio.interfaces.create.menuTitle': 'Create a dashboard, a report or a page in this package',
   'engine.studio.interfaces.create.dashboard': 'New dashboard',
@@ -3464,7 +3536,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.data.pickObject': 'Select an object',
   'engine.studio.data.objects': 'Objects',
   'engine.studio.data.searchObjects': 'Search objects…',
-  'engine.studio.data.noObjects': 'No objects yet — create one below to start',
+  'engine.studio.data.noObjects': 'No objects yet — click “+” above to create one',
   'engine.studio.data.labelPlaceholder': 'Display name (e.g. Repair Ticket)',
   'engine.studio.data.idPlaceholder': 'Identifier (e.g. repair_ticket)',
   // [`7a90afdf9`] The create dialog's third field. `新建对象` used to ask for
@@ -3849,6 +3921,17 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.list.col.object': '对象',
   'engine.list.col.type': '类型',
   'engine.list.col.description': '描述',
+  'engine.list.col.sharedWith': '共享给',
+  'engine.list.col.accessLevel': '访问级别',
+  'engine.list.col._packageId': '软件包',
+  'engine.list.col.criteria': '条件',
+  'engine.list.col.actions': '操作',
+  'engine.list.col._holderCount': '持有人数',
+  'engine.list.col._grantedPermissionSets': '权限集',
+  'engine.position.holders.unknown': '服务器未为你统计持有人数（没有当前组织，或无权读取岗位分配）。',
+  'engine.position.grants.none': '无',
+  'engine.position.grants.byName': '（同名）',
+  'engine.position.grants.byNameHint': '因与岗位同名而授予。岗位定义未列出它，但持有人会获得它。',
   'engine.list.emptyType': '暂无 {type} 条目',
   'engine.list.emptyQuery': '没有匹配 "{query}" 的结果',
   'engine.list.createHint': '点击上方"新建"创建第一个 {type}。',
@@ -3862,11 +3945,36 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.catalog.active.anchor':
     '受众锚点：它承载此部署中每个主体都持有的基线，因此不能停用。请通过绑定到它的权限集来调整它授予的内容。',
   'engine.catalog.active.unknown': '无法读取启用状态。',
+  'engine.catalog.active.notVisible': '对你不可见',
   'engine.catalog.active.failed': '开关未保存：{message}',
   'engine.catalog.readOnly.single':
     '您的账号只能查看。{type}由平台管理员定义（需要 `manage_metadata` 能力）；您的组织负责分配。',
   'engine.catalog.readOnly.walled':
     '组织管理员只能查看。此部署中由平台运营方在 Studio 中为所有组织定义{type}；您的组织负责分配。',
+  'engine.catalog.declaredOnly.hint.sharing_rule':
+    '这些共享规则由已安装的软件包声明，只读。可以停用某条规则，或将其克隆为您组织自己的规则。您组织编写的规则在「组织规则」页面中。',
+  'engine.catalog.declaredOnly.authoredLink.sharing_rule': '组织规则',
+  'engine.catalog.declaredOnly.switchReadOnly':
+    '您的账号只能查看：启用或停用已声明的条目需要 `manage_metadata` 能力。',
+  'engine.sharingRule.clone.action': '克隆',
+  'engine.sharingRule.clone.title': '克隆共享规则',
+  'engine.sharingRule.clone.body':
+    '以新名称从已声明的规则「{name}」创建一条归您组织所有的共享规则。已声明的规则本身不变。',
+  'engine.sharingRule.clone.copyLabel': '{label}（副本）',
+  'engine.sharingRule.clone.name': '新规则名称',
+  'engine.sharingRule.clone.label': '新标签',
+  'engine.sharingRule.clone.loading': '正在读取规则…',
+  'engine.sharingRule.clone.noCriteria':
+    '「{name}」停用期间，服务器不提供它的条件。请在新建表单中继续并填写条件。',
+  'engine.sharingRule.clone.confirm': '创建规则',
+  'engine.sharingRule.clone.continueInForm': '在新建表单中继续',
+  'engine.sharingRule.clone.failed': '规则未创建。',
+  'engine.sharingRule.clone.created':
+    '已创建「{name}」。在您停用之前，已声明的规则「{source}」仍会授予访问权限。',
+  'engine.sharingRule.clone.disableSource': '停用「{source}」',
+  'engine.sharingRule.clone.sourceOff': '已声明的规则「{source}」已停用。',
+  'engine.sharingRule.clone.openCopy': '打开新规则',
+  'engine.sharingRule.clone.done': '完成',
   'engine.edit.capabilityReadOnly':
     '您的账号只能查看：修改此条目需要 `manage_metadata` 能力，该能力由平台管理员持有。',
   'engine.edit.save': '保存',
@@ -5216,6 +5324,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.positionPreview.bind':
     '将 {name} 绑定到一个或多个 {permissionSets}，以控制 CRUD-VAMA、字段访问和标签页可见性。记录的可见性来自业务单元树和共享规则，而不是岗位。',
   'engine.positionPreview.permissionSets': '权限集',
+  // objectui#13304 — a position that declares `permissionSets` (zh).
+  'engine.positionPreview.grantsVia': '该岗位通过以下{permissionSets}授予访问权限：',
+  'engine.positionPreview.visibility': '记录的可见性来自业务单元树和共享规则，而不是岗位。',
   // objectui#10202 — the read-only picklist page (zh).
   'engine.picklistPreview.empty': '该选项列表没有名称。',
   'engine.picklistPreview.readOnly': '只读：选项列表归声明它的软件包所有，不能在这里新建、编辑或删除。',
@@ -5250,8 +5361,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.translationPreview.keyCountOther': '{{count} 个键}',
   'engine.celLint.notTheRow':
     '`{identifier}` 在此处不是记录行：行条件只把记录绑定为 `{canonical}`，别无其他。CEL 作用域词汇仍接受 `{identifier}`，所以这里不会阻止保存，但运行时表达式会以 `Unknown variable: {identifier}` 报错，规则永远不会触发。请改为以 `{canonical}` 为根引用。',
-  'engine.celLint.notPushdownable':
-    '此读取过滤器不是简单的字段比较（{detail}），服务器可能无法把它下推到查询 —— 视求值路径而定，它可能被丢弃并扩大访问范围。建议使用可下推的条件（字段与值或作用域变量比较）。',
   'engine.objectPreview.renderFailed': '无法渲染表单设计器。请检查“表单”标签页。',
   'engine.datasetPreview.pickObject': '选择一个基础对象',
   'engine.datasetPreview.pickObjectHint': '设置数据集的 `object`，即可用实时数据预览它。',
@@ -5455,16 +5564,16 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowValidate.edgeSourceMissing': '连线的源节点 “{source}” 不存在。',
   'engine.flowValidate.edgeTargetMissing': '连线的目标节点 “{target}” 不存在。',
   'engine.flowValidate.exprRefNodeMissing': '表达式 “{ref}” 读取的节点 “{id}” 不存在。',
-  'engine.flowValidate.boundaryHostMissing': '边界事件 “{id}” 附着的节点 “{host}” 不存在。',
+  'engine.flowValidate.boundaryHostMissing': '边界事件 “{name}”（{id}）附着的节点 “{host}” 不存在。',
   'engine.flowValidate.startHasIncoming': '开始节点存在入边。',
   'engine.flowValidate.multipleStart': '流程有 {count} 个开始节点;应只有一个。',
   'engine.flowValidate.noStartUsingRoot': '没有“开始”节点;以唯一的根节点作为入口。',
   'engine.flowValidate.noEntry': '没有入口节点(每个节点都有入边 —— 整个图是全环状)。',
   'engine.flowValidate.ambiguousEntry': '无法确定唯一入口节点(有 {count} 个候选)。请添加一个“开始”节点。',
-  'engine.flowValidate.decisionMultipleDefaults': '条件分支 “{id}” 有 {count} 个默认分支。',
-  'engine.flowValidate.decisionNoBranches': '条件分支 “{id}” 没有出向分支。',
-  'engine.flowValidate.decisionNoDefault': '条件分支 “{id}” 没有默认分支;当无条件匹配时可能走入死路。',
-  'engine.flowValidate.nodeUnreachable': '节点 “{id}” 从入口不可达。',
+  'engine.flowValidate.decisionMultipleDefaults': '条件分支 “{name}”（{id}）有 {count} 个默认分支。',
+  'engine.flowValidate.decisionNoBranches': '条件分支 “{name}”（{id}）没有出向分支。',
+  'engine.flowValidate.decisionNoDefault': '条件分支 “{name}”（{id}）没有默认分支;当无条件匹配时可能走入死路。',
+  'engine.flowValidate.nodeUnreachable': '节点 “{name}”（{id}）从入口不可达。',
   'engine.flowValidate.cycleDetected': '检测到环({cycle})。将闭合该环的连线标记为回边(连接类型 → 回边)以声明这是有意的退回 / 返工环。',
   // 未知引用(作用域)告警(flow-ref-check)—— 问题面板 + 表达式字段内联提示。
   'engine.flowRef.unknownWithSuggestion': '未知引用 `{token}` —— 是否想用 `{suggestion}`?',
@@ -5502,7 +5611,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowProblems.sourceSchema': '架构',
   'engine.flowProblems.sourceExpression': '表达式',
   // objectui#11772 — one extra copy of a connection (see the en row).
-  'engine.flowProblems.repeatedEdge': '连线 {source} → {target} 重复;流程会为每一条副本各运行一次 “{target}”。请删除这条副本。',
+  'engine.flowProblems.repeatedEdge': '连线 “{sourceName}”（{source}）→ “{targetName}”（{target}）重复;流程会为每一条副本各运行一次 “{targetName}”。请删除这条副本。',
   // objectui#11905 — a refused connection (see the en rows).
   'engine.flowProblems.connectRefused.missingSource': '无法连线：此流程中没有节点 “{source}”。',
   'engine.flowProblems.connectRefused.missingTarget': '无法连线：此流程中没有节点 “{target}”。',
@@ -5734,7 +5843,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.packages.import.success': '已导入 "{id}"。刷新应用切换器后即可使用。',
   'engine.packages.import.failed': '导入失败',
   'engine.packages.create.title': '新建软件包',
-  'engine.packages.create.description': '创建项目范围的软件包，用来编写并发布自己的元数据。ID 建议使用反向域名格式（例如 {example}）。',
+  'engine.packages.create.description': '创建可写的软件包，用来编写和发布你自己的元数据。ID 建议使用反向域名格式（例如 {example}）。',
   'engine.packages.create.id': '软件包 ID',
   'engine.packages.create.namespace': '对象命名空间',
   'engine.packages.create.name': '显示名称',
@@ -5758,6 +5867,14 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.packages.form.defaultDatasource': '默认数据源',
   'engine.packages.form.scope': '范围',
   'engine.packages.form.dependencies': '依赖',
+  // objectui#13278 — the Dependencies row's key/value editor.
+  'engine.packages.dependencies.package': '软件包',
+  'engine.packages.dependencies.range': '版本范围',
+  'engine.packages.dependencies.add': '添加依赖',
+  'engine.packages.dependencies.remove': '移除依赖',
+  'engine.packages.dependencies.empty': '暂无依赖。',
+  'engine.packages.dependencies.nameRequired': '请输入软件包名称。',
+  'engine.packages.dependencies.duplicate': '该软件包已在列表中。',
 
   // `add10d8f9` — help text for the package manifest form.
   //
@@ -5911,6 +6028,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.rls.checkPlaceholder': '可选 — 默认同 USING',
   'perm.rls.empty': '暂无行级策略。',
   'perm.rls.add': '新增策略',
+  'perm.rls.nameNeeded': '为策略填写名称后即可保存。',
+  'perm.rls.nameRefused': '未保存。第 {row} 行的策略名称：{problem}',
   // 行级安全 CEL 编写安全 (objectui#2413)。
   'perm.cel.valid': 'CEL 有效',
   'perm.cel.suggestions': '字段与作用域建议',
@@ -6419,6 +6538,10 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // objectui#11807 — the publish toast names how many items went live.
   'engine.studio.publishedAllCount': '已发布本软件包的 {count} 项(一次原子发布)',
   'engine.studio.publishedAllCountOne': '已发布本软件包的 {count} 项(一次原子发布)',
+  // objectui#12929 — the batch door's backfill receipt, one clause per field
+  // the review sheet named: the rows the server wrote, and why a field stopped.
+  'engine.studio.backfillWritten': '已为 {field} 补默认值：{count} 条记录',
+  'engine.studio.backfillStopped': '{field} 的默认值补写中途停止(停止前已写入 {count} 条)：{error}',
   'engine.studio.app.open': '打开应用',
   'engine.studio.app.openTitle': '打开应用「{label}」(发布后的前端界面)',
   'engine.studio.app.create': '创建应用',
@@ -6439,7 +6562,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.landing.mineHeading': '我的软件包(可写)',
   'engine.studio.landing.noneWritable': '还没有可写软件包 — 新建一个开始。',
   'engine.studio.landing.dup': '复制',
-  'engine.studio.landing.dupTitle': '复制这个软件包为新的可写副本(类似 duplicate base)',
+  'engine.studio.landing.dupTitle': '复制这个软件包为新的可写副本(类似「复制基座」)',
   'engine.studio.landing.dupDefaultName': '{name} 副本',
   'engine.studio.landing.dupNamePlaceholder': '副本名称',
   'engine.studio.landing.dupIdPlaceholder': '副本包 ID',
@@ -6599,7 +6722,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.pkg.heading': '软件包(应用)',
   'engine.studio.pkg.none': '暂无应用软件包',
   'engine.studio.pkg.createWritable': '创建可写软件包',
-  'engine.studio.pkg.new': '新建软件包(可写 base)',
+  'engine.studio.pkg.new': '新建软件包(可写基座)',
   'engine.studio.pkg.created': '软件包 {name} 已创建(可写)',
   // Nav item inspector (Interfaces pillar)
   'engine.studio.nav.selectItem': '在左侧选择一个菜单项。',
@@ -6682,9 +6805,11 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
     '此画布渲染的是运行态应用，而不是积木树 —— 这里没有可选中的积木，也没有可在本面板编辑的内容。',
   'engine.studio.inspector.listView.kind': '列表视图',
   'engine.studio.inspector.listView.intro': '画布上的就是这个列表。它的列、筛选与排序保存到本包的草稿,并立即显示在画布上。',
-  'engine.studio.inspector.listView.notCreated': '还没有列表视图 {view}。在这里做的第一次修改会在本包的草稿中创建它。',
+  'engine.studio.inspector.listView.defaultTitle': '{object} · 默认视图',
+  'engine.studio.inspector.listView.namedTitle': '{object} · {view}',
+  'engine.studio.inspector.listView.notCreated': '还没有列表视图「{view}」。在这里做的第一次修改会在本包的草稿中创建它。',
   'engine.studio.inspector.listView.readOnly': '本包只读:这里展示列表视图,不能编辑。',
-  'engine.studio.inspector.listView.notList': '{view} 不是列表视图,因此不在这里编辑。',
+  'engine.studio.inspector.listView.notList': '「{view}」不是列表视图,因此不在这里编辑。',
   'engine.studio.inspector.listView.filter': '筛选',
   'engine.studio.inspector.listView.sort': '排序',
   'engine.studio.inspector.listView.addSort': '+ 添加排序…',
@@ -6707,6 +6832,16 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.inspector.listView.kanbanCard.mode.none': '不打开',
   'engine.studio.inspector.listView.kanbanCard.groupBy': '分组字段',
   'engine.studio.inspector.listView.kanbanCard.pickField': '选择字段',
+  'engine.studio.draftMark.chip': '草稿',
+  'engine.studio.draftMark.sourceLabel': '来源',
+  'engine.studio.draftMark.source': '由 AI 副驾在 {when}作为草稿加入',
+  'engine.studio.draftMark.sourceJustNow': '由 AI 副驾刚刚作为草稿加入',
+  'engine.studio.draftMark.sourceItems': '{items} {count} 项由 AI 副驾在 {when}作为草稿加入',
+  'engine.studio.draftMark.sourceItemsJustNow': '{items} {count} 项由 AI 副驾刚刚作为草稿加入',
+  'engine.studio.draftMark.item': '「{label}」',
+  'engine.studio.draftMark.minutesAgo': '{n} 分钟前',
+  'engine.studio.draftMark.hoursAgo': '{n} 小时前',
+  'engine.studio.draftMark.daysAgo': '{n} 天前',
   // objectui#11823 (step 2) — the Interfaces pillar's New dashboard / New report.
   'engine.studio.interfaces.create.menuTitle': '在本包中新建仪表盘、报表或页面',
   'engine.studio.interfaces.create.dashboard': '新建仪表盘',
@@ -6751,7 +6886,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.data.pickObject': '选择一个对象',
   'engine.studio.data.objects': '对象',
   'engine.studio.data.searchObjects': '搜索对象…',
-  'engine.studio.data.noObjects': '还没有对象 — 在下方新建一个开始',
+  'engine.studio.data.noObjects': '还没有对象 — 点上方的「+」新建',
   'engine.studio.data.labelPlaceholder': '显示名(如:报修工单)',
   'engine.studio.data.idPlaceholder': '标识符(如:repair_ticket)',
   // [`7a90afdf9`] 新建对象对话框的第三项。此前只问两项,产出的对象会被发布门拒绝。

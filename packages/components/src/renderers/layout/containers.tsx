@@ -19,7 +19,7 @@
  */
 
 import React from 'react';
-import { ComponentRegistry, ExpressionEvaluator, declaredNameField, evalRowPredicate, formatTitleTemplate, getRecordDisplayName, recordDisplayValueAt, resolveNameField, toPredicateRecord } from '@object-ui/core';
+import { ComponentRegistry, ExpressionEvaluator, declaredNameField, evalRowPredicate, formatTitleTemplate, hasDeclaredPredicate, getRecordDisplayName, recordDisplayValueAt, resolveNameField, toPredicateRecord } from '@object-ui/core';
 import type { ComponentInput } from '@object-ui/core';
 import { actionRendersAt, resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
@@ -57,6 +57,7 @@ import {
   AvatarImage,
 } from '../../ui';
 import { RecordTitleChip } from '../../custom/RecordTitleChip';
+import { resolveFieldReadFace } from '../../lib/field-face';
 import { PageDescriptionContext } from './page-description-context';
 import { renderBlockChildren } from './page-block-grid';
 import { isFileIdToken } from '@objectstack/spec/data';
@@ -331,14 +332,24 @@ const translateLabel = (
 type FieldOptionLabel = (objectName: string, fieldName: string, value: string, fallback: string) => string;
 
 /**
+ * `fieldName`'s declaration on `objectSchema`, in either shape `fields` takes:
+ * a map keyed by field name, or a list of entries that carry their `name`.
+ * `undefined` when the object declares no such field.
+ */
+const declaredFieldDef = (objectSchema: any, fieldName: string): any =>
+  Array.isArray(objectSchema?.fields)
+    ? objectSchema.fields.find((f: any) => f?.name === fieldName)
+    : objectSchema?.fields?.[fieldName];
+
+/**
  * The option label a user reads for one select-field VALUE, or `undefined`
  * when `fieldName` is not an options-bearing field of `objectSchema` (or a
  * piece needed to translate it is absent).
  *
  * The ONE place this file maps an enum value to its label. Two readers call
  * it: the `{token}` interpolation below (`page:header`'s `title` /
- * `subtitle`), and the record copy the `titleFormat` rung hands to core's
- * `formatTitleTemplate` ({@link withOptionLabels}, objectui#10447).
+ * `subtitle`), and the record copy the H1's `titleFormat` and declared-pointer
+ * rungs read ({@link withOptionLabels}, objectui#10447, objectui#13103).
  */
 const optionLabelFor = (
   objectSchema: any,
@@ -348,9 +359,7 @@ const optionLabelFor = (
   raw: string,
 ): string | undefined => {
   if (!objectSchema?.fields || !fieldOptionLabel || !objectName) return undefined;
-  const fieldDef: any = Array.isArray(objectSchema.fields)
-    ? objectSchema.fields.find((f: any) => f?.name === fieldName)
-    : objectSchema.fields[fieldName];
+  const fieldDef: any = declaredFieldDef(objectSchema, fieldName);
   const options: any[] | undefined = fieldDef?.options;
   if (!Array.isArray(options)) return undefined;
   const match = options.find((opt: any) => String(opt?.value ?? opt) === raw);
@@ -682,21 +691,30 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       record: recordData,
       data: recordData,
     });
-    // evaluateCondition is fail-open (unparseable predicate → visible) — the
-    // same semantics SchemaRenderer applies to component-level `visibleWhen`,
-    // and objectui#6038 gives it the same VOICE. The verdict is untouched: a
-    // faulting predicate still resolves to `true` and the tab still renders.
+    // objectui#13286 — a declared item predicate that FAULTS hides its tab
+    // (fail-CLOSED). `evaluateCondition` answers a fault with its fail-soft
+    // `true`, so this site reads the fault off the same single engine call's
+    // `onFault` and overrides that answer, rather than paying for a second
+    // `throwOnError` evaluation. The gate is a visibility gate whose `false`
+    // removes the whole tab (header and panel): a predicate over the CEL
+    // bounds, a type error or a missing function used to draw the tab for a
+    // viewer the predicate was written to exclude.
     //
-    // This site is in the census for the reason the card's census clause names
-    // — it swallows the identical fault under a different helper. It is worse
-    // than the node gate was, in fact: `SchemaRenderer` at least reported in
-    // development, while an item-level `visibleWhen` that faulted here was
-    // silent in BOTH builds, on a gate whose false verdict removes an entire
-    // tab (header and panel) rather than one block. Reported through the SAME
-    // reporter and the SAME dedupe `Set` as the node gate, so one authored
-    // predicate is one line no matter which surface evaluates it.
-    return evaluator.evaluateCondition(it.visibleWhen, {
-      onFault: (reason) =>
+    // A gate that declares nothing — `''`, whitespace, an empty-`source`
+    // envelope (`hasDeclaredPredicate` is false) — still means "no gate": it is
+    // diagnosed through the same `onFault` but stays visible, like an absent
+    // `visibleWhen`. A hidden ACTIVE tab falls back to the first visible tab
+    // through the same filter a predicate that says `false` goes through.
+    //
+    // Reported through the SAME reporter and the SAME dedupe `Set` as the node
+    // gate (objectui#6038), so one authored predicate is one line however
+    // often it is re-rendered. The `'withholding'` consequence is the shared
+    // reporter's fail-closed visibility copy: the tab is withheld, not drawn.
+    const declared = hasDeclaredPredicate(it.visibleWhen);
+    let faulted = false;
+    const verdict = evaluator.evaluateCondition(it.visibleWhen, {
+      onFault: (reason) => {
+        faulted = true;
         // `'page-component'`, not a tier of its own (objectui#6487): the bag
         // built above binds `record`, `current_user` and `page.<var>` — the
         // three roots the node tier's advice paragraph names — so an author who
@@ -710,8 +728,11 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           it.visibleWhen,
           reason,
           'page-component',
-        ),
+          declared ? 'withholding' : 'visibility',
+        );
+      },
     });
+    return declared && faulted ? false : verdict;
   };
   const visibleFlags = rawItems.map(isItemVisible);
   // Keep the filtered array's identity stable while visibility is unchanged
@@ -742,12 +763,15 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // the same three hooks — NOT the item-level scope of `isItemVisible` above,
   // which also spreads the row flat and binds `data`.
   //
-  // A predicate that cannot be evaluated yet (a root still loading, a
-  // malformed source) is treated as the body treats it: `evaluateCondition`
-  // is fail-open, so the block is drawn and its list is counted. The verdicts
-  // are re-taken every render, so a gate that closes once its scope arrives
-  // drops the list from the badge on that render. A fault is reported through
-  // the body's reporter, whose dedupe key is (node type, key, source), so one
+  // A predicate that cannot be evaluated (a root still loading, a malformed
+  // source, a source over the CEL bounds) is treated as the body treats it
+  // (objectui#13299): a DECLARED gate that faults is closed, so the block is
+  // withheld and its list is not counted; a blank gate that declares nothing
+  // stays open. The fault is read off this single engine call's `onFault`,
+  // as the body reads it. The verdicts are re-taken every render, so a gate
+  // that opens once its scope arrives adds the list to the badge on that
+  // render. A fault is reported through the body's reporter, with the body's
+  // consequence copy, whose dedupe key is (node type, key, source), so one
   // broken predicate is still one line.
   //
   // The walk runs per render (a tab's subtree is small) and its verdicts are
@@ -766,8 +790,14 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     blockEvaluator ??= new ExpressionEvaluator(
       buildNodeEvaluationScope(predicateScope, recordData, pageVariables),
     );
+    let declared = true;
+    let faulted = false;
     const verdict = blockEvaluator.evaluateCondition(gate.visibleWhen, {
-      onFault: (reason) =>
+      onFault: (reason) => {
+        faulted = true;
+        // Asked only on a fault, as the body asks it: `hasDeclaredPredicate`
+        // reports a blank gate as a side effect.
+        declared = hasDeclaredPredicate(gate.visibleWhen);
         reportUnresolvableVisibilityPredicate(
           gate.type,
           gate.id,
@@ -775,10 +805,13 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           gate.visibleWhen,
           reason,
           'page-component',
-        ),
+          declared ? 'withholding' : 'visibility',
+        );
+      },
     });
-    gateVerdicts.set(gate, verdict);
-    return verdict;
+    const open = declared && faulted ? false : verdict;
+    gateVerdicts.set(gate, open);
+    return open;
   };
   const shownListsByItem = listsByItem.map((lists) =>
     lists.filter((entry) => entry.gates.every(isGateOpen)),
@@ -2593,10 +2626,12 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // unresolved token. The one thing the H1 adds is the translated option
     // label for a select value, applied to a copy of the record
     // (`withOptionLabels`) so the formatter's signature does not move.
-    const interpolatedTitleFormat = formatTitleTemplate(
-      objSchema?.titleFormat,
-      withOptionLabels(data, objSchema, fieldOptionLabel, rawObjectName),
-    );
+    //
+    // The same labelled copy feeds the declared-pointer rung below
+    // (objectui#13103): a select `nameField` heads the page with its option
+    // label, exactly as the same field does through the template.
+    const labelledData = withOptionLabels(data, objSchema, fieldOptionLabel, rawObjectName);
+    const interpolatedTitleFormat = formatTitleTemplate(objSchema?.titleFormat, labelledData);
     // Unified resolver (ADR-0079): honours the object's declared
     // `nameField`/`displayNameField` and falls back to type-aware field
     // derivation. `deriveFromRecordKeys: false` keeps bare record-key
@@ -2658,10 +2693,48 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // WITHOUT a `titleFormat` this rung answers exactly what `unifiedTitle`
     // answered before it; only the template's rank moved. A blank value here
     // falls through to the template, just as `getRecordDisplayName` walks from
-    // a blank step 1+2 to step 3.
+    // a blank step 1+2 to step 3. It reads the record through the same
+    // `withOptionLabels` copy the template rung reads (objectui#13103), so a
+    // select pointer shows its option label, not its stored value; a non-
+    // select pointer reads the same value it reads on the raw record.
     const declaredTitle = (() => {
-      const resolved = recordDisplayValueAt(data, declaredNameField(objSchema));
+      const resolved = recordDisplayValueAt(labelledData, declaredNameField(objSchema));
       return resolved && !isResolverFloor(resolved) ? resolved : '';
+    })();
+    // The declared pointer drawn through its field's FACE (objectui#13216).
+    // When the pointer rung is the one that answers (no explicit `title`, a
+    // value on this record) and the pointer's field declares a widget whose
+    // read face is a component of its own, the H1 draws the value through that
+    // face instead of printing the stored text: a `recipient_id` declaring
+    // `widget: 'recipient-picker'` heads a record share with the recipient's
+    // name, not the user id it stores.
+    //
+    // The rule is the field registry's, asked through the field-face seam
+    // (`lib/field-face.ts`), which `@object-ui/fields` fills when it loads with
+    // the same `getCellRenderer(resolveCellRendererType(field))` lookup the
+    // grid's cells make. This file names no widget: the declaration decides.
+    // No resolver (a host that never loads `@object-ui/fields`), no field
+    // declaration, no widget, or a widget with no face of its own answers
+    // `undefined`, and the H1 draws `resolvedTitle` exactly as before.
+    //
+    // The face gets the stored value and the whole record as
+    // `dependentValues`, as a grid cell gets its row, so a face whose value
+    // only means something beside a sibling (`dependsOn: ['recipient_type']`)
+    // reads it. `resolvedTitle` stays the stored text: no face string exists
+    // synchronously, so nothing that reads the title as text changes.
+    const declaredFace = (() => {
+      if (explicitTitle || !declaredTitle) return undefined;
+      const nameFieldName: unknown = declaredNameField(objSchema);
+      if (typeof nameFieldName !== 'string' || !nameFieldName) return undefined;
+      const fieldDef = declaredFieldDef(objSchema, nameFieldName);
+      if (!fieldDef || typeof fieldDef !== 'object') return undefined;
+      // The map form of `fields` keys a declaration by its name; the face
+      // reads the name off the declaration, as a grid column's carries it.
+      const field = { ...fieldDef, name: nameFieldName };
+      const Face = resolveFieldReadFace(field);
+      if (!Face) return undefined;
+      // eslint-disable-next-line react-hooks/static-components -- resolveFieldReadFace returns a renderer registered in the field registry (a stable module-level component), not one created during render
+      return <Face value={data?.[nameFieldName]} field={field} dependentValues={data} />;
     })();
     const titleCandidate =
       explicitTitle ||
@@ -2767,6 +2840,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         <div className="flex flex-col min-w-0 sm:min-w-48 flex-1">
           <RecordTitleChip
             title={resolvedTitle}
+            titleNode={declaredFace}
             icon={recordPicture}
             objectLabel={objectLabel}
             resourceId={data?.id ? String(data.id) : undefined}

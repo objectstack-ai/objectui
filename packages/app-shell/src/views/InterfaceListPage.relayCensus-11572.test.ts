@@ -519,7 +519,9 @@ const NOT_RELAYED: Record<string, NotRelayed> = {
   aria: { kind: 'not-inherited', reason: "Accessible naming of the list region. The page owns the region it renders; the referenced view's label would name the region after a view the page only borrows columns from." },
   compactToolbar: { kind: 'not-inherited', reason: 'Toolbar layout. The toolbar on this surface is page policy (`userActions`, closed by default), and the page config has no compact-toolbar key to set.' },
   conditionalFormatting: { kind: 'not-inherited', reason: "Row styling rules, outside the spec's columns/filter/sort inheritance. ⚠️ `rowColor` IS relayed: a pre-existing relay outside the line, recorded in this file's header and not extended here." },
-  filterableFields: { kind: 'not-inherited', reason: 'Scopes the advanced filter builder, which this page owns (`userActions.filter`, off by default). The end-user filters a page author curates are `userFilters`, which IS relayed as the fallback.' },
+  // `filterableFields` was answered here (`not-inherited`) until objectui#13118:
+  // the spec retires it (objectstack#24640, ruling C) and `ListView` reads it
+  // no longer, so it left the population and its entry left with it.
   resizable: { kind: 'not-inherited', reason: 'Column-resize chrome on the grid. This page persists only its column order, as its own `columns`, and takes no other column chrome from the view.' },
   rowHeight: { kind: 'not-inherited', reason: "Row density. Whether users may change density is the page's `userActions.rowHeight`; the starting density is not part of the spec's columns/filter/sort inheritance, and the page config has no density key." },
   selection: { kind: 'not-inherited', reason: "Row selection mode, which exists to feed bulk actions. Actions on this surface are the page's `buttons`, so there is no bulk affordance for a selection to drive." },

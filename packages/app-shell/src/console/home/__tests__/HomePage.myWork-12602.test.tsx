@@ -32,7 +32,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
-import { render, screen, cleanup, within } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const navigateMock = vi.fn();
@@ -48,6 +48,8 @@ const state = vi.hoisted(() => ({
   notificationsReadable: true,
   draftCount: 0 as number | null,
   draftEntries: [] as Array<Record<string, unknown>>,
+  /** The package list's answer; `null` holds it on the wire, so no case settles it unasked. */
+  packages: null as Array<{ id: string; name: string; writable: boolean; namespace: string | null }> | null,
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -133,6 +135,12 @@ vi.mock('../../../preview/usePendingDrafts', () => ({
 vi.mock('../../../preview/usePublishAllDrafts', () => ({
   usePublishAllDrafts: () => ({ publishAll: publishAllMock, publishing: false }),
 }));
+// The package list the row names a shared package from (objectui#13136); that
+// it is read over the wire is `HomePage.pendingDraftsPackageName-13136`'s.
+vi.mock('../../../views/studio-design/packages-io', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../views/studio-design/packages-io')>()),
+  fetchPackages: () => (state.packages ? Promise.resolve(state.packages) : new Promise<never>(() => {})),
+}));
 
 import { HomePage } from '../HomePage';
 
@@ -153,6 +161,7 @@ beforeEach(() => {
   state.notificationsReadable = true;
   state.draftCount = 0;
   state.draftEntries = [];
+  state.packages = null;
   fetchCalls = [];
   vi.stubGlobal(
     'fetch',
@@ -268,13 +277,16 @@ describe('the pending-drafts row (objectui#12602)', () => {
   it('sits under the My-work heading and runs the publish the banner ran', async () => {
     state.draftCount = 4;
     state.draftEntries = DRAFTS;
+    state.packages = [{ id: 'studio_test', name: 'Studio Test', writable: true, namespace: null }];
     render(<HomePage />);
 
     const row = within(screen.getByTestId('home-my-work')).getByTestId('home-pending-drafts');
     expect(row).toHaveTextContent('«home.pendingDrafts.title»[count=4]');
     // The first three names — label first, the name where none was served —
-    // in the package they share.
-    expect(row).toHaveTextContent('[names=Ticket«home.pendingDrafts.nameSeparator»Ticket Desk«home.pendingDrafts.nameSeparator»help_center][package=studio_test]');
+    // in the package they share, named as Studio names it (objectui#13136).
+    await waitFor(() =>
+      expect(row).toHaveTextContent('[names=Ticket«home.pendingDrafts.nameSeparator»Ticket Desk«home.pendingDrafts.nameSeparator»help_center][package=Studio Test]'),
+    );
 
     await userEvent.setup().click(within(row).getByTestId('pending-drafts-publish'));
     expect(publishAllMock).toHaveBeenCalledTimes(1);

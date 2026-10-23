@@ -11,7 +11,9 @@
  * compile — a new element TYPE, which React remounts. So the page's `useState`
  * survives only as long as nothing recompiles it, and that holds only while
  * BOTH links in the chain stay identity-stable: `ReactRunner` memoises on
- * `(code, scope)`, and `ReactKindPage` memoises `scope` on `[schema, adapter]`.
+ * `(code, scope)`, and `ReactKindPage` rebuilds `scope` only when the schema's
+ * CONTENT or the adapter changes (objectui#13268; a new but equal schema object
+ * is pinned in `react-page-content-identity.test.tsx`).
  *
  * Break either link and nothing fails loudly. Types check, every scope-contract
  * test still passes, the page still renders — it just silently drops whatever

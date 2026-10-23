@@ -1,5 +1,803 @@
 # @object-ui/plugin-form
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- 902ebab: The `record:line_items` registration no longer declares `childObject` required,
+  so the page compile accepts a node whose `dataSource` binding names the child
+  object (objectui#11569).
+  
+  `@objectstack/spec`'s `record:line_items` row leaves `childObject` optional,
+  because the node's `dataSource` binding can supply it, and the renderer agrees:
+  `dataSource.object` lands on `childObject` before the panel reads the node. The
+  registration still declared `required: true`, and the page compile reads the
+  registration, so a bound node with no `childObject` of its own was refused with
+  `missing-required-prop` and the save failed.
+  
+  **Clause-②: yes (widening)** — a `record:line_items` node that names its child object
+  through `dataSource.object` and sets no `childObject` now compiles and saves. A
+  node that names its child object in neither place also compiles now: the panel
+  shows its configuration hint naming `childObject` and loads nothing, as it did
+  before when such a node reached it. `relationshipField` and `columns` are still
+  required. The published `childObject` input now carries a description that says
+  the binding can supply it.
+- fd060f0: The `object-form`, `view:form`, `embeddable-form` and
+  `object-master-detail-form` registrations no longer declare `objectName`
+  required, so the page compile accepts a node whose `dataSource` binding names the
+  object, and a form that names its object in neither place shows a hint instead of
+  a form with no fields (objectui#11605).
+  
+  `@objectstack/spec`'s `object-form` and `object-master-detail-form` rows leave
+  `objectName` optional, because the node's `dataSource` binding can supply it;
+  `embeddable-form` has no spec row, and the binding doc says a bound node needs no
+  `objectName` of its own. Each renderer agrees: `dataSource.object` lands on
+  `objectName` before the form reads the node. The registrations still declared
+  `required: true`, and the page compile reads them, so a bound form with no
+  `objectName` of its own was refused with `missing-required-prop` and the save
+  failed.
+  
+  **Clause-②: yes (widening)** — an `object-form`, `view:form`, `embeddable-form`
+  or `object-master-detail-form` node that names its object through
+  `dataSource.object` and sets no `objectName` now compiles and saves. A node that
+  names its object in neither place also compiles now, and shows "No object named:
+  set objectName or dataSource.object." where it used to draw a field-less card, a
+  public form that could not submit, or an empty parent form. An `object-form`
+  or `view:form` whose fields are declared inline shows no hint and renders as
+  before: non-empty `customFields`, or `sections` whose every field is an inline
+  field, the target-less collector the `tabbed`, `wizard`, `split`, `drawer` and
+  `modal` variants render. `formId` on `embeddable-form` and `details` on
+  `object-master-detail-form` are still required. The published `objectName`
+  inputs now carry a description that says the binding can supply them.
+- 9dfaca6: The default (`simple`) `object-form` draws a self-describing inline section entry, as the `tabbed`, `wizard`, `split`, `drawer` and `modal` forms already did (objectui#11615). Before, the default form resolved every section entry against its parent field pool and skipped an inline `{ name, … }` entry whose name the pool did not hold. The same section drew that entry on every other form type and drew nothing for it on `simple`, apart from a console warning when the object declared the name.
+  
+  **Clause-②: yes (widening, with one break for TypeScript readers).** Authored input is only widened: nothing either package accepted before is refused now. Code that READS `ObjectFormSection.fields` can break at compile time, described under "Breaking for TypeScript readers" below.
+  
+  - `@object-ui/types`: `ObjectFormSection.fields` is `(string | SpecFormFieldInput | FormField)[]`. The new arm is the form view's `{ field, … }` entry, and it is `@objectstack/spec`'s `FormFieldInput` by reference, not a copy. The form already drew that entry. Before, a TypeScript author could not annotate it, because `FormField` requires `name` and types `field` as an object. The zod mirror is unchanged: a section's `fields` entry is still `z.any()` there.
+  - `@object-ui/plugin-form`, layout types: the section `fields` of the five layout configs is `NonNullable<ObjectFormSection['fields']>`, by reference. Those configs are `FormSectionConfig` (tabbed), `WizardStepConfig`, `SplitFormSectionConfig`, `DrawerFormSectionConfig` and `ModalFormSectionConfig`, reached through the exported `TabbedFormSchema`, `WizardFormSchema`, `SplitFormSchema`, `DrawerFormSchema` and `ModalFormSchema`. Each of these layouts already drew the `{ field }` entry. Before, their types refused it, and `ObjectForm` passing an authored section to them would no longer compile once the section type named the entry.
+  - `@object-ui/plugin-form`, section drawing: on `simple`, an entry that names itself is drawn as it stands, whatever the field pool holds. Such an entry is an object whose `field` is not a string and whose `name` is a string. This is the existing `isInlineFieldDef` predicate that the submit-target rule already reads. It does not require `type`: the spec's inline arm makes `type` optional, and the other five forms draw a typeless entry as the default input.
+  - `@object-ui/plugin-form`, inline collector: a `simple` form with no data source and no `submitHandler`, whose sections list only inline entries, is now a self-contained collector, as on the other five forms. It opens on `initialValues` / `initialData`, and its `onSuccess` receives the collected values. Before, that form drew no fields and refused the submit. Its submit carve-out now reads the shared `hasInlineFieldSource`.
+  
+  **Breaking for TypeScript readers of `ObjectFormSection.fields`** (still `minor`: objectui's major follows the `@objectstack` family major, so its own breaks ship as `minor` and are stated here). A consumer that narrowed an entry with `typeof entry === 'string' ? entry : entry.name` compiled while every object entry was typed as an inline `FormField`. It no longer compiles: `Property 'name' does not exist on type 'FormFieldInput | FormField'`. The read was already wrong at runtime for a `{ field }` entry, where it gave `undefined`. Remedy: name an entry by its arm. The string is the name itself, the `{ field }` entry names its field by `field`, and the inline entry names it by `name`. `@object-ui/plugin-form` now exports `sectionEntryName(entry)`, which applies exactly that rule and returns `undefined` for an entry that names nothing. It sits beside `resolveSectionGroupReferences`, whose result it reads. The repo's own reader, an app-shell test over that resolver's result, is respelled this way.
+  
+  **What stays refused or warned.**
+  
+  - A field name and a `{ field }` entry still resolve against the pool on `simple`. A name the pool does not hold is still dropped, and still warned about once when the object declares it, because top-level `fields` and `sections` still intersect (objectui#9884).
+  - An inline entry with no `name` is malformed and is still not drawn on `simple`.
+  - A form with no data source and no `submitHandler` still refuses its submit with `DataSource is required for form submission (inline mode not configured)` unless every section entry is inline. One name or `{ field }` entry among inline ones is enough to refuse, on all six forms.
+  
+  **Behaviour change for an existing schema.** On `simple`, an inline entry whose name the object declares but top-level `fields` leaves out used to be dropped with the intersection warning. It is now drawn as its own definition, with no warning, as on the other five forms. With a data source, its value is still written only if the object declares the field. As on every form, a key the object does not declare is stripped from the write.
+- 2312bd9: A page that declares `print` now prints as a document, and a record page bound to such a page offers a Print action (objectui#11958, the objectui half of the print-page ruling on objectstack#8346, M1, zero server).
+  
+  - **The print stylesheet.** `PageRenderer` mounts a stylesheet built from the page's `print` declaration, only for a page that declares it. Every rule sits inside `@media print`, so the page on screen is drawn as before. `paperSize` and `orientation` set `@page { size }` (A4 and portrait when omitted). `margins` set one `@page` margin per declared side, in millimetres. `pageNumbers` prints "page / pages" in the bottom-right margin. `repeatHeader` and `repeatFooter` repeat the page's own `header` and `footer` regions on every sheet. `repeatTableHeaders` (on when omitted) repeats a table's column headings on every sheet it runs onto. `avoidBreakInside` keeps each block of a region whole on one sheet when it fits. Only the print page reaches paper: the console chrome and the record view's own panels around the page are hidden, and the page runs onto as many sheets as it needs.
+  - **The printable blocks print whole.** On a print page, `record:line_items` no longer cuts lines off at its row cap in silence: when the child object has more lines than the cap (500 unless `limit` is set), the panel draws the cap's lines and the shared row-ceiling note under them, naming both numbers when the server reports a total. A collapsible `record:details` section draws open, because a closed section never reaches paper. Off a print page both blocks behave as before.
+  - **The record page's Print action.** When the record page bound to a record declares `print`, the record view shows a Print button that opens the browser's print preview of that page.
+  - **New exports from `@object-ui/react`:** `PrintPageProvider`, `usePrintPage` and `PrintPageContext`. `usePrintPage()` returns the enclosing page's `print` declaration, or `null` outside a print page.
+  - The source comments that described PDF export as declined now say where a printable document lives: a page that declares `print`.
+- c5406c2: Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
+  
+  Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18 (raised to `^18.0.0-next.1` by objectui#12370 before release).
+  
+  **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.1` (objectui#12370), at the same time as it takes this release.
+  
+  **objectui's own surface moves with it:**
+  
+  - `element:record_picker`'s registration stops publishing the `object`, `filter`, `sort` and `limit` inputs, which spec 18 retires; a JSX page that writes one now gets `unknown-prop`.
+  - The `CapabilityMultiSelectField` widget's curated capability set (`@object-ui/fields`) follows spec 18: `manage_mailboxes` in, `manage_org_presentation` out.
+  - `element:number` and `element:repeater` nodes that bind no object are accepted, as spec 18's row and `PageComponentSchema` accept them; the two `ELEMENT_*_OBJECT_REQUIRED` refusals are gone.
+  
+  **Retired with the spec:** `@objectstack/spec` 18 tombstones `object-grid`'s `defaultFilters` and refuses it by name, and `ObjectGrid` and `ObjectView` stop reading it (`table.defaultFilters` on an `object-view` included). A view that still carries it renders unfiltered: rename the key to `filter`, whose value is the same rule array.
+- 923504f: The record form draws a field's `inlineHelpText` under its control, and no longer reads a field's `help` (objectui#12213).
+  
+  `@objectstack/spec`'s `FieldSchema` declares `inlineHelpText` ("Help text displayed below the field in forms"), and Studio's object field inspector writes it. `ObjectForm`'s field builder and `fromObjectSchema` both built a field's help line from `help`, then `description`, and never read `inlineHelpText`, so help text typed in Studio never appeared on the record form. Flow screens already drew it.
+  
+  - FROM `field.help || field.description` → TO `field.inlineHelpText || field.description`
+  
+  The two builders now share one read (`fieldHelpText`, exported by `@object-ui/fields`), so the flat, sectioned and tabbed forms cannot drift apart. The line is the control's accessible description, drawn under it, where flow screens draw it. An empty `inlineHelpText` reads as absent, so the field's description still shows. A `file` or `image` field's size hint follows the help text as before.
+  
+  ## ⚠️ BREAKING, priced as minor under the fixed group's version policy
+  
+  Translated field help on the record form needs an objectstack server on `@objectstack/spec` 17.7.0 or later (objectstack-ai/objectstack `bab76850c`, objectstack-ai/objectstack#21956). `FieldSchema` refuses `help` as an authoring key, and its one producer was a server on spec 17.6.0 or earlier, whose translator put a field's translated description on the served field's `help` key. 17.7.0 serves that text on `description`, which the form reads. Against an older server, a field's help line shows its `description` as the server stores it, untranslated, and a field whose only help is a served `help` key shows no help line. Fix: run the server on spec 17.7.0 or later, within the same major. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+- ff9df88: Depend on `@objectstack/*` `18.0.0-next.1` (objectui#12370).
+  
+  Every `@objectstack/*` range these packages declare moves from `^18.0.0-next.0` to `^18.0.0-next.1`; the console and the runner bundle `18.0.0-next.1`. A consumer moves its own `@objectstack/*` packages to `18.0.0-next.1` with this release.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates page action rows and view data bindings through the spec's own rows, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.1` refuses. Each was accepted on `18.0.0-next.0`:
+  
+  - `onSuccess` on an `action:button` / `action:icon` row, or an `action:group` / `action:menu` member, whose executor is the `url`, `navigation`, `modal`, `flow` or `form` built-in, or that has no executor at all. Write the hop on an `api` or `script` action (or a host handler name), or drop it.
+  - `onSuccess` beside `operation: 'update'`, and an `onSuccess` block carrying a key outside `{ navigate, openIn }`.
+  - `actionType: 'navigation'` on a row (and `type: 'navigation'` on a container member): write `'url'`.
+  - A `url` executor's `target` that is not openable, judged on the executor the runner runs, including a row whose `name` selects it.
+  - A view `data` binding with `provider: 'api'`: bind the object or static rows; an API call is the page element's binding.
+- 7b5e558: **A record dialog with no authored layout opens bounded, and draws two fields per row wherever no `columns` is declared** (objectui#12521). Three defaults of `ModalForm` change. None reaches a setting the author declared.
+  
+  - **Size.** A dialog with no `modalSize` derived its width from its inferred column count, and three or more columns derived `full` (95vw). It now derives `lg` or `xl` from the grid it renders and its field count, and never `full`. `inferModalSize` returns `'lg'` for one column and `'xl'` for two or more. An authored `modalSize`, `'full'` included, is used as written.
+  - **Flat grid.** A dialog whose form declares no `columns` and draws no sections inferred one to four columns from its field count. It now lays out at two columns from the container's `@md` tier up and one below it, so the phone sheet is unchanged. Every field takes one cell, so fields of one kind share one width. A wide kind (textarea, rich text, markdown, html, an inline grid) and a `span: 'full'` field take the whole row. The object's `fieldGroups` fallback lays out the same way.
+  - **Section density.** In a form that declares no `columns`, a section that declares none draws two fields per row from `@md`, whatever the other sections declare. Beside a `columns: 3` section it draws two per row on the 12-track grid of objectui#12548, where before it filled three; with no section declaring any, the grid is two wide. A declared count, `1` included, is drawn as written, and a form-level `columns` still sets an undeclared section's count. Until `@objectstack/spec` drops `FormSectionSchema.columns`' `default(1)` (objectstack-ai/objectstack#23740), the spec's parse writes `columns: 1` into every section that omits it, so a section from an authored stack arrives declared and draws one column, as before.
+  - **What does not move.** A declared form `columns`, a declared section `columns` and a field's `colSpan` / `span` render the same grid classes as before. `inferColumns`, and the page form, drawer and detail view that read it, are unchanged. A host that passes a `modalSize` of its own keeps it.
+- 611566b: A form view field's `visibleOn` is no longer read when sections are normalized (`normalizeSectionField`, used by `ObjectForm`, `ModalForm` and the record form page) (objectui#12654). `@objectstack/spec` 18 retires the form view field's `visibleOn` as a `retiredKey` tombstone naming `visibleWhen` (objectstack#23543 F4), so the field's `visibleWhen` is the one view-level predicate carried onto the runtime field.
+  
+  What a raw schema loses: a form view section entry `{ field: 'x', visibleOn: 'PREDICATE' }` that did not pass through the spec's parse no longer hides the field; write `visibleWhen`. A runtime `FormField` (an inline field object with its own `name`) keeps its `visibleOn` slot: that is the runtime field's view-level gate, a different key, and it is unchanged.
+  
+  What is unaffected: form views served by an ObjectStack runtime. They already arrive with `visibleWhen`: the spec's parse folds the old key through the 18 pre-releases, and spec 18's stored-row rehydration rewrites a row stored with it.
+- 684f22e: A section entry written as a bare field name no longer reads the object field's `visibleOn` when sections are normalized (`normalizeSectionField`, used by `ObjectForm`, `ModalForm` and the record form page) (objectui#12719). The spec's object `FieldSchema` declares no `visibleOn`: an object field's visibility predicate is `visibleWhen`, which the shorthand already carries onto the runtime field as its field-level rule.
+  
+  Clause-②: no (narrowing). The shorthand stops honouring an object field's `visibleOn` (it was copied into the runtime field's view-level `visibleOn` slot), and starts reading nothing new.
+  
+  What a raw schema loses: an object schema handed straight to the form, whose field carries `visibleOn: 'PREDICATE'`, no longer hides that field where a section lists it by name; write `visibleWhen` on the object field. What is unaffected: object schemas served by an ObjectStack runtime, which the spec's strict `FieldSchema` parse never lets carry `visibleOn`; a form view field's `visibleWhen`; and a runtime `FormField`'s own `visibleOn` slot.
+- 32b492b: Line-item grids read a boolean column's options and a file cell's text in the session language (objectui#12924). Under a zh-CN session, a master-detail or `record:line_items` grid showed English in two places: the two options of a column derived from a `boolean` or `toggle` child field (`Yes` / `No`, in the editable picker and in the per-row form's list), and a file cell's text (`N files` for a cell holding several files, `File` for a file with no name). Both now come from the language packs, and English reads as before.
+  
+  - **Boolean options.** The labels are the session's word for each value, from `useBooleanValueLabel` (`@object-ui/fields`), which reads `common.yes` / `common.no`, the keys read-only booleans already use. The stored values are unchanged: `'true'` and `'false'`. `MasterDetailForm` and `LineItemsPanel` call the hook and pass it to the derive functions. Both re-label the options when the session's words change, so a catalogue that lands after the child schema, or a language switch, reaches them without re-reading the lines.
+  - **File text.** `GridField` reads the count from `detail.fileCount`, the plural family the file cell renderer already uses, so each language gets its own plural forms (Russian `few` / `many`, for example). The name of a nameless file comes from `fields.file.fileFallback`. The per-row form's list cell and the read-only table both show these words.
+  
+  No language-pack key is added.
+  
+  BREAKING (`@object-ui/plugin-form`), for a caller of the exported `deriveDetail` or `deriveColumns`: both now require `booleanLabel`, a function that names a boolean value in the session language. Pass `useBooleanValueLabel()` from `@object-ui/fields`: `deriveDetail(childObject, childSchema, parentObjectName, { booleanLabel })`, and `deriveColumns(childSchema, { booleanLabel })`. There is no default, because an English default would label the options in English for a session in any other language. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  Clause-②: no (narrowing)
+- b9e1887: Publish `optionListDefault` (and its parameter type `OptionListFieldLike`) from the package entry: the reading of an option list's `default: true` that create forms seed from (objectui#11914). The console's public form page (`/f/:slug`) now seeds a field's option-list default through it, so a required select whose options mark a default opens on that option and submits it, instead of refusing the submit on the client (objectui#13049).
+  
+  Console: on a public form, a select whose options mark `default: true` (and that declares no `defaultValue`) now opens with that option selected, so an untouched submit sends it instead of failing with "Required: FIELD".
+
+### Patch Changes
+
+- 15f6702: `deriveColumns`, the default columns of a master-detail inline grid whose author listed none, now takes which columns it draws, their order and which of them are `defaultHidden` from `@objectstack/spec`'s `deriveInlineGridColumns`, and its visible budget from the spec's `DEFAULT_MAX_INLINE_GRID_COLUMNS` (objectui#11345). The rule is the spec's now, so objectstack's `field-no-consumers` lint credits exactly the columns this grid draws.
+  
+  The output does not change. The signature is the same, and each column's label, cell type, options, lookup target, conditional rules and computed expression are still built from the child field here, including a plain text column for a field whose definition is falsy. The module-level `DEFAULT_MAX_INLINE_COLUMNS` constant, which the package entry never exported, is removed.
+  
+  `@object-ui/plugin-form` raises its `@objectstack/spec` floor from `^17.0.0` to `^17.6.0`, because its published entry now imports `deriveInlineGridColumns` and `DEFAULT_MAX_INLINE_GRID_COLUMNS`, which the spec first exports in 17.6.0.
+- 3f0b0cd: The per-row expand form of an inline master-detail collection now takes both of its rules from `@objectstack/spec` (objectui#11428), as the collection's grid columns already do. `deriveFormFields`, the form's fields when its author listed none, returns the spec's `deriveInlineRowFormFields` answer, and `MasterDetailForm` offers a row the form when the spec's `isInlineRowFormOffered` says so. The rules are the spec's now, so objectstack's `field-no-consumers` lint credits exactly the fields this form draws.
+  
+  The output does not change. `deriveFormFields` keeps its signature and returns the same names in the same order, and a row is offered the form exactly when it was before: always in `form` mode, and in `grid` mode only when the form has more fields than the grid has columns. How each named field renders is still decided here.
+  
+  `@object-ui/plugin-form` raises its `@objectstack/spec` floor from `^17.6.0` to `^17.7.0`, because its published entry now imports `deriveInlineRowFormFields` and `isInlineRowFormOffered`, which the spec first exports in 17.7.0.
+- c0862c1: `@objectstack/spec` 17.7.0 retires `sortField` on an `object-master-detail-form` `details` entry (objectstack-ai/objectstack#21589), so `objectui validate` now refuses an entry that writes it, at that member, with the spec's retired-key message (objectui#11717). The form never read it: the line-position field is derived from the child object (objectui#11070). The `details` registration description and the `MasterDetailDetailConfig` docblock now say so. The type is unchanged: it already left the key off.
+- e06365c: fix(components): fields that belong to no field group no longer render under the last group's heading (objectui#11777)
+  
+  On an object where some fields join a declared `fieldGroups` entry and the rest join none, the create and edit forms drew the ungrouped fields straight on under the last group's heading, in the same grid and even in the same row as that group's last field, so they read as its members. The Studio form designer shows those fields apart, in their own trailing area.
+  
+  The form renderer now ends a section's field grid where the section's heading stops claiming fields. The fields after it start a block of their own below a rule, with no heading and no placeholder title. Ungrouped fields keep their place after the groups, and a section without a heading that follows a titled one is set apart the same way. Every stacked form layout gets this: the default form, `formType: 'modal'` and `formType: 'drawer'`, with sections derived from `fieldGroups` or listed explicitly. A form with no groups, a form whose every field is in a group, collapse and a group's `visibleWhen` render as before.
+- ccddd11: A create form preselects the option a field's option list marks `default: true` (objectui#11914).
+  
+  A `select` field that declares no `defaultValue` but marks one option `default: true` opened on the "Select an option" placeholder in every object-form container, the console's create dialog included. The server stores the marked option when a create omits the field, so the objectstack tutorial's Create Ticket form showed Priority and Status empty and could not be submitted until the user picked the values the metadata had already chosen.
+  
+  The create form now reads the option list the way the server's insert path does:
+  
+  - only when the field declares no `defaultValue`. A field-level default, static or runtime, always wins, and the option flag is then not seeded;
+  - a single-valued field takes the first marked option;
+  - a multi-valued field (`multiselect`, or `select` with `multiple: true`) takes every marked option, as an array.
+  
+  A value the caller seeds or the user picks still wins. Edit forms are unchanged: they show the stored record.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- 023f00d: A create form asks its fields the create question, so a role that may create
+  records but not edit them can fill and submit the form (objectui#12082). Every
+  console affordance that offers a write now reads the grant it exercises from
+  one map.
+  
+  **The defect.** A create form gated each field on `checkField(object, field,
+  'write')`, whose fallback for a field the permission set does not mention is
+  the object's `allowEdit`. Under a grant of `allowCreate: true, allowEdit: false`
+  every field of the create form rendered disabled, the outbound filter stripped
+  every field from the body, and the save posted an empty record that the server
+  refused for its required fields — while the server accepts the same create.
+  
+  **The server's insert rule, which the create question follows.** The server's
+  field-level write step refuses a write that names a field whose explicit
+  field-level entry has `editable: false`; a field with no entry passes it, and
+  object admission decides the operation (`allowCreate` for an insert,
+  `allowEdit` for an update). So a create-form field now reads its explicit entry
+  when there is one and the object's create grant when there is none. A field the
+  permission set marks `editable: false` stays disabled and out of the body.
+  
+  **Clause-②: yes (widening)**
+  
+  - `@object-ui/core` exports the affordance-to-grant map: `AFFORDANCE_GRANTS`
+    (one row per affordance: the CRUD-affordance bit it needs, the object grant it
+    exercises and, for an affordance that offers fields, the field question it
+    asks), `resolveAffordance` (managed-object policy ∧ the server's effective API
+    operation set ∧ the caller's grant, with the row's `userActions` predicates
+    surfaced only when all three allow it), `resolveFieldAffordance`,
+    `formFieldsAffordance`, and their types (`ConsoleAffordance`,
+    `FieldAffordance`, `AffordanceGrant`, `FieldAffordanceGrant`,
+    `AffordanceGrantRow`, `AffordanceGrantPrincipal`, `FieldAffordancePrincipal`,
+    `AffordanceSource`, `AffordanceVerdict`).
+  - `@object-ui/permissions`: `checkField`'s action accepts `'create'` beside
+    `'read'` and `'write'`. `MePermissionsProvider` answers it from the explicit
+    field entry when there is one and from `allowCreate` otherwise; the
+    role-based `PermissionProvider` answers it as it answers `'write'`.
+  
+  **Behaviour, by package.** With no permission provider mounted every grant
+  still reads open, as before.
+  
+  - `@object-ui/plugin-form`: every `ObjectForm` layout's fields and outbound
+    filter ask the question of the form's mode (create or edit). The form-wide
+    lock, with its "You don't have permission to …" notice, also engages when the
+    caller's object grant for the form's mode is denied, not only when the
+    managed-object policy or the effective API operation set closes it. A
+    create-mode `MasterDetailForm`'s line cells ask the create question of the
+    child object, since every line there is a new record.
+  - `@object-ui/app-shell`: the record page's Edit and Delete (and the record
+    body's in-place editing) read the caller's update / delete grant; they read
+    none before. The import wizard's write targets ask the create question, so a
+    caller offered Import keeps every field the insert accepts. List New / Import,
+    the related lists and the Attachments panel read the map with the verdicts
+    they had.
+  - `@object-ui/fields`: a lookup's "Create new" reads the create grant (and the
+    managed-object policy and operation set) of the object the field references;
+    it read no grant before.
+  - `@object-ui/plugin-grid`: row Edit / Delete, in-place editing, the template
+    download and the add-record row read the map; the add-record row now also
+    honours the object's managed-object policy and effective `create` operation.
+  - `@object-ui/plugin-detail`: `record:details` in-place editing reads the
+    caller's update grant; the detail header's object gate adds the effective
+    operation set.
+  - `@object-ui/plugin-list` and `@object-ui/console`: bulk Delete, the
+    inline-edit toggle and the profile page's language field read the map with
+    the verdicts they had.
+- 7525045: More write affordances read the affordance-to-grant map, so a caller without the
+  grant is no longer offered a write the server then refuses (objectui#12082, leg A
+  of the write-census backlog). No row is added: each reuses the row of the same
+  verb on the same object.
+  
+  - **The record overlay's inline edit** — the overlay the calendar, the kanban and
+    the gantt open on a record (`RecordDetailPanel`) — reads the `recordEdit` row,
+    the row the record page reads for the same in-place edit: the object's policy,
+    the effective API operation set and the caller's update grant. A closed row
+    opens no inline-edit session, as an absent `onFieldSave` already did. Each
+    field still asks its own field question, as since objectui#12103.
+  - **The gantt's in-chart writes** read `rowEdit` (a bar's drag, resize and
+    progress, its title edited in place, and its dependency links) and `rowDelete`
+    (a row's Delete). A closed row withholds the handler the chart draws the
+    affordance from, the way `readOnly` and `lockField` already do.
+  - **A grid's bulk field update** (a `bulkActionDefs` entry with `operation:
+    'update'`) reads `rowEdit`, as its bulk delete reads `rowDelete`: a closed row
+    removes the button from the selection bar, and with it the dialog, its undo
+    and its retry. `custom` operations are unchanged.
+  - **A master-detail form's line grids** read `relatedNew` (Add, the entry row
+    and Duplicate) and `relatedRowDelete` (Remove) on the CHILD object, as a
+    line-items panel does. Remove asks the delete grant on an edit form only: a
+    create form's lines are drafts, and a removed one is never a server delete.
+  - **A line-items panel** now hands its child object's schema to those two rows,
+    so the child's own policy (`managedBy`, `userActions`) is read too.
+  - **The AI build panel's spreadsheet import** (`ExcelImportBar`) reads the
+    `listImport` row of the object it imports into, as the list page's Import
+    does: without it, Import is disabled for that object.
+  
+  With no permission provider mounted every one of these reads open, as before.
+- 5af42db: Five write affordances that read no grant at all now read the affordance-to-grant
+  map, so a caller without the grant is no longer offered a write the server then
+  refuses (objectui#12082, the card's remainder).
+  
+  - **`object-view`'s New** (the toolbar button of the SDUI `object-view` node)
+    reads the `listNew` row, as the console's list pages already did: the
+    object's policy, the effective API operation set and the caller's create
+    grant, on top of the node's `showCreate` / `operations.create` toggles.
+  - **The calendar's quick-create** (an empty-day click, or a time-range drag in
+    the week / day grid) reads the new `calendarQuickCreate` row, and
+    **drag-to-reschedule** reads the new `calendarReschedule` row. A closed row
+    withholds the handler the calendar grid draws the affordance from: no dialog
+    on a day click, no range drag, no draggable event. A host-supplied
+    `onDateClick` / `onEventDrop` is handed through unchanged.
+  - **The kanban card move** reads the new `kanbanCardMove` row. A closed row
+    draws the cards as not movable and hands the board no mover, so no drop
+    reaches the write.
+  - **A line-items panel's add and remove** (`record:line_items`) read the
+    `relatedNew` and `relatedRowDelete` rows on the CHILD object, the same rows a
+    related list reads for the same two writes. Add covers the Add button, the
+    entry row and Duplicate; remove covers the per-row Remove.
+  
+  With no permission provider mounted every one of them reads open, as before.
+  
+  **Clause-②: yes (widening).** `AFFORDANCE_GRANTS`, exported from
+  `@object-ui/core`, gains three rows: `calendarQuickCreate` (create),
+  `calendarReschedule` (update) and `kanbanCardMove` (update), and with them the
+  `ConsoleAffordance` union that `resolveAffordance` accepts. Nothing is removed or
+  renamed. The other four packages change behaviour only.
+- 5330038: Console rendering fixes from the HotCRM browser pass (objectui#12110):
+  
+  - **Grid:** a view column's authored `label` is the header. It used to lose to the field's translated label whenever the app bundle translated the field.
+  - **Form:** a field `widget` that names no registered component falls back to the field type's renderer, as the spec's `widget` description says. A `rating` field declaring `widget: 'star_rating'` now draws the star widget instead of a text box. A built-in control name (`input`, `textarea`, …) and the native password and email inputs still render as before.
+  - **Cells:** a `rating` value draws stars out of the field's `max` (5 by default) in list, detail and related-list cells, instead of a bare number.
+  - **Reference rail:** a related row is named by its object's declared `nameField`, and the rail refetches in place when the record, a related object or everything is invalidated. A record action with `refreshAfter: true` therefore refreshes the rail too.
+  - **Gantt:** the task list, the tooltip and the drag previews show a date's year when it is not the current year.
+  - **Approvals drawer:** a `position:` approver shows the position's label, from the console's position registry, instead of a truncated id. The headline figure prefers the object's declared `currency` field and never shows a zero from a field matched only by its name.
+  - **Public form:** a form with no title of its own is headed by its object's label, not the object's API name.
+- d2500d8: A form field declares `step` and `className` on both faces, so the strict authoring face stops telling authors to remove two keys that work. A built-in form branch now joins an entry's `className` with its own classes, and the form renderer's own number input derives its step, so `ObjectForm` no longer writes `step: 'any'` (objectui#12130).
+  
+  These were the last two keys the form-field channel census (`form-field-channel-census-12130.test.tsx` in `examples/schema-catalog/test/`) listed as read and undeclared with the question open. Each is measured through the real `SchemaRenderer`, with and without the key, in `form-field-channel-effects-12130.test.tsx` beside it.
+  
+  - **`step`, declared by reference to `@objectstack/spec`'s `FieldSchema.step`:** a number. The `number` widget and the form renderer's own number input put it on the `<input>`; the `slider` widget steps by it.
+  - **The form renderer's own number input (`@object-ui/components`).** The built-in `input` branch, and the default branch for an unregistered widget, draw a native number input under `inputType: 'number'`. Its step now follows the `number` widget's rule, read off the field's metadata: an explicit `step` wins, else `10^-scale`, else `any`. Before, it took only a `step` written on the entry, and with none the input kept HTML's step of 1, which refuses decimals. An entry with `inputType: 'number'` and neither `step` nor `scale` now accepts decimals. On an `ObjectForm` field drawn by that input (`widget: 'input'`), a `step` the object field declares now wins over `scale`, as it always did in the `number` widget.
+  - **`ObjectForm` (`@object-ui/plugin-form`) no longer writes `step`** onto the number, currency and percent fields it builds. It wrote `10^-scale`, or `'any'` with no `scale`, and the spec's numeric `step` refuses `'any'`. Both routes `objectFormNumericStep-9574.test.tsx` measures render the same steps as before, and that pin passes unchanged.
+  - **`className`, declared as a string:** the classes of the element the field's type renders. That is the control on a built-in branch, the element a registered field widget renders, or a `section-divider` row's divider. It is never the field row; a field's width is `colSpan` / `span`. Some widgets draw no class from it, and most read-only displays draw none.
+  - **Built-in branches merge it (`@object-ui/components`).** The `input`, `textarea`, `checkbox` and `switch` branches and the unregistered-widget default used to let an entry's `className` replace their own classes, which dropped the touch-target height and the read-only tint. They now join the two with `cn`, as the built-in `select` already did, so a conflicting utility in `className` still wins.
+  - **TypeScript.** `FormField` gains both members. `step` is `number`, so assigning `'any'` is now a compile error.
+  - **zod (`@object-ui/types/zod`).** WIDENS on the strict authoring face (`StrictAnyComponentSchema`): both keys used to be refused with `unrecognized_keys`, and now parse, `step` as a number. NARROWS on the tolerant face (`safeValidateSchema`), where both keys used to be stripped unjudged. `step: 'any'` was accepted and dropped there, and is now refused at `fields[].step`. A non-string `className` is now refused too. The face is flat: both keys are accepted on every field type.
+  
+  BREAKING (`@object-ui/types`), for a document whose form field carries `step: 'any'` or a non-number `step`, or a non-string `className`: it no longer validates on the tolerant face. Delete `step: 'any'` (a number input with no `step` and no `scale` already steps by `any`), or write a number. (The bumps are `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  **Clause-②: yes (narrowing)**: the two declared keys widen the strict face's accept set. Typing `step` as the spec's number narrows the tolerant face, from accepting `step: 'any'` (stripped) to refusing it at `fields[].step`.
+- b231607: The flat `ObjectForm`'s file-size hint now reads the spec's `maxSize`, and it is shown in the session language (objectui#12156).
+  
+  A `file` or `image` field that declares a size limit gets a size-limit hint appended to its description. The form read the limit as `max_size`, a spelling the spec's `FieldSchema` refuses by name, so metadata the server serves never carried it and the hint never appeared. It now reads `maxSize`, the spelling the file and image widgets already enforce, and no longer reads `max_size`.
+  
+  The hint's words were an English literal ("Max size: …"). Once the hint started to appear, a session in any other language would have shown that English beside a translated form. The words now come from the `form.maxFileSize` pack key in the session language. The number and unit are still formatted the same way ("10.0 MB"). A host with no i18n provider still sees the English sentence.
+- 6c437b0: A record's Edit form saves the owner the user changes or clears (objectui#12205). The form dropped `owner_id` from every save, so a reassignment or a clear made in the Edit dialog never reached the server: Save answered as if it had saved, the dialog closed, and the record kept its old owner. When the owner was the only change, the update carried every other field unchanged and no owner.
+  
+  An edit now sends `owner_id` when, and only when, its value differs from the record the form loaded: a new owner is sent as its id, and a cleared owner as `null`. This applies to the modal, drawer and page Edit forms, and to the tabbed, split and wizard layouts. The server stays the authority: a role without the transfer grant is refused, and the form shows that refusal as its error and stays open.
+  
+  Unchanged:
+  
+  - An owner the user did not touch is still never sent, so a save from a role without the transfer grant is not refused for echoing it back (objectui#10108). This holds for a save with nothing changed, and for any save where the form has no loaded record to compare against.
+  - A create never sends the owner.
+  - The caller's field-level security, and an object that declares its owner read-only, still keep the owner off the wire.
+  - The business-unit and tenant columns (`owning_business_unit_id`, `organization_id`, `tenant_id`) and the audit columns are still never sent, even when they differ.
+  - A form laid out automatically still renders no owner input.
+  - The master-detail form's batch still sends no owner, for the header record as well as its lines. An owner changed in a master-detail header is therefore still not saved.
+  
+  Nothing is added to the package entry: no export, prop or type changes.
+  
+  Clause-②: no
+- 10aba37: The record form stops reading a field's snake_case `visible_on`. A field's visibility is `visibleWhen`, the key `@objectstack/spec`'s `FieldSchema` declares (objectui#12242).
+  
+  `ObjectForm`'s object-field builder and the sectioned forms' name-string entries read `visible_on` beside `visibleWhen` and carried it onto the runtime field as a view-level gate. The spec refuses `visible_on` by name and suggests `visibleWhen`, and `BaseFieldMetadata` now refuses it, so the read retires with no alias.
+  
+  - FROM `visibleWhen` plus the `visible_on` gate → TO `visibleWhen` alone, carried as before.
+  
+  A predicate written under `visible_on` now gates nothing and is not reported. Write it as `visibleWhen`; a CEL predicate keeps the same text.
+- f0532d8: Saving a master-detail edit form no longer rewrites the position of lines the
+  user did not touch (objectui#12286).
+  
+  The edit form read each collection's lines with no sort, so its line grid drew
+  them in whatever order the server returned, and the grid stamped every line's
+  index into the child's sort field (`position`, `sort_order`, …) on any change.
+  Editing one cell of one line therefore saved a new position onto its untouched
+  siblings, swapping their stored order and bumping their `updated_at`.
+  
+  - `MasterDetailForm` now reads the lines ascending by the child's derived sort
+    field, the record id breaking ties, so the grid opens in stored order.
+  - The line grid (`field:grid` with a `sortField`) renumbers only when a row is
+    added, removed, duplicated or moved. A cell edit leaves every row's position
+    as it was, so lines whose stored positions are tied, empty or gapped are not
+    renumbered by an edit either.
+  
+  Editing one line's field now sends exactly one update, and moving a line sends
+  only the lines whose position changed. The `GridFieldMetadata.sortField`
+  description says when the grid stamps the field.
+- fc211e8: A New form now saves the owner the user picks (objectui#12359). When the form's layout shows Owner, the user could pick a user and see that user's chip. The create request still carried no `owner_id`, so the server saved the record under the creator, answered 201 and showed no error.
+  
+  Every create writer in the package now sends `owner_id` when the user picked an owner that differs from the value the form opened with. The six writers are `ModalForm`, `DrawerForm`, and the simple, tabbed, split and wizard layouts of `ObjectForm`. They read the same admission objectui#12205 gave the Edit form. An owner the form was seeded with and the user left alone is still not sent. That covers the acting user from a `current_user` default and an owner in the caller's initial values. The caller's field-level security and an owner the object declares `readonly` still refuse it. The client does not decide whether the caller may assign another owner. The server judges the pick: an insert that names another user is refused without the transfer grant (`allowTransfer` or `modifyAllRecords`), and the form shows that refusal as its error.
+  
+  Not published: nothing changes on the package entry. No export, prop or type member is added or removed.
+- 5f8ecf6: A sectioned create or edit form draws every section at its own `columns` count per row, whatever the other sections declare (objectui#12548).
+  
+  `@objectstack/spec` `FormSectionSchema.columns` is a per-section count, but all of a form's sections share one field grid, sized by the widest section, and each field spanned `Math.round(grid / sectionColumns)` cells of it. A section whose count did not fit that grid drew the wrong number per row. A `columns: 2` section beside a `columns: 3` one spanned 2 of 3 cells, so it drew one field per row and left the right third empty. A `columns: 3` section beside a `columns: 4` one spanned 1 of 4 cells, so it drew four per row.
+  
+  `ModalForm`, `ObjectForm`, `SplitForm`, `TabbedForm` and `WizardForm` now share one rule:
+  
+  - When every section's count is 1 or the grid's own width, the form keeps the grid and spans it always had, class for class.
+  - Otherwise the field grid is 12 tracks wide from `@md` (`grid-cols-1 @md:grid-cols-12`). Each field spans 12 / 6 / 4 / 3 twelfths of the row for a 1 / 2 / 3 / 4-column section. `span: 'full'` and wide widgets take the row, and an authored `colSpan` counts its section's columns.
+  
+  The form renderer draws a twelfths `colSpan` with the step ladder each count has on its own grid: at most two per row at `@md`, three at `@2xl` and four at `@4xl`. Below `@md` the form stays one column.
+  
+  No type, prop or export changes. A form with no section `columns` is unchanged.
+- 0081cdc: Opening a collapsed section in a record dialog no longer takes the whole console off screen (objectui#12559).
+  
+  The field widgets `@object-ui/fields` registers load on demand: a type's code is fetched the first time a form draws it. Nothing inside the modal form caught that wait, so it landed on the host's nearest loading boundary. In the console's record create and edit dialog that is the boundary around the whole console, because the dialog mounts beside the pages rather than inside one. Opening a collapsed section whose fields used a type not loaded yet, for example a currency or address field, swapped the whole console, dialog included, for the loading screen until the code arrived. The full-page form hid only its page.
+  
+  The modal form now owns that wait: the dialog keeps its header and footer, its body shows a placeholder until the widget's code arrives, and the form underneath keeps its state, so the section the user opened is open and everything typed elsewhere is kept. Nothing is added to the package entry: no export, prop or type member.
+- 96fa4b9: A form section that declares no `columns` now draws two fields per row from the container's `@md` width (one below it) on every page form host — `ObjectForm`, `SplitForm`, `TabbedForm` and `WizardForm` — as the record dialog already did (objectui#12592). Before this, `ObjectForm` sized it by field count and the other three drew it one per row, or at the widest declared count. `@objectstack/spec` no longer defaults a section's `columns` to `1`, so this reaches every section an author left undeclared, a field-group section included. The rule lives once, in the shared sectioned-form layout, and a declared `columns` (`1` included) is drawn as written.
+  
+  Clause-② reading: no. Only how many columns an undeclared section draws changes; no published type, prop, export, schema read or pack key changes, and the ruling on objectui#12521 makes an undeclared density the renderer's choice by available width.
+- 85e8961: An `lg` or `xl` `ModalForm` dialog keeps a 1rem gutter on each side of the window from `sm` (640px) up (objectui#12593).
+  
+  The two sizes are bounded at 672px (`lg`) and 1024px (`xl`), but the dialog took the full width of any window narrower than that, at x = 0, with no margin. Since every field-heavy create or edit in the console opens `lg` or `xl`, a laptop or tablet window between 640px and 1056px drew those dialogs edge to edge. Both sizes now read one shared width, the window less 2rem, under their own max width, so the dialog is centred with an equal gutter. On a window wider than the max width plus 2rem each size is exactly as wide as before.
+  
+  Unchanged: the `sm`, `default` and `full` sizes, the full-screen sheet below `sm`, and the dialog's height rules. Nothing is added to the package entry: no export, prop, type member or `modalSize` value.
+- 726d8c9: Every wide centred dialog keeps a 1rem gutter on each side of the window from `sm` (640px) up, by one shared class (objectui#12603).
+  
+  `@object-ui/components` adds one export, `DIALOG_VIEWPORT_GUTTER` (`sm:w-[calc(100%-2rem)]`): the gutter `ModalForm` introduced for its `lg` and `xl` sizes (objectui#12593), promoted so every wide dialog reads the same value. A dialog that raises its cap with `sm:max-w-2xl` or wider writes this constant beside the cap.
+  
+  Dialogs that ran edge to edge between `sm` and their max width and now keep the gutter:
+  
+  - the action modal's `lg` and `xl` sizes (`xl` is what a `type: 'modal'` action with a page target and no size opens at);
+  - the action parameter dialog with a long parameter list, the flow runner's object-form or long screen step, and the CEL test-run dialog;
+  - the full-screen text editor dialog, the image lightbox and the import wizard.
+  
+  The record picker reads the same class under every width rung; it kept a `95vw` margin of its own before, so between `sm` and its cap it is now the window less 2rem instead. `ModalForm` reads the shared export instead of its private copy, with no change in output.
+  
+  Unchanged: sheets, the phone sheet below `sm`, the `full` size (`95vw`), and every dialog's width on a window wider than its max width plus 2rem.
+- 54e79f9: `record:line_items` fills an untyped column from the child object's field (objectui#12854, the objectui half of objectstack-ai/objectstack#24140).
+  
+  A column listed only by `name` was headed by the bare field name and edited as plain text, on screen and on a print page. The panel now passes its columns through `hydrateColumns`, the function the master-detail form already uses: a column without a `type` takes its `label`, `type` and `options` (and the field's `required`, lookup reference and formula) from the child object's field. The child schema is the one the panel already loads, which the object-metadata endpoint serves in the session locale, so a heading translates the same way a master-detail grid's does.
+  
+  An authored `label` or `type` still wins, and a column whose field the child object does not declare renders as before. Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 1e6d83b: Data-bound blocks title their "data source could not be resolved" panel in the page's language (objectui#12920, the family of objectui#12910). The panel shows when a block's `dataSource.view` names a view its object does not have. Each block's title now reads `@object-ui/i18n` through `useObjectTranslation`, with the `en` pack's value as the inline default, so a page with no `I18nProvider` draws the same English it drew before.
+  
+  - **Plugin blocks.** `object-calendar`, `object-chart`, `object-metric`, `object-pivot`, `detail-view`, `record:related_list`, `object-form`, `embeddable-form`, `object-master-detail-form`, `record:line_items`, `object-gantt`, `object-grid`, `object-kanban`, `list-view`, `object-map` and `object-timeline` read one `element.KIND.sourceUnresolved` key per block kind. `object-metric` reads `element.number.sourceUnresolved`, the key `element:number` already reads for the same sentence. The three forms share `element.form.sourceUnresolved`. `record:related_list`'s panel for a failed `parentDataSource` read reads `element.relatedList.parentUnreadable` ("This related list’s parent record could not be read").
+  - **`@object-ui/react` panel defaults.** `ElementDataSourceErrorPanel` with no `title` reads `element.component.sourceUnresolved`, and `NoDataSourcePanel` with no `title` reads `element.component.noDataSource`. A passed `title` still wins, an empty string included. Props and markup do not change.
+  
+  Clause-②: yes
+  
+  The new keys in `@object-ui/i18n` widen its exported `TranslationKeys`. No prop, input or export of these packages changes.
+- fb85637: A field group whose `visibleWhen` cannot be evaluated is now hidden, header and members, on the form and on the record detail page (objectui#13055).
+  
+  `@objectstack/spec` declares `ObjectFieldGroupSchema.visibleWhen` fail-closed: "the whole group (header included) is shown only when TRUE, else hidden (fail-closed)". Until now both surfaces failed open. A group whose predicate had a parse error, named an unknown field or root, or failed to evaluate was drawn in full, with only a console warning.
+  
+  - **Form.** Every layout now hides the group: simple, tabbed, split, drawer, modal, and the console's form page. This holds whether the group comes from the object's `fieldGroups` fallback or from a `{ group }` section reference. Members of a group hidden this way behave as they do under a FALSE predicate: their values still submit and their client-side validation is skipped.
+  - **Record detail page.** `record:details` hides the group's section.
+  - **Diagnostic.** The one-time warning still fires, and now names the default taken: `safe default (false)` and "the group is hidden".
+  - **What stays fail-open.** An authored form-view section's own `visibleWhen` still faults open, as `FormSectionSchema.visibleWhen` declares. So do a field's own `visibleWhen`, `readonlyWhen` and `requiredWhen` (ADR-0137 D3), and every other predicate slot. A well-formed predicate gates exactly as before.
+  
+  How the direction reaches the renderer: a form-view section's predicate and a field group's predicate arrive at the form renderer in the same slot, a `section-divider` row's (or a tab's) `visibleWhen`. So the direction travels with the predicate. `@object-ui/types` declares one runtime hand-off key, `visibleWhenFault?: 'hidden' | 'shown'`, on `ObjectFormSection`, `FormField` (`section-divider` rows only) and `FormFieldTab`, and mirrors it on the zod faces. `deriveFieldGroupSections` stamps `'hidden'` beside a group's predicate. Every layout carries it next to `visibleWhen`, and the form renderer reads it as the fault fallback. Absent means today's fail-open. It is not an authoring key: the spec's strict `FormSectionSchema` refuses it in authored metadata.
+- bc98626: A master-detail edit form now applies its line rules to the header record however late that record loads (objectui#13062).
+  
+  A line column's `readonlyWhen` / `requiredWhen` rule that reads `parent.*` was evaluated against a copy of the header form read from the page at mount and 120, 360 and 800 ms after it. When the header record loaded later than that, `parent` stayed empty. A stored paid invoice then opened with its `readonlyWhen: parent.status == 'paid'` line cells editable until the user changed a header field.
+  
+  The line grids now take the header's own record when the header's read returns, and the user's header edits apply over it as they are made. A status change still locks or unlocks the cells at once. The timers are gone. A create form starts from its prefilled values (`initialValues` / `initialData`).
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- 9eb1479: Keyboard access to the console: a "Skip to content" link, and record dialogs that open on their first field (objectui#13130).
+  
+  - **Skip to content.** The console shell's first Tab stop is now a "Skip to content" link. It stays out of sight until it is focused. Activating it moves focus to the element that holds the page, so the next Tab reaches the page's first control without walking the app bar and every sidebar entry. It moves focus without writing a hash into the URL. Its text is the new `console.skipToContent` key in all ten language packs.
+  - **Create/Edit dialogs open on their first editable field.** `ModalForm`'s dialog opened with focus on its Close button (the master-detail dialog on one of its buttons), never on a field. Its body (the object schema, the record on edit, and the field widgets) loads after the dialog opens, so when the dialog took focus no field was there yet. While the body loads, the dialog now keeps focus on itself. When the fields arrive, focus moves to the first field that can be edited, skipping disabled and read-only ones. If the user has already moved focus to another control, focus stays there. This covers both of `ModalForm`'s dialogs: the flat form and the master-detail form.
+  
+  No export, prop or schema key is added.
+- ab4e4d7: Record drawers open on their first field (objectui#13219), as record dialogs do since objectui#13130.
+  
+  `DrawerForm`'s panel opened with focus on its Close button (the master-detail drawer on its Cancel button), never on a field. The object schema, and on edit the record, are read after the drawer opens, so when the drawer took focus no field was there yet. While the body loads, the drawer now keeps focus on its own panel. When the fields arrive, focus moves to the first field that can be edited, skipping disabled and read-only ones. If the user has already moved focus to another control, focus stays there. This covers both of the drawer's bodies: the form and the master-detail form.
+  
+  No export, prop or schema key is added.
+- a29f615: A record drawer stays open on its first open (objectui#13238). On the first open in a page session, the drawer's body is drawn for the first time once the record is read, and its field widgets' code is still loading, so that render waits. The drawer had no place of its own to wait, so the wait was handed to the page's: in the console, the whole page was replaced by the loading screen, and when it came back a `kind:'react'` page that hosted the drawer was rebuilt and lost its own state, closing the drawer it had opened a second or two earlier. The drawer now waits inside its own sheet, as the record dialog already does: the header stays, the body shows a placeholder until its fields can be drawn, focus stays in the sheet and moves to the first field when it lands, and the page behind is never hidden. Escape, the Close button and a click outside still close the drawer.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- ff128e3: Opening a collapsed form section keeps keyboard focus on its header the first time too (objectui#13246).
+  
+  The first time a section opens, the widget code for its fields can still be loading. In the record dialog (`ModalForm`), that wait hid the whole dialog body, and the header the user had just pressed with it. The browser then dropped focus from the hidden header, and focus came back to the dialog itself, so the next Tab started again at the dialog's first field. The record drawer (`DrawerForm`) had no wait of its own: the same toggle hid everything under the host's nearest loading boundary, the drawer included. Later toggles were not affected, because the widget code was already loaded.
+  
+  Both forms now open and close a section as a React transition. While the section's widgets load, the form stays on screen as it was. The header keeps focus, the section opens when its fields can be drawn, and the next Tab reaches the section's first field. The dialog keeps its own loading placeholder for every other wait, such as the first draw of its body after the record loads.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [96fcf30]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [055d350]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [db4cb6b]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [e06365c]
+- Updated dependencies [3035948]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [5ab2f19]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [2312bd9]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [c5406c2]
+- Updated dependencies [c5406c2]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [a368ccb]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [417e245]
+- Updated dependencies [69bca0a]
+- Updated dependencies [023f00d]
+- Updated dependencies [158c75d]
+- Updated dependencies [7525045]
+- Updated dependencies [5af42db]
+- Updated dependencies [ce991bd]
+- Updated dependencies [3c0f806]
+- Updated dependencies [1071393]
+- Updated dependencies [5f75cfa]
+- Updated dependencies [29b9949]
+- Updated dependencies [6757a93]
+- Updated dependencies [b7cd5c8]
+- Updated dependencies [5330038]
+- Updated dependencies [2498a07]
+- Updated dependencies [898bd2c]
+- Updated dependencies [c9fc10b]
+- Updated dependencies [dc6d28e]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [e723f58]
+- Updated dependencies [82bb1d5]
+- Updated dependencies [f3d5408]
+- Updated dependencies [b231607]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [54159d3]
+- Updated dependencies [fa778e6]
+- Updated dependencies [334f0cf]
+- Updated dependencies [c08c933]
+- Updated dependencies [92f979d]
+- Updated dependencies [c4dd707]
+- Updated dependencies [c4dd707]
+- Updated dependencies [7578323]
+- Updated dependencies [a491b64]
+- Updated dependencies [38bb373]
+- Updated dependencies [923504f]
+- Updated dependencies [5b45c0d]
+- Updated dependencies [923504f]
+- Updated dependencies [5c2982a]
+- Updated dependencies [97e7d4e]
+- Updated dependencies [5d3f437]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [51c661e]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [b434f5f]
+- Updated dependencies [9f282ef]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [cea429b]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [8106db1]
+- Updated dependencies [068a540]
+- Updated dependencies [ca45c6d]
+- Updated dependencies [093d55b]
+- Updated dependencies [b64fda3]
+- Updated dependencies [a8051d6]
+- Updated dependencies [72594f2]
+- Updated dependencies [524136e]
+- Updated dependencies [2b06a91]
+- Updated dependencies [6f3299f]
+- Updated dependencies [065a1cf]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [789cb16]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [37db09f]
+- Updated dependencies [ff9df88]
+- Updated dependencies [70e843f]
+- Updated dependencies [caac3b2]
+- Updated dependencies [a2225f9]
+- Updated dependencies [5c4deb5]
+- Updated dependencies [a8e5b73]
+- Updated dependencies [d9d9d98]
+- Updated dependencies [c950345]
+- Updated dependencies [21f9577]
+- Updated dependencies [044f231]
+- Updated dependencies [f8267df]
+- Updated dependencies [023087f]
+- Updated dependencies [9b82ced]
+- Updated dependencies [3821a3a]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [92c2a69]
+- Updated dependencies [518a8e3]
+- Updated dependencies [646caea]
+- Updated dependencies [1ffd6a2]
+- Updated dependencies [5f8ecf6]
+- Updated dependencies [7d0c174]
+- Updated dependencies [8ed7e5a]
+- Updated dependencies [6c4d00d]
+- Updated dependencies [db8ce2f]
+- Updated dependencies [726d8c9]
+- Updated dependencies [f0e760a]
+- Updated dependencies [a5bb7ac]
+- Updated dependencies [f78efdd]
+- Updated dependencies [8a8bcf3]
+- Updated dependencies [f74638c]
+- Updated dependencies [278bc29]
+- Updated dependencies [ef71a09]
+- Updated dependencies [8614705]
+- Updated dependencies [619e3f7]
+- Updated dependencies [ca7a4c3]
+- Updated dependencies [c9e6742]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [608033b]
+- Updated dependencies [c6b7d82]
+- Updated dependencies [611566b]
+- Updated dependencies [efa9cb4]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [9d857c9]
+- Updated dependencies [670ea10]
+- Updated dependencies [ff215d9]
+- Updated dependencies [71243db]
+- Updated dependencies [a8add5c]
+- Updated dependencies [33ee9de]
+- Updated dependencies [4839f5c]
+- Updated dependencies [a23e804]
+- Updated dependencies [c7462e7]
+- Updated dependencies [36e2f7b]
+- Updated dependencies [ac59073]
+- Updated dependencies [44cb469]
+- Updated dependencies [e058d76]
+- Updated dependencies [c999d4c]
+- Updated dependencies [8df2608]
+- Updated dependencies [5483297]
+- Updated dependencies [ed43c79]
+- Updated dependencies [260ef71]
+- Updated dependencies [655e897]
+- Updated dependencies [655e897]
+- Updated dependencies [020d178]
+- Updated dependencies [8d80845]
+- Updated dependencies [69a408f]
+- Updated dependencies [d2b21a1]
+- Updated dependencies [5ff64ef]
+- Updated dependencies [64acb7e]
+- Updated dependencies [4ff5b6b]
+- Updated dependencies [473e5a0]
+- Updated dependencies [b279016]
+- Updated dependencies [bb6c38c]
+- Updated dependencies [26323c4]
+- Updated dependencies [9753811]
+- Updated dependencies [2727527]
+- Updated dependencies [3da39ae]
+- Updated dependencies [bc281f4]
+- Updated dependencies [d637be3]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [8523e81]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [32b492b]
+- Updated dependencies [6058bf8]
+- Updated dependencies [c219165]
+- Updated dependencies [a7ae252]
+- Updated dependencies [fb501bc]
+- Updated dependencies [30083da]
+- Updated dependencies [7f9cc37]
+- Updated dependencies [b7fe09e]
+- Updated dependencies [025130c]
+- Updated dependencies [76f91f8]
+- Updated dependencies [ea34d9b]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [024b7b6]
+- Updated dependencies [cb80001]
+- Updated dependencies [909c64e]
+- Updated dependencies [9e7e1a5]
+- Updated dependencies [2493e85]
+- Updated dependencies [d0b9648]
+- Updated dependencies [46dbf32]
+- Updated dependencies [a928aaa]
+- Updated dependencies [47508f3]
+- Updated dependencies [61ed5ad]
+- Updated dependencies [1b94d50]
+- Updated dependencies [6f877f1]
+- Updated dependencies [988aa9f]
+- Updated dependencies [1ce0711]
+- Updated dependencies [fb85637]
+- Updated dependencies [9f1dd79]
+- Updated dependencies [df71568]
+- Updated dependencies [d11174a]
+- Updated dependencies [2d8a8b7]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [5129caa]
+- Updated dependencies [9eb1479]
+- Updated dependencies [74e37aa]
+- Updated dependencies [961b69f]
+- Updated dependencies [52907d7]
+- Updated dependencies [f466b0a]
+- Updated dependencies [673a71c]
+- Updated dependencies [616df65]
+- Updated dependencies [f48a4d5]
+- Updated dependencies [58798ec]
+- Updated dependencies [8803ca5]
+- Updated dependencies [e70c21d]
+- Updated dependencies [4b92c5a]
+- Updated dependencies [06be396]
+- Updated dependencies [3650d94]
+- Updated dependencies [7c05f21]
+- Updated dependencies [8cd4db4]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [35a2b59]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [53ee2f8]
+- Updated dependencies [088e0f7]
+- Updated dependencies [78b07f4]
+- Updated dependencies [0df67f2]
+- Updated dependencies [f962cdc]
+- Updated dependencies [b403bb3]
+- Updated dependencies [8a25fee]
+- Updated dependencies [4016370]
+- Updated dependencies [12dc7b4]
+  - @object-ui/types@18.0.0
+  - @object-ui/components@18.0.0
+  - @object-ui/core@18.0.0
+  - @object-ui/i18n@18.0.0
+  - @object-ui/react@18.0.0
+  - @object-ui/fields@18.0.0
+  - @object-ui/permissions@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

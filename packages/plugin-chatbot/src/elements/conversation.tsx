@@ -15,9 +15,13 @@ import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 
 export type ConversationProps = ComponentProps<typeof StickToBottom>;
 
+// objectui#13032 — the conversation is a column: the scrolling message list
+// on top and, below it, the row the scroll-to-bottom button sits in. The
+// button is laid out OUTSIDE the list instead of floating over it, so at no
+// scroll position does it cover a line of text, a table cell or a heading.
 export const Conversation = ({ className, ...props }: ConversationProps) => (
   <StickToBottom
-    className={cn("relative flex-1 overflow-y-hidden", className)}
+    className={cn("relative flex flex-1 flex-col overflow-y-hidden", className)}
     initial="smooth"
     resize="smooth"
     role="log"
@@ -31,10 +35,12 @@ export type ConversationContentProps = ComponentProps<
 
 export const ConversationContent = ({
   className,
+  scrollClassName,
   ...props
 }: ConversationContentProps) => (
   <StickToBottom.Content
     className={cn("flex flex-col gap-8 p-4", className)}
+    scrollClassName={cn("min-h-0 flex-1", scrollClassName)}
     {...props}
   />
 );
@@ -88,19 +94,21 @@ export const ConversationScrollButton = ({
 
   return (
     !isAtBottom && (
-      <Button
-        className={cn(
-          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full",
-          className
-        )}
-        onClick={handleScrollToBottom}
-        size="icon"
-        type="button"
-        variant="outline"
-        {...props}
+      <div
+        className="flex shrink-0 justify-center py-2"
+        data-conversation-scroll-row=""
       >
-        <ArrowDownIcon className="size-4" />
-      </Button>
+        <Button
+          className={cn("rounded-full", className)}
+          onClick={handleScrollToBottom}
+          size="icon"
+          type="button"
+          variant="outline"
+          {...props}
+        >
+          <ArrowDownIcon className="size-4" />
+        </Button>
+      </div>
     )
   );
 };

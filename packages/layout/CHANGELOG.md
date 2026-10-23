@@ -1,5 +1,318 @@
 # @object-ui/layout
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- 9fc68aa: Screen readers can name and reach the controls of the view tab bar, the settings form, the sidebar menus, the table's selection column and the percent cell (objectui#11690). axe-core (wcag2a + wcag2aa) on an object list page and on a Setup settings page reported the faults below; each is fixed where it is produced and pinned by an axe run on that component.
+  
+  - **View tab bar (`ViewTabBar`).** The "+" add-view button is named, through the existing `view.addView` key, and its tooltip reads the same translated words instead of a hard-coded "Add View". Each view is now a `<button>`; the current one carries `aria-current="true"`. The views were `role="tab"` elements with no `tablist`, and the active view's actions button sat inside its tab, so it was a control inside a control. That button is now the view button's sibling, still named "View actions for …" and still one Tab stop away. Tab roles could not hold it: a tab's content is presentational and a tablist may contain only tabs. These views never had the tabs keyboard model (arrow keys, a tab panel) either. Every view stays its own Tab stop. When the bar is not reorderable, as the console renders it, Enter or Space switches to the focused view. With drag-to-reorder on, Enter or Space on a view starts a keyboard drag instead, as it did before this change, so a view is switched to by click. The rename box is now outside the view button and is named through `view.rename`. With drag-to-reorder on, the sortable attributes describe the view as a button. Breaking for anything that queried the bar by `role="tab"` or `aria-selected`: query `data-testid="view-tab-ID"` or `aria-current` instead.
+  - **Settings form (`@object-ui/console`).** Each row's label is bound to its control, so text, number, password, textarea, JSON, colour, switch and select controls are named by it. Clicking a label now focuses or toggles its control. A radio group and a multiselect checkbox group are named by the row label too.
+  - **Sidebar menus (`NavigationRenderer`).** With drag-to-reorder on (the desktop default), every row was wrapped in a `<div>` between the menu's `<ul>` and its `<li>`. The sortable node is now the row's own `<li>`. A separator and a nested group inside a menu are now list items too: the separator's item is hidden from assistive tech, and a top-level group is unchanged.
+  - **Table selection column (`data-table`).** The select-all checkbox and each row's checkbox are named through the existing `table.selectAllRows` and `table.selectRow` keys.
+  - **Percent cell (`PercentCellRenderer`).** The progress bar is named by the formatted value beside it (`aria-labelledby`), so the name is in the viewer's locale.
+  
+  No language-pack key, export or prop is added; every new name reads a key the packs already carried.
+- c5406c2: Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
+  
+  Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18 (raised to `^18.0.0-next.1` by objectui#12370 before release).
+  
+  **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.1` (objectui#12370), at the same time as it takes this release.
+  
+  **objectui's own surface moves with it:**
+  
+  - `element:record_picker`'s registration stops publishing the `object`, `filter`, `sort` and `limit` inputs, which spec 18 retires; a JSX page that writes one now gets `unknown-prop`.
+  - The `CapabilityMultiSelectField` widget's curated capability set (`@object-ui/fields`) follows spec 18: `manage_mailboxes` in, `manage_org_presentation` out.
+  - `element:number` and `element:repeater` nodes that bind no object are accepted, as spec 18's row and `PageComponentSchema` accept them; the two `ELEMENT_*_OBJECT_REQUIRED` refusals are gone.
+  
+  **Retired with the spec:** `@objectstack/spec` 18 tombstones `object-grid`'s `defaultFilters` and refuses it by name, and `ObjectGrid` and `ObjectView` stop reading it (`table.defaultFilters` on an `object-view` included). A view that still carries it renders unfiltered: rename the key to `filter`, whose value is the same rule array.
+- 8a55f0c: The console sidebar no longer lets a user drag the app's menu into a private order; the Pinned section is now the one place a user orders entries (objectui#12059). Arranging an app's navigation is Studio's job: the menu is drawn in the order authored for the app, and every user sees that order. This reverses objectui#11626, which had extended menu drag-to-reorder to grouped menus.
+  
+  **`@object-ui/layout` (breaking, declared `minor` per the version policy).** `NavigationRenderer` retires `enableReorder` and `onReorder`, and with them every sortable path through the menu: no menu row draws a grip or carries a sortable role. `AppSchemaRenderer` retires the same two props, which only handed them through. Two props are added for the pinned section: `pinnedOrder` (the pinned entry ids in the user's order; the section draws in that order, an unnamed pinned entry following in menu order) and `onPinnedReorder` (makes the pinned rows sortable and receives the drawn ids in their new order). A pinned row is dragged by the row itself: no grip at rest, a grab cursor, and a line marking where the row will land. From the keyboard, with the row's link focused, Space picks it up, the arrow keys move it, Space drops it and Escape cancels; Enter still follows the link. The row's link stays a link and the row's one focus stop. The click a pointer drag ends with is not followed.
+  
+  **`@object-ui/app-shell`.** The sidebar no longer reads or writes the per-user menu order it kept in localStorage (`objectui-nav-order-APP`); a key left from before is ignored. The pinned order is stored with the pins, in the `UserDataAdapter`-backed favorites, so it syncs across devices the way the pins do: it is the order of the `type: 'nav'` entries in the stored list. A new pin now joins the end of that order (a content favorite still goes first), and an unpin leaves the others in order. `useFavorites()` gains `reorderNavPins(navIds)`, which puts the named pins in a new order in the places they already hold, so a pin another app's sidebar draws and every content favorite stay put; `useNavPins()` gains `reorderPins(orderedIds)` over it, and its `pinnedIds` lists the pins in the user's order. At the nav-pin cap a new pin still joins the end and the earliest-pinned one rolls off. Pins made before this change are now drawn in their stored order, which is newest first (a pin used to be put at the front of the list), rather than in menu order, until the user drags them.
+  
+  **`@object-ui/i18n` (breaking, declared `minor`).** `console.nav.dragToReorder`, the label of the retired menu grip, is removed from all ten packs. `view.dragToReorder` is a different key and stays.
+  
+  **Clause-②: yes.** Published surface changes: `NavigationRendererProps` loses `enableReorder` / `onReorder` and gains `pinnedOrder` / `onPinnedReorder`; `AppSchemaRendererProps` loses `enableReorder` / `onReorder`; the return of `useFavorites()` gains `reorderNavPins`; the return of `useNavPins()` gains `reorderPins`; the `console.nav.dragToReorder` pack key leaves.
+- ff9df88: Depend on `@objectstack/*` `18.0.0-next.1` (objectui#12370).
+  
+  Every `@objectstack/*` range these packages declare moves from `^18.0.0-next.0` to `^18.0.0-next.1`; the console and the runner bundle `18.0.0-next.1`. A consumer moves its own `@objectstack/*` packages to `18.0.0-next.1` with this release.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates page action rows and view data bindings through the spec's own rows, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.1` refuses. Each was accepted on `18.0.0-next.0`:
+  
+  - `onSuccess` on an `action:button` / `action:icon` row, or an `action:group` / `action:menu` member, whose executor is the `url`, `navigation`, `modal`, `flow` or `form` built-in, or that has no executor at all. Write the hop on an `api` or `script` action (or a host handler name), or drop it.
+  - `onSuccess` beside `operation: 'update'`, and an `onSuccess` block carrying a key outside `{ navigate, openIn }`.
+  - `actionType: 'navigation'` on a row (and `type: 'navigation'` on a container member): write `'url'`.
+  - A `url` executor's `target` that is not openable, judged on the executor the runner runs, including a row whose `name` selects it.
+  - A view `data` binding with `provider: 'api'`: bind the object or static rows; an API call is the page element's binding.
+- a8e5b73: Console sidebar: one Favorites section at the top, and one ⋯ menu on every entry (objectui#12427).
+  
+  - **The ⋯ menu replaces the pin icon.** When you hover a navigation entry it shows one ⋯ trigger, and a right-click on the row opens the same menu. There is no pin icon any more. The menu's entries depend on what the entry is:
+    - Add to favorites / Remove from favorites always comes first. It writes the same pin as before, so the entry lands in the Favorites section at the top.
+    - Open in new tab and Copy link appear for an entry that goes somewhere. They use the address the row's own link renders, so a console served under a basename opens and copies a working link, and a URL off the console is used as it is.
+    - Design appears for an `object`, `dashboard` or `page` entry. It opens that target's designer on the metadata-admin route (`/apps/APP/metadata/TYPE/NAME`, which is where a page's Edit in studio button already goes). Only a workspace admin whose session may author metadata sees it.
+    - On a phone, navigation entries show no trigger, as they showed no pin icon before.
+  - **One Favorites section, at the top.** Favorites that are not navigation entries, such as an object or a record you starred, used to be a group after Recent, below the fold on a long menu. They are now rows of the Favorites section at the top, after the pinned entries. Each row shows its stored label and type icon and carries the same ⋯ menu, whose favorites entry removes it. Design shows for object, dashboard and page favorites, never for a record. Existing favorites appear there as stored: nothing in the favorites store changes and nothing is migrated. The console-home Starred group and the Home page are unchanged.
+  - **The page header's favorites entry is in its overflow menu.**
+    - The object list header no longer has a star. Its last control is now an icon-only ⋯ button ("More actions") whose menu holds Add to favorites / Remove from favorites. When the current app's navigation has an entry that opens this list, the entry pins that navigation entry, the same action as the sidebar's own menu. It writes one `nav:` favorite that lands in the Favorites section, and no second `object:` favorite. For an object the app does not list, it keeps an `object:` favorite.
+    - On a record page the same entry leads the header's ⋯ overflow, ahead of Share, and toggles the record favorite.
+  - **`NavigationRenderer` (`@object-ui/layout`) gets two additive props.**
+    - `renderItemAction(item, context)` is a host control drawn on every leaf and action row, in place of the pin action. `context` carries the row's `href`, `external`, `label` and `basePath` (type `NavItemActionContext`).
+    - `extraFavorites` takes host rows that are appended to the Favorites section after the pinned entries. The section renders when either kind of row is there.
+    - A host that passes neither keeps the pin action and a section of pinned entries only, with the pinned drag order unchanged.
+  - **Language packs.** Six new `console.nav` keys in all ten packs: `itemMenu`, `openInNewTab`, `copyLink`, `linkCopied`, `linkCopyFailed` and `design`. The list header's ⋯ button is named by `detail.moreActions`, the name the record header's ⋯ already has. The favorites entry reuses `common.addToFavorites` / `common.removeFromFavorites`. `sidebar.favorites`, the title of the removed group, is no longer read and leaves all ten packs.
+- dcd1041: The console top bar is 48 px (`h-12`) in every frame, the height both approved console artboards draw (objectui#12639). It was 56 px (`h-14`).
+  
+  - **One height everywhere.** `AppShell`'s header (inside every app), Home, the organization list and an organization's pages, the full-page assistant at `/ai` and the `/studio` landing all draw the same bar, so it no longer changes height on the way from Home into an app or onto an organization page. Studio's package builder keeps its own header, which was already 48 px from `sm` up.
+  - **The app sidebar follows the bar.** On desktop its column starts 48 px down and is the viewport's height less 48 px, so no gap opens between the bar and the sidebar.
+  - **The bar's contents are unchanged.** Its controls (the product mark, the app pill, the preview chip, the search field, the bell, help and the avatar) are 32 px or shorter, so each keeps its size.
+  
+  No export, prop or type is added, removed or renamed. A host that renders `@object-ui/layout`'s `AppShell` gets the 48 px header too.
+- 1b94d50: A navigation entry's API `dataSource` is read, and its `visible` sees the selected value as `data` (objectui#13029).
+  
+  The spec lets a navigation entry declare `dataSource: { provider: 'api', read: { url }, path? }` (`BaseNavItemSchema.dataSource`). Only the entry's `visible` reads the value, as `data` (for example `data.total == 1`). The label, the target and `children` do not.
+  
+  - `@object-ui/layout`: `VisibilityEvaluator` takes an optional second argument, the entry whose `visible` it judges. The item guard passes it on every path it serves: the rows, the derived area visibility and the Favorites section. The default evaluator reads no binding, so it hides an entry that declares one. An entry without the key renders as before.
+  - `@object-ui/app-shell`: the sidebar, the `nav:menu` block and the command palette share one `visible` evaluator. It reads each binding the app's navigation declares through the page element's reader (`readElementApi`, with the host's signed-in `apiFetch`). The entry is hidden while the read is pending, after it fails, when `path` selects nothing, or when the spec refuses the binding. An entry without the key is evaluated as before, with no request and no wait.
+  - `@object-ui/types`: the `dataSource` describe and doc on the navigation item now state what the console does with it. The accept set is unchanged.
+- df71568: A navigation item's `visible` now takes `@objectstack/spec`'s `EvaluatedExpressionInputSchema` by reference, beside the boolean it already took (objectui#13075).
+  
+  The spec types every navigation entry's `visible` as an evaluated expression input: a non-blank CEL string, or the `{ dialect, source }` envelope the spec's own parse produces. objectui's `NavigationItemSchema` typed it as `boolean | string`, so the two disagreed both ways. This changes what `NavigationItemSchema` (and so `objectui validate`) accepts:
+  
+  - **Widened: the envelope is accepted.** `visible: { dialect: 'cel', source: "'org_admin' in current_user.positions" }` used to be refused. It parses now and is kept as written. The TypeScript type `NavigationItem['visible']` is `boolean | EvaluatedExpressionInput` (the spec's input type), so a typed literal can carry the envelope too.
+  - **Narrowed (breaking): a blank string is refused.** `visible: ''` and a whitespace-only string used to pass. They are refused now with the spec's own code (`invalid_union` at `visible`) and sentence. A blank `source` inside an envelope is refused at `visible.source`, as the spec refuses it. To show an entry to everyone, omit `visible`.
+  
+  Unchanged: a non-blank string is still accepted and kept as a string (the validator does not rewrite it into an envelope), and `visible: true` / `false` are still accepted. The boolean is the one stated divergence from the spec on this key.
+  
+  Code that reads `NavigationItem['visible']` and passes it on as `string | boolean` no longer compiles: widen that parameter to `NavigationItem['visible']`.
+  
+  `@object-ui/layout` (minor): the exported `VisibilityEvaluator` type now takes `NavigationItem['visible']` instead of `string | boolean | undefined`, so an evaluator receives the envelope as authored. An evaluator a host passes in whose parameter is the old, narrower type no longer type-checks; widen it the same way. The runtime is unchanged: `NavigationRenderer` already handed the value through.
+  
+  `@object-ui/app-shell` (patch): the shell's navigation gates (`useNavMemberGates` and the `nav:menu` block) take the widened type internally. No exported type changes, and the runtime is unchanged: `evaluateNavigationVisibility` already evaluated the envelope.
+
+### Patch Changes
+
+- b88937b: Drag-to-reorder of a grouped sidebar menu, within each level (objectui#11626), was retired before it was released. objectui#12059 removed every drag-to-reorder of the sidebar menu: an app's menu order is authored in Studio, and every user sees that order. Nothing of objectui#11626 ships, because objectui#12059 retires the menu reorder whole: `NavigationRenderer`'s `enableReorder` / `onReorder`, the menu drag grip, and the sidebar's per-user menu order in localStorage (`objectui-nav-order-APP`), each of which predates objectui#11626, are gone. The objectui#12059 changeset describes what replaced them: the pinned section is the one place a user orders entries.
+- f114263: In the collapsed (icon-mode) sidebar, a click on an icon reaches its row again. Before, a hidden group label could take the click instead (objectui#12744).
+  
+  The `SidebarGroupLabel` primitive hides a label in icon mode with `opacity-0` and `-mt-8` only. The invisible label stayed hit-testable and lay over the lower half of the row just above its group. A centre click on that row's icon landed on the label. A collapsible group's label toggled its group, the Recent label toggled Recent, and the row did not navigate.
+  
+  The labels that sit below a row now take no pointer events while the primitive hides them. The condition is the primitive's own `group-data-[state=collapsed]:group-data-[collapsible=icon]:` variant:
+  
+  - `@object-ui/layout`: `NavigationRenderer`'s collapsible group label, and its Favorites label (it sits below the Area switcher in a multi-area app);
+  - `@object-ui/app-shell`: `UnifiedSidebar`'s Recent label.
+  
+  In the expanded sidebar nothing changes. A group's label still toggles its group by mouse and keyboard, and the Recent label still opens and closes Recent. The primitive itself is a Shadcn-synced file and is not edited: the class rides on the `className` each call site passes. Nothing is added to either package entry: no export, prop or type member.
+- e43a162: In the collapsed (icon-mode) sidebar, a hidden group label is no longer a keyboard focus stop, and screen readers no longer announce it (objectui#12795). Before, Tab from the row above a collapsible group landed on the group's invisible label button, and Enter toggled a group the user could not see.
+  
+  The `SidebarGroupLabel` primitive hides a label there by fading it to `opacity-0`, which left it in the tab order and the accessibility tree. `NavigationRenderer`'s collapsible group and Favorites labels, `AppSchemaRenderer`'s Area label and `SidebarNav`'s group labels now also take `visibility: hidden` under the primitive's own icon-mode condition. The label still fades out before it is hidden. Tab now moves from a group's last row straight to the next group's first row.
+  
+  In the expanded sidebar and the mobile sheet nothing changes: every group label that took focus still does, and Enter still opens and closes its group. The primitive itself is a Shadcn-synced file and is not edited, and no export, prop or type member is added.
+- d758f2f: Doc comment only. The `PageHeaderComponentProps` comment no longer says `@object-ui/app-shell` shares the name: the console's header props are now `ConsolePageHeaderProps`, so this package is the one authority for `PageHeaderComponentProps` (objectui#6349, batch 8). The type and its members are unchanged.
+  
+  No runtime behaviour changes.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [96fcf30]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [e06365c]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [2312bd9]
+- Updated dependencies [c5406c2]
+- Updated dependencies [d99b731]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [69bca0a]
+- Updated dependencies [023f00d]
+- Updated dependencies [158c75d]
+- Updated dependencies [7525045]
+- Updated dependencies [5af42db]
+- Updated dependencies [ce991bd]
+- Updated dependencies [5f75cfa]
+- Updated dependencies [b7cd5c8]
+- Updated dependencies [5330038]
+- Updated dependencies [c9fc10b]
+- Updated dependencies [dc6d28e]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [e723f58]
+- Updated dependencies [f3d5408]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [334f0cf]
+- Updated dependencies [c08c933]
+- Updated dependencies [92f979d]
+- Updated dependencies [c4dd707]
+- Updated dependencies [c4dd707]
+- Updated dependencies [923504f]
+- Updated dependencies [5c2982a]
+- Updated dependencies [97e7d4e]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [b434f5f]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [8106db1]
+- Updated dependencies [093d55b]
+- Updated dependencies [a8051d6]
+- Updated dependencies [72594f2]
+- Updated dependencies [524136e]
+- Updated dependencies [6f3299f]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [ff9df88]
+- Updated dependencies [70e843f]
+- Updated dependencies [a2225f9]
+- Updated dependencies [5c4deb5]
+- Updated dependencies [c950345]
+- Updated dependencies [21f9577]
+- Updated dependencies [044f231]
+- Updated dependencies [f8267df]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [1ffd6a2]
+- Updated dependencies [5f8ecf6]
+- Updated dependencies [726d8c9]
+- Updated dependencies [ef71a09]
+- Updated dependencies [619e3f7]
+- Updated dependencies [c9e6742]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [608033b]
+- Updated dependencies [611566b]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [71243db]
+- Updated dependencies [a8add5c]
+- Updated dependencies [33ee9de]
+- Updated dependencies [4839f5c]
+- Updated dependencies [c7462e7]
+- Updated dependencies [e058d76]
+- Updated dependencies [c999d4c]
+- Updated dependencies [8df2608]
+- Updated dependencies [5483297]
+- Updated dependencies [ed43c79]
+- Updated dependencies [260ef71]
+- Updated dependencies [655e897]
+- Updated dependencies [655e897]
+- Updated dependencies [69a408f]
+- Updated dependencies [d2b21a1]
+- Updated dependencies [5ff64ef]
+- Updated dependencies [26323c4]
+- Updated dependencies [9753811]
+- Updated dependencies [bc281f4]
+- Updated dependencies [d637be3]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [c219165]
+- Updated dependencies [a7ae252]
+- Updated dependencies [fb501bc]
+- Updated dependencies [30083da]
+- Updated dependencies [025130c]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [024b7b6]
+- Updated dependencies [909c64e]
+- Updated dependencies [9e7e1a5]
+- Updated dependencies [2493e85]
+- Updated dependencies [d0b9648]
+- Updated dependencies [46dbf32]
+- Updated dependencies [a928aaa]
+- Updated dependencies [61ed5ad]
+- Updated dependencies [1b94d50]
+- Updated dependencies [988aa9f]
+- Updated dependencies [fb85637]
+- Updated dependencies [9f1dd79]
+- Updated dependencies [df71568]
+- Updated dependencies [d11174a]
+- Updated dependencies [2d8a8b7]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [616df65]
+- Updated dependencies [4b92c5a]
+- Updated dependencies [3650d94]
+- Updated dependencies [8cd4db4]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [088e0f7]
+- Updated dependencies [78b07f4]
+- Updated dependencies [b403bb3]
+- Updated dependencies [4016370]
+- Updated dependencies [12dc7b4]
+  - @object-ui/types@18.0.0
+  - @object-ui/components@18.0.0
+  - @object-ui/core@18.0.0
+  - @object-ui/react@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

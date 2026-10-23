@@ -98,6 +98,7 @@ const BASE_VALUES: Record<string, unknown> = {
   badge: 'NEW',
   badgeVariant: 'secondary',
   visible: "'admin' in current_user.positions",
+  dataSource: { provider: 'api', read: { url: '/api/v1/cloud/home' }, path: 'data.environments' },
   requiredPermissions: ['task.read'],
   requiresObject: 'acme_task',
   requiresService: 'ai',

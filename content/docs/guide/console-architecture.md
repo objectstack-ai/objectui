@@ -103,8 +103,10 @@ the metadata-admin list and editor with the query parameter `scope=environment`,
 example `/apps/setup/metadata/permission?scope=environment`. That scope lists every item
 the registry serves for the type and adds the Setup half of an item, which is who holds
 it. The console's legacy `system/roles`, `system/positions` and `system/permissions`
-URLs forward there. The `@object-ui/app-shell` README describes the scope under "The
-Setup catalog".
+URLs forward there. The same scope lists the sharing rules installed packages declare,
+`/apps/setup/metadata/sharing_rule?scope=environment`, read-only with Disable / Enable
+and Clone; the rules an organization authors stay on the `sys_sharing_rule` object page.
+The `@object-ui/app-shell` README describes the scope under "The Setup catalog".
 
 | Route Pattern | Component | Purpose |
 |---------------|-----------|---------|
@@ -232,6 +234,24 @@ it left of the app's name, and each row of the pill's dropdown shows its own app
 without a `branding.logo` gets its `icon` on a tile instead, coloured by its own
 `branding.primaryColor` when that is a hex. The sidebar draws no logo. On a phone, where the top
 bar hides the pill, the sidebar drawer's header shows the app's glyph and name.
+
+### 6. Unsaved Edits
+
+A page that holds unsaved edits in component state (a settings page, the
+metadata editor) registers them with the shell through
+`useRegisterUnsavedEdits(dirty, message)` from `@object-ui/app-shell`. While
+anything is registered, a tab close or reload raises the browser's leave prompt,
+and an in-app link to another page asks `message` first. The shell's own
+departures that start from a button (the header's help, avatar and app menus,
+the go-home shortcut, the workspace switcher, a sidebar entry's Design, the
+command palette, the inbox popover and the AI entry) go through `confirmUnsavedLeave(go)`, which asks the same question before it runs
+`go`. An organization switch asks before it is sent, so Cancel keeps the
+organization as well as the edits. The prompt is the browser's `confirm`.
+
+Not guarded: browser Back and Forward, which `BrowserRouter` gives a page no
+way to hold, and any departure a component starts with `navigate()` without
+going through `confirmUnsavedLeave`. The
+`@object-ui/app-shell` README describes the two exports under "Unsaved edits".
 
 ## Development Mode
 

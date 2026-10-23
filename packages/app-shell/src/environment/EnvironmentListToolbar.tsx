@@ -35,10 +35,8 @@
  * though it was reported against the Chinese console, where the two texts are
  * owned by different packages and the swap read as an inconsistency rather than
  * a load. The maintainer's ruling on cloud#1049 was option A — present nothing
- * rather than a label we are about to overwrite. Same shape as the adjacent
- * `cloud:onboarding-next` welcome CTA (`console/home/CloudOnboardingNext.tsx`):
- * loading → neutral skeleton sized like the button, unknown/error → degrade to a
- * working button. Option B (a neutral label for every state) was rejected: it is
+ * rather than a label we are about to overwrite: loading → neutral skeleton
+ * sized like the button, unknown/error → degrade to a working button. Option B (a neutral label for every state) was rejected: it is
  * semantically wrong for an org that already owns its production environment.
  *
  * ## Who owns this button's text (the "two sources" question)
@@ -229,8 +227,7 @@ export function EnvironmentListToolbar({ actions, entitlements }: Props) {
         <OtherActionsBar actions={others} />
         {hasCreateAction && (
           // Sized like the `size="sm"` bar button it stands in for (h-9,
-          // rounded-md), mirroring CloudOnboardingNext's loading placeholder.
-          // The width is an approximation of the resolved labels — the point is
+          // rounded-md). The width is an approximation of the resolved labels — the point is
           // that the header keeps its shape, not a pixel-exact match.
           <Skeleton className="h-9 w-44 rounded-md" data-testid="environment-create-cta-loading" />
         )}

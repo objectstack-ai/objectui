@@ -283,7 +283,7 @@ describe('the Problems panel names a dangling edge and a repeated connection, so
     it(`${locale}: each extra copy of start → node_1 is a row; the first copy is not`, () => {
       mount(published(), locale);
       const rows = panelMessages(locale);
-      const repeated = tFormat('engine.flowProblems.repeatedEdge', locale, { source: 'start', target: 'node_1' });
+      const repeated = tFormat('engine.flowProblems.repeatedEdge', locale, { sourceName: 'Start', source: 'start', targetName: 'Create record', target: 'node_1' });
       expect(repeated).not.toBe('engine.flowProblems.repeatedEdge');
       expect(rows.filter((m) => m === repeated)).toHaveLength(2);
       expect(rows).not.toContain(t('engine.flowProblems.empty', locale));

@@ -12,6 +12,7 @@ import { Play, StepForward, RotateCcw, ChevronRight, AlertTriangle, CircleAlert,
 import { Button, EmptyDescription, Input, Label, cn } from '@object-ui/components';
 import { t as tr, tFormat } from '../i18n.js';
 import { FlowSimulator } from './simulator/flow-simulator.js';
+import { flowNodeDisplayName } from './flow-canvas-parts.js';
 import { ScreenPreview } from './ScreenPreview.js';
 import type { FlowValidation, SimEdge, SimNode, SimState, SimStep } from './simulator/flow-sim-types.js';
 
@@ -68,7 +69,7 @@ interface MockableNode {
   outputs: string[];
 }
 
-function mockableNodes(nodes: SimNode[]): MockableNode[] {
+function mockableNodes(nodes: SimNode[], locale?: string): MockableNode[] {
   const out: MockableNode[] = [];
   for (const n of nodes) {
     if (!MOCKABLE.has(n.type)) continue;
@@ -78,7 +79,7 @@ function mockableNodes(nodes: SimNode[]): MockableNode[] {
     // `outputVariables` list (framework#4278), so the simulator no longer
     // pretends it does.
     if (typeof cfg.outputVariable === 'string' && cfg.outputVariable) outputs.push(cfg.outputVariable);
-    out.push({ id: n.id, label: n.label || n.id, type: n.type, outputs });
+    out.push({ id: n.id, label: flowNodeDisplayName(n, locale), type: n.type, outputs });
   }
   return out;
 }
@@ -96,7 +97,13 @@ export function FlowSimulatorPanel({ nodes, edges, variables, locale, onRunState
   const [snapshot, setSnapshot] = React.useState<SimState | null>(null);
   const [validation, setValidation] = React.useState<FlowValidation | null>(null);
   const inputs = React.useMemo(() => variables.filter((v) => v.isInput), [variables]);
-  const mockNodes = React.useMemo(() => mockableNodes(nodes), [nodes]);
+  const mockNodes = React.useMemo(() => mockableNodes(nodes, locale), [nodes, locale]);
+  // objectui#13242 — an unguarded out-edge's row names its target by the rule;
+  // its id only where no node answers to it.
+  const targetName = (id: string): string => {
+    const node = nodes.find((n) => n.id === id);
+    return node ? flowNodeDisplayName(node, locale) : id;
+  };
   const [seed, setSeed] = React.useState<Record<string, string>>({});
   /** Free-form variable overrides so any branch can be exercised (e.g. a
    * decision that reads a computed value no input declares). */
@@ -425,7 +432,7 @@ export function FlowSimulatorPanel({ nodes, edges, variables, locale, onRunState
                           <div className={cn('flex items-center gap-1 font-mono text-[10px]', ed.selected ? 'text-sky-700' : 'text-muted-foreground')}>
                             <span>{ed.selected ? '▶' : '·'}</span>
                             {/* An unguarded out-edge has no condition text: name it by its target (objectui#10692). */}
-                            <span className="truncate">{ed.isDefault ? 'else' : (ed.condition ?? `→ ${ed.target}`)}</span>
+                            <span className="truncate">{ed.isDefault ? 'else' : (ed.condition ?? `→ ${targetName(ed.target)}`)}</span>
                             {/* `true` / `false` are the guard's CEL value, printed on the row's code line like the condition beside it. */}
                             <span className={cn('ml-auto', ed.error && 'text-rose-600')}>
                               {ed.error ? tr('engine.flowSim.edge.error', locale) : ed.result ? 'true' : 'false'}

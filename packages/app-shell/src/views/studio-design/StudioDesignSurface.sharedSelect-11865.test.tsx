@@ -480,9 +480,9 @@ async function submitObject(): Promise<string> {
  * first-write pin, `ifNoneMatch: '*'` (objectui#11773).
  */
 const OWD_WRITES: ReadonlyArray<readonly [string, string]> = [
-  [OWD_PRIVATE, '["object","visit",{"name":"visit","label":"Visit","sharingModel":"private","fields":{"name":{"type":"text","label":"Name"}}},{"mode":"draft","packageId":"com.test.crmext","ifNoneMatch":"*"}]'],
-  [OWD_PUBLIC_READ, '["object","visit",{"name":"visit","label":"Visit","sharingModel":"public_read","fields":{"name":{"type":"text","label":"Name"}}},{"mode":"draft","packageId":"com.test.crmext","ifNoneMatch":"*"}]'],
-  [OWD_PUBLIC_READ_WRITE, '["object","visit",{"name":"visit","label":"Visit","sharingModel":"public_read_write","fields":{"name":{"type":"text","label":"Name"}}},{"mode":"draft","packageId":"com.test.crmext","ifNoneMatch":"*"}]'],
+  [OWD_PRIVATE, '["object","visit",{"name":"visit","label":"Visit","sharingModel":"private","fields":{"name":{"type":"text","label":"Name"}}},{"mode":"draft","packageId":"com.test.crmext","ifNoneMatch":"*","surface":"studio"}]'],
+  [OWD_PUBLIC_READ, '["object","visit",{"name":"visit","label":"Visit","sharingModel":"public_read","fields":{"name":{"type":"text","label":"Name"}}},{"mode":"draft","packageId":"com.test.crmext","ifNoneMatch":"*","surface":"studio"}]'],
+  [OWD_PUBLIC_READ_WRITE, '["object","visit",{"name":"visit","label":"Visit","sharingModel":"public_read_write","fields":{"name":{"type":"text","label":"Name"}}},{"mode":"draft","packageId":"com.test.crmext","ifNoneMatch":"*","surface":"studio"}]'],
 ];
 
 describe('New object picks its record sharing with the shared Select (objectui#11865)', () => {

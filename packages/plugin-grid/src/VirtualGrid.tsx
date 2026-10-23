@@ -145,7 +145,14 @@ export const VirtualGrid: React.FC<VirtualGridProps> = ({
                     .map((col) => col.width || '1fr')
                     .join(' '),
                 }}
-                onClick={() => onRowClick?.(row, virtualRow.index)}
+                onClick={(e) => {
+                  // objectui#13188 — a drag that selected text in the row is
+                  // a copy gesture, not an open.
+                  const selection = window.getSelection();
+                  if (selection && !selection.isCollapsed && selection.toString().trim() !== ''
+                    && selection.rangeCount > 0 && selection.getRangeAt(0).intersectsNode(e.currentTarget)) return;
+                  onRowClick?.(row, virtualRow.index);
+                }}
               >
                 {columns.map((column, colIndex) => {
                   const value = row[column.accessorKey];

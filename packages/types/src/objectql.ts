@@ -676,8 +676,19 @@ export interface BulkActionDef {
    * dialog skips the params step and jumps straight to confirm.
    */
   params?: BulkActionParam[];
-  /** Confirmation text shown above the affected-record summary. */
-  confirmText?: string;
+  /**
+   * Confirmation text shown above the affected-record summary.
+   *
+   * Two arms, because the protocol is moving this slot to ADR-0032's
+   * `template` dialect (objectstack#24798, landed by objectstack#24947): there
+   * a bare string is shorthand for `{ dialect: 'template', source }`, and a
+   * parsed definition (what `os compile` serializes) carries the envelope. The
+   * installed spec still types the slot as a plain string, so both arms reach
+   * the renderer during the move. Read it through plugin-grid's
+   * `bulkConfirmTextSource`, never as a React child: the envelope arm is an
+   * object.
+   */
+  confirmText?: string | { dialect?: 'template'; source: string };
   /** Custom Confirm button label (default: "Run"). */
   confirmLabel?: string;
   /**
@@ -1688,6 +1699,32 @@ export interface ObjectFormSection {
    */
   visibleWhen?: string | { dialect?: string; source: string };
 
+  /**
+   * What a {@link visibleWhen} that cannot be evaluated (a parse error, an
+   * unbound field or root, an evaluation error) does to the section:
+   * `'hidden'` hides it whole, header and members; `'shown'` or absent draws
+   * it, which is the fail-open default every other predicate slot keeps.
+   *
+   * ⛔ Not an authoring key. It is a runtime hand-off that names the fault
+   * direction the predicate's ORIGIN declares, and only the field-group
+   * derivation writes it: `deriveFieldGroupSections` (`@object-ui/plugin-form`)
+   * stamps `'hidden'` beside the predicate it copies off an object's
+   * `fieldGroups` entry, because `@objectstack/spec` declares
+   * `ObjectFieldGroupSchema.visibleWhen` fail-closed ("else hidden
+   * (fail-closed)"). An authored form-view section's own `visibleWhen` is
+   * declared to fault OPEN (`FormSectionSchema.visibleWhen`), and on the form
+   * both predicates arrive in the same slot, so the direction has to travel
+   * with the predicate rather than be read off the slot (objectui#13055). The
+   * spec's strict `FormSectionSchema` refuses this key in authored metadata.
+   *
+   * Every layout that rebuilds a section key by key carries it next to
+   * `visibleWhen` (pinned by `sectionFaultCarry-13055` in
+   * `@object-ui/plugin-form`), down to the `section-divider` row
+   * ({@link FormField.visibleWhenFault}) or the tab
+   * ({@link FormFieldTab.visibleWhenFault}) the form renderer evaluates.
+   */
+  visibleWhenFault?: 'hidden' | 'shown';
+
   // `className` / `gridClassName` are deliberately NOT declared here
   // (objectui#7200 — the declared-but-inert remainder of objectstack#13626,
   // maintainer ruling 2026-09-01: "retire the reads … Declaring the keys was
@@ -2594,9 +2631,26 @@ export interface ObjectViewSchema extends BaseSchema {
   searchableFields?: string[];
   
   /**
-   * Fields available for the filter UI
+   * RETIRED (objectui#13118) — the Filter panel's per-view field whitelist.
+   * `@objectstack/spec` retires the list view's `filterableFields` in 18.0
+   * (objectstack#24640, maintainer ruling C), and no per-view whitelist
+   * replaces it: the Filter panel offers every field the user may read, minus
+   * the fields the object marks `hidden: true`. Nothing in objectui reads the
+   * key, on this node or on a named view.
+   *
+   * Typed BY REFERENCE to the list view's spec-derived slot, ⛔ not as a local
+   * `?: never` tombstone yet: the Zod twin is the spec's own slot by reference
+   * (`zod/objectql.zod.ts`), and this package's spec pin predates the
+   * retirement, so a local tombstone would make the two faces disagree on the
+   * `object-view` arm — the drift `node-recursion-point-8344.test.ts` refuses
+   * to ledger. Both faces read the same slot, so the pin bump that takes the
+   * retirement carries the spec's `retiredKey()` tombstone onto both at once,
+   * and the key is refused by name from then on.
+   *
+   * @deprecated RETIRED (objectui#13118) — delete the key. For a curated
+   * end-user filter bar, author `userFilters` on the named list view.
    */
-  filterableFields?: string[];
+  filterableFields?: ListViewSchema['filterableFields'];
   
   /**
    * Show search box
@@ -2936,8 +2990,14 @@ export interface NamedListView {
   /** Fields that support text search */
   searchableFields?: string[];
 
-  /** Fields available for filter UI */
-  filterableFields?: string[];
+  /**
+   * @deprecated RETIRED (objectui#13118) — `@objectstack/spec` retires it in
+   * 18.0 (objectstack#24640, ruling C), and no per-view Filter-panel whitelist
+   * replaces it: delete the key, and for a curated end-user filter bar author
+   * `userFilters`. The Filter panel offers every field the user may read,
+   * minus the fields the object marks `hidden: true`.
+   */
+  filterableFields?: never;
 
   /** Allow column resizing @default false */
   resizable?: boolean;
@@ -4219,7 +4279,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * (the spec's own `ObjectCalendarPropsSchema`) declares
    * `z.array(z.unknown()).optional()`, described *"Pre-fetched records — skips
    * the internal fetch"*.
-   * MEASURED on the installed artifact at `@objectstack/spec` 18.0.0-next.3 — the
+   * MEASURED on the installed artifact at `@objectstack/spec` 18.0.0 — the
    * version this repository's `pnpm-lock.yaml` resolves — through the published
    * `@objectstack/spec/ui` entry point: the provider block returns
    * `success=false` with `expected: 'array'` at `path: ['data']`, the array

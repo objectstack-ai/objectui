@@ -90,14 +90,45 @@ caller's own identity:
 }
 ```
 
-No row draws the block's no-record state, and `record:quick_actions` runs the
-object's declared actions against the bound row's id. The binding resolves as on
+No row draws the block's authored `emptyState` when it declares one, and its
+no-record state when it does not. `record:quick_actions` runs the object's
+declared actions against the bound row's id. The binding resolves as on
 every bound block (a named `view`, an AND-combined `filter`, its `sort`), and the
 row is re-read when a write to its object is announced. Declare `limit: 1`:
 `objectui validate` warns on a record block whose binding does not. See
 **Per-element data binding on a page** in the data-source guide
 (`content/docs/guide/data-source.md`). `record:related_list`'s `dataSource` is
 different: it binds the rows the list shows.
+
+`emptyState` is the spec's empty-state shape, the one `object-grid` takes:
+`{ title, message, icon, link }`. It goes in `properties`, beside the block's
+other keys:
+
+```json
+{
+  "type": "record:details",
+  "properties": {
+    "fields": ["region"],
+    "emptyState": {
+      "title": "No production environment",
+      "message": "Create one from the environments page.",
+      "icon": "server",
+      "link": { "label": "Open environments", "url": "/environments" }
+    }
+  },
+  "dataSource": { "object": "sys_environment", "limit": 1 }
+}
+```
+
+It is drawn in the block's place only when the binding's read settles with no
+row. A read the server refuses as forbidden counts as no row. It is not drawn
+while the read loads, in place of the error a failed read shows, when a row is
+there, or on a block with no `dataSource`. `icon` is a Lucide name. `title` and
+`message` are plain strings or inline locale maps, resolved against the display
+locale. `link` is followed as a `url` action. Leave `title` out and the heading
+reads "Record not found". Leave `emptyState` out and the block keeps its own
+no-record state: "Record not found" on `record:details`, nothing on
+`record:highlights`, and the empty bar on `record:quick_actions`.
 
 A related list's PARENT record has a binding of its own, `parentDataSource` in
 its `properties` (the spec row's member). It is read by the same one-record

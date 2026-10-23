@@ -269,8 +269,10 @@ describe('the chart picker offers only the datasets this object exposes (objectu
     await waitFor(() => expect(datasetLists.length).toBeGreaterThan(0));
     const card = screen.getByTestId('create-view-type-chart') as HTMLButtonElement;
     await waitFor(() => expect(card.disabled).toBe(true));
-    expect(card).toHaveAttribute('title', 'console.objectView.viewTypeUnavailableDataset');
-    expect(within(card).getByText('console.objectView.viewTypeUnavailableShort')).toBeTruthy();
+    // The reason is on the card and is its accessible description, not a
+    // `title` on a disabled button (objectui#13141).
+    expect(within(card).getByText('console.objectView.viewTypeUnavailableDataset')).toBeTruthy();
+    expect(card).toHaveAccessibleDescription('console.objectView.viewTypeUnavailableDataset');
   });
 
   it('fetches no catalog while the dialog is closed', async () => {

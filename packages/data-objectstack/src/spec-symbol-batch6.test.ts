@@ -249,8 +249,24 @@ describe('DroppedFieldsEvent IS the spec type, not a mirror of it', () => {
     // this is the exact four-member union again, with no `Exclude`: any new arm
     // is a remainder `Equal` refuses, and `_ReasonIsNotString` below still
     // refuses the widening.
+    //
+    // IT FIRED A THIRD TIME at objectstack-ai/objectstack#24778, which added
+    // `stored_expression` (a stored field whose declared `expression` the engine
+    // computes on every write, so the computed value is kept, not the caller's),
+    // again in the Spec Shape Gate before any pin moved (objectui#13309). So the
+    // objectui#11206 shape is back: the member list is stated with
+    // `stored_expression` subtracted. At the pin the `Exclude` is a no-op; on
+    // objectstack `main` it subtracts exactly the new arm, so any other new arm
+    // is a remainder `Equal` refuses, and `_ReasonIsNotString` below still
+    // refuses a widening to `string`. At the pin bump that carries
+    // `stored_expression`, drop the `Exclude` and make this the five-member
+    // union (`writeWarningToast.test.ts`'s objectui#13178 tripwire fails on that
+    // bump to say so).
     type _ReasonIsTheEnum = Assert<
-      Equal<DroppedFieldsEvent['reason'], 'readonly' | 'readonly_when' | 'primary_key' | 'computed'>
+      Equal<
+        Exclude<DroppedFieldsEvent['reason'], 'stored_expression'>,
+        'readonly' | 'readonly_when' | 'primary_key' | 'computed'
+      >
     >;
     type _ReasonIsNotString = Assert<Equal<Equal<DroppedFieldsEvent['reason'], string>, false>>;
 

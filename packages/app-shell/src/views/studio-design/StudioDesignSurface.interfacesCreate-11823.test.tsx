@@ -189,7 +189,7 @@ describe('the Interfaces pillar creates a dashboard and a report (objectui#11823
     const [[, name, body, options]] = savesOf('dashboard');
     expect(name).toBe('sales_overview');
     // objectui#11773 — a create is the first-write pin.
-    expect(options).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifNoneMatch: '*' });
+    expect(options).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifNoneMatch: '*', surface: 'studio' });
     expect(body).toEqual({ name: 'sales_overview', label: 'Sales overview', widgets: [] });
     const parsedDash = DashboardSchema.safeParse(body);
     expect(parsedDash.success, JSON.stringify(parsedDash.error?.issues)).toBe(true);
@@ -200,7 +200,7 @@ describe('the Interfaces pillar creates a dashboard and a report (objectui#11823
     expect(appName).toBe('acme_app');
     // objectui#11773 — the app had no pending draft when the pillar loaded it,
     // so the nav save that links the new item is the first-write pin too.
-    expect(appOptions).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifNoneMatch: '*' });
+    expect(appOptions).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifNoneMatch: '*', surface: 'studio' });
     expect(appBody.navigation).toEqual([
       ...NAV,
       { id: 'nav_sales_overview', type: 'dashboard', dashboardName: 'sales_overview' },
@@ -243,7 +243,7 @@ describe('the Interfaces pillar creates a dashboard and a report (objectui#11823
     const [[, name, body, options]] = savesOf('report');
     expect(name).toBe('revenue_by_region');
     // objectui#11773 — a create is the first-write pin.
-    expect(options).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifNoneMatch: '*' });
+    expect(options).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifNoneMatch: '*', surface: 'studio' });
     expect(body).toEqual({
       name: 'revenue_by_region',
       label: 'Revenue by region',

@@ -3,17 +3,23 @@
 /**
  * PositionPreview — read-only summary of a Position draft (ADR-0090 D3).
  *
- * The Position schema is intentionally minimal — name / label /
- * description — and deliberately FLAT: no parent, no hierarchy. The
- * visibility hierarchy lives on the business-unit tree, not here, so the
- * preview's job is to put those fields into the mental model an operator
+ * The Position schema is deliberately FLAT: no parent, no hierarchy. The
+ * visibility hierarchy lives on the business-unit tree, not here. What a
+ * position does carry, besides name / label / description, is
+ * `permissionSets` (ADR-0131 D4): the permission sets it distributes, by
+ * name. The preview puts those fields into the mental model an operator
  * carries:
  *
  *   • Header card with label and machine name.
  *   • Description block.
- *   • A "permissions are managed separately" note pointing the user to
- *     Permission Sets that grant CRUD-VAMA — this is the most common
- *     confusion when first authoring a position.
+ *   • A permissions callout. When the draft declares `permissionSets`, it
+ *     lists them by machine name in declared order — that is where the
+ *     position's access comes from. When it declares none, it says the
+ *     position grants nothing on its own and points the user to Permission
+ *     Sets — the most common confusion when first authoring a position.
+ *
+ * The preview reads the draft only: set names are shown as written, with no
+ * fetch for their labels.
  */
 
 import * as React from 'react';
@@ -28,6 +34,11 @@ export function PositionPreview({ name, draft, locale }: MetadataPreviewProps) {
   const positionName = String(d.name ?? name ?? '');
   const label = String(d.label ?? positionName);
   const description = (d.description as string | undefined) ?? '';
+  // ADR-0131 D4 — the sets this position distributes, by name. Anything that
+  // is not an array declares none.
+  const permissionSets = Array.isArray(d.permissionSets)
+    ? d.permissionSets.filter((s): s is string => typeof s === 'string')
+    : [];
 
   if (!positionName) {
     return (
@@ -61,15 +72,33 @@ export function PositionPreview({ name, draft, locale }: MetadataPreviewProps) {
           <div className="rounded border border-blue-200 bg-blue-50 p-2.5 text-[11px] text-blue-900">
             <div className="flex items-start gap-1.5">
               <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              <div>
-                <div className="font-medium">{tr('engine.positionPreview.noAccess', locale)}</div>
-                <div className="opacity-90 mt-0.5">
-                  {withNodes(tr('engine.positionPreview.bind', locale), {
-                    name: <code className="font-mono">{positionName}</code>,
-                    permissionSets: <strong>{tr('engine.positionPreview.permissionSets', locale)}</strong>,
-                  })}
+              {permissionSets.length > 0 ? (
+                <div>
+                  <div className="font-medium">
+                    {withNodes(tr('engine.positionPreview.grantsVia', locale), {
+                      permissionSets: <strong>{tr('engine.positionPreview.permissionSets', locale)}</strong>,
+                    })}
+                  </div>
+                  <ul className="mt-0.5 space-y-0.5">
+                    {permissionSets.map((set, i) => (
+                      <li key={`${i}:${set}`}>
+                        <code className="font-mono">{set}</code>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="opacity-90 mt-0.5">{tr('engine.positionPreview.visibility', locale)}</div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <div className="font-medium">{tr('engine.positionPreview.noAccess', locale)}</div>
+                  <div className="opacity-90 mt-0.5">
+                    {withNodes(tr('engine.positionPreview.bind', locale), {
+                      name: <code className="font-mono">{positionName}</code>,
+                      permissionSets: <strong>{tr('engine.positionPreview.permissionSets', locale)}</strong>,
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,5 +1,1001 @@
 # @object-ui/plugin-grid
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- fd060f0: The `object-grid` and `view:grid` registrations no longer declare `objectName`
+  required, so the page compile accepts a node whose `dataSource` binding names the
+  object (objectui#11605).
+  
+  `@objectstack/spec`'s `object-grid` row leaves `objectName` optional, because the
+  node's `dataSource` binding can supply it, and the renderer agrees:
+  `dataSource.object` lands on `objectName` before the grid reads the node. The
+  registration still declared `required: true`, and the page compile reads the
+  registration, so a bound node with no `objectName` of its own was refused with
+  `missing-required-prop` and the save failed.
+  
+  **Clause-②: yes (widening)** — an `object-grid` (or `view:grid`) node that names
+  its object through `dataSource.object` and sets no `objectName` now compiles and
+  saves. A node that names its object in neither place also compiles now; the grid
+  answers it at runtime with its own "Object name required for data fetching"
+  error, as it did before when such a node reached it. The published `objectName`
+  input now carries a description that says the binding can supply it.
+- 22b503c: Read-only boolean values, the boolean list face and the Home greeting's punctuation follow the language (objectui#11689).
+  
+  Under zh-CN a record showed its boolean values as "Yes" / "No", and the Home greeting joined a Chinese greeting to the person's name with an ASCII comma and closed it with an ASCII period.
+  
+  - **Booleans.** The read-only surfaces that draw a boolean as a word now read the existing `common.yes` / `common.no` keys: `BooleanField`'s readonly display, a `FormulaField` whose `returnType` is `boolean`, the lookup column's plain-text fallback, and the record-detail highlights chip. zh-CN shows the Chinese words; English is unchanged. Without an `I18nProvider` the words stay "Yes" / "No".
+  - **The boolean list face.** `BooleanCellRenderer`, which every list surface draws, spelled its status badge ("Active — Off") and its completion indicator's accessible names ("Completed" / "Not completed") in English. All three now come from the language packs. The grid also handed that face the authored field label while its header printed the translated one, so the badge named the column in the authored language under a translated header. The face now receives the label the header prints.
+  - **Greeting.** The comma before the name and the closing mark are two new keys, so zh-CN reads the full-width comma and full stop, Japanese its own marks and Arabic its own comma. English is unchanged, and the name keeps its own colour.
+  
+  **Widened public surface.**
+  
+  - `@object-ui/i18n`: five new keys in all ten language packs, so the exported `en` pack and the `TranslationKeys` type derived from it gain `home.greetingSeparator`, `home.greetingEnd`, `fields.boolean.offBadge`, `fields.boolean.completed` and `fields.boolean.notCompleted`.
+  - `@object-ui/fields`: a new export, `useBooleanValueLabel()`, with its type `BooleanValueLabel`. It returns the current language's word for a boolean value, and `@object-ui/plugin-detail`'s highlights chip reads it.
+- f34e877: A done row's past deadline no longer reads overdue in the grid (objectui#11815). Every column shape — object columns, name columns, inline-row fields and the object's default columns — now carries the field's `dueLike` and `settledWhen`, and each cell is told whether its row's deadline is settled. Before, three of the four column shapes dropped `dueLike`, so a declared deadline only read overdue when its name happened to look like one. When the grid fetches its own rows, it also asks for the fields a shown deadline's `settledWhen` reads, so a grid showing only Title and Due Date still judges each row correctly.
+- fbad078: The Import Wizard's preview checks a `time` column, and the user import's email column, the way the server's import judges them, so the import button no longer counts rows the server then refuses (objectui#11913).
+  
+  - **A `time` column is checked.** A cell is marked where the server's `parseDateCell` reads no time of day from it and the import refuses it with `invalid_time`. The server takes a wall clock (`10:00`, `09:30:15`), an ISO 8601 day or date-time (stored as its UTC time of day) and a year-first date. It refuses `25:00`, `abc`, `10:00Z` and `9am`, and the preview now marks them with the sentence `"{{value}}" is not a valid time` (in English). An `invalid_time` row error from the server's dry run (Validate data) is shown with the same sentence.
+  - **The user import's email column is checked by the user import endpoint's rule.** That endpoint refuses an address that is not printable ASCII, is longer than 254 characters, or sits on the placeholder domain, with `INVALID_EMAIL`. The column used to reach the wizard typed as text, so the preview checked nothing there. It is now typed `email` and checked by that rule instead of the record validator's. The two rules differ both ways: the record rule takes a non-ASCII domain such as `735431496@柴仟.com`, and the endpoint's rule takes `a@b..c`.
+  
+  Additions to the published surface:
+  
+  - `@object-ui/plugin-grid`: `ImportWizardProps['fields'][number]` gains an optional `emailRule?: 'identity'`. Left out, an `email` column is checked by the record validator's rule, as before. Set to `'identity'`, it is checked by the user import endpoint's rule.
+  - `@object-ui/i18n`: every language pack gains `grid.import.invalidTime`, with a `{{value}}` placeholder.
+- c5406c2: Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
+  
+  Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18 (raised to `^18.0.0-next.1` by objectui#12370 before release).
+  
+  **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.1` (objectui#12370), at the same time as it takes this release.
+  
+  **objectui's own surface moves with it:**
+  
+  - `element:record_picker`'s registration stops publishing the `object`, `filter`, `sort` and `limit` inputs, which spec 18 retires; a JSX page that writes one now gets `unknown-prop`.
+  - The `CapabilityMultiSelectField` widget's curated capability set (`@object-ui/fields`) follows spec 18: `manage_mailboxes` in, `manage_org_presentation` out.
+  - `element:number` and `element:repeater` nodes that bind no object are accepted, as spec 18's row and `PageComponentSchema` accept them; the two `ELEMENT_*_OBJECT_REQUIRED` refusals are gone.
+  
+  **Retired with the spec:** `@objectstack/spec` 18 tombstones `object-grid`'s `defaultFilters` and refuses it by name, and `ObjectGrid` and `ObjectView` stop reading it (`table.defaultFilters` on an `object-view` included). A view that still carries it renders unfiltered: rename the key to `filter`, whose value is the same rule array.
+- b434f5f: An empty list draws its declared link, and a list page's own empty state wins over its source view's (objectui#12270).
+  
+  `@objectstack/spec` 18 gives the empty state (`EmptyStateSchema`) one optional `link: { label, url }`, and a list page's `interfaceConfig` an `emptyState` of its own with that shape. Both parsed and neither was drawn:
+  
+  - a list view's empty state (`ListView`, on its `grid` and `gallery` visualizations) and the `object-grid` block's authored empty state now draw the link, beside the add-record action where the view offers one;
+  - a list page's own `interfaceConfig.emptyState` now wins, whole, over the one its source view declares, on every visualization; the source view's is the fallback when the page declares none.
+  
+  The link is followed as a `type: 'url'` action through the action runner, so it opens what such an action opens: an in-app path in place, an `http(s)://` address as the runner opens an external target, and `mailto:` in place. The runner refuses anything else at the click and reports it. The link's `label` takes a string or an inline locale map.
+  
+  `@object-ui/components` exports `EmptyStateLink`, the one component every empty state draws the link with.
+  
+  **Clause-②: yes (widening)** — the renderers start honouring two keys the spec declares (`emptyState.link`, `interfaceConfig.emptyState`), so what they draw widens. No existing key changes.
+- ff9df88: Depend on `@objectstack/*` `18.0.0-next.1` (objectui#12370).
+  
+  Every `@objectstack/*` range these packages declare moves from `^18.0.0-next.0` to `^18.0.0-next.1`; the console and the runner bundle `18.0.0-next.1`. A consumer moves its own `@objectstack/*` packages to `18.0.0-next.1` with this release.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates page action rows and view data bindings through the spec's own rows, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.1` refuses. Each was accepted on `18.0.0-next.0`:
+  
+  - `onSuccess` on an `action:button` / `action:icon` row, or an `action:group` / `action:menu` member, whose executor is the `url`, `navigation`, `modal`, `flow` or `form` built-in, or that has no executor at all. Write the hop on an `api` or `script` action (or a host handler name), or drop it.
+  - `onSuccess` beside `operation: 'update'`, and an `onSuccess` block carrying a key outside `{ navigate, openIn }`.
+  - `actionType: 'navigation'` on a row (and `type: 'navigation'` on a container member): write `'url'`.
+  - A `url` executor's `target` that is not openable, judged on the executor the runner runs, including a row whose `name` selects it.
+  - A view `data` binding with `provider: 'api'`: bind the object or static rows; an API call is the page element's binding.
+- a2225f9: The console list page spends less of the screen on chrome (objectui#12423).
+  
+  - **Four controls on the list toolbar.** The bar now shows Filter, Sort, Display and Search. Display is the former "View settings" panel, opened by default on every list: a Layout row (the visualization switcher, when the list offers more than one), Group, Row color, Hide fields, Density, a Row numbers switch and an Edit inline switch, with Reset to view default, Refresh and Export in its footer. The Display button shows how many of these differ from the view's own settings, and Reset hands them all back. Each control still saves exactly what it saved before; Row numbers lasts for the session only and starts on. A view that sets `compactToolbar: false` keeps the old toolbar, one button per control.
+  - **View tabs fit the width.** The view tab strip shows as many saved views as fit and folds the rest into the "N more" menu; `maxVisibleTabs` is now an optional cap on top of the width. A table view's tab is its name alone, other view types keep their icon, and the small filter, sort and default-view marks on tabs are gone. The current tab's menu still offers every action, and "Set as default" now shows which view is the default.
+  - **Grid rows.** With selection on, the first cell of a row shows the row number and swaps to the checkbox on hover, on keyboard focus, on touch screens and on every row while any row is selected; the header keeps its select-all box. With row numbers off the cell is empty until hover. The row actions button appears on hover, on focus and on a selected row, and stays reachable by keyboard.
+  - **One-row page header.** On desktop the list page header is a single row: icon, title, then the description, with the actions on the right. The favorite star is no longer in this header. Phones are unchanged.
+  
+  For integrators: `ObjectGrid` takes a `showRowNumbers` prop (on unless set to `false`); the `ViewTabBar` config's `showIndicators` is deprecated and draws nothing; the language packs gain `list.display`, `list.layout`, `list.rowNumbers` and `list.resetToViewDefault`, and drop `list.viewSettings`, `list.viewSettingsHint` and `list.recordEditingTitle`.
+- 646caea: The object list's chrome sits on fewer rows (objectui#12528).
+  
+  - **The view description no longer takes a row above the toolbar**, so the toolbar sits at one height with or without one. The console's view tab strip draws it on the active tab: as the tab's tooltip and as the header of its ▾ menu. `ViewTabItem` gains an optional `description` (already resolved, already gated on `appearance.showDescription`; `false` still shows it nowhere). A `ListView` with no host tab strip (the console below `sm`, any other host) draws it as an info control at the start of its toolbar row.
+  - **The sort popover's standing note about linked columns is an info control** beside the popover's title, the note as its tooltip, instead of a paragraph that took about half the popover on every open. One line (`list.sortRelationalPicked`, in every locale pack) says that a linked column sorts by the stored ID, only while the current sort names one.
+  - **One footer row on an aggregated list.** `ObjectGrid` gains an `onColumnSummaryChange` host prop: when it is passed the grid draws no summary row of its own and reports, in column order, what that row would draw. `ListView` passes it and draws the summaries at the right of its record-count row, truncated with the full text as their tooltip.
+  
+  **Clause-②: yes (widening).** Two optional members widen published types: `ViewTabItem.description` in `@object-ui/plugin-view` and `ObjectGridComponentProps.onColumnSummaryChange` in `@object-ui/plugin-grid`. Both are host props on React components, never authored metadata.
+- f78efdd: List grids show the record a pointer field names, and the Approvals Inbox says who else is waiting (objectui#12608).
+  
+  - **Record names in place of record ids.** A `text` field that declares `referenceVia` holds the id of a record whose object the sibling column names on the same row, as `record_id` does on Approval Requests (`referenceVia: 'object_name'`) or `source_id` on activities. In a list grid such a column now shows the target object's icon and the record's name, linking to the record. The record id moves to the tooltip. The grid reads the records of one page with one request per target object, not one per row.
+  - **Unavailable records say so.** When the record cannot be read (deleted, or outside what the viewer may read), the cell shows the object's label followed by "record unavailable", with the id in the tooltip, instead of the bare id.
+  - **The empty Approvals Inbox names who else is waiting.** When nothing is waiting on the viewer but other requests are pending, the empty state adds one muted line: "N requests are waiting on other approvers · Browse all requests". The number comes from one count request and counts only requests the viewer can see; when it cannot be read, the line is not shown.
+  
+  New language-pack keys, in every shipped language: `grid.recordUnavailable` and the `approvalsInbox.waitingOnOthers` plural family.
+- 278bc29: A list names what an `object-ref` or `recipient-picker` field references, instead of printing its api name (objectui#12613). The Sharing Rules list read `crm_account` and `sales_manager` where the edit form reads "Account" and "Sales Manager".
+  
+  - **The declared `widget` picks the read cell (`@object-ui/fields`).** `resolveCellRendererType` now promotes a textual field declaring `widget: 'object-ref'` or `widget: 'recipient-picker'` to a cell key of that name, the same second step a `format` hint takes. Both keys are registered with the stored text as their default face, as `RECORD_POINTER_CARD_TYPE` is. A widget with no read cell of its own (`filter-condition`, `position-ref`, …) still draws as its `type`, and nothing is keyed on an object or field name.
+  - **`CellRendererProps` gains one optional member, `dependentValues`**: the row's values, the cell-side counterpart of the edit widget's `dependentValues`. `ObjectGrid` (`@object-ui/plugin-grid`) passes the row, and the widget hint, on every column path. A call site that passes nothing draws the stored text exactly as before.
+  - **The edit widgets' kind table and spellings are published** so a host face names a value as the widgets do: `RECIPIENT_RECORD_KINDS`, `RECIPIENT_REGISTRY_KINDS`, `FIELD_RECIPIENT_TYPE`, `recipientCandidateLabel` and `objectRefOptionLabel`, plus the shared `UnresolvedReferenceMark` drawing. `ObjectRefField` and `RecipientPickerField` read through them and list and store exactly what they did.
+  - **The console's faces (`@object-ui/app-shell`)** register under the two keys and load lazily, on the first cell that draws one, so a page without such a column pays nothing on load. `object-ref` draws the object's icon and label from the console's metadata store (the same object list the picker offers), the label translated through the app bundle like every other object label, with the picker's `Label (name)` spelling as its tooltip. `recipient-picker` draws the label of the user, team, business unit, position or user column the stored value names: record recipients by their exact id, one `$in` query per kind for the whole page, with the fields the viewer may not read left out of the label; positions from the metadata store; the `field` kind from the shared object's schema.
+  - **A value nothing names** (a deleted record, a renamed object, a read the viewer is refused) draws as the raw stored value, muted, with the shared unresolved-reference mark. It is never blank.
+  
+  Stored values do not change.
+- 3e2c763: The import wizard offers only the write modes its host says the target accepts (objectui#12697).
+  
+  `ImportWizardProps` gains one optional prop, `writeModes`: the write modes the target's import door accepts, in the order the wizard offers them. Left out, the wizard offers all three (`insert`, `update`, `upsert`), as before.
+  
+  - **The write-mode select lists only those modes.** The wizard starts in `insert` when it is offered, and otherwise in the first offered mode. Resetting the wizard or clearing a saved mapping returns to that same mode.
+  - **A saved mapping that writes in a mode the target does not accept cannot be picked.** The saved-mapping selector lists it disabled, with its write mode named after its label, for example "Roster update (Update existing (skip if no match))". The wizard never applies such a mapping and never swaps its mode for another one.
+  - **An empty `writeModes` throws** when the wizard renders. A host that offers no mode has made an error, so the wizard does not show an empty select.
+  
+  Clause-②: yes. One optional prop, `writeModes`, is added to the exported `ImportWizardProps`. Nothing narrows: every existing prop, type and accepted value is unchanged, and a host that leaves the prop out sees the same three modes it saw before. No language-pack key is added. The disabled mapping reuses the existing write-mode labels.
+- 4839f5c: Lists at narrow widths: a status chip is never cut to "Publish…", a table wider than its panel shows that it scrolls, and the Actions column is drawn only when a row offers an action.
+  
+  - **Chip columns.** A `data-table` column flagged `chips: true` (a new optional `TableColumn` member) is never narrower than its widest drawn chip among the rows on screen, measured once per data load. The floor applies over a declared width and a user's resize; text columns keep their width and truncate first. `ObjectGrid` sets the flag on `select`, `status`, `multiselect`, `radio`, `checkboxes` and `tags` columns.
+  - **Wide tables show they scroll.** One shared affordance, exported from `@object-ui/components` as `HorizontalOverflowBox`, its props type `HorizontalOverflowBoxProps` and `PINNED_RIGHT_SEAM_SHADOW_CLASSES`: a right-edge shadow while columns remain to the right, and the scrollbar on hover. `data-table`'s own scroll box uses it, as do the grouped grid's scroller (where the shadow sits at the pinned Actions column's edge; it had none) and the Approvals Inbox table (it had none).
+  - **Actions column.** `ObjectGrid` draws the Actions column only when at least one row on screen offers an inline button or a menu item, after the actions' capability gates, per-record predicates and record-level permission verdicts. A list whose rows offer nothing no longer shows an empty "Actions" header.
+- d73d987: feat(types)!: retire `object-grid`'s `resizableColumns` on both faces, and stop `ObjectGrid` reading it (objectui#6152, round 7)
+  
+  **Retired (breaking).** `resizableColumns` was the legacy second spelling of `resizable` on
+  `object-grid`, read only when `resizable` was absent. `@objectstack/spec` 17.7.0 retired it in the
+  `object-grid` row (objectstack#21445), so an authored document that writes it, flat on the node or
+  inside its `properties` bag, was already refused by name before this change. This change retires
+  the rest of it, with no alias window:
+  
+  - `@object-ui/types`: `ObjectGridSchema.resizableColumns` is now `?: never`, so writing it on a
+    typed literal is a `tsc` error. The flat zod `ObjectGridSchema` in `@object-ui/types/zod` (the
+    node as `ObjectGrid` reads it after the `properties` hoist, or as code composes it) refuses the
+    key by name at the key, where `.passthrough()` used to keep it unexamined. The refusal names
+    `properties.resizable`.
+  - `@object-ui/plugin-grid`: `ObjectGrid` reads `resizable` alone. A node that still carries
+    `resizableColumns` (one composed in code, past the type) now gets the default, resizable
+    columns, as if it had written nothing: `resizableColumns: false` no longer turns the column
+    resize handles off. The `object-grid` registration's `resizable` input no longer describes the
+    old spelling as a fallback.
+  
+  Rename the key to `resizable`; on an authored node, that is `properties.resizable`.
+  
+  An `object-view`'s `table.resizableColumns` is unchanged: the slot already refused it by name.
+- c0c0a0d: The per-group aggregation type that `useGroupedData` takes is declared and exported as `GroupAggregationConfig` instead of `AggregationConfig` (objectui#6349, batch 7). `@object-ui/types` publishes a different `AggregationConfig`: the query-AST aggregation `DriverQueryConfig.aggregations` carries (`function`, `alias`, `distinct`, `separator`). The two shared only `field`, so one exported name stood for two contracts across the two packages.
+  
+  **Type change, breaking for some consumers.** `AggregationConfig` is no longer exported from `@object-ui/plugin-grid`. Replace `import type { AggregationConfig } from '@object-ui/plugin-grid'` with `GroupAggregationConfig`; the members (`field`, `type`) are unchanged. The compiler names the replacement (TS2724, "Did you mean 'GroupAggregationConfig'?"). `AggregationType` and `AggregationResult` keep their names. The README's export list now names `GroupAggregationConfig`.
+  
+  No runtime behaviour changes.
+
+### Patch Changes
+
+- d768c31: The `object-grid` summary footer reads `currency`, `defaultCurrency`,
+  `precision` and `scale` from the object field only. A column that carries one
+  of these keys no longer changes the footer (objectui#11588).
+  
+  `ListColumnSchema` (`@objectstack/spec/ui`) is a strict object, and it declares
+  none of the four keys. A view that authors one on a column is refused at publish
+  with `unrecognized_keys`. `useColumnSummary` read them anyway, and the column's
+  value won over the field's, so a column `currency` re-coded the total and a
+  column `scale` re-sized it. That read is retired rather than declared upstream,
+  and the footer now takes these hints the way it already took `currencyConfig`
+  and `max`, and the way the list cell above it reads them. The census behind the
+  ruling found no view that writes one of these keys on a grid column.
+  
+  **Behaviour change.** A grid handed a column that carries `currency`,
+  `defaultCurrency`, `precision` or `scale` (which validation refuses) now formats
+  its footer from the object field's definition, falling back to the tenant
+  currency as before. A column's declared `type` still decides the footer's unit,
+  and a grid whose columns carry none of the four keys is unchanged. The exported
+  `useColumnSummary` signature does not change. Its `fieldMetadata` argument is
+  where these hints go.
+- 846f982: Cancelling a background import shows the rows the server already committed, with Undo (objectui#11650). `ImportWizard`'s Cancel used to show "Import cancelled · 0 imported" without reading the job back, while the job it had just cancelled read `cancelled` with the rows its worker had written. Users took the zero at its word and imported the file again.
+  
+  After the cancel answers, the wizard now reads the job (`getImportJobProgress`, the `GET /api/v1/data/import/jobs/:id` read). It keeps reading until the outcome is final, at most ten reads, one per poll interval. The result then shows the job's created and updated counts. When the job can be undone, it also shows an **Undo import** button. That button runs the same confirm-and-undo action as the History list and then reads "Undone". A `cancelled` read counts as final once it is undoable, or once it repeats the previous `cancelled` read's counts. The server marks the job `cancelled` before its worker stops writing, so the first read after a cancel can still be short. The poll loop applies the same rule to a job cancelled from elsewhere, and both paths build the result the same way.
+  
+  **Behaviour change for hosts.** `onComplete` now fires once after a user cancel that reads the job back, with the cancelled result (`cancelled: true` and the committed counts). Before, it fired only when the poll loop itself saw a job end `cancelled`. In the console this refreshes the list, so the committed rows show up, and it raises the usual import toast. If no read settles within the bound, the result still says "Import cancelled", but it shows no count, because the wizard never read one. `onComplete` does not fire in that case, as before. The poll loop and the cancel handler can no longer both publish a result for the same run.
+  
+  **Undo refreshes the list it changed.** A successful Undo, from the History list or from the cancelled result, now calls `notifyDataChanged` for the imported object. That is the data-invalidation bus from `@object-ui/react`, so a mounted list of that object refetches in place. Before, the list kept showing the rows the Undo had just deleted until something else refreshed it. A failed Undo announces nothing.
+  
+  **Clause-②: no.** No export, prop, type member or i18n key is added or removed. The new copy reuses the existing `grid.import.importCancelled`, `grid.import.createdCount`, `grid.import.updatedCount`, `grid.import.undoImport`, `grid.import.undoing`, `grid.import.undoConfirm` and `grid.import.reverted` strings.
+- 8aebc6f: A grid grouped by a select field, and a dashboard chart over a select dimension, now list the field's values in the order the field declares its options, not in alphabetical order (objectui#11809).
+  
+  Grouped by a task's Status, a grid read Backlog, Done, In Progress, In Review, To Do. A dataset chart drew its bars in the same order, and a donut over Priority listed its legend as High, Low, Medium, Urgent. The field declares Backlog → To Do → In Progress → In Review → Done and Low → Medium → High → Urgent, and the Kanban board over the same field already draws its lanes in that order.
+  
+  - **Grid grouping.** When the grouping field has options, the groups follow the declared order, and `order: 'desc'` reverses it. A stored value that no option declares comes after the declared ones, sorted by label, and the empty group comes last, in both directions. A grouping field with no options keeps label order, as before. This holds whether the grid groups the rows itself or the server answers the groups.
+  - **Dataset charts.** A dashboard dataset widget charts the first dimension's values in its declared order on the category axis, and on a pie or donut in the slices and the legend. A value no option declares comes after the declared ones, in the order the dataset returned it, and the empty bucket comes last. When a chart splits one measure by a second select dimension, its series and legend follow that dimension's declared order. An explicit `options.sortBy` on the widget is the author's order and is left as the dataset returned it. Clicking a bar still opens that bar's records. Tables and pivot tables keep the dataset's row order.
+  
+  Nothing is added to either package's entry: no export, prop, type member or language-pack key. The published `useGroupedData` hook keeps its signature, and with no option order to read it keeps label order.
+- bfca7ec: Import no longer infers a text column as Date because its values end in a number (objectui#11813). The mapping step labelled a column of `Imported QA task 1`, `Imported QA task 2` as Date and showed "Looks like Date" under a text field. The column type check trusted `Date.parse`, and the browser's parser reads `Phase 2`, `Building 7` and `Room 12` as dates in 2001, and `Marketing 2026` as March 2026.
+  
+  A value now infers as a date only when it has a date shape first, and `Date.parse` then confirms it. The shapes are numeric dates with the year first or last (`2026-10-07`, `2026/10/07`, `10/07/2026`, `7.10.2026`, `10/7/26`), ISO-8601 date-times and year-months, and English month-name dates whose other words are weekdays or time markers (`Oct 7, 2026`, `7 October 2026`, `Wed, 07 Oct 2026 12:00:00 GMT`). Whether `07/10/2026` is read day-first or month-first is unchanged.
+  
+  Behaviour change: a month name in another language is not read as a date. Before, the parser accepted some by their first three letters (`7 octobre 2026`, `7 Januar 2026`) and not others (`7 juin 2026`, `7 März 2026`); such a column now infers as text, like the ones it never read.
+  
+  The inferred type feeds the mapping hint and the score of a fuzzy name match (contains, token or synonym), which an incompatible type halves. So such a column could also lose its suggested text field: `Task title` was not mapped onto a `Title` text field. No value is converted differently, and `inferColumnType` keeps its signature.
+- 5e446ab: Import wizard preview: an unknown picklist value is marked like a bad number, the preview's findings and the server's dry-run findings read as one list per row, and the import button counts only the rows nothing was found on (objectui#11814).
+  
+  - **Picklist values are checked in the preview.** A `select`, `radio`, `multiselect`, `checkboxes` or `tags` cell is checked against the field's options the way the server's import does: an option value matches exactly, an option label matches ignoring case, and a multi-option cell is split on `,` `;` `、` and newlines. A field with no options takes anything. *Keep unknown option values* does not spare a writable field, because the server still refuses the value when it writes the row. It spares a match-only field, which the server checks for shape only.
+  - **One findings list.** Each row with a finding is listed once, with every finding on it: the preview's own, and, after *Validate data*, the server's. A server finding on a field the preview already flagged in that row is not listed twice. A server finding also marks its cell in the preview.
+  - **The import button counts importable rows.** "Import 2 Rows" with one row known to fail now reads "Import 1 Row". The "rows with errors" note counts every row of the file, not only the ten previewed.
+  - **The preview no longer marks what the server takes.** A formatted number (`1,234`, `$12`, `25%`, `(1,234)`) is read the way the server reads it. `0x10`, `Infinity` and `12.` are now marked, as the server refuses them. A whitespace-only cell is blank. A required field's blank cell is marked only when the import creates records. Columns a named server mapping transforms are not checked.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. Every message reuses an existing `grid.import.*` string.
+- 0aa8c0c: A grid's link cell (the first column, or a column authored `link: true`) no longer draws an anchor inside its anchor to the record (objectui#11817).
+  
+  The Invitations list in Setup, whose first column is the invitee's email, nested the email's `mailto:` link and its copy button inside the row's record link: an anchor inside an anchor, which React reports as invalid HTML.
+  
+  Inside a link cell, an email, URL, phone number or file (`file`, `video`, `audio`) is now drawn as its text, so the cell is one link to the record; a reference (`lookup`, `master_detail`, `tree`) is drawn as its name rather than as a second link to the referenced record. Every other column keeps its own links, copy buttons and download links as before.
+- 2063f7a: Four plugin controls pick with the shared `Select`, the control the rest of the console picks with (objectui#11865, the plugins' single selects): `SharedViewLink`'s "Expires after", `ViewSettingsPopover`'s "Color by field", a `select` field of the kanban `InlineQuickAdd` form, and the grouped grid's "Rows per page".
+  
+  The four were browser-native selects, so they looked and behaved differently from the console's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour. The grouped grid's size picker is now drawn as the flat grid's pager draws its own.
+  
+  What they write is unchanged. Each option gives the same value as before: "Never" still generates a link with no expiry, "None" still clears the row-colour config, the quick-add placeholder still submits an empty string, and each page size still repaginates from page 1. Re-picking the current option writes nothing. The quick-add picker keeps the accessible name its label gave the native select and still takes the form's first focus. Its keys keep the form's contract: Enter on the closed picker still submits the form and Escape still cancels it; Space and the arrow keys open the list, and Enter or Escape inside the open list selects or closes it without submitting or cancelling the form.
+  
+  One display change: a value none of a picker's options carries now shows as itself. The native select showed its first option instead ("None" for a row-colour field, the placeholder for a quick-add value), which is not what the view or the form holds.
+  
+  **Clause-②: no.** No published face moves: the package entries export the same names, the four components take the same props, and no i18n key is added. What moves is the four controls' own markup, described above.
+- 9fc6ad7: The Import Wizard preview marks a cell exactly where the server's import refuses it on dates, on rating, slider, progress and toggle columns, and on email columns, so the import button counts the rows the import will write (objectui#11889, after objectui#11814).
+  
+  - **Dates.** A `date` or `datetime` cell is read the way the server reads it: an ISO 8601 day or date-time, the export's `YYYY-MM-DD HH:mm:ss`, or a year-first date such as `2026/7/15`, on a day that exists and in a supported year. `07/15/2026`, `July 15, 2026` and `1/2/26` are now marked "is not a valid date", as the server refuses them. Before, any text the browser's date parser read was taken.
+  - **Rating, slider, progress and toggle.** The preview now checks the types the server coerces as numbers and as true/false values, read from `@objectstack/spec`'s `NUMERIC_VALUE_TYPES` and `BOOLEAN_VALUE_TYPES`. So `abc` in a progress column and `maybe` in a toggle column are marked, and `3` and `yes` are taken.
+  - **Email.** An email cell is checked by the server's record rule, which takes an address with a non-ASCII domain such as `735431496@柴仟.com`. The preview no longer marks it, and still marks an address like `a@b`.
+  
+  Nothing is added to the package entry: no export, prop or accepted input changes, and the sentences are the existing ones.
+- 3f20d5a: **Import Wizard preview: with *Keep unknown option values* ticked, an unknown option value on a writable field is no longer marked** (objectui#11970). The server now keeps such a value on every writable field: its import coercion keeps it, and the engine's option check admits exactly the values that import kept, on that import's writes, dry run included (objectstack#22183, in the installed `@objectstack/*` release). The preview used to spare only match-only fields, so it marked a row the server imports, and the import button's row count left that row out.
+  
+  - **What changes.** With the box ticked, the preview takes every unknown `select` / `radio` / `multiselect` value, on a writable field and a match-only one alike, and the row counts on the import button.
+  - **What does not change.** With the box unticked, an unknown option value is marked as before, on every field. A bad cell of any other type is still marked with the box ticked. The field's options are not changed by the import.
+- 69bca0a: A paged grid's column footer reads the whole matched set, or says it reads the page (objectui#12081 item 3).
+  
+  Under server paging a grid holds one page of the matched set, and the footer summed that page and drew the figure beside the count of the whole set: "Planned Amount: Sum: 3,685,900.00 · 300 records", where the 300 rows sum to 40,607,000. Every footer aggregate had the same fault (`count`, `avg`, `min`, `max`, the filled, empty and unique counts, and the two percents).
+  
+  - **The whole set's figures, from the server.** When the rows are one page of more, the grid asks for the figures in ONE aggregate query through the data source's `queryGroupHeaders`, with no `groupBy`. The query is the one behind the rows: its filter, search and search fields, without its page, sort or projection. Turning the page or sorting asks nothing. A refresh or a write to the object asks again. These figures are the server's, so "empty" means a stored `null`. This holds both when the grid fetches its own rows and when a host such as `ListView` hands it one page with `manualPagination`, `rowCount` and `findParams`.
+  - **Otherwise, the page's figure, labelled as the page's.** The grid uses the answer only when its row count equals the count the grid shows. Otherwise the footer shows the page's figure as `Sum (this page): 32,500`. That happens when the data source has no `queryGroupHeaders`, refuses the query or answers without one row, when the query carries a key this read cannot repeat, and when the count shown is an estimate. The platform's paged count under a search is one.
+  - **Unchanged:** rows handed in whole, and a grid whose one page holds every match, keep the footer they had and ask the server nothing. A grid whose columns declare no summary that maps to an aggregate (none at all, only `none`, or only unknown members) asks nothing either: it has no footer. `useColumnSummary` keeps its signature and still summarises the rows it is handed.
+  
+  Added: one language-pack key, `grid.summary.pagePattern`, in all ten packs. The `DataSource.queryGroupHeaders` doc comment now says what the same query with no `groupBy` answers. No export, prop or type member is added.
+- 023f00d: A create form asks its fields the create question, so a role that may create
+  records but not edit them can fill and submit the form (objectui#12082). Every
+  console affordance that offers a write now reads the grant it exercises from
+  one map.
+  
+  **The defect.** A create form gated each field on `checkField(object, field,
+  'write')`, whose fallback for a field the permission set does not mention is
+  the object's `allowEdit`. Under a grant of `allowCreate: true, allowEdit: false`
+  every field of the create form rendered disabled, the outbound filter stripped
+  every field from the body, and the save posted an empty record that the server
+  refused for its required fields — while the server accepts the same create.
+  
+  **The server's insert rule, which the create question follows.** The server's
+  field-level write step refuses a write that names a field whose explicit
+  field-level entry has `editable: false`; a field with no entry passes it, and
+  object admission decides the operation (`allowCreate` for an insert,
+  `allowEdit` for an update). So a create-form field now reads its explicit entry
+  when there is one and the object's create grant when there is none. A field the
+  permission set marks `editable: false` stays disabled and out of the body.
+  
+  **Clause-②: yes (widening)**
+  
+  - `@object-ui/core` exports the affordance-to-grant map: `AFFORDANCE_GRANTS`
+    (one row per affordance: the CRUD-affordance bit it needs, the object grant it
+    exercises and, for an affordance that offers fields, the field question it
+    asks), `resolveAffordance` (managed-object policy ∧ the server's effective API
+    operation set ∧ the caller's grant, with the row's `userActions` predicates
+    surfaced only when all three allow it), `resolveFieldAffordance`,
+    `formFieldsAffordance`, and their types (`ConsoleAffordance`,
+    `FieldAffordance`, `AffordanceGrant`, `FieldAffordanceGrant`,
+    `AffordanceGrantRow`, `AffordanceGrantPrincipal`, `FieldAffordancePrincipal`,
+    `AffordanceSource`, `AffordanceVerdict`).
+  - `@object-ui/permissions`: `checkField`'s action accepts `'create'` beside
+    `'read'` and `'write'`. `MePermissionsProvider` answers it from the explicit
+    field entry when there is one and from `allowCreate` otherwise; the
+    role-based `PermissionProvider` answers it as it answers `'write'`.
+  
+  **Behaviour, by package.** With no permission provider mounted every grant
+  still reads open, as before.
+  
+  - `@object-ui/plugin-form`: every `ObjectForm` layout's fields and outbound
+    filter ask the question of the form's mode (create or edit). The form-wide
+    lock, with its "You don't have permission to …" notice, also engages when the
+    caller's object grant for the form's mode is denied, not only when the
+    managed-object policy or the effective API operation set closes it. A
+    create-mode `MasterDetailForm`'s line cells ask the create question of the
+    child object, since every line there is a new record.
+  - `@object-ui/app-shell`: the record page's Edit and Delete (and the record
+    body's in-place editing) read the caller's update / delete grant; they read
+    none before. The import wizard's write targets ask the create question, so a
+    caller offered Import keeps every field the insert accepts. List New / Import,
+    the related lists and the Attachments panel read the map with the verdicts
+    they had.
+  - `@object-ui/fields`: a lookup's "Create new" reads the create grant (and the
+    managed-object policy and operation set) of the object the field references;
+    it read no grant before.
+  - `@object-ui/plugin-grid`: row Edit / Delete, in-place editing, the template
+    download and the add-record row read the map; the add-record row now also
+    honours the object's managed-object policy and effective `create` operation.
+  - `@object-ui/plugin-detail`: `record:details` in-place editing reads the
+    caller's update grant; the detail header's object gate adds the effective
+    operation set.
+  - `@object-ui/plugin-list` and `@object-ui/console`: bulk Delete, the
+    inline-edit toggle and the profile page's language field read the map with
+    the verdicts they had.
+- 7525045: More write affordances read the affordance-to-grant map, so a caller without the
+  grant is no longer offered a write the server then refuses (objectui#12082, leg A
+  of the write-census backlog). No row is added: each reuses the row of the same
+  verb on the same object.
+  
+  - **The record overlay's inline edit** — the overlay the calendar, the kanban and
+    the gantt open on a record (`RecordDetailPanel`) — reads the `recordEdit` row,
+    the row the record page reads for the same in-place edit: the object's policy,
+    the effective API operation set and the caller's update grant. A closed row
+    opens no inline-edit session, as an absent `onFieldSave` already did. Each
+    field still asks its own field question, as since objectui#12103.
+  - **The gantt's in-chart writes** read `rowEdit` (a bar's drag, resize and
+    progress, its title edited in place, and its dependency links) and `rowDelete`
+    (a row's Delete). A closed row withholds the handler the chart draws the
+    affordance from, the way `readOnly` and `lockField` already do.
+  - **A grid's bulk field update** (a `bulkActionDefs` entry with `operation:
+    'update'`) reads `rowEdit`, as its bulk delete reads `rowDelete`: a closed row
+    removes the button from the selection bar, and with it the dialog, its undo
+    and its retry. `custom` operations are unchanged.
+  - **A master-detail form's line grids** read `relatedNew` (Add, the entry row
+    and Duplicate) and `relatedRowDelete` (Remove) on the CHILD object, as a
+    line-items panel does. Remove asks the delete grant on an edit form only: a
+    create form's lines are drafts, and a removed one is never a server delete.
+  - **A line-items panel** now hands its child object's schema to those two rows,
+    so the child's own policy (`managedBy`, `userActions`) is read too.
+  - **The AI build panel's spreadsheet import** (`ExcelImportBar`) reads the
+    `listImport` row of the object it imports into, as the list page's Import
+    does: without it, Import is disabled for that object.
+  
+  With no permission provider mounted every one of these reads open, as before.
+- 5f75cfa: In-place edit on the record page and a list's in-cell edit honour the caller's field write grant, and the owner field honours the transfer grant (objectui#12103).
+  
+  **What a caller saw.** A caller whose permission set marks a field `{ readable: true, editable: false }` was offered an editor for it in the record page's details body, in its highlights strip and in a list's grid cells, and Save answered 403 ("Field write denied"). The owner field was offered the same way to a caller without the transfer grant, and Save answered 403 ("requires the transfer grant"). Edit forms already refused both fields through `fieldWriteGate`.
+  
+  **What changed.**
+  
+  - **The map (`@object-ui/core`).** The `recordEdit` and `listInlineEdit` rows of `AFFORDANCE_GRANTS` gain `field: 'write'`, so the record page's in-place edit and a list's in-cell edit each ask every field the same update question an edit form asks, through `resolveFieldAffordance`. `FieldAffordance` therefore includes both rows.
+  - **The details body and the highlights strip (`@object-ui/plugin-detail`).** `DetailSection` and `HeaderHighlight` ask that question of each field. A refused field shows no pencil, does not enter the edit session on double-click, and stays a read display in edit mode. The strip and the body share one session and one Save, so they answer alike.
+  - **The grid (`@object-ui/plugin-grid`).** `ObjectGrid` marks a refused field's column not editable, so its cell keeps the read display while the rest of the row edits. Whether the grid is editable at all is still the object-level `listInlineEdit` verdict.
+  - **The owner field (`@object-ui/permissions`).** The server refuses an update that writes the record's owner (the field the `@objectstack/spec` constant `SystemFieldName` names `OWNER_ID`) unless the caller holds `allowTransfer` or `modifyAllRecords`. `MePermissionsProvider`'s `checkField(object, owner, 'write')` now answers with that grant, read with the spec's `objectPermissionGrants`. The `write` question is the server's update rule for a field, so every surface that asks it (edit forms, in-place edit, in-cell edit) offers the owner field only to a caller who may transfer the record. `checkField(object, owner, 'create')` is unchanged, because on insert the server stamps an empty owner to the caller and accepts the caller's own id. `MePermissionsResponse` declares the `allowTransfer` bit the endpoint already serves, and `@object-ui/permissions` now depends on `@objectstack/spec` directly.
+  
+  **Unchanged.** With no permission provider mounted no field question is asked, so a standalone embed and the designer preview behave as before. The server still enforces every grant; this only stops the console from offering a write it would refuse.
+  
+  **Clause-②: yes (widening).** `AFFORDANCE_GRANTS.recordEdit` and `AFFORDANCE_GRANTS.listInlineEdit` gain a `field: 'write'` member, which widens the `FieldAffordance` type by those two rows. `MePermissionsResponse`'s object entry declares an optional `allowTransfer?: boolean`. `checkField`'s action union is unchanged; its `write` answer narrows for the owner field only. No export, prop or language-pack key is added or removed.
+- 29b9949: A bulk action's field-backed param now renders its real control on the selection bar, and the confirm step names the picked record (objectui#12105).
+  
+  A list view's `bulkActions: ['add_to_campaign']` runs the object's own action over the selected records. When that action declares a field-backed param, `{ field: 'crm_campaign', objectOverride: 'crm_campaign_member' }`, the selection bar's dialog drew a plain text box for it, and the confirm step listed the raw record id. The record page drew the record picker for the same action, because only its dialog looked the field up.
+  
+  - **One resolver for both dialogs.** The function that resolves an action param against the object's field definitions (`resolveActionParam` / `resolveActionParams`) moves, unchanged, from `@object-ui/app-shell` into `@object-ui/fields`, the one package both dialogs depend on. The record dialog and the bulk dialog both call it. A field-backed param on the selection bar now gets its field's type, label (translated), options, default and picker target, as it does on the record page. A lookup param renders the record picker, and the confirm step shows the record's label.
+  - **When it resolves.** The grid resolves a promoted action's params when the dialog opens, after it has loaded the session's object metadata, so a param whose owning object (`objectOverride`) has not loaded yet is waited for.
+  - **A missing field is refused, not drawn as a text box.** A field-backed param whose field is not in the object metadata is shown as a refusal naming `object.field`, and the run is blocked, as the record dialog already does. The copy is the existing `actionDialog.unresolvedParam` string.
+  - **Inline params are unchanged.** A param declared with its own `name` and `type` keeps the same widget, label, help text, default and `reference` target.
+  
+  New `@object-ui/fields` exports: `resolveActionParam`, `resolveActionParams`, `resolveParamWidgetType`, `withKnownObjects`, `RESOLVED_ONLY_PARAM_KEYS`, and the types `RawActionParam`, `RawActionParamOption` and `ResolveActionParamsContext`. Before this change these were internal to `@object-ui/app-shell` and were not exported from it. No other export, prop, context member or language-pack key is added.
+  
+  Not covered yet: on the selection bar, a resolved lookup param uses only its field's picker target, display field and `dependsOn`. The field's other picker settings (`lookupFilters`, `lookupColumns`, `descriptionField` and the rest) do not reach the bulk dialog yet.
+- 5330038: Console rendering fixes from the HotCRM browser pass (objectui#12110):
+  
+  - **Grid:** a view column's authored `label` is the header. It used to lose to the field's translated label whenever the app bundle translated the field.
+  - **Form:** a field `widget` that names no registered component falls back to the field type's renderer, as the spec's `widget` description says. A `rating` field declaring `widget: 'star_rating'` now draws the star widget instead of a text box. A built-in control name (`input`, `textarea`, …) and the native password and email inputs still render as before.
+  - **Cells:** a `rating` value draws stars out of the field's `max` (5 by default) in list, detail and related-list cells, instead of a bare number.
+  - **Reference rail:** a related row is named by its object's declared `nameField`, and the rail refetches in place when the record, a related object or everything is invalidated. A record action with `refreshAfter: true` therefore refreshes the rail too.
+  - **Gantt:** the task list, the tooltip and the drag previews show a date's year when it is not the current year.
+  - **Approvals drawer:** a `position:` approver shows the position's label, from the console's position registry, instead of a truncated id. The headline figure prefers the object's declared `currency` field and never shows a zero from a field matched only by its name.
+  - **Public form:** a form with no title of its own is headed by its object's label, not the object's API name.
+- 2381c07: A grouped grid's own first, previous, next and last page buttons have accessible names (objectui#12143).
+  
+  A grouped `ObjectGrid` with more than one page of groups pages them with a pager of its own, not the `data-table` pager objectui#12124 named. Its four buttons showed a chevron and nothing else, so a screen reader announced four unnamed buttons and could not tell them apart. Each button is now named in the viewer's language, with the words the data table pager uses: "First page", "Previous page", "Next page" and "Last page" in English. Sighted use is unchanged. No language-pack key is added: the names read the four `table.*` keys objectui#12124 added, and the grid's English defaults for a host with no `I18nProvider` gain the same four rows. No export or prop changes.
+- e723f58: Screen readers hear the names of more controls in the viewer's language (objectui#12145).
+  
+  These controls carried an English `aria-label`, so under a non-English locale a screen reader announced their names in English: the docs portal's loading spinner, the record form page's breadcrumb, the `Spinner` status region, a data table's row menu button, the `pagination` renderer's previous and next links, the image crop preview, the percent slider, the record picker's grid, the AI composer's send and stop button and an attachment's remove button, the designer's undo and redo buttons, minimap, version history and back button, a dismissible record alert's close button, the bulk-action bar, and the mobile view switcher. Each name now comes from the language packs. English names are unchanged, with two small exceptions: the spinner now reads "Loading…", and the pagination links read "Previous page" and "Next page", the same words the data table pager uses. Sighted use is unchanged.
+  
+  Added: eight language-pack keys in all ten packs: `help.loadingDocumentation`, `common.breadcrumb`, `table.rowActions`, `fields.image.cropPreview`, `fields.percent.slider`, `designer.canvasMinimap`, `designer.versionHistory` and `grid.bulkActions`. Every other name reuses a key that already holds the same words. The exported `en` pack, and so `TranslationKeys`, gains these eight members. `PromptInputAttachment` (exported through `AIElements`) takes an optional `removeLabel` prop that names its remove button; without it the button keeps its English name.
+- 466a219: The internal ledger behind `ObjectGrid`'s relational copy set drops its `allow_create`, `lookup_columns` and `lookup_page_size` rows, because `LookupField` no longer reads those spellings (objectui#12157). The copy set itself does not change.
+- 3092aca: A grid's inline-edit save no longer overwrites a concurrent write without a word (objectui#12292). The grid's default row save and "Save All" now send each row's `updated_at` as `If-Match`, the way the record forms and the record page's inline edit already do. A stale grid edit is refused with `409` instead of landing with a `200`. The refusal opens the same conflict dialog the record page opens (`ConcurrentUpdateDialog`, offering Reload latest, Overwrite anyway or Cancel). After a save, the row's next save sends the token of the record the server answered with, so saving the same row twice does not conflict with your own first save.
+  
+  The rows now carry that token. An inline-editable grid, and a list view in inline-edit mode, add `updated_at` to the query's `$select` even when no column shows it. Before, the token was missing from every row unless a column displayed it, so there was nothing to send.
+  
+  "Save All" reports each row on its own. A row that is refused (a conflict you cancel, a validation error) stays pending and flagged, and the rows that saved are cleared, not reported as failed and not sent again. Nothing the server accepted is rolled back.
+  
+  **Type change, additive.** `DataTableSchema.onBatchSave` may now resolve with `{ failed: Array<{ rowIndex, error }> }`, naming the rows that did not persist by the `rowIndex` they were handed. The table keeps and flags exactly those rows. A handler that resolves with nothing or rejects is read exactly as before, so existing handlers need no change.
+- b64fda3: Console writes that landed in silence now say so, and controls disabled on a read-only package say why to every user, not only to a mouse (objectui#12303).
+  
+  - **The grid's inline-edit saves raise a success toast.** "Save All" and the per-row save of a grid with no host save handler now show the console's shared toast, naming how many rows were saved ("1 row saved", "2 rows saved"). Only rows the server accepted are counted: a row that is refused stays pending and flagged as before, and a save where nothing landed shows no success toast.
+  - **"Discard draft" on the metadata edit page raises a success toast** naming what was discarded ("Draft discarded: object/NAME"). A refused discard keeps showing its error instead.
+  - **Studio on a read-only package:** the header's Publish, the automation enable switch and the Data pillar's Field properties rail now carry the read-only reason the way the record page's disabled actions do. A focusable wrapper is the tooltip trigger and a tab stop, and the reason is the control's accessible description. Before, the reason was a `title` on a disabled control (Publish, the switch) or absent (the rail), so Tab skipped it and assistive tech never heard it.
+  - **The import wizard's disabled "Next"** is described by the visible "Can't continue" text that says which required fields are not mapped, and a focusable wrapper puts it in the tab order.
+  - **Studio's lookup rail reads label first.** The field pickers (Display field and the other searchable pickers in the inspectors) list each option by its label, with the machine name after it, smaller and in monospace, and show a chosen option the same way. The object picker (Related object) shows a chosen object's label while it is not being edited, with the machine name beneath it.
+  
+  **Clause-②: yes (widening)** — every locale pack gains the `table.saved` count family (`table.saved`, plus each pack's plural forms), the grid's save toast. Nothing is renamed or removed.
+- df05784: A bulk action's confirm step now lists the affected records by their display title (the object's `nameField`, through the shared ADR-0079 resolver) instead of raw ids, for objects whose title field is not `name` — on both the per-record and the aggregate path (objectui#12332).
+- 1040a0a: fix(plugin-grid): a list column's inline locale-map `label` now heads the column (objectui#12358)
+  
+  `ListColumnSchema.label` is the spec's `I18nLabel`, a plain string or an inline
+  per-locale map such as `{ en: 'Amount', 'zh-CN': '金额' }`. The grid kept only a
+  plain string, so a map label was dropped and the header fell back to the field
+  label in every language. The map is now picked by `pickLocalized` against the
+  viewer's UI language, with that resolver's own floor when the viewer's locale
+  is absent. A plain-string label renders unchanged. The CSV export and the
+  inline-edit conflict dialog read the same resolved header.
+- d75f212: Published text no longer teaches the retired view-level `provider: 'api'` data source (objectui#12364). A view binds `provider: 'object'` or `provider: 'value'`; a metadata-declared API call is the page element's `dataSource` binding. Text only: no schema accepts or refuses anything new, and no renderer behaves differently.
+  
+  - **`@object-ui/types`:** the `object-tree` `data` description drops the `api` provider from the providers it names.
+  - **`@object-ui/plugin-grid` / `@object-ui/plugin-map`:** the `data` input descriptions drop the `api` provider.
+  - **`@object-ui/plugin-calendar` / `@object-ui/plugin-gantt` / `@object-ui/plugin-map`:** the error thrown when no `DataSource` is available now reads `DataSource required for the object provider` (was `DataSource required for object/api providers`). It fires in exactly the same conditions as before.
+  - **`@object-ui/react` / `@object-ui/auth`:** the README and docblocks describe `SchemaRendererProvider`'s `apiFetch` as what it is now: the host's authenticated fetch the renderers use for their own reads of the host's API (chart metadata, dataset dimension labels, record-permission probes). It is not a channel for a view's data source.
+  - **`@object-ui/app-shell`:** comment wording only in `ConsoleShell`, `useConsoleActionRuntime` and `ObjectView` (these comments ship in the built JS): no behaviour change.
+  - **`@object-ui/core`:** docblock wording only on `normalizeListViewSchema` and `resolveRecordSourceObjectName` (these ship in `dist/*.d.ts` and the built JS): no behaviour change.
+- 70e843f: A grid row coloured by `rowColor` now reads in the dark theme, and its colour covers the whole row (objectui#12375).
+  
+  - **Dark theme.** Each of the 23 colour names used to resolve to one light-only fill (`bg-red-100` for `red`), so in the dark theme the row's light text sat on a light fill and was close to unreadable. Each name now resolves to a light and a dark tint. The light tint is the same `-100` shade as before. The dark tint is the surface shade the badges use: `-950` at 40%, or `-800` at 50% for the grey names (`gray`, `grey`, `slate`, `zinc`, `stone`, `neutral`). The row keeps the theme's text colour.
+  - **The whole row.** The selection checkbox, the row number, the frozen columns and the right-pinned actions column now show the row's colour too. Before, they kept the page background, so a coloured row had gaps at both ends. These cells stay opaque, so content scrolling beneath them does not show through.
+  - While a coloured row is hovered or selected, the whole row takes the hover or selection fill, as the middle of the row already did.
+  
+  A `rowColor` value written as a `bg-*` class still passes through unchanged. It colours the row but not its pinned cells, and suiting it to the dark theme is up to the author.
+  
+  `@object-ui/components`: the data table reads a row tint from the `--os-row-tint` custom property, which a `rowClassName` may set. It paints that tint into the row's sticky cells. Nothing is added to either package's exports.
+- 2fc31ea: A grid that fetches its own rows and is tinted by a field that is not one of its columns now colours its rows (objectui#12393).
+  
+  `ObjectGrid` builds its own `$select` when it fetches for itself: a standalone `object-grid`, and a grouped list view whose data source can group on the server. That projection took the columns, the fields its predicates read, the grouping fields and the concurrency token, but not the row colour's field (`rowColor.field`), so no row was tinted, with no error. The field is now requested through the same gates as the other added fields: a field the viewer may not read, or one the object does not declare, is not requested. A rule that names a new field re-reads the rows; a change to its colours alone does not.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- c3de0bc: A `markdown`, `html` or `richtext` cell keeps the grid's one-line row (objectui#12480). The grid's one-line clamp bounded inline content only, so a long rich-content value (a multi-paragraph `description`) grew its whole row to the document's height and pushed the rows after it below the scroll box, while the footer still counted them. A rich-content column now shows the first line of its document; a column authored `wrap: true` still shows the whole document. Affects the Studio Data pillar's Records grid and the console list pages alike.
+- 3eb3ec1: The console's list toolbar no longer has a write into the shared view, and the data-source method that write used is retired (objectui#12504).
+  
+  **BREAKING:** `DataSource.updateViewConfig` is removed from `@object-ui/types`, and `ObjectStackAdapter.updateViewConfig` is removed from `@object-ui/data-objectstack`. The capability gate that only that method read goes with it: `ObjectStackAdapter.setSystemCapabilities`, the `systemCapabilities` option of the adapter constructor and of `createObjectStackAdapter`, `VIEW_CONFIG_CAPABILITY`, `ViewConfigPermissionDeniedError` and `isViewConfigPermissionDeniedError`. A class that implements `DataSource` and keeps an `updateViewConfig` method still compiles, but nothing calls the method any more; an object literal annotated as `DataSource` that carries it is refused as an unknown property. Code that calls `updateViewConfig` through a `DataSource` or an `ObjectStackAdapter`, or imports one of the gate names, no longer compiles. To change a view for everyone, save the view: `createView` / `updateView` on the data source, or the console's view editor, which writes through the runtime metadata seam.
+  
+  Since objectui#12418 and objectui#12474, the toolbar's sort, column layout, density and Hide Fields are each user's own list state, so the toolbar write had no caller. The view editor's explicit save is now the one write path to the shared view, and it is unchanged.
+  
+  Personalization rows that earlier consoles wrote into `/meta/view` stay readable: the overlay marker, `narrowPersonalizationOverlay` and `listViews()` exclusion still apply to them. Nothing new writes such a row.
+  
+  `@object-ui/i18n` drops `console.objectView.viewConfigPermissionDenied` from all ten packs. It was the toast the retired write raised when the gate refused it. The other packages change only in comments and tests that named the retired path.
+- 726d8c9: Every wide centred dialog keeps a 1rem gutter on each side of the window from `sm` (640px) up, by one shared class (objectui#12603).
+  
+  `@object-ui/components` adds one export, `DIALOG_VIEWPORT_GUTTER` (`sm:w-[calc(100%-2rem)]`): the gutter `ModalForm` introduced for its `lg` and `xl` sizes (objectui#12593), promoted so every wide dialog reads the same value. A dialog that raises its cap with `sm:max-w-2xl` or wider writes this constant beside the cap.
+  
+  Dialogs that ran edge to edge between `sm` and their max width and now keep the gutter:
+  
+  - the action modal's `lg` and `xl` sizes (`xl` is what a `type: 'modal'` action with a page target and no size opens at);
+  - the action parameter dialog with a long parameter list, the flow runner's object-form or long screen step, and the CEL test-run dialog;
+  - the full-screen text editor dialog, the image lightbox and the import wizard.
+  
+  The record picker reads the same class under every width rung; it kept a `95vw` margin of its own before, so between `sm` and its cap it is now the window less 2rem instead. `ModalForm` reads the shared export instead of its private copy, with no change in output.
+  
+  Unchanged: sheets, the phone sheet below `sm`, the `full` size (`95vw`), and every dialog's width on a window wider than its max width plus 2rem.
+- 619e3f7: A grouped grid now draws one table with one sticky column header. Each group is a 36 px band row between the rows: a chevron, the group value and its count, in one cell that spans every column. Collapsing a band hides that group's rows only, and the columns keep one width across every band. The same layout applies when the server groups the rows, where a group's own pager sits under its rows.
+  
+  `data-table` gains `rowGroups`, a runtime slot the host fills with the bands and their rows. A client-side sort orders rows within each band. The JSON schema refuses `rowGroups` when authored, as it refuses `renderCellEditor`.
+- 1aa622a: A declared action `icon` is now drawn beside the label on the row's inline primary button, the row "⋮" menu item and the record-header quick action (`record:quick_actions`). The name resolves through the shared icon seam (`resolveIcon` from `@object-ui/components`); an unknown name draws the label alone, and an action with no `icon` renders exactly as before.
+- 1e6d83b: Data-bound blocks title their "data source could not be resolved" panel in the page's language (objectui#12920, the family of objectui#12910). The panel shows when a block's `dataSource.view` names a view its object does not have. Each block's title now reads `@object-ui/i18n` through `useObjectTranslation`, with the `en` pack's value as the inline default, so a page with no `I18nProvider` draws the same English it drew before.
+  
+  - **Plugin blocks.** `object-calendar`, `object-chart`, `object-metric`, `object-pivot`, `detail-view`, `record:related_list`, `object-form`, `embeddable-form`, `object-master-detail-form`, `record:line_items`, `object-gantt`, `object-grid`, `object-kanban`, `list-view`, `object-map` and `object-timeline` read one `element.KIND.sourceUnresolved` key per block kind. `object-metric` reads `element.number.sourceUnresolved`, the key `element:number` already reads for the same sentence. The three forms share `element.form.sourceUnresolved`. `record:related_list`'s panel for a failed `parentDataSource` read reads `element.relatedList.parentUnreadable` ("This related list’s parent record could not be read").
+  - **`@object-ui/react` panel defaults.** `ElementDataSourceErrorPanel` with no `title` reads `element.component.sourceUnresolved`, and `NoDataSourcePanel` with no `title` reads `element.component.noDataSource`. A passed `title` still wins, an empty string included. Props and markup do not change.
+  
+  Clause-②: yes
+  
+  The new keys in `@object-ui/i18n` widen its exported `TranslationKeys`. No prop, input or export of these packages changes.
+- cb80001: The Import Wizard no longer offers "Run automations & triggers" or "Import as historical data" (objectui#12985). Both import doors (`POST /api/v1/data/:object/import` and `/import/jobs`) honour `runAutomations: false` and `treatAsHistorical: true` for the system principal only and refuse every signed-in caller `403 PERMISSION_DENIED` (objectstack-ai/objectstack#24348). A user who unticked the first box or ticked the second had the whole import refused.
+  
+  - **The two options are gone** from the wizard's options panel, with their state. The wizard's import, dry-run and background-job requests carry neither `runAutomations` nor `treatAsHistorical`. Leaving both keys out is the server's declared default, so the default import is unchanged: automations run and the state machine is walked.
+  - **Language packs.** The three keys only those options read, `grid.import.optRunAutomations`, `grid.import.optTreatHistorical` and `grid.import.optTreatHistoricalHint`, are removed from all ten packs and from the wizard's English fallback map. The locale objects exported under `@object-ui/i18n/locales/*` lose those three members.
+  
+  Nothing else on either package entry changes: `ImportWizardProps` and `ImportResult` are unchanged, and `ImportRequestOptions` in `@object-ui/types` still declares both fields, because the server still accepts them from the system principal.
+- a928aaa: An import undo that leaves rows unreverted now says so in the Import Wizard (objectui#13015).
+  
+  The undo route runs its reversal writes under the object's declared controls, so a hook or rule can refuse a row. The server then answers with `success: false` and one `failures` entry per row it did not revert. Each entry carries the app's own refusal sentence. The job stays undoable for exactly those rows. The wizard used to ignore the answer and only reported a thrown error, so a partial undo showed nothing.
+  
+  - **Both lists that run Undo show it.** In the History list and on the cancelled-result screen, a partial answer reports how many rows were not undone and that undoing again retries only those rows. It lists each refusal sentence the answer carries. Rows refused with the same sentence share one line, and after ten distinct sentences the rest are counted. Undo stays offered, because the re-read job is still undoable. The object's open lists still refetch, because the undo reverted the other rows. A full undo is unchanged.
+  - **A thrown undo in the History list shows its message again.** The list's reload cleared the error slot the undo had just written to, in the same tick, so that message never appeared. The undo outcome now has a slot of its own.
+  - **`@object-ui/types`: `ImportJobUndoResult` is the spec's `UndoImportJobResponse`, bound by reference.** It was a hand-written copy that lacked `failures`. It now carries the required `failures` array of `{ id, action: 'delete' | 'restore', code, error }`. `@object-ui/types` now requires `@objectstack/spec` `^18.0.0-next.5`, the first published release that declares `failures`.
+  - **`@object-ui/i18n`:** the ten packs gain the `grid.import.undoPartial` count family.
+  
+  BREAKING (`@object-ui/types`), for a custom `DataSource` whose `undoImportJob` resolves to the old shape: it must now return `failures` (an empty array for a full undo). `@object-ui/data-objectstack` already returns the server's answer unchanged. The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.
+  
+  Clause-②: yes (narrowing): `ImportJobUndoResult`, exported from `@object-ui/types`, gains `failures`, and the new pack keys widen `@object-ui/i18n`'s `TranslationKeys` (the widening). `failures` is now required of a custom `DataSource`'s `undoImportJob` answer (the narrowing; see BREAKING above).
+- fe11eb1: A list view draws a `referenceVia` pointer column's record when its columns do not show the type half (objectui#13036).
+  
+  A pointer column (objectui#12608) resolves its record from the row: it reads the sibling field the column's `referenceVia` names. A list's `$select` asked for the shown columns and its other harvested fields, but never for that sibling, so a list showing `record_id` without `object_name` drew the raw record id. Both projection builders now ask for the sibling of every shown pointer column: `ListView`'s own fetch and the fetch a grid makes for itself, grouped or not. A sibling the viewer may not read, or one the object does not declare, is not asked for; such a row keeps the stored text, as a row whose sibling is blank does.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- 4b67746: The bulk-action confirm step names each affected record by the object's declared `nameField`, even when no column of the view shows it, and never by another text field (objectui#13107).
+  
+  - **The grid asks for the declared `nameField`.** A grid that runs its own query (a standalone `object-grid`, or a grouped grid that groups on the server) now puts the object's `nameField` in its `$select`, a formula field included. It is fetched, not drawn: no column is added. It passes the same two checks as the grid's other extra fields: the object must declare it, and the viewer must be allowed to read it.
+  - **No other field stands in for the declared name.** For an object that declares a `nameField`, a row without that value is listed as `Record #ID`. Before, the step fell through to a guessed field: on a contact list whose columns were first name, last name and job title, it listed the contacts' job titles. Objects that declare no `nameField` are named as before.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- 9840695: A finished import no longer says "Review data before importing." under its result (objectui#13124).
+  
+  The import dialog's subtitle followed the wizard step, and a finished import stays on the preview step, so "Import Complete" (or "Import cancelled") sat under the preview step's sentence. On the result screen the header now shows no subtitle; the result headline itself is the dialog's description, so a screen reader still hears the finished state. The upload, mapping, preview and history subtitles read as before.
+  
+  Nothing is added to the package entry: no export, prop, type member or string-table key.
+- aaa1296: At phone width the console's floating create button no longer covers the last card of a list (objectui#13134).
+  
+  - **The phone card list scrolls in a box of its own.** Below 768px `ObjectGrid` draws stacked cards instead of the table. The table scrolls in its own body; the card list had no scroll box and was drawn straight into its host, and the console's list host clips. A card list taller than the screen was cut off with nothing to scroll, and no room could be made at its end. The cards now scroll in a box marked `data-fab-clearance`, which a host that floats a button over the list can pad.
+  - **The console list leaves room for its create button.** While the object-list page draws its phone create button, the end of that scroller gets 12rem of room (the button's 9rem offset from the bottom plus its 3rem height), so the last card scrolls clear of it. Where the button is not drawn (create not offered, or `sm` and up) there is no added room.
+  
+  Nothing is added to a package entry: no export, prop or schema key. `data-fab-clearance` is a DOM marker, like `data-fab-yield`.
+- f0300be: An empty `object-grid` no longer tells the user to adjust filters they never set (objectui#13142).
+  
+  With no authored `emptyState`, a grid with no record fell through to the table's own empty row, "No results found / Try adjusting your filters or search query.", even over an object that simply had no record and a grid nobody had searched. The grid now tells the cases apart, with the copy the list view's empty state already uses:
+  
+  - no search term and no declared filter: "Nothing here yet / Create your first record to get started.";
+  - a declared filter alone: "No matching records / No records match this view's filter.";
+  - a search term (the grid's own box, or the host's `search`): the table keeps its "No results found" row and its search box, as before.
+  
+  An authored `emptyState` still wins wherever it was drawn before. No prop, schema key or language-pack key is added: the copy is the existing `list.*` keys.
+- 5a8d40f: On phone-width screens, each record card in a grid is now titled by the object's declared `nameField`, not by the view's first column (objectui#13150).
+  
+  - **The record's name is the card title.** Before, a view whose first column was Owner titled every card with the owner's name, and the record's own name sat in a row at the bottom of the card. When the name field is a column of the view, that column now titles the card and is not repeated in the card body. The first column it replaced is shown as an ordinary body row.
+  - **The name titles the card even when no column shows it.** The grid already fetches the declared `nameField` for every row, so the card reads it from the row.
+  - **No other field stands in for the declared name.** When a row has no value for the declared name field (for example, the viewer may not read it), the card title shows the empty marker, not another field's value. Objects that declare no `nameField` keep the first column as the card title.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- d05f33b: The Import Wizard sends a saved mapping the format the mapping declares (objectui#13156). A mapping that declares `sourceFormat: 'csv'` is now imported with `format: 'csv'`, the rows as CSV text and `mappingName`, which is the request the import door accepts for it. Before, the wizard always sent JSON rows. The door refused them with `400 MAPPING_FORMAT_MISMATCH`, so a shipped CSV mapping imported nothing.
+  
+  - **The text is the preview's rows.** The wizard writes the CSV from the rows it shows, not from the file as uploaded. A cell you corrected in the preview is sent corrected. A tab-separated file, a pasted table and an `.xlsx` sheet are sent as CSV text too, so a CSV mapping never receives JSON rows.
+  - **The dry-run check sends the same request** as the import, so it checks exactly what the import will write.
+  - **Other mappings are unchanged.** A mapping that declares `sourceFormat: 'json'`, or declares no format, still gets JSON rows. Hand-mapped imports are unchanged.
+  
+  The wizard reads `sourceFormat` from the mapping the server serves. It never guesses it from the file name. No export, prop or type changes.
+- f22b980: A list view fetches a shown column's declared `dependsOn` siblings, so a faced column can read them off the row (objectui#13214).
+  
+  A faced column reads its siblings from the row it draws: the `recipient-picker` face names a stored id by the row's `recipient_type`. A list's `$select` asked for the shown columns and its other harvested fields, but never for those siblings, so a list showing `recipient_id` without `recipient_type` drew the raw user id. Both projection builders now ask for every sibling a shown column's field names in `dependsOn`: `ListView`'s own fetch and the fetch a grid makes for itself, grouped or not. A column authored `hidden: true` pulls nothing; a sibling the viewer may not read, or one the object does not declare, is not asked for. Nothing is added to the view's columns.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- 7c05f21: Import wizard: the result screen now says what happened. An import that imported every row still shows the green check and "Import Complete"; one that imported some rows but skipped or rejected others reads "Import finished with errors" with a neutral icon; one that imported nothing — every row rejected, the request refused (405) or failed, or the background job ended `failed` — reads "Import failed" with an error icon, and its "0 imported" count is no longer drawn as the primary badge. The counts and row errors are unchanged. New `grid.import.importPartial` and `grid.import.importFailed` strings in every locale.
+- 84b4326: A grid grouped by a `date` or `datetime` field heads each group with the value drawn the way the field's cell draws it, not with the stored string (objectui#13234).
+  
+  Grouped by a `date` field, the headings read `2026-10-01`, `2026-09-01`, `2026-08-01` while the cell of a row under them read "Oct 1". Select and boolean headings already read their labels; every other type fell back to the stored key. A `date` or `datetime` heading now reads exactly what its cell reads, in the display locale and through the field's declared `format`: "3 days ago" or "Oct 1" by default for a `date`, the compact "10/1/2026 9:30 am" for a `datetime`. A heading names the day, not one row's deadline, so a `dueLike` field's heading reads the neutral phrase ("3 days ago"), not "Overdue 3d". An empty key keeps its "(empty)" heading, and a key that is not a date keeps its stored text.
+  
+  The groups keep the order and the counts of their stored keys: the grid still orders date groups by the stored value, so they stay in calendar order.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- b13ea3c: feat(types)!: `ObjectGridSchema.defaultFilters` and the flat `ObjectGanttSchema` / `ObjectMapSchema` `filter` follow their `@objectstack/spec` rows (objectui#6152, round 10)
+  
+  Clause-②: yes
+  
+  `@objectstack/spec` typed `ComponentPropsMap['object-grid'].defaultFilters` as the same
+  `ViewFilterRule` array as `filter`, `[{ field, operator, value }, ...]`, from 17.6.0 until 18
+  retired it (see objectui#12030): the legacy fallback `ObjectGrid` read only when `filter` was
+  absent, refusing the MongoDB-style record, a bare string and the AST tuple array. The `object-gantt` and `object-map` rows type `filter` the same
+  way. `@object-ui/types` now takes each row's own member by reference, on the TypeScript interface
+  and on the zod mirror, with no alias window.
+  
+  **Widened.** `ObjectGridSchema.defaultFilters` was `Record<string, any>` and
+  `z.record(z.string(), z.any())`, so the zod mirror REFUSED the rule array the row declares. The
+  flat grid mirror is the source of an `object-view`'s `table` slot, so
+  `table: { defaultFilters: [{ field: 'status', operator: 'equals', value: 'open' }] }` parsed
+  there through 17.x, on the tolerant and the strict face and through `safeValidateSchema`; retired
+  in 18, see objectui#12030: the row's tombstone refuses `defaultFilters` by name, so every value,
+  the rule array included, is refused there now.
+  
+  **Narrowed (breaking).**
+  
+  - The record form of `defaultFilters` is refused: on the interface (a compile error, in an
+    `object-view`'s `table` too) and on the zod mirror, at `defaultFilters` (`table.defaultFilters`
+    in an `object-view`), with the protocol's own message, which computed the rule array from the
+    record's keys through 17.x (since 18, see objectui#12030, it is the retired-key message, which
+    names `filter`). Respell
+    `defaultFilters: { status: 'open' }` as
+    `filter: [{ field: 'status', operator: 'equals', value: 'open' }]`; the rule-array
+    `defaultFilters` spelling this entry first offered is retired in 18 too.
+  - `ObjectGanttSchema.filter` and `ObjectMapSchema.filter` were `any[]` and `z.array(z.any())`, so
+    `filter: [['status', '=', 'open']]` type-checked and parsed. Both are the row's rule array now;
+    respell the tuple as `[{ field: 'status', operator: 'equals', value: 'open' }]`. These two flat
+    types describe the node as the renderers read it: an authored `object-gantt` / `object-map`
+    node's `properties` bag is the row itself, which refused the tuple array already.
+  
+  What did not move: the renderers' reads. `ObjectGrid` lowered `defaultFilters` through the same
+  `toFilterNode` sink as `filter`, so a rule array there sent the same `$filter` and drew the same
+  rows as the same array written as `filter` (retired in 18, see objectui#12030: `ObjectGrid` and
+  `ObjectView` no longer read `defaultFilters`, so a view that still carries it renders unfiltered);
+  the sink still lowers a record or an AST that reaches `filter` at runtime, and `ObjectGantt` / `ObjectMap` still forward an AST a host composes. The
+  `@object-ui/core`, `@object-ui/plugin-grid` and `@object-ui/plugin-view` entries are comment
+  repairs to sentences that called the key `Record<string, any>`. `@object-ui/plugin-grid`,
+  `@object-ui/plugin-view` and `@object-ui/plugin-map` also carry typed test fixtures re-spelled to
+  the rule array, and `@object-ui/plugin-grid` a pin of the above through the real renderer (since
+  18 it pins that `defaultFilters` is not read).
+- d7e9e9a: feat(types)!: `object-grid` `operations` and the `object-grid` / `object-kanban` / `object-calendar` `filter` follow the `@objectstack/spec` 17.7.0 rows (objectui#6152, round 8)
+  
+  Clause-②: no
+  
+  **Narrowed (breaking).** `@objectstack/spec` 17.7.0 types `object-grid`'s `operations` as the
+  strict `{ create?, update?, delete?, export? }` block, refusing `read` and `import` by name, and
+  the `filter` of `object-grid`, `object-kanban` and `object-calendar` as the `ViewFilterRule` array
+  `[{ field, operator, value }, ...]`, refusing the MongoDB-style record and the AST tuple array.
+  `@object-ui/types` now says the same, with no alias window:
+  
+  - `ObjectGridSchema.operations` takes the row's block by reference. `read` and `import` are
+    `?: never` on the interface and refused by name at their own path on the flat zod
+    `ObjectGridSchema`: no `object-grid` code reads either. The flat mirror is the source of an
+    `object-view`'s `table` slot, so `table.operations.read` / `.import` are refused there too, and
+    the `read` refusal names the view-level spelling, `navigation: { mode: 'none' }` or the view's
+    own `operations: { read: false }`.
+  - `ObjectGridSchema.filter`, `ObjectKanbanSchema.filter` and `ObjectCalendarSchema.filter` take
+    their row's own member by reference, on the interface and on the zod mirror. They were `any[]`
+    and `z.array(z.any())`, so `filter: [['status', '=', 'open']]` type-checked and parsed. It is now
+    refused, on an authored `object-kanban` / `object-calendar` node and in an `object-view`'s
+    `table` slot; respell it `filter: [{ field: 'status', operator: 'equals', value: 'open' }]`.
+  
+  What did not move: an `object-view`'s own `operations.read` (the protocol has no `object-view`
+  row, and `ObjectView` reads it as its row-click gate), and the renderers' reads. `ObjectGrid`
+  still lowers an AST array, and the board and the calendar still hand whatever `filter` reaches
+  the node to `$filter`, because hosts compose that form at runtime.
+  
+  - `@object-ui/plugin-view`: the grid node `ObjectView` composes no longer carries the view's
+    `read` toggle in its `operations` block; the view keeps reading it.
+  - `@object-ui/plugin-grid`, `@object-ui/plugin-kanban`, `@object-ui/plugin-calendar`: the
+    registrations' `filter` inputs describe the `ViewFilterRule` array, and the grid's `operations`
+    input names the four toggles.
+  - `@object-ui/console`: the registry parity pins' prose stops calling these rows `z.unknown()`.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [b61c116]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [4c127cd]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [76993f8]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [96fcf30]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [055d350]
+- Updated dependencies [7300fca]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [db4cb6b]
+- Updated dependencies [4590363]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [885a96f]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [72167a9]
+- Updated dependencies [e06365c]
+- Updated dependencies [3035948]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [5ab2f19]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [2312bd9]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [c5406c2]
+- Updated dependencies [c5406c2]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [a368ccb]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [e391f87]
+- Updated dependencies [20c6d35]
+- Updated dependencies [417e245]
+- Updated dependencies [69bca0a]
+- Updated dependencies [023f00d]
+- Updated dependencies [158c75d]
+- Updated dependencies [7525045]
+- Updated dependencies [5af42db]
+- Updated dependencies [ce991bd]
+- Updated dependencies [3c0f806]
+- Updated dependencies [1071393]
+- Updated dependencies [5f75cfa]
+- Updated dependencies [29b9949]
+- Updated dependencies [1d1cfe0]
+- Updated dependencies [6757a93]
+- Updated dependencies [b7cd5c8]
+- Updated dependencies [5330038]
+- Updated dependencies [2498a07]
+- Updated dependencies [898bd2c]
+- Updated dependencies [c9fc10b]
+- Updated dependencies [dc6d28e]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [a7d4920]
+- Updated dependencies [e723f58]
+- Updated dependencies [82bb1d5]
+- Updated dependencies [f3d5408]
+- Updated dependencies [b231607]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [466a219]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [54159d3]
+- Updated dependencies [fa778e6]
+- Updated dependencies [334f0cf]
+- Updated dependencies [c08c933]
+- Updated dependencies [92f979d]
+- Updated dependencies [c4dd707]
+- Updated dependencies [c4dd707]
+- Updated dependencies [7578323]
+- Updated dependencies [a491b64]
+- Updated dependencies [38bb373]
+- Updated dependencies [803f678]
+- Updated dependencies [923504f]
+- Updated dependencies [5b45c0d]
+- Updated dependencies [923504f]
+- Updated dependencies [5c2982a]
+- Updated dependencies [0cd322d]
+- Updated dependencies [97e7d4e]
+- Updated dependencies [5d3f437]
+- Updated dependencies [10aba37]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [51c661e]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [b434f5f]
+- Updated dependencies [9f282ef]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [cea429b]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [8106db1]
+- Updated dependencies [068a540]
+- Updated dependencies [ca45c6d]
+- Updated dependencies [093d55b]
+- Updated dependencies [b64fda3]
+- Updated dependencies [28ebfb5]
+- Updated dependencies [a8051d6]
+- Updated dependencies [72594f2]
+- Updated dependencies [524136e]
+- Updated dependencies [2b06a91]
+- Updated dependencies [6f3299f]
+- Updated dependencies [065a1cf]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [789cb16]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [37db09f]
+- Updated dependencies [ff9df88]
+- Updated dependencies [70e843f]
+- Updated dependencies [caac3b2]
+- Updated dependencies [a2225f9]
+- Updated dependencies [5c4deb5]
+- Updated dependencies [a8e5b73]
+- Updated dependencies [9782cb2]
+- Updated dependencies [3e2394d]
+- Updated dependencies [d9d9d98]
+- Updated dependencies [c950345]
+- Updated dependencies [21f9577]
+- Updated dependencies [044f231]
+- Updated dependencies [f8267df]
+- Updated dependencies [023087f]
+- Updated dependencies [023087f]
+- Updated dependencies [9b82ced]
+- Updated dependencies [3821a3a]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [92c2a69]
+- Updated dependencies [518a8e3]
+- Updated dependencies [165f8ff]
+- Updated dependencies [646caea]
+- Updated dependencies [1ffd6a2]
+- Updated dependencies [5f8ecf6]
+- Updated dependencies [6f5dc6b]
+- Updated dependencies [7d0c174]
+- Updated dependencies [8ed7e5a]
+- Updated dependencies [6c4d00d]
+- Updated dependencies [db8ce2f]
+- Updated dependencies [726d8c9]
+- Updated dependencies [f0e760a]
+- Updated dependencies [a5bb7ac]
+- Updated dependencies [f78efdd]
+- Updated dependencies [8a8bcf3]
+- Updated dependencies [f74638c]
+- Updated dependencies [278bc29]
+- Updated dependencies [ef71a09]
+- Updated dependencies [8614705]
+- Updated dependencies [619e3f7]
+- Updated dependencies [ca7a4c3]
+- Updated dependencies [c9e6742]
+- Updated dependencies [4be76e0]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [608033b]
+- Updated dependencies [c6b7d82]
+- Updated dependencies [611566b]
+- Updated dependencies [efa9cb4]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [9d857c9]
+- Updated dependencies [670ea10]
+- Updated dependencies [ff215d9]
+- Updated dependencies [71243db]
+- Updated dependencies [e219a3d]
+- Updated dependencies [a8add5c]
+- Updated dependencies [33ee9de]
+- Updated dependencies [4839f5c]
+- Updated dependencies [a23e804]
+- Updated dependencies [c7462e7]
+- Updated dependencies [36e2f7b]
+- Updated dependencies [263e9dd]
+- Updated dependencies [360e27a]
+- Updated dependencies [ac59073]
+- Updated dependencies [44cb469]
+- Updated dependencies [e058d76]
+- Updated dependencies [464ae62]
+- Updated dependencies [c999d4c]
+- Updated dependencies [8df2608]
+- Updated dependencies [8df2608]
+- Updated dependencies [5483297]
+- Updated dependencies [ed43c79]
+- Updated dependencies [6367bfe]
+- Updated dependencies [260ef71]
+- Updated dependencies [655e897]
+- Updated dependencies [655e897]
+- Updated dependencies [020d178]
+- Updated dependencies [8d80845]
+- Updated dependencies [69a408f]
+- Updated dependencies [1aa622a]
+- Updated dependencies [d2b21a1]
+- Updated dependencies [6e4f144]
+- Updated dependencies [5ff64ef]
+- Updated dependencies [64acb7e]
+- Updated dependencies [4ff5b6b]
+- Updated dependencies [473e5a0]
+- Updated dependencies [b279016]
+- Updated dependencies [bb6c38c]
+- Updated dependencies [15b1065]
+- Updated dependencies [26323c4]
+- Updated dependencies [9753811]
+- Updated dependencies [2727527]
+- Updated dependencies [3da39ae]
+- Updated dependencies [bc281f4]
+- Updated dependencies [d637be3]
+- Updated dependencies [8392f74]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [8523e81]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [32b492b]
+- Updated dependencies [6058bf8]
+- Updated dependencies [c219165]
+- Updated dependencies [79cb8c0]
+- Updated dependencies [a7ae252]
+- Updated dependencies [fb501bc]
+- Updated dependencies [03f1d65]
+- Updated dependencies [30083da]
+- Updated dependencies [7f9cc37]
+- Updated dependencies [b7fe09e]
+- Updated dependencies [025130c]
+- Updated dependencies [76f91f8]
+- Updated dependencies [ea34d9b]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [024b7b6]
+- Updated dependencies [cb80001]
+- Updated dependencies [bcd9717]
+- Updated dependencies [909c64e]
+- Updated dependencies [9e7e1a5]
+- Updated dependencies [1d3da6c]
+- Updated dependencies [0d97642]
+- Updated dependencies [2493e85]
+- Updated dependencies [d0b9648]
+- Updated dependencies [46dbf32]
+- Updated dependencies [a928aaa]
+- Updated dependencies [47508f3]
+- Updated dependencies [61ed5ad]
+- Updated dependencies [1b94d50]
+- Updated dependencies [6f877f1]
+- Updated dependencies [988aa9f]
+- Updated dependencies [50ba1bb]
+- Updated dependencies [1ce0711]
+- Updated dependencies [fb85637]
+- Updated dependencies [9f1dd79]
+- Updated dependencies [df71568]
+- Updated dependencies [d11174a]
+- Updated dependencies [4c68855]
+- Updated dependencies [2d8a8b7]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [5129caa]
+- Updated dependencies [9eb1479]
+- Updated dependencies [74e37aa]
+- Updated dependencies [961b69f]
+- Updated dependencies [52907d7]
+- Updated dependencies [f466b0a]
+- Updated dependencies [673a71c]
+- Updated dependencies [616df65]
+- Updated dependencies [f48a4d5]
+- Updated dependencies [58798ec]
+- Updated dependencies [8803ca5]
+- Updated dependencies [e70c21d]
+- Updated dependencies [4b92c5a]
+- Updated dependencies [06be396]
+- Updated dependencies [3650d94]
+- Updated dependencies [7c05f21]
+- Updated dependencies [8cd4db4]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [35a2b59]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [53ee2f8]
+- Updated dependencies [088e0f7]
+- Updated dependencies [78b07f4]
+- Updated dependencies [0df67f2]
+- Updated dependencies [f962cdc]
+- Updated dependencies [b403bb3]
+- Updated dependencies [8a25fee]
+- Updated dependencies [4016370]
+- Updated dependencies [12dc7b4]
+  - @object-ui/types@18.0.0
+  - @object-ui/components@18.0.0
+  - @object-ui/core@18.0.0
+  - @object-ui/i18n@18.0.0
+  - @object-ui/react@18.0.0
+  - @object-ui/plugin-detail@18.0.0
+  - @object-ui/fields@18.0.0
+  - @object-ui/permissions@18.0.0
+  - @object-ui/mobile@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

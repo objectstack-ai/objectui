@@ -9,7 +9,7 @@
  * - ListView delegation for non-grid view types (kanban, calendar, chart, etc.)
  */
 
-import { useMemo, useState, useCallback, useEffect, useRef, lazy, Suspense, createElement, type ComponentType } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef, lazy, Suspense, createElement, type ComponentType, type ReactNode } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation, useHref } from 'react-router-dom';
 import { resolveFilterPlaceholders, DENSITY_MODE_TO_ROW_HEIGHT, normalizeListViewSchema, leadWithNameField, resolveAffordance, isRecordScopedAction, type FilterTokenScope, type SchemaLike } from '@object-ui/core';
 import {
@@ -63,6 +63,7 @@ import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { ViewConfigPanel } from './ViewConfigPanel.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
+import { dropPublishedViewList } from './metadata-admin/viewListDrop.js';
 import { persistRuntimeMetadata, createRuntimeMetadata, viewEnvelope, type ViewEnvelope } from './runtime-metadata-persistence.js';
 import { buildNewViewSpec } from './newViewSpec.js';
 import { ListViewSchema as SpecListViewSchema, normalizeFilterOperator, VIEW_CONSOLE_ROUND_TRIP_KEYS } from '@objectstack/spec/ui';
@@ -1326,6 +1327,35 @@ export interface ConsoleObjectViewProps {
 }
 
 /**
+ * The "object not found" state the route draws for an object it has no
+ * definition of. objectui#13052 — `packageDisabled`: the server answered that
+ * the object exists and its package is disabled (`OBJECT_PACKAGE_DISABLED`),
+ * so the description says that instead. The console route draws it for that
+ * answer (`AppContent`); this module's `ObjectView` draws it for an absence.
+ * Not part of the package entry.
+ */
+export function ObjectNotFoundState({ objectName, packageDisabled = false }: { objectName: string | undefined; packageDisabled?: boolean }) {
+    const { t } = useObjectTranslation();
+    return (
+        <div className="h-full p-4 flex items-center justify-center">
+          <Empty data-testid={packageDisabled ? 'object-package-disabled' : 'object-not-found'}>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <TableIcon className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <EmptyTitle>{t('console.objectView.objectNotFound')}</EmptyTitle>
+            <EmptyDescription>
+              {packageDisabled
+                ? t('console.objectView.objectPackageDisabled', { objectName })
+                : t('console.objectView.objectNotFoundDescription', { objectName })}
+              {' '}
+              {t('console.objectView.objectNotFoundHint')}
+            </EmptyDescription>
+          </Empty>
+        </div>
+    );
+}
+
+/**
  * The list toolbar's inline-edit toggle, as this page wires it: it writes
  * nothing (objectui#5144, triage's ruling E).
  *
@@ -1384,9 +1414,27 @@ function keepInlineEditModeForTheSession(): void {
     // Deliberately empty: see the docblock.
 }
 
+/**
+ * objectui#13134 — the room the list leaves at its end for the phone create
+ * button (`mobile-fab-create`), so the last card can be scrolled clear of it.
+ *
+ * The button is `fixed`, `bottom-36` (9rem) and `h-12` (3rem): its top edge
+ * stands 12rem above the bottom of the screen, so 12rem (`pb-48`) at the end
+ * of a scroller that ends at or above the screen's bottom lifts the last card
+ * above it. `max-sm:` is the button's own `sm:hidden`, read the other way: the
+ * room exists exactly where the button is drawn.
+ *
+ * It lands on the scroller that marks itself `data-fab-clearance` (the card
+ * list `ObjectGrid` draws at phone width): the list's own scroll box, which
+ * is the only box there that scrolls. Padding a box above it would add no
+ * scroll room, since every box between this page and the cards clips.
+ * `ObjectView.mobileFabListClearance-13134.test.tsx` derives the 12rem from
+ * the button's classes, so moving the button without this fails there.
+ */
+const MOBILE_FAB_LIST_CLEARANCE = 'max-sm:[&_[data-fab-clearance]]:pb-48';
+
 export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const { objectName } = useParams();
-    const { t } = useObjectTranslation();
 
     // Resolve the object definition up front. When it's missing we render the
     // "object not found" empty state *here*, before the inner component mounts.
@@ -1396,23 +1444,7 @@ export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: 
     // return. The inner subtree then mounts/unmounts as a whole (object exists
     // ↔ doesn't) rather than toggling the number of hooks executed per render.
     const objectDef = objects.find((o: any) => o.name === objectName);
-    if (!objectDef) {
-      return (
-        <div className="h-full p-4 flex items-center justify-center">
-          <Empty>
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-              <TableIcon className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <EmptyTitle>{t('console.objectView.objectNotFound')}</EmptyTitle>
-            <EmptyDescription>
-              {t('console.objectView.objectNotFoundDescription', { objectName })}
-              {' '}
-              {t('console.objectView.objectNotFoundHint')}
-            </EmptyDescription>
-          </Empty>
-        </div>
-      );
-    }
+    if (!objectDef) return <ObjectNotFoundState objectName={objectName} />;
 
     return (
       <ObjectViewInner
@@ -1682,11 +1714,17 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
      * View CRUD (rename, pin, reorder, config save) keeps bumping the counter
      * alone: it changes the view's metadata, not the object's data, and the new
      * view config reaches every renderer as props.
+     *
+     * objectui#13057 — a refresh also re-reads the saved views from the server.
+     * The adapter answers `listViews` from the published view list it stored
+     * for this open, so the refresh drops that list first; the counter bump
+     * then re-runs the saved-views read below, which asks the server again.
      */
     const refreshData = useCallback(() => {
+        dropPublishedViewList(dataSource);
         setRefreshKey((k) => k + 1);
         if (objectDef.name) notifyDataChanged({ objectName: objectDef.name });
-    }, [objectDef.name]);
+    }, [dataSource, objectDef.name]);
 
     // Shared console action runtime: confirm/param/result dialogs, the
     // authenticated api/flow/server-action handlers, SPA navigation, and the
@@ -1810,6 +1848,15 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
      * so `renderListView` depends on a primitive, not a memoised identity
      * (AGENTS.md #10).
      */
+    /**
+     * objectui#13089 — the view's `addRecord` Add button opens this page's own
+     * create (`actions.create`, the header New's), so it is offered exactly
+     * where that New is offered and live: the object-level verdict, the
+     * toolbar-scope `visibleWhen`, and not greyed by `disabledWhen` (`ListView`
+     * draws no greyed Add button). A boolean, so `renderListView` depends on
+     * a primitive (AGENTS.md #10).
+     */
+    const listAddRecordOpensCreate = objectCanCreate && createVisible && !createDisabled;
     const mayInvokeToolbarAction = useCapabilityGate();
     const toolbarPredicateScope = usePredicateScope();
     const pageOffersCreate =
@@ -2961,6 +3008,18 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         />
     ) : null;
 
+    // objectui#13114 — the strip as a row of its own, for the faces that have
+    // no `ListView` toolbar to carry it: a view the server refused (drawn
+    // page-level below) and a `type: 'chart'` view (drawn above the chart in
+    // `renderListView`'s chart branch, which returns before `ListView`). Every
+    // other face gets the strip in the list's toolbar row instead, so no face
+    // ever draws two. Gated on `viewTabBar`, so below `sm` it is absent too.
+    const viewTabRow = viewTabBar ? (
+        <div className="border-b px-3 sm:px-4 bg-background overflow-x-auto shrink-0" data-testid="view-tab-row">
+            {viewTabBar}
+        </div>
+    ) : null;
+
     // Render multi-view content via ListView plugin (for kanban, calendar, etc.)
     const renderListView = useCallback(({ schema: listSchema, dataSource: ds, onEdit: editHandler, className, refreshKey: pluginRefreshKey }: any) => {
         // Combine local refreshKey with the plugin ObjectView's refreshKey for full propagation
@@ -3051,6 +3110,16 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
          */
         if (viewDef.type === 'chart') {
             const chartConfig = viewDef.chart || {};
+            // objectui#13114 — this branch returns before `ListView`, the
+            // carrier of the view tabs on every other face, so it draws them
+            // itself (`viewTabRow`) above the chart: without them a chart view
+            // is a dead end with no way back to the grid.
+            const withViewTabs = (chartFace: ReactNode) => (
+                <div className="h-full flex flex-col min-w-0">
+                    {viewTabRow}
+                    {chartFace}
+                </div>
+            );
             // Both chart branches below are keyed on `identityKey` alone
             // (objectui#10035): `ObjectChart` runs its own query and refetches
             // in place on the data-invalidation bus (see `refreshData`).
@@ -3061,7 +3130,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             if (chartConfig.dataset) {
                 const dims: string[] = Array.isArray(chartConfig.dimensions) ? chartConfig.dimensions : [];
                 const vals: string[] = Array.isArray(chartConfig.values) ? chartConfig.values : [];
-                return (
+                return withViewTabs(
                     <Suspense key={identityKey} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
                         <ObjectChart
                             dataSource={ds}
@@ -3093,7 +3162,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             // no category, which `ObjectChart` refuses on screen (objectui#8168,
             // `chart-missing-category-axis`) instead of aggregating on a name
             // nobody wrote. ⛔ Do not restore a floor here.
-            return (
+            return withViewTabs(
                 <Suspense key={identityKey} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
                     <ObjectChart
                         dataSource={ds}
@@ -3433,7 +3502,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             selection: viewDef.selection ?? listSchema.selection,
             pagination: viewDef.pagination ?? listSchema.pagination,
             searchableFields: viewDef.searchableFields ?? listSchema.searchableFields,
-            filterableFields: viewDef.filterableFields ?? listSchema.filterableFields,
             resizable: viewDef.resizable ?? listSchema.resizable,
             rowActions: viewDef.rowActions ?? listSchema.rowActions,
             /**
@@ -3468,7 +3536,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             bulkActions: viewDef.bulkActions ?? listSchema.bulkActions,
             bulkActionDefs: (viewDef as any).bulkActionDefs ?? (listSchema as any).bulkActionDefs,
             sharing: viewDef.sharing ?? listSchema.sharing,
-            addRecord: viewDef.addRecord ?? listSchema.addRecord,
+            // objectui#13089 — the Add button `ListView` draws from
+            // `addRecord.enabled` opens the header New's create (`onAddRecord`
+            // below), so it follows the New's verdict: withheld, not drawn
+            // dead, for a viewer who may not create or whose create is greyed.
+            addRecord: listAddRecordOpensCreate ? viewDef.addRecord ?? listSchema.addRecord : undefined,
             conditionalFormatting: viewDef.conditionalFormatting ?? listSchema.conditionalFormatting,
             // ADR-0047 (amended, objectui #2338): this is the object default
             // list = "views" mode. `dropdown` (value-chip) userFilters ARE
@@ -3642,6 +3714,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 viewDefaults={{ hiddenFields: viewHiddenFields, rowHeight: viewRowHeight }}
                 className={className}
                 onEdit={editHandler}
+                // objectui#13089 — the view's Add button is the header New:
+                // `onEdit(null)`, which the host routes to the record-form
+                // overlay or an `editMode: 'page'` object's create route.
+                onAddRecord={listAddRecordOpensCreate ? actions.create : undefined}
                 onDelete={(record: any) => {
                     if (record?.id != null) {
                         // useObjectActions.deleteRecord wraps execute() which
@@ -3705,7 +3781,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 dataSource={ds}
             />
         );
-    }, [inSetup, activeView, activeViewDeclaresColumns, activeViewIsSaved, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar]);
+    }, [inSetup, activeView, activeViewDeclaresColumns, activeViewIsSaved, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listAddRecordOpensCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar, viewTabRow]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).
@@ -3774,6 +3850,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // of it. Greyed, not gone, is the `disabledWhen` case. Same pair drives the
     // phone FAB below, so the two render points cannot disagree.
     const showCreate = objectCanCreate && createVisible;
+    // objectui#13134 — the list's end-of-scroll room for the phone FAB, on the
+    // list host below, exactly while the FAB is drawn (see
+    // `MOBILE_FAB_LIST_CLEARANCE`).
+    const listFabClearance = showCreate ? MOBILE_FAB_LIST_CLEARANCE : undefined;
     const createButton = showCreate ? (
         <Button
             size="sm"
@@ -4031,8 +4111,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                  `disabled` — which is what conveys the state to assistive tech
                  — plus the same `disabled:opacity-50
                  disabled:pointer-events-none` utilities `Button` itself uses,
-                 so the visual affordance matches the header button's. */}
-             {objectCanCreate && createVisible && (
+                 so the visual affordance matches the header button's.
+
+                 objectui#13134 — the list it floats over leaves room at its
+                 end while it is drawn (`listFabClearance`), and only then: the
+                 same `showCreate` decides both. */}
+             {showCreate && (
                <button
                  type="button"
                  onClick={actions.create}
@@ -4099,14 +4183,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                  objectui#12440). The one exception is a view the server
                  refused: no list is drawn, so no toolbar can carry the strip,
                  and the tabs are the way off that view — they keep a row of
-                 their own there. Below `sm` the mobile view switcher is
+                 their own there (`viewTabRow`, which a chart view draws
+                 above its chart too, objectui#13114). Below `sm` the mobile
+                 view switcher is
                  rendered by AppHeader via MobileViewSwitcherContext
                  (registered above). */}
-             {refusedViewFace && viewTabBar && (
-               <div className="border-b px-3 sm:px-4 bg-background overflow-x-auto shrink-0" data-testid="view-tab-row">
-                 {viewTabBar}
-               </div>
-             )}
+             {refusedViewFace && viewTabRow}
              {isAdmin && views.length >= 1 && (
                <ManageViewsDialog
                  open={manageViewsOpen}
@@ -4137,7 +4219,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                         mainContent={
                             <div className="flex-1 min-w-0 relative h-full flex flex-col">
                                 <div className="flex-1 relative overflow-hidden">
-                                    <div className="h-full overflow-auto">
+                                    <div className={['h-full overflow-auto', listFabClearance].filter(Boolean).join(' ')}>
                                         {refusedViewFace ?? (viewAccess.checking ? null : (
                                         <PluginObjectView
                                             schema={objectViewSchema}
@@ -4184,7 +4266,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 ) : (
                 <div className="flex-1 min-w-0 relative h-full flex flex-col">
                     <div className="flex-1 relative overflow-hidden">
-                        <div className="h-full overflow-auto">
+                        {/* objectui#13134 — `listFabClearance`: room at the
+                            end of the card list's scroller for the phone FAB. */}
+                        <div className={['h-full overflow-auto', listFabClearance].filter(Boolean).join(' ')}>
                             {refusedViewFace ?? (viewAccess.checking ? null : (
                             <PluginObjectView
                                 schema={objectViewSchema}

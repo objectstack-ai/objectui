@@ -1,5 +1,585 @@
 # @object-ui/plugin-kanban
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- fd060f0: The `object-kanban` registration no longer declares `objectName` required, so
+  the page compile accepts a board whose `dataSource` binding names the object, and
+  a board that names its object in neither place shows a hint instead of an empty
+  board (objectui#11605).
+  
+  `@objectstack/spec`'s `object-kanban` row leaves `objectName` optional, because
+  the node's `dataSource` binding can supply it, and the renderer agrees:
+  `dataSource.object` lands on `objectName` before the board reads the node. The
+  registration still declared `required: true`, and the page compile reads the
+  registration, so a bound board with no `objectName` of its own was refused with
+  `missing-required-prop` and the save failed.
+  
+  **Clause-②: yes (widening)** — an `object-kanban` node that names its object
+  through `dataSource.object` and sets no `objectName` now compiles and saves. A
+  node that names its object in neither place also compiles now, and the board
+  shows "No object named: set objectName or dataSource.object." where it used to
+  draw an empty board reading "No cards". A board with rows from inline `data`
+  (an empty array included), a `bind` path or a parent view shows no hint and
+  renders as before. The published `objectName` input now carries a description
+  that says the binding can supply it.
+- f34e877: A kanban card's declared deadline reads neutral once the card's record settles it through the field's `settledWhen`, and "Overdue Nd" in red otherwise (objectui#11815).
+- 8614705: A kanban under a list view puts every record of the view in its column, not the list's first page, and its cards carry the view's first columns (objectui#12619).
+  
+  Measured on HotCRM's 45 opportunities at Display › Layout › Kanban: the board drew 25 cards (the grid's Rows per page), the closed columns read 0, the footer read "Showing first 25 records. More data may be available.", and each card showed only the record's name.
+  
+  - **Each lane is its own query.** `ListView` no longer hands its board the rows it fetched for the grid. It hands it the view's query, and the board asks each lane for its first 50 records: the view's filter (toolbar filters and chips included) AND the lane value, in the view's sort, with the toolbar search. The lane's count in its header is the server's count from the same answer. A lane holding more shows **Load more** at its foot. One more query finds the records in no lane (a lane value that is none of the lanes, or empty) for the trailing Uncategorized lane. A refresh asks each lane again at the depth it was loaded to. Dragging a card between columns writes the lane value and asks for the required fields as before, and both lane counts follow the card.
+  - **The list footer counts the view.** It shows the view's record count from the list's own query, with no "Showing first N records" line and no Rows per page picker on such a board.
+  - **Which boards page their lanes.** A board whose lanes are known before the query (the lane field's options) and that draws no swimlanes. Any other board under a list view is handed the list's rows, as before. A standalone `object-kanban` keeps its one query, capped by `limit`.
+  - **Cards carry the view's first columns.** With no `kanban.columns` of its own, a list view hands the board the view's next two columns past the card title, the lane field and the owner field, by field name. Before, a card drew no field lines from the view's columns. Below its name it showed at most a subtitle the board derives from the record where the record yields one (an amount and an account, say). On HotCRM's measured board it showed the name alone: that view's columns are `{ field }` entries, handed over whole, which the card read as field names and matched none. The kanban block's `columns` is the author's card list and is used whole.
+  - **A card field is a line with its label.** Each card field now shows its label, muted, before its value. The label used to be a tooltip only. The card's reduced padding between its title and its first field line now holds at every breakpoint; from the `sm` breakpoint up it had widened back to the full padding.
+  - **The owner's avatar.** When the object gives its records an owner (the spec's `ownership` model and `SystemFieldName.OWNER_ID`, read through `resolveInjectedSystemColumns`), each card shows the owner's avatar from the expanded owner record, as the viewer may read it.
+  
+  Public surface: `ObjectKanbanComponentProps` gains two optional host props, `lanePaging` (`{ search?, searchFields?, reloadKey? }`) and `ownerField`. Neither is an authoring key on the `object-kanban` node. `@object-ui/i18n` gains `kanban.loadMore` in every language pack.
+- f62b6ff: Resolve `@objectstack/*` `18.0.0-next.2` (objectui#12626).
+  
+  The console and the runner bundle `18.0.0-next.2`. `@object-ui/types` and `@object-ui/app-shell` now declare `@objectstack/spec` `^18.0.0-next.2`; the other packages keep `^18.0.0-next.1`, which already admits it.
+  
+  **The record dialog opens bounded on desktop for every object.** A create, edit or child record dialog on an object with many fields used to open as a 95vw task canvas. `@objectstack/spec` `18.0.0-next.2` derives a bounded modal for it on desktop and keeps the full-screen sheet on a phone, and the console now takes that answer directly.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates a page through the spec's own page checks, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.2` refuses. Each was accepted before:
+  
+  - On a `kind: 'full'` page, a region whose `name` the page's `template` does not place (with the default template: anything but `header`, `sidebar`, `main`, `aside` and `footer`), and a second region for a slot another region already fills. The renderer stacked such a region under `main` at full width. Rename it to a slot the template places, or choose the `dashboard` template, which lays every other region out as a grid cell.
+  - `isDefault: true` on a page whose `type` is its page kind (`record`, `home` or `utility`) unless it is a `record` page bound to an `object`. Delete the key; an app's landing page is its first navigation item.
+- 26323c4: Resolve `@objectstack/*` `18.0.0-next.3` (objectui#12873).
+  
+  The console and the runner bundle `18.0.0-next.3`. Every package keeps its `@objectstack/*` range (`^18.0.0-next.1`, or `^18.0.0-next.2` for `@object-ui/types` and `@object-ui/components`), which already admits it, except `@object-ui/app-shell` (objectui#12943) and `@object-ui/plugin-detail` (objectui#12946), which declare `^18.0.0-next.3`.
+  
+  **An accept set that narrows with it.** `@object-ui/types` validates a `page:header` node's `properties` through the spec's own `page:header` row, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse `showStar`, which `18.0.0-next.3` retires: the follow star it switched on is not drawn by any renderer. It was accepted before. Delete the key.
+  
+  **A type that widens with it.** `SelectOptionBase`, and the field and form option types built on it, take the spec's select option by reference, so they now carry its optional `kind` (`'open' | 'won' | 'lost'`), the lifecycle category `18.0.0-next.3` adds. The spec takes it on a single-value `select` or `radio` field's options and requires it on every option of the field an object's `stageField` names.
+
+### Patch Changes
+
+- f4370f4: The `object-kanban` board totals the view's `summarizeField` in each column header (objectui#11629).
+  
+  `@objectstack/spec` declares `summarizeField` on the view-level `KanbanConfig` ("Field to sum at top of column"), and `ListView`'s kanban branch passes it onto the `object-kanban` node it generates. The board never read it, so a view that set it showed the card count and no total. Each column header now shows the sum of that field over the column's cards, beside the count, on both the flat layout and the swimlane layout's column-title row.
+  
+  - The total is written by the field's own cell renderer, the one the cards use for that field. A currency field totals as currency, and a number field keeps its declared `scale`. A sum over a number field with no declared `scale` is rounded to the widest input, so `0.1 + 0.2` reads `0.3`.
+  - An absent, `null` or empty value counts as `0`, and an empty column totals `0`. A numeric string counts as the number the card shows for it. A column holding any other value shows no total, never `NaN`.
+  - The total covers the cards the board loaded. When the board's own fetch filled its window, the total carries the same `+` the count carries (`6+`).
+  - No total is shown for a field the viewer may not read, or a field the object does not declare. The rows never carry such a field, so the column would read `0`.
+  - A `Σ` glyph sets the total apart from the count badge beside it. The field's label is the total's tooltip and its screen-reader name, and the glyph is hidden from assistive technology. No translation key is added.
+  
+  A board whose node carries no `summarizeField` renders exactly as before. The console's object page now passes a view's `summarizeField` on to the list view with the lane, title and card fields it already relayed, so a board opened there shows the totals (until now the key was dropped on that page). Nothing is added to the package entry: the total reaches the header through a package-private context, the same channel the records-settled signal uses.
+- 2063f7a: Four plugin controls pick with the shared `Select`, the control the rest of the console picks with (objectui#11865, the plugins' single selects): `SharedViewLink`'s "Expires after", `ViewSettingsPopover`'s "Color by field", a `select` field of the kanban `InlineQuickAdd` form, and the grouped grid's "Rows per page".
+  
+  The four were browser-native selects, so they looked and behaved differently from the console's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour. The grouped grid's size picker is now drawn as the flat grid's pager draws its own.
+  
+  What they write is unchanged. Each option gives the same value as before: "Never" still generates a link with no expiry, "None" still clears the row-colour config, the quick-add placeholder still submits an empty string, and each page size still repaginates from page 1. Re-picking the current option writes nothing. The quick-add picker keeps the accessible name its label gave the native select and still takes the form's first focus. Its keys keep the form's contract: Enter on the closed picker still submits the form and Escape still cancels it; Space and the arrow keys open the list, and Enter or Escape inside the open list selects or closes it without submitting or cancelling the form.
+  
+  One display change: a value none of a picker's options carries now shows as itself. The native select showed its first option instead ("None" for a row-colour field, the placeholder for a quick-add value), which is not what the view or the form holds.
+  
+  **Clause-②: no.** No published face moves: the package entries export the same names, the four components take the same props, and no i18n key is added. What moves is the four controls' own markup, described above.
+- 5af42db: Five write affordances that read no grant at all now read the affordance-to-grant
+  map, so a caller without the grant is no longer offered a write the server then
+  refuses (objectui#12082, the card's remainder).
+  
+  - **`object-view`'s New** (the toolbar button of the SDUI `object-view` node)
+    reads the `listNew` row, as the console's list pages already did: the
+    object's policy, the effective API operation set and the caller's create
+    grant, on top of the node's `showCreate` / `operations.create` toggles.
+  - **The calendar's quick-create** (an empty-day click, or a time-range drag in
+    the week / day grid) reads the new `calendarQuickCreate` row, and
+    **drag-to-reschedule** reads the new `calendarReschedule` row. A closed row
+    withholds the handler the calendar grid draws the affordance from: no dialog
+    on a day click, no range drag, no draggable event. A host-supplied
+    `onDateClick` / `onEventDrop` is handed through unchanged.
+  - **The kanban card move** reads the new `kanbanCardMove` row. A closed row
+    draws the cards as not movable and hands the board no mover, so no drop
+    reaches the write.
+  - **A line-items panel's add and remove** (`record:line_items`) read the
+    `relatedNew` and `relatedRowDelete` rows on the CHILD object, the same rows a
+    related list reads for the same two writes. Add covers the Add button, the
+    entry row and Duplicate; remove covers the per-row Remove.
+  
+  With no permission provider mounted every one of them reads open, as before.
+  
+  **Clause-②: yes (widening).** `AFFORDANCE_GRANTS`, exported from
+  `@object-ui/core`, gains three rows: `calendarQuickCreate` (create),
+  `calendarReschedule` (update) and `kanbanCardMove` (update), and with them the
+  `ConsoleAffordance` union that `resolveAffordance` accepts. Nothing is removed or
+  renamed. The other four packages change behaviour only.
+- 36e2f7b: The kanban board's drag-and-drop tells a screen reader the card's title and the column's label, in the console's language, instead of the record id and the option value (objectui#12716).
+  
+  The board's `DndContext` passed no `accessibility` announcements, so dnd-kit read its default English sentences, which name the dragged card and its target by their ids: "Draggable item gZguOoFVfxm_pSPG was moved over droppable area 4iDmJaZr0O0St1fb". The board now hands it announcements built from what is on screen, after the form designer's (objectui#11802):
+  
+  - **Pick-up:** "Picked up Content backlog in To Do."
+  - **Over a card:** "Moving Content backlog over SEO migration plan in In Progress." **Over a column's empty area:** "Moving Content backlog over Done." **Over nothing:** "Moving Content backlog. It is not over a column."
+  - **Drop:** "Moved Content backlog to In Progress." when the board moves the card to another column, and "Dropped Content backlog. It stays in To Do." when the drop moves nothing (its own column, itself, or nothing).
+  - **Cancel:** "Cancelled moving Content backlog. It stays in To Do."
+  
+  Each id is resolved the way the board's drop resolves it, so the column a sentence names is the column a drop there lands in. A card or column with a blank title, or one the board no longer holds, is named "an untitled card" or "an unnamed column", never by its id.
+  
+  `@object-ui/i18n` gains nine keys under `kanban.dnd` in all ten language packs (`start`, `overCard`, `overColumn`, `overNone`, `moved`, `dropped`, `cancelled`, `untitledCard`, `unnamedColumn`). Each sentence is one key with the names interpolated, so a language orders them as it needs. A board with no translation provider reads the same English sentences.
+  
+  Nothing else on the board changes: drag behaviour, sensors, collision detection, the screen-reader instructions and the existing strings are as they were. Nothing is added to `@object-ui/plugin-kanban`'s entry: no export, prop or type.
+- f5009db: In Studio's Interfaces pillar, a click on a card of a kanban view's board selects the board's card, and a 看板卡片 (Kanban card) section in the view's properties edits it (objectui#12725, target 2: clicking a canvas element switches the right slot to 属性 for that element).
+  
+  - **Select, not open.** On an `object` leaf whose list view renders as a kanban board, a click on a card inside the Studio canvas switches the slot to 属性 with the 看板卡片 section, outlines the clicked card, and the status line reads 「已选中：看板卡片 · Esc 取消选中」. There the click does not open the record, and a press on a card does not start a drag. Enter, or Space, on a focused card selects it in the same way (a card opens on those keys elsewhere). A button or link drawn inside a card keeps its click. Esc, or a click on empty canvas, clears the selection; the slot keeps the view's properties.
+  - **The 看板卡片 section** shows only on a kanban view and writes keys the spec declares, each control its own key: the card fields (`kanban.columns`, ordered), the title (`kanban.titleField`; 记录名称 removes the key and the card shows the record's display name), click to open (`navigation.mode`, over the spec's navigation modes; 默认 removes the key) and the group-by field (`kanban.groupByField`). The spec requires the group-by field and the card fields on a kanban block, so on a view with no block the title and the card fields wait until a group-by field is picked. There is no colour control.
+  - **The board outside Studio is unchanged:** a click opens the record and a drag moves the card. Each card now carries `data-kanban-card` with its record id, which the Studio canvas reads to tell which card was clicked; markup only, no prop or export changes. A canvas registered over the default (`registerStudioCanvasPreview`) gets no card selection.
+- 4ff5b6b: The kanban board's card lists and drag overlay are now named in the viewer's language. A lane's card list, a swimlane cell's card list and the drag overlay used English templates around the label ("To do cards", "To do - ann cards", "Dragging Content backlog"), so under zh a screen reader heard "待规划 cards". Each name is now one pack sentence with the label interpolated (`kanban.columnCards`, `kanban.laneCards`, `kanban.dnd.dragging`), in all ten language packs. English reads as before.
+- 1d872f2: A focused kanban card opens on Enter and on Space (objectui#12883). Every card was already a keyboard tab stop, but its only activation was the pointer click, so a keyboard user could reach a card and could not open its record from the board.
+  
+  - Enter, and Space on its release, call the same `onCardClick` a pointer click calls, handing it the key event. Its readers take `target` (the popover anchor) and `metaKey` / `ctrlKey` (open in a new tab) from it, which a key event carries; a key event has no `button`, so it never reads as a middle click.
+  - The card is now a `button` inside a `listitem`, the shape for an activatable item in a list. The list item keeps its name, and the card's description (objectui#12837) stays on the focusable button.
+  - A key pressed on an element inside a card, such as a link a field renders, does not open the card.
+  - Keyboard drag is unchanged: the board still builds no keyboard sensor.
+- e1548b7: The kanban swimlane that holds cards with no value in the swimlane field is headed by the pack's `kanban.uncategorized` instead of the English constant (objectui#12899). Under a non-English locale the lane heading, and the lane cell's accessible name, now read the translated word. Only the display changed: the lane is still bucketed, counted and collapsed under the same key, so a card whose value is literally "Uncategorized" keeps sharing that lane.
+- 1e6d83b: Data-bound blocks title their "data source could not be resolved" panel in the page's language (objectui#12920, the family of objectui#12910). The panel shows when a block's `dataSource.view` names a view its object does not have. Each block's title now reads `@object-ui/i18n` through `useObjectTranslation`, with the `en` pack's value as the inline default, so a page with no `I18nProvider` draws the same English it drew before.
+  
+  - **Plugin blocks.** `object-calendar`, `object-chart`, `object-metric`, `object-pivot`, `detail-view`, `record:related_list`, `object-form`, `embeddable-form`, `object-master-detail-form`, `record:line_items`, `object-gantt`, `object-grid`, `object-kanban`, `list-view`, `object-map` and `object-timeline` read one `element.KIND.sourceUnresolved` key per block kind. `object-metric` reads `element.number.sourceUnresolved`, the key `element:number` already reads for the same sentence. The three forms share `element.form.sourceUnresolved`. `record:related_list`'s panel for a failed `parentDataSource` read reads `element.relatedList.parentUnreadable` ("This related list’s parent record could not be read").
+  - **`@object-ui/react` panel defaults.** `ElementDataSourceErrorPanel` with no `title` reads `element.component.sourceUnresolved`, and `NoDataSourcePanel` with no `title` reads `element.component.noDataSource`. A passed `title` still wins, an empty string included. Props and markup do not change.
+  
+  Clause-②: yes
+  
+  The new keys in `@object-ui/i18n` widen its exported `TranslationKeys`. No prop, input or export of these packages changes.
+- 083e807: A kanban card move is announced to screen readers when its write answers, not when the card is dropped (objectui#13054).
+  
+  Before this change, dropping a card on another column made the drag live region say "Moved CARD to COLUMN." at once, before the server had answered. A move the server refused, such as a task status transition its state machine rejects, was announced as done. A sighted user saw the refusal toast and the card snapping back.
+  
+  Now a drop on another column says nothing at the drop. The board has its own visually hidden, assertive status region, and it announces the outcome once the write settles:
+  
+  - **Accepted:** "Moved CARD to COLUMN."
+  - **Refused:** the same sentence the error toast shows.
+  - **Waiting for required fields:** nothing. The dialog speaks for that move.
+  
+  A board with no write of its own (local data) still announces the move immediately. A drop in the card's own column and a cancelled drag say what they said before.
+- d7e9e9a: feat(types)!: `object-grid` `operations` and the `object-grid` / `object-kanban` / `object-calendar` `filter` follow the `@objectstack/spec` 17.7.0 rows (objectui#6152, round 8)
+  
+  Clause-②: no
+  
+  **Narrowed (breaking).** `@objectstack/spec` 17.7.0 types `object-grid`'s `operations` as the
+  strict `{ create?, update?, delete?, export? }` block, refusing `read` and `import` by name, and
+  the `filter` of `object-grid`, `object-kanban` and `object-calendar` as the `ViewFilterRule` array
+  `[{ field, operator, value }, ...]`, refusing the MongoDB-style record and the AST tuple array.
+  `@object-ui/types` now says the same, with no alias window:
+  
+  - `ObjectGridSchema.operations` takes the row's block by reference. `read` and `import` are
+    `?: never` on the interface and refused by name at their own path on the flat zod
+    `ObjectGridSchema`: no `object-grid` code reads either. The flat mirror is the source of an
+    `object-view`'s `table` slot, so `table.operations.read` / `.import` are refused there too, and
+    the `read` refusal names the view-level spelling, `navigation: { mode: 'none' }` or the view's
+    own `operations: { read: false }`.
+  - `ObjectGridSchema.filter`, `ObjectKanbanSchema.filter` and `ObjectCalendarSchema.filter` take
+    their row's own member by reference, on the interface and on the zod mirror. They were `any[]`
+    and `z.array(z.any())`, so `filter: [['status', '=', 'open']]` type-checked and parsed. It is now
+    refused, on an authored `object-kanban` / `object-calendar` node and in an `object-view`'s
+    `table` slot; respell it `filter: [{ field: 'status', operator: 'equals', value: 'open' }]`.
+  
+  What did not move: an `object-view`'s own `operations.read` (the protocol has no `object-view`
+  row, and `ObjectView` reads it as its row-click gate), and the renderers' reads. `ObjectGrid`
+  still lowers an AST array, and the board and the calendar still hand whatever `filter` reaches
+  the node to `$filter`, because hosts compose that form at runtime.
+  
+  - `@object-ui/plugin-view`: the grid node `ObjectView` composes no longer carries the view's
+    `read` toggle in its `operations` block; the view keeps reading it.
+  - `@object-ui/plugin-grid`, `@object-ui/plugin-kanban`, `@object-ui/plugin-calendar`: the
+    registrations' `filter` inputs describe the `ViewFilterRule` array, and the grid's `operations`
+    input names the four toggles.
+  - `@object-ui/console`: the registry parity pins' prose stops calling these rows `z.unknown()`.
+- c0c0a0d: The board implementation types its `conditionalFormatting` rules as `@object-ui/types`' `KanbanConditionalFormattingRule` by that name, instead of through a module-local alias named `ConditionalFormattingRule` (objectui#6349, batch 7). `@object-ui/types` publishes `ConditionalFormattingRule` for the grid's and list view's rule, so the alias put a second meaning behind that name. The alias was internal: this package's entry never exported it, so no import changes, and the rule type is the same.
+  
+  No runtime behaviour changes.
+- b403bb3: **`BaseSchema` no longer declares `[key: string]: any`** (objectui#8347, executing the objectui#7927 ruling: the TypeScript face is a contract). Every node type extends `BaseSchema`, so a node literal annotated with its node type now refuses a key that no declaration names, a misspelled key included, where it used to type it `any`. The correct spelling compiles as before.
+  
+  **Clause-②: yes (narrowing)**, shipped as `minor` per this repository's version policy. The removal narrows the TypeScript authoring face of every node type; the `visibleWhen` change below widens both faces to the envelope the spec's own parse writes.
+  
+  - **What does not move.** The zod faces keep their accept sets for every key but `visibleWhen`: the tolerant mirror is still `.passthrough()`, so `safeValidateSchema` keeps an undeclared key, and the derived strict face refuses it as before. `ComponentRendererProps`, the renderer props type, keeps its own index signature. Nothing a renderer draws changes.
+  - **The bound.** TypeScript runs its excess-property check only on a fresh object literal. A value that reached its annotation through a variable of a wider type is not re-checked.
+  - **`PartialSchema<T>` works as written.** With the signature gone, `keyof T` is the literal member union again, so the alias keeps `T`'s declared members, optional, with `type` required. While the signature stood it declared `type` alone (objectui#6397).
+  - **`BaseSchema.visibleWhen` is the spec's `EvaluatedExpressionInput`**, by reference: a predicate string, or the `{ dialect, source }` envelope. The zod twin takes `EvaluatedExpressionInputSchema`'s verdict without its transform, so a string parses to itself. A dialect-less envelope, an unknown dialect and a blank predicate are refused, as the spec refuses them. Both faces read `string` before, which refused the envelope a spec parse writes into this key.
+  - **`@object-ui/plugin-kanban`.** `ObjectKanban` reads the `sort` the element data-source gate writes through a read type private to the package. `ObjectKanbanSchema` still declares no `sort` (objectui#8174). Nothing drawn changes.
+  - **`@object-ui/plugin-timeline`.** `TimelineRenderSchema`, the `schema` prop type of the exported `TimelineRenderer`, gains one optional member: the `onItemClick` slot `ObjectTimeline` composes. That is a one-member optional widening of an exported prop type. `TimelineSchema`, the authoring face, still declares no `onItemClick`. Nothing drawn changes.
+  
+  **Migration.** Where a literal stops compiling, the key is misspelled (fix it) or not declared on that node type (declare it on the type that reads it, by reference to the `@objectstack/spec` row, or remove it). Do not cast past the error. `props`, the legacy alias of `properties`, is not declared on the TypeScript face; the renderer still reads it, so write `properties`.
+- 8a25fee: Kanban cards no longer tell screen-reader users to press the space bar. Each card's accessible description is now a sentence from the `kanban.dnd.instructions` bundle key, in the viewer's language, saying that a card moves to another column by dragging it with a pointer or by touch. The board has no keyboard drag, so the description names no key. The package README's "Accessible" line now says the same.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [b61c116]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [4c127cd]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [76993f8]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [96fcf30]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [055d350]
+- Updated dependencies [7300fca]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [db4cb6b]
+- Updated dependencies [4590363]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [885a96f]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [72167a9]
+- Updated dependencies [e06365c]
+- Updated dependencies [3035948]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [5ab2f19]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [2312bd9]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [c5406c2]
+- Updated dependencies [c5406c2]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [a368ccb]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [e391f87]
+- Updated dependencies [20c6d35]
+- Updated dependencies [417e245]
+- Updated dependencies [69bca0a]
+- Updated dependencies [023f00d]
+- Updated dependencies [158c75d]
+- Updated dependencies [7525045]
+- Updated dependencies [5af42db]
+- Updated dependencies [ce991bd]
+- Updated dependencies [3c0f806]
+- Updated dependencies [1071393]
+- Updated dependencies [5f75cfa]
+- Updated dependencies [29b9949]
+- Updated dependencies [1d1cfe0]
+- Updated dependencies [6757a93]
+- Updated dependencies [b7cd5c8]
+- Updated dependencies [5330038]
+- Updated dependencies [2498a07]
+- Updated dependencies [898bd2c]
+- Updated dependencies [c9fc10b]
+- Updated dependencies [dc6d28e]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [a7d4920]
+- Updated dependencies [e723f58]
+- Updated dependencies [82bb1d5]
+- Updated dependencies [f3d5408]
+- Updated dependencies [b231607]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [466a219]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [54159d3]
+- Updated dependencies [fa778e6]
+- Updated dependencies [334f0cf]
+- Updated dependencies [c08c933]
+- Updated dependencies [92f979d]
+- Updated dependencies [c4dd707]
+- Updated dependencies [c4dd707]
+- Updated dependencies [7578323]
+- Updated dependencies [a491b64]
+- Updated dependencies [38bb373]
+- Updated dependencies [803f678]
+- Updated dependencies [923504f]
+- Updated dependencies [5b45c0d]
+- Updated dependencies [923504f]
+- Updated dependencies [5c2982a]
+- Updated dependencies [0cd322d]
+- Updated dependencies [97e7d4e]
+- Updated dependencies [5d3f437]
+- Updated dependencies [10aba37]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [51c661e]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [b434f5f]
+- Updated dependencies [9f282ef]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [cea429b]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [8106db1]
+- Updated dependencies [068a540]
+- Updated dependencies [ca45c6d]
+- Updated dependencies [093d55b]
+- Updated dependencies [b64fda3]
+- Updated dependencies [28ebfb5]
+- Updated dependencies [a8051d6]
+- Updated dependencies [72594f2]
+- Updated dependencies [524136e]
+- Updated dependencies [2b06a91]
+- Updated dependencies [6f3299f]
+- Updated dependencies [065a1cf]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [789cb16]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [37db09f]
+- Updated dependencies [ff9df88]
+- Updated dependencies [70e843f]
+- Updated dependencies [caac3b2]
+- Updated dependencies [a2225f9]
+- Updated dependencies [5c4deb5]
+- Updated dependencies [a8e5b73]
+- Updated dependencies [9782cb2]
+- Updated dependencies [3e2394d]
+- Updated dependencies [d9d9d98]
+- Updated dependencies [c950345]
+- Updated dependencies [21f9577]
+- Updated dependencies [044f231]
+- Updated dependencies [f8267df]
+- Updated dependencies [023087f]
+- Updated dependencies [023087f]
+- Updated dependencies [9b82ced]
+- Updated dependencies [3821a3a]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [92c2a69]
+- Updated dependencies [518a8e3]
+- Updated dependencies [165f8ff]
+- Updated dependencies [646caea]
+- Updated dependencies [1ffd6a2]
+- Updated dependencies [5f8ecf6]
+- Updated dependencies [6f5dc6b]
+- Updated dependencies [7d0c174]
+- Updated dependencies [8ed7e5a]
+- Updated dependencies [6c4d00d]
+- Updated dependencies [db8ce2f]
+- Updated dependencies [726d8c9]
+- Updated dependencies [f0e760a]
+- Updated dependencies [a5bb7ac]
+- Updated dependencies [f78efdd]
+- Updated dependencies [8a8bcf3]
+- Updated dependencies [f74638c]
+- Updated dependencies [278bc29]
+- Updated dependencies [ef71a09]
+- Updated dependencies [8614705]
+- Updated dependencies [619e3f7]
+- Updated dependencies [ca7a4c3]
+- Updated dependencies [c9e6742]
+- Updated dependencies [4be76e0]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [608033b]
+- Updated dependencies [c6b7d82]
+- Updated dependencies [611566b]
+- Updated dependencies [efa9cb4]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [9d857c9]
+- Updated dependencies [670ea10]
+- Updated dependencies [ff215d9]
+- Updated dependencies [71243db]
+- Updated dependencies [e219a3d]
+- Updated dependencies [a8add5c]
+- Updated dependencies [33ee9de]
+- Updated dependencies [4839f5c]
+- Updated dependencies [a23e804]
+- Updated dependencies [c7462e7]
+- Updated dependencies [36e2f7b]
+- Updated dependencies [263e9dd]
+- Updated dependencies [360e27a]
+- Updated dependencies [ac59073]
+- Updated dependencies [44cb469]
+- Updated dependencies [e058d76]
+- Updated dependencies [464ae62]
+- Updated dependencies [c999d4c]
+- Updated dependencies [8df2608]
+- Updated dependencies [8df2608]
+- Updated dependencies [5483297]
+- Updated dependencies [ed43c79]
+- Updated dependencies [6367bfe]
+- Updated dependencies [260ef71]
+- Updated dependencies [655e897]
+- Updated dependencies [655e897]
+- Updated dependencies [020d178]
+- Updated dependencies [8d80845]
+- Updated dependencies [69a408f]
+- Updated dependencies [1aa622a]
+- Updated dependencies [d2b21a1]
+- Updated dependencies [6e4f144]
+- Updated dependencies [5ff64ef]
+- Updated dependencies [64acb7e]
+- Updated dependencies [4ff5b6b]
+- Updated dependencies [473e5a0]
+- Updated dependencies [b279016]
+- Updated dependencies [bb6c38c]
+- Updated dependencies [15b1065]
+- Updated dependencies [26323c4]
+- Updated dependencies [9753811]
+- Updated dependencies [2727527]
+- Updated dependencies [3da39ae]
+- Updated dependencies [bc281f4]
+- Updated dependencies [d637be3]
+- Updated dependencies [8392f74]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [8523e81]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [32b492b]
+- Updated dependencies [6058bf8]
+- Updated dependencies [c219165]
+- Updated dependencies [79cb8c0]
+- Updated dependencies [a7ae252]
+- Updated dependencies [fb501bc]
+- Updated dependencies [03f1d65]
+- Updated dependencies [30083da]
+- Updated dependencies [7f9cc37]
+- Updated dependencies [b7fe09e]
+- Updated dependencies [025130c]
+- Updated dependencies [76f91f8]
+- Updated dependencies [ea34d9b]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [024b7b6]
+- Updated dependencies [cb80001]
+- Updated dependencies [bcd9717]
+- Updated dependencies [909c64e]
+- Updated dependencies [9e7e1a5]
+- Updated dependencies [1d3da6c]
+- Updated dependencies [0d97642]
+- Updated dependencies [2493e85]
+- Updated dependencies [d0b9648]
+- Updated dependencies [46dbf32]
+- Updated dependencies [a928aaa]
+- Updated dependencies [47508f3]
+- Updated dependencies [61ed5ad]
+- Updated dependencies [1b94d50]
+- Updated dependencies [6f877f1]
+- Updated dependencies [988aa9f]
+- Updated dependencies [50ba1bb]
+- Updated dependencies [1ce0711]
+- Updated dependencies [fb85637]
+- Updated dependencies [9f1dd79]
+- Updated dependencies [df71568]
+- Updated dependencies [d11174a]
+- Updated dependencies [4c68855]
+- Updated dependencies [2d8a8b7]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [5129caa]
+- Updated dependencies [9eb1479]
+- Updated dependencies [74e37aa]
+- Updated dependencies [961b69f]
+- Updated dependencies [52907d7]
+- Updated dependencies [f466b0a]
+- Updated dependencies [673a71c]
+- Updated dependencies [616df65]
+- Updated dependencies [f48a4d5]
+- Updated dependencies [58798ec]
+- Updated dependencies [8803ca5]
+- Updated dependencies [e70c21d]
+- Updated dependencies [4b92c5a]
+- Updated dependencies [06be396]
+- Updated dependencies [3650d94]
+- Updated dependencies [7c05f21]
+- Updated dependencies [8cd4db4]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [35a2b59]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [53ee2f8]
+- Updated dependencies [088e0f7]
+- Updated dependencies [78b07f4]
+- Updated dependencies [0df67f2]
+- Updated dependencies [f962cdc]
+- Updated dependencies [b403bb3]
+- Updated dependencies [8a25fee]
+- Updated dependencies [4016370]
+- Updated dependencies [12dc7b4]
+  - @object-ui/types@18.0.0
+  - @object-ui/components@18.0.0
+  - @object-ui/core@18.0.0
+  - @object-ui/i18n@18.0.0
+  - @object-ui/react@18.0.0
+  - @object-ui/plugin-detail@18.0.0
+  - @object-ui/fields@18.0.0
+  - @object-ui/permissions@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

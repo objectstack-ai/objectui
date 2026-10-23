@@ -14,20 +14,24 @@
  *
  * Business-first information architecture: rows lead with the flow's display
  * label and the target record's title (server-enriched `process_label` /
- * `record_title` / `submitter_name`), not machine names and opaque ids. The
- * side sheet shows a structured summary of the record snapshot, the action
- * timeline, and Approve / Reject / Recall (enabled based on actor + status,
- * with the reason inline when disabled).
+ * `record_title` / `submitter_name`), not machine names and opaque ids.
+ *
+ * Opening a request (a row, a mobile card, Enter, or the notification deep
+ * link `?request=<id>`) navigates to the page objectstack serves for it,
+ * `sys_approval_request_detail`, on the console's standard record route
+ * (`RecordDetailView`, reading through `ApprovalRecordReads`). The inbox
+ * draws no request view of its own: its side sheet was deleted when that
+ * page carried every face the sheet's tests pinned (objectui#12484, ruling C
+ * on objectui#12438).
  *
  * Keyboard: j/k move row focus · Enter opens · x toggles selection ·
  * a approves · r rejects (with confirm). Disabled while a dialog is open or
  * an input is focused.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { ConsolePageHeader, DeclaredActionsBar, isViaOverrideRow, useAdapter } from '@object-ui/app-shell';
-import { createAuthenticatedFetch } from '@object-ui/auth';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ConsolePageHeader } from '@object-ui/app-shell';
 import {
   Button,
   Badge,
@@ -43,18 +47,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
   Skeleton,
   Empty,
   EmptyTitle,
   EmptyDescription,
   Alert,
   AlertDescription,
-  Separator,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -77,11 +75,8 @@ import {
 } from '@object-ui/components';
 import { toast } from 'sonner';
 import { useAuth } from '@object-ui/auth';
-import { useDisplayLocale, useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
-import { useMetadata, usePredicateScope } from '@object-ui/react';
-import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
-import { isDeadlineSettled, isExpandableFieldType } from '@object-ui/core';
-import { isSystemManagedField, type FieldMetadata } from '@object-ui/types';
+import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
+import { isSystemManagedField } from '@object-ui/types';
 import { APPROVAL_STATUS_LABELS } from '@objectstack/spec/contracts';
 import {
   CheckCircle2,
@@ -95,13 +90,6 @@ import {
   ExternalLink,
   User as UserIcon,
   Workflow,
-  ChevronLeft,
-  ChevronRight,
-  Send,
-  Check,
-  Circle,
-  Paperclip,
-  ShieldAlert,
   Trash2,
   Link2Off,
 } from 'lucide-react';
@@ -109,16 +97,15 @@ import {
   approvalsApi,
   buildApproverIdentities,
   type ApprovalRequestRow,
-  type ApprovalActionRow,
-  type ApprovalActionAttachment,
 } from '../../services/approvalsApi';
+import { APPROVAL_REQUEST_OBJECT } from '../../services/approvalRequestsDataSource';
 import { useRecordReadability } from './recordReadability';
 import { isDeletedRecordReference, useDeadRecordReferenceLabel } from './deadRecordReference';
 import {
   isUnresolvableRecordReference,
   useUnresolvableRecordReferenceLabel,
 } from './unresolvableRecordReference';
-import { useHiddenFieldsByObject, type HiddenFieldsSource } from './hiddenFields';
+import { useHiddenFieldsByObject } from './hiddenFields';
 
 type TabKey = 'pending' | 'submitted' | 'all';
 
@@ -216,87 +203,26 @@ function formatDate(s: string | null | undefined, locale: string): string {
 const POSITION_REF_PREFIX = 'position:';
 
 /**
- * Render an actor/approver identifier in a friendly form.
+ * Render an actor identifier in a friendly form.
  *  - emails → shown as-is
  *  - `role:<name>` → shown as "Role: name"
- *  - `position:<name>` → the position's label (objectui#12110 item 6), from
- *    `positionLabels` when the caller has them, else the prettified name
+ *  - `position:<name>` → the prettified position name
  *  - opaque 16+ char IDs → truncated middle (e.g. `5aF9BX3J…wTk`)
  *
  * The position arm is finding C-18 of the HotCRM browser pass: a position
  * reference carries a machine NAME, not an opaque id, yet the truncation arm
  * below cut `position:sales_manager` to `positi…ager`. A name has prose to
- * recover, so it is never truncated; see {@link usePositionLabels} for where
- * the label comes from.
+ * recover, so it is never truncated.
  */
-function formatIdentity(
-  id: string | null | undefined,
-  positionLabels?: ReadonlyMap<string, string>,
-): string {
+function formatIdentity(id: string | null | undefined): string {
   if (!id) return '—';
   if (id.includes('@')) return id;
   if (id.startsWith('role:')) return `Role: ${id.slice(5)}`;
   if (id.startsWith(POSITION_REF_PREFIX) && id.length > POSITION_REF_PREFIX.length) {
-    const name = id.slice(POSITION_REF_PREFIX.length);
-    return positionLabels?.get(name) || prettifyMachineName(name);
+    return prettifyMachineName(id.slice(POSITION_REF_PREFIX.length));
   }
   if (id.length > 14) return `${id.slice(0, 6)}…${id.slice(-4)}`;
   return id;
-}
-
-/** The empty answer, one object, so an unasked row hands back a stable value. */
-const NO_POSITION_LABELS: ReadonlyMap<string, string> = new Map();
-
-/**
- * The labels of the `position:` approvers on `row` that the SERVER left
- * unresolved (objectui#12110 item 6), keyed by position name.
- *
- * Read from the console's metadata store — the `position` registry, which
- * ADR-0131 D3 makes positions' one home, through the same
- * `useMetadata().ensureType('position')` read Setup's sharing-rule recipient
- * picker makes (objectui#7611). The store fetches the type once per session
- * and shares it, so this adds no request on a page that already read it, and
- * it asks NOTHING when every approver is server-resolved or no approver is a
- * position: `pending_approver_names` stays authoritative, as it is in
- * {@link approverDisplay}.
- *
- * Keyed on a string of the names (AGENTS.md #10), and the store is read
- * through a ref: its context value is rebuilt whenever any type it caches
- * settles.
- */
-function usePositionLabels(row: ApprovalRequestRow | null | undefined): ReadonlyMap<string, string> {
-  const store = useMetadata();
-  const storeRef = useRef(store);
-  // Synced in an effect, not during render; declared before the read below,
-  // so it runs first in the same commit.
-  useEffect(() => {
-    storeRef.current = store;
-  });
-  const wantedKey = (row?.pending_approvers ?? [])
-    .filter((a): a is string =>
-      typeof a === 'string' && a.startsWith(POSITION_REF_PREFIX) && !row?.pending_approver_names?.[a])
-    .join('|');
-  const [labels, setLabels] = useState<ReadonlyMap<string, string>>(NO_POSITION_LABELS);
-  useEffect(() => {
-    if (!wantedKey) return;
-    let cancelled = false;
-    storeRef.current.ensureType('position').then(
-      (items) => {
-        if (cancelled) return;
-        const next = new Map<string, string>();
-        for (const item of Array.isArray(items) ? items : []) {
-          const name = (item as { name?: unknown } | null)?.name;
-          const label = (item as { label?: unknown } | null)?.label;
-          if (typeof name === 'string' && typeof label === 'string' && label !== '') next.set(name, label);
-        }
-        setLabels(next);
-      },
-      // A store that cannot list positions leaves the prettified names.
-      () => {},
-    );
-    return () => { cancelled = true; };
-  }, [wantedKey]);
-  return labels;
 }
 
 /** `manager_review` → "Manager Review" (display fallback for legacy rows). */
@@ -316,45 +242,6 @@ function stepLabel(r: ApprovalRequestRow): string | null {
 }
 function submitterDisplay(r: ApprovalRequestRow): string {
   return r.submitter_name || formatIdentity(r.submitter_id);
-}
-/** Approver chip text: server-resolved display name, else readable identity. */
-function approverDisplay(a: string, r: ApprovalRequestRow, positionLabels?: ReadonlyMap<string, string>): string {
-  return r.pending_approver_names?.[a] || formatIdentity(a, positionLabels);
-}
-/** The group(s) a pending approver represents (会签), joined for display. */
-function approverGroup(a: string, r: ApprovalRequestRow): string | undefined {
-  const gs = r.pending_approver_groups?.[a];
-  return gs && gs.length ? gs.join(' / ') : undefined;
-}
-/**
- * Collapse the pending-approver chips (#2762 P1-2), now keyed by (name, group)
- * so 会签 comprehension is preserved (objectui#2807): the same person filling
- * two *different* groups stays two labeled chips (finance / legal), while a
- * person filling one group twice collapses to a single chip with a count. When
- * no group data is present (non-`per_group`, or an older backend) the key is the
- * name alone, degrading to the plain dedupe + count. First-seen order is kept;
- * the tooltip keeps every underlying id so the raw slots stay inspectable.
- */
-function approverChips(
-  r: ApprovalRequestRow,
-  positionLabels?: ReadonlyMap<string, string>,
-): Array<{ label: string; group?: string; count: number; title: string }> {
-  const order: string[] = [];
-  const byKey = new Map<string, { label: string; group?: string; count: number; title: string }>();
-  for (const a of r.pending_approvers || []) {
-    const label = approverDisplay(a, r, positionLabels);
-    const group = approverGroup(a, r);
-    const key = group ? `${label} ${group}` : label;
-    const seen = byKey.get(key);
-    if (seen) {
-      seen.count += 1;
-      if (a && !seen.title.split(', ').includes(a)) seen.title += `, ${a}`;
-    } else {
-      byKey.set(key, { label, group, count: 1, title: a || label });
-      order.push(key);
-    }
-  }
-  return order.map((k) => byKey.get(k)!);
 }
 /**
  * A request with no human submitter — flow- or system-initiated (#2762 P1-4).
@@ -421,149 +308,13 @@ function slaState(dueAt: string | null | undefined, now: number): { overdue: boo
  * Whether a snapshot key is a framework-managed column rather than a business
  * field of the record — `@object-ui/types`' `isSystemManagedField`, the one
  * classifier the default list columns, record pickers and related lists use
- * to keep bookkeeping out of business surfaces. It reads the spec `system`
- * flag the registry stamps on every column it injects, then its name list.
- *
- * This card used a private six-name copy of that list. The copy left out
- * `owner_id`, the injected ownership column, and every business object's
- * metadata labels it "Owner". So an object with its own `owner` field
- * (showcase's invoice keeps a text `owner` as its row-level-security anchor)
- * showed two rows labelled "Owner" (objectui#11677).
+ * to keep bookkeeping out of business surfaces. The queue reads the snapshot
+ * without the object's field declarations, so it judges by name: the
+ * classifier's name list, which includes `owner_id`, the injected ownership
+ * column (objectui#11677).
  */
-function isBookkeepingKey(key: string, def: FieldDef | undefined): boolean {
-  return isSystemManagedField(key, def as { system?: boolean } | undefined);
-}
-
-/**
- * One field's declaration as the object's metadata serves it. The index below
- * adds `name` to each one, as the record page's field defs carry it.
- */
-type FieldDef = Readonly<Record<string, unknown>>;
-
-/** An object's field declarations, keyed by field name. */
-type FieldDefs = Readonly<Record<string, FieldDef>>;
-
-/**
- * Index an object schema's `fields` by name (objectui#11677). Reads both
- * shapes the platform serves: the record shape (`{ name: def }`) and the array
- * shape (`[{ name, ...def }]`), as `hiddenFieldNames` does.
- *
- * Returns `null` when the schema declares no field at all, and `null` is the
- * UNKNOWN answer. A real object always declares fields: the registry injects
- * its system columns on every business object. So an empty answer says the
- * source did not describe the object, and the card stays on today's snapshot
- * rendering rather than dropping every row as undeclared.
- */
-function indexFieldDefs(schema: unknown): FieldDefs | null {
-  const fields = (schema as { fields?: unknown } | null | undefined)?.fields;
-  if (!fields || typeof fields !== 'object') return null;
-  const entries: Array<[unknown, unknown]> = Array.isArray(fields)
-    ? fields.map((def) => [(def as { name?: unknown } | null)?.name, def])
-    : Object.entries(fields as Record<string, unknown>);
-  const out: Record<string, FieldDef> = {};
-  for (const [name, def] of entries) {
-    if (typeof name !== 'string' || name === '' || !def || typeof def !== 'object') continue;
-    out[name] = { ...(def as Record<string, unknown>), name };
-  }
-  return Object.keys(out).length > 0 ? out : null;
-}
-
-/**
- * The field declarations of the open request's object (objectui#11677).
- * Returns `null` until the read answers, and `null` again when it cannot
- * answer: no `getObjectSchema`, a transport error, or a principal without
- * metadata read.
- *
- * It is the same `getObjectSchema` read `useHiddenFieldsByObject` makes for
- * this object. It lands on the adapter's `MetadataCache`, which de-duplicates
- * in-flight reads, so it adds no round trip. `null` fails OPEN, in the same
- * direction as that hook: the card renders today's snapshot rows, because a
- * metadata error must not empty the approver's decision surface.
- */
-function useRequestFieldDefs(objectName: string | null | undefined): FieldDefs | null {
-  const adapter = useAdapter() as HiddenFieldsSource | null | undefined;
-  const [answer, setAnswer] = useState<{ object: string; defs: FieldDefs | null } | null>(null);
-  useEffect(() => {
-    if (!objectName || typeof adapter?.getObjectSchema !== 'function') return;
-    let cancelled = false;
-    adapter.getObjectSchema(objectName).then(
-      (schema) => { if (!cancelled) setAnswer({ object: objectName, defs: indexFieldDefs(schema) }); },
-      // Deliberately silent, as `readHiddenFields` is: a viewer without
-      // metadata access hits this on every drawer open.
-      () => { if (!cancelled) setAnswer({ object: objectName, defs: null }); },
-    );
-    return () => { cancelled = true; };
-  }, [adapter, objectName]);
-  // An answer for the PREVIOUS request's object is never applied to this one.
-  return answer !== null && answer.object === objectName ? answer.defs : null;
-}
-
-/**
- * A declared field's stored value, drawn the way the record page draws it
- * (objectui#11677). `resolveCellRendererType` → `getCellRenderer` is the chain
- * `DetailSection` renders a field through, and the option labels are
- * translated as it translates them. So the card shows `Sent` and `EMEA` where
- * the record page does, a date as the date cell shows it, and a currency
- * field in its currency.
- *
- * ⛔ Not a second formatter. This passes the declaration and the stored value
- * to the record page's own cell and adds nothing. A face that looks wrong here
- * looks wrong on the record page as well, and the fix belongs in the cell.
- *
- * A declared deadline is judged against `snapshot`, the request's `payload`
- * the face draws `value` from (objectui#11815): the snapshot's date and its
- * status were frozen together at submission, so its `settledWhen` is read off
- * the snapshot's own state, never the live record's.
- *
- * Module scope on purpose, for the same reason as the row cells below
- * (objectui#5348).
- */
-function RecordFieldFace({ objectName, def, value, snapshot, fields }: {
-  objectName: string;
-  def: FieldDef;
-  value: unknown;
-  snapshot: Record<string, unknown>;
-  fields: FieldDefs;
-}) {
-  const { translateOptions } = useSafeFieldLabel();
-  const predicateScope = usePredicateScope();
-  const options = def.options;
-  const field = Array.isArray(options) && options.length > 0
-    ? { ...def, options: translateOptions(objectName, def.name as string, options) }
-    : def;
-  const Cell = getCellRenderer(resolveCellRendererType(field as { type?: string; format?: string }));
-  const deadlineSettled = isDeadlineSettled(def, snapshot, { scope: predicateScope, fields });
-  // eslint-disable-next-line react-hooks/static-components -- getCellRenderer returns the registry's module-level renderer for the type, not a component created during render
-  return <Cell value={value} field={field as unknown as FieldMetadata} deadlineSettled={deadlineSettled} />;
-}
-
-/** One row of the drawer's summary card. `key` is the snapshot key, so it is unique. */
-interface SummaryRow {
-  key: string;
-  label: string;
-  value: ReactNode;
-  /** Hover text, set only when the value is plain text. */
-  title?: string;
-}
-
-/**
- * Two rows never share a label (objectui#11677). The labels come from the
- * object's metadata, and metadata can give two fields the same label: an
- * author field and an injected column, or two author fields. Two identical
- * labels on one card read as one field shown twice. Every row whose label is
- * shared therefore names its field key as well, and none of them is dropped.
- *
- * Field keys are unique within one snapshot, so the qualified labels are
- * unique. If a qualified label still matches another row's plain label (an
- * author who labelled a field `Owner (owner_id)`), every row is qualified.
- */
-function withDistinctLabels(rows: SummaryRow[]): SummaryRow[] {
-  const qualify = (pick: (r: SummaryRow) => boolean) =>
-    rows.map((r) => (pick(r) ? { ...r, label: `${r.label} (${r.key})` } : r));
-  const count = new Map<string, number>();
-  for (const r of rows) count.set(r.label, (count.get(r.label) ?? 0) + 1);
-  const once = qualify((r) => (count.get(r.label) ?? 0) > 1);
-  return new Set(once.map((r) => r.label)).size === once.length ? once : qualify(() => true);
+function isBookkeepingKey(key: string): boolean {
+  return isSystemManagedField(key);
 }
 
 function prettifyKey(k: string): string {
@@ -573,115 +324,6 @@ function prettifyKey(k: string): string {
   // one token (a bare `id` is already dropped as a system key upstream).
   if (tokens.length > 1 && tokens[tokens.length - 1].toLowerCase() === 'id') tokens.pop();
   return tokens.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-}
-
-function formatPayloadValue(key: string, v: unknown, locale: string): string {
-  if (typeof v === 'boolean') return v ? '✓' : '—';
-  if (typeof v === 'number') {
-    // Epoch-ms timestamps read as dates; everything else as a localized number.
-    if (v > 1e12 && /(_at$|_date$|^date_|_time$)/.test(key)) {
-      try { return new Date(v).toLocaleDateString(locale); } catch { /* fall through */ }
-    }
-    return v.toLocaleString(locale);
-  }
-  const s = String(v);
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}/.test(s)) {
-    try { return new Date(s).toLocaleString(locale); } catch { /* fall through */ }
-  }
-  return s;
-}
-
-/** Opaque foreign-key shape: long unbroken alphanumeric token, not a number. */
-const OPAQUE_ID_RE = /^[A-Za-z0-9_-]{15,}$/;
-
-/**
- * First N scalar business fields of the record snapshot, for the summary
- * card. Lookup foreign keys render their server-resolved record title
- * (`payload_display`); an unresolved opaque id is dropped rather than shown —
- * a business reader gets nothing from `dpOfPMy7cbeEL1jk`.
- *
- * `hiddenKeys` carries the object's `hidden: true` declarations (objectui#5565)
- * and is dropped BEFORE the `max` cut, not after: this card is default UI, so a
- * field the author hid must not occupy one of its slots — and the field that
- * would have been seventh is promoted into the freed slot rather than the card
- * simply rendering one row shorter. That ordering is what makes this a filter
- * rather than a reshuffle; see `ApprovalsInboxPage.hiddenFieldTrim.test.tsx`,
- * which pins both halves.
- *
- * An empty `hiddenKeys` means "nothing known to be hidden" — including the case
- * where the metadata read has not answered — and renders today's card. See
- * `hiddenFields.ts` on why this presentation filter fails open.
- *
- * `meta` is the object's field declarations (objectui#11677). With it, the
- * card follows the record page:
- *  - each row takes its field's declared label, translated as the record page
- *    translates it, and never a title-cased key;
- *  - each value is drawn by {@link RecordFieldFace}, the record page's own
- *    cell, unless the server resolved a display value for it;
- *  - a snapshot key the object does not declare gets no row, because it has
- *    no label and no face to show;
- *  - a reference the server could not resolve gets no row, because its value
- *    is an id.
- * Without `meta` (not answered, failed, or undescribed) the card falls back to
- * the snapshot as it rendered before: the server's labels, then the
- * title-cased key, and the stored text. In both modes two rows never share a
- * label ({@link withDistinctLabels}).
- */
-function payloadSummary(
-  payload: unknown,
-  locale: string,
-  display: Record<string, string> | undefined,
-  labels: Record<string, string> | undefined,
-  max: number,
-  excludeKey: string | undefined,
-  hiddenKeys: ReadonlySet<string> | undefined,
-  meta: SummaryMeta | null,
-): SummaryRow[] {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return [];
-  const out: SummaryRow[] = [];
-  for (const [k, v] of Object.entries(payload as Record<string, unknown>)) {
-    const def = meta?.defs[k];
-    if (isBookkeepingKey(k, def)) continue;
-    if (hiddenKeys?.has(k)) continue; // author declared `hidden: true` (#5565)
-    if (excludeKey && k === excludeKey) continue; // shown as the lead amount
-    if (v == null || typeof v === 'object') continue;
-    if (String(v).trim() === '') continue;
-    const resolved = display?.[k];
-    if (meta) {
-      if (!def) continue; // not a field of this object (#11677)
-      if (!resolved && isExpandableFieldType(def)) continue; // an unresolved reference id
-      out.push({
-        key: k,
-        label: declaredLabel(meta, k, def),
-        value: resolved ?? <RecordFieldFace objectName={meta.objectName} def={def} value={v} snapshot={payload as Record<string, unknown>} fields={meta.defs} />,
-        title: resolved,
-      });
-    } else {
-      if (!resolved && typeof v === 'string' && OPAQUE_ID_RE.test(v.trim()) && !/^\d+$/.test(v.trim())) {
-        continue;
-      }
-      // Prefer the server-resolved field label (the target object's own label,
-      // already localized for a single-locale project) over a title-cased key.
-      const text = resolved ?? formatPayloadValue(k, v, locale);
-      out.push({ key: k, label: labels?.[k] ?? prettifyKey(k), value: text, title: text });
-    }
-    if (out.length >= max) break;
-  }
-  return withDistinctLabels(out);
-}
-
-/** What {@link payloadSummary} needs to render the record page's faces. */
-interface SummaryMeta {
-  objectName: string;
-  defs: FieldDefs;
-  /** `useSafeFieldLabel().fieldLabel` — the record page's label translator. */
-  fieldLabel: (objectName: string, fieldName: string, fallback: string) => string;
-}
-
-/** A declared field's label, as the record page reads it: `field.label || field.name`, translated. */
-function declaredLabel(meta: SummaryMeta, key: string, def: FieldDef): string {
-  const label = typeof def.label === 'string' && def.label !== '' ? def.label : key;
-  return meta.fieldLabel(meta.objectName, key, label);
 }
 
 /**
@@ -703,68 +345,41 @@ const AMOUNT_KEY_RE = /(amount|total|price|value|cost|sum|budget|salary|fee|reve
  * it — a filter that lives in the function body but is unpassed at the call
  * site reads exactly like a fixed defect. Required, the compiler asks the one
  * question that matters at every present and future call site: *whose* hidden
- * keys? Pass `NO_HIDDEN_FIELDS` only where the answer is genuinely "nothing
- * known", never to silence the parameter.
+ * keys?
  *
  * An empty set means "nothing known to be hidden" — including the case where
  * the metadata read has not answered — and yields today's amount. See
  * `hiddenFields.ts` on why this presentation filter fails open.
  *
- * `defs` is the object's field declarations, which only the drawer has
- * (objectui#11677). When given, a key the object does not declare is not a
- * candidate, by the same rule as the drawer's field grid. The queue passes
- * nothing.
- *
- * ## Which candidate leads (objectui#12110 item 6)
- *
- * The first key whose NAME matched {@link AMOUNT_KEY_RE} used to lead, zero or
- * not. HotCRM's account (finding C-18 of the HotCRM browser pass) declares
- * `annual_revenue` as a `currency` field and `child_account_revenue` as a
- * `summary` roll-up of its children, and the drawer led with "Child Account
- * Revenue 0". So, in order:
- *
- *  1. a field the object DECLARES as an amount — `type: 'currency'`, read off
- *     `defs` — and among those the first non-zero one, else the first one: a
- *     declared amount's zero is the record's amount;
- *  2. else the first NAME match whose value is not zero. A name match is a
- *     guess about what the key means, and a zero from a guessed key is the
- *     headline the finding measured, so it never leads. Without `defs` (the
- *     queue) every candidate is a name match.
+ * The first key whose NAME matches {@link AMOUNT_KEY_RE} and whose value is not
+ * zero leads (objectui#12110 item 6). A name match is a guess about what the
+ * key means, and a zero from a guessed key (HotCRM's `child_account_revenue`
+ * roll-up, finding C-18 of the HotCRM browser pass) is not the request's
+ * amount, so it never leads.
  */
 function decisionAmountEntry(
   r: ApprovalRequestRow,
   hiddenKeys: ReadonlySet<string>,
   locale: string,
-  defs: FieldDefs | null = null,
 ): { key: string; label: string; value: number; display: string } | null {
   const payload = r.payload;
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
-  let declaredZero: { key: string; label: string; value: number; display: string } | null = null;
-  let nameMatch: { key: string; label: string; value: number; display: string } | null = null;
   for (const [k, v] of Object.entries(payload as Record<string, unknown>)) {
-    if (isBookkeepingKey(k, defs?.[k])) continue;
+    if (isBookkeepingKey(k)) continue;
     if (hiddenKeys.has(k)) continue; // author declared `hidden: true` (#5565)
-    if (defs && !defs[k]) continue; // not a field of this object (#11677)
-    const declaredAmount = defs?.[k]?.type === 'currency';
-    if (!declaredAmount && !AMOUNT_KEY_RE.test(k)) continue;
+    if (!AMOUNT_KEY_RE.test(k)) continue;
     const num = typeof v === 'number'
       ? v
       : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
-    if (num == null || !Number.isFinite(num)) continue;
-    const entry = {
+    if (num == null || !Number.isFinite(num) || num === 0) continue;
+    return {
       key: k,
       label: r.payload_labels?.[k] ?? prettifyKey(k),
       value: num,
       display: r.payload_display?.[k] ?? num.toLocaleString(locale),
     };
-    if (declaredAmount) {
-      if (num !== 0) return entry;
-      declaredZero ??= entry;
-    } else if (num !== 0) {
-      nameMatch ??= entry;
-    }
   }
-  return declaredZero ?? nameMatch;
+  return null;
 }
 
 /** The page's scoped translator, as the row cells receive it. */
@@ -908,8 +523,8 @@ function InlineActions({
 }) {
   if (!actionable) return null;
   // #2829: a request whose node declares decision outputs must go through
-  // the drawer's dialog (the only place those fields are collected) — render
-  // the quick buttons disabled with an explanation instead of hiding them.
+  // its page's decision dialog (the only place those fields are collected) —
+  // render the quick buttons disabled with an explanation instead of hiding them.
   const needsInputsHint = tr(
     'needsDecisionInputs',
     'This approval collects decision outputs — open it to decide.',
@@ -944,17 +559,38 @@ function InlineActions({
   );
 }
 
+/**
+ * The router path of a request's page: the console's standard record route for
+ * `sys_approval_request`, where `RecordDetailView` mounts the page objectstack
+ * serves for it (`sys_approval_request_detail`). The app segment falls back to
+ * `setup` as the row's record link does.
+ */
+function requestPagePath(appName: string | undefined, requestId: string): string {
+  return `/apps/${appName || 'setup'}/${APPROVAL_REQUEST_OBJECT}/record/${encodeURIComponent(requestId)}`;
+}
+
+/**
+ * The inbox route. A notification deep link (#2678 P1.5) carries
+ * `/system/approvals?request=<id>`; it opens that request on its page, in place
+ * of the deep link in history, so Back leaves the way the reader came. Without
+ * one, the route draws the queue.
+ */
 export function ApprovalsInboxPage() {
+  const { appName } = useParams<{ appName?: string }>();
+  const [searchParams] = useSearchParams();
+  const request = searchParams.get('request');
+  if (request) return <Navigate to={requestPagePath(appName, request)} replace />;
+  return <ApprovalsQueue />;
+}
+
+function ApprovalsQueue() {
   const { t } = useObjectTranslation();
   // Every date and number face on this page is formatted in the display
   // locale; the module helpers above take it as a required argument.
   const displayLocale = useDisplayLocale();
   const { user } = useAuth();
   const { appName } = useParams<{ appName?: string }>();
-  // Deep link (#2678 P1.5): notifications carry `/system/approvals?request=<id>`
-  // so landing here opens that request's drawer directly. Consumed once, then
-  // stripped from the URL so refresh/back doesn't re-open a dismissed drawer.
-  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const identities = useMemo(() => buildApproverIdentities(user as any), [user]);
 
   const tr = useCallback(
@@ -1101,10 +737,15 @@ export function ApprovalsInboxPage() {
    */
   const [environmentPendingCount, setEnvironmentPendingCount] = useState<number | null>(null);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [selected, setSelected] = useState<ApprovalRequestRow | null>(null);
-  const [actions, setActions] = useState<ApprovalActionRow[]>([]);
-  const [drawerLoading, setDrawerLoading] = useState(false);
+  /**
+   * Open a request on its page (objectui#12484): the page objectstack serves
+   * for it, on the standard record route. A navigation, so Back returns to the
+   * queue with its tab, filters and scroll as they were.
+   */
+  const openRequest = useCallback(
+    (id: string) => navigate(requestPagePath(appName, id)),
+    [navigate, appName],
+  );
 
   /**
    * objectui#5211 — an approver can be routed a request about a record they
@@ -1117,15 +758,8 @@ export function ApprovalsInboxPage() {
    * One batched list read per distinct object covers the whole page — see
    * `recordReadability.ts` for the cost model, the fail-open rule, and why
    * nothing here says anything about WHY a target is unreadable.
-   *
-   * `selected` joins the loaded rows because the drawer can be deep-linked
-   * (`?request=<id>`) to a request that is not in the current row set.
    */
-  const readabilityTargets = useMemo(
-    () => (selected ? [...rows, selected] : rows),
-    [rows, selected],
-  );
-  const readability = useRecordReadability(readabilityTargets);
+  const readability = useRecordReadability(rows);
 
   /**
    * objectui#8631 — the cause-free branch, wired to that same probe.
@@ -1153,75 +787,22 @@ export function ApprovalsInboxPage() {
    * `hidden: true`. `hidden` is a UI contract (objectstack#10749: "`hidden:
    * true` stays UI-only; `internal: true` is the serialization primitive"), and
    * every surface below is default UI, so all of them must honour it: the
-   * drawer's summary card and lead amount (#5565), and — this is #6020 — the
-   * queue rows, the mobile cards, and the amount sort.
+   * queue rows, the mobile cards, and the amount sort (#6020).
    *
    * ⛔ It is keyed BY OBJECT and not a single set. The queue is N rows spanning
-   * K objects; threading the open request's set into the rows would apply one
+   * K objects; threading one object's set into the rows would apply one
    * object's declarations to every row — hiding fields on rows whose object
    * never declared them, missing fields on rows whose object did, and looking
    * fixed while doing it. Every consumer asks with its OWN `object_name`.
    *
-   * Same targets as the readability probe, so the deep-linked drawer's object
-   * is covered even when its request is not in the current row set. One cached
-   * metadata read per distinct object per mount, empty until it answers — see
-   * `hiddenFields.ts` for the cost model and why this fails open.
+   * One cached metadata read per distinct object per mount, empty until it
+   * answers — see `hiddenFields.ts` for the cost model and why this fails open.
    */
   const hiddenFieldObjects = useMemo(
-    () => readabilityTargets.map((t) => t.object_name),
-    [readabilityTargets],
+    () => rows.map((t) => t.object_name),
+    [rows],
   );
   const hiddenFields = useHiddenFieldsByObject(hiddenFieldObjects);
-  const hiddenPayloadKeys = hiddenFields.forObject(selected?.object_name);
-  /**
-   * objectui#11677 — the open request's field declarations, so the drawer's
-   * summary card shows the record page's labels and value faces. `null` until
-   * the read answers or when it fails; the card then renders the snapshot as
-   * before. See `useRequestFieldDefs` for the cost and the fail-open choice.
-   */
-  const requestFieldDefs = useRequestFieldDefs(selected?.object_name);
-  // The open request's position approvers, named (objectui#12110 item 6).
-  const selectedPositionLabels = usePositionLabels(selected);
-  const { fieldLabel } = useSafeFieldLabel();
-  // Approve/reject/reassign/send-back/… are server-declared actions rendered by
-  // DeclaredActionsBar (objectui#2697 + framework#3300); their param dialog
-  // collects the comment and — since the shared upload-widget renderer (#2700/
-  // #2707) plus the declared `attachments` file param (#2698) — file
-  // attachments, so the inbox no longer hand-wires a decision composer. `authFetch`
-  // stays for opening an attachment's short-lived signed URL.
-  const authFetch = useMemo(() => createAuthenticatedFetch(), []);
-
-  /**
-   * Open a timeline attachment. Three things the previous version got wrong,
-   * all of which made the chip look dead (framework#3266 follow-up):
-   *   1. `window.open` ran *after* `await` → not a user gesture → popup blocked.
-   *      We open the tab synchronously, up front, then point it at the URL.
-   *   2. The signed URL is server-relative (`/api/v1/storage/_local/raw/…`) — it
-   *      must resolve against the API origin, not the console origin.
-   *   3. Every failure was swallowed silently. Now the user gets a toast.
-   */
-  const openAttachment = useCallback(async (att: ApprovalActionAttachment) => {
-    // Synchronous open keeps the user-gesture, so the browser won't block it.
-    const win = window.open('', '_blank', 'noopener');
-    try {
-      const base = (import.meta.env.VITE_SERVER_URL || '').replace(/\/$/, '');
-      const res = await authFetch(`${base}/api/v1/storage/files/${encodeURIComponent(att.id)}/url`);
-      if (!res.ok) throw new Error(`HTTP_${res.status}`);
-      const body = await res.json().catch(() => null);
-      // Both dialects: the declared `{ success: true, data: { url } }` envelope
-      // this route answers as of objectstack#3689, and the bare `{ url }` an
-      // older server still sends — the console deploys independently of it.
-      const raw = body?.data?.url ?? body?.url;
-      if (!raw) throw new Error('NO_URL');
-      // Signed URLs from the local adapter are relative; S3/GCS are absolute.
-      const url = /^https?:\/\//i.test(raw) ? raw : `${base}${raw}`;
-      if (win) win.location.href = url;
-      else window.open(url, '_blank', 'noopener');
-    } catch {
-      win?.close();
-      toast.error(tr('attachmentOpenFailed', 'Could not open the attachment — please try again'));
-    }
-  }, [authFetch, tr]);
 
   // Search + filters. On the paginated tabs (submitted/all) the free-text
   // query is debounced and pushed to the server; the pending tab keeps
@@ -1247,15 +828,6 @@ export function ApprovalsInboxPage() {
   const [approveTarget, setApproveTarget] = useState<ApprovalRequestRow | null>(null);
   const [rejectTarget, setRejectTarget] = useState<ApprovalRequestRow | null>(null);
   const [inlineActing, setInlineActing] = useState<string | null>(null);
-
-  // Thread reply. The secondary decision levers (reassign / request-info /
-  // send-back / remind / recall / resubmit) are no longer hand-wired here —
-  // they ship as the object's server-declared actions and render through
-  // DeclaredActionsBar (objectui#2678 P2-4 + framework#3300). The rich
-  // approve/reject composer below stays, because it collects file attachments
-  // the generic param dialog can't yet.
-  const [reply, setReply] = useState('');
-  const [threadBusy, setThreadBusy] = useState(false);
 
   // Keyboard row focus
   const [focusIndex, setFocusIndex] = useState<number>(-1);
@@ -1356,40 +928,6 @@ export function ApprovalsInboxPage() {
     }
   }, [tab, loadingMore, user?.id, serverQuery, statusFilter, rows.length, humanizeError, tr]);
 
-  const openDrawer = useCallback(async (id: string) => {
-    setSelectedId(id);
-    setDrawerLoading(true);
-    try {
-      const [req, acts] = await Promise.all([
-        approvalsApi.getRequest(id),
-        approvalsApi.listActions(id),
-      ]);
-      setSelected(req.data);
-      setActions(acts.data);
-    } catch (err: any) {
-      toast.error(humanizeError(err, tr('loadFailed', 'Failed to load request')));
-      setSelected(null);
-      setActions([]);
-    } finally {
-      setDrawerLoading(false);
-    }
-  }, [humanizeError, tr]);
-
-  const closeDrawer = () => {
-    setSelectedId(null);
-    setSelected(null);
-    setActions([]);
-  };
-
-  // Consume the notification deep link once (see useSearchParams above).
-  useEffect(() => {
-    const target = searchParams.get('request');
-    if (!target) return;
-    setSearchParams((prev) => { const next = new URLSearchParams(prev); next.delete('request'); return next; }, { replace: true });
-    void openDrawer(target);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per deep link, not per openDrawer identity
-  }, [searchParams]);
-
   /**
    * Pick the actor id to send with approve/reject.
    *   1. Manual override (admin-only textbox), useful when acting as a
@@ -1403,97 +941,6 @@ export function ApprovalsInboxPage() {
       .then(res => setMyPendingCount(res.data.length))
       .catch(() => { /* best-effort */ });
   }, [identities]);
-
-  /** Refresh the open drawer + list after a thread interaction. */
-  const refreshThread = useCallback(async (id: string) => {
-    const [req, acts] = await Promise.all([
-      approvalsApi.getRequest(id),
-      approvalsApi.listActions(id),
-    ]);
-    setSelected(req.data);
-    setActions(acts.data);
-    void load();
-  }, [load]);
-
-  /**
-   * `onDone` for the pending drawer's declared-action bar. Refreshes the acted
-   * request + list, then — on the pending tab — advances to the next waiting
-   * item when this one is no longer the current user's to act on (finalized,
-   * approved-away in a quorum, reassigned): the Fiori "My Inbox" queue-processing
-   * flow the hand-wired composer used to own, now driven generically off the
-   * refreshed row rather than a per-action handler. Stays in place otherwise
-   * (e.g. remind / request-info leave the item pending and still yours).
-   */
-  const onDecisionDone = useCallback(async () => {
-    if (!selected) return;
-    const id = selected.id;
-    try {
-      const [req, acts] = await Promise.all([
-        approvalsApi.getRequest(id),
-        approvalsApi.listActions(id),
-      ]);
-      setSelected(req.data);
-      setActions(acts.data);
-      void load();
-      const pending = new Set(req.data.pending_approvers || []);
-      const stillMine = req.data.status === 'pending' && identities.some(x => pending.has(x));
-      if (tab === 'pending' && !stillMine) {
-        const list = filteredRef.current;
-        const idx = list.findIndex(r => r.id === id);
-        const next = list[idx + 1] ?? list[idx - 1];
-        if (next && next.id !== id) { void openDrawer(next.id); return; }
-        closeDrawer();
-      }
-    } catch {
-      void refreshThread(id);
-    }
-  }, [selected, identities, tab, load, openDrawer, closeDrawer, refreshThread]);
-
-  const doReply = useCallback(async () => {
-    if (!selected || !reply.trim()) return;
-    setThreadBusy(true);
-    try {
-      await approvalsApi.comment(selected.id, { actor_id: user?.id, comment: reply.trim() });
-      setReply('');
-      await refreshThread(selected.id);
-    } catch (err: any) {
-      toast.error(humanizeError(err, tr('actionFailed', 'Action failed')));
-    } finally {
-      setThreadBusy(false);
-    }
-  }, [selected, reply, user?.id, refreshThread, humanizeError, tr]);
-
-  // Participant checks — drive the reply box + the "why disabled" hint (the
-  // decision buttons themselves are server-declared and gate via their own
-  // `visible` CEL). Prefer the server-computed `viewer` block (framework#3310)
-  // so the hint never contradicts the buttons — it already reflects position/
-  // team approver resolution, which the client identity heuristic below can't.
-  // The heuristic stays as a fallback for a backend that predates `viewer`.
-  // framework#3424: a platform/tenant admin may OVERRIDE a stuck request (one
-  // routed to an unstaffed position) even holding no slot — `viewer.can_override`
-  // mirrors the server's decision authz, so the hint and the approve/reject/
-  // reassign buttons (which OR in `can_override`) stay consistent. This is a
-  // privileged recovery path, not the retired per-request "act as" composer.
-  const canApproveReject = useMemo(() => {
-    if (!selected || selected.status !== 'pending') return false;
-    if (selected.viewer) return selected.viewer.can_act || !!selected.viewer.can_override;
-    const pending = new Set(selected.pending_approvers || []);
-    return identities.some(id => pending.has(id));
-  }, [selected, identities]);
-
-  const canRecall = useMemo(() => {
-    if (!selected || selected.status !== 'pending') return false;
-    if (selected.viewer) return selected.viewer.is_submitter;
-    return selected.submitter_id === user?.id;
-  }, [selected, user?.id]);
-
-  /** ADR-0044: the submitter may resubmit (or abandon) a returned request. */
-  const canResubmit = useMemo(() => {
-    if (!selected || selected.status !== 'returned') return false;
-    if (selected.viewer) return selected.viewer.is_submitter;
-    return selected.submitter_id === user?.id;
-  }, [selected, user?.id]);
-
 
   /** Unique process labels present in current rows (for filter dropdown). */
   const processOptions = useMemo(() => {
@@ -1554,11 +1001,6 @@ export function ApprovalsInboxPage() {
     }
     return sorted;
   }, [rows, query, processFilter, objectFilter, statusFilter, tab, sortKey, hiddenFields, displayLocale]);
-  /** Position of the open request within the visible list (drawer prev/next). */
-  const drawerIndex = useMemo(
-    () => (selectedId ? filteredRows.findIndex(r => r.id === selectedId) : -1),
-    [filteredRows, selectedId],
-  );
 
   // Reset selection when underlying filtered list changes (avoid acting on hidden rows).
   useEffect(() => {
@@ -1586,8 +1028,9 @@ export function ApprovalsInboxPage() {
 
   /**
    * #2829 / framework#3447: a node that declares decision outputs expects the
-   * approver to fill them — only the drawer's declared-action dialog collects
-   * them, so the quick paths (inline a/r, hover buttons, bulk) must not decide
+   * approver to fill them — only the declared-action dialog on the request's
+   * page (its decision panel's `DeclaredActionsBar`) collects them, so the
+   * quick paths (inline a/r, hover buttons, bulk) must not decide
    * such a request: a quick approve would silently hand the flow nothing and
    * the next stage's expression approver would resolve an empty slate.
    */
@@ -1601,8 +1044,8 @@ export function ApprovalsInboxPage() {
   /**
    * Rows the user is actually allowed to bulk-act on:
    * status=pending AND one of the user's identities is in pending_approvers
-   * AND the node declares no decision outputs (#2829 — those need the drawer
-   * dialog; they surface in the bulk bar as skipped).
+   * AND the node declares no decision outputs (#2829 — those need the request
+   * page's dialog; they surface in the bulk bar as skipped).
    */
   const actionableSelectedRows = useMemo(
     () => filteredRows.filter(r => selectedRowIds.has(r.id) && quickDecidable(r)),
@@ -1718,7 +1161,7 @@ export function ApprovalsInboxPage() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (selectedId || approveTarget || rejectTarget) return; // a sheet/dialog owns the keyboard
+      if (approveTarget || rejectTarget) return; // a dialog owns the keyboard
       const el = e.target as HTMLElement | null;
       const tag = el?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable) return;
@@ -1735,7 +1178,7 @@ export function ApprovalsInboxPage() {
         setFocusIndex(Math.max(idx - 1, 0));
       } else if (e.key === 'Enter' && idx >= 0 && list[idx]) {
         e.preventDefault();
-        void openDrawer(list[idx].id);
+        openRequest(list[idx].id);
       } else if ((e.key === 'x' || e.key === ' ') && idx >= 0 && list[idx] && tab === 'pending') {
         e.preventDefault();
         toggleRow(list[idx].id);
@@ -1749,26 +1192,7 @@ export function ApprovalsInboxPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedId, approveTarget, rejectTarget, tab, openDrawer, toggleRow, quickDecidable]);
-
-  // Drawer keyboard: ←/→ walk the visible list without going back to it.
-  useEffect(() => {
-    if (!selectedId) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      const el = e.target as HTMLElement | null;
-      const tag = el?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable) return;
-      if (document.querySelector('[role="alertdialog"]')) return;
-      const list = filteredRef.current;
-      const idx = list.findIndex(r => r.id === selectedId);
-      if (idx < 0) return;
-      const target = e.key === 'ArrowLeft' ? list[idx - 1] : list[idx + 1];
-      if (target) { e.preventDefault(); void openDrawer(target.id); }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selectedId, openDrawer]);
+  }, [approveTarget, rejectTarget, tab, openRequest, toggleRow, quickDecidable]);
 
   const hasFilters = !!query || processFilter !== 'all' || objectFilter !== 'all' || statusFilter !== 'all';
 
@@ -2072,7 +1496,7 @@ export function ApprovalsInboxPage() {
                             'group cursor-pointer hover:bg-accent/50',
                             focusIndex === i && 'ring-2 ring-inset ring-ring bg-accent/30',
                           )}
-                          onClick={() => { setFocusIndex(i); void openDrawer(r.id); }}
+                          onClick={() => { setFocusIndex(i); openRequest(r.id); }}
                         >
                           {tab === 'pending' && (
                             <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
@@ -2169,7 +1593,7 @@ export function ApprovalsInboxPage() {
               {/* Mobile cards */}
               <div className="md:hidden space-y-2">
                 {filteredRows.map((r) => (
-                  <Card key={r.id} className="cursor-pointer active:bg-accent/50" onClick={() => void openDrawer(r.id)}>
+                  <Card key={r.id} className="cursor-pointer active:bg-accent/50" onClick={() => openRequest(r.id)}>
                     <CardContent className="p-3 space-y-1.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="font-medium text-sm truncate">{processLabel(r)}</div>
@@ -2226,7 +1650,7 @@ export function ApprovalsInboxPage() {
                       </div>
                       {isActionable(r) && (
                         // #2829: outputs-declaring requests decide only via the
-                        // drawer dialog — quick buttons disable with the hint.
+                        // request page's dialog — quick buttons disable with the hint.
                         <div
                           className="flex gap-2 pt-1"
                           onClick={(e) => e.stopPropagation()}
@@ -2317,562 +1741,6 @@ export function ApprovalsInboxPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Sheet open={!!selectedId} onOpenChange={(open) => !open && closeDrawer()}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>
-              {selected ? processLabel(selected) : tr('drawerTitle', 'Approval Request')}
-            </SheetTitle>
-            <SheetDescription>
-              {selected ? (stepLabel(selected) || objectDisplay(selected)) : ''}
-            </SheetDescription>
-          </SheetHeader>
-
-          {selected && drawerIndex >= 0 && filteredRows.length > 1 && (
-            <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-              <Button
-                variant="ghost" size="sm" className="h-7 px-2"
-                disabled={drawerIndex <= 0}
-                onClick={() => { const prev = filteredRows[drawerIndex - 1]; if (prev) void openDrawer(prev.id); }}
-              >
-                <ChevronLeft className="h-4 w-4 mr-0.5" />
-                {tr('prevRequest', 'Previous')}
-              </Button>
-              {/* "Request N of M" — spelled out so it can't be misread as
-                  decision progress (#2762 P1-1). */}
-              <span>{tr('positionOf', 'Request {{index}} of {{total}}', { index: drawerIndex + 1, total: filteredRows.length })}</span>
-              <Button
-                variant="ghost" size="sm" className="h-7 px-2"
-                disabled={drawerIndex >= filteredRows.length - 1}
-                onClick={() => { const next = filteredRows[drawerIndex + 1]; if (next) void openDrawer(next.id); }}
-              >
-                {tr('nextRequest', 'Next')}
-                <ChevronRight className="h-4 w-4 ml-0.5" />
-              </Button>
-            </div>
-          )}
-
-          {drawerLoading ? (
-            <div className="space-y-2 mt-6">
-              <Skeleton className="h-6 w-3/4" />
-              <Skeleton className="h-6 w-1/2" />
-              <Skeleton className="h-20 w-full" />
-            </div>
-          ) : selected ? (
-            <div className="space-y-4 mt-6">
-              {/* Status strip */}
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <StatusBadge status={selected.status} label={statusLabel(selected.status)} />
-                {(selected.round ?? 1) > 1 && (
-                  <Badge variant="outline" className="text-[10px] border-violet-200 text-violet-700 dark:border-violet-500/30 dark:text-violet-400">
-                    {tr('roundChip', 'Round {{n}}', { n: selected.round })}
-                  </Badge>
-                )}
-                <span className="inline-flex items-center gap-1" title={formatDate(submittedAt(selected), displayLocale)}>
-                  <Clock className="h-3 w-3" />
-                  {tr('submittedAgo', 'Submitted {{when}}', { when: formatRelative(submittedAt(selected)) })}
-                </span>
-                {selected.completed_at && (
-                  <span>· {tr('completedAt', 'Completed {{when}}', { when: formatRelative(selected.completed_at) })}</span>
-                )}
-                {selected.status === 'pending' && (() => {
-                  const sla = slaState(selected.sla_due_at, now);
-                  return sla ? (
-                    <Badge variant="outline" className={cn(
-                      'text-[10px]',
-                      sla.overdue
-                        ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400'
-                        : 'border-border text-muted-foreground',
-                    )}>
-                      {slaLabel(sla)}
-                    </Badge>
-                  ) : null;
-                })()}
-              </div>
-
-              {/* Business summary card */}
-              {(() => {
-              // Decision-critical amount leads the card (#2762 P2) — a filled
-              // figure at the top instead of a value buried bottom-right in the
-              // generic field grid. Excluded from that grid below so it shows once.
-              // Both halves of this card read the same snapshot, so both take
-              // the same `hidden` trim (objectui#5565) — otherwise a hidden
-              // amount-like field would simply move from the field grid to the
-              // bold lead figure at the top of the very card being fixed.
-              // objectui#11677: with the object's field declarations, both
-              // halves take the declared label and the record page's face.
-              const summaryMeta: SummaryMeta | null = requestFieldDefs
-                ? { objectName: selected.object_name, defs: requestFieldDefs, fieldLabel }
-                : null;
-              const drawerAmount = decisionAmountEntry(selected, hiddenPayloadKeys, displayLocale, requestFieldDefs);
-              const leadDef = drawerAmount ? summaryMeta?.defs[drawerAmount.key] : undefined;
-              const lead: SummaryRow | null = !drawerAmount
-                ? null
-                : summaryMeta && leadDef
-                  ? {
-                      key: drawerAmount.key,
-                      label: declaredLabel(summaryMeta, drawerAmount.key, leadDef),
-                      value: selected.payload_display?.[drawerAmount.key]
-                        ?? (
-                          <RecordFieldFace
-                            objectName={summaryMeta.objectName}
-                            def={leadDef}
-                            value={(selected.payload as Record<string, unknown>)[drawerAmount.key]}
-                            snapshot={selected.payload as Record<string, unknown>}
-                            fields={summaryMeta.defs}
-                          />
-                        ),
-                      title: selected.payload_display?.[drawerAmount.key],
-                    }
-                  : { key: drawerAmount.key, label: drawerAmount.label, value: drawerAmount.display, title: drawerAmount.display };
-              const summary = payloadSummary(selected.payload, displayLocale, selected.payload_display, selected.payload_labels, 6, drawerAmount?.key, hiddenPayloadKeys, summaryMeta);
-              return (
-              <Card>
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      {/* Same suppression as the row (objectui#5211) — the drawer
-                          offers the same link to the same record for the same
-                          viewer, so fixing only the row would move the dead end
-                          one click deeper instead of removing it. */}
-                      {/* objectui#7108: and the same tombstone again — the
-                          drawer addresses the same record, so leaving the bare
-                          id here would move it one click deeper instead of
-                          removing it. */}
-                      {/* objectui#8631: and the cause-free affordance too —
-                          the drawer addresses the same reference, so stopping
-                          at the row would move the opaque id one click deeper
-                          instead of removing it. */}
-                      {deadLabelFor(selected) !== null ? (
-                        <DeadRecordReference
-                          label={deadLabelFor(selected) as string}
-                          className="text-base font-semibold"
-                        />
-                      ) : unresolvableLabelFor(selected) !== null ? (
-                        <UnresolvableRecordReference
-                          label={unresolvableLabelFor(selected) as string}
-                          className="text-base font-semibold"
-                        />
-                      ) : readability.isUnreadable(selected) ? (
-                        <div className="text-base font-semibold truncate">
-                          {selected.record_title || formatIdentity(selected.record_id)}
-                        </div>
-                      ) : (
-                      <Link
-                        to={recordHref(selected)}
-                        className="text-base font-semibold hover:underline inline-flex items-center gap-1.5"
-                      >
-                        <span className="truncate">{selected.record_title || formatIdentity(selected.record_id)}</span>
-                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      </Link>
-                      )}
-                      <div className="text-xs text-muted-foreground">
-                        {objectDisplay(selected)}
-                        {deadLabelFor(selected) !== null && selected.record_title && (
-                          <span className="ml-1.5">· {selected.record_title}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right text-xs text-muted-foreground shrink-0">
-                      <div className="inline-flex items-center gap-1">
-                        {isSystemSubmitter(selected) ? (
-                          <>
-                            <Workflow className="h-3 w-3" />
-                            <span className="italic">{tr('flowOrigin', 'Flow-initiated')}</span>
-                          </>
-                        ) : (
-                          <>
-                            <UserIcon className="h-3 w-3" />
-                            <span title={selected.submitter_id || ''}>{submitterDisplay(selected)}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {lead && (
-                    <div className="border-t pt-3" data-summary-lead={lead.key}>
-                      <div className="text-[11px] text-muted-foreground">{lead.label}</div>
-                      <div className="text-xl font-semibold tabular-nums" title={lead.title}>
-                        {lead.value}
-                      </div>
-                    </div>
-                  )}
-                  {summary.length > 0 && (
-                    <div className={cn('grid grid-cols-2 gap-x-4 gap-y-2 text-sm', !lead && 'border-t pt-3')}>
-                      {/* Keyed by FIELD key (objectui#11677): it was keyed by
-                          the label, and two fields labelled "Owner" logged
-                          React's duplicate-key warning on every drawer render. */}
-                      {summary.map((row) => (
-                        <div key={row.key} className="min-w-0" data-summary-field={row.key}>
-                          <div className="text-[11px] text-muted-foreground">{row.label}</div>
-                          <div className="truncate" title={row.title}>{row.value}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {/* Aggregation progress (#3266): server-computed — "2 of 3
-                      approved" for quorum/unanimous, per-group ticks for 会签.
-                      Rendered as a segmented bar + per-group state (#2762 P1-1)
-                      instead of text alone, with the eligible-approver count
-                      spelled out so "0 of 1" can't be misread against the
-                      drawer pager's "Request 2 of 3". */}
-                  {selected.decision_progress && (() => {
-                    const dp = selected.decision_progress;
-                    // People, not slots: one person can hold several slots, so count the distinct served addresses, as app-shell's eligibleApproverCount does (objectui#12781).
-                    const eligible = new Set(selected.pending_approvers || []).size;
-                    return (
-                      <div className="border-t pt-3">
-                        <div className="flex items-baseline justify-between gap-2 mb-1.5">
-                          <span className="text-[11px] text-muted-foreground">
-                            {dp.behavior === 'per_group'
-                              ? tr('progressGroups', 'Sign-off progress — {{got}} of {{need}} groups', {
-                                  got: dp.got, need: dp.need,
-                                })
-                              : tr('progressApprovals', 'Approvals — {{got}} of {{need}}', {
-                                  got: dp.got, need: dp.need,
-                                })}
-                          </span>
-                          {dp.behavior !== 'per_group' && selected.status === 'pending' && eligible > 0 && (
-                            <span className="text-[11px] text-muted-foreground">
-                              {tr('progressEligible', '{{count}} eligible approver(s)', { count: eligible })}
-                            </span>
-                          )}
-                        </div>
-                        <div
-                          role="progressbar"
-                          aria-valuemin={0}
-                          aria-valuemax={dp.need}
-                          aria-valuenow={Math.min(dp.got, dp.need)}
-                          aria-label={tr('progressBar', 'Decision progress')}
-                          className="flex gap-1"
-                        >
-                          {dp.need > 0 && dp.need <= 12 ? (
-                            Array.from({ length: dp.need }).map((_, i) => (
-                              <div
-                                key={i}
-                                className={cn(
-                                  'h-1.5 flex-1 rounded-full',
-                                  i < dp.got ? 'bg-emerald-500' : 'bg-muted',
-                                )}
-                              />
-                            ))
-                          ) : (
-                            <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className="h-full rounded-full bg-emerald-500"
-                                style={{ width: `${dp.need > 0 ? Math.min(100, (dp.got / dp.need) * 100) : 0}%` }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                        {dp.groups && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {dp.groups.map((g) => (
-                              <Badge
-                                key={g.group}
-                                variant="outline"
-                                className={cn(
-                                  'text-[11px] gap-1',
-                                  g.satisfied
-                                    ? 'border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400'
-                                    : 'text-muted-foreground',
-                                )}
-                                title={`${g.got}/${g.need}`}
-                              >
-                                {g.satisfied
-                                  ? <Check className="h-3 w-3" />
-                                  : <Circle className="h-2.5 w-2.5" />}
-                                {g.group} {g.got}/{g.need}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {selected.status === 'pending' && (selected.pending_approvers || []).length > 0 && (
-                    <div className="border-t pt-3">
-                      <div className="text-[11px] text-muted-foreground mb-1">
-                        {tr('waitingOn', 'Waiting on')}
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {approverChips(selected, selectedPositionLabels).map((chip, i) => (
-                          <Badge key={`${chip.label}-${chip.group ?? ''}-${i}`} variant="outline" className="text-[11px]" title={chip.title}>
-                            {chip.label}
-                            {chip.group && (
-                              // 会签 group this slot represents (objectui#2807).
-                              <span className="ml-1 text-muted-foreground">· {chip.group}</span>
-                            )}
-                            {chip.count > 1 && (
-                              <span className="ml-1 text-muted-foreground">×{chip.count}</span>
-                            )}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              );
-              })()}
-
-              {(selected.flow_steps?.length ?? 0) > 1 && (
-                // objectui#5554 — the step strip is a VERTICAL stepper, at
-                // every step count. A horizontal row's intrinsic width grows
-                // without bound with step count and label length, so a real
-                // 6-step flow with ordinary CJK labels measured 1070px inside
-                // a 527px drawer: steps 4-6 were reachable only by dragging
-                // the drawer's own scrollbar, which pushed the rest of the
-                // drawer off-screen. A column caps width at the container at
-                // any step count and any label length, so there is no flow
-                // length or viewport at which it silently regresses — which
-                // is exactly what a count- or measurement-triggered switch
-                // would reintroduce. Nothing here may pin intrinsic width:
-                // no `shrink-0` on the rows, no `whitespace-nowrap` on the
-                // labels, and no horizontal scroller.
-                <ol className="flex flex-col px-1" aria-label={tr('stepProgress', 'Approval steps')}>
-                  {selected.flow_steps!.map((s, i, steps) => {
-                    const next = steps[i + 1];
-                    return (
-                      <li key={s.id} className="flex items-start gap-2">
-                        <div className="flex flex-col items-center self-stretch">
-                          <span className={cn(
-                            'flex items-center justify-center h-5 w-5 shrink-0 rounded-full text-[10px] font-semibold',
-                            s.state === 'done' && 'bg-emerald-500 text-white',
-                            s.state === 'current' && 'bg-amber-500 text-white ring-2 ring-amber-200 dark:ring-amber-500/30',
-                            s.state === 'upcoming' && 'bg-muted text-muted-foreground border',
-                          )}>
-                            {s.state === 'done' ? <Check className="h-3 w-3" /> : i + 1}
-                          </span>
-                          {next && (
-                            // Tinted by the step it leads INTO — the same rule
-                            // the horizontal connector used, now running down
-                            // the rail instead of across it.
-                            <div className={cn('w-px flex-1 min-h-3 my-1', next.state === 'done' || next.state === 'current' ? 'bg-emerald-300 dark:bg-emerald-700' : 'bg-border')} />
-                          )}
-                        </div>
-                        <span className={cn(
-                          'min-w-0 flex-1 pt-0.5 text-xs break-words',
-                          s.state === 'current' ? 'font-medium' : 'text-muted-foreground',
-                        )}>{s.label}</span>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-
-              <div>
-                <h3 className="text-sm font-semibold mb-3">{tr('history', 'Activity')}</h3>
-                {actions.length === 0 ? (
-                  <div className="text-xs text-muted-foreground">{tr('noActions', 'No actions yet.')}</div>
-                ) : (
-                  <ol className="relative space-y-3 pl-5 before:absolute before:left-[7px] before:top-1 before:bottom-1 before:w-px before:bg-border">
-                    {actions.map((a) => {
-                      // objectui#5178 — an admin override does not wear the
-                      // ordinary decision's dot. Same rule and same predicate as
-                      // the record page's approval panel (both call
-                      // `isViaOverrideRow`), so the two timelines cannot drift
-                      // on what counts as an override.
-                      const viaOverride = isViaOverrideRow(a);
-                      const color = viaOverride ? 'bg-amber-500'
-                                  : a.action === 'approve' ? 'bg-emerald-500'
-                                  : a.action === 'reject'  ? 'bg-destructive'
-                                  : a.action === 'submit'  ? 'bg-blue-500'
-                                  : a.action === 'reassign' ? 'bg-indigo-500'
-                                  : a.action === 'remind' ? 'bg-amber-500'
-                                  : a.action === 'request_info' ? 'bg-amber-500'
-                                  : a.action === 'comment' ? 'bg-slate-400'
-                                  : a.action === 'escalate' ? 'bg-red-500'
-                                  : a.action === 'revise' ? 'bg-violet-500'
-                                  : a.action === 'resubmit' ? 'bg-blue-500'
-                                  : 'bg-muted-foreground';
-                      const actorName = a.actor_id === 'system:sla'
-                        ? tr('systemSlaActor', 'System (SLA)')
-                        : a.actor_name
-                          ?? (a.actor_id && a.actor_id === selected.submitter_id
-                            ? submitterDisplay(selected)
-                            : formatIdentity(a.actor_id));
-                      const actionText = a.action === 'submit' ? tr('actSubmit', 'Submitted')
-                        : a.action === 'approve' ? tr('actApprove', 'Approved')
-                        : a.action === 'reject' ? tr('actReject', 'Rejected')
-                        : a.action === 'recall' ? tr('actRecall', 'Recalled')
-                        : a.action === 'reassign' ? tr('actReassign', 'Reassigned')
-                        : a.action === 'remind' ? tr('actRemind', 'Reminder sent')
-                        : a.action === 'request_info' ? tr('actRequestInfo', 'Requested more info')
-                        : a.action === 'comment' ? tr('actComment', 'Commented')
-                        : a.action === 'escalate' ? tr('actEscalate', 'SLA escalated')
-                        : a.action === 'revise' ? tr('actRevise', 'Sent back for revision')
-                        : a.action === 'resubmit' ? tr('actResubmit', 'Resubmitted')
-                        : a.action;
-                      return (
-                        <li key={a.id} className="relative text-xs">
-                          <span
-                            className={`absolute -left-[18px] top-1 h-3 w-3 rounded-full ring-2 ring-background ${color}`}
-                            aria-hidden
-                          />
-                          <div className="flex items-baseline gap-1.5 flex-wrap">
-                            <span className="font-medium">{actionText}</span>
-                            <span className="text-muted-foreground">·</span>
-                            <span title={a.actor_id || ''}>{actorName}</span>
-                            {/* The marker framework#4466 wrote and nothing read
-                                (objectui#5178). Only an explicit
-                                `via_override: true` earns it. */}
-                            {viaOverride && (
-                              <Badge
-                                variant="outline"
-                                className="gap-1 border-amber-500/60 px-1.5 py-0 text-[10px] font-medium text-amber-700 dark:text-amber-400"
-                                title={tr('viaOverrideHint', 'The actor held no approver slot on this step — admitted by the admin-override path.')}
-                                data-testid="via-override-chip"
-                              >
-                                <ShieldAlert className="h-3 w-3" aria-hidden />
-                                {tr('viaOverrideChip', 'Admin override')}
-                              </Badge>
-                            )}
-                            <span
-                              className="ml-auto text-muted-foreground text-[10px]"
-                              title={formatDate(a.created_at, displayLocale)}
-                            >
-                              {formatRelative(a.created_at)}
-                            </span>
-                          </div>
-                          {/* Structured reassign hand-off (framework#4365): render
-                              "from A to B" from the resolved parties. Legacy rows
-                              predate the fields and only carry the old default
-                              comment — those keep the comment fallback below. */}
-                          {(() => {
-                            const ax = a as typeof a & {
-                              reassign_from?: string; reassign_to?: string;
-                              reassign_from_name?: string; reassign_to_name?: string;
-                            };
-                            if (a.action !== 'reassign' || (!ax.reassign_from && !ax.reassign_to)) return null;
-                            return (
-                              <div className="text-muted-foreground mt-0.5">
-                                {tr('reassignFromTo', 'from {{from}} to {{to}}', {
-                                  from: ax.reassign_from_name ?? formatIdentity(ax.reassign_from),
-                                  to: ax.reassign_to_name ?? formatIdentity(ax.reassign_to),
-                                })}
-                              </div>
-                            );
-                          })()}
-                          {a.comment && (
-                            <div className="text-muted-foreground italic mt-0.5">"{a.comment}"</div>
-                          )}
-                          {Array.isArray(a.attachments) && a.attachments.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-1">
-                              {a.attachments.map((att, i) => (
-                                <button
-                                  key={att.id || i}
-                                  type="button"
-                                  onClick={() => void openAttachment(att)}
-                                  className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                                  title={att.name || att.id}
-                                >
-                                  <Paperclip className="h-3 w-3" />
-                                  {att.name
-                                    || `${tr('attachmentChip', 'Attachment')}${a.attachments!.length > 1 ? ` ${i + 1}` : ''}`}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                )}
-                {selected.status === 'pending' && (canApproveReject || canRecall) && (
-                  <div className="flex items-center gap-2 mt-3">
-                    <Input
-                      value={reply}
-                      onChange={(e) => setReply(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && reply.trim()) { e.preventDefault(); void doReply(); } }}
-                      placeholder={tr('replyPlaceholder', 'Reply on this request…')}
-                      className="h-8 text-sm"
-                    />
-                    <Button size="sm" variant="outline" className="h-8 px-2 shrink-0" disabled={!reply.trim() || threadBusy} onClick={() => void doReply()}>
-                      <Send className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {selected.status === 'pending' && (
-                <>
-                  <Separator />
-                  <div className="space-y-3">
-                    {/* SERVER-DECLARED decision actions (objectui#2678 P2-4 +
-                        framework#3300). The inbox hand-wires NOTHING: approve /
-                        reject (with comment + file attachments), reassign,
-                        send-back, request-info, remind and recall all ship as the
-                        object's declared actions and render + execute here through
-                        the shared console action runtime. Each action's `visible`
-                        CEL gates it (submitter levers on `submitter_id ==
-                        ctx.user.id`; approver levers on `status == pending`), its
-                        param dialog collects the comment and — via the shared
-                        upload-widget renderer (#2700/#2707) — the `attachments`
-                        file param (#2698), and its `{id}`-interpolated
-                        `type:'api'` target resolves from the selected row. */}
-                    <DeclaredActionsBar
-                      objectName="sys_approval_request"
-                      record={selected}
-                      location="record_section"
-                      label={tr('declaredActions', 'Actions')}
-                      onDone={() => { void onDecisionDone(); }}
-                    />
-                    {!canApproveReject && (
-                      <div className="text-xs text-muted-foreground">
-                        {canRecall
-                          ? tr('whyDisabledSubmitter', 'You submitted this request, so you can recall it — but only the assigned approvers can approve or reject.')
-                          : tr('whyDisabled', 'Only the assigned approvers can act on this request. It is waiting on: {{who}}.', {
-                              who: (selected.pending_approvers || []).map(a => approverDisplay(a, selected, selectedPositionLabels)).join(', ') || '—',
-                            })}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* ADR-0044 revision window: the request came back to the
-                  submitter — the record is unlocked for rework; resubmitting
-                  opens the next approval round, recalling abandons it. */}
-              {canResubmit && (
-                <>
-                  <Separator />
-                  <div className="space-y-3">
-                    <div className="text-xs text-muted-foreground">
-                      {tr('returnedHint', 'An approver sent this back to you. The record is unlocked — fix the data, then resubmit to start a new approval round.')}
-                    </div>
-                    <div className="flex gap-2 flex-wrap items-center">
-                      {/* NOT readability-suppressed (objectui#5211), deliberately:
-                          this branch renders only for the SUBMITTER of a returned
-                          request, whose whole job here is to edit that record —
-                          a different persona from the approver the suppression is
-                          for, and one who demonstrably reached the record to
-                          submit it. */}
-                      <Button asChild size="sm" variant="outline">
-                        <Link to={recordHref(selected)}>
-                          <ExternalLink className="h-4 w-4 mr-1" />
-                          {tr('editRecordBtn', 'Edit record')}
-                        </Link>
-                      </Button>
-                      {/* Resubmit / recall-abandon ship as the object's declared
-                          actions (gated to the submitter on a `returned` request)
-                          and render + execute here — the resubmit dialog collects
-                          the "what changed?" comment. */}
-                      <DeclaredActionsBar
-                        objectName="sys_approval_request"
-                        record={selected}
-                        location="record_section"
-                        onDone={() => { void refreshThread(selected.id); void load(); }}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          ) : null}
-        </SheetContent>
-      </Sheet>
     </div>
     </div>
   );

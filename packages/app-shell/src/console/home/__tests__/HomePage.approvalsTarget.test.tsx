@@ -35,8 +35,7 @@
  * its module boundary; `HomeRail` — which owns the card and its testid — stays
  * real, because "the click reaches the right URL" is not assertable through a
  * stubbed button. `useNavigate` is mocked rather than driven through a
- * `MemoryRouter` so the assertion reads the emitted target directly, matching
- * `CloudOnboardingNext.test.tsx` in this same directory.
+ * `MemoryRouter` so the assertion reads the emitted target directly.
  */
 
 import '@testing-library/jest-dom/vitest';

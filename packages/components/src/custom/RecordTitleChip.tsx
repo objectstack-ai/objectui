@@ -35,6 +35,14 @@ import { cn } from '../lib/utils';
 export interface RecordTitleChipProps {
   /** Resolved title text (already interpolated against the record). */
   title: string;
+  /**
+   * Drawn inside the `<h1>` in place of `title`'s text when given
+   * (objectui#13216): `page:header` passes the declared `nameField`'s value
+   * drawn through its widget's face, which may name the value only after it
+   * has read a label. `title` is still required and is still the plain-text
+   * title; a caller that passes no node draws exactly what it drew before.
+   */
+  titleNode?: React.ReactNode;
   /** Optional icon node (object icon, e.g. <Lucide /> or an emoji). */
   icon?: React.ReactNode;
   /** Object label shown beneath the title (e.g. "Lead"). */
@@ -58,6 +66,7 @@ export interface RecordTitleChipProps {
 
 export const RecordTitleChip: React.FC<RecordTitleChipProps> = ({
   title,
+  titleNode,
   icon,
   objectLabel,
   resourceId,
@@ -105,7 +114,7 @@ export const RecordTitleChip: React.FC<RecordTitleChipProps> = ({
               {icon}
             </span>
           )}
-          <h1 className="text-xl sm:text-2xl font-bold truncate">{title}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold truncate">{titleNode ?? title}</h1>
           {objectLabel && (
             <span className="text-xs font-medium tracking-wide text-muted-foreground/70 shrink-0">
               {objectLabel}

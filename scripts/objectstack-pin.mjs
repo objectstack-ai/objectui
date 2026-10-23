@@ -4,7 +4,9 @@
  * version (ruling B on objectui#12955, executed by objectui#12957).
  *
  *   node scripts/objectstack-pin.mjs build    # `pnpm objectstack:build`; `pnpm run setup` = this, then a frozen install
+ *   node scripts/objectstack-pin.mjs build --write-manifests   # also commit-ready manifests for a moved pin (bump-objectstack.sh)
  *   node scripts/objectstack-pin.mjs status   # what the cache holds, against the pin (exit 0 = built at the pin)
+ *   node scripts/objectstack-pin.mjs check    # the root `preinstall`: refuses an install with no build beside the manifests
  *   OBJECTSTACK_ROOT=../objectstack node scripts/objectstack-pin.mjs build   # an existing tree stands in
  *
  * ## The contract
@@ -13,12 +15,34 @@
  * moves it). The root `package.json` overrides EVERY `@objectstack/*` package the
  * workspace resolves to a directory:
  *
- *     "@objectstack/spec": "file:node_modules/.cache/objectstack/spec"
+ *     "@objectstack/spec": "file:.objectstack-pin/spec"
  *
- * and `build` fills each such directory with that package exactly as `pnpm pack`
- * would publish it -- built from the pinned commit's source. So no `@objectstack/*`
- * package resolves from npm; npm ranges in the manifests matter only when objectui
- * itself publishes (objectui#12958).
+ * Each such directory holds ONE committed file, the package's `package.json` as
+ * `pnpm pack` packs it at the pinned commit (`canonicalManifest`). `build` builds
+ * that commit into `node_modules/.cache/objectstack` -- the path CI caches by the
+ * pin, whose stamp turbo hashes -- and links every other packed file beside the
+ * manifest (git-ignored; a copy where a link fails). So no `@objectstack/*` package
+ * resolves from npm; npm ranges in the manifests matter only when objectui itself
+ * publishes (objectui#12958).
+ *
+ * ## Why the manifests are committed (objectui#13008)
+ *
+ * Dependabot resolves on a fresh clone with no `node_modules` (its job for run
+ * 39180936608 ran `pnpm update next@16.3.8 --lockfile-only --no-save -r`). Measured
+ * on clean clones: that command exits 0 with only the committed manifests, and 1
+ * (ERR_PNPM_LINKED_PKG_DIR_NOT_FOUND) when the overrides name a directory only
+ * `build` creates; a lockfile-only run does not run the root `preinstall`. pnpm
+ * HARD-LINKS a directory dependency's files at install time (same inode), so the
+ * build must be beside the manifests before `pnpm install`, and the lockfile does
+ * not change when it appears (byte-identical after a frozen install).
+ *
+ * The committed manifests must BE the pin's, since Dependabot resolves them: a
+ * build at the pin REFUSES a packed manifest that differs from the committed one
+ * (a pin moved without its manifests, a hand edit) and never writes over it;
+ * `--write-manifests` writes them, and bump-objectstack.sh commits them with the
+ * pin. A stand-in installs its OWN manifests (its exports may differ) and records
+ * in its stamp the ones it replaced; the next build at the pin restores exactly
+ * those, and nothing else.
  *
  * ## Why `file:` DIRECTORIES -- the resolution form, measured on objectui#12957
  *
@@ -40,11 +64,11 @@
  * So the lockfile depends only on the packed manifests' dependencies, peers and
  * engines -- which is what lets another tree stand in without a lockfile change.
  *
- * Why under `node_modules/.cache/`: every tool here already ignores `node_modules`
- * (git, ESLint's `**\/node_modules`, vitest, tsc, turbo's inputs), so a packed
- * objectstack tree there is invisible to every gate that walks the checkout. The
- * cost: removing `node_modules` removes the build too, and the next install fails
- * with ENOENT on that directory until `pnpm run setup` runs again.
+ * The built files beside the manifests are git-ignored and listed in ESLint's
+ * ignores (the spec packs its TypeScript `src/`). Removing `node_modules` removes
+ * the build: the next `pnpm install` then refuses in the root `preinstall` (`check`)
+ * until `pnpm run setup` runs again -- without it, an install would exit 0 and link
+ * packages that hold nothing but a manifest.
  *
  * ## OBJECTSTACK_ROOT -- an existing objectstack tree stands in (objectstack#24306)
  *
@@ -53,7 +77,22 @@
  * built or regenerated (`pnpm pack` runs with scripts off): the tree must already be
  * installed (`pnpm pack` reads each `workspace:` dependency's version from the
  * installed links) and built, and a missing entry point refuses with the command
- * that builds it. The lockfile does not change.
+ * that builds it. The lockfile does not change; the committed manifests in
+ * `.objectstack-pin` do, until the next build at the pin restores them.
+ *
+ * ## One build per machine (objectui#12972)
+ *
+ * A build at the pin is also kept once per machine, outside every checkout, in
+ * `$OBJECTSTACK_PIN_STORE` (default `$XDG_CACHE_HOME/objectstack-pin`, else
+ * `~/.cache/objectstack-pin`) as `PIN-HASH`, HASH over this script's bytes: CI's
+ * cache key inputs. A checkout whose cache is not the pin COPIES the entry instead of
+ * building -- never links it: the cache is hard-linked into `.objectstack-pin` and
+ * `node_modules`, so a linked entry would carry one checkout's write into a built file
+ * to every checkout. Only a build this run made is published (a current cache may
+ * have been written to), copied, hashed (`.entry.json`) and renamed into place: a
+ * reader finds no entry or a whole one, and a concurrent run that renamed first wins.
+ * The COPY is judged before use, by the stamp check and the hash. A stand-in never
+ * reads or writes the store; it keeps STORE_KEEP entries; a failed write only warns.
  *
  * ## The lockfile must record what the build declares -- and pnpm will not check it
  *
@@ -71,17 +110,20 @@
  * ## Refusals (exit 1, nothing written)
  *
  *   - `.objectstack-sha` is not one full sha;
- *   - an `@objectstack/*` override is not the `file:node_modules/.cache/objectstack/<name>`
+ *   - an `@objectstack/*` override is not the `file:.objectstack-pin/NAME`
  *     form, or a package objectui declares has no override (it would resolve from npm);
+ *   - at the pin, a packed manifest differs from the committed one (see above);
  *   - the packages being packed need an `@objectstack/*` package with no override, or
  *     an override names a package nothing reaches -- the override set must equal the
  *     closure, so a pin that adds a dependency is a loud stop, never an npm fallback;
  *   - a packed package's `main`/`module`/`types`/`exports` target is missing.
  *
  * Every write goes to a staging directory that replaces the cache only once all
- * packages packed, so a failed run leaves the previous build in place. One refusal
- * comes AFTER the write, on purpose: the lockfile-drift one above, whose remedy
- * (`pnpm install`) needs the new build on disk to read.
+ * packages packed and every manifest was judged, so a failed run leaves the
+ * previous build in place. One refusal comes AFTER the write, on purpose: the
+ * lockfile-drift one above, whose remedy (`pnpm install`) needs the new build on
+ * disk to read. `--write-manifests` skips it: a moved pin's lockfile is rewritten
+ * next, by that same `pnpm install`.
  *
  * ⛔ Node builtins only: CI runs this BEFORE `pnpm install`
  * (`scripts/check-pre-install-import-graph.mjs` holds that).
@@ -99,10 +141,16 @@ import { isEntrypoint } from './invoked-as.mjs';
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const PIN_FILE = '.objectstack-sha';
 export const CACHE_DIR = 'node_modules/.cache/objectstack';
+/** The committed manifests, and the build linked beside them: what the overrides name. */
+export const PIN_DIR = '.objectstack-pin';
 export const STAMP_FILE = '.stamp.json';
-export const OVERRIDE_PREFIX = `file:${CACHE_DIR}/`;
+export const OVERRIDE_PREFIX = `file:${PIN_DIR}/`;
 /** Bump when what `build` writes changes shape, so an older cache is rebuilt rather than trusted. */
 export const RECIPE = 1;
+/** objectui#12972: the store's variable, an entry's record, how many entries it keeps. */
+export const STORE_ENV = 'OBJECTSTACK_PIN_STORE';
+export const ENTRY_FILE = '.entry.json';
+export const STORE_KEEP = 4;
 export const DEFAULT_REPO_URL = 'https://github.com/objectstack-ai/objectstack.git';
 
 const SCOPE = '@objectstack/';
@@ -408,7 +456,7 @@ export function dependencyDrift(recorded, manifests) {
  * @param {Map<string, string>} overrides
  */
 export function assertLockfileRecordsBuild(root, overrides) {
-  const manifests = new Map([...overrides].map(([name, dir]) => [name, readJson(path.join(root, CACHE_DIR, dir, 'package.json'))]));
+  const manifests = new Map([...overrides].map(([name, dir]) => [name, readJson(path.join(root, PIN_DIR, dir, 'package.json'))]));
   const drift = dependencyDrift(lockfileDependencyNames(fs.readFileSync(path.join(root, 'pnpm-lock.yaml'), 'utf8')), manifests);
   if (!drift.length) return;
   const lines = drift.map((d) =>
@@ -417,7 +465,7 @@ export function assertLockfileRecordsBuild(root, overrides) {
       : `  ${d.name}:${d.missing.length ? ` declares ${d.missing.join(', ')}, which the lockfile does not record;` : ''}${d.extra.length ? ` the lockfile records ${d.extra.join(', ')}, which it no longer declares;` : ''}`,
   );
   throw new PinRefusal(
-    `pnpm-lock.yaml does not record the dependencies the build in ${CACHE_DIR} declares:\n${lines.join('\n')}\n` +
+    `pnpm-lock.yaml does not record the dependencies the build in ${PIN_DIR} declares:\n${lines.join('\n')}\n` +
       'A frozen install would link this build WITHOUT them and exit 0 -- pnpm resolves a directory dependency from the lockfile alone. ' +
       'The build is in place: run `pnpm install` to rewrite the lockfile from it, and commit pnpm-lock.yaml.',
   );
@@ -441,10 +489,10 @@ export function readStamp(root) {
  * Whether the cache already holds the pin's build of exactly these packages.
  *
  * @param {Record<string, any> | null} stamp
- * @param {{ pin: string, overrides: Map<string, string>, root: string }} want
+ * @param {{ pin: string, overrides: Map<string, string>, root?: string, cache?: string }} want `cache` defaults to root's
  * @returns {{ current: boolean, why: string }}
  */
-export function judgeStamp(stamp, { pin, overrides, root }) {
+export function judgeStamp(stamp, { pin, overrides, root, cache = path.join(root, CACHE_DIR) }) {
   if (!stamp) return { current: false, why: 'no build in the cache' };
   if (stamp.recipe !== RECIPE) return { current: false, why: `the cache was written by recipe ${stamp.recipe}, this script is recipe ${RECIPE}` };
   if (stamp.source !== 'pin') return { current: false, why: `the cache holds a stand-in from ${stamp.root ?? 'an external tree'} (${String(stamp.sha).slice(0, 12)}), not the pin` };
@@ -453,8 +501,8 @@ export function judgeStamp(stamp, { pin, overrides, root }) {
   const have = Object.keys(stamp.packages ?? {}).sort();
   if (want.join() !== have.join()) return { current: false, why: `the cache holds ${have.join(', ') || 'no package'}, the overrides name ${want.join(', ')}` };
   for (const [name, dir] of overrides) {
-    const manifest = path.join(root, CACHE_DIR, dir, 'package.json');
-    if (!fs.existsSync(manifest) || readJson(manifest).name !== name) return { current: false, why: `${CACHE_DIR}/${dir} does not hold ${name}` };
+    const manifest = path.join(cache, dir, 'package.json');
+    if (!fs.existsSync(manifest) || readJson(manifest).name !== name) return { current: false, why: `${path.join(cache, dir)} does not hold ${name}` };
   }
   return { current: true, why: `built at the pin ${pin.slice(0, 12)}` };
 }
@@ -482,6 +530,222 @@ export function hashTree(dir) {
   };
   walk('');
   return `sha256-${hash.digest('hex')}`;
+}
+
+// ── the committed manifests, and the build beside them (objectui#13008) ─────
+
+const sha256 = (bytes) => `sha256-${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+const DEPENDENCY_MAPS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies', 'peerDependenciesMeta'];
+
+/**
+ * A packed manifest as it is committed. `pnpm pack` rewrites `workspace:` ranges
+ * asynchronously, so two packs of ONE commit order a dependency map's keys
+ * differently with every value equal (measured on objectui#13008: client and lint
+ * differed between two builds of the pin). Those maps are sorted; nothing else
+ * moves -- the order of `exports` conditions carries meaning.
+ *
+ * @param {string | Buffer} text
+ * @returns {string | null} null when the text is not a JSON object
+ */
+export function canonicalManifest(text) {
+  let manifest;
+  try {
+    manifest = JSON.parse(String(text));
+  } catch {
+    return null;
+  }
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) return null;
+  for (const field of DEPENDENCY_MAPS) {
+    const map = manifest[field];
+    if (map && typeof map === 'object') manifest[field] = Object.fromEntries(Object.entries(map).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  }
+  return `${JSON.stringify(manifest, null, 2)}\n`;
+}
+
+/** Hard-link (copy where a link fails) every file under `from` into `to`, except a top-level `package.json`. */
+function linkTree(from, to, rel = '') {
+  for (const entry of fs.readdirSync(path.join(from, rel), { withFileTypes: true })) {
+    const child = path.join(rel, entry.name);
+    if (child === 'package.json') continue;
+    if (entry.isDirectory()) {
+      fs.mkdirSync(path.join(to, child), { recursive: true });
+      linkTree(from, to, child);
+    } else if (entry.isFile()) {
+      try {
+        fs.linkSync(path.join(from, child), path.join(to, child));
+      } catch {
+        fs.copyFileSync(path.join(from, child), path.join(to, child));
+      }
+    }
+  }
+}
+
+/**
+ * Put a packed build (`from`: one directory per package) beside the committed
+ * manifests in PIN_DIR. Every manifest is judged, in its canonical form, before
+ * anything is written:
+ *
+ *   - `pin`: the packed manifest must equal the one on disk, or be the one a
+ *     stand-in replaced (`replaced`, from its stamp); anything else refuses, and
+ *     an equal manifest is left byte for byte;
+ *   - `write` (`--write-manifests`) and `stand-in`: the packed manifest is written.
+ *
+ * @param {string} root
+ * @param {Map<string, string>} overrides
+ * @param {{ from: string, mode: 'pin' | 'write' | 'stand-in', replaced?: Record<string, string> | null }} opts
+ * @returns {Record<string, string>} the hash of each manifest that was on disk before
+ */
+export function materialize(root, overrides, { from, mode, replaced = null }) {
+  const plan = [...overrides].map(([name, dir]) => {
+    const target = path.join(root, PIN_DIR, dir);
+    const manifest = path.join(target, 'package.json');
+    const before = fs.existsSync(manifest) ? fs.readFileSync(manifest, 'utf8') : null;
+    const packed = canonicalManifest(fs.readFileSync(path.join(from, dir, 'package.json')));
+    if (packed === null) throw new PinRefusal(`the packed manifest of ${name} in ${from} is not a JSON object.`);
+    const same = before !== null && canonicalManifest(before) === packed;
+    return { name, dir, target, before, packed, same, write: mode === 'pin' ? !same : before !== packed };
+  });
+  const stale = plan.filter((p) => !p.same && replaced?.[p.name] !== sha256(p.packed));
+  if (mode === 'pin' && stale.length) {
+    throw new PinRefusal(
+      `the manifests committed in ${PIN_DIR} are not the ones the pin packs:\n` +
+        stale.map((p) => `  ${PIN_DIR}/${p.dir}/package.json ${p.before ? 'differs from' : 'is missing:'} the packed manifest of ${p.name}`).join('\n') +
+        '\nDependabot resolves the lockfile from these files, so they must be the pin\'s. scripts/bump-objectstack.sh writes them ' +
+        'with the pin; `node scripts/objectstack-pin.mjs build --write-manifests` writes them for the pin as it stands. Commit them.',
+    );
+  }
+  for (const p of plan) {
+    fs.mkdirSync(p.target, { recursive: true });
+    for (const entry of fs.readdirSync(p.target)) {
+      if (entry !== 'package.json') fs.rmSync(path.join(p.target, entry), { recursive: true, force: true });
+    }
+    linkTree(path.join(from, p.dir), p.target);
+    if (p.write) {
+      const tmp = path.join(p.target, '.package.json.tmp');
+      fs.writeFileSync(tmp, p.packed);
+      fs.renameSync(tmp, path.join(p.target, 'package.json'));
+    }
+  }
+  return Object.fromEntries(plan.filter((p) => p.before !== null).map((p) => [p.name, sha256(canonicalManifest(p.before) ?? p.before)]));
+}
+
+/** @returns {string[]} the packages whose directory in PIN_DIR holds the manifest but not the build */
+export function hollowPackages(root, overrides) {
+  return [...overrides].filter(([, dir]) => missingEntryTargets(path.join(root, PIN_DIR, dir)).length > 0).map(([name]) => name);
+}
+
+/**
+ * The root `preinstall`. Without the build beside the manifests, `pnpm install`
+ * exits 0 and links packages holding nothing but a manifest; this refuses instead.
+ * A lockfile-only resolution (Dependabot's) does not run it.
+ */
+export function check({ root = REPO_ROOT } = {}) {
+  const hollow = hollowPackages(root, readOverrides(readJson(path.join(root, 'package.json'))));
+  if (hollow.length) {
+    throw new PinRefusal(
+      `${PIN_DIR} holds the committed manifests of ${hollow.join(', ')} but not the pinned build, so this install would ` +
+        'link packages with no code in them. Run `pnpm run setup`: it builds the pin, then installs.',
+    );
+  }
+}
+
+// ── one build per machine (objectui#12972) ─────────────────────────────────
+
+/**
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {string} the store
+ */
+export function storeDir(env) {
+  if (env[STORE_ENV]) return path.resolve(env[STORE_ENV]);
+  return path.join(env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'), 'objectstack-pin');
+}
+
+/**
+ * @param {string} pin
+ * @param {string} [script] whose bytes key the entry: this one
+ * @returns {string} `PIN-HASH`
+ */
+export function storeKey(pin, script = fileURLToPath(import.meta.url)) {
+  return `${pin}-${sha256(fs.readFileSync(script)).slice(7, 23)}`;
+}
+
+/**
+ * Copy an entry into an empty `staging` and judge the COPY, so a prune or a write racing it shows.
+ *
+ * @param {string} entry
+ * @param {string} staging
+ * @param {{ pin: string, overrides: Map<string, string> }} want
+ * @returns {string | null} why it was not taken (`staging` left empty), or null
+ */
+export function takeFromStore(entry, staging, { pin, overrides }) {
+  if (!fs.existsSync(entry)) return 'no entry for this pin and script';
+  let why = null;
+  try {
+    fs.cpSync(entry, staging, { recursive: true });
+    const { contentHash } = readJson(path.join(staging, ENTRY_FILE));
+    fs.rmSync(path.join(staging, ENTRY_FILE));
+    const verdict = judgeStamp(readJson(path.join(staging, STAMP_FILE)), { pin, overrides, cache: staging });
+    if (!verdict.current) why = `the entry is not the pin: ${verdict.why}`;
+    else if (hashTree(staging) !== contentHash) why = "the entry's files are not the ones it was published with";
+    else fs.utimesSync(entry, new Date(), new Date()); // "recently used", for the prune
+  } catch (error) {
+    why = `the entry could not be read: ${error}`;
+  }
+  if (why !== null) {
+    fs.rmSync(staging, { recursive: true, force: true });
+    fs.mkdirSync(staging);
+  }
+  return why;
+}
+
+/**
+ * Publish a cache this run built: copy, hash, rename -- a reader finds no entry or a whole one.
+ *
+ * @param {string} cache
+ * @param {string} entry
+ * @param {number} [keep]
+ * @returns {'published' | 'present'} `present`: another run's entry was there first
+ */
+export function publishToStore(cache, entry, keep = STORE_KEEP) {
+  if (fs.existsSync(entry)) return 'present';
+  fs.mkdirSync(path.dirname(entry), { recursive: true });
+  const tmp = fs.mkdtempSync(path.join(path.dirname(entry), '.tmp-'));
+  try {
+    fs.cpSync(cache, tmp, { recursive: true });
+    fs.writeFileSync(path.join(tmp, ENTRY_FILE), `${JSON.stringify({ contentHash: hashTree(tmp) })}\n`);
+    fs.renameSync(tmp, entry);
+  } catch (error) {
+    if (fs.existsSync(entry)) return 'present';
+    throw error;
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+  pruneStore(path.dirname(entry), keep, path.basename(entry));
+  return 'published';
+}
+
+/**
+ * Keep `current` and the `keep - 1` most recently used others, each removal renamed
+ * away first; a temporary directory an hour old is a dead run's.
+ *
+ * @param {string} store
+ * @param {number} keep
+ * @param {string} current
+ */
+export function pruneStore(store, keep, current) {
+  const dirs = fs.readdirSync(store, { withFileTypes: true }).filter((e) => e.isDirectory() && e.name !== current);
+  const aged = dirs.map((e) => ({ name: e.name, mtime: fs.statSync(path.join(store, e.name)).mtimeMs })).sort((a, b) => b.mtime - a.mtime);
+  const doomed = [
+    ...aged.filter((e) => !e.name.startsWith('.')).slice(Math.max(keep - 1, 0)),
+    ...aged.filter((e) => e.name.startsWith('.') && e.mtime < Date.now() - 3600_000),
+  ];
+  for (const { name } of doomed) {
+    const gone = name.startsWith('.') ? name : `.gone-${name}-${process.pid}`;
+    try {
+      fs.renameSync(path.join(store, name), path.join(store, gone));
+      fs.rmSync(path.join(store, gone), { recursive: true, force: true });
+    } catch {}
+  }
 }
 
 // ── running things ──────────────────────────────────────────────────────────
@@ -635,26 +899,39 @@ function describeTree(tree) {
 }
 
 /**
- * Build (or stand in) and pack every overridden package into the cache.
+ * Build (or stand in) and pack every overridden package into the cache, then put
+ * it beside the committed manifests.
  *
- * @param {{ root?: string, env?: NodeJS.ProcessEnv }} [opts]
- * @returns {{ skipped: boolean, stamp: Record<string, any> }}
+ * @param {{ root?: string, env?: NodeJS.ProcessEnv, writeManifests?: boolean }} [opts]
+ * @returns {{ skipped: boolean, reused: boolean, stamp: Record<string, any> }} `reused`: copied from the store
  */
-export function build({ root = REPO_ROOT, env = process.env } = {}) {
+export function build({ root = REPO_ROOT, env = process.env, writeManifests = false } = {}) {
   const manifest = readJson(path.join(root, 'package.json'));
   const overrides = readOverrides(manifest);
   const declared = declaredObjectstackNames(readWorkspace(root));
   const external = env.OBJECTSTACK_ROOT ? path.resolve(root, env.OBJECTSTACK_ROOT) : null;
   const pin = readPin(root);
+  if (external && writeManifests) throw new PinRefusal('--write-manifests writes the PIN\'s manifests; it does not combine with OBJECTSTACK_ROOT.');
+  const previous = readStamp(root);
+  // A stand-in's stamp names the committed manifests it replaced: what a build at the pin may restore.
+  const replaced = previous?.source === 'external' ? (previous.replaced ?? null) : null;
+  const mode = external ? 'stand-in' : writeManifests ? 'write' : 'pin';
+  const settle = () => {
+    if (writeManifests) console.log(`✓ ${PIN_DIR}/*/package.json are the pin's packed manifests. Run \`pnpm install\`, and commit them with pnpm-lock.yaml.`);
+    else assertLockfileRecordsBuild(root, overrides);
+  };
 
+  // objectui#12972: the machine-wide entry for this pin and script; a stand-in has none.
+  const entry = external ? null : path.join(storeDir(env), storeKey(pin));
   if (!external) {
-    const verdict = judgeStamp(readStamp(root), { pin, overrides, root });
+    const verdict = judgeStamp(previous, { pin, overrides, root });
     if (verdict.current) {
       console.log(`✓ ${CACHE_DIR} is ${verdict.why} -- nothing to build.`);
-      assertLockfileRecordsBuild(root, overrides);
-      return { skipped: true, stamp: readStamp(root) };
+      materialize(root, overrides, { from: path.join(root, CACHE_DIR), mode });
+      settle();
+      return { skipped: true, reused: false, stamp: previous };
     }
-    console.log(`→ ${CACHE_DIR}: ${verdict.why}. Building @objectstack/* at ${pin}.`);
+    console.log(`→ ${CACHE_DIR}: ${verdict.why}.`);
   } else {
     console.log(`→ OBJECTSTACK_ROOT is set: packing @objectstack/* from ${external}, standing in for the pin ${pin.slice(0, 12)}.`);
   }
@@ -663,7 +940,18 @@ export function build({ root = REPO_ROOT, env = process.env } = {}) {
   fs.mkdirSync(cacheParent, { recursive: true });
   const staging = fs.mkdtempSync(path.join(cacheParent, 'objectstack.staging-'));
   const scratch = fs.mkdtempSync(path.join(scratchBase(env), 'ospin-'));
+  const target = path.join(root, CACHE_DIR);
   try {
+    const why = entry && takeFromStore(entry, staging, { pin, overrides });
+    if (entry && why === null) {
+      materialize(root, overrides, { from: staging, mode, replaced });
+      fs.rmSync(target, { recursive: true, force: true });
+      fs.renameSync(staging, target);
+      console.log(`✓ ${CACHE_DIR} now holds the build of ${pin.slice(0, 12)} copied from ${entry}, linked into ${PIN_DIR}. Run \`pnpm install\` so node_modules links it.`);
+      settle();
+      return { skipped: false, reused: true, stamp: readStamp(root) };
+    }
+    if (entry) console.log(`→ ${entry}: ${why}. Building @objectstack/* at ${pin}.`);
     let tree = external;
     if (!external) {
       tree = path.join(scratch, 'src');
@@ -698,7 +986,9 @@ export function build({ root = REPO_ROOT, env = process.env } = {}) {
           throw new PinRefusal(
             `${name} is not built in ${tree}: its manifest points at ${missing.join(', ')}, which ${missing.length === 1 ? 'is' : 'are'} not there.` +
               (external
-                ? ` Build it in that tree first:\n    (cd ${tree} && pnpm ${filters.join(' ')} run build)`
+                ? ` Build it in that tree first:\n    (cd ${tree} && env -u OS_SKIP_DTS pnpm ${filters.join(' ')} run build)` +
+                  // Under OS_SKIP_DTS the packages build with no declarations and this refusal repeats.
+                  (env.OS_SKIP_DTS ? `\n  OS_SKIP_DTS is set in this shell: the command above builds without it, so the declarations this check needs are emitted.` : '')
                 : ''),
           );
         }
@@ -706,20 +996,28 @@ export function build({ root = REPO_ROOT, env = process.env } = {}) {
       }
     });
 
+    const before = materialize(root, overrides, { from: staging, mode, replaced });
     const stamp = external
-      ? { recipe: RECIPE, source: 'external', root: external, ...describeTree(external), packages, contentHash: hashTree(staging) }
+      ? { recipe: RECIPE, source: 'external', root: external, ...describeTree(external), packages, contentHash: hashTree(staging), replaced: replaced ?? before }
       : { recipe: RECIPE, source: 'pin', sha: pin, packages };
     fs.writeFileSync(path.join(staging, STAMP_FILE), `${JSON.stringify(stamp, null, 2)}\n`);
-    const target = path.join(root, CACHE_DIR);
     fs.rmSync(target, { recursive: true, force: true });
     fs.renameSync(staging, target);
+    if (entry) {
+      try {
+        const published = publishToStore(target, entry);
+        console.log(`  ${entry}: ${published === 'published' ? 'published for every checkout on this machine' : 'another run published it first'}`);
+      } catch (error) {
+        console.warn(`⚠ objectstack-pin: could not publish the build to ${entry}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
     console.log(
       `✓ ${CACHE_DIR} now holds ${names.join(', ')} ` +
         (external ? `from ${external} (${String(stamp.sha).slice(0, 12)}${stamp.dirty ? ', with uncommitted changes' : ''})` : `built at ${pin.slice(0, 12)}`) +
-        '. Run `pnpm install` so node_modules links it.',
+        `, linked into ${PIN_DIR}${external ? ' with its own manifests (the next build at the pin restores the committed ones)' : ''}. Run \`pnpm install\` so node_modules links it.`,
     );
-    assertLockfileRecordsBuild(root, overrides);
-    return { skipped: false, stamp };
+    settle();
+    return { skipped: false, reused: false, stamp };
   } finally {
     // Cleanup never speaks for the build: a removal that fails (a child process
     // still writing in the tree) is a warning, not an exception that would replace
@@ -735,18 +1033,22 @@ export function build({ root = REPO_ROOT, env = process.env } = {}) {
 }
 
 /**
- * @param {{ root?: string }} [opts]
+ * @param {{ root?: string, env?: NodeJS.ProcessEnv }} [opts]
  * @returns {number} exit code
  */
-export function status({ root = REPO_ROOT } = {}) {
+export function status({ root = REPO_ROOT, env = process.env } = {}) {
   const pin = readPin(root);
   const overrides = readOverrides(readJson(path.join(root, 'package.json')));
   const stamp = readStamp(root);
   const verdict = judgeStamp(stamp, { pin, overrides, root });
+  const hollow = hollowPackages(root, overrides);
   console.log(`pin    ${pin}  (${PIN_FILE})`);
   console.log(`cache  ${stamp ? `${stamp.source} ${stamp.sha}${stamp.root ? ` from ${stamp.root}` : ''}` : 'empty'}  (${CACHE_DIR})`);
+  const entry = path.join(storeDir(env), storeKey(pin));
+  console.log(`store  ${entry} ${fs.existsSync(entry) ? 'holds this pin and script' : 'is absent'}  (${STORE_ENV})`);
   console.log(`${verdict.current ? '✓' : '✗'} ${verdict.why}${verdict.current ? '' : ' -- run `pnpm run setup`'}`);
-  return verdict.current ? 0 : 1;
+  if (hollow.length) console.log(`✗ ${PIN_DIR} holds no build for ${hollow.join(', ')} -- run \`pnpm run setup\``);
+  return verdict.current && !hollow.length ? 0 : 1;
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -789,15 +1091,18 @@ function safeReaddir(dir) {
 // ── CLI ─────────────────────────────────────────────────────────────────────
 
 if (isEntrypoint(import.meta.url)) {
-  const [command] = process.argv.slice(2);
+  const [command, ...flags] = process.argv.slice(2);
   try {
-    if (command === 'build') {
-      build();
+    if (command === 'build' && flags.every((f) => f === '--write-manifests')) {
+      build({ writeManifests: flags.length > 0 });
       process.exit(0);
-    } else if (command === 'status') {
+    } else if (command === 'status' && !flags.length) {
       process.exit(status());
+    } else if (command === 'check' && !flags.length) {
+      check();
+      process.exit(0);
     } else {
-      console.error('usage: node scripts/objectstack-pin.mjs build | status');
+      console.error('usage: node scripts/objectstack-pin.mjs build [--write-manifests] | status | check');
       process.exit(2);
     }
   } catch (error) {

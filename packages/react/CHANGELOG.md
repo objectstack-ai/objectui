@@ -1,5 +1,496 @@
 # @object-ui/react
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- fd060f0: `ElementDataSourceGate` takes a `requiresObject` prop: when a placement opts in
+  and its node names its object in neither place, the gate renders a short "no
+  object named" hint instead of the block (objectui#11605).
+  
+  The object-bound registrations stopped declaring their object key required,
+  because the `dataSource` binding can supply it and the page compile has no "this
+  key or that binding" form. So the page compile accepts a node that names no
+  object at all, and the runtime's answer is the only signal left for it. Several
+  blocks answered such a node with an empty list, board, form, chart, dash or pivot,
+  which reads as an empty query.
+  
+  **Clause-②: yes (widening)** — `ElementDataSourceGateProps` gains the optional
+  `requiresObject` boolean. With it set, the gate reads the mapping's object key
+  (`objectName` unless the mapping names another) on the node after the binding
+  lands, so a node bound by `dataSource.object` renders as before; a node that names
+  no object gets the hint, "No object named: set objectName or dataSource.object."
+  (`data-testid` `{testId}-no-object`), and the block is not mounted. Without the
+  prop, or with a mapping whose `object` is `false`, nothing changes. The hint is
+  drawn after the view states, so a binding that is still resolving or failed to
+  resolve keeps its own panel.
+- 2312bd9: A page that declares `print` now prints as a document, and a record page bound to such a page offers a Print action (objectui#11958, the objectui half of the print-page ruling on objectstack#8346, M1, zero server).
+  
+  - **The print stylesheet.** `PageRenderer` mounts a stylesheet built from the page's `print` declaration, only for a page that declares it. Every rule sits inside `@media print`, so the page on screen is drawn as before. `paperSize` and `orientation` set `@page { size }` (A4 and portrait when omitted). `margins` set one `@page` margin per declared side, in millimetres. `pageNumbers` prints "page / pages" in the bottom-right margin. `repeatHeader` and `repeatFooter` repeat the page's own `header` and `footer` regions on every sheet. `repeatTableHeaders` (on when omitted) repeats a table's column headings on every sheet it runs onto. `avoidBreakInside` keeps each block of a region whole on one sheet when it fits. Only the print page reaches paper: the console chrome and the record view's own panels around the page are hidden, and the page runs onto as many sheets as it needs.
+  - **The printable blocks print whole.** On a print page, `record:line_items` no longer cuts lines off at its row cap in silence: when the child object has more lines than the cap (500 unless `limit` is set), the panel draws the cap's lines and the shared row-ceiling note under them, naming both numbers when the server reports a total. A collapsible `record:details` section draws open, because a closed section never reaches paper. Off a print page both blocks behave as before.
+  - **The record page's Print action.** When the record page bound to a record declares `print`, the record view shows a Print button that opens the browser's print preview of that page.
+  - **New exports from `@object-ui/react`:** `PrintPageProvider`, `usePrintPage` and `PrintPageContext`. `usePrintPage()` returns the enclosing page's `print` declaration, or `null` outside a print page.
+  - The source comments that described PDF export as declined now say where a printable document lives: a page that declares `print`.
+- c5406c2: Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
+  
+  Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18 (raised to `^18.0.0-next.1` by objectui#12370 before release).
+  
+  **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.1` (objectui#12370), at the same time as it takes this release.
+  
+  **objectui's own surface moves with it:**
+  
+  - `element:record_picker`'s registration stops publishing the `object`, `filter`, `sort` and `limit` inputs, which spec 18 retires; a JSX page that writes one now gets `unknown-prop`.
+  - The `CapabilityMultiSelectField` widget's curated capability set (`@object-ui/fields`) follows spec 18: `manage_mailboxes` in, `manage_org_presentation` out.
+  - `element:number` and `element:repeater` nodes that bind no object are accepted, as spec 18's row and `PageComponentSchema` accept them; the two `ELEMENT_*_OBJECT_REQUIRED` refusals are gone.
+  
+  **Retired with the spec:** `@objectstack/spec` 18 tombstones `object-grid`'s `defaultFilters` and refuses it by name, and `ObjectGrid` and `ObjectView` stop reading it (`table.defaultFilters` on an `object-view` included). A view that still carries it renders unfiltered: rename the key to `filter`, whose value is the same rule array.
+- c4dd707: feat(react): a page element's API data source is rendered — `dataSource: { provider: 'api', read: { url }, path? }` binds the selected answer as `data` (objectui#12197)
+  
+  Clause-②: yes
+  
+  `SchemaRenderer` now honours `@objectstack/spec`'s `ElementApiDataSourceSchema` on every node. It reads the same-origin `read.url` with `GET` through `SchemaRendererProvider`'s `apiFetch` (the global `fetch` when no host supplies one), selects `path` from the answer, and binds the value as `data` in the node's `${…}` holes and its `visibleWhen`, and in its subtree's. While the read is in flight the node draws a loading line; a failed read, or a `path` that selects nothing, draws an error panel naming why, titled in the page's language from two new keys, `element.component.apiRefused` and `element.component.apiUnreadable` (all ten packs). The binding is parsed with the spec's own schema first: a cross-origin or protocol-relative `url`, a credential key, or a non-`GET` method is refused with the spec's message and no request is sent. Elements binding the same URL at once share one request; nothing is cached.
+  
+  New exports: `useElementApiDataSource`, `judgeElementApiDataSource`, `isElementApiDataSourceShape`, `selectElementApiPath`, `readElementApi`, and the types `ElementApiDataSourceStatus` and `UseElementApiDataSourceResult`. A node without an API binding renders as before and issues no request.
+- 5c2982a: A record whose `approval_status` reads `pending` no longer opens locked when the approvals read answered and found no request (objectui#12220).
+  
+  A composition without the approvals service answers `GET /api/v1/approvals/requests?object=…&recordId=…` with `200 { "data": [] }` and enforces no lock: a `PATCH` to the record succeeds. The record page still showed "Locked for approval", disabled Edit and offered Recall, which had nothing to recall, because the page and the detail body's approval band fell back to the literal `approval_status` column whenever no pending request was found. Records that an app stamped `pending` with no request behind them stayed locked in the console.
+  
+  - **The rule:** when the approvals read answers, the lock follows the open request. No pending request means no approval band, no lock and no Recall. The `approval_status` column stands in only while no read has answered: the route is absent (404 or 501), the read has not landed yet, or the first read failed. A record with an open request is unchanged, including a `lockRecord: false` node, which stays editable.
+  - **`@object-ui/react` adds** `resolveApprovalLock`, the one function the record page and the band both call, with its `ApprovalLockInput` and `ApprovalLockState` types. It also adds an optional `approvalReadAnswered` prop on `InlineEditProvider`, read back on `InlineEditContextValue`. A host sets it when its `locked` and `approvalPending` come from an approvals read that answered. Omitted, the band keeps the column fallback exactly as before.
+  - **`@object-ui/app-shell`:** the record page sets `approvalReadAnswered` from its approvals read.
+  - **`@object-ui/plugin-detail`:** the band decides through `resolveApprovalLock`.
+  
+  Nothing is removed or renamed.
+- 7af0ab3: The author of a comment on a record page can now edit and delete it from the record feed (objectui#12268).
+  
+  `sys_comment` declares the generic Edit and Delete affordances (`managedBy: 'platform'`), and the platform lets an author update and delete their own comment, but the record feed only offered reactions and replies. Now the author's own comment and reply show Edit and Delete. Nobody else sees either control on it.
+  
+  - **Edit** opens the comment's text in place. Save stores the new text and marks the comment edited; the row then shows the new text with the usual "(edited)" mark. If the server refuses, an error appears, the editor keeps the draft, and the comment keeps its previous text. A comment stored as edited reads as edited.
+  - **Delete** asks first, through the console's usual destructive confirm dialog. Cancel deletes nothing. If the server refuses, an error appears and the comment stays.
+  - **Replies outlive their comment on screen.** A reply whose comment the feed does not hold, because that comment was deleted or lies before the loaded page, now shows as a row of its own instead of disappearing, so deleting a comment no longer hides anyone's replies to it.
+  - Each control appears only with the matching permission on `sys_comment` (update for Edit, delete for Delete). The server's own rule still decides every write.
+  
+  Published surface, all additive:
+  
+  - `@object-ui/collaboration`: new export `isCommentAuthor(authorId, viewerId)`, the owner rule `CommentThread` gates Edit and Delete on. Two missing or empty ids no longer count as a match.
+  - `@object-ui/types`: `FeedItem.authoredByViewer?: boolean`, set by the host that read the row.
+  - `@object-ui/react`: `DiscussionContextValue.onEditComment` and `onDeleteComment`.
+  - `@object-ui/plugin-detail`: `onEditComment` and `onDeleteComment` on `RecordActivityTimelineProps`, `RecordChatterPanelProps` and `ThreadedRepliesProps`. A reply now shows the "(edited)" mark too.
+  - `@object-ui/core`: two rows in the affordance-to-grant map, `feedCommentEdit` and `feedCommentDelete`.
+  - `@object-ui/i18n`: five new `detail.*` keys in all ten language packs (`editComment`, `deleteComment`, `deleteCommentConfirm`, `commentEditFailed`, `commentDeleteFailed`).
+- 524136e: The view-level `provider: 'api'` data source is no longer read anywhere in objectui (objectui#12325). `@objectstack/spec` retires it (objectstack#23082, ADR-0049): a view binds its object (`provider: 'object'`) or static rows (`provider: 'value'`), and a metadata-declared API call is the page element's `dataSource` binding.
+  
+  Breaking, declared as `minor` per the version-alignment rule:
+  
+  - **`resolveDataSource`** (`@object-ui/core`) has no `api` arm. A block that still says `provider: 'api'` is an unknown provider and gets an unknown provider's answer (the fallback DataSource, else `null`); no `ApiDataSource` is built from its `read` / `write`. `ResolveDataSourceOptions` loses `fetch` and `defaultHeaders`, which only that arm read.
+  - **`ViewDataProvider`** (`@object-ui/core`) has no `api` arm: such a config resolves with `Unknown data provider: api`. `ViewDataConfig` and `ResolvedData.provider` drop `'api'`, and `DataFetcher.fetchUrl`, which only that arm called, is removed.
+  - **`useViewData`** (`@object-ui/react`) no longer keys on or threads anything for an `api` block.
+  - **`ObjectGantt`** reads no `api` block: its `read` URL is never requested, and the chart answers it like any unknown provider. `ObjectCalendar` and `ObjectMap` drop their `api` branches, which only warned "not yet implemented".
+  - **`ListView`** no longer stands down for a gantt view with an `api` block: it fetches the bound object like any other list.
+  
+  Unchanged: `ApiDataSource` stays a class for code that constructs it from an `ApiDataSourceConfig`, so the console's approvals inbox reads exactly as before.
+- ff9df88: Depend on `@objectstack/*` `18.0.0-next.1` (objectui#12370).
+  
+  Every `@objectstack/*` range these packages declare moves from `^18.0.0-next.0` to `^18.0.0-next.1`; the console and the runner bundle `18.0.0-next.1`. A consumer moves its own `@objectstack/*` packages to `18.0.0-next.1` with this release.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates page action rows and view data bindings through the spec's own rows, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.1` refuses. Each was accepted on `18.0.0-next.0`:
+  
+  - `onSuccess` on an `action:button` / `action:icon` row, or an `action:group` / `action:menu` member, whose executor is the `url`, `navigation`, `modal`, `flow` or `form` built-in, or that has no executor at all. Write the hop on an `api` or `script` action (or a host handler name), or drop it.
+  - `onSuccess` beside `operation: 'update'`, and an `onSuccess` block carrying a key outside `{ navigate, openIn }`.
+  - `actionType: 'navigation'` on a row (and `type: 'navigation'` on a container member): write `'url'`.
+  - A `url` executor's `target` that is not openable, judged on the executor the runner runs, including a row whose `name` selects it.
+  - A view `data` binding with `provider: 'api'`: bind the object or static rows; an API call is the page element's binding.
+- 611566b: `SchemaRenderer` no longer reads a page component's `visibility` key (objectui#12654). `@objectstack/spec` 18 retires it as a `retiredKey` tombstone naming `visibleWhen` (objectstack#23543 F4), so `visibleWhen` is the one conditional-visibility key the renderer reads for it.
+  
+  What a raw schema loses: a node handed straight to `SchemaRenderer`, without passing through the spec's parse, that carries only `visibility: 'PREDICATE'` is no longer hidden when the predicate is false; it now draws, and the `visibility` value is no longer stripped before the component's props. Write `visibleWhen` instead. The `SchemaRenderer` working-copy type no longer declares `visibility`.
+  
+  What is unaffected: metadata served by an ObjectStack runtime. A served page row already reaches the renderer with `visibleWhen`: the spec's parse folds the old key through the 18 pre-releases, and spec 18's stored-row rehydration rewrites a row stored with it. `BaseSchema`'s own deprecated `visibleOn` is a different key and is still read.
+- 71243db: A navigation entry whose `visible` predicate cannot be evaluated is no longer drawn for everyone (objectui#12700).
+  
+  The shell's navigation surfaces (the sidebar, the app root's landing, the activity roster read from app navigation, the `nav:menu` block and the command palette's navigation list) answer a FAULTING `visible` predicate by withholding the entry, where they used to draw it. The case that made this matter is a `current_user.can("OBJECT", "read")` gate asked where no `/auth/me/permissions` payload is bound: the expression engine refuses it, and the shell used to read that refusal as "shown", so permission-gated navigation hid nothing there. Where the payload is bound, the gate answers from it as before: a member without the grant is not shown the entry and one with it is. The fault is still reported once per predicate, now with a consequence line saying the entry was withheld. A blank gate is still "no gate" and is drawn. This is UI gating, not a security boundary: the server enforces what a member may read.
+  
+  `@object-ui/react`: `PredicateGateKind` gains a `'withholding'` member, the consequence line for a visibility gate whose fault is answered by withholding the entry. `@object-ui/app-shell`'s published `evaluateVisibility` keeps its fail-open answer; the object-field gate uses it unchanged.
+- 33ee9de: A `list-view` block drawn as a compact list in a narrow page region now shows a "View all" link under its rows (objectui#12703).
+  
+  - `@object-ui/react`: `RelatedRecordActionsValue` gains two optional members, `listHref(objectName, viewName?)` and `openList(objectName, viewName?)`. They address an object's list page, or one of its saved views, the way `recordHref` / `openRecord` address a record. A host that omits them is unchanged.
+  - `@object-ui/app-shell`: a custom page supplies them. The routes are `/apps/APP/OBJECT/view/VIEW` for a block bound to a saved view (`dataSource.view`) and `/apps/APP/OBJECT` otherwise. The block's inline filter, columns and sort are never put in the URL.
+  - `@object-ui/plugin-list`: the compact list draws the link only when the host answers a destination. It is a real anchor with in-app navigation on a plain click.
+  - `@object-ui/i18n`: one new key, `list.viewAll`, in all ten packs.
+- c7462e7: New export `isRecordPageOf(page, objectName)` (objectui#12715): true when `page` is a record page bound to `objectName` (`type: 'record'` and `object` names it). It is the one reading of "a record page of object O": `usePageAssignment`'s object-based lookup now filters its candidates with it, unchanged in behaviour, and the console's named record page route asks it before it renders a named page for a record.
+  
+  `usePageAssignment`'s `pageName` option is unchanged: it still returns the page with that name whatever its type or object, so a caller that renders a record on the page it gets back asks `isRecordPageOf` first.
+- 8df2608: `RelatedRecordHandlers` gains an optional `onViewAll` (objectui#12741). A host returns it from `resolve` to open the child object's full list page, scoped to the parent on the relationship it was handed. `record:related_list` calls it from its "View all" link. A host that omits it draws no link, as for every other handler on this interface.
+  
+  Clause-② line, the same as the pull request's:
+  Clause-②: yes
+  One optional member is added to the exported `RelatedRecordHandlers` interface. Nothing else on the package entry changes.
+- 5ff64ef: feat(react): `MetadataContextValue.readObjectScope`, the object definitions one app reads (objectui#12811)
+  
+  A new optional member of the metadata context. `readObjectScope({ packageId, names })` answers the
+  objects of one package, read with `GET /api/v1/meta/object?package=ID`, plus each of `names` that the
+  package does not hold, read by name. Each definition is shaped exactly as the same object in
+  `objects`. The answer carries `objects`, `served` (the same definitions as the server served them,
+  before views are merged, as `getItemsByType('object')` holds the whole list), `missing` (the names the
+  server answered without a definition) and `settled` (the package list and every name have answered). With no `packageId` it is
+  the whole registry, as `objects` is.
+  
+  `objects` is unchanged: it is the whole registry. A context value without the member (a hand-rolled
+  one in a test, an older host) has nothing narrower to offer, and its readers read `objects`.
+- a7ae252: A `${…}` hole inside an inline locale map is evaluated (objectui#12936). In a node's `properties` bag (or its legacy `props` alias, or a block member evaluated with `useConfigBagEvaluator`), each member of a map such as `title: { en: 'Published ${data.at}', 'zh-CN': '…${data.at}' }` is evaluated like a plain string on the same key: against `record`, `current_user` / `user`, `page`, the host's roots, and `data` on a node with an API binding. A block that picks the viewer's language with `pickLocalized` off its evaluated props, such as `hero`, now draws the bound value instead of the template text, with no change to the block. A member's result is always a string, so the map stays a map.
+  
+  A value counts as a locale map exactly when `@objectstack/spec`'s `InlineLocaleMapSchema` accepts it: every key a locale tag or `default`, every value a string. Any other object keeps the data-object rule and is handed over as authored, with nothing inside it evaluated. A map without a hole arrives as the same object. In development builds, a member whose expression throws keeps its source text and is now reported by the unevaluated-expression diagnostic by its locale (`properties.title.zh-CN`), as a plain string with the same hole is.
+  
+  **Clause-②: yes (widening)** — the renderer honours a shape it used to hand over raw: a hole inside an inline locale map's member. No export is added or removed and no type changes; the set of authored values `SchemaRenderer` evaluates widens by that one shape.
+- 024b7b6: A page route reads the objects its page binds, not the whole object registry (objectui#12980, part 1).
+  
+  Opening a page (`/apps/APP/page/NAME`) used to load every object definition (`GET /api/v1/meta/object`, 751 KB on the control plane), because the route, the page view and three page blocks read `useMetadata().objects`. Now:
+  
+  - **`readObjectScope({ names })` with no `packageId` is a names-only scope** (`@object-ui/react`, `MetadataContextValue.readObjectScope`). Each name is read by name, with no package list. Only a scope with neither `packageId` nor `names` is the whole registry. This widens what the published contract accepts, which is why `@object-ui/react` is a minor bump.
+  - **A page route reads the objects its page definition binds**: the page's `object`, its interface source, and every `objectName` and `dataSource.object` on its blocks. They are read by name, beside the app's package list when the app names a package, or through the names-only scope when it does not. A page that binds no object, such as one whose data sources are all `api`, reads none. The chrome around the page gets the same scope.
+  - **An object a block asks about outside that set is read by name when it asks.** A link to it is drawn once the object arrives, and opening it navigates once the object is known.
+  - **The page blocks:** the interface list page reads its source object by name, `nav:menu`'s capability gate reads the objects its app's entries require by name, and `global:search` reads the registry only once the user types. A record overlay still reads the whole registry, because a record's related lists come from every object that points at it.
+  
+  No export, prop or type member is added.
+- 9e7e1a5: `@object-ui/react` now exports `buildNodeEvaluationScope(predicateScope, boundRecord, pageVariables)`, the one builder of the scope a page node's `visibleWhen` and other values are evaluated against (objectui#12992). It returns four roots: the ambient predicate scope, `current_user` aliased to `user`, the bound row as `record` (only when there is one), and page variables as `page`. `SchemaRenderer` and `evaluateConfigBagInScope` call it as before. `page:tabs` in `@object-ui/components` now calls it for its derived-badge gates and its item-level `visibleWhen` instead of spelling the scope again, so a root added to the builder reaches the tab strip too. No root changes for any caller.
+
+### Patch Changes
+
+- 92f4e2b: An action's translated copy is now read from ONE bundle node, chosen by the object the action belongs to, the same way `@objectstack/spec` 17.7.0 reads it on the server (objectui#11439). That object is the action's declared `objectName`, else the object whose `actions` embed it.
+  
+  - An action that belongs to an object reads `objects.OBJECT._actions.ACTION.*` only. Copy for it filed under `globalActions.ACTION` no longer applies: its label, confirm text, success message, outcome messages, description, parameters and result dialog show the authored text instead, as they already did everywhere the server translates. Move that copy to `objects.OBJECT._actions.ACTION`, which is where `os validate` asks for it.
+  - An action with no object (no `objectName`, not embedded in an object) still reads `globalActions.ACTION.*`.
+  - `useActionTextLocalizer` keys on the action's declared `objectName` before the object its caller passes, so an action declared on one object reads that object's copy wherever it is drawn.
+  
+  `useObjectLabel()` and `useActionTextLocalizer()` keep their signatures; no input, export or translation key is added.
+- 92f979d: `usePageAssignment` opens an object's default record page: among the record pages served for the object, the one declared `isDefault: true` is returned, and declaration order decides only when none is (objectui#12195).
+  
+  The hook used to return the first matching record page in served order and never read `PageSchema.isDefault`, so the flag on a shipped page (the platform's `sys_user_detail`, `sys_organization_detail` and `sys_approval_request_detail`, and the showcase's record pages) did nothing. `@objectstack/spec` 18.0.0-next.1 states the rule this follows (maintainer ruling A on objectstack#23015): at most one default record page may exist for an object in a deployment, and a second is refused at `os validate`, at package registration and at metadata save, naming both pages. So the hook adds no tie-break of its own. It reads "the default record page of an object" through the spec's `defaultRecordPageObject`, the same reading those refusals use.
+  
+  **Who sees a different page.** An app or environment that authors its own record page for an object without `isDefault: true`, for an object that also has a served default record page, and whose page came first in the served list. That page used to open; the default opens now. Ruling A keeps two ways to replace a platform record page: an ADR-0005 overlay saved under that page's own name, and host composition (composing the stack without the platform's page). Shipping a second default is not one: the platform refuses it. With no default for an object, nothing changes: the first matching page still opens, and an explicit `pageName` still wins over the default.
+  
+  No type, option or export changes (`Clause-②: no`).
+- 97e7d4e: Lookup links on a record page and on a custom page now carry the console's base path, so the same link works from a left click, a new tab, a middle-click and a copied link (objectui#12233).
+  
+  On a console mounted under a router basename, such as `/_console`, a lookup value rendered as an anchor whose href was the bare route `/apps/APP/OBJECT/record/ID`. On a record page this hit, for example, a lead's converted account or contact and its owner. The same held for a lookup, or a grid's link column, on a custom page. A plain left click worked, because the anchor hands it to the console router and the router adds the basename. Opening the link in a new tab, middle-clicking it or pasting a copied link sent the browser to the bare route on the server, which answered `ENDPOINT_NOT_FOUND`.
+  
+  - `@object-ui/app-shell`: both record-link builders, the record page's and the custom page's, now give lookups an href that includes the router's basename. They read the basename from the router, so a console mounted at the root keeps the bare href. A left click still navigates inside the app, to the same record the href names.
+  - `@object-ui/react`: the documentation of `RelatedRecordActionsValue.recordHref` now says the value is a document href that carries the host router's basename, while `openRecord` navigates by the router path. The type is unchanged.
+  
+  Nothing is added to or removed from any package entry.
+- d75f212: Published text no longer teaches the retired view-level `provider: 'api'` data source (objectui#12364). A view binds `provider: 'object'` or `provider: 'value'`; a metadata-declared API call is the page element's `dataSource` binding. Text only: no schema accepts or refuses anything new, and no renderer behaves differently.
+  
+  - **`@object-ui/types`:** the `object-tree` `data` description drops the `api` provider from the providers it names.
+  - **`@object-ui/plugin-grid` / `@object-ui/plugin-map`:** the `data` input descriptions drop the `api` provider.
+  - **`@object-ui/plugin-calendar` / `@object-ui/plugin-gantt` / `@object-ui/plugin-map`:** the error thrown when no `DataSource` is available now reads `DataSource required for the object provider` (was `DataSource required for object/api providers`). It fires in exactly the same conditions as before.
+  - **`@object-ui/react` / `@object-ui/auth`:** the README and docblocks describe `SchemaRendererProvider`'s `apiFetch` as what it is now: the host's authenticated fetch the renderers use for their own reads of the host's API (chart metadata, dataset dimension labels, record-permission probes). It is not a channel for a view's data source.
+  - **`@object-ui/app-shell`:** comment wording only in `ConsoleShell`, `useConsoleActionRuntime` and `ObjectView` (these comments ship in the built JS): no behaviour change.
+  - **`@object-ui/core`:** docblock wording only on `normalizeListViewSchema` and `resolveRecordSourceObjectName` (these ship in `dist/*.d.ts` and the built JS): no behaviour change.
+- 3eb3ec1: The console's list toolbar no longer has a write into the shared view, and the data-source method that write used is retired (objectui#12504).
+  
+  **BREAKING:** `DataSource.updateViewConfig` is removed from `@object-ui/types`, and `ObjectStackAdapter.updateViewConfig` is removed from `@object-ui/data-objectstack`. The capability gate that only that method read goes with it: `ObjectStackAdapter.setSystemCapabilities`, the `systemCapabilities` option of the adapter constructor and of `createObjectStackAdapter`, `VIEW_CONFIG_CAPABILITY`, `ViewConfigPermissionDeniedError` and `isViewConfigPermissionDeniedError`. A class that implements `DataSource` and keeps an `updateViewConfig` method still compiles, but nothing calls the method any more; an object literal annotated as `DataSource` that carries it is refused as an unknown property. Code that calls `updateViewConfig` through a `DataSource` or an `ObjectStackAdapter`, or imports one of the gate names, no longer compiles. To change a view for everyone, save the view: `createView` / `updateView` on the data source, or the console's view editor, which writes through the runtime metadata seam.
+  
+  Since objectui#12418 and objectui#12474, the toolbar's sort, column layout, density and Hide Fields are each user's own list state, so the toolbar write had no caller. The view editor's explicit save is now the one write path to the shared view, and it is unchanged.
+  
+  Personalization rows that earlier consoles wrote into `/meta/view` stay readable: the overlay marker, `narrowPersonalizationOverlay` and `listViews()` exclusion still apply to them. Nothing new writes such a row.
+  
+  `@object-ui/i18n` drops `console.objectView.viewConfigPermissionDenied` from all ten packs. It was the toast the retired write raised when the gate refused it. The other packages change only in comments and tests that named the retired path.
+- 655e897: `useActionTextLocalizer` resolves every `I18nLabel` copy an action declares (objectui#12757). It used to collapse a per-locale map only for `label` and `successMessage`, and only when the action had a `name`. A `confirmText` or `errorMessage` map, or any map on a nameless action, such as an inline `element:button` action, reached the action runner as an object, so the confirm prompt received an object and the toasts fell back to the runner's generic copy.
+  
+  The localizer now collapses `label`, `confirmText`, `successMessage` and `errorMessage` to the active language on every action, named or not. A translation-bundle entry for a named action still wins over the collapsed copy. `errorMessage` has no bundle key, so the collapse is all it gets. An action whose copy is already plain text comes back unchanged.
+  
+  Clause-②: no. The hook's signature and the package entry are unchanged; no export, prop or i18n key is added or removed.
+- 9753811: Page element blocks draw their loading, empty and error defaults in the page's language (objectui#12889).
+  
+  - **`element:repeater`.** While its query runs it shows the `common.loading` text ("Loading…", "加载中…") instead of an English literal. With no rows it shows `common.noData` ("No data"; it read "No records" before), and when the query fails with no message it shows `list.loadErrorTitle` ("Couldn’t load records"). An authored `emptyText` still wins, and a failure's own message is still shown as thrown.
+  - **`element:number`.** While its aggregate runs it draws a skeleton bar the height of the number's line instead of a bare `…` glyph. The bar is a status region named by `common.loading`.
+  - **The saved-view placeholder** (`ElementDataSourceLoadingPanel`, drawn by every block bound through a named `view` while it resolves) reads `common.loading` instead of an English "Loading view…".
+  
+  No language-pack key, prop or export is added: all four keys already exist in every pack.
+- 1e6d83b: Data-bound blocks title their "data source could not be resolved" panel in the page's language (objectui#12920, the family of objectui#12910). The panel shows when a block's `dataSource.view` names a view its object does not have. Each block's title now reads `@object-ui/i18n` through `useObjectTranslation`, with the `en` pack's value as the inline default, so a page with no `I18nProvider` draws the same English it drew before.
+  
+  - **Plugin blocks.** `object-calendar`, `object-chart`, `object-metric`, `object-pivot`, `detail-view`, `record:related_list`, `object-form`, `embeddable-form`, `object-master-detail-form`, `record:line_items`, `object-gantt`, `object-grid`, `object-kanban`, `list-view`, `object-map` and `object-timeline` read one `element.KIND.sourceUnresolved` key per block kind. `object-metric` reads `element.number.sourceUnresolved`, the key `element:number` already reads for the same sentence. The three forms share `element.form.sourceUnresolved`. `record:related_list`'s panel for a failed `parentDataSource` read reads `element.relatedList.parentUnreadable` ("This related list’s parent record could not be read").
+  - **`@object-ui/react` panel defaults.** `ElementDataSourceErrorPanel` with no `title` reads `element.component.sourceUnresolved`, and `NoDataSourcePanel` with no `title` reads `element.component.noDataSource`. A passed `title` still wins, an empty string included. Props and markup do not change.
+  
+  Clause-②: yes
+  
+  The new keys in `@object-ui/i18n` widen its exported `TranslationKeys`. No prop, input or export of these packages changes.
+- 988aa9f: Charts and dataset widgets read their object's metadata through the data source, so the widgets of one dashboard ask for one object's metadata once (objectui#13039).
+  
+  The chart's category colours and dimension labels come from the bound object's field options. It read them with its own request to `/api/v1/meta/object/NAME`, outside the data source's metadata cache, so every chart over one object sent one more request for the same document. The chart now reads it through the data source's `getObjectSchema` when one is in scope: the read that its own group-by labels, the metric tile and the data table already use, and that the ObjectStack adapter joins while it is in flight. With no data source, or one that cannot answer `getObjectSchema`, the chart reads the document directly as before.
+  
+  The dataset label hook in `@object-ui/react` (`useDatasetDimensionMeta`, behind `useDatasetDimensionLabels`) made the same per-widget request, one for every non-metric dataset widget on a dashboard and for the dataset report block. It now reads through the `SchemaRendererProvider`'s data source in the same way when that source answers `getObjectSchema`, and reads the document directly otherwise.
+  
+  Colours, labels and dotted dimension paths resolve as they did. Nothing is added to the package entry.
+- d11174a: A list's `addRecord` Add button opens the create form on a console page and on the console's object list (objectui#13089).
+  
+  - **Page `list-view` nodes.** The console's page host now serves the record-form create to a list that names no `relationshipField` and has no parent: a page `list-view` node. So `addRecord: { enabled: true }` draws its Add button, and a click opens the create form for the listed object. A related list whose parent did not resolve is still served nothing, so it draws no "+ New" that would open a child form linked to no parent. No Edit, Delete or row click is served to a list without a parent.
+  - **`list-view.addRecord` is a published input** of the `list-view` and `list` registrations. `enabled` and `position` are read; `mode` and `formView` are not.
+  - **The console's object list.** A saved view that declares `addRecord.enabled` used to draw an Add button whose click did nothing, also for a viewer who may not create. The button now opens the header New's create, and is withheld wherever that New is not offered or is greyed.
+  - **`editMode: 'page'`.** A create linked to no parent, from the record-actions bridge, now opens an `editMode: 'page'` object's full-page create route, as the object list does, instead of the overlay.
+  - **`ResolveRelatedRecordActionsInput`** (`@object-ui/react`) documents what an input without `relationshipField` asks for: an object-scoped list's handlers. No type or member changes.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [96fcf30]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [da35453]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [4590363]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [b9814b3]
+- Updated dependencies [4a9fe31]
+- Updated dependencies [6d8bf0c]
+- Updated dependencies [5dff027]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [2312bd9]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [c5406c2]
+- Updated dependencies [c5406c2]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [417e245]
+- Updated dependencies [69bca0a]
+- Updated dependencies [023f00d]
+- Updated dependencies [158c75d]
+- Updated dependencies [7525045]
+- Updated dependencies [5af42db]
+- Updated dependencies [3c0f806]
+- Updated dependencies [1071393]
+- Updated dependencies [5f75cfa]
+- Updated dependencies [6757a93]
+- Updated dependencies [b7cd5c8]
+- Updated dependencies [43e1505]
+- Updated dependencies [dc6d28e]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [e723f58]
+- Updated dependencies [82bb1d5]
+- Updated dependencies [b231607]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [54159d3]
+- Updated dependencies [d48071e]
+- Updated dependencies [fa778e6]
+- Updated dependencies [334f0cf]
+- Updated dependencies [c08c933]
+- Updated dependencies [c4dd707]
+- Updated dependencies [c4dd707]
+- Updated dependencies [7578323]
+- Updated dependencies [38bb373]
+- Updated dependencies [923504f]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [51c661e]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [9f282ef]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [cea429b]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [40cb13b]
+- Updated dependencies [8106db1]
+- Updated dependencies [068a540]
+- Updated dependencies [ca45c6d]
+- Updated dependencies [093d55b]
+- Updated dependencies [b64fda3]
+- Updated dependencies [a8051d6]
+- Updated dependencies [866763b]
+- Updated dependencies [524136e]
+- Updated dependencies [2b06a91]
+- Updated dependencies [6f3299f]
+- Updated dependencies [d12bc5f]
+- Updated dependencies [065a1cf]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [dbc8c11]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [37db09f]
+- Updated dependencies [ff9df88]
+- Updated dependencies [919d5cd]
+- Updated dependencies [431cece]
+- Updated dependencies [cfbca7f]
+- Updated dependencies [caac3b2]
+- Updated dependencies [a2225f9]
+- Updated dependencies [a8e5b73]
+- Updated dependencies [d9d9d98]
+- Updated dependencies [21f9577]
+- Updated dependencies [9b82ced]
+- Updated dependencies [3821a3a]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [92c2a69]
+- Updated dependencies [646caea]
+- Updated dependencies [8ed7e5a]
+- Updated dependencies [6c4d00d]
+- Updated dependencies [db8ce2f]
+- Updated dependencies [f0e760a]
+- Updated dependencies [a5bb7ac]
+- Updated dependencies [f78efdd]
+- Updated dependencies [8a8bcf3]
+- Updated dependencies [f74638c]
+- Updated dependencies [8614705]
+- Updated dependencies [619e3f7]
+- Updated dependencies [ca7a4c3]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [efa9cb4]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [9d857c9]
+- Updated dependencies [670ea10]
+- Updated dependencies [ff215d9]
+- Updated dependencies [33ee9de]
+- Updated dependencies [4839f5c]
+- Updated dependencies [a23e804]
+- Updated dependencies [36e2f7b]
+- Updated dependencies [ac59073]
+- Updated dependencies [44cb469]
+- Updated dependencies [3bcf314]
+- Updated dependencies [c999d4c]
+- Updated dependencies [260ef71]
+- Updated dependencies [8d80845]
+- Updated dependencies [35ef750]
+- Updated dependencies [64acb7e]
+- Updated dependencies [4ff5b6b]
+- Updated dependencies [473e5a0]
+- Updated dependencies [b279016]
+- Updated dependencies [bb6c38c]
+- Updated dependencies [26323c4]
+- Updated dependencies [2727527]
+- Updated dependencies [3da39ae]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [6058bf8]
+- Updated dependencies [c219165]
+- Updated dependencies [fb501bc]
+- Updated dependencies [30083da]
+- Updated dependencies [7f9cc37]
+- Updated dependencies [025130c]
+- Updated dependencies [76f91f8]
+- Updated dependencies [ea34d9b]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [cb80001]
+- Updated dependencies [2493e85]
+- Updated dependencies [a928aaa]
+- Updated dependencies [47508f3]
+- Updated dependencies [61ed5ad]
+- Updated dependencies [1b94d50]
+- Updated dependencies [6f877f1]
+- Updated dependencies [65fe4c2]
+- Updated dependencies [1ce0711]
+- Updated dependencies [fb85637]
+- Updated dependencies [cd4623d]
+- Updated dependencies [9f1dd79]
+- Updated dependencies [df71568]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [9eb1479]
+- Updated dependencies [74e37aa]
+- Updated dependencies [961b69f]
+- Updated dependencies [52907d7]
+- Updated dependencies [f466b0a]
+- Updated dependencies [673a71c]
+- Updated dependencies [616df65]
+- Updated dependencies [58798ec]
+- Updated dependencies [8803ca5]
+- Updated dependencies [e70c21d]
+- Updated dependencies [06be396]
+- Updated dependencies [7c05f21]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [12ff256]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [1b2d016]
+- Updated dependencies [088e0f7]
+- Updated dependencies [78b07f4]
+- Updated dependencies [f962cdc]
+- Updated dependencies [b403bb3]
+- Updated dependencies [8a25fee]
+- Updated dependencies [12dc7b4]
+  - @object-ui/types@18.0.0
+  - @object-ui/core@18.0.0
+  - @object-ui/i18n@18.0.0
+  - @object-ui/data-objectstack@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

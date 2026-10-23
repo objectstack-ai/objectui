@@ -120,6 +120,24 @@ export interface DeclaredActionsBarProps {
 }
 
 /**
+ * Which approvals lever a declared action pulls, read off the route its
+ * `target` names (`…/requests/{id}/approve`, `…/reject`, `…/reassign`,
+ * `…/recall`).
+ *
+ * The route is the server's own name for what the action does, so it answers
+ * the bar's two questions about a lever without an action-name list: which
+ * decision a click records (the decision-output params), and what an override
+ * notice may say the click does (objectui#13164, objectui#13225). Any other
+ * route reads `undefined`.
+ */
+type ApprovalRouteVerb = 'approve' | 'reject' | 'reassign' | 'recall';
+const APPROVAL_ROUTE_VERB = /\/(approve|reject|reassign|recall)$/;
+function approvalRouteVerb(action: ActionDef): ApprovalRouteVerb | undefined {
+  const match = APPROVAL_ROUTE_VERB.exec(String(action.target ?? ''));
+  return match ? (match[1] as ApprovalRouteVerb) : undefined;
+}
+
+/**
  * One declared-action button. Extracted so the `visible` CEL predicate can be
  * evaluated with a hook (rules-of-hooks) and so the dispatch can carry the
  * record. Mirrors `action:button` (fail-closed `visible`) but injects the
@@ -263,18 +281,74 @@ const DeclaredActionButton: React.FC<{
     defaultValue: 'Override {{action}}',
     action: declaredLabel,
   }));
-  const overrideNotice = isOverride
-    ? bypassed.length > 0
-      ? String(t('approvalsInbox.overrideNoticeWho', {
+  /**
+   * The notice states what THIS lever does, not what an approval does
+   * (objectui#13164). `isOverrideDecision` admits every lever whose declared
+   * `visible` ORs in `can_override` — approve, reject AND reassign — and the
+   * notice used to give all of them the decision sentence, so an admin about
+   * to reassign was told the step "finalises immediately". An override
+   * reassign finalises nothing: the server hands the whole pending slate to
+   * the person picked (`ApprovalService.reassign`, the `next = [to]` branch
+   * for a caller who holds no slot), the request stays `pending` and waits on
+   * them, and the action row is written with `via_override: true`.
+   *
+   * A recall is not a decision either, and records no override
+   * (objectui#13225). The admin who reaches it through the override arm did
+   * not submit the request (a submitter reaches it through their own arm, and
+   * `isOverrideDecision` leaves that the plain Recall). `ApprovalService.recall`
+   * withdraws the request: status `recalled`, its pending approvers cleared so
+   * none of them can act, the record's approval-status mirror (when one is
+   * configured) set to `recalled`, and the owning run resumed with
+   * `decision: 'recall'`. Its action row is written with `action: 'recall'` and
+   * no `via_override`. So the recall notice says the request is withdrawn, its
+   * approvers can no longer act and the record is unlocked, and it claims
+   * neither a finalised step nor an override record.
+   *
+   * The lever is read off the declared `target` route, the same reading the
+   * click handler's decision-output branch makes (`approvalRouteVerb`) — not
+   * off an action-name list, which a ninth lever shipped as metadata would
+   * miss. Every lever that is not a reassign or a recall keeps the decision
+   * sentence unchanged.
+   */
+  const overrideVerb = isOverride ? approvalRouteVerb(action) : undefined;
+  const recallOverrideNotice = overrideVerb !== 'recall'
+    ? undefined
+    : bypassed.length > 0
+      ? String(t('approvalsInbox.overrideRecallNoticeWho', {
         defaultValue:
-          'You hold no approver slot on this step. Continuing uses your admin override: it finalises the step immediately and bypasses the approvers who have not acted — {{who}}. The decision is recorded as an admin override.',
+          'You did not submit this request. Continuing uses your admin override: the request is withdrawn, the record is unlocked, and the approvers who have not acted can no longer act on it — {{who}}.',
         who: bypassed.join(', '),
       }))
-      : String(t('approvalsInbox.overrideNotice', {
+      : String(t('approvalsInbox.overrideRecallNotice', {
         defaultValue:
-          'You hold no approver slot on this step. Continuing uses your admin override: it finalises the step immediately, bypassing any approver who has not acted. The decision is recorded as an admin override.',
-      }))
-    : undefined;
+          'You did not submit this request. Continuing uses your admin override: the request is withdrawn, any approver who has not acted can no longer act on it, and the record is unlocked.',
+      }));
+  const isReassignOverride = overrideVerb === 'reassign';
+  const overrideNotice = !isOverride
+    ? undefined
+    : overrideVerb === 'recall'
+    ? recallOverrideNotice
+    : isReassignOverride
+      ? bypassed.length > 0
+        ? String(t('approvalsInbox.overrideReassignNoticeWho', {
+          defaultValue:
+            'You hold no approver slot on this step. Continuing uses your admin override: the step moves to the new approver you pick, replacing the approvers who have not acted — {{who}}. The request stays pending and waits on the new approver. The reassignment is recorded as an admin override.',
+          who: bypassed.join(', '),
+        }))
+        : String(t('approvalsInbox.overrideReassignNotice', {
+          defaultValue:
+            'You hold no approver slot on this step. Continuing uses your admin override: the step moves to the new approver you pick, replacing any approver who has not acted. The request stays pending and waits on the new approver. The reassignment is recorded as an admin override.',
+        }))
+      : bypassed.length > 0
+        ? String(t('approvalsInbox.overrideNoticeWho', {
+          defaultValue:
+            'You hold no approver slot on this step. Continuing uses your admin override: it finalises the step immediately and bypasses the approvers who have not acted — {{who}}. The decision is recorded as an admin override.',
+          who: bypassed.join(', '),
+        }))
+        : String(t('approvalsInbox.overrideNotice', {
+          defaultValue:
+            'You hold no approver slot on this step. Continuing uses your admin override: it finalises the step immediately, bypassing any approver who has not acted. The decision is recorded as an admin override.',
+        }));
 
   const handleClick = useCallback(async () => {
     if (loading) return;
@@ -297,11 +371,8 @@ const DeclaredActionButton: React.FC<{
       // Which decision this action records — `required` outputs are enforced
       // on approve only (server and dialog agree), so the reject dialog offers
       // the same fields without blocking on them.
-      const decision = /\/approve$/.test(String((action as any).target ?? ''))
-        ? 'approve' as const
-        : /\/reject$/.test(String((action as any).target ?? ''))
-          ? 'reject' as const
-          : undefined;
+      const routeVerb = approvalRouteVerb(action);
+      const decision = routeVerb === 'approve' || routeVerb === 'reject' ? routeVerb : undefined;
       // Widget mapping (typed picker vs free text) lives in the shared helper,
       // so the record header's Approve/Reject renders the same controls
       // (objectui#2955).

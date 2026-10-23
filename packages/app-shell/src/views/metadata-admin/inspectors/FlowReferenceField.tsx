@@ -59,6 +59,7 @@ import { t, tFormat, useMetadataLocale, type SupportedLocale } from '../i18n.js'
 import { flagUnknownValue, RequiredMarker } from './_shared.js';
 import { ObjectPicker } from './ObjectPicker.js';
 import { APPROVER_REGISTRY_TYPES } from '../../../utils/approverValueSources.js';
+import { isStudioHiddenSystemField } from '../../studio-design/studioHiddenSystemField.js';
 
 /** Context the reference picker needs to resolve dynamic option sources. */
 export interface FlowReferenceContext {
@@ -819,10 +820,17 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
 
   const options = React.useMemo<Option[]>(() => {
     if (kind === 'object-field') {
-      return objectFields.map((f) => ({
-        value: f.name,
-        label: f.label && f.label !== f.name ? `${f.label} (${f.name})` : f.name,
-      }));
+      // objectui#13152 — a column the platform injects and hides (the
+      // `__search` companion, `owning_business_unit_id`, `organization_id`)
+      // is not suggested, judged by the Data rail's own predicate
+      // (`isStudioHiddenSystemField`, objectui#11780). The box still takes
+      // any typed name, and a stored value draws as it was written.
+      return objectFields
+        .filter((f) => !isStudioHiddenSystemField({ system: f.system, hidden: f.hidden }))
+        .map((f) => ({
+          value: f.name,
+          label: f.label && f.label !== f.name ? `${f.label} (${f.name})` : f.name,
+        }));
     }
     if (kind === 'connector-action') return connectorActionOptions;
     if (kind === 'connector') return connectorListOptions;

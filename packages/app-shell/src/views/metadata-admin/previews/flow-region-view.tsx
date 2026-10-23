@@ -7,7 +7,7 @@
  * (#2670, Phase 1).
  *
  * It reuses the top-level canvas layout math (`computeLayout` / `diagramSize` /
- * `edgePath`) at full scale, then fits the whole region into the container's
+ * `forwardEdgeRoute`) at full scale, then fits the whole region into the container's
  * width with a single CSS `scale` transform — so there is **no new layout
  * engine**, and a region reads as the same top-to-bottom flow as the parent
  * graph. Read-only: no drag / insert; a nested container inside a region renders
@@ -19,7 +19,7 @@ import { cn } from '@object-ui/components';
 import {
   computeLayout,
   diagramSize,
-  edgePath,
+  forwardEdgeRoute,
   bottomAnchor,
   topAnchor,
   isBackEdge,
@@ -134,10 +134,17 @@ function RegionCanvas({
             const back = isBackEdge(edge);
             const from = back ? rightAnchor(sp) : bottomAnchor(sp);
             const to = back ? rightAnchor(tp) : topAnchor(tp);
+            // objectui#13144 — routed around a node it would cross, as on the top-level canvas.
+            const obstacles = region.nodes
+              .filter((n) => n.id !== edge.source && n.id !== edge.target)
+              .flatMap((n) => {
+                const p = layout.get(n.id);
+                return p ? [{ x: p.x, y: p.y, width: NODE_W, height: NODE_H }] : [];
+              });
             return (
               <path
                 key={edge.id || `${edge.source}-${edge.target}-${i}`}
-                d={back ? backEdgePath(from, to) : edgePath(from, to)}
+                d={back ? backEdgePath(from, to) : forwardEdgeRoute(from, to, obstacles).d}
                 strokeDasharray={back ? '5 4' : undefined}
                 className={cn('fill-none', back ? 'stroke-amber-500/60' : 'stroke-muted-foreground/40')}
                 strokeWidth={1.5}

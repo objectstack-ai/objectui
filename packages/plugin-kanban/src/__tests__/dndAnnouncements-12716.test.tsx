@@ -91,7 +91,7 @@ async function renderBoard(lang: 'en' | 'zh') {
   moves = []
   render(
     <I18nProvider config={{ defaultLanguage: lang, detectBrowserLanguage: false }}>
-      <KanbanBoard columns={columns()} onCardMove={(...args: unknown[]) => moves.push(args)} />
+      <KanbanBoard columns={columns()} onCardMove={(...args: unknown[]) => { moves.push(args) }} />
     </I18nProvider>,
   )
   await screen.findByText(NO_CARDS[lang])
@@ -99,6 +99,12 @@ async function renderBoard(lang: 'en' | 'zh') {
 
 /** What the live region says now. */
 const said = () => document.querySelector('[id^="DndLiveRegion"]')?.textContent ?? null
+/**
+ * What the board's move status region says now: a cross-column move is
+ * announced there once its write settles, not by dnd-kit at the drop
+ * (objectui#13054). This board's mover writes nothing, so it settles at once.
+ */
+const settled = () => document.querySelector('[id^="KanbanMoveStatus"]')?.textContent ?? null
 // The sortable node — the `button` inside each card's `listitem` (objectui#12883).
 const card = (title: string) => screen.getByRole('button', { name: title })
 
@@ -169,8 +175,10 @@ describe('the kanban board announces titles and labels, not ids (objectui#12716)
     const heard = pointerDrag(grab('Content backlog', CONTENT), [SEO])
     pointerDrop()
 
-    expect(said()).toBe('Moved Content backlog to In Progress.')
-    expectNoIds([...heard, said()])
+    expect(settled()).toBe('Moved Content backlog to In Progress.')
+    // dnd-kit's region says nothing at the drop: it still holds the last place.
+    expect(said()).toBe('Moving Content backlog over SEO migration plan in In Progress.')
+    expectNoIds([...heard, said(), settled()])
     // Control: the board moved the card to the column the region names.
     expect(moves).toHaveLength(1)
     expect(moves[0].slice(0, 3)).toEqual([CONTENT, TODO, DOING])
@@ -213,7 +221,7 @@ describe('the kanban board announces titles and labels, not ids (objectui#12716)
             { id: TODO, title: 'To Do', cards: [{ id: CONTENT, title: '' }] },
             { id: DOING, title: ' ', cards: [] },
           ]}
-          onCardMove={(...args: unknown[]) => moves.push(args)}
+          onCardMove={(...args: unknown[]) => { moves.push(args) }}
         />
       </I18nProvider>,
     )
@@ -224,8 +232,8 @@ describe('the kanban board announces titles and labels, not ids (objectui#12716)
     expect(heard[0]).toBe('Picked up an untitled card in To Do.')
     expect(heard[1]).toBe('Moving an untitled card over an unnamed column.')
     await act(async () => { pointerDrop() })
-    expect(said()).toBe('Moved an untitled card to an unnamed column.')
-    expectNoIds([...heard, said()])
+    expect(settled()).toBe('Moved an untitled card to an unnamed column.')
+    expectNoIds([...heard, said(), settled()])
     expect(moves[0].slice(0, 3)).toEqual([CONTENT, TODO, DOING])
   })
 })

@@ -895,10 +895,10 @@ type FormMode = 'create' | 'edit' | 'view';
  *
  * ## The verdict
  *
- * The delegation branch in `renderContent` below reads 31 distinct keys off
+ * The delegation branch in `renderContent` below reads 30 distinct keys off
  * the object-view node through `(schema as any).K` and forwards them to the
- * host's list renderer. Four of them — `data`, `navigation`,
- * `searchableFields`, `filterableFields`, listed in
+ * host's list renderer. Three of them — `data`, `navigation`,
+ * `searchableFields`, listed in
  * {@link OBJECT_VIEW_DECLARED_FORWARDED_KEYS} — are declared members of
  * `ObjectViewSchema`. The other 27, listed here, are not, and stay that way:
  * they are HOST-COMPOSITION surface, not authored surface. This constant is
@@ -1018,16 +1018,21 @@ export const OBJECT_VIEW_HOST_COMPOSITION_KEYS = [
 ] as const;
 
 /**
- * The other four keys the same branch reads through `(schema as any)`: these
+ * The other three keys the same branch reads through `(schema as any)`: these
  * ARE declared members of `ObjectViewSchema` (`data` via `BaseSchema`), so
  * they are authored surface and are NOT part of the objectui#5097 exemption.
  * They are listed so the pin can assert the split, not just the exempt half —
  * a read that moves from this list into the one above is a key losing its
  * declaration, and must fail loudly.
+ *
+ * `filterableFields` was the fourth until objectui#13118: `@objectstack/spec`
+ * retires it in 18.0 (objectstack#24640, ruling C) and no per-view Filter-panel
+ * whitelist replaces it, so this branch no longer forwards it from any source.
+ * `ObjectViewSchema` keeps it only as the spec's slot by reference, deprecated,
+ * until the pin bump that takes the retirement carries the spec's tombstone.
  */
 export const OBJECT_VIEW_DECLARED_FORWARDED_KEYS = [
   'data',
-  'filterableFields',
   'navigation',
   'searchableFields',
 ] as const;
@@ -1297,9 +1302,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // it was ever connected: no setter was called and neither schema was rendered,
   // so both states stayed at their initial empty value for the component's whole
   // life. It was removed rather than wired, because the real filter and sort UI
-  // belongs to the renderer this component delegates to — `showFilters`,
-  // `showSort` and `filterableFields` are forwarded downstream (see `baseProps`
-  // and the list-view schema below) and `ListView` implements them. Wiring the
+  // belongs to the renderer this component delegates to — `showFilters` and
+  // `showSort` are forwarded downstream (see `baseProps` and the list-view
+  // schema below) and `ListView` implements them. Wiring the
   // local copy would have produced a SECOND filter bar competing with that one.
   //
   // The dead state was not harmless: every merge path here had a branch keyed on
@@ -2959,8 +2964,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // If a custom renderListView is provided, use it
     // #region object-view HOST-COMPOSITION SURFACE (objectui#5097)
     //
-    // 31 of the values assembled below are read off the object-view node with
-    // `(schema as any).K`. Four are declared members of `ObjectViewSchema`;
+    // 30 of the values assembled below are read off the object-view node with
+    // `(schema as any).K`. Three are declared members of `ObjectViewSchema`;
     // the other 27 are NOT, deliberately: the maintainer ruling of 2026-08-18
     // on objectui#5097 (verbatim 「同意」) ruled them HOST-COMPOSITION surface,
     // not authored surface, because this branch is entered only when a HOST
@@ -3121,7 +3126,6 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           selection: currentNamedViewConfig?.selection ?? activeView?.selection ?? (schema as any).selection,
           pagination: currentNamedViewConfig?.pagination ?? activeView?.pagination ?? (schema as any).pagination,
           searchableFields: currentNamedViewConfig?.searchableFields ?? activeView?.searchableFields ?? (schema as any).searchableFields,
-          filterableFields: currentNamedViewConfig?.filterableFields ?? activeView?.filterableFields ?? (schema as any).filterableFields,
           resizable: currentNamedViewConfig?.resizable ?? activeView?.resizable ?? (schema as any).resizable,
           hiddenFields: currentNamedViewConfig?.hiddenFields ?? activeView?.hiddenFields ?? (schema as any).hiddenFields,
           // objectui#8980 — TWO SLOTS THAT HAD NO RUNG ON THIS BRANCH AT ALL.

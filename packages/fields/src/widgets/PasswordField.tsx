@@ -8,6 +8,38 @@ import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 
 /**
+ * Name words that mark a field as the user's EXISTING password — the one a
+ * change-password form asks for to verify before it accepts a new one.
+ */
+const CURRENT_PASSWORD_WORDS = new Set(['current', 'old', 'existing']);
+
+/**
+ * The `autocomplete` token for a password control (objectui#13295).
+ *
+ * No metadata key declares it — `@objectstack/spec` has no autocomplete
+ * property on a field or an action param — so it is derived from the one thing
+ * every caller already supplies, the field's `name`, split into words at
+ * `_` / `-` / `.` / spaces and camelCase boundaries:
+ *
+ *   - `current-password` when a word is `current`, `old` or `existing`
+ *     (`current_password`, `oldPassword`, `existing-pass`);
+ *   - `new-password` for everything else.
+ *
+ * `new-password` is the safe default rather than `off`: browsers ignore `off`
+ * on password inputs and fall back to offering the saved login password,
+ * which is exactly the wrong answer for a new password, an API key or any
+ * other `secret`, while `new-password` keeps the saved login out and lets a
+ * password manager suggest and store a fresh value.
+ */
+function passwordAutoComplete(name: unknown): 'current-password' | 'new-password' {
+  const words = String(name ?? '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/);
+  return words.some((word) => CURRENT_PASSWORD_WORDS.has(word)) ? 'current-password' : 'new-password';
+}
+
+/**
  * PasswordField - Secure password input with visibility toggle
  * Includes show/hide toggle button and masks value in readonly mode
  *
@@ -24,6 +56,12 @@ import { toDomProps } from './toDomProps.js';
  * this widget. ⛔ The value is never printed, and a set value keeps exactly
  * the mask it drew before. `__tests__/PasswordField.readonlyEmpty-10639`
  * pins the widget's "empty" to the cell's.
+ *
+ * The editable control always carries an `autocomplete` token (objectui#13295):
+ * without one a browser treats every masked box as a login field, offering the
+ * user's saved site password for an API key or a NEW password, and its
+ * password manager cannot tell "verify the old one" from "store the new one".
+ * See {@link passwordAutoComplete} for how the token is picked.
  */
 export function PasswordField({ value, onChange, field, readonly, className, ...props }: FieldWidgetComponentProps<string>) {
   const [showPassword, setShowPassword] = useState(false);
@@ -41,6 +79,7 @@ export function PasswordField({ value, onChange, field, readonly, className, ...
       <Input
         {...domProps}
         type={showPassword ? 'text' : 'password'}
+        autoComplete={passwordAutoComplete(config?.name)}
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={config?.placeholder}

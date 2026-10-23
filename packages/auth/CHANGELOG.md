@@ -1,5 +1,107 @@
 # @object-ui/auth
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- f1a177c: `LoginForm` shows its "Don't have an account? Sign up" row only when the caller passes `registerUrl` (objectui#11634). The prop used to default to `'/register'`, so a caller that passed `undefined` to withhold the link got it back. Both console login pages pass `undefined` when the server's `/auth/config` reports `emailPassword.disableSignUp: true`, so a deployment with sign-up turned off still offered a sign-up link. The server refused the sign-up and `/register` sent the user back to the login page.
+  
+  **Behaviour change.** A `LoginForm` rendered without `registerUrl` no longer shows a sign-up link. A caller that left the prop out and relied on the `'/register'` default now passes the URL itself, `registerUrl="/register"`, to keep the link. The console app's login page and `@object-ui/app-shell`'s `DefaultLoginPage` already pass the URL whenever sign-up is on, so neither changes. Leaving the prop out, or passing `undefined`, is the one way to render no link: no second "off" value is added.
+  
+  **Clause-②: no.** The prop's type is unchanged (`registerUrl?: string`). No export, prop, type member or i18n key is added or removed.
+- daa7caf: The console's login and register pages offer a generic sign-up only where the server would accept one (objectui#11691). `/api/v1/auth/config` states the sign-up rule as two keys, `emailPassword.disableSignUp` and `features.audiencePosture`, and the server deliberately does not force the first from the second: under `invite_only` its sign-up route still admits a pending invitee. The pages read only `disableSignUp`, so under the default `invite_only` posture `/login` offered "Sign up" and `/register` refused the finished form with `SELF_REGISTRATION_CLOSED`.
+  
+  Both pages now read both keys:
+  
+  - `disableSignUp: true` still hides sign-up outright, invitation links included.
+  - Under `open` or `email_domain`, nothing changes.
+  - Under `invite_only`, `/login` shows no "Sign up" link. A visitor who arrived from an invitation (`?redirect=/accept-invitation/ID`, the signed-out bounce of the invitation page) still gets the link, and `/register` still renders the form for them. A deployment with no owner yet (`GET /api/v1/auth/bootstrap-status` answers `hasOwner: false`) keeps the link for its first owner, because the server admits the first account under every posture.
+  - Otherwise `/register` says that self-registration is not open and points back to sign-in, before any field is filled in, instead of refusing the submitted form.
+  - A server that sends no `audiencePosture` is answered as before, by `disableSignUp` alone. A posture value the console does not recognise reads as closed.
+  
+  **Clause-②: yes.** `@object-ui/auth`'s published `AuthPublicConfig.features` gains an optional `audiencePosture` member, typed as `@objectstack/spec`'s `AudiencePosture`. The package's `@objectstack/spec` range moves from `^17.0.0` to `^17.3.0`, the first release that declares that type. No export, prop or i18n key is added or removed: the register page's explanation reuses the existing `auth.register.errors.selfRegistrationClosed` sentence.
+- dfa15c8: A new workspace now takes its creator's browser timezone when it is created, so its first administrator is no longer asked for a zone the browser already knows (objectui#11908).
+  
+  `createOrganization` accepts an optional `timezone`, an IANA zone such as `Asia/Shanghai`, on both `AuthClient` and the `useAuth()` context. The client sends it as the `timezone` query parameter of `POST /organization/create`; the request body stays `{ name, slug }` (plus `logo` when given). When the zone is absent or empty, no parameter is sent and the server keeps its default zone. A server that does not read the parameter ignores it.
+  
+  The console's create-workspace dialog and the first-run setup page's create branch both pass the browser's `Intl.DateTimeFormat().resolvedOptions().timeZone`. A browser that reports no zone sends none. Existing workspaces are unchanged, and the one-time timezone prompt still asks about a workspace whose zone is still the default.
+- c5406c2: Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
+  
+  Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18 (raised to `^18.0.0-next.1` by objectui#12370 before release).
+  
+  **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.1` (objectui#12370), at the same time as it takes this release.
+  
+  **objectui's own surface moves with it:**
+  
+  - `element:record_picker`'s registration stops publishing the `object`, `filter`, `sort` and `limit` inputs, which spec 18 retires; a JSX page that writes one now gets `unknown-prop`.
+  - The `CapabilityMultiSelectField` widget's curated capability set (`@object-ui/fields`) follows spec 18: `manage_mailboxes` in, `manage_org_presentation` out.
+  - `element:number` and `element:repeater` nodes that bind no object are accepted, as spec 18's row and `PageComponentSchema` accept them; the two `ELEMENT_*_OBJECT_REQUIRED` refusals are gone.
+  
+  **Retired with the spec:** `@objectstack/spec` 18 tombstones `object-grid`'s `defaultFilters` and refuses it by name, and `ObjectGrid` and `ObjectView` stop reading it (`table.defaultFilters` on an `object-view` included). A view that still carries it renders unfiltered: rename the key to `filter`, whose value is the same rule array.
+- 37db09f: A user whose administrator forced a password change gets the change-password overlay instead of raw `403` responses (objectui#12365).
+  
+  The ObjectStack backend answers an administrator-forced password change with `403 PASSWORD_RESET_REQUIRED`, its own code distinct from natural expiry `PASSWORD_EXPIRED` (objectstack#23287 ruling C′, carried by objectstack#23440).
+  
+  - **`@object-ui/auth`:** the authenticated fetch wrapper now treats `PASSWORD_RESET_REQUIRED` as an auth-policy gate, like `MFA_REQUIRED` and `PASSWORD_EXPIRED`, so `AuthProvider` sets `remediationRequired` for it. Before the backend emits the code this changes nothing.
+  - **`@object-ui/app-shell`:** `RemediationOverlay` routes `PASSWORD_RESET_REQUIRED` to the change-password form. It shows the title "You must change your password" for it, because "Your password has expired" is false for a forced reset. `PASSWORD_EXPIRED` keeps its title.
+  - **`@object-ui/i18n`:** adds `auth.remediation.password.resetTitle` to all ten built-in language packs.
+  
+  No export is added or removed, and the type of `remediationRequired` (`{ code: string; message: string }`) is unchanged.
+- ff9df88: Depend on `@objectstack/*` `18.0.0-next.1` (objectui#12370).
+  
+  Every `@objectstack/*` range these packages declare moves from `^18.0.0-next.0` to `^18.0.0-next.1`; the console and the runner bundle `18.0.0-next.1`. A consumer moves its own `@objectstack/*` packages to `18.0.0-next.1` with this release.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates page action rows and view data bindings through the spec's own rows, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.1` refuses. Each was accepted on `18.0.0-next.0`:
+  
+  - `onSuccess` on an `action:button` / `action:icon` row, or an `action:group` / `action:menu` member, whose executor is the `url`, `navigation`, `modal`, `flow` or `form` built-in, or that has no executor at all. Write the hop on an `api` or `script` action (or a host handler name), or drop it.
+  - `onSuccess` beside `operation: 'update'`, and an `onSuccess` block carrying a key outside `{ navigate, openIn }`.
+  - `actionType: 'navigation'` on a row (and `type: 'navigation'` on a container member): write `'url'`.
+  - A `url` executor's `target` that is not openable, judged on the executor the runner runs, including a row whose `name` selects it.
+  - A view `data` binding with `provider: 'api'`: bind the object or static rows; an API call is the page element's binding.
+- 8ed7e5a: `LoginForm` gains an optional `hideHeader` prop and a password reveal toggle, and the shared auth form styles take the console login artboard's sizes (objectui#12600).
+  
+  - **`hideHeader`** (default `false`) renders no header — no icon disc, no title, no description — for a host that draws its own. Left unset, the header renders exactly as before. Under SSO-only mode a headless form still shows the SSO-only description, as one line above the federated buttons.
+  - **Password reveal toggle.** The password field carries a 28 px show/hide button. Its accessible name comes from two new optional `LoginFormLabels` members, `showPasswordText` and `hidePasswordText` (defaults "Show password" / "Hide password").
+  - **Shared styles, every auth form:** `AUTH_INPUT_CLASS` and `AUTH_PRIMARY_BUTTON_CLASS` are 40 px tall (`h-10`, were `h-11`); the primary button is one flat `bg-primary` fill (was a `--primary` gradient); `AUTH_FIELD_LABEL_CLASS` is 13 px. `LoginForm`'s "Sign up" line is 13 px and its enterprise SSO button is 40 px with the inputs' radius.
+  - `LoginForm`'s root caps its width at 400 px (`sm:max-w-[400px]`) instead of fixing it there (`sm:w-[400px]`), so it fits a host card narrower than 400 px; wherever it had 400 px or more, nothing changes.
+  
+  **Clause-②: yes.** Added: `LoginFormProps.hideHeader`, `LoginFormLabels.showPasswordText`, `LoginFormLabels.hidePasswordText`, all optional. Nothing is removed or renamed.
+- 9b69e13: `LoginForm` no longer tells an SSO-enforced environment's users to use a password (objectui#12682).
+  
+  - **While the auth config resolves**, the header shows its title and no description. It used to show the password form's description ("Enter your email and password to continue", or the `description` the host passed) because SSO enforcement was not known yet. Once the config answers, the description is what it was: `labels.ssoOnlyDescription` under SSO-only mode, `description` otherwise. A failed config read still falls back to the password form and its description.
+  - **Under SSO-only mode** (`features.ssoEnforced`), the provider buttons are no longer followed by an "or continue with email" divider with no email form under it. The divider now renders only while the password form is shown, so it comes back with the form when "Use a password instead" is clicked. A server that does not enforce SSO keeps the divider exactly as before.
+  - **`SocialSignInButtons` gains `hideDivider`** (optional, default `false`), which omits the divider under the buttons. Left unset, the component renders exactly as before, so `RegisterForm` and every other caller are unchanged.
+  
+  **Clause-②: yes.** Added: `SocialSignInButtonsProps.hideDivider`, optional. Nothing is removed or renamed.
+- 84b8ffa: The console splash no longer waits for requests the first screen does not need (objectui#12809).
+  
+  - **The organization chain runs in parallel.** When the `get-session` answer carries the organization plugin's `activeOrganizationId`, `AuthProvider` names the active organization from that id and the `organization/list` answer, and asks for the member row (`get-active-member`) at the same time as the list. It no longer asks for `get-full-organization` on boot: nothing the console reads uses the members or invitations that answer adds. An id the list does not carry names no organization, and the stored id is cleared, as before. A session answer without the key (a sign-in response, or a server without the organization plugin) takes the old path. Switching organization, the single-membership repair, sign-in and sign-out are unchanged.
+  - **`AuthClientSession.activeOrganizationId`** is a new optional member: the id better-auth's organization plugin puts on the session, or `null` when the session holds none.
+  - **The console waits only for the metadata the current route reads.** `AppContent` used to hold the splash until the object, dashboard, report and page lists had all loaded, on every route. It now waits for the lists the current route reads (an object page waits for objects; a dashboard for dashboards and objects). After the first screen, opening a route whose lists have not loaded shows a skeleton where the page will be, inside the console, instead of an empty list or a "not found". A route a host adds through `extraRoutes` still waits for all four lists.
+
+### Patch Changes
+
+- d75f212: Published text no longer teaches the retired view-level `provider: 'api'` data source (objectui#12364). A view binds `provider: 'object'` or `provider: 'value'`; a metadata-declared API call is the page element's `dataSource` binding. Text only: no schema accepts or refuses anything new, and no renderer behaves differently.
+  
+  - **`@object-ui/types`:** the `object-tree` `data` description drops the `api` provider from the providers it names.
+  - **`@object-ui/plugin-grid` / `@object-ui/plugin-map`:** the `data` input descriptions drop the `api` provider.
+  - **`@object-ui/plugin-calendar` / `@object-ui/plugin-gantt` / `@object-ui/plugin-map`:** the error thrown when no `DataSource` is available now reads `DataSource required for the object provider` (was `DataSource required for object/api providers`). It fires in exactly the same conditions as before.
+  - **`@object-ui/react` / `@object-ui/auth`:** the README and docblocks describe `SchemaRendererProvider`'s `apiFetch` as what it is now: the host's authenticated fetch the renderers use for their own reads of the host's API (chart metadata, dataset dimension labels, record-permission probes). It is not a channel for a view's data source.
+  - **`@object-ui/app-shell`:** comment wording only in `ConsoleShell`, `useConsoleActionRuntime` and `ObjectView` (these comments ship in the built JS): no behaviour change.
+  - **`@object-ui/core`:** docblock wording only on `normalizeListViewSchema` and `resolveRecordSourceObjectName` (these ship in `dist/*.d.ts` and the built JS): no behaviour change.
+- 6e141d9: After a reload, the console no longer keeps the previous organization's id once the server says the session has no active organization (objectui#12698). better-auth clears a session's active organization before it refuses a `set-active` to an organization the user is not a member of. On the next boot `AuthProvider` asked the server, heard "none", and left the old id in `ActiveOrganizationStorage`, so `X-Tenant-ID` and the metadata seed cache kept naming that organization. `refreshOrganizations` now clears the stored id whenever the server answers with no active organization, including when the single-membership repair (ADR-0081) is refused. When the repair succeeds, the server is re-stamped and the stored id follows the server's answer, as before. Nothing is added to or removed from the package entry.
+  
+  The console header (`WorkspaceSwitcher`, `CurrentOrganizationIndicator`) now names only the organization the server reports as active, and shows no organization at all when there is none, instead of falling back to the first membership.
+- 5d69b0e: `AuthProvider` no longer asks `get-session` a second time when the console has just validated the stored session before rendering. The validated answer becomes the provider's first state, once per page load; signing in or out, switching organisation and refreshing the session read it from the server as before.
+
 ## 17.7.0
 
 ### Minor Changes

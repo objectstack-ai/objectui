@@ -181,3 +181,36 @@ describe('AssignedUsersSection — a grant by name, on a database with no catalo
     expect(mockAdapter.delete).toHaveBeenCalledWith('sys_user_permission_set', 'grant_1');
   });
 });
+
+describe('AssignedUsersSection — reports each holders read to its host (objectui#13272)', () => {
+  it('reports the listed count (direct grants and position holders, one per person) with the set it read', async () => {
+    const onHoldersRead = vi.fn();
+    render(<AssignedUsersSection permissionSetName="showcase_contributor" onHoldersRead={onHoldersRead} />);
+
+    await waitFor(() => expect(onHoldersRead).toHaveBeenCalledWith(2, 'showcase_contributor'));
+  });
+
+  it('control: a set nobody holds reports 0', async () => {
+    const onHoldersRead = vi.fn();
+    render(<AssignedUsersSection permissionSetName="showcase_auditor" onHoldersRead={onHoldersRead} />);
+
+    await waitFor(() => expect(onHoldersRead).toHaveBeenCalledWith(0, 'showcase_auditor'));
+  });
+
+  it('the read after an Add reports again', async () => {
+    const onHoldersRead = vi.fn();
+    render(<AssignedUsersSection permissionSetName="showcase_contributor" onHoldersRead={onHoldersRead} />);
+    await addThroughPicker();
+
+    await waitFor(() => expect(onHoldersRead).toHaveBeenCalledTimes(2));
+  });
+
+  it('a failed read reports nothing: it is not "held by nobody"', async () => {
+    const onHoldersRead = vi.fn();
+    mockAdapter.find.mockRejectedValueOnce(new Error('[Security] Access denied'));
+    render(<AssignedUsersSection permissionSetName="showcase_contributor" onHoldersRead={onHoldersRead} />);
+
+    await screen.findByTestId('assigned-users-read-failed');
+    expect(onHoldersRead).not.toHaveBeenCalled();
+  });
+});

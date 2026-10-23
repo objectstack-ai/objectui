@@ -514,9 +514,9 @@ export async function listInstallableOrgIds(): Promise<Set<string>> {
  * default on), landing the user in the Cloud app whose nav carries Billing.
  *
  * ⛔ Do NOT re-add a path here "temporarily". The durable fix is a
- * control-plane-DECLARED URL — the pattern this repo already uses for the one
- * cloud route it does navigate to, `CloudOnboardingNext`'s `environmentsRoute`,
- * which arrives from cloud page metadata. Until the control plane publishes an
+ * control-plane-DECLARED URL, one that arrives from cloud page metadata — the
+ * way the since-retired `cloud:onboarding-next` widget received its
+ * `environmentsRoute` (objectui#12954). Until the control plane publishes an
  * equivalent for the tenant SPA (reported alongside this fix), the origin is
  * the most specific target we are entitled to name.
  *

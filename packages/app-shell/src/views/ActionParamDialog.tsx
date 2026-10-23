@@ -33,6 +33,19 @@
  * below the bottom, and nothing a mouse wheel could move. A list of more than
  * {@link NARROW_PARAM_MAX_COUNT} params also widens to two columns from `sm`
  * up; a shorter one keeps the default width and its single column.
+ *
+ * ## A refused run keeps what the user typed (objectui#13161)
+ *
+ * When the host hands the dialog the runner's `run` (`ParamDialogState.run`),
+ * Confirm runs the action from inside the dialog instead of closing first:
+ * the dialog stays open and busy until the run has an outcome. A successful
+ * run closes it, then the runner toasts as before. A refused run leaves it
+ * open with every value as typed and the refusal shown above the buttons, so
+ * the user can fix the input and confirm again, or cancel. The refusal is the
+ * run's own `error`, shown as it came: the dialog marks no field from it,
+ * because nothing in the result names one (the runner's `ActionResult`
+ * carries the refusal as text only). Without `run` the dialog closes on
+ * Confirm, as it always did.
  */
 
 import { Suspense, useState, useEffect, useMemo } from 'react';
@@ -51,9 +64,9 @@ import {
   CollapsibleContent,
   cn,
 } from '@object-ui/components';
-import { ChevronDown, Lock } from 'lucide-react';
+import { ChevronDown, Loader2, Lock } from 'lucide-react';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
-import type { ActionParamDef } from '@object-ui/core';
+import type { ActionParamDef, ActionResult, ParamCollectionHandler } from '@object-ui/core';
 import {
   evalRowPredicate,
   hasDeclaredPredicate,
@@ -90,6 +103,28 @@ export interface ParamDialogState {
    */
   interpolate?: (text: string) => string;
   resolve?: (value: Record<string, any> | null) => void;
+  /**
+   * Runs the action with the collected values and answers how the run went —
+   * the runner's `ParamCollectionHandler` `run` argument, passed through
+   * (objectui#13161). Present, Confirm keeps the dialog open until the run
+   * settles: it closes on success and shows the refusal beside the typed
+   * values on failure. Absent, Confirm resolves and closes at once.
+   */
+  run?: Parameters<ParamCollectionHandler>[3];
+}
+
+/**
+ * The refusal a failed run reports, as text. `error` is declared a string,
+ * but a handler bug can leak the server's `{ code, message }` object through
+ * it; the runner's toast reads its `message` for the same reason, and an
+ * object handed to React as a child would crash the page. `null` = the run
+ * said nothing (a handler that opened its own dialog for the refusal).
+ */
+function refusalText(result: ActionResult): string | null {
+  const raw: unknown = result.error;
+  if (typeof raw === 'string') return raw || null;
+  const nested = (raw as { message?: unknown } | null | undefined)?.message;
+  return typeof nested === 'string' && nested ? nested : null;
 }
 
 interface ActionParamDialogProps {
@@ -394,6 +429,12 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
   // fileId resolves (the value is only the fileId once the upload settles).
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const anyUploading = Object.values(uploading).some(Boolean);
+  // A run started from Confirm is in flight (objectui#13161): Confirm and
+  // Cancel are disabled and the dialog refuses to close, because the run
+  // cannot be called back and closing would hide its outcome.
+  const [submitting, setSubmitting] = useState(false);
+  // The last run's refusal, shown above the buttons until the next Confirm.
+  const [refusal, setRefusal] = useState<string | null>(null);
 
   // A param may carry a `visible` predicate (CEL) gating it on the same scope as
   // action visibility (features / user / app / data) — e.g. `create_user`'s
@@ -466,6 +507,8 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
       setValues(defaults);
       setErrors({});
       setUploading({});
+      setSubmitting(false);
+      setRefusal(null);
     }
   }, [state.open, visibleParams]);
 
@@ -478,7 +521,9 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
     return false;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    // A run is already in flight; Confirm is disabled too.
+    if (submitting) return;
     // An upload is still in flight — the param value isn't its fileId yet, so
     // block the submit (Confirm is also disabled; this guards keyboard submit).
     if (anyUploading) return;
@@ -499,11 +544,34 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
     }
     // Map upload params (file/image) from their rich widget objects to the
     // storage id(s) the API expects before resolving.
-    state.resolve?.(serializeParamValues(visibleParams, values));
+    const collected = serializeParamValues(visibleParams, values);
+    if (state.run) {
+      // Run from inside the dialog and close only on success (objectui#13161).
+      // Closing first is what lost the input: the refusal landed on a dialog
+      // that no longer existed, and only the toast remained.
+      setRefusal(null);
+      setSubmitting(true);
+      let result: ActionResult;
+      try {
+        result = await state.run(collected);
+      } finally {
+        setSubmitting(false);
+      }
+      if (!result.success) {
+        setRefusal(refusalText(result));
+        return;
+      }
+    }
+    // Settled with the values that ran, even if the user typed on while the
+    // run was in flight.
+    state.resolve?.(collected);
     onOpenChange(false);
   };
 
   const handleCancel = () => {
+    // The run in flight cannot be called back; Cancel is disabled meanwhile,
+    // and this guards Escape, an outside click and the header close button.
+    if (submitting) return;
     state.resolve?.(null);
     onOpenChange(false);
   };
@@ -781,9 +849,26 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
           })}
         </div>
 
+        {/* The refused run's own words (objectui#13161), outside the scrolling
+            region so a long param list cannot scroll it out of view. */}
+        {refusal && (
+          <div
+            role="alert"
+            data-testid="action-param-refusal"
+            className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive whitespace-pre-line"
+          >
+            {refusal}
+          </div>
+        )}
+
         <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>{t('actionDialog.cancel')}</Button>
-          <Button onClick={handleSubmit} disabled={anyUploading || !!unresolvedKey}>
+          <Button variant="outline" onClick={handleCancel} disabled={submitting}>{t('actionDialog.cancel')}</Button>
+          <Button
+            onClick={() => { void handleSubmit(); }}
+            disabled={submitting || anyUploading || !!unresolvedKey}
+            aria-busy={submitting || undefined}
+          >
+            {submitting && <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />}
             {anyUploading ? t('actionDialog.uploading') : t('actionDialog.confirm')}
           </Button>
         </DialogFooter>

@@ -806,6 +806,8 @@ const en = {
       resultsTruncated_one: 'Showing the first {{count}} row result (of {{total}}).',
       resultsTruncated_other: 'Showing the first {{count}} row results (of {{total}}).',
       importComplete: 'Import Complete',
+      importPartial: 'Import finished with errors',
+      importFailed: 'Import failed',
       imported: '{{count}} imported',
       createdCount: '{{count}} created',
       createdCount_one: '{{count}} created',
@@ -868,6 +870,9 @@ const en = {
       undoing: 'Undoing…',
       undoConfirm: 'Undo this import? Records it created will be deleted and records it updated will be restored to their previous values.',
       reverted: 'Undone',
+      undoPartial: '{{count}} rows were not undone. Undo again to retry only those rows.',
+      undoPartial_one: '{{count}} row was not undone. Undo again to retry only that row.',
+      undoPartial_other: '{{count}} rows were not undone. Undo again to retry only those rows.',
       jobStatus: {
         pending: 'Pending',
         running: 'Running',
@@ -1325,6 +1330,7 @@ const en = {
     writeStrippedByState: "Not editable in this record's current state, so it did not take effect: {{fields}}",
     writeStrippedPrimaryKey: "The record's identifier cannot be changed by a save, so it did not take effect: {{fields}}",
     writeStrippedComputed: 'Calculated by the server from a formula, so the value sent did not take effect: {{fields}}',
+    writeStrippedStoredExpression: 'Computed from the record, so the computed value was saved instead of the one sent: {{fields}}',
     writeStrippedUnknownReason: 'Not applied by the server: {{fields}}',
     approvalPendingEditable: 'In approval · editable',
     approvalPendingTooltip: 'This record has a pending approval request; this step still allows editing',
@@ -2029,6 +2035,7 @@ const en = {
     savedViewsUnreadable: 'This list is empty because it could not be read, not because this object has no saved views. Try again, and report this if it keeps happening.',
     title: 'ObjectOS',
     initializing: 'Opening your console…',
+    skipToContent: 'Skip to content',
     search: 'Search…',
     breadcrumb: {
       system: 'System',
@@ -2112,6 +2119,13 @@ const en = {
       unsavedCount: '{{count}} unsaved changes',
       unsavedCount_one: '{{count}} unsaved change',
       unsavedCount_other: '{{count}} unsaved changes',
+      // The toast of a save the server refused field by field (objectui#13146).
+      // `{{settings}}` is the refused settings' labels, as their rows draw them,
+      // joined with `validation.formInvalidJoiner`; each row shows its own
+      // reason, so the toast names the settings and gives no reason.
+      fieldErrorsToast: '{{count}} settings need attention: {{settings}}',
+      fieldErrorsToast_one: '{{count}} setting needs attention: {{settings}}',
+      fieldErrorsToast_other: '{{count}} settings need attention: {{settings}}',
       // The fail-closed crypto refusal (objectstack#8396). objectui#4579 added
       // these as English literals on purpose — routing one string through i18n
       // would have left a single translated string among a dozen hardcoded
@@ -2129,6 +2143,10 @@ const en = {
       // badge, so a pack puts the layer where its own grammar wants it.
       sourceBadgeInherited: 'Inherited from {{source}}',
       sourceBadgeOverrides: 'Overrides {{source}}',
+      // The action beside an `Overrides` badge (objectui#13145): it clears this
+      // layer's value in the draft, and Save sends it as `null` (unset), so the
+      // row falls back to the value the layer above carries.
+      resetToDefault: 'Reset to default',
       // The chips on a settings row's header (objectui#12821): the env-lock
       // chip and the title it shows when the server sends no reason, and the
       // `Deprecated` chip, with `{{replacedBy}}` the key that replaces it.
@@ -2139,6 +2157,11 @@ const en = {
       deprecatedBadge: 'Deprecated',
       deprecatedBadgeReplacedBy: 'Deprecated → {{replacedBy}}',
       unsupportedSpecifierType: 'Unsupported specifier type: {{type}}',
+      // A settings value that misses its type's declared format blocks Save
+      // (objectui#13287). `email` and `url` reuse `validation.email` and
+      // `validation.url`; these two name what a phone number and a colour take.
+      invalidPhone: 'Enter a phone number using only digits, spaces and + ( ) - .',
+      invalidColor: 'Enter a hex color, such as #1a2b3c',
     },
     // The one-time workspace-timezone prompt (objectui#11758): asked of an
     // administrator while `localization.timezone` is still the manifest default.
@@ -2185,6 +2208,11 @@ const en = {
       newChat: 'New chat',
       toggleChatsList: 'Toggle conversations list',
       goHome: 'Back to home',
+    },
+    reportIndex: {
+      title: 'Reports',
+      emptyTitle: 'No reports',
+      emptyDescription: 'This app has no reports you can open.',
     },
     commandPalette: {
       title: 'Command palette',
@@ -2610,6 +2638,7 @@ const en = {
       objectNotFound: 'Object Not Found',
       objectNotFoundDescription: 'The object "{{objectName}}" does not exist in the current configuration.',
       objectNotFoundHint: 'Check your app navigation settings or select a different object from the sidebar.',
+      objectPackageDisabled: 'The object "{{objectName}}" belongs to a package that is disabled, so it is not being served.',
       filterOrNotSavable: 'This filter uses OR between conditions, which a saved view cannot store yet. It still applies to this list — remove the OR grouping to save it to the view.',
       filterNestedNotSavable: 'This filter uses nested condition groups, which a saved view cannot store. Flatten it to a single list of conditions to save it to the view.',
       systemViewReadonly: 'System view defined in code — read-only.',
@@ -2993,6 +3022,14 @@ const en = {
         verifying: 'Verifying…',
         invalidCode: 'Invalid code. Try again.',
       },
+      // objectui#13208 — the overlay on an IMPERSONATION session: the held
+      // credential is the impersonated user's, so it offers the way out instead
+      // of their forms. `{{user}}` is the impersonated user's display name.
+      impersonation: {
+        passwordTitle: '{{user}} must change their password',
+        mfaTitle: '{{user}} must set up two-factor authentication',
+        body: 'You are impersonating {{user}}, and only they can do this themselves. Stop impersonating to return to your own account.',
+      },
     },
   },
   // The OAuth authorization-code consent screen (`/oauth/consent`). A third
@@ -3135,6 +3172,7 @@ const en = {
     recent: 'Recent',
     starred: 'Starred',
     removeFromFavorites: 'Remove {{name}} from favorites',
+    allReports: 'All reports',
   },
   topbar: {
     aiAssistant: 'AI Assistant',
@@ -3399,6 +3437,8 @@ const en = {
     appNothingAvailable: 'Nothing in {{app}} is available to you yet',
     appNothingAvailableDescription: 'This app has no pages your account can open. Ask an administrator to grant you access.',
     appNothingAvailableGrantDescription: 'This app has no pages your account can open. You can grant access in Setup.',
+    appNoReadableObjectDescription: 'Your account cannot read any of the records in this app yet. Ask an administrator to assign you a permission set.',
+    appNoReadableObjectGrantDescription: 'Your account cannot read any of the records in this app yet. You can grant access in Setup.',
     openSetup: 'Open Setup',
     createFirstApp: 'Create Your First App',
     systemSettings: 'System Settings',
@@ -3459,6 +3499,49 @@ const en = {
       summaryItems_one: '{{count}} item',
       summaryItems_other: '{{count}} items',
       summaryType: '{{n}} {{type}}',
+      // objectui#13147 — one count family per known metadata type, so the summary
+      // reads "2 flows", not "2 flow". A type with no row here keeps `summaryType`.
+      typeCount: {
+        object: '{{count}} objects',
+        object_one: '{{count}} object',
+        object_other: '{{count}} objects',
+        view: '{{count}} views',
+        view_one: '{{count}} view',
+        view_other: '{{count}} views',
+        page: '{{count}} pages',
+        page_one: '{{count}} page',
+        page_other: '{{count}} pages',
+        dashboard: '{{count}} dashboards',
+        dashboard_one: '{{count}} dashboard',
+        dashboard_other: '{{count}} dashboards',
+        app: '{{count}} apps',
+        app_one: '{{count}} app',
+        app_other: '{{count}} apps',
+        action: '{{count}} actions',
+        action_one: '{{count}} action',
+        action_other: '{{count}} actions',
+        report: '{{count}} reports',
+        report_one: '{{count}} report',
+        report_other: '{{count}} reports',
+        flow: '{{count}} flows',
+        flow_one: '{{count}} flow',
+        flow_other: '{{count}} flows',
+        permission: '{{count}} permission sets',
+        permission_one: '{{count}} permission set',
+        permission_other: '{{count}} permission sets',
+        agent: '{{count}} agents',
+        agent_one: '{{count}} agent',
+        agent_other: '{{count}} agents',
+        email_template: '{{count}} email templates',
+        email_template_one: '{{count}} email template',
+        email_template_other: '{{count}} email templates',
+      },
+      // objectui#12929 — the unchecked choice under an added object field whose
+      // literal default the batch publish can write into the existing records.
+      backfillOption: 'Backfill default ({{count}} existing records)',
+      backfillOption_one: 'Backfill default ({{count}} existing record)',
+      backfillOption_other: 'Backfill default ({{count}} existing records)',
+      backfillOptionNoCount: 'Backfill default',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
@@ -3762,8 +3845,12 @@ const en = {
     // and pending approvals, then clamps at "9+". These three spell the sum
     // out inside the popover so the number is explainable.
     badgeTotal: '{{total}} total',
-    badgeNotifications: '{{unread}} notifications',
-    badgeApprovals: '{{approvals}} pending approvals',
+    badgeNotifications: '{{count}} notifications',
+    badgeNotifications_one: '{{count}} notification',
+    badgeNotifications_other: '{{count}} notifications',
+    badgeApprovals: '{{count}} pending approvals',
+    badgeApprovals_one: '{{count}} pending approval',
+    badgeApprovals_other: '{{count}} pending approvals',
     // objectui#7011 — the arrival announcement (toast / desktop notification)
     // and the two switches that govern it.
     arrivalMany: '{{count}} new messages',
@@ -3859,17 +3946,6 @@ const en = {
     opening: 'Opening…',
     importAction: 'Import',
     dismiss: 'Dismiss',
-  },
-  cloudOnboarding: {
-    hintCreate: 'An environment is a private instance that runs your apps, with its own URL, database, and plan.',
-    hintReady: 'Your environment is ready — a private instance that runs your apps, with its own URL, database, and plan.',
-    createEnvironment: 'Create your environment',
-    openWorkspace: 'Open',
-    manageEnvironments: 'Manage environments',
-  },
-  // `cloud:plan-status` — the Cloud pricing page's current-plan marker (objectui#10919).
-  cloudPlanStatus: {
-    current: 'Current plan',
   },
   // `cloud:workspace-timezone-notice` — the Cloud welcome page's line naming the
   // timezone a workspace was seeded with at creation (objectui#11930). `{{zone}}`
@@ -4016,6 +4092,12 @@ const en = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    answer: {
+      showFull: 'Show full answer',
+      collapse: 'Collapse',
+      expandTable: 'Expand',
+      exitExpandedTable: 'Close',
+    },
     tool: {
       aggregate_data: 'Aggregate the data',
       get_record: 'Read the record',
@@ -4578,6 +4660,10 @@ const en = {
     overrideActionLabel: 'Override {{action}}',
     overrideNotice: 'You hold no approver slot on this step. Continuing uses your admin override: it finalises the step immediately, bypassing any approver who has not acted. The decision is recorded as an admin override.',
     overrideNoticeWho: 'You hold no approver slot on this step. Continuing uses your admin override: it finalises the step immediately and bypasses the approvers who have not acted — {{who}}. The decision is recorded as an admin override.',
+    overrideReassignNotice: 'You hold no approver slot on this step. Continuing uses your admin override: the step moves to the new approver you pick, replacing any approver who has not acted. The request stays pending and waits on the new approver. The reassignment is recorded as an admin override.',
+    overrideReassignNoticeWho: 'You hold no approver slot on this step. Continuing uses your admin override: the step moves to the new approver you pick, replacing the approvers who have not acted — {{who}}. The request stays pending and waits on the new approver. The reassignment is recorded as an admin override.',
+    overrideRecallNotice: 'You did not submit this request. Continuing uses your admin override: the request is withdrawn, any approver who has not acted can no longer act on it, and the record is unlocked.',
+    overrideRecallNoticeWho: 'You did not submit this request. Continuing uses your admin override: the request is withdrawn, the record is unlocked, and the approvers who have not acted can no longer act on it — {{who}}.',
     viaOverrideChip: 'Admin override',
     viaOverrideHint: 'The actor held no approver slot on this step — admitted by the admin-override path.',
     overrideActor: 'Act as another identity (admin)',
@@ -4946,6 +5032,11 @@ const en = {
     toggleLabel: 'Activation for {{label}}',
     on: 'On',
     off: 'Off',
+    // The Activation badge on a flow whose switch is ON but whose trigger the
+    // engine has not armed on this deployment (objectui#13159): the switch
+    // keeps the flag, this says the flow does not run. The same words as
+    // Studio's rail for the same state (`engine.studio.auto.notRunning`).
+    notRunning: 'Not running here',
     clone: 'Clone',
     cloneTitle: 'Clone packaged flow',
     cloneBody:
@@ -4955,6 +5046,12 @@ const en = {
     cancel: 'Cancel',
     cloneConfirm: 'Create clone',
     cloneCreated: 'Created flow "{{name}}".',
+    // The clone result's next steps (objectui#13270): switch the flow the
+    // admin cloned from off through its own toggle, or open the clone where
+    // it is edited. The sharing-rule clone's words for the same offer.
+    cloneSwitchSourceOff: 'Switch "{{label}}" off',
+    cloneSourceOff: 'The packaged flow "{{label}}" is switched off.',
+    cloneOpen: 'Open the clone in Studio',
     emptyTitle: 'No packaged flows',
     emptyBody:
       'No installed package ships an automation flow on this deployment. Flows you author yourself live in Studio.',

@@ -27,7 +27,7 @@ import {
   resolveAffordance,
   type FieldRulePredicate,
   recordDisplayValueAt,
-  resolveFieldRuleState,
+  evalFieldPredicate,
   resolveNameField,
   toPredicateRecord,
   withoutDeniedFields,
@@ -216,9 +216,10 @@ function sectionPredicateRecord(
  * reference it with `{ group }` — which is what the synthesized default page
  * and a Studio seed now emit.
  *
- * ⭐ ONE evaluator, the form's: `resolveFieldRuleState` from `@object-ui/core`,
- * the call the form renderer makes for a `section-divider` row's own
- * `visibleWhen`, with the same three inputs it passes —
+ * ⭐ ONE engine, the form's: `evalFieldPredicate` from `@object-ui/core`, the
+ * call the form renderer makes for a field group's `section-divider` gate
+ * (`sectionGateVisible` in `@object-ui/components`' form renderer), with the
+ * same three inputs it passes —
  *
  *  - `record` — {@link sectionPredicateRecord}; values bind under `record.`
  *    only, so a bare `kind == 'pro'` is an unbound identifier on both
@@ -238,11 +239,14 @@ function sectionPredicateRecord(
  * `FieldRulePredicate` is safe.
  *
  * ⚠️ A predicate that cannot be evaluated (parse error, unbound identifier, a
- * blank or `source`-less declaration) SHOWS the section, because that is what
- * the form does: `resolveFieldRuleState` answers a faulted `visibleWhen` with
- * `VISIBLE_WHEN_FAULTED` (`true`, ADR-0137 D3) and warns once per predicate
- * text. Taking the direction from the shared evaluator rather than restating
- * it here is what keeps the two surfaces from drifting if that constant moves.
+ * blank or `source`-less declaration) HIDES the section — fail-CLOSED, the
+ * direction `@objectstack/spec` declares for this slot
+ * (`ObjectFieldGroupSchema.visibleWhen`: "else hidden (fail-closed)") and the
+ * one the form takes for the same group (objectui#13055). It is NOT the
+ * field-rule triad's fail-open (`VISIBLE_WHEN_FAULTED`, ADR-0137 D3), whose
+ * scope note leaves this slot its own direction. The one-time warning names
+ * `false` as the default taken. Only field-group references reach this
+ * function, so there is no fail-open origin to tell apart here.
  */
 function sectionPredicateVisible(
   visibleWhen: FieldRulePredicate,
@@ -250,14 +254,86 @@ function sectionPredicateVisible(
   scope: Record<string, unknown>,
   where: string,
 ): boolean {
-  return resolveFieldRuleState(
-    { visibleWhen },
-    record,
-    {},
-    record,
-    scope,
-    where,
-  ).visible;
+  return evalFieldPredicate(visibleWhen, record, false, record, scope, {
+    context: `visibleWhen of ${where} — fail-closed, the group is hidden`,
+  });
+}
+
+/**
+ * Fold a declared pointer pair's TYPE half into its id half's card
+ * (objectui#13102).
+ *
+ * `@objectstack/spec` declares a polymorphic record pointer as a pair: the id
+ * half (`record_id`) names its sibling with `referenceVia` (`object_name`), and
+ * the sibling holds the target object's machine name. `DetailSection` draws the
+ * id half as the record card, which already names the target object by its
+ * label. Drawing the type half as a row of its own beside that card shows the
+ * stored machine name next to the label that names the same object.
+ *
+ * So a type half leaves the body when its id half is drawn in the same body.
+ * The pair is read off the OBJECT's declared fields only: a field is a type
+ * half because a declared field names it in `referenceVia`, never because of
+ * what it is called. A type half whose id half this body does not draw keeps
+ * its row, since no card on this body says what it holds.
+ *
+ * Only the row goes. The record still carries the value, so the card still
+ * resolves the pair from the row, and every other reader still reads it.
+ */
+function foldPointerTypeHalves<S>(
+  fields: unknown[] | undefined,
+  sections: S,
+  objectFields: Readonly<Record<string, { readonly referenceVia?: unknown } | null | undefined>> | undefined,
+): { fields: unknown[] | undefined; sections: S } {
+  if (!objectFields) return { fields, sections };
+  // id half -> type half, for every pair the object declares.
+  const typeHalfOf = new Map<string, string>();
+  for (const [name, def] of Object.entries(objectFields)) {
+    const via = def?.referenceVia;
+    if (typeof via === 'string' && via !== '' && via !== name && objectFields[via] != null) {
+      typeHalfOf.set(name, via);
+    }
+  }
+  if (typeHalfOf.size === 0) return { fields, sections };
+
+  const sectionFields = (s: unknown): unknown[] | undefined => {
+    const list = s && typeof s === 'object' ? (s as { fields?: unknown }).fields : undefined;
+    return Array.isArray(list) ? list : undefined;
+  };
+  const lists: unknown[][] = [];
+  if (Array.isArray(fields)) lists.push(fields);
+  if (Array.isArray(sections)) {
+    for (const s of sections) {
+      const list = sectionFields(s);
+      if (list) lists.push(list);
+    }
+  }
+  const drawn = new Set<string>();
+  for (const list of lists) {
+    for (const entry of list) {
+      const n = fieldName(entry);
+      if (n) drawn.add(n);
+    }
+  }
+  const folded = new Set<string>();
+  for (const [idHalf, typeHalf] of typeHalfOf) {
+    if (drawn.has(idHalf)) folded.add(typeHalf);
+  }
+  if (folded.size === 0) return { fields, sections };
+
+  const drop = (list: unknown[]): unknown[] =>
+    list.filter((e) => {
+      const n = fieldName(e);
+      return !(n && folded.has(n));
+    });
+  return {
+    fields: Array.isArray(fields) ? drop(fields) : fields,
+    sections: (Array.isArray(sections)
+      ? sections.map((s: unknown) => {
+          const list = sectionFields(s);
+          return list ? { ...(s as object), fields: drop(list) } : s;
+        })
+      : sections) as S,
+  };
 }
 
 export interface RecordDetailsRendererProps {
@@ -1029,6 +1105,11 @@ const RecordDetailsBody: React.FC<RecordDetailsRendererProps> = ({
       })
     : schema.sections;
 
+  // A pointer pair's type half is drawn by its id half's card, not as a row
+  // of its own (objectui#13102; see `foldPointerTypeHalves`). Applied after
+  // every other fold, so it reads the rows this body actually draws.
+  const body = foldPointerTypeHalves(filteredFields, filteredSections, objSchemaFields);
+
   // Inline-edit by default, but gated by the object's lifecycle: system /
   // Engine-owned system / append-only / better-auth objects are not
   // user-editable, so the per-field double-click / pencil affordances must not
@@ -1076,8 +1157,8 @@ const RecordDetailsBody: React.FC<RecordDetailsRendererProps> = ({
     // `applyAutoSpan` (which would be a tolerant reader) or in the published
     // `@object-ui/types` declaration (which would be a surface widening).
     columns: detailBodyColumns(schema.columns),
-    sections: filteredSections,
-    fields: filteredFields,
+    sections: body.sections,
+    fields: body.fields,
     showBack: false,
     // Suppress DetailView's own Airtable-style header chip. When
     // record:details is composed under a Lightning page:header the inner

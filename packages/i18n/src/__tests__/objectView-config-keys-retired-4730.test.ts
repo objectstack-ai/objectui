@@ -283,8 +283,12 @@ const RETIRED_OBJECT_VIEW_KEYS = [
   'viewConfigPermissionDenied',
 ] as const;
 
-/** How many keys the namespace keeps — the live + indirect-reference remainder. */
-const SURVIVING_KEY_COUNT = 103;
+/**
+ * How many keys the namespace keeps — the live + indirect-reference remainder.
+ * 104 since objectui#13052 added `objectPackageDisabled`, the object route's
+ * "this object's package is disabled" sentence (`ObjectNotFoundState`).
+ */
+const SURVIVING_KEY_COUNT = 104;
 
 describe('console.objectView config-panel keys are retired (objectui#4730)', () => {
   it('the retired list is the measured set', () => {
@@ -300,14 +304,16 @@ describe('console.objectView config-panel keys are retired (objectui#4730)', () 
     // create-view dialog's eight dataset-binding keys (and retired its four axis
     // keys); 227 since objectui#12418 added `resetView` and `resetViewTitle`,
     // the header's "Reset view" entry (and objectui#12504 retired
-    // `viewConfigPermissionDenied`, which moved the split, not the total). The
+    // `viewConfigPermissionDenied`, which moved the split, not the total); 228
+    // since objectui#13052 added `objectPackageDisabled`, the not-found view's
+    // package-disabled sentence. The
     // RETIRED half is a ratchet that never
     // runs BACKWARDS — it is pinned twice above, and objectui#8754 advanced it
     // 116 -> 118 — while the surviving half is a live namespace that grows on a
     // new key and shrinks by exactly what the retired half gains. Splitting
     // them is the point: folding a new key into the total would be
     // indistinguishable from a retired key coming back.
-    expect(RETIRED_OBJECT_VIEW_KEYS.length + SURVIVING_KEY_COUNT).toBe(227);
+    expect(RETIRED_OBJECT_VIEW_KEYS.length + SURVIVING_KEY_COUNT).toBe(228);
     expect(LANGS).toHaveLength(10);
   });
 

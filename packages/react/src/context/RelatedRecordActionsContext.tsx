@@ -123,7 +123,26 @@ export interface RelatedRecordHandlers {
   onViewAll?: () => void;
 }
 
-/** Input to {@link RelatedRecordActionsValue.resolve}. */
+/**
+ * Input to {@link RelatedRecordActionsValue.resolve}.
+ *
+ * Its SHAPE says which kind of list asks (objectui#13089):
+ *
+ *  - **A related list always names its `relationshipField`.** The spec's
+ *    `record:related_list` declares it required, so a spec-valid related list
+ *    resolves with it, with or without a resolved `parentId`.
+ *  - **An input with no `relationshipField` (absent or empty) asks for an
+ *    OBJECT-SCOPED list's handlers**, a list of the object's own records with
+ *    no parent: a page `list-view` node resolves `{ objectName }` for its
+ *    `addRecord` Add button. A host may serve such an input a create that
+ *    links no parent, which it must not serve a related list whose parent did
+ *    not resolve.
+ *
+ * ⚠️ The limit of reading the shape: a future consumer that resolves a list
+ * with no parent and no relationship, and must NOT be offered a create, cannot
+ * say so here. It needs an explicit member on this input, not a second reading
+ * of the same shape.
+ */
 export interface ResolveRelatedRecordActionsInput {
   /** Child object machine name (the related list's `api`). */
   objectName: string;

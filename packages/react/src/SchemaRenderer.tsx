@@ -763,14 +763,15 @@ export function evaluateConfigBagInScope(
 }
 
 /**
- * Which CONSEQUENCE the diagnostic should print for a faulting predicate on
- * this leg (objectui#6503).
+ * What a faulting predicate DECIDES on this leg, and which CONSEQUENCE the
+ * diagnostic prints for it (objectui#6503, objectui#13299).
  *
  * ## The defect this closes
  *
  * `evaluateCondition` answers an unevaluable predicate with `true` on every
- * path. On the three SHOW legs the chain negates that answer, so the node is
- * SHOWN and the reporter's "the gate did NOT bite" is true. On the two HIDE
+ * path. On the three SHOW legs the chain negated that answer, so the node was
+ * SHOWN and the reporter's "the gate did NOT bite" was true (a declared SHOW
+ * predicate now fails closed instead, see the last section). On the two HIDE
  * legs the chain returns it UN-negated (see `shouldHide` below), so the same
  * `true` sets `_hidden` and this component returns `null`: the gate bit, and
  * bit harder than on either sibling gate — the node is not on screen at all.
@@ -798,9 +799,44 @@ export function evaluateConfigBagInScope(
  * function: those legs are not in the visibility chain and route through
  * `evaluateEnablementPredicate`, which states `'enablement'` at its own call
  * site.
+ *
+ * ## A fault fails CLOSED on every leg (objectui#13299)
+ *
+ * This function now answers two questions for a faulting predicate, off the
+ * same two constants: what the leg DECIDES, and which consequence the report
+ * prints. The answer to the first is "not rendered" on every leg whose
+ * predicate was declared, the direction objectui#13286 set for a `page:tabs`
+ * item: a predicate over the CEL AST bound, a type error, an unbound root or
+ * a missing function used to draw the node for a viewer it was written to
+ * exclude.
+ *
+ * - **SHOW legs** (`visibleWhen` / `visible` / `visibleOn`, negated by
+ *   `shouldHide`): a DECLARED predicate answers `false`, so the node is
+ *   withheld, and the report prints the `'withholding'` consequence. A gate
+ *   that declares nothing ({@link hasDeclaredPredicate} is false: `''`,
+ *   whitespace, an empty-`source` envelope) keeps the fail-soft `true`, so it
+ *   still means "no gate" and the node still shows, with the `'visibility'`
+ *   copy, which is true of it.
+ * - **HIDE legs** (`hidden` / `hiddenOn`, NOT negated): the fail-soft `true`
+ *   already means hidden, so the answer stays `true` and the copy stays
+ *   `'concealment'`. They only reach the evaluator declared (`shouldHide`
+ *   asks {@link hasDeclaredPredicate} first), so no blank case exists here.
+ *
+ * `hasDeclaredPredicate` is asked only on this FAULT path: it reports a blank
+ * gate as a side effect, and a non-faulting predicate must stay as silent as
+ * it was.
  */
-const visibilityGateKind = (key: VisibilityChainKey): PredicateGateKind =>
-  (VISIBILITY_HIDE_KEYS as readonly string[]).includes(key) ? 'concealment' : 'visibility';
+const visibilityFaultOutcome = (
+  key: VisibilityChainKey,
+  raw: VisibilityPredicate,
+): { verdict: boolean; gate: PredicateGateKind } => {
+  if ((VISIBILITY_HIDE_KEYS as readonly string[]).includes(key)) {
+    return { verdict: true, gate: 'concealment' };
+  }
+  return hasDeclaredPredicate(raw)
+    ? { verdict: false, gate: 'withholding' }
+    : { verdict: true, gate: 'visibility' };
+};
 
 /**
  * Which ONE visibility key actually decides a node's fate, mirroring both the
@@ -1307,7 +1343,7 @@ export const SchemaRenderer: ForwardRefExoticComponent<
      * Evaluate ONE visibility predicate, and make an unresolvable one LOUD
      * (objectui#5454, leg 3 of the 2026-08-21 ruling).
      *
-     * ## The verdict is byte-for-byte what it was — only the silence moved
+     * ## A fault fails CLOSED (objectui#13299)
      *
      * `evaluateCondition` answers an unresolvable predicate with `true`, on
      * every one of its three internal paths: the CEL envelope fails soft to its
@@ -1315,10 +1351,18 @@ export const SchemaRenderer: ForwardRefExoticComponent<
      * `true`, and a `${…}` template that throws returns its own SOURCE TEXT,
      * which is a non-empty string and therefore truthy. Passing
      * `throwOnError: true` changes none of those verdicts — it only converts
-     * "could not evaluate" from a value into a throw — so this helper returns
-     * `true` from the catch and reproduces the old answer exactly. That is why
-     * it is safe on the two NON-negated legs (`hidden` / `hiddenOn`) as well,
-     * where the same `true` means HIDE rather than SHOW.
+     * "could not evaluate" from a value into a throw.
+     *
+     * Until objectui#13299 this helper reproduced that `true` on a fault, which
+     * drew a node behind a faulting `visibleWhen` / `visible` / `visibleOn` for
+     * a viewer the predicate was written to exclude. Both branches now answer a
+     * fault with {@link visibilityFaultOutcome}'s verdict instead: a DECLARED
+     * predicate that faults leaves the node unrendered on every leg (the SHOW
+     * legs answer `false`, the HIDE legs keep the `true` that already hid), and
+     * a blank gate that declares nothing keeps the fail-soft `true`. A predicate
+     * that evaluates decides exactly as before. Form field rules
+     * (`visibleWhen` / `readonlyWhen` on a field) do not route through here and
+     * keep their documented fail-open.
      *
      * ## Why it needed saying at all
      *
@@ -1360,10 +1404,11 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       raw: VisibilityPredicate,
       key: VisibilityChainKey,
     ): boolean => {
-      // WHICH consequence this leg's fail-soft default earns (objectui#6503).
-      // Computed once, used by both branches, so the production and the
-      // development report cannot disagree about what the default DID.
-      const gate = visibilityGateKind(key);
+      // WHAT a fault decides on this leg and WHICH consequence it reports
+      // (objectui#6503, objectui#13299) come from ONE function, used by both
+      // branches, so the production and the development verdict cannot
+      // disagree, and neither can their reports about what the fault DID.
+      //
       // PRODUCTION STILL MAKES THE SINGLE CALL — it just no longer makes it
       // in silence (objectui#6038, maintainer ruling 2026-08-25, option B).
       //
@@ -1378,16 +1423,21 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       // `onFault` is the way out of that trade: the evaluator hands back the
       // reason at the point it ALREADY knows the predicate faulted, inside the
       // catch it already runs, so the fault becomes observable at ONE engine
-      // call. The verdict is `evaluateCondition(raw)`'s, unchanged — this card
-      // is observability only, and the fail-open semantics are not its to move.
+      // call. objectui#6038 made it observable; objectui#13299 also makes it
+      // DECIDE: the same callback records the fault on this single call, and
+      // a faulted call answers with the fail-closed verdict rather than the
+      // evaluator's fail-soft `true` (the objectui#13286 shape, no second
+      // `throwOnError` evaluation).
       //
       // The reporter is the SAME one the dev branch below uses: same message,
       // same severity, same dedupe `Set`, same key. Production and development
       // now print the identical line for the identical fault, which is the
       // property the `__DEV__` gate used to cost us.
       if (!__DEV__) {
-        return evaluator.evaluateCondition(raw, {
-          onFault: (reason) =>
+        let fault: ReturnType<typeof visibilityFaultOutcome> | undefined;
+        const verdict = evaluator.evaluateCondition(raw, {
+          onFault: (reason) => {
+            fault = visibilityFaultOutcome(key, raw);
             // `'page-component'` stated rather than defaulted (objectui#6487):
             // this is the tier whose roots the spec declares for a node gate,
             // and saying so here is what keeps the advice paragraph a decision
@@ -1399,9 +1449,11 @@ export const SchemaRenderer: ForwardRefExoticComponent<
               raw,
               reason,
               'page-component',
-              gate,
-            ),
+              fault.gate,
+            );
+          },
         });
+        return fault ? fault.verdict : verdict;
       }
       try {
         const verdict = evaluator.evaluateCondition(raw, { throwOnError: true });
@@ -1427,6 +1479,7 @@ export const SchemaRenderer: ForwardRefExoticComponent<
         );
         return verdict;
       } catch (err) {
+        const fault = visibilityFaultOutcome(key, raw);
         reportUnresolvableVisibilityPredicate(
           newSchema.type,
           newSchema.id,
@@ -1434,14 +1487,13 @@ export const SchemaRenderer: ForwardRefExoticComponent<
           raw,
           err,
           'page-component',
-          gate,
+          fault.gate,
         );
-        // The historical fail-soft answer, unchanged — and identical to what
-        // the production branch above returns for the same input, which is what
-        // keeps the two branches one behaviour rather than two. See the
-        // docblock: `true` is the value EVERY path of `evaluateCondition`
-        // already returned for an unevaluable predicate.
-        return true;
+        // The fail-closed answer (objectui#13299) — identical to what the
+        // production branch above returns for the same input, because both
+        // read it off the same function, which is what keeps the two branches
+        // one behaviour rather than two.
+        return fault.verdict;
       }
     };
 

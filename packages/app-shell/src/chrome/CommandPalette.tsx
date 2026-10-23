@@ -43,7 +43,7 @@ import {
 import { useRecordSearch } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { useTheme } from './ThemeProvider.js';
-import { useExpressionContext, evaluateNavigationVisibility } from '../providers/ExpressionProvider.js';
+import { useNavVisibility } from '../hooks/useNavMemberGates.js';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { resolveKeyedI18nLabel, getRecordDisplayName, appRouteSegment } from '../utils/index.js';
 import { getIcon } from '../utils/getIcon.js';
@@ -52,6 +52,7 @@ import { useRecentItemLabel } from '../hooks/useRecentItemLabel.js';
 import { recentItemObject } from '../console/home/recentItemTypeLabel.js';
 import type { RecentItem } from '../context/RecentItemsProvider.js';
 import { useCommandPalette } from '../context/CommandPaletteProvider.js';
+import { confirmUnsavedLeave } from './unsavedEdits.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { resolveHref, resolveNavItemLabel } from '@object-ui/layout';
 import type { NavigationItem } from '@object-ui/types';
@@ -61,6 +62,7 @@ import { matchesPaletteQuery } from './paletteMatch.js';
 import { fetchPackages, type PkgEntry } from '../views/studio-design/packages-io.js';
 import { isPackageLessItem, studioOrgScopePath } from '../views/studio-design/studioScope.js';
 import { DESIGNER_SURFACE_PARAM, formatSurfaceParam } from '../views/metadata-admin/nav-selection.js';
+import { flattenNavigation, useAppReportEntries } from '../views/appReportIndex.js';
 
 /** The palette of the active app: the frame `ConsoleLayout` draws for `/apps/APP`. */
 interface AppCommandPaletteProps {
@@ -110,7 +112,10 @@ export function CommandPalette(props: CommandPaletteProps) {
   const navigate = useNavigate();
   const { appName } = useParams();
   const { setTheme } = useTheme();
-  const { evaluator } = useExpressionContext();
+  // The shell's one navigation `visible` evaluator, the sidebar's and
+  // `nav:menu`'s: an entry that declares an API `dataSource` reads its bound
+  // value as `data`, and is hidden until that read answers (objectui#13029).
+  const evalVis = useNavVisibility(activeApp);
   const { t, language } = useObjectTranslation();
   // A nav entry's text, the way the sidebar and `nav:menu` name it: an entry
   // with NO `label` shows its target's current label, else its target's machine
@@ -148,10 +153,15 @@ export function CommandPalette(props: CommandPaletteProps) {
     setOpen(false);
     command();
   };
+  // A command that leaves the page closes the palette, then asks first while
+  // the page holds unsaved edits (objectui#13253): it navigates from a
+  // palette item, which no page's link guard sees. Cancel keeps the page and
+  // its edits; OK, or a clean page, goes at once.
+  const leaveTo = (to: string) => runCommand(() => confirmUnsavedLeave(() => navigate(to)));
 
   // Extract navigation items from active app, filtering by visibility expressions
   const navItems = flattenNavigation(activeApp?.navigation || []).filter(
-    (item) => evaluateNavigationVisibility(item.visible ?? item.visibleOn, evaluator)
+    (item) => evalVis(item.visible ?? item.visibleOn, item)
   );
 
   // The entries the palette shows for the query: a navigation entry or app by
@@ -166,6 +176,16 @@ export function CommandPalette(props: CommandPaletteProps) {
   const dashboardItems = navOfType('dashboard', 'dashboardName');
   const pageItems = navOfType('page', 'pageName');
   const reportItems = navOfType('report', 'reportName');
+  // objectui#13020 — the app's reports beyond its navigation: the ones it
+  // ships that this member may open, the list the app's report index shows.
+  // Read only while the palette is open inside an app; a report a navigation
+  // entry already names is offered through that entry, once.
+  const navReportNames = new Set(
+    navItems.filter((item) => item.type === 'report').map((item) => item.reportName as string),
+  );
+  const appReports = useAppReportEntries(activeApp, open && !inStudio).entries.filter(
+    (entry) => !navReportNames.has(entry.name) && matches(entry.label, entry.name),
+  );
   const switchableApps = apps.filter((a) => a.active !== false);
   const appItems =
     switchableApps.length > 1
@@ -344,7 +364,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                 <CommandItem
                   key={`recent:${item.id}`}
                   value={`recent ${recentLabel(item)} ${item.id}`}
-                  onSelect={() => runCommand(() => navigate(item.href))}
+                  onSelect={() => leaveTo(item.href)}
                 >
                   <Icon className="mr-2 h-4 w-4" />
                   <span className="truncate">{recentLabel(item)}</span>
@@ -389,7 +409,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                   // Embed the live query so cmdk's client-side filter doesn't
                   // hide async hits that don't textually match the input.
                   value={`record ${inputValue} ${hit.display} ${hit.objectLabel} ${hit.objectName} ${hit.recordId}`}
-                  onSelect={() => runCommand(() => navigate(`${baseUrl}/${hit.objectName}/record/${hit.recordId}`))}
+                  onSelect={() => leaveTo(`${baseUrl}/${hit.objectName}/record/${hit.recordId}`)}
                 >
                   <Icon className="mr-2 h-4 w-4" />
                   <span className="truncate">{hit.display}</span>
@@ -413,7 +433,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                   <CommandItem
                     key={item.id}
                     value={`object ${navLabel(item)} ${item.objectName}`}
-                    onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
+                    onSelect={() => leaveTo(resolveHref(item, baseUrl, templateContext).href)}
                   >
                     <Icon className="mr-2 h-4 w-4" />
                     <span>{navLabel(item)}</span>
@@ -431,7 +451,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                 <CommandItem
                   key={item.id}
                   value={`dashboard ${navLabel(item)} ${item.dashboardName}`}
-                  onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
+                  onSelect={() => leaveTo(resolveHref(item, baseUrl, templateContext).href)}
                 >
                   <LayoutDashboard className="mr-2 h-4 w-4" />
                   <span>{navLabel(item)}</span>
@@ -448,7 +468,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                 <CommandItem
                   key={item.id}
                   value={`page ${navLabel(item)} ${item.pageName}`}
-                  onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
+                  onSelect={() => leaveTo(resolveHref(item, baseUrl, templateContext).href)}
                 >
                   <FileText className="mr-2 h-4 w-4" />
                   <span>{navLabel(item)}</span>
@@ -458,19 +478,29 @@ export function CommandPalette(props: CommandPaletteProps) {
         )}
 
         {/* Reports */}
-        {reportItems.length > 0 && (
+        {(reportItems.length > 0 || appReports.length > 0) && (
           <CommandGroup heading={t('console.commandPalette.reports')}>
             {reportItems
               .map(item => (
                 <CommandItem
                   key={item.id}
                   value={`report ${navLabel(item)} ${item.reportName}`}
-                  onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
+                  onSelect={() => leaveTo(resolveHref(item, baseUrl, templateContext).href)}
                 >
                   <BarChart3 className="mr-2 h-4 w-4" />
                   <span>{navLabel(item)}</span>
                 </CommandItem>
               ))}
+            {appReports.map((entry) => (
+              <CommandItem
+                key={`app-report:${entry.name}`}
+                value={`report ${entry.label} ${entry.name}`}
+                onSelect={() => leaveTo(`${baseUrl}/report/${encodeURIComponent(entry.name)}`)}
+              >
+                <BarChart3 className="mr-2 h-4 w-4" />
+                <span>{entry.label}</span>
+              </CommandItem>
+            ))}
           </CommandGroup>
         )}
 
@@ -483,7 +513,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                 kind="studio-package"
                 entry={entry}
                 Icon={Boxes}
-                onOpen={() => runCommand(() => navigate(entry.href))}
+                onOpen={() => leaveTo(entry.href)}
               />
             ))}
           </CommandGroup>
@@ -496,7 +526,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                 kind="studio-object"
                 entry={entry}
                 Icon={Database}
-                onOpen={() => runCommand(() => navigate(entry.href))}
+                onOpen={() => leaveTo(entry.href)}
               />
             ))}
           </CommandGroup>
@@ -509,7 +539,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                 kind="studio-flow"
                 entry={entry}
                 Icon={Workflow}
-                onOpen={() => runCommand(() => navigate(entry.href))}
+                onOpen={() => leaveTo(entry.href)}
               />
             ))}
           </CommandGroup>
@@ -527,7 +557,7 @@ export function CommandPalette(props: CommandPaletteProps) {
                     <CommandItem
                       key={app.name}
                       value={`app ${resolveKeyedI18nLabel(app.label, t)} ${app.name}`}
-                      onSelect={() => runCommand(() => onAppChange(appRouteSegment(app) ?? app.name))}
+                      onSelect={() => runCommand(() => confirmUnsavedLeave(() => onAppChange(appRouteSegment(app) ?? app.name)))}
                     >
                       <Icon className="mr-2 h-4 w-4" />
                       <span>{resolveKeyedI18nLabel(app.label, t)}</span>
@@ -564,7 +594,7 @@ export function CommandPalette(props: CommandPaletteProps) {
               {/* Manual "Create App" deprecated — AI-first builder is the path. */}
               <CommandItem
                 value={FULL_SEARCH_VALUE}
-                onSelect={() => runCommand(() => navigate(`${baseUrl}/search`))}
+                onSelect={() => leaveTo(`${baseUrl}/search`)}
               >
                 <Search className="mr-2 h-4 w-4" />
                 <span>{t('console.commandPalette.openFullSearch')}</span>
@@ -764,17 +794,4 @@ function StudioPaletteItem({
       )}
     </CommandItem>
   );
-}
-
-/** Flatten nested navigation groups into a flat list of leaf items */
-function flattenNavigation(items: any[]): any[] {
-  const result: any[] = [];
-  for (const item of items) {
-    if (item.type === 'group' && item.children) {
-      result.push(...flattenNavigation(item.children));
-    } else {
-      result.push(item);
-    }
-  }
-  return result;
 }

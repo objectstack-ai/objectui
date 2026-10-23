@@ -32,6 +32,21 @@ export interface ObjectFieldInfo {
   type: string;
   hidden: boolean;
   /**
+   * `true` when the served definition marks the field `system` — a column the
+   * platform injects. Absent otherwise.
+   *
+   * Carried so a Studio field picker can tell the platform's own bookkeeping
+   * columns (`system` AND `hidden` together: the `__search` companion,
+   * `owning_business_unit_id`, `organization_id`) from an author's own hidden
+   * field, with the one predicate the Data rail uses
+   * (`isStudioHiddenSystemField`, objectui#11780). The list-view inspector's
+   * field pickers and the flow reference picker's `object-field` suggestions
+   * drop such a field (objectui#13152). Like `required` below, it is the same
+   * served payload read once more; this hook still returns every field, and a
+   * caller that does not read the flag sees the list it always did.
+   */
+  system?: boolean;
+  /**
    * `true` when the object declares the field `required` — the write-time
    * contract the server enforces on every save. Absent otherwise.
    *
@@ -128,6 +143,7 @@ export function useObjectFields(
               : e.name,
           type: typeof e.def.type === 'string' ? (e.def.type as string) : 'text',
           hidden: e.def.hidden === true,
+          ...(e.def.system === true ? { system: true } : {}),
           ...(e.def.required === true ? { required: true } : {}),
         }));
         setState({ result: { fields, loading: false, error: null }, notFound: false });

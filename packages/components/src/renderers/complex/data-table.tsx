@@ -950,6 +950,20 @@ const STICKY_ROW_TINT =
   'bg-[image:linear-gradient(var(--os-row-tint,transparent),var(--os-row-tint,transparent))]';
 
 /**
+ * objectui#13188 — whether the viewer has selected text that touches `el`.
+ * A drag that selects text ends in a `click` on the row or cell it started
+ * in, so the row's open-record and the cell's start-edit read this first
+ * and stand down: the gesture was a selection, not an activation. A plain
+ * click collapses any earlier selection on mousedown, so it still activates.
+ */
+function hasTextSelectionIn(el: Element): boolean {
+  const selection = typeof window !== 'undefined' ? window.getSelection() : null;
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return false;
+  if (selection.toString().trim() === '') return false;
+  return selection.getRangeAt(0).intersectsNode(el);
+}
+
+/**
  * A right-pinned column: its sticky utilities arrive on `col.className` (the
  * auto-pinned row-actions column, and an author's `pinned: 'right'`, both
  * from `ObjectGrid`).
@@ -2744,6 +2758,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
     // Copy cell value with Ctrl+C / Cmd+C
     if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !editingCell) {
+      // objectui#13188 — text the viewer selected in this cell is what they
+      // copy: the browser's own copy runs. A masked cell never gets here
+      // with its default intact — the mask rule below goes first.
+      if (!columns.find((col) => col.accessorKey === columnKey)?.masked && hasTextSelectionIn(e.currentTarget)) return;
       e.preventDefault();
       // A MASKED column copies NOTHING (objectui#10583) — the producer drew a
       // mask, so the keyboard must not hand out what the cell hides. The
@@ -3090,16 +3108,25 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
           <TableHeader className="sticky top-0 bg-background z-10">
             <TableRow ref={headerRowRef}>
               {selectable && (
-                <TableHead className={cn("w-10 bg-background px-3", frozenColumns > 0 && "sticky left-0 z-20")}>
+                <TableHead className={cn("w-10 bg-background", showRowNumbers ? "px-0" : "px-3", frozenColumns > 0 && "sticky left-0 z-20")}>
                   {/* Select-all is a multi-select affordance; a 'single' view
                       keeps the column (alignment) but offers no way to select
                       more than one row (#2941). */}
+                  {/* objectui#13293 — with row numbers on, the rows centre their
+                      checkbox and number in the leading cell, so select-all is
+                      centred too; without them both sit at the cell's start.
+                      The centred cells drop their side padding: the base cell
+                      zeroes the right padding of any cell holding a checkbox,
+                      and a 12px/0 cell centres its text 6px right of the
+                      absolutely placed checkbox. */}
                   {selectionMode === 'multiple' && (
-                    <Checkbox
-                      checked={allPageRowsSelected ? true : somePageRowsSelected ? 'indeterminate' : false}
-                      onCheckedChange={handleSelectAll}
-                      aria-label={t('table.selectAllRows')}
-                    />
+                    <div data-slot="select-all" className={cn("flex items-center", showRowNumbers && "justify-center")}>
+                      <Checkbox
+                        checked={allPageRowsSelected ? true : somePageRowsSelected ? 'indeterminate' : false}
+                        onCheckedChange={handleSelectAll}
+                        aria-label={t('table.selectAllRows')}
+                      />
+                    </div>
                   )}
                 </TableHead>
               )}
@@ -3429,7 +3456,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       )}
                       style={rowStyle ? rowStyle(row, rowIndex) : undefined}
                       onClick={(e) => {
-                        if (schema.onRowClick && !e.defaultPrevented) {
+                        // objectui#13188 — a drag that selected text in the
+                        // row is a copy gesture, not an open.
+                        if (schema.onRowClick && !e.defaultPrevented && !hasTextSelectionIn(e.currentTarget)) {
                            // Heuristic to avoid triggering on interactive elements if they didn't stop propagation.
                            // Note: Radix overlays (DropdownMenu, Popover, Dialog, etc.) render their content in a
                            // Portal but React events still bubble up through the virtual tree to this row. So we
@@ -3482,7 +3511,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                             if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
                             handleSelectRow(rowId, !isSelected);
                           }}
-                          className={cn(cellClassName, "w-10 px-3 relative cursor-pointer", showRowNumbers && "text-center", frozenColumns > 0 && ["sticky left-0 z-10 bg-background", STICKY_ROW_TINT])}
+                          className={cn(cellClassName, "w-10 relative cursor-pointer", showRowNumbers ? "px-0 text-center" : "px-3", frozenColumns > 0 && ["sticky left-0 z-10 bg-background", STICKY_ROW_TINT])}
                         >
                           {/* objectui#12423 — the leading cell (see
                               `leadingCellCount`): the row number by default,
@@ -3654,13 +3683,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                               // onRowClick (record-detail drawer). The row heuristic
                               // can't see the editor yet (the <input> only renders
                               // next frame), so stop propagation here explicitly.
-                              if (isEditable && !singleClickEdit) {
+                              // objectui#13188 — selecting text is not an edit.
+                              if (isEditable && !singleClickEdit && !hasTextSelectionIn(e.currentTarget)) {
                                 e.stopPropagation();
                                 startEdit(row, col.accessorKey);
                               }
                             }}
                             onClick={(e) => {
-                              if (isEditable && singleClickEdit) {
+                              if (isEditable && singleClickEdit && !hasTextSelectionIn(e.currentTarget)) {
                                 e.stopPropagation();
                                 startEdit(row, col.accessorKey);
                               }

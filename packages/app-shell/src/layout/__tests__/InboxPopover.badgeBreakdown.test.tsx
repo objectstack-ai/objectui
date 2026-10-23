@@ -17,9 +17,11 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-// Interpolating stub: the real packs carry `{{unread}}` / `{{approvals}}` /
-// `{{total}}`, so a stub that returned `defaultValue` verbatim would make every
-// numeric assertion below vacuous (it would assert on the literal "{{total}}").
+// Interpolating stub: the real packs carry `{{count}}` / `{{total}}`, so a
+// stub that returned `defaultValue` verbatim would make every numeric
+// assertion below vacuous (it would assert on the literal "{{total}}"). It does
+// not plural-select — the singular forms are pinned against the real `en`
+// pack in `InboxPopover.badgePlural-13133.test.tsx`.
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
   // `formatRelativeTime` is reached through `utils/relativeTime` for every
   // rendered row — keep the real module and override only the hook.

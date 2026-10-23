@@ -240,25 +240,30 @@ const CITED_ITEM_TYPES = ['position', 'permission'] as const;
 type CitedItemType = (typeof CITED_ITEM_TYPES)[number];
 
 /**
- * A position or permission-set chip on the Principal card (objectui#12693):
- * the item's label as the text, with its name on the chip's `title`; with no
- * label the name alone is the text, as the chip read before.
+ * A position or permission-set chip on the Principal card (objectui#12693) and
+ * a layer's "Contributed by" line (objectui#13056): the item's label as the
+ * text, with its name on the chip's `title`; with no label the name alone is
+ * the text, as the chip read before. `detail` — a contributor's kind and how
+ * it reached the principal — follows the name on the `title`.
  */
 function CitedItemChip({
   name,
   label,
   variant,
+  detail,
 }: {
   name: string;
   label?: string;
   variant: 'outline' | 'secondary';
+  detail?: string;
 }): React.ReactElement {
   const text = label && label.trim() ? label : name;
+  const title = [text !== name ? name : undefined, detail].filter(Boolean).join(' · ');
   return (
     <Badge
       variant={variant}
       className="px-1.5 py-0 text-[10px] font-normal"
-      title={text !== name ? name : undefined}
+      title={title || undefined}
     >
       {text}
     </Badge>
@@ -379,18 +384,21 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
   );
 
   /**
-   * Label the positions and permission sets a decision cites (objectui#12693).
-   * The explain answer carries their names only, so each type the decision
-   * names an unlabelled item of is listed once per run — the read the Access
+   * Label the positions and permission sets a decision cites (objectui#12693)
+   * — on the Principal card and in each layer's "Contributed by" line
+   * (objectui#13056). The explain answer carries their names only, so each
+   * type the decision names an unlabelled item of is listed once per run — the read the Access
    * pillar's rail makes for permission sets — and its rows' labels kept. A list
    * that fails, or a row with no label, leaves the name as the text, which is
    * what the chip showed before.
    */
   const lookUpItemLabels = React.useCallback(
     async (d: ExplainDecision) => {
+      const contributors = (d.layers ?? []).flatMap((l) => l.contributors ?? []);
+      const contributed = (kind: string) => contributors.filter((c) => c.kind === kind).map((c) => c.name);
       const cited: Record<CitedItemType, readonly string[]> = {
-        position: d.principal?.positions ?? [],
-        permission: d.principal?.permissionSets ?? [],
+        position: [...(d.principal?.positions ?? []), ...contributed('position')],
+        permission: [...(d.principal?.permissionSets ?? []), ...contributed('permission_set')],
       };
       await Promise.all(
         CITED_ITEM_TYPES.map(async (type) => {
@@ -780,14 +788,19 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
                             {t('engine.studio.access.explain.contributors', locale)}:
                           </span>
                           {(l.contributors ?? []).map((c, i) => (
-                            <Badge
+                            <CitedItemChip
                               key={`${c.kind}:${c.name}:${i}`}
+                              name={c.name}
+                              label={
+                                c.kind === 'position'
+                                  ? itemLabels.position[c.name]
+                                  : c.kind === 'permission_set'
+                                    ? itemLabels.permission[c.name]
+                                    : undefined
+                              }
                               variant={c.kind === 'position' ? 'outline' : 'secondary'}
-                              className="px-1.5 py-0 text-[10px] font-normal"
-                              title={c.via ? `${c.kind} · via ${c.via}` : c.kind}
-                            >
-                              {c.name}
-                            </Badge>
+                              detail={c.via ? `${c.kind} · via ${c.via}` : c.kind}
+                            />
                           ))}
                         </div>
                       )}

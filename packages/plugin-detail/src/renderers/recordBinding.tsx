@@ -28,13 +28,16 @@
  *
  * ## Semantics of the bound set (the card's, verbatim in intent)
  *
- *  - 0 rows → the block is mounted under a record context that names the bound
- *    object and NO record, so each block draws what it draws for a record that
- *    is not there: `record:details` its "record not found" state,
- *    `record:highlights` nothing, `record:quick_actions` its empty bar. A row
- *    the caller may not read never comes back from the server, and a read the
- *    server refuses outright (`classifyLoadError` → `forbidden`) is treated the
- *    same, so "absent" and "not yours to read" are indistinguishable.
+ *  - 0 rows → the block's authored `emptyState` when it declares one (see
+ *    "The authored empty state" below). Without one, the block is mounted under
+ *    a record context that names the bound object and NO record, so each block
+ *    draws what it draws for a record that is not there: `record:details` its
+ *    "record not found" state, `record:highlights` nothing,
+ *    `record:quick_actions` its empty bar. A row the caller may not read never
+ *    comes back from the server, and a read the server refuses outright
+ *    (`classifyLoadError` → `forbidden`) is treated the same, so "absent" and
+ *    "not yours to read" are indistinguishable — and the authored empty state
+ *    is drawn for both.
  *  - 1 row → that record.
  *  - more than one row → the FIRST by the binding's `sort`. Only one row is
  *    ever asked for (`$top: 1`): the first row of the authored `limit` and the
@@ -44,6 +47,26 @@
  *
  * The row is read with the adapter the page already uses, so under the
  * caller's identity: nothing here widens what the server serves.
+ *
+ * ## The authored empty state (objectui#12932)
+ *
+ * The spec declares `emptyState` on the three bound record blocks
+ * (`RecordDetailsProps`, `RecordHighlightsProps`, `RecordQuickActionsProps`;
+ * objectstack#24266), the list view's own `EmptyStateSchema` by reference:
+ * `{ title, message, icon, link }`. It is drawn on ONE condition, the spec's:
+ * the block carries a `dataSource` binding and the settled read answered no
+ * row. {@link BoundRecordEmptyState} draws it IN PLACE of the block body, with
+ * the pieces `ObjectGrid` draws its authored empty state with —
+ * `DataEmptyState`, `resolveIcon` for the `icon`, the spec's own
+ * `resolveI18nLabel` for `title` and `message` against the display locale,
+ * and the one shared `EmptyStateLink` for `link` — so one key draws one
+ * picture on every surface that takes it.
+ *
+ * It is NOT drawn while the read is in flight (the loading state), for a read
+ * that failed (the error panel stays the error panel), for a bound row that is
+ * there but leaves the block nothing to show, or on an unbound block: an
+ * unbound block reads the record page's record and never reaches this module's
+ * read. A block that declares none keeps its own no-record state above.
  *
  * ## The record page path is untouched
  *
@@ -110,7 +133,9 @@ import {
   type ElementDataSourceMapping,
 } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
-import { Skeleton } from '@object-ui/components';
+import { DataEmptyState, EmptyStateLink, Skeleton, resolveIcon } from '@object-ui/components';
+import { useDisplayLocale } from '@object-ui/i18n';
+import { resolveI18nLabel as resolveInlineI18nLabel, type EmptyState } from '@objectstack/spec/ui';
 import {
   buildExpandFields,
   elementDataSourceBlock,
@@ -118,6 +143,7 @@ import {
   withoutDeniedFields,
 } from '@object-ui/core';
 import type { DataSource, QueryParams } from '@object-ui/types';
+import { useDetailTranslation } from '../useDetailTranslation';
 
 /**
  * What the gate lands for a record block: the bound object on `objectName`
@@ -216,10 +242,67 @@ function BoundRecordScope({ schema, bound, testId, children }: BoundRecordScopeP
   // The gate calls its children only once the binding composed, and a composed
   // binding always names its object (`isElementDataSourceConfig`).
   const object = typeof landed.objectName === 'string' ? landed.objectName : '';
+  const emptyState = authoredEmptyState(schema);
   return (
-    <BoundRecordProvider object={object} filter={landed.filter} sort={landed.sort} testId={testId}>
+    <BoundRecordProvider
+      object={object}
+      filter={landed.filter}
+      sort={landed.sort}
+      testId={testId}
+      absent={emptyState ? <BoundRecordEmptyState emptyState={emptyState} testId={testId} /> : undefined}
+    >
       {children}
     </BoundRecordProvider>
+  );
+}
+
+/**
+ * The block's authored `emptyState`, the spec's `EmptyStateSchema` — the shape
+ * the contract validates at publish, so nothing here re-reads its members under
+ * another spelling. Anything that is not an object is not an authored empty
+ * state, and the block keeps its own no-record state.
+ */
+function authoredEmptyState(schema: unknown): EmptyState | undefined {
+  const value = (schema as { emptyState?: unknown } | null | undefined)?.emptyState;
+  return value != null && typeof value === 'object' && !Array.isArray(value) ? (value as EmptyState) : undefined;
+}
+
+interface BoundRecordEmptyStateProps {
+  emptyState: EmptyState;
+  /** `data-testid` stem; the drawing is `<stem>-empty-state`. */
+  testId: string;
+}
+
+/**
+ * A bound record block's authored empty state, drawn in place of the block
+ * when its binding answered no row (see "The authored empty state" above).
+ *
+ * The drawing is `ObjectGrid`'s for its own authored `emptyState`, member for
+ * member: `icon` through `resolveIcon` (a name that resolves to nothing keeps
+ * `DataEmptyState`'s own glyph), `title` and `message` resolved against the
+ * display locale (a map with no usable entry keeps that member's default),
+ * and `link` through the one shared `EmptyStateLink`. The one difference is
+ * the default heading: a record block's is the words `record:details` says for
+ * a record that is not there, not the table's "No results found".
+ */
+function BoundRecordEmptyState({ emptyState, testId }: BoundRecordEmptyStateProps): React.ReactElement {
+  const displayLocale = useDisplayLocale();
+  const { t } = useDetailTranslation();
+  const title = resolveInlineI18nLabel(emptyState.title, displayLocale);
+  const message = resolveInlineI18nLabel(emptyState.message, displayLocale);
+  const Icon = resolveIcon(emptyState.icon);
+  return (
+    <DataEmptyState
+      data-testid={`${testId}-empty-state`}
+      // The annotation the other `resolveIcon` seam call sites carry: it returns
+      // a STABLE, cached component per icon name; it does not create one during
+      // render. The rule cannot see that through a call.
+      // eslint-disable-next-line react-hooks/static-components
+      icon={Icon ? <Icon className="size-5 text-muted-foreground" /> : undefined}
+      title={title || t('detail.recordNotFound')}
+      description={message || undefined}
+      action={emptyState.link ? <EmptyStateLink link={emptyState.link} displayLocale={displayLocale} /> : undefined}
+    />
   );
 }
 
@@ -364,7 +447,8 @@ interface BoundRecordProviderProps {
    * Drawn INSTEAD of the children when the settled read has no row. Absent, the
    * children are mounted under a record context that names the object and no
    * record — the three one-record blocks' own no-record states. Set by
-   * {@link ParentRecordBinding} only.
+   * {@link ParentRecordBinding} (its loud absence) and by
+   * {@link BoundRecordScope} when the block declares an `emptyState`.
    */
   absent?: React.ReactNode;
   /** Heading of the failed-read panel; the family's default when absent. */

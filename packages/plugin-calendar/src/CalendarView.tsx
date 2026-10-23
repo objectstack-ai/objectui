@@ -254,10 +254,17 @@ function CalendarView({
     onViewChange?.(newView)
   }
 
-  const getDateLabel = () => {
+  // The header names the period twice: in full, and in a short form for
+  // phone widths, where the full day label ("Tuesday, October 20, 2026")
+  // does not fit beside the navigation buttons. Both come from the same
+  // locale-aware formatter; the short form drops the year and spells the
+  // weekday and month short ("Tue, Oct 20"), or the month short in the month
+  // view ("Oct 2026"). The full form is the accessible name and the tooltip.
+  const getDateLabel = (form: "full" | "short" = "full") => {
+    const short = form === "short"
     if (selectedView === "month") {
       return selectedDate.toLocaleDateString(effectiveLocale, {
-        month: "long",
+        month: short ? "short" : "long",
         year: "numeric",
       })
     } else if (selectedView === "week") {
@@ -267,13 +274,20 @@ function CalendarView({
       return `${firstDay.toLocaleDateString(effectiveLocale, {
         month: "short",
         day: "numeric",
-      })} - ${weekEnd.toLocaleDateString(effectiveLocale, {
+      })} - ${weekEnd.toLocaleDateString(effectiveLocale, short ? {
+        month: "short",
+        day: "numeric",
+      } : {
         month: "short",
         day: "numeric",
         year: "numeric",
       })}`
     } else {
-      return selectedDate.toLocaleDateString(effectiveLocale, {
+      return selectedDate.toLocaleDateString(effectiveLocale, short ? {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      } : {
         weekday: "long",
         month: "long",
         day: "numeric",
@@ -310,8 +324,14 @@ function CalendarView({
     <div role="region" aria-label={t('calendar.a11y.region')} className={cn("flex flex-col h-full bg-background min-w-0 overflow-hidden", className)}>
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 p-2 sm:p-4 border-b min-w-0">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center bg-muted/50 rounded-lg p-1 gap-1">
+        {/*
+          The left group may shrink below its content (`min-w-0`) so the date
+          title truncates with an ellipsis instead of being clipped by the
+          region's `overflow-hidden` at phone widths; the button group keeps
+          its size.
+        */}
+        <div className="flex items-center gap-4 min-w-0 max-w-full">
+          <div className="flex shrink-0 items-center bg-muted/50 rounded-lg p-1 gap-1">
              <Button variant="ghost" size="sm" onClick={handleToday} className="h-8" aria-label={t('calendar.a11y.goToToday')}>
                {t('calendar.today')}
              </Button>
@@ -341,13 +361,15 @@ function CalendarView({
               <Button 
                 variant="ghost" 
                 aria-label={t('calendar.a11y.currentDate', { date: getDateLabel() })}
+                title={getDateLabel()}
                 className={cn(
                   "text-base sm:text-xl font-semibold h-auto px-2 sm:px-3 py-1 hover:bg-muted/50 transition-colors",
-                  "flex items-center gap-2"
+                  "flex items-center gap-2 min-w-0 max-w-full"
                 )}
               >
-                <CalendarIcon className="h-5 w-5 text-muted-foreground" />
-                <span>{getDateLabel()}</span>
+                <CalendarIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
+                <span data-date-label="full" className="hidden min-w-0 truncate sm:block">{getDateLabel()}</span>
+                <span data-date-label="short" className="min-w-0 truncate sm:hidden">{getDateLabel("short")}</span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">

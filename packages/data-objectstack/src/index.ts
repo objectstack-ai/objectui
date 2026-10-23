@@ -900,6 +900,36 @@ export function serializeOrderBy(orderby: QueryParams['$orderby']): string | und
 // at the same baseUrl (e.g. ConditionalAuthWrapper's throwaway adapter +
 // AdapterProvider's main adapter) would otherwise each fire `/discovery`. By
 // keying on baseUrl we collapse them to a single network round trip per origin.
+/**
+ * The one {@link MetadataCache} key for the published view list,
+ * `GET /api/v1/meta/view` (objectui#13044).
+ *
+ * Three readers ask that one URL on a single list-page open: the app-shell
+ * `MetadataProvider`'s eager `view` read (through {@link ObjectStackAdapter.getClient}),
+ * {@link ObjectStackAdapter.listViews} and
+ * {@link ObjectStackAdapter.listViewOverrides}. They share the request IN
+ * FLIGHT under this key: whoever asks while one is on the wire joins it.
+ *
+ * The answer is also stored under it (objectui#13057, completing objectui#13044
+ * ruling 6268839381 (a)-(c)). The client read still always asks the server; the
+ * adapter's own two readers are answered from what it stored, so the console's
+ * order (the eager read lands, then the object page reads the list and the
+ * overrides) costs one request. The settled entry is dropped by every path that
+ * should see a fresh list:
+ *
+ * - every view write: {@link ObjectStackAdapter.invalidateViewKeys}, the client
+ *   write wrap in `installViewListShare`, and app-shell's console
+ *   `MetadataClient` (`useMetadataClient`), which drops it after each of its
+ *   view-capable write doors;
+ * - a user refresh (app-shell `ObjectView`'s `refreshData`);
+ * - an organization or session switch, and the publish pulse, which clear the
+ *   whole cache (app-shell `MetadataProvider`).
+ *
+ * The draft-overlaid list (`listViews` with `previewDrafts`) is a different
+ * request on a different client, and never fills this key.
+ */
+const VIEW_LIST_KEY = 'list:view';
+
 const discoveryCache = new Map<string, Promise<unknown>>();
 
 /**
@@ -3314,6 +3344,8 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     // installed the moment the client exists so no save can precede it.
     this.installSaveAdvisoryInterceptor();
     this.metadataCache = new MetadataCache(config.cache);
+    // objectui#13044 — after the cache, which the wrap reads.
+    this.installViewListShare();
     this.autoReconnect = config.autoReconnect ?? true;
     this.maxReconnectAttempts = config.maxReconnectAttempts ?? 3;
     this.reconnectDelay = config.reconnectDelay ?? 1000;
@@ -4173,6 +4205,71 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       }
       return result;
     };
+  }
+
+  /**
+   * Route this adapter's client's published view-list read through the one
+   * {@link VIEW_LIST_KEY} (objectui#13044).
+   *
+   * The app-shell `MetadataProvider` reads `client.meta.getItems('view')`
+   * through {@link getClient}; {@link listViews} and {@link listViewOverrides}
+   * read the same `GET /api/v1/meta/view`. Each used to put its own request on
+   * the wire, so one list-page open asked the server three times for one URL.
+   *
+   * A caller of the client keeps its contract, "ask the server": it is never
+   * answered from a settled entry. It joins a request already in flight for
+   * the same URL instead of sending a second one, and its answer is stored
+   * under {@link VIEW_LIST_KEY} (see {@link MetadataCache.share}), which is
+   * what {@link readViewList} answers this adapter's own readers from
+   * (objectui#13057). Only the bare call is routed: any argument after the
+   * type changes the URL, so such a call goes straight to the SDK.
+   *
+   * Every caller gets its own copy of the answer. Before this, every reader
+   * got its own parsed response, so a reader that changed what it was handed
+   * changed nothing anyone else read; a shared answer must not change that.
+   *
+   * Same wrap shape and the same bound as `installSaveAdvisoryInterceptor`:
+   * `meta` is an own property of a client this adapter built and never shares.
+   */
+  private installViewListShare(): void {
+    const meta = this.client.meta;
+    const original = meta.getItems.bind(meta);
+    meta.getItems = ((...args: Parameters<typeof original>) => {
+      if (args[0] !== 'view' || args.length > 1) return original(...args);
+      return this.metadataCache
+        .share(VIEW_LIST_KEY, () => original(...args))
+        .then((answer) => structuredClone(answer));
+    }) as typeof meta.getItems;
+
+    // A write to a `view` row through this client, from any caller (a page
+    // that saves a view with `getClient().meta.saveItem` directly, not only
+    // through {@link invalidateViewKeys}), drops the stored list and detaches
+    // the list request in flight once it settles, so a read asked after the
+    // write is never answered by a list read before it.
+    for (const door of ['saveItem', 'deleteItem', 'publishItem', 'rollbackItem'] as const) {
+      const write = meta[door] as ((...args: any[]) => Promise<unknown>) | undefined;
+      if (typeof write !== 'function') continue;
+      const bound = write.bind(meta);
+      (meta as any)[door] = (...args: any[]) => {
+        if (args[0] !== 'view') return bound(...args);
+        return bound(...args).finally(() => this.metadataCache.invalidate?.(VIEW_LIST_KEY));
+      };
+    }
+  }
+
+  /**
+   * The published view list for this adapter's own readers
+   * ({@link listViews}, {@link listViewOverrides}): the answer stored under
+   * {@link VIEW_LIST_KEY} while it holds one (objectui#13057), else the
+   * client's read, which joins the request in flight for that key or starts
+   * one, and stores its answer (objectui#13044). Always a copy the caller may
+   * keep. Every path that should see a fresh list drops the key first; the
+   * list is in {@link VIEW_LIST_KEY}'s doc.
+   */
+  private readViewList(): Promise<any> {
+    const settled = this.metadataCache.getCachedSync(VIEW_LIST_KEY);
+    if (settled !== undefined) return Promise.resolve(structuredClone(settled));
+    return this.client.meta.getItems('view');
   }
 
   async create(resource: string, data: Partial<T>): Promise<T> {
@@ -5463,6 +5560,10 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     // suite records, so a reordering is a visible decision rather than drift.
     this.metadataCache.invalidate?.(`view:${objectName}:${viewName}`);
     this.metadataCache.invalidate?.(`view-overrides:${objectName}`);
+    // The list both readers derive from (objectui#13044, objectui#13057): a
+    // read asked after this write is answered neither by the stored list nor
+    // by a list request sent before it.
+    this.metadataCache.invalidate?.(VIEW_LIST_KEY);
   }
 
   /**
@@ -5515,7 +5616,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
     const cacheKey = `view-overrides:${objectName}`;
     return await this.metadataCache.get(cacheKey, async () => {
-      const result: any = await this.client.meta.getItems('view');
+      const result: any = await this.readViewList();
       const items: any[] = Array.isArray(result?.items)
         ? result.items
         : Array.isArray(result) ? result : [];
@@ -5633,7 +5734,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
           .list<any>('view');
         items = Array.isArray(draftItems) ? draftItems : [];
       } else {
-        const result: any = await this.client.meta.getItems('view');
+        const result: any = await this.readViewList();
         items = Array.isArray(result?.items)
           ? result.items
           : Array.isArray(result) ? result : [];
@@ -7191,6 +7292,11 @@ export { MetadataClient, readSaveAdvisories } from './metadata-client';
 // `getDraft` that produces the envelope, because the unwrap-and-strip is part
 // of that method's contract rather than a detail of any one view.
 export { extractDraftBody } from './draft-envelope';
+// objectui#12725 - the reader of the same envelope's per-key provenance
+// (`draftChanges`, objectstack#24298): which surface last changed a key of the
+// pending draft. One reader, so the longest-prefix rule is spelled once.
+export { readDraftChanges, governingDraftChange, draftChangesUnder } from './draft-envelope';
+export type { DraftChange } from './draft-envelope';
 // objectui#10202 / objectui#11692 - the served -> authored conversion of a
 // picklist-bound field, exported for the WRITERS that seed an object PUT from a
 // served read (the read answers `picklist` beside the resolved `options`, and the

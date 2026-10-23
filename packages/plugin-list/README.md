@@ -419,6 +419,63 @@ by name, on the node or in `properties`, each naming what to write instead
 list view draws is refused, and so is a list view prop such as `columns` written
 on the node itself rather than in `properties`.
 
+## On a page — `requiredPermissions`
+
+One more key of the spec's list view row acts on a page `list-view` node. It
+sits in `properties`:
+
+```json
+{
+  "type": "list-view",
+  "properties": {
+    "data": { "provider": "object", "object": "deal" },
+    "columns": ["name", "amount"],
+    "requiredPermissions": ["sales.view_pipeline"]
+  }
+}
+```
+
+**`requiredPermissions`** names the capabilities the viewer must **all** hold,
+the names permission sets grant through `systemPermissions`. It gates the node
+the way it gates the record blocks (`record:details`, `record:highlights`,
+`record:related_list`). A viewer missing one sees the notice "Insufficient
+permissions to view list." (`role="status"`) in place of the list, and no
+records are queried. An empty list, or no key, is no gate. A permission
+provider that reports no capabilities at all leaves the list shown; the server
+stays the authority. Only the page node reads this key: the object list page
+draws `ListView` itself, and the server gates the views it serves.
+
+`addRecord` draws an Add button. `position` places it: `"top"` (the toolbar),
+`"bottom"` or `"both"`. `mode` and `formView` are not read.
+
+The spec row declares `enabled` default `true` and `position` default
+`"bottom"`. The renderer does not apply those defaults: it draws the button only
+for an explicit `enabled: true`, and places an absent `position` at the top.
+objectui#13099 owns that gap; until it lands, write both keys.
+
+```json
+{
+  "type": "list-view",
+  "properties": {
+    "data": { "provider": "object", "object": "deal" },
+    "addRecord": { "enabled": true, "position": "top" }
+  }
+}
+```
+
+On a page node the click calls the `onCreate` a `RelatedRecordActionsContext`
+provider (`@object-ui/react`) serves for the listed object, resolved with
+`{ objectName }` and no `relationshipField`. The console's page host serves the
+create the object list's New opens: the record-form overlay, or the full-page
+create route for an object whose `editMode` is `page`. With no such provider,
+for a viewer who may not create, or for a create the object greys, the button
+is not drawn, rather than drawn with no action. A host that passes `ListView`'s
+own `onAddRecord` prop keeps it; the console's object list passes its header
+New's create.
+
+`sharing` does nothing on a page node yet: it draws a Share button with no
+action, because the spec declares none for it. It is not a published input.
+
 ## Page binding — `dataSource` (referencing a saved view by name)
 
 On a metadata page, a `list-view` component can also bind its data through the

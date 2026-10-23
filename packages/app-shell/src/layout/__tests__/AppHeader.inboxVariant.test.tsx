@@ -228,6 +228,19 @@ let receiptRows: Array<Record<string, unknown>> | null = null;
  * test. Two rows ⇒ `pendingApprovalsCount` 2, which is the second badge addend.
  */
 let approvalRows: Array<{ id: string }> = [];
+/** How many approval rows each approvals response carried — the payload measure (objectui#13027). */
+let approvalRowsServed: number[] = [];
+
+/**
+ * What the approvals route answers (objectui#13027): asked for a page
+ * (`limit`), the first `limit` rows plus the exact `total`; unpaged, every row
+ * and no `total` — the route's two shapes, so the fixture is the server's.
+ */
+function approvalsPage(rows: unknown[], url: string): { data: unknown[]; total?: number } {
+  const limit = new URL(url, 'http://localhost').searchParams.get('limit');
+  return limit == null ? { data: rows } : { data: rows.slice(0, Number(limit)), total: rows.length };
+}
+
 
 const fakeAdapter = {
   find: (object: string, query: unknown) => {
@@ -261,6 +274,7 @@ let fetchUrls: string[] = [];
 beforeEach(() => {
   finds.length = 0;
   fetchUrls = [];
+  approvalRowsServed = [];
   inboxRows = [INBOX_ROW];
   // Default: no activity, no approvals — so the #4110 cases above keep the
   // exact badge arithmetic they were written against (approvals addend 0).
@@ -281,8 +295,10 @@ beforeEach(() => {
       const url = String(input);
       fetchUrls.push(url);
       if (url.includes('/api/v1/approvals/requests')) {
+        const page = approvalsPage(approvalRows, url);
+        approvalRowsServed.push(page.data.length);
         return Promise.resolve(
-          new Response(JSON.stringify({ data: approvalRows }), {
+          new Response(JSON.stringify(page), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
           }),
@@ -901,5 +917,49 @@ describe('AppHeader — the Activity tab asks only a caller who may read sys_act
     await waitFor(() => expect(activityReads()).toHaveLength(1));
     expect(await screen.findByText('No recent activity')).toBeInTheDocument();
     expect(screen.queryByTestId('inbox-activity-unanswered')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * objectui#13027 — the approvals read is ONE PAGE plus the route's `total`.
+ *
+ * The count is drawn on every console page (the badge's second addend, the
+ * breakdown line, the tab strip); the rows only by Home's five-row preview. So
+ * the one shared read asks for a page (`limit`) and every surface's count is
+ * the answer's `total` — never the page's length, which would cap the badge at
+ * the page size. Still one request for the bell and Home together (#4197).
+ */
+describe('AppHeader — the approvals read is one page and its total (objectui#13027)', () => {
+  const twelve = Array.from({ length: 12 }, (_, i) => ({ id: `apr_${i + 1}` }));
+
+  it('one open asks for one page, and the badge shows the total, not the page', async () => {
+    approvalRows = twelve;
+    render(<AppHeader variant="app" appName="ehr" />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('inbox-badge-breakdown-approvals')).toHaveTextContent(
+        '12 pending approvals',
+      ),
+    );
+    expect(approvalReads()).toHaveLength(1);
+    expect(new URL(approvalReads()[0], 'http://localhost').searchParams.get('limit')).toBe('5');
+    // The measure: one open's approvals response carried 5 rows, not all 12.
+    expect(approvalRowsServed).toEqual([5]);
+  });
+
+  it('the bell and Home read the same total from the same one read, past the page size', async () => {
+    approvalRows = twelve;
+    render(
+      <>
+        <AppHeader variant="home" />
+        <HomeTodoCardProbe />
+      </>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('home-approvals-count')).toHaveTextContent('12'));
+    expect(screen.getByTestId('inbox-badge-breakdown-approvals')).toHaveTextContent(
+      '12 pending approvals',
+    );
+    expect(approvalReads()).toHaveLength(1);
   });
 });

@@ -8,10 +8,16 @@
 
 /**
  * The console's system and developer pages read the DECLARED session locale,
- * never the machine's (objectui#9909): the approvals inbox (queue amount,
- * drawer amount, payload summary — number, epoch-ms date and ISO date-time —
- * and every timestamp tooltip), the audit log's timestamp column, and the flow
- * runs table.
+ * never the machine's (objectui#9909): the approvals inbox queue (the row's
+ * amount and its submitted-at tooltip), the audit log's timestamp column, and
+ * the flow runs table.
+ *
+ * The inbox's side sheet was read here too (its amount, its payload summary
+ * and its timeline tooltips) until objectui#12484 deleted it: a request now
+ * opens on its served page, whose summary and timeline draw through the record
+ * page's own cells, and those cells' display-locale channel is pinned in
+ * `packages/fields` (`NumberCellRenderer.grouping.test.tsx`, "active display
+ * locale"; `date-locale-channel.test.tsx`).
  *
  * Every helper here has a `catch`, and none of them is the deliberate
  * fallback shape: each catches an unparseable VALUE, not a tag `Intl`
@@ -26,7 +32,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, within } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
 import { LocalizationProvider } from '@object-ui/i18n';
@@ -58,10 +64,6 @@ const { STORED, approvalsApiStub, ADAPTER, AUTH, I18N } = vi.hoisted(() => {
   };
   const approvalsApiStub = {
     listRequests: async () => ({ data: [ROW], total: 1 }),
-    getRequest: async () => ({ data: ROW }),
-    listActions: async () => ({
-      data: [{ id: 'a1', request_id: 'req_1', action: 'submit', actor_id: 'u_2', actor_name: 'Sam Submitter', created_at: STORED }],
-    }),
     approve: async () => ({ data: ROW, finalized: true }),
     reject: async () => ({ data: ROW, finalized: true }),
   };
@@ -105,8 +107,6 @@ vi.mock('@object-ui/app-shell', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useAdapter: () => ADAPTER,
   useMetadata: () => ({ objects: [] }),
-  DeclaredActionsBar: () => null,
-  isViaOverrideRow: () => false,
 }));
 
 vi.mock('../services/approvalsApi', async (importOriginal) => ({
@@ -151,12 +151,12 @@ interface Surface {
 
 const SURFACES: Surface[] = [
   {
-    name: 'ApprovalsInboxPage — queue and drawer',
+    name: 'ApprovalsInboxPage — queue',
     read: async (locale) => {
       render(
         <LocalizationProvider value={{ locale }}>
           <MePermissionsProvider initialPermissions={permissions()}>
-            <MemoryRouter initialEntries={['/apps/app/system/approvals?request=req_1']}>
+            <MemoryRouter initialEntries={['/apps/app/system/approvals']}>
               <Routes>
                 <Route path="/apps/:appName/system/approvals" element={<ApprovalsInboxPage />} />
               </Routes>
@@ -164,16 +164,15 @@ const SURFACES: Surface[] = [
           </MePermissionsProvider>
         </LocalizationProvider>,
       );
-      const dialog = await screen.findByRole('dialog');
-      await within(dialog).findByText('Purchase Approval');
-      await within(dialog).findAllByText(/Sam Submitter/);
+      await screen.findAllByText('Purchase Approval');
+      await screen.findAllByText(/Sam Submitter/);
       const text = faceOf(document.body);
       cleanup();
       return text;
     },
-    // amount · quantity · epoch-ms date · ISO date-time
-    de: [/1\.234,5/, /98\.765/, /4\.3\.2020(?!,)/, /4\.3\.2020, 15:30:00/],
-    en: [/1,234\.5/, /98,765/, /3\/4\/2020(?!,)/, /3\/4\/2020, 3:30:00\sPM/],
+    // the row's amount · its submitted-at tooltip
+    de: [/1\.234,5/, /4\.3\.2020, 15:30:00/],
+    en: [/1,234\.5/, /3\/4\/2020, 3:30:00\sPM/],
   },
   {
     name: 'AuditLogPage — timestamp column',

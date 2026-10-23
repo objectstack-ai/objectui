@@ -25,7 +25,7 @@
  * - `showcase_contract` refuses the read with the error the real adapter
  *   throws for the measured 403 (`httpStatus` + `PERMISSION_DENIED`, as
  *   `recordReadability.refused-11878.test.ts` derives through the real client)
- *   — no link, on the row and in the drawer;
+ *   — no link on the row;
  * - `showcase_project` fails with a 5xx and `showcase_task` with a transport
  *   error — both keep the link (fail-open, unchanged).
  *
@@ -226,15 +226,11 @@ describe('Approvals Inbox — a refused probe withholds the record link (objectu
     );
   });
 
-  it('withholds the link in the drawer too — not one click deeper', async () => {
-    await renderAnswered();
-
-    fireEvent.click(rowFor('Refused Contract'));
-    const drawer = await screen.findByRole('dialog');
-    await within(drawer).findAllByText('Refused Contract');
-
-    expect(within(drawer).queryByRole('link', { name: /Refused Contract/ })).not.toBeInTheDocument();
-  });
+  // The drawer case ("withholds the link in the drawer too — not one click
+  // deeper") retired with the inbox side sheet (objectui#12484). A request now
+  // opens on its served page, whose refused-target state is pinned by
+  // `approvalRequestsDataSource.servedPageReferenceStates-12489.test.tsx`
+  // ("refused (sheet: recordLinkRefused-11878)"), in `apps/console/src/services/`.
 
   it('keeps a title-less refused row’s reference text — the cause-free label stays on the row-set answer', async () => {
     await renderAnswered();

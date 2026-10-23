@@ -18,8 +18,9 @@
  *   • the visualization switcher (grid/kanban/...) is ListView-internal, so
  *     switching presentation never touches the URL — filter state survives;
  *   • the common filter bar (ADR-0047 `userFilters` + `uf_*` persistence) is
- *     auto-derived from the object's enum-ish fields, since there is no view
- *     to author it on (ADR-0053 puts userFilters on views/pages).
+ *     auto-derived from the object's enum-ish fields and its single-value
+ *     relation fields (objectui#13310), since there is no view to author it
+ *     on (ADR-0053 puts userFilters on views/pages).
  *
  * Field-level security: auto-derived columns, the filter bar, and URL filter
  * predicates are all trimmed to readable fields client-side; the server is
@@ -81,7 +82,45 @@ import type { RowCrudPredicates } from '../utils/crudAffordances.js';
 
 /** Field types the auto-derived user-filter bar offers as dropdowns. */
 const USER_FILTER_TYPES = new Set(['select', 'multiselect', 'radio', 'enum', 'boolean']);
+/**
+ * Relation field types the auto-derived bar also offers (objectui#13310): a
+ * single-value relation renders as `UserFilters`' remote-search picker
+ * (`LookupValuePicker`) and filters the rows by the related record's id.
+ * A multi-value relation (`multiple: true`) stays out of the generated bar.
+ */
+const USER_FILTER_RELATION_TYPES = new Set(['lookup', 'master_detail', 'user']);
 const MAX_USER_FILTERS = 4;
+
+/**
+ * The fields the `/data` page's auto-derived filter bar offers, in bar order.
+ *
+ * Picklist-like fields (`USER_FILTER_TYPES`) come first, in declaration
+ * order, exactly as before relation fields joined the bar; single-value
+ * relation fields (`USER_FILTER_RELATION_TYPES`) follow, in declaration order,
+ * and take the slots the picklists leave under `MAX_USER_FILTERS`. So an
+ * object without a single-value relation field gets the bar it always got, and
+ * an object whose picklists already fill the cap keeps exactly that bar.
+ * Hidden fields and fields the caller cannot read are never offered.
+ *
+ * Exported for `ObjectDataPage.relationUserFilters-13310.test.tsx`. @internal
+ */
+export function deriveDataPageUserFilterFields(
+  fields: unknown,
+  canRead: (field: string) => boolean,
+): Array<{ field: string }> {
+  if (!fields || typeof fields !== 'object') return [];
+  type FieldDef = { type?: string; hidden?: boolean; multiple?: boolean } | null | undefined;
+  const offered = Object.entries(fields as Record<string, FieldDef>).filter(
+    ([name, f]) => f && !f.hidden && canRead(name),
+  );
+  const picklists = offered.filter(([, f]) => USER_FILTER_TYPES.has(f?.type ?? ''));
+  const relations = offered.filter(
+    ([, f]) => USER_FILTER_RELATION_TYPES.has(f?.type ?? '') && f?.multiple !== true,
+  );
+  return [...picklists, ...relations]
+    .slice(0, MAX_USER_FILTERS)
+    .map(([name]) => ({ field: name }));
+}
 
 /**
  * URL drill triple operator → the spec's OWN alias spelling.
@@ -275,13 +314,7 @@ export function ObjectDataPage({ dataSource, objects }: any) {
     [objectDef, canRead, orgAttribution],
   );
   const userFilters = React.useMemo(() => {
-    const fields = objectDef?.fields;
-    if (!fields || typeof fields !== 'object') return undefined;
-    const picks = Object.entries(fields)
-      .filter(([name, f]: [string, any]) =>
-        f && !f.hidden && USER_FILTER_TYPES.has(f.type) && canRead(name))
-      .slice(0, MAX_USER_FILTERS)
-      .map(([name]) => ({ field: name }));
+    const picks = deriveDataPageUserFilterFields(objectDef?.fields, canRead);
     return picks.length > 0 ? { element: 'dropdown' as const, fields: picks } : undefined;
   }, [objectDef, canRead]);
 

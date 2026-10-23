@@ -35,10 +35,25 @@ const DECISION_VISIBLE =
   'has(record.viewer) && has(record.viewer.can_act) && record.viewer.can_act == true' +
   ' || has(record.viewer) && has(record.viewer.can_override) && record.viewer.can_override == true';
 
-/** The submitter-only gate `approval_recall` declares — no `can_override` term. */
+/**
+ * A submitter-only gate, no `can_override` term: `approval_resubmit` as
+ * `sys-approval-request.object.ts` declares it, copied verbatim.
+ */
 const SUBMITTER_VISIBLE =
-  'has(record.status) && record.status == "pending" && has(record.viewer)' +
+  'has(record.status) && record.status == "returned" && has(record.viewer)' +
   ' && has(record.viewer.is_submitter) && record.viewer.is_submitter == true';
+
+/**
+ * `approval_recall`'s gate, copied verbatim: the submitter arm OR the #3424
+ * admin-override arm, which objectstack#12716 added spelled like the core
+ * levers'. This file used to call recall submitter-only, which is how a
+ * submitter-admin's own recall came to be labelled an override unnoticed
+ * (objectui#13225).
+ */
+const RECALL_VISIBLE =
+  'has(record.status) && (record.status == "pending" || record.status == "returned")' +
+  ' && has(record.viewer) && has(record.viewer.is_submitter) && record.viewer.is_submitter == true' +
+  ' || has(record.viewer) && has(record.viewer.can_override) && record.viewer.can_override == true';
 
 describe('isOverrideOnlyViewer', () => {
   it('is true for the exact pair objectui#5178 names', () => {
@@ -83,7 +98,13 @@ describe('actionAdmittedByOverride', () => {
   });
 
   it('does not match a submitter-gated action', () => {
-    expect(actionAdmittedByOverride({ name: 'approval_recall', visible: SUBMITTER_VISIBLE })).toBe(false);
+    expect(actionAdmittedByOverride({ name: 'approval_resubmit', visible: SUBMITTER_VISIBLE })).toBe(false);
+  });
+
+  it('matches recall, whose gate ORs in the override arm too (objectui#13225)', () => {
+    // Admission alone does not make it an override: `isOverrideDecision` below
+    // also asks whether the viewer holds the recall through its submitter arm.
+    expect(actionAdmittedByOverride({ name: 'approval_recall', visible: RECALL_VISIBLE })).toBe(true);
   });
 
   it('reads the `{ dialect, source }` envelope spelling too', () => {
@@ -114,14 +135,49 @@ describe('isOverrideDecision', () => {
   });
 
   it('is false for a submitter-gated action even for an override-capable viewer', () => {
-    // `can_act:false, is_submitter:true, can_override:true` — Recall is admitted
-    // by `is_submitter`, so relabelling it "Override recall" would be a lie.
     expect(
       isOverrideDecision(
         { visible: SUBMITTER_VISIBLE },
         { viewer: { can_act: false, is_submitter: true, can_override: true } },
       ),
     ).toBe(false);
+  });
+
+  it('is false for the submitter\'s own recall, override rights or not (objectui#13225)', () => {
+    // `can_act:false, is_submitter:true, can_override:true` — the shipped
+    // recall gate admits this viewer through its submitter arm, so relabelling
+    // it "Override Recall" would be a lie: they are withdrawing their own request.
+    expect(
+      isOverrideDecision(
+        { visible: RECALL_VISIBLE },
+        { viewer: { can_act: false, is_submitter: true, can_override: true } },
+      ),
+    ).toBe(false);
+  });
+
+  it('is true for a recall by an admin who did not submit the request (objectui#13225)', () => {
+    expect(isOverrideDecision({ visible: RECALL_VISIBLE }, overrideViewer)).toBe(true);
+    expect(isOverrideDecision({ visible: { dialect: 'cel', source: RECALL_VISIBLE } }, overrideViewer)).toBe(true);
+  });
+
+  it('fails safe on a recall when the submitter flag cannot answer', () => {
+    // A gate that names `is_submitter` needs an explicit `false` to rule the
+    // submitter arm out; absent or a truthy stand-in reads as "cannot tell".
+    expect(isOverrideDecision({ visible: RECALL_VISIBLE }, { viewer: { can_act: false, can_override: true } })).toBe(false);
+    expect(
+      isOverrideDecision({ visible: RECALL_VISIBLE }, { viewer: { can_act: false, is_submitter: 0, can_override: true } }),
+    ).toBe(false);
+  });
+
+  it('reads the submitter flag only for a lever whose gate names it — the control', () => {
+    // Approve declares no submitter arm, so a submitter-admin approving their
+    // own request is still admitted by the override flag alone, as before.
+    expect(
+      isOverrideDecision(
+        { visible: DECISION_VISIBLE },
+        { viewer: { can_act: false, is_submitter: true, can_override: true } },
+      ),
+    ).toBe(true);
   });
 
   it('is false for a designated approver running the same action', () => {

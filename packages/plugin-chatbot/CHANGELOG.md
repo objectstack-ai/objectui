@@ -1,5 +1,498 @@
 # @object-ui/plugin-chatbot
 
+## 18.0.0
+
+### Major Changes
+
+- 6f3299f: objectui moves to major 18, following `@objectstack/*` from 17 to 18 (objectui#12334). objectui's major is not a count of its own breaking changes: it tracks the major of the `@objectstack/spec` its packages depend on, so that the same major means compatible across the two projects. These packages already declare `@objectstack/*` on the 18 line (objectui#12030), so every package in the fixed release group crosses to 18 together. It is the one `major` that rule admits: objectui's own breaking changes ship as `minor`, described in their entries.
+  
+  The 18 line is released from Changesets pre mode on the `next` tag (`.changeset/pre.json`), as `@objectstack/*` 18 is: these releases are `18.0.0-next.N` on the npm `next` dist-tag, and they do not move `latest`. The first `18.0.0` on `latest` comes when `@objectstack` 18 is generally available and this repository leaves pre mode.
+  
+  What a consumer must do to take it is in the `@objectstack/*` 18 entry of this release (objectui#12030): move its own `@objectstack/*` packages to the 18 line at the same time.
+
+### Minor Changes
+
+- fc3c2cc: Five fixes on the AI build surface, from the 2026-10-05 cloud acceptance run (objectui#11658).
+  
+  - **The first AI build lands on the running app.** The built-moment transition still moves the conversation into the Studio workbench at `/studio/PKG/interfaces`. The Interfaces canvas now opens in **Run** mode with the properties panel collapsed, where it used to open in Design with the panel open. One click on **Design** brings back the design overlays and the properties panel. Every other way into Studio, the "Design in Studio" button included, still opens in Design. The transition asks for this with router state, which the pillar reads once at mount; it is not a URL param, so a reload or a shared link opens the designer.
+  - **The in-app composer names the task.** Inside an app, the composer placeholder reads "Ask about your data, or ask me to change this app…". This covers the console dock in a running app, the Studio dock and `/ai/build?package=`. It used to read "Ask {agent}…", which showed as「向 构建 提问…」in Chinese. The cold-start build surface and the ask agent keep the placeholders they had. New key: `console.ai.askOrChangeApp`.
+  - **The AI usage popover shows one figure.** The popover shows the share of the single AI pool used so far (`console.ai.usage.poolUsed`, for example "19% used"). It no longer shows the build / data-Q&A split, because that split cannot honestly say which part a single-composer turn used. The keys `console.ai.usage.meterBuild`, `meterAsk` and `breakdownTitle` are retired from all ten packs. `useAiUsage` still reads `breakdown` from the wire and validates it strictly, but nothing renders it.
+  - **The usage gauge no longer looks like a loading spinner.** The header glyph is now a closed outline in the tone colour with a pie wedge inside it. It used to be a stroked arc over a faint track, which at low usage had the outline of a spinner.
+  - **The plan card's scope chip is localized.** The extend-mode chip on the proposed-plan card and on the live design panel reads the pack's `chatbot.plan.extendTarget` sentence, where it used to show the English literal "Adding to existing app". It names the target app by its label, and the internal name moves to the chip's tooltip. `ChatbotEnhanced` gains an optional `resolveAppLabel(appName)` prop, and the console passes one over its metadata apps. A host `planExtendLabel` still takes precedence, but the prop no longer defaults to an English string.
+- 848ba0e: The chat launchers show a marker while a proposed plan awaits the user's approval (objectui#11666, item 6 of objectui#2458). A user who closed the chat with a blueprint still waiting on them used to get no sign of it from the launcher they return to.
+  
+  What a user sees: while the newest proposed plan of a conversation still offers "Build it", the console's assistant button (the floating launcher on app pages and Home) and the ChatDock edge launcher Studio uses carry a small amber dot. Assistive tech reads it as the button's description, from the new `console.ai.dock.planAwaitingApproval` key in the active language. With no plan awaiting, neither launcher shows anything. The dot goes away when the plan stops awaiting: the user approves it, its build runs, or a newer proposal takes its place and is itself approved or built. Opening the chat clears nothing by itself, and neither does opening another conversation. Deleting the conversation from the `/ai` sidebar drops it.
+  
+  Where the reading comes from: the chat's own plan card. `ChatbotEnhanced` derives "awaiting approval" from the same producer its card header and body read (`resolveProposalCardState` reads `pending`), and reports it to its host. The console's chat pane publishes that reading on the assistant bus, per conversation and per signed-in user, and the launchers read the bus. They import no chat code. The reading is exact for everything that happens in the tab. It does not see a decision made in another tab or on another device, and a page reload starts it empty until a chat on that conversation is opened again. The durable copy is the server conversation, which the launchers do not read.
+  
+  **Clause-②: yes (widening).** Two published surfaces widen:
+  
+  - `@object-ui/plugin-chatbot`: the exported `ChatbotEnhancedProps` type gains one optional member, `onPlanApprovalPendingChange`, a callback that takes one boolean and returns nothing. `ChatbotEnhanced` calls it once on mount and again whenever the boolean changes. Without it nothing changes.
+  - `@object-ui/i18n`: every built-in locale pack gains one key, `console.ai.dock.planAwaitingApproval`. The `en` pack is exported from the package entry, so the key also joins the translation-key type derived from it.
+  
+  `@object-ui/app-shell` adds no export: the bus functions the pane and the launchers use (`publishPlanApprovalPending`, `usePlanApprovalPending`) ship inside `dist/` but are not on the package entry, and the exported `assistantBus` object and `AssistantSnapshot` type are unchanged. No prop, export or key is removed, and no existing member changes type.
+- 6d5eb34: The chat build panel reads cloud's post-apply verification loop, and an unknown build phase no longer reads as "Building" (objectui#11988, the receiver objectstack-ai/cloud#2172's ruling A orders).
+  
+  After `apply_blueprint` finishes, cloud's agent loop reports its verification hops on a second `data-build-progress` part with the id `build-verify`, beside the build tree. A hop is `{ phase: 'verify', hop, tool }` and the exit is `{ phase: 'done' }`. The receiver used to take the last `data-build-progress` part whatever its id, and turned every phase other than `data` and `done` into `structure`. So the first verification hop replaced the finished tree with "Building your app…".
+  
+  - **The tree and the verification part are read apart, by part id.** The `build-verify` part never displaces the tree, whichever order the two parts arrive in. A message that carries only the tree maps and renders exactly as before.
+  - **The build panel shows a verification line under the tree.** It reads "Checking the change… step N" while a hop runs, with the hop's tool name as its tooltip, and "Checked the change" once the `done` frame arrives. A `build-verify` part on a message that has no build tree is not drawn as a tree.
+  - **Phases are read against the spec's vocabulary.** The receiver's phase table and frame type are typed by `@objectstack/spec/ai`'s own `BuildProgressPhase` and `BUILD_PROGRESS_FRAME_TYPE`, so a phase the spec adds or drops fails the type check here instead of drifting. The spec's runtime module is not imported, because it would put its whole AI schema module on the console's first load. A phase outside the vocabulary, or a frame without one, is now `unknown` and shows as a warning line ("Unknown build phase") on the tree header or on the verification line. It is no longer coerced to `structure`.
+  - **Type change.** `ChatBuildProgress.phase`, reached through `ChatMessage['buildProgress']`, widens from `'structure' | 'data' | 'done'` to `'structure' | 'data' | 'verify' | 'done' | 'unknown'`: the spec's phase vocabulary plus `'unknown'`, held equal to the spec's union by a compile-time test. `ChatBuildProgress` also gains an optional `verify` member, `{ phase, hop?, tool? }`. The published typings name no new `@objectstack/spec` symbol, so the package's spec range is unchanged.
+  - **New language-pack keys, in all ten packs:** `chatbot.build.verifying`, `chatbot.build.verifyStep`, `chatbot.build.verified` and `chatbot.build.unknownPhase`.
+- c5406c2: Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
+  
+  Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18 (raised to `^18.0.0-next.1` by objectui#12370 before release).
+  
+  **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.1` (objectui#12370), at the same time as it takes this release.
+  
+  **objectui's own surface moves with it:**
+  
+  - `element:record_picker`'s registration stops publishing the `object`, `filter`, `sort` and `limit` inputs, which spec 18 retires; a JSX page that writes one now gets `unknown-prop`.
+  - The `CapabilityMultiSelectField` widget's curated capability set (`@object-ui/fields`) follows spec 18: `manage_mailboxes` in, `manage_org_presentation` out.
+  - `element:number` and `element:repeater` nodes that bind no object are accepted, as spec 18's row and `PageComponentSchema` accept them; the two `ELEMENT_*_OBJECT_REQUIRED` refusals are gone.
+  
+  **Retired with the spec:** `@objectstack/spec` 18 tombstones `object-grid`'s `defaultFilters` and refuses it by name, and `ObjectGrid` and `ObjectView` stop reading it (`table.defaultFilters` on an `object-view` included). A view that still carries it renders unfiltered: rename the key to `filter`, whose value is the same rule array.
+- e723f58: Screen readers hear the names of more controls in the viewer's language (objectui#12145).
+  
+  These controls carried an English `aria-label`, so under a non-English locale a screen reader announced their names in English: the docs portal's loading spinner, the record form page's breadcrumb, the `Spinner` status region, a data table's row menu button, the `pagination` renderer's previous and next links, the image crop preview, the percent slider, the record picker's grid, the AI composer's send and stop button and an attachment's remove button, the designer's undo and redo buttons, minimap, version history and back button, a dismissible record alert's close button, the bulk-action bar, and the mobile view switcher. Each name now comes from the language packs. English names are unchanged, with two small exceptions: the spinner now reads "Loading…", and the pagination links read "Previous page" and "Next page", the same words the data table pager uses. Sighted use is unchanged.
+  
+  Added: eight language-pack keys in all ten packs: `help.loadingDocumentation`, `common.breadcrumb`, `table.rowActions`, `fields.image.cropPreview`, `fields.percent.slider`, `designer.canvasMinimap`, `designer.versionHistory` and `grid.bulkActions`. Every other name reuses a key that already holds the same words. The exported `en` pack, and so `TranslationKeys`, gains these eight members. `PromptInputAttachment` (exported through `AIElements`) takes an optional `removeLabel` prop that names its remove button; without it the button keeps its English name.
+- ff9df88: Depend on `@objectstack/*` `18.0.0-next.1` (objectui#12370).
+  
+  Every `@objectstack/*` range these packages declare moves from `^18.0.0-next.0` to `^18.0.0-next.1`; the console and the runner bundle `18.0.0-next.1`. A consumer moves its own `@objectstack/*` packages to `18.0.0-next.1` with this release.
+  
+  **Accept sets that narrow with it.** `@object-ui/types` validates page action rows and view data bindings through the spec's own rows, so its faces (`safeValidateSchema` and `StrictAnyComponentSchema`) now refuse what `18.0.0-next.1` refuses. Each was accepted on `18.0.0-next.0`:
+  
+  - `onSuccess` on an `action:button` / `action:icon` row, or an `action:group` / `action:menu` member, whose executor is the `url`, `navigation`, `modal`, `flow` or `form` built-in, or that has no executor at all. Write the hop on an `api` or `script` action (or a host handler name), or drop it.
+  - `onSuccess` beside `operation: 'update'`, and an `onSuccess` block carrying a key outside `{ navigate, openIn }`.
+  - `actionType: 'navigation'` on a row (and `type: 'navigation'` on a container member): write `'url'`.
+  - A `url` executor's `target` that is not openable, judged on the executor the runner runs, including a row whose `name` selects it.
+  - A view `data` binding with `provider: 'api'`: bind the object or static rows; an API call is the page element's binding.
+- ac59073: **The AI build conversation stays on the conversation and reads more compactly** (objectui#12724).
+  
+  - **No automatic navigation after a build.** When a build finishes, the page no longer moves you into Studio. The finished build card offers two buttons: 打开应用 / Open app (primary), which opens the app on its first navigation item, and 在 Studio 中查看 / View in Studio. Both are in-app navigations. The conversation is still bound to the built app, so Studio's copilot resumes the same thread.
+  - **One collapsed line per phase.** A turn's tool activity reads as one line, for example "设计方案 · 4 步 · 0:48 · 读取编写规范 · 列出对象 ×3 …". Repeated calls of a tool fold into one step with a count, and a chevron expands the per-tool rows. The rows open on their own while a step is running. The elapsed time shows only for a turn this page watched; a reopened conversation shows no time.
+  - **The finished build card.** Its header reads 「已搭建并上线 · APP」 / "Built and live · APP" once the build is published, and "Built APP" otherwise. Below the buttons, a line lists the build's next steps as things you can say, followed by the sentence 「之后的修改先存草稿，由你在 Studio 发布」. The progress bar is gone once the build is done. A whole-app build no longer repeats its next steps as a list on the draft card.
+  - **The plan card.** The header names the app the plan builds and shows 等待确认 / Awaiting confirmation until you decide. Each object gets a row with one chip per field from the plan's `blueprint.objects[].fields`. The plan's views get their own rows, and the reply hint sits beside 开始搭建 / 调整方案. A plan without field rows (for example one restored from the local cache) shows the object chips with field counts, as before.
+  - **The composer.** Outside an app, the build agent's placeholder reads 「描述你想搭建的应用，或要改的地方…」 / "Describe the app you want to build, or what to change…" and no longer names the agent. Inside an app it still reads "Ask about your data, or ask me to change this app…". The key hint reads 「↵ 发送 · Shift+↵ 换行」.
+  
+  `@object-ui/plugin-chatbot`: `ProposedPlan` gains optional `appLabel`, `views` and `objects[].fields`, and `ChatbotLabels` gains an optional `newlineHint`. `@object-ui/i18n`: new `console.ai.describeAppToBuild`, `console.ai.newlineHint`, `console.ai.viewBuiltAppInStudio`, `chatbot.phase.*`, `chatbot.plan.awaitingConfirm` / `objectsAndFields` / `views` and `chatbot.build.builtAndLive` / `nextStepsLead` / `nextStepQuote` / `draftPosture` in every pack. `console.ai.designBuiltApp` is retired.
+- 44cb469: **The AI build cards draw the plan and result details the build agent now sends** (objectui#12724).
+  
+  - **The plan card.** Each object's fields are chips. A field whose sample data is held to a format shows it in mono type (「ISBN 13 位数字」, 「邮箱 邮箱格式」). A field the agent added on its own (you did not name it) has a dashed chip marked 「补充」 / "suggested". An object that declares its name field gets a 「名称：书名」 / "Name: Title" line. Each view shows one line saying what it does, for example 「列表 · 筛选 状态 = 逾期 且 归还日期 为空 · 按应还日期升序」. The assumptions are a bulleted list, and the count line ends with the sample data the build will stage (「示例数据 12 条/对象」).
+  - **The result card.** A finished build shows a 「核对通过 7/7」 / "Checks passed 7/7" chip and the lines the agent verified on the built app, objects in one column and views and sample data in the other. Those lines replace the list of staged artifacts. When the agent re-checks the build later in the same turn, the card shows that newer check. 打开应用 opens the app the build landed in, and 在 Studio 中查看 opens its package.
+  - **Step names.** The steps in the progress line read as short sentences in your language, for example 「记下后续检查项」 for the agent's to-do step and "List the existing objects" in English. Before, the English names were the tool names with their underscores removed.
+  
+  Each of these reads a field of the build agent's plan or result. When an older agent does not send that field, the card looks as it did before.
+  
+  `@object-ui/plugin-chatbot`: `ProposedPlan` gains optional `planCard` and `viewIntents`. `@object-ui/i18n`: new `chatbot.plan.suggestedField`, `chatbot.plan.nameField` and `chatbot.build.checksPassed` in every pack, and every pack's `chatbot.tool.*` values are reworded.
+- 3da39ae: **The copilot's change card says when a change will be saved as a draft, and the applied card offers review and undo** (objectui#12894).
+  
+  - **The change card.** When the copilot proposes a change, the card is headed 「修改方案 · 2 项」 / "Change plan · 2 changes" and lists one row per change: a ＋ / ✎ / － symbol, the kind (字段 / 视图 …), the object and field it touches, and its type and parameters in small type (「number · 续借次数 · 默认 0 · 不必填」). For an app that is already live and holds records, the change is saved as a Studio draft: the card says so in an amber note, and its main button reads 「存为草稿」 / "Save as draft".
+  - **The applied card.** After you confirm, the card shows what happened, for example 「已存为草稿 · 2 项未发布」 with 「已有 12 条记录的续借次数为空」 and 「核对：结构 ✓」. It offers 「查看变更并发布」 / "Review changes and publish" and 「撤销」 / "Undo" when the host provides them. Undo discards every unpublished draft of the app package, so when other drafts are pending the button says how many, and the card asks before it runs.
+  
+  Each of these reads a field the copilot's tools now send. When an older version does not send it, the card looks as it did before.
+  
+  `@object-ui/plugin-chatbot`: `ProposedChanges` gains optional `posture` and `primaryAction`; `ReplayOutcome` gains optional `draftState`, `existingRows` and `appliedCard`; `ChatbotEnhancedToolInvocation` now references both types instead of repeating them; `ChatbotEnhancedProps` gains optional `onReviewDrafts` and `onDiscardDrafts`. `@object-ui/i18n`: new `chatbot.changes.*` keys in every pack.
+- 76f91f8: feat(plugin-chatbot): a drafted result's Preview button appears for any draft kind, and the draft preview bar names what is pending on the surface it shows (objectui#12968)
+  
+  Clause-②: yes — `ChatbotEnhancedProps` gains the optional `onPreviewDraft`.
+  
+  **`@object-ui/plugin-chatbot`.** A drafted tool result whose items include no app now draws a
+  Preview button beside Publish and Review when the host passes `onPreviewDraft(items, { appSegment })`.
+  The click hands the host the drafted `{ type, name }` items and the owning package id, the app's route
+  segment. A draft set that includes an app keeps `onPreviewDraftApp`, unchanged, and a host that passes
+  no `onPreviewDraft` draws what it drew before. Preview publishes nothing. The confirm path previews
+  too: `detectReplayOutcome` lifts a drafted replay's `drafted[]` items into the exported `ReplayOutcome`
+  as the optional `items`, and the applied card (or, from an older cloud, the drafted badge) draws the
+  same Preview over them through the same `onPreviewDraft` / `onPreviewDraftApp` rule.
+  
+  **`@object-ui/app-shell`.** In draft preview (`?preview=draft`), the DraftPreviewBar's message names
+  how many pending drafts belong to the surface it shows: an object's list, view or record, a page, a
+  dashboard or a report. The count is read from the same pending-drafts list as before. The preview's
+  deep-link table (`preview/draftSurface.ts`, `draftPreviewPath`) maps drafted items to the route that
+  shows them: a page to that page, a view to the object's list on that view, a field or object to the
+  object's default list, anything else to the app. The console wires it: `ChatPane` passes
+  `onPreviewDraft`, and a field, view or page draft's Preview opens the Live Canvas at that path, in
+  draft preview; `LiveCanvas` takes the full preview path beside the app segment (`path`). An app
+  draft's Preview opens the app as before.
+  
+  **`@object-ui/i18n`.** `preview.draftBar.pendingHere`, a plural family, in all ten packs.
+- 51269f0: The AI build chat's pending-drafts bar no longer covers the composer's input (objectui#12978).
+  
+  On the full-page chat (`/ai/build`), with a pending draft, the bar that offers 发布 floated over the composer (`absolute bottom-20`): it sat on the input's first line, so the placeholder and the first line typed were hidden. It is now a row of the composer's own area, laid out in flow directly above the input, so the conversation gives up the room instead, at every width. The console dock mounts the same chat pane and gets the same row. The package's own Studio still draws no bar (objectui#12965).
+  
+  **`ChatbotEnhanced` gains `promptHeaderSlot`** (optional `ReactNode`): a host's row rendered in flow at the top of the prompt area, above the input and outside its form. Unlike `promptOverlaySlot`, which stays absolute-positioned for palettes, it takes layout space. Content that renders nothing takes no space. Hosts that do not pass it render exactly as before.
+  
+  **Clause-②: yes (widening)**: one optional prop, `promptHeaderSlot`, added to `ChatbotEnhancedProps` in `@object-ui/plugin-chatbot`. No export is added or removed, and no existing prop changes.
+- b4e0787: The runtime chat contracts have their own names, apart from `@object-ui/types`' authoring `ChatMessage` / `ChatToolInvocation` (objectui#6349, batch 5). The shape `<ChatbotEnhanced>` renders is declared as `ChatbotEnhancedMessage`, and its tool invocations as `ChatbotEnhancedToolInvocation` — the names this package already published them under. `ChatbotEnhancedMessage` is no longer deprecated.
+  
+  **Type changes, breaking for some consumers.**
+  
+  - `ChatMessage` is no longer exported from `@object-ui/plugin-chatbot`. It denoted the same type as `ChatbotEnhancedMessage`, while `@object-ui/types` publishes a different `ChatMessage` (the JSON/SDUI authoring contract), so one name stood for two contracts across the two packages. Replace `import { type ChatMessage } from '@object-ui/plugin-chatbot'` with `ChatbotEnhancedMessage`; the shape is unchanged. The compiler names the replacement (TS2460: declared locally, exported as `ChatbotEnhancedMessage`). For authored messages, import `ChatMessage` from `@object-ui/types` and convert them with `toRuntimeMessages`.
+  - `ChatbotEnhancedToolInvocation` keeps its name and shape; only its declaration was renamed from `ChatToolInvocation`, a name this package's entry never exported.
+  
+  The README and the plugin-chatbot docs page now teach `ChatbotEnhancedMessage`. No runtime behaviour changes.
+
+### Patch Changes
+
+- d39ac2e: The AI Approvals inbox shows the error, not an empty queue, when its read fails, and its poll stops on an answer that will not change (objectui#11736).
+  
+  On a deployment with no AI service, the open edition answers `501` on `/api/v1/ai/pending-actions`. `AiPendingActionsInbox` rendered the error alert and, beneath it, "No actions waiting". That reads as a live approval queue that happens to be empty, on a deployment that has none. `usePendingActions` also re-armed its five-second interval whatever the read answered, so the page asked the dead endpoint every five seconds for as long as it stayed open.
+  
+  - The inbox shows the empty state only when the read answered. When the read failed, the error alert stands alone.
+  - `usePendingActions` now arms each poll after the previous read settles, according to its answer:
+    - A refused read stops the poll. That is `501`, or any `4xx` except `408` and `429`, such as `401`, `403` or `404`. A manual `refresh()` that succeeds, the re-fetch after `approve` or `reject`, or a change to the hook's options starts it again.
+    - A transient failure backs the poll off. That is no answer at all, `408`, `429`, or a `5xx` other than `501`. The delay doubles with each consecutive failure, up to 120 seconds, or up to `pollInterval` if that is longer.
+    - A read that succeeds polls again after `pollInterval`, as before, and resets the backoff.
+  
+  The policy is in the hook, so every caller of `usePendingActions` gets it, not only the inbox. With a working endpoint nothing changes: an empty queue still shows "No actions waiting", and the poll keeps its interval.
+  
+  **Clause-②: no.** No export, prop, option, return member or language-pack key is added or removed, and no accepted input widens.
+- 8f8f760: Three more controls pick with the shared `Select`, the control the rest of the console picks with (objectui#11865, the list view and the chatbot): `ListView`'s "Color by field" and its "Rows per page" selector (the fallback for views without a grid pager), and `ChatbotEnhanced`'s model picker.
+  
+  The three were browser-native selects, so they looked and behaved differently from the console's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour. "Color by field" now matches its twin in the compact toolbar's View settings popover, which made the same change earlier.
+  
+  What they write is unchanged. Each option gives the same value as before: "None" still clears the row-colour config, a field keeps the config's colours, each page size still reaches `onPageSizeChange` and refetches at that size, and each model still reaches `onModelChange` as its id. Re-picking the current option writes nothing. The model picker keeps its accessible name, the `model` label. A row-colour rule on a field the caller may not read still shows as "None" and is never offered.
+  
+  One display change: a value none of a picker's options carries now shows as itself. The native select showed its first option instead: "None" for a row-colour field outside the list's columns, the first size for a page size in force that is not one of the options (an undeclared size, for instance), and the first model for a selected model the environment no longer offers.
+  
+  **Clause-②: no.** No published face moves: the package entries export the same names, the two components take the same props, and no i18n key is added. What moves is the three controls' own markup, described above.
+- d17952c: Studio no longer logs a red "Failed to load resource" line for things it already knows are absent (objectui#12508).
+  
+  - **A draft-only object is not asked for its published layers.** The Data pillar used to read `GET /meta/object/NAME/layers` for every selected object, so the console showed a 404 right after "New object" saved a draft. For an object that has a pending draft and is not in the package's published list, the pillar now reads the draft and skips the layers. A published object is read as before.
+  - **A list view of a draft-only object is not asked for its published layers.** Opening such an object in the Interfaces pillar used to read `GET /meta/view/NAME.default/layers` and get a 404. Nothing of a draft-only object is published, so its views have no layer either, and the list-view panel no longer asks. A failed layer read (a 5xx or a network error) still shows as the panel's load failure.
+  - **No `/ai/models` request on a server without an AI service.** The chat pane now asks for the AI-model list only once the agent catalog names an agent. A server without `@objectstack/service-ai` answers that catalog empty, so the console no longer asks it and gets a 501. `useAiModels` also remembers a 501 for the session: it no longer retries it five times, and a later mount does not ask again. Other failures, such as a 503 while the server is still starting, are still retried.
+- c83e3fe: `ChatbotEnhanced`'s `onDesignBuiltApp` doc comment now describes what the finished build card draws since objectui#12724: "Open app" (打开应用) is the primary action and "Design in Studio" (在 Studio 中查看) the secondary one, primary only when the host passes no `onOpenBuiltApp` (objectui#12842). It no longer cites an ADR section that does not exist. Comment only; no behaviour changes.
+  
+  Clause-②: no
+  No prop, export or language-pack key moves.
+- 6db875e: Opening the console no longer starts nine reads the page does not show in the same moment as the page's own reads (objectui#12980, part 3).
+  
+  - **The bell.** The inbox and the pending-approvals count are read once the boot splash is gone and a frame has painted. Until they land the badge draws nothing, as it does while any read is in flight, and never a `0`. The Activity tab's feed, which the badge does not use, is read when the bell is about to open: a pointer over it, focus, or a click. Until then it does not ask whether `sys_activity` exists either, which inside an app is its own `meta/object/sys_activity` read.
+  - **The header's dashboard, page and report lists.** The header reads each only on the route type that names one, for the phone bar's title. Any other route reads none of them.
+  - **The navigation sync.** It reads the page and dashboard lists after the first paint. It still waits for both to load before it compares them.
+  - **The agent catalog.** `useAgents` sends `GET /api/v1/ai/agents` after the first frame has painted, not while the page mounts. The AI entry points stay hidden until the catalog answers, as before.
+  - **The user's language row.** The `sys_user` read that applies the signed-in user's language runs after the first paint. It stays a separate read because `GET /auth/me/localization` does not say whether its `locale` came from the user's column or from a fallback.
+  - **The console's locale list and the timezone prompt's settings read.** Both wait for the first paint. The locale list asks for the session at the moment it sends, so a sign-out while it waits sends nothing.
+  
+  Nothing is added to a package entry: no export, prop or type member.
+- 5f599db: The AI build plan card draws a stage field's lifecycle on its chip (for example 「借出 · 已还 ✓完成 · 逾期 ⚠」), read from the plan card's `lifecycle` key. A chip without the key draws as before (objectui#12994).
+- 4b7ce47: The AI build plan card now draws a composed record title's line (for example 「名称：自动生成「{图书} · {读者} · {借出日期}」，表单里不出现」) in place of the plain 「名称：LABEL」 line, read from the plan card's `nameField.generated` key that objectstack-ai/cloud writes since cloud PR #3047. An object without the key draws as before.
+- 6f877f1: An assistant answer reads well in the narrow assistant panel (objectui#13032). Headings inside a chat answer render at chat size (15–16px, bold, set apart by weight and spacing instead of the article-page 20–30px scale). Tables use 13px text and keep their first column frozen while the other columns scroll, and when the columns overflow the panel the table's expand control becomes a labelled, clearly visible "Expand" button. A finished answer taller than two heights of the conversation viewport is folded, with "Show full answer" and "Collapse" controls; an answer is never folded while it is still streaming. The scroll-to-bottom button now sits in its own row below the message list instead of floating over it, so it never covers text, a table or a heading. The four new strings ship in all ten locale packs.
+- 633b8f1: A record link in an assistant answer opens that record inside the console (objectui#13037).
+  
+  An answer names a record with one fixed link form, `/record/OBJECT/ID`, for example `[Wayne Enterprises](/record/account/acc_42)`. The href must match `^\/record\/([a-z_][a-z0-9_]*)\/([A-Za-z0-9_-]{1,128})$` exactly: the object name in the spec's object-name grammar and a record id of letters, digits, `_` or `-`. A click hands the object and the id to the chat's `onOpenRecord`, the opener the `open_record` card already uses, so the console resolves the app and its own mount and navigates in the same tab, with no link dialog.
+  
+  Nothing else about links changes. An external link, any other same-origin path, and a record form carrying a query string, a fragment or more path keep streamdown's link-safety dialog and new tab, and so does the record form in a chat whose host gives no `onOpenRecord`. Nothing is added to the package entry.
+- 912bfd4: The chat's step line no longer shows the agent's tool-loading step, and no longer counts it (objectui#13038).
+  
+  On the build agent, a data question calls `load_tools` first to attach the data tools. That call read as "Load tools" (zh 「加载更多工具」) among the turn's steps, and it was counted in the step total. It is the agent's own plumbing, not a step the user asked for. The phase line and its expanded rows now leave it out, and the count drops by one. A phase that so far called only `load_tools` draws no line, instead of "0 steps". Every other step reads as before.
+  
+  Nothing declares a tool as plumbing today, so the renderer keeps a private list holding `load_tools` only. Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 1f1c4b5: Doc comments now name the runtime message type `ChatbotEnhancedMessage`, its name since objectui#6349 batch 5, instead of `ChatbotEnhanced.ChatMessage` (objectui#6349, batch 6).
+  
+  No type or runtime behaviour changes.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [96fcf30]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [e06365c]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [f34e877]
+- Updated dependencies [f34e877]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [2312bd9]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [c5406c2]
+- Updated dependencies [c5406c2]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [417e245]
+- Updated dependencies [69bca0a]
+- Updated dependencies [023f00d]
+- Updated dependencies [158c75d]
+- Updated dependencies [7525045]
+- Updated dependencies [5af42db]
+- Updated dependencies [ce991bd]
+- Updated dependencies [3c0f806]
+- Updated dependencies [1071393]
+- Updated dependencies [5f75cfa]
+- Updated dependencies [6757a93]
+- Updated dependencies [b7cd5c8]
+- Updated dependencies [5330038]
+- Updated dependencies [c9fc10b]
+- Updated dependencies [dc6d28e]
+- Updated dependencies [c0c2f79]
+- Updated dependencies [0665c3b]
+- Updated dependencies [d2500d8]
+- Updated dependencies [e723f58]
+- Updated dependencies [82bb1d5]
+- Updated dependencies [f3d5408]
+- Updated dependencies [b231607]
+- Updated dependencies [b231607]
+- Updated dependencies [466a219]
+- Updated dependencies [6fb281d]
+- Updated dependencies [54159d3]
+- Updated dependencies [fa778e6]
+- Updated dependencies [334f0cf]
+- Updated dependencies [c08c933]
+- Updated dependencies [92f979d]
+- Updated dependencies [c4dd707]
+- Updated dependencies [c4dd707]
+- Updated dependencies [7578323]
+- Updated dependencies [38bb373]
+- Updated dependencies [923504f]
+- Updated dependencies [5c2982a]
+- Updated dependencies [97e7d4e]
+- Updated dependencies [10aba37]
+- Updated dependencies [5d3f437]
+- Updated dependencies [51c661e]
+- Updated dependencies [7af0ab3]
+- Updated dependencies [b434f5f]
+- Updated dependencies [9f282ef]
+- Updated dependencies [fd4872f]
+- Updated dependencies [f0532d8]
+- Updated dependencies [cea429b]
+- Updated dependencies [3092aca]
+- Updated dependencies [82e5f53]
+- Updated dependencies [d81e460]
+- Updated dependencies [8106db1]
+- Updated dependencies [068a540]
+- Updated dependencies [ca45c6d]
+- Updated dependencies [093d55b]
+- Updated dependencies [b64fda3]
+- Updated dependencies [a8051d6]
+- Updated dependencies [72594f2]
+- Updated dependencies [524136e]
+- Updated dependencies [2b06a91]
+- Updated dependencies [6f3299f]
+- Updated dependencies [065a1cf]
+- Updated dependencies [f2b17c6]
+- Updated dependencies [52d6194]
+- Updated dependencies [23bf859]
+- Updated dependencies [1c72d77]
+- Updated dependencies [2b4d3f1]
+- Updated dependencies [d75f212]
+- Updated dependencies [37db09f]
+- Updated dependencies [ff9df88]
+- Updated dependencies [70e843f]
+- Updated dependencies [caac3b2]
+- Updated dependencies [a2225f9]
+- Updated dependencies [5c4deb5]
+- Updated dependencies [a8e5b73]
+- Updated dependencies [d9d9d98]
+- Updated dependencies [c950345]
+- Updated dependencies [21f9577]
+- Updated dependencies [044f231]
+- Updated dependencies [f8267df]
+- Updated dependencies [9b82ced]
+- Updated dependencies [3821a3a]
+- Updated dependencies [3eb3ec1]
+- Updated dependencies [92c2a69]
+- Updated dependencies [646caea]
+- Updated dependencies [1ffd6a2]
+- Updated dependencies [5f8ecf6]
+- Updated dependencies [8ed7e5a]
+- Updated dependencies [6c4d00d]
+- Updated dependencies [db8ce2f]
+- Updated dependencies [726d8c9]
+- Updated dependencies [f0e760a]
+- Updated dependencies [a5bb7ac]
+- Updated dependencies [f78efdd]
+- Updated dependencies [8a8bcf3]
+- Updated dependencies [f74638c]
+- Updated dependencies [ef71a09]
+- Updated dependencies [8614705]
+- Updated dependencies [619e3f7]
+- Updated dependencies [ca7a4c3]
+- Updated dependencies [c9e6742]
+- Updated dependencies [f62b6ff]
+- Updated dependencies [608033b]
+- Updated dependencies [611566b]
+- Updated dependencies [efa9cb4]
+- Updated dependencies [d66d7e8]
+- Updated dependencies [15d8ca6]
+- Updated dependencies [378896d]
+- Updated dependencies [9d857c9]
+- Updated dependencies [670ea10]
+- Updated dependencies [ff215d9]
+- Updated dependencies [71243db]
+- Updated dependencies [a8add5c]
+- Updated dependencies [33ee9de]
+- Updated dependencies [4839f5c]
+- Updated dependencies [a23e804]
+- Updated dependencies [c7462e7]
+- Updated dependencies [36e2f7b]
+- Updated dependencies [ac59073]
+- Updated dependencies [44cb469]
+- Updated dependencies [e058d76]
+- Updated dependencies [c999d4c]
+- Updated dependencies [8df2608]
+- Updated dependencies [5483297]
+- Updated dependencies [ed43c79]
+- Updated dependencies [260ef71]
+- Updated dependencies [655e897]
+- Updated dependencies [655e897]
+- Updated dependencies [8d80845]
+- Updated dependencies [69a408f]
+- Updated dependencies [d2b21a1]
+- Updated dependencies [5ff64ef]
+- Updated dependencies [64acb7e]
+- Updated dependencies [4ff5b6b]
+- Updated dependencies [473e5a0]
+- Updated dependencies [b279016]
+- Updated dependencies [bb6c38c]
+- Updated dependencies [26323c4]
+- Updated dependencies [9753811]
+- Updated dependencies [2727527]
+- Updated dependencies [3da39ae]
+- Updated dependencies [bc281f4]
+- Updated dependencies [d637be3]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [2cfdc99]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [1e6d83b]
+- Updated dependencies [6058bf8]
+- Updated dependencies [c219165]
+- Updated dependencies [a7ae252]
+- Updated dependencies [fb501bc]
+- Updated dependencies [30083da]
+- Updated dependencies [7f9cc37]
+- Updated dependencies [025130c]
+- Updated dependencies [76f91f8]
+- Updated dependencies [ea34d9b]
+- Updated dependencies [8aa8e3e]
+- Updated dependencies [024b7b6]
+- Updated dependencies [cb80001]
+- Updated dependencies [909c64e]
+- Updated dependencies [9e7e1a5]
+- Updated dependencies [2493e85]
+- Updated dependencies [d0b9648]
+- Updated dependencies [46dbf32]
+- Updated dependencies [a928aaa]
+- Updated dependencies [47508f3]
+- Updated dependencies [61ed5ad]
+- Updated dependencies [1b94d50]
+- Updated dependencies [6f877f1]
+- Updated dependencies [988aa9f]
+- Updated dependencies [1ce0711]
+- Updated dependencies [fb85637]
+- Updated dependencies [9f1dd79]
+- Updated dependencies [df71568]
+- Updated dependencies [d11174a]
+- Updated dependencies [2d8a8b7]
+- Updated dependencies [cbac9d7]
+- Updated dependencies [9eb1479]
+- Updated dependencies [74e37aa]
+- Updated dependencies [961b69f]
+- Updated dependencies [52907d7]
+- Updated dependencies [f466b0a]
+- Updated dependencies [673a71c]
+- Updated dependencies [616df65]
+- Updated dependencies [58798ec]
+- Updated dependencies [8803ca5]
+- Updated dependencies [e70c21d]
+- Updated dependencies [4b92c5a]
+- Updated dependencies [06be396]
+- Updated dependencies [3650d94]
+- Updated dependencies [7c05f21]
+- Updated dependencies [8cd4db4]
+- Updated dependencies [daeb77f]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [9b75509]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [26b0bd2]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [088e0f7]
+- Updated dependencies [78b07f4]
+- Updated dependencies [f962cdc]
+- Updated dependencies [b403bb3]
+- Updated dependencies [8a25fee]
+- Updated dependencies [4016370]
+- Updated dependencies [12dc7b4]
+  - @object-ui/types@18.0.0
+  - @object-ui/components@18.0.0
+  - @object-ui/core@18.0.0
+  - @object-ui/i18n@18.0.0
+  - @object-ui/react@18.0.0
+
 ## 17.7.0
 
 ### Minor Changes

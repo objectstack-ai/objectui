@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# copied from objectstack@7c2c5aedd94d7b0d94c91432bc607862e9c83c6c
+# copied from objectstack@338297e46018ae96256262590a308c8be735f825
 # Self-test for guard-main-checkout-bash.sh — run it after touching that hook:
 #
 #   .claude/hooks/guard-main-checkout-bash.selftest.sh
@@ -304,12 +304,66 @@ expect allow "$(printf "grep '#' README.md <<EOF\nsed -i 's/a/b/' pkg/x.ts\nEOF\
 expect block "$(printf "cat > /tmp/n.md <<'EOF'\n# it's a note, don't strip me\nEOF\nsed -i s/a/b/ pkg/x.ts\n")"
 expect allow "$(printf "cat > /tmp/n.md <<'EOF'\n# it's a note, don't strip me\nEOF\ngit status\n")"
 
+echo "== a \$(…) inside \"…\" is its own quoting context (objectstack#24812) =="
+CWD="$MAIN"
+# The measured false blocks: a `"` inside the substitution was read as CLOSING the outer string,
+# so the `>` in a quoted JSON body became a redirect and the fragment after it a write target.
+# Pure reads — nothing is written.
+expect allow 'echo "a $(curl -d "{\"c\":\"x > 1\"}" http://h)"'
+expect allow "echo \"a \$(curl -d '{\"c\":\"x > 1\"}' http://h)\""
+expect allow 'echo "a `curl -d "{\"c\":\"x > 1\"}" http://h`"'      # the backtick spelling
+# Recall is untouched: a real write beside a quoted substitution still blocks — in the same
+# command, behind a separator, and inside a sed -i script — and so does the card's control.
+expect block 'echo hi > out.txt'
+expect block 'echo "a $(curl -d "{\"c\":\"x > 1\"}" http://h)" > pkg/x.ts'
+expect block 'X="$(git rev-parse HEAD)" ; sed -i s/a/b/ pkg/x.ts'
+expect block 'sed -i "s/a/$(date +%F)/" pkg/x.ts'
+# The fail-OPEN mirror: one `"` in the body used to leave the outer string hanging, so the
+# separator behind it went inert and the real write rode through as text.
+expect block "echo \"\$(printf '\"')\" ; sed -i s/a/b/ pkg/x.ts"
+expect block "echo \"\$(echo \"\$(printf '\"')\")\" ; sed -i s/a/b/ pkg/x.ts"   # nested
+# The heredoc scan reads the body the same way: the ` #` inside it is no comment, so the
+# introducer behind it is found and the body stays prose.
+expect allow "$(printf 'echo "$(echo " #")" <<EOF\nsed -i s/a/b/ pkg/x.ts\nEOF\n')"
+
+echo "== a \${…} inside \"…\" is its own quoting context too (objectstack#24901) =="
+CWD="$MAIN"
+# The measured false block: the `"` that opens the default was read as CLOSING the outer string,
+# so `b}` became a write target. Pure reads — nothing is written. Each one exercises a different
+# pass: tokenisation (the first two), segmentation (the `;`), nesting both ways (the third).
+expect allow 'echo "${x:-"a > b"}"'
+expect allow 'echo "${x#"a > b"}"'
+expect allow 'echo "${x:-"$(printf "a > b")"}"'
+expect allow 'echo "${x:-"a; sed -i s/a/b/ pkg/x.ts"}"'
+expect allow "echo \"\${x:-'a > b'}\""          # control: no nested `"`, allowed before and after
+# The heredoc scan agrees: the ` #` inside the expansion is no comment, so the introducer
+# behind it is found and the body stays prose.
+expect allow "$(printf 'echo "${x:-" #"}" <<EOF\nsed -i s/a/b/ pkg/x.ts\nEOF\n')"
+# Recall is untouched: a write behind, beside or inside the script of a quoted expansion. A
+# '…' run holding no character the shells disagree on is skipped, so the write behind it stays.
+expect block 'sed -i "s/a/${x:-"b"}/" pkg/x.ts'
+expect block 'sed -i "s/a/${x}/" pkg/x.ts'
+expect block 'echo "${HOME}" > pkg/x.ts'
+expect block 'echo "${x:-"a"}" ; sed -i s/a/b/ pkg/x.ts'
+expect block "echo \"\${x:-'a'}\" ; sed -i s/a/b/ pkg/x.ts"
+# A `$(…)` inside the expansion is read by the same function, quotes and all: the `"` inside
+# its single quotes closes nothing, so the separator behind the word still splits.
+expect block "echo \"\${x:-\$(printf '\"')}\" ; sed -i s/a/b/ pkg/x.ts"
+
 echo "== shapes this guard deliberately does NOT claim (documented fail-open) =="
 CWD="$MAIN"
 expect allow "bash -c \"sed -i s/a/b/ $MAIN/pkg/x.ts\""
 expect allow 'echo pkg/x.ts | xargs sed -i s/a/b/'
 expect allow 'node -e "fs.writeFileSync(\"pkg/x.ts\", \"y\")"'
 expect allow 'python3 -c "open(\"pkg/x.ts\",\"w\").write(\"y\")"'
+expect allow 'echo "$(sed -i s/a/b/ pkg/x.ts)"'      # a QUOTED $(…) body is one inert word
+expect allow 'echo "${x:-"$(sed -i s/a/b/ pkg/x.ts)"}"'   # …and so is a QUOTED ${…} body
+expect allow 'echo hi > "${x:-"a > b"}"'              # a target holding an expansion
+# A '…' run inside a quoted ${…} that holds `}` (or `"` `\` `$` and a backtick): bash 5.2 reads
+# it as quoted and POSIX shells as literal, so they end the expansion in different places and
+# everything after it is inert. Under bash the first is a pure read, under dash a real write.
+expect allow "echo \"\${x:-'}\"; sed -i s/a/b/ pkg/x.ts'}\""
+expect allow "echo \"\${x:-'}'}\" ; sed -i s/a/b/ pkg/x.ts"
 expect allow 'sed -i s/a/b/ $SOMEDIR/x.ts'
 expect allow 'sed -i s/a/b/ pkg/*.ts'
 

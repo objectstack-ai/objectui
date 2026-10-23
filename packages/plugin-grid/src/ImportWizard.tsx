@@ -10,7 +10,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@object-ui/components';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, ArrowRight, ArrowLeft, Save, Trash2, ClipboardPaste, Download, Undo2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, XCircle, X, ArrowRight, ArrowLeft, Save, Trash2, ClipboardPaste, Download, Undo2 } from 'lucide-react';
 import { useObjectTranslation, notifyDataChanged } from '@object-ui/react';
 import { resolveAffordance, sanitizeFileNameBase } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
@@ -33,9 +33,10 @@ import type {
   ImportJobResultsInfo,
   ImportJobStatus,
   ImportJobSummaryInfo,
+  ImportJobUndoResult,
 } from '@object-ui/types';
 import {
-  parseSpreadsheetFile, parseClipboardTable, inferColumnType, isTypeCompatible,
+  parseSpreadsheetFile, delimitedFileDelimiter, parseClipboardTable, inferColumnType, isTypeCompatible,
   suggestColumnMappings, ImportParseError,
   type InferredType, type ColumnSuggestion, type MappingConfidence,
 } from './importParsers';
@@ -129,6 +130,8 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.resultsTruncated_one': 'Showing the first {{count}} row result (of {{total}}).',
   'grid.import.resultsTruncated_other': 'Showing the first {{count}} row results (of {{total}}).',
   'grid.import.importComplete': 'Import Complete',
+  'grid.import.importPartial': 'Import finished with errors',
+  'grid.import.importFailed': 'Import failed',
   'grid.import.imported': '{{count}} imported',
   'grid.import.createdCount': '{{count}} created',
   'grid.import.createdCount_one': '{{count}} created',
@@ -196,6 +199,11 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.undoing': 'Undoing…',
   'grid.import.undoConfirm': 'Undo this import? Records it created will be deleted and records it updated will be restored to their previous values.',
   'grid.import.reverted': 'Undone',
+  // A partial undo (the answer reads `success: false`): how many rows stayed,
+  // and that undoing again retries only them. Each row's refusal is listed below.
+  'grid.import.undoPartial': '{{count}} rows were not undone. Undo again to retry only those rows.',
+  'grid.import.undoPartial_one': '{{count}} row was not undone. Undo again to retry only that row.',
+  'grid.import.undoPartial_other': '{{count}} rows were not undone. Undo again to retry only those rows.',
   'grid.import.jobStatus.pending': 'Pending',
   'grid.import.jobStatus.running': 'Running',
   'grid.import.jobStatus.succeeded': 'Succeeded',
@@ -309,6 +317,7 @@ export const __testables = {
   get jobResultToImportResult() { return jobResultToImportResult; },
   get buildFailedRowsCsv() { return buildFailedRowsCsv; },
   get assembleImportRequest() { return assembleImportRequest; },
+  get sourceRowsToCsv() { return sourceRowsToCsv; },
   get isImportJobActive() { return isImportJobActive; },
   get isImportJobUndoable() { return isImportJobUndoable; },
   get buildSourceRows() { return buildSourceRows; },
@@ -451,6 +460,49 @@ export interface ImportResult {
 }
 
 type WizardStep = 'upload' | 'mapping' | 'preview';
+
+/**
+ * The result screen's headline ("Import Complete" / "Import cancelled") is
+ * rendered as the dialog's `DialogDescription`, so the finished state is what
+ * `aria-describedby` names and the header shows no stale subtitle above it
+ * (objectui#13124). These classes override the primitive's `text-sm
+ * text-muted-foreground` so the headline looks as it did as a plain paragraph.
+ */
+const RESULT_HEADLINE_CLASS = 'text-lg font-semibold text-foreground';
+
+/**
+ * What a finished import amounts to, read from the result the wizard already
+ * holds (objectui#13230). A row the import deliberately skipped (`ok: true`,
+ * action `skipped` — a skip-existing or no-match choice) is not an error, so
+ * only `errors` counts against the import. Every failure path leaves an entry
+ * there: an `ok: false` row carries its row number, while a refused (405) or
+ * thrown request, and a failed job with no row report, carry one row-0 entry
+ * with the request's message. A background job that ended `failed` is read
+ * from the job's own final status, since a worker can crash after committing
+ * some rows.
+ * - `failed`: the job ended `failed`, or nothing was imported and something errored.
+ * - `partial`: at least one row imported and at least one errored.
+ * - `success`: otherwise — including every row deliberately skipped.
+ * - `cancelled`: the user cancelled the job.
+ */
+type ImportOutcome = 'success' | 'partial' | 'failed' | 'cancelled';
+
+function importResultOutcome(
+  result: Pick<ImportResult, 'importedRows' | 'errors' | 'cancelled'>,
+  jobStatus?: ImportJobStatus | null,
+): ImportOutcome {
+  if (result.cancelled) return 'cancelled';
+  if (jobStatus === 'failed') return 'failed';
+  if (result.errors.length === 0) return 'success';
+  return result.importedRows > 0 ? 'partial' : 'failed';
+}
+
+const RESULT_HEADLINE_KEY: Record<ImportOutcome, string> = {
+  success: 'grid.import.importComplete',
+  partial: 'grid.import.importPartial',
+  failed: 'grid.import.importFailed',
+  cancelled: 'grid.import.importCancelled',
+};
 
 /** Maximum number of rows to show in the preview step */
 const PREVIEW_ROW_COUNT = 10;
@@ -893,6 +945,32 @@ function transformedSourceColumns(m: SavedMapping | null, headers: string[]): Se
   return out;
 }
 
+/** One CSV cell, quoted when it holds a comma, a double quote, a CR or an LF
+ *  (RFC 4180). The import door's CSV parser opens a quoted run at ANY double
+ *  quote and drops a bare CR, so a value carrying either travels quoted too. */
+function csvCell(value: string): string {
+  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+/** CSV text of the request's rows — SOURCE-keyed for a named mapping (see
+ *  buildSourceRows), field-keyed on the hand-mapped path: a header row naming
+ *  every column the rows carry, then one line per row. The cells are the ones
+ *  the JSON rows would carry, so a corrected cell, a pasted table and an .xlsx
+ *  sheet travel exactly as the preview shows them (objectui#13156). The columns
+ *  are read off the rows, so the text and the rows cannot disagree. */
+function sourceRowsToCsv(rows: ReadonlyArray<Record<string, string>>): string {
+  const columns: string[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    for (const column of Object.keys(row)) {
+      if (!seen.has(column)) { seen.add(column); columns.push(column); }
+    }
+  }
+  return [columns, ...rows.map((row) => columns.map((column) => row[column] ?? ''))]
+    .map((line) => line.map(csvCell).join(','))
+    .join('\r\n');
+}
+
 /** Assemble the server `/import` request from mapping-applied raw rows plus the
  *  current write-mode + coercion options. Kept pure (no component state) so the
  *  real import and the dry-run pre-check send byte-identical payloads and it can
@@ -918,19 +996,41 @@ function assembleImportRequest(
      *  column mapping / write-mode are omitted — mutually exclusive per the
      *  server contract. */
     mappingName?: string;
+    /** The `sourceFormat` that named mapping declares, read off the mapping the
+     *  server serves and never inferred from the uploaded file's name. The
+     *  import door judges the declaration against the payload and refuses JSON
+     *  rows for a `csv` mapping (`400 MAPPING_FORMAT_MISMATCH`, objectui#13156),
+     *  so a `csv` mapping's rows travel as CSV text from any source, and a
+     *  `json` mapping's as JSON rows from any source. An undeclared one follows
+     *  the source, as the hand-mapped path does (`csvFile`). */
+    mappingSourceFormat?: SavedMapping['sourceFormat'];
+    /** The rows were read from a CSV file: a delimited-text file, by the name
+     *  test `parseSpreadsheetFile` picks its text arm with
+     *  (`delimitedFileDelimiter`). Its rows travel as CSV text, so the import
+     *  door reads the file's cells through its own CSV rule — the one its CSV
+     *  export pairs with (objectui#13315). The text is `sourceRowsToCsv(rows)`,
+     *  the cells the preview parsed, never the file as uploaded. An .xlsx sheet
+     *  and a paste keep JSON rows. */
+    csvFile?: boolean;
   },
 ): ImportRequestOptions {
+  // A `json`-declared mapping is the one CSV-file request that keeps JSON rows:
+  // the door refuses CSV text for it (`MAPPING_FORMAT_MISMATCH`).
+  const asCsv = opts.mappingName
+    ? opts.mappingSourceFormat === 'csv' || (opts.csvFile === true && opts.mappingSourceFormat !== 'json')
+    : opts.csvFile === true;
+  const payload = asCsv
+    ? { format: 'csv' as const, csv: sourceRowsToCsv(rows) }
+    : { format: 'json' as const, rows };
   if (opts.mappingName) {
     return {
-      format: 'json',
-      rows,
+      ...payload,
       mappingName: opts.mappingName,
       ...(opts.dryRun ? { dryRun: true } : {}),
     };
   }
   return {
-    format: 'json',
-    rows,
+    ...payload,
     writeMode: opts.writeMode,
     ...(opts.writeMode !== 'insert' ? { matchFields: opts.matchFields } : {}),
     createMissingOptions: opts.createMissingOptions,
@@ -1079,17 +1179,29 @@ async function readSettledImportJob(
   return null;
 }
 
+/** What an Undo left for the list that ran it to show: the message of an undo
+ *  that threw, or the answer of one that left rows unreverted. */
+type ImportUndoOutcome =
+  | { kind: 'error'; message: string }
+  | { kind: 'partial'; answer: ImportJobUndoResult };
+
 /** The Undo action, shared by the History list and the cancelled-result
  *  screen: confirm (destructive + irreversible), roll the job back, tell the
  *  object's mounted readers their data changed (the undo deleted and restored
- *  records, so an open list refetches in place), hand a failure to `onError`
- *  (cleared to `null` when an undo starts), then call `onSettled` so the
- *  caller re-reads the job and the Undo button gives way to "Undone". */
+ *  records, so an open list refetches in place), hand anything the user must
+ *  read to `onOutcome` (cleared to `null` when an undo starts), then call
+ *  `onSettled` so the caller re-reads the job and the Undo button gives way to
+ *  "Undone".
+ *
+ *  An answer of `success: false` is not a throw: the server reverted what it
+ *  could, listed every row it did not revert in `failures`, and kept the job
+ *  undoable for those rows only. So the readers still refetch, the outcome
+ *  carries the answer, and the re-read job still offers Undo (objectui#13015). */
 function useImportJobUndo(
   dataSource: unknown,
   objectName: string,
   t: (key: string, vars?: Record<string, unknown>) => string,
-  onError: (message: string | null) => void,
+  onOutcome: (outcome: ImportUndoOutcome | null) => void,
   onSettled: () => void,
 ): { undoingId: string | null; undo: (jobId: string) => Promise<void> } {
   // Job id currently being undone (disables its Undo button + confirm).
@@ -1098,19 +1210,53 @@ function useImportJobUndo(
     const ds = dataSource as Partial<DataSource> | undefined;
     if (typeof ds?.undoImportJob !== 'function') return;
     if (typeof window !== 'undefined' && !window.confirm(t('grid.import.undoConfirm'))) return;
-    setUndoingId(jobId); onError(null);
+    setUndoingId(jobId); onOutcome(null);
     try {
-      await ds.undoImportJob(jobId);
+      const answer = await ds.undoImportJob(jobId);
       notifyDataChanged({ objectName });
+      if (!answer.success) onOutcome({ kind: 'partial', answer });
     } catch (err) {
-      onError(err instanceof Error ? err.message : String(err));
+      onOutcome({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
     } finally {
       setUndoingId(null);
       onSettled();
     }
-  }, [dataSource, objectName, t, onError, onSettled]);
+  }, [dataSource, objectName, t, onOutcome, onSettled]);
   return { undoingId, undo };
 }
+
+/** How many distinct refusal sentences a partial-undo notice lists before it
+ *  counts the rest, as the result screen does for row errors. */
+const UNDO_REFUSAL_LIMIT = 10;
+
+/** What an Undo left, drawn where the list that ran it shows it. A partial
+ *  undo says how many rows stayed and that undoing again retries only them,
+ *  then lists each refusal sentence the answer carries — the app's own words,
+ *  a hook's or a rule's. Rows refused with the same sentence share one line,
+ *  since one hook typically refuses many rows alike; the count above covers
+ *  them all. */
+const ImportUndoOutcomeNotice: React.FC<{
+  outcome: ImportUndoOutcome;
+  t: (key: string, vars?: Record<string, unknown>) => string;
+  errorTestId: string;
+  partialTestId: string;
+}> = ({ outcome, t, errorTestId, partialTestId }) => {
+  if (outcome.kind === 'error') {
+    return <p className="text-xs text-destructive" data-testid={errorTestId}>{outcome.message}</p>;
+  }
+  const refusals = [...new Set(outcome.answer.failures.map((failure) => failure.error))];
+  return (
+    <div className="text-xs text-destructive" role="alert" data-testid={partialTestId}>
+      <p>{t('grid.import.undoPartial', { count: outcome.answer.failed })}</p>
+      <ul className="mt-1 list-disc space-y-0.5 pl-4">
+        {refusals.slice(0, UNDO_REFUSAL_LIMIT).map((refusal) => <li key={refusal}>{refusal}</li>)}
+      </ul>
+      {refusals.length > UNDO_REFUSAL_LIMIT && (
+        <p className="text-muted-foreground">{t('grid.import.moreErrors', { count: refusals.length - UNDO_REFUSAL_LIMIT })}</p>
+      )}
+    </div>
+  );
+};
 
 /** Build a CSV blob of failed rows for re-export: the original mapped columns
  *  plus an `_error` column, so a user can fix and re-import just the failures. */
@@ -1171,7 +1317,9 @@ function parseErrorMessage(err: unknown, t: (k: string, v?: Record<string, unkno
 
 // Step 1: File Upload (CSV / Excel / paste)
 const StepUpload: React.FC<{
-  onFileLoaded: (headers: string[], rows: string[][]) => void;
+  /** `csvFile`: the grid was read from a delimited-text file, not from a
+   *  workbook or a paste (see `assembleImportRequest`). */
+  onFileLoaded: (headers: string[], rows: string[][], csvFile: boolean) => void;
   /** Fetches the server's import template (objectui#9600). Absent ⇒ the
    *  template is not offered: there is no client-built fallback. */
   downloadTemplate?: () => Promise<Blob>;
@@ -1203,16 +1351,16 @@ const StepUpload: React.FC<{
   };
 
   /** Validate a freshly-parsed grid and hand it to the wizard, or report why not. */
-  const acceptParsed = useCallback((parsed: string[][]) => {
+  const acceptParsed = useCallback((parsed: string[][], csvFile: boolean) => {
     if (parsed.length < 2) { setError(t('grid.import.fileNeedsHeader')); return false; }
-    onFileLoaded(parsed[0], parsed.slice(1));
+    onFileLoaded(parsed[0], parsed.slice(1), csvFile);
     return true;
   }, [onFileLoaded, t]);
 
   const processFile = useCallback(async (file: File) => {
     setError(null); setBusy(true);
     try {
-      acceptParsed(await parseSpreadsheetFile(file));
+      acceptParsed(await parseSpreadsheetFile(file), delimitedFileDelimiter(file.name) !== null);
     } catch (err) {
       setError(parseErrorMessage(err, t));
     } finally {
@@ -1232,7 +1380,7 @@ const StepUpload: React.FC<{
     if (!parsed) return;
     e.preventDefault();
     setError(null);
-    if (!acceptParsed(parsed)) { /* message already set */ }
+    if (!acceptParsed(parsed, false)) { /* message already set */ }
   }, [acceptParsed]);
 
   useEffect(() => {
@@ -1959,9 +2107,12 @@ const ImportHistoryPanel: React.FC<{
 
   // Logical rollback: delete created records + restore updated ones. Confirms
   // first (destructive + irreversible), then reloads so the row flips to
-  // "reverted" and its Undo button disappears.
+  // "reverted" and its Undo button disappears — or, after a partial undo, keeps
+  // offering Undo for the rows that remain. What the undo left lives in its own
+  // slot: the reload clears `error` as it starts, and would wipe it there.
+  const [undoOutcome, setUndoOutcome] = useState<ImportUndoOutcome | null>(null);
   const reload = useCallback(() => { void load(); }, [load]);
-  const { undoingId, undo: handleUndo } = useImportJobUndo(dataSource, objectName, t, setError, reload);
+  const { undoingId, undo: handleUndo } = useImportJobUndo(dataSource, objectName, t, setUndoOutcome, reload);
 
   if (!supported) {
     return (
@@ -1980,6 +2131,14 @@ const ImportHistoryPanel: React.FC<{
         </Button>
       </div>
       {error && <p className="text-xs text-destructive" data-testid="import-history-error">{error}</p>}
+      {undoOutcome && (
+        <ImportUndoOutcomeNotice
+          outcome={undoOutcome}
+          t={t}
+          errorTestId="import-history-undo-error"
+          partialTestId="import-history-undo-partial"
+        />
+      )}
       {jobs && jobs.length === 0 && !loading && (
         <p className="p-6 text-center text-sm text-muted-foreground" data-testid="import-history-empty">
           {t('grid.import.historyEmpty')}
@@ -2066,6 +2225,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const [step, setStep] = useState<WizardStep>('upload');
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<string[][]>([]);
+  // The rows came from a CSV file (a delimited-text file), so the request
+  // travels as CSV text (assembleImportRequest, objectui#13315).
+  const [csvFile, setCsvFile] = useState(false);
   const [mapping, setMapping] = useState<Record<number, string>>({});
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -2087,7 +2249,8 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const jobRunRef = React.useRef(0);
   // The final read of the job the result screen shows, for its Undo button.
   const [finishedJob, setFinishedJob] = useState<ImportJobProgressInfo | null>(null);
-  const [undoError, setUndoError] = useState<string | null>(null);
+  // What the last Undo on the result screen left for the user to read.
+  const [undoOutcome, setUndoOutcome] = useState<ImportUndoOutcome | null>(null);
   // Small-file server dry-run pre-check — validates the exact payload without
   // writing, so the summary/error list reflect real coercion outcomes.
   const [validating, setValidating] = useState(false);
@@ -2202,7 +2365,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
 
   // Select a registered mapping: the server owns rename + transforms, so we
   // set a read-only display mapping (for the preview grid) and reflect the
-  // artifact's write semantics; submit sends source rows + mappingName.
+  // artifact's write semantics; submit sends source rows + mappingName, as CSV
+  // text when the mapping declares `sourceFormat: 'csv'` or the source is a CSV
+  // file the mapping does not declare `json` for (assembleImportRequest).
   const handleSelectSavedMapping = useCallback((name: string) => {
     const m = availableMappings.find((sm) => sm.name === name);
     if (!m) return;
@@ -2281,8 +2446,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const missingRequiredHintId = React.useId();
   const nextHeldByRequired = !mappingName && missingRequired.length > 0;
 
-  const handleFileLoaded = useCallback((h: string[], r: string[][]) => {
-    setHeaders(h); setRows(r); setMapping(autoMapColumns(h, fields, r)); setCorrections({}); setStep('mapping');
+  const handleFileLoaded = useCallback((h: string[], r: string[][], fromCsvFile: boolean) => {
+    setHeaders(h); setRows(r); setCsvFile(fromCsvFile);
+    setMapping(autoMapColumns(h, fields, r)); setCorrections({}); setStep('mapping');
   }, [fields]);
 
   // cloud#797 Excel→App: when opened with a pre-loaded file (from the AI build
@@ -2301,7 +2467,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
         const parsed = await parseSpreadsheetFile(initialFile);
         if (cancelled) return;
         if (parsed.length < 2) return; // needs a header + at least one row
-        handleFileLoaded(parsed[0], parsed.slice(1));
+        handleFileLoaded(parsed[0], parsed.slice(1), delimitedFileDelimiter(initialFile.name) !== null);
       } catch {
         // Parse failed — leave the wizard on the upload step so the user can
         // retry / pick a different file; the upload UI shows its own errors.
@@ -2559,23 +2725,27 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   // Assemble the server import request from the current mapping + options.
   // `dryRun` reuses the exact same payload the real import will send, so the
   // pre-check validates precisely what would be written.
+  // The format the chosen mapping declares, kept as a string so the callback
+  // below keys on the declaration, not on a memoised object's identity.
+  const mappingSourceFormat = activeMapping?.sourceFormat;
   const buildImportRequest = useCallback((dryRun = false): ImportRequestOptions =>
     assembleImportRequest(
       // A named mapping is applied server-side over SOURCE-header rows; the
-      // hand-mapped, field-keyed rows are for the manual path only.
+      // hand-mapped, field-keyed rows are for the manual path only. Either
+      // travels as CSV text for a CSV file (assembleImportRequest).
       mappingName ? buildSourceRows(headers, rows, corrections) : buildRawRows(),
       {
-        writeMode, matchFields, createMissingOptions, skipBlankMatchKey, dryRun,
-        ...(mappingName ? { mappingName } : {}),
+        writeMode, matchFields, createMissingOptions, skipBlankMatchKey, dryRun, csvFile,
+        ...(mappingName ? { mappingName, mappingSourceFormat } : {}),
       },
     ),
-  [buildRawRows, mappingName, headers, rows, corrections, writeMode, matchFields, createMissingOptions, skipBlankMatchKey]);
+  [buildRawRows, mappingName, mappingSourceFormat, headers, rows, corrections, writeMode, matchFields, createMissingOptions, skipBlankMatchKey, csvFile]);
 
   const handleImport = useCallback(async () => {
     setImporting(true); setProgress(0);
     cancelPollRef.current = false;
     jobRunRef.current += 1;
-    setJobId(null); setAsyncCounts(null); setFinishedJob(null); setUndoError(null);
+    setJobId(null); setAsyncCounts(null); setFinishedJob(null); setUndoOutcome(null);
 
     const request = buildImportRequest();
 
@@ -2750,7 +2920,8 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     setResult(importResult); setImporting(false);
   }, [jobId, dataSource, asyncCounts, rows.length, publishJobOutcome]);
 
-  // Re-read the finished job after an Undo so its button gives way to "Undone".
+  // Re-read the finished job after an Undo so its button gives way to "Undone"
+  // (or, after a partial undo, keeps offering Undo for the rows that remain).
   // A read that lands after the wizard moved to another job is dropped.
   const rereadFinishedJob = useCallback(() => {
     const ds = dataSource as Partial<DataSource> | undefined;
@@ -2761,13 +2932,13 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
       () => { /* keep the last read */ },
     );
   }, [dataSource, finishedJob?.jobId]);
-  const { undoingId, undo: undoFinishedJob } = useImportJobUndo(dataSource, objectName, t, setUndoError, rereadFinishedJob);
+  const { undoingId, undo: undoFinishedJob } = useImportJobUndo(dataSource, objectName, t, setUndoOutcome, rereadFinishedJob);
   const canUndoJob = typeof (dataSource as Partial<DataSource> | undefined)?.undoImportJob === 'function';
 
   const reset = useCallback(() => {
     cancelPollRef.current = false;
-    setFinishedJob(null); setUndoError(null);
-    setStep('upload'); setHeaders([]); setRows([]); setMapping({}); setProgress(0); setResult(null);
+    setFinishedJob(null); setUndoOutcome(null);
+    setStep('upload'); setHeaders([]); setRows([]); setCsvFile(false); setMapping({}); setProgress(0); setResult(null);
     setCorrections({}); setSelectedTemplateId(null); setMappingName(null);
     setWriteMode(defaultWriteMode); setMatchFields([]);
     setCreateMissingOptions(false); setSkipBlankMatchKey(false);
@@ -2803,6 +2974,13 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
 
   const handleClose = useCallback(() => { reset(); onOpenChange?.(false); onCancel?.(); }, [reset, onOpenChange, onCancel]);
 
+  // The result screen's headline, icon and imported-count badge follow what
+  // the import amounted to, not merely that it finished (objectui#13230).
+  // `finishedJob` is published together with the result by the background
+  // path and cleared by every new run, so it is the job behind this result.
+  const resultOutcome: ImportOutcome = result ? importResultOutcome(result, finishedJob?.status) : 'success';
+  const importedBadgeVariant = resultOutcome === 'failed' ? 'outline' : 'default';
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange?.(v); }}>
       <DialogContent
@@ -2831,13 +3009,21 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
               </Button>
             )}
           </div>
-          <DialogDescription>
-            {showHistory
-              ? t('grid.import.historyDescription')
-              : step === 'upload' ? t('grid.import.uploadDescription')
-              : step === 'mapping' ? t('grid.import.mappingDescription')
-              : t('grid.import.previewDescription')}
-          </DialogDescription>
+          {/* A finished import keeps `step === 'preview'`, so this subtitle used
+              to read "Review data before importing." on the result screen
+              (objectui#13124). The result screen's own headline is the dialog's
+              description there instead (see `RESULT_HEADLINE_CLASS`), so the
+              header carries none and exactly one description is mounted in
+              every state: Radix wires `aria-describedby` only while one is. */}
+          {(showHistory || !result) && (
+            <DialogDescription>
+              {showHistory
+                ? t('grid.import.historyDescription')
+                : step === 'upload' ? t('grid.import.uploadDescription')
+                : step === 'mapping' ? t('grid.import.mappingDescription')
+                : t('grid.import.previewDescription')}
+            </DialogDescription>
+          )}
         </DialogHeader>
 
         {/* Step indicators */}
@@ -2988,17 +3174,18 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
           </>
         ) : (
           <div className="flex flex-col items-center gap-3 py-4">
-            {result.cancelled ? (
-              <>
-                <X className="h-10 w-10 text-muted-foreground" />
-                <p className="text-lg font-semibold">{t('grid.import.importCancelled')}</p>
-              </>
+            {resultOutcome === 'cancelled' ? (
+              <X className="h-10 w-10 text-muted-foreground" />
+            ) : resultOutcome === 'failed' ? (
+              <XCircle className="h-10 w-10 text-destructive" data-testid="import-result-failed-icon" />
+            ) : resultOutcome === 'partial' ? (
+              <AlertCircle className="h-10 w-10 text-muted-foreground" data-testid="import-result-partial-icon" />
             ) : (
-              <>
-                <CheckCircle2 className="h-10 w-10 text-green-500" />
-                <p className="text-lg font-semibold">{t('grid.import.importComplete')}</p>
-              </>
+              <CheckCircle2 className="h-10 w-10 text-green-500" />
             )}
+            <DialogDescription className={RESULT_HEADLINE_CLASS} data-testid="import-result-headline" data-outcome={resultOutcome}>
+              {t(RESULT_HEADLINE_KEY[resultOutcome])}
+            </DialogDescription>
             <div className="flex flex-wrap justify-center gap-2">
               {/* Prefer the finer created/updated breakdown when the server
                   reports it; otherwise fall back to a single "imported" count.
@@ -3009,11 +3196,11 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                   {(result.createdRows ?? 0) > 0 && <Badge variant="default">{t('grid.import.createdCount', { count: result.createdRows })}</Badge>}
                   {(result.updatedRows ?? 0) > 0 && <Badge variant="default">{t('grid.import.updatedCount', { count: result.updatedRows })}</Badge>}
                   {(result.createdRows ?? 0) === 0 && (result.updatedRows ?? 0) === 0 && (
-                    <Badge variant="default">{t('grid.import.imported', { count: result.importedRows })}</Badge>
+                    <Badge variant={importedBadgeVariant}>{t('grid.import.imported', { count: result.importedRows })}</Badge>
                   )}
                 </>
               ) : !result.cancelled && (
-                <Badge variant="default">{t('grid.import.imported', { count: result.importedRows })}</Badge>
+                <Badge variant={importedBadgeVariant}>{t('grid.import.imported', { count: result.importedRows })}</Badge>
               )}
               {result.skippedRows > 0 && <Badge variant="destructive">{t('grid.import.skippedCount', { count: result.skippedRows })}</Badge>}
             </div>
@@ -3036,8 +3223,13 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                 {undoingId === finishedJob.jobId ? t('grid.import.undoing') : t('grid.import.undoImport')}
               </Button>
             )}
-            {result.cancelled && undoError && (
-              <p className="text-xs text-destructive" data-testid="import-cancelled-undo-error">{undoError}</p>
+            {result.cancelled && undoOutcome && (
+              <ImportUndoOutcomeNotice
+                outcome={undoOutcome}
+                t={t}
+                errorTestId="import-cancelled-undo-error"
+                partialTestId="import-cancelled-undo-partial"
+              />
             )}
             {result.degraded && !result.cancelled && (
               <div

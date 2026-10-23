@@ -69,6 +69,10 @@ const NAV_ENTRY_BASE_KEYS = [
   'badge',
   'badgeVariant',
   'visible',
+  // The spec's base declares it since the objectstack `main` pin after
+  // 18.0.0-next.3 (objectstack#24332): the API binding `visible` reads, so a
+  // change of type keeps it beside `visible` (objectui#12971).
+  'dataSource',
   'requiredPermissions',
   'requiresObject',
   'requiresService',

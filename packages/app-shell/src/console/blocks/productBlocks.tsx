@@ -358,6 +358,7 @@ const API_BINDING_INPUT = {
 } as const;
 
 ComponentRegistry.register('hero', HeroBlock, {
+  namespace: 'app-shell',
   label: 'Hero',
   category: 'content',
   inputs: [
@@ -373,6 +374,7 @@ ComponentRegistry.register('hero', HeroBlock, {
 });
 
 ComponentRegistry.register('stat', StatBlock, {
+  namespace: 'app-shell',
   label: 'Stat',
   category: 'content',
   inputs: [
@@ -384,6 +386,7 @@ ComponentRegistry.register('stat', StatBlock, {
 });
 
 ComponentRegistry.register('usage-bar', UsageBarBlock, {
+  namespace: 'app-shell',
   label: 'Usage bar',
   category: 'content',
   inputs: [
@@ -396,6 +399,7 @@ ComponentRegistry.register('usage-bar', UsageBarBlock, {
 });
 
 ComponentRegistry.register('checklist', ChecklistBlock, {
+  namespace: 'app-shell',
   label: 'Checklist',
   category: 'content',
   inputs: [
@@ -406,6 +410,7 @@ ComponentRegistry.register('checklist', ChecklistBlock, {
 });
 
 ComponentRegistry.register('tile-grid', TileGridBlock, {
+  namespace: 'app-shell',
   label: 'Tile grid',
   category: 'content',
   inputs: [

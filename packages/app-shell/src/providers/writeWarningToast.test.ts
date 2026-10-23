@@ -38,6 +38,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DroppedFieldsEventSchema } from '@objectstack/spec/data';
 import { emitWriteWarning, type WriteWarningSink } from './writeWarningToast';
 import { ObjectStackAdapter } from '@object-ui/data-objectstack';
+import { createI18n, loadBuiltInLocale, type TranslateFn } from '@object-ui/i18n';
 import type { DroppedFieldsEvent, WriteWarningEvent } from '@object-ui/data-objectstack';
 
 /** Stand-in for i18next: returns the caller's English default, interpolated. */
@@ -206,6 +207,73 @@ describe('emitWriteWarning (#3484)', () => {
     expect(calls[0].description).not.toMatch(/^Not applied by the server/);
   });
 
+  /**
+   * The `stored_expression` row (objectui#13178), driven through the REAL
+   * catalogues rather than the defaultValue stand-in, so the pin is the line a
+   * user reads in each language. Spelled through `string`: the published spec
+   * pin does not declare the arm yet (objectstack-ai/objectstack#24778 adds it),
+   * and this file has to compile against both.
+   */
+  it('words reason `stored_expression` as a computed value saved in place of the one sent, in en and zh (objectui#13178)', async () => {
+    const storedExpression: string = 'stored_expression';
+    expect(await loadBuiltInLocale('zh')).not.toBeNull();
+
+    const lines = new Map<string, string>();
+    for (const language of ['en', 'zh']) {
+      const i18n = createI18n({ defaultLanguage: language, detectBrowserLanguage: false });
+      await i18n.changeLanguage(language);
+      const keys: string[] = [];
+      const realT: TranslateFn = (key: string, opts?: Record<string, unknown>) => {
+        keys.push(key);
+        return String(i18n.t(key, opts));
+      };
+      const { sink, calls } = makeSink();
+
+      await emitWriteWarning(
+        {
+          ...EVENT,
+          droppedFields: [
+            {
+              object: 'andon',
+              fields: ['type', 'source_method'],
+              reason: storedExpression as DroppedFieldsEvent['reason'],
+            },
+          ],
+        },
+        realT,
+        adapter as never,
+        identityLabel,
+        sink,
+      );
+
+      expect(keys).toContain('detail.writeStrippedStoredExpression');
+      expect(calls).toHaveLength(1);
+      lines.set(language, calls[0].description ?? '');
+    }
+
+    expect(lines.get('en')).toBe(
+      'Computed from the record, so the computed value was saved instead of the one sent: Andon type, Source method',
+    );
+    expect(lines.get('zh')).toBe(
+      '以下字段的值由记录计算得出，已保存计算值而非提交的值：Andon type, Source method',
+    );
+  });
+
+  /**
+   * The tripwire for the `| 'stored_expression'` widening on `STRIPPED_LINE`
+   * (objectui#13178). It exists only because the published pin predates
+   * objectstack-ai/objectstack#24778; on the bump to a release that declares the
+   * arm it is a silent no-op, which no compiler reports. This makes that bump
+   * say so instead, in the suite a bump is run through.
+   */
+  it('reminds the pin bump that carries `stored_expression` to retire the widening (objectui#13178)', () => {
+    expect(
+      DroppedFieldsEventSchema.shape.reason.options,
+      "the spec pin now declares `stored_expression`: delete `| 'stored_expression'` from STRIPPED_LINE's key type " +
+        "and make spec-symbol-batch6.test.ts's `_ReasonIsTheEnum` pin the five-member union",
+    ).not.toContain('stored_expression');
+  });
+
   it('keeps one line per reason when a save was stripped for several', async () => {
     const { sink, calls } = makeSink();
 
@@ -235,7 +303,8 @@ describe('emitWriteWarning (#3484)', () => {
    * The exhaustiveness pin (objectui#3935), read off the SPEC rather than a hand
    * list that would drift: `STRIPPED_LINE` is keyed by
    * `DroppedFieldsEvent['reason']` (widened by `'computed'` from objectui#11206
-   * until the 17.6.0 bump, objectui#11438), so a missing key is a type error — but
+   * until the 17.6.0 bump, objectui#11438, and by `'stored_expression'` from
+   * objectui#13178 until the bump that declares it), so a missing key is a type error — but
    * `type-check` and `vitest` are different gates,
    * and the reason the ternary this replaced survived so long is that nothing in
    * the test suite could see the gap at all.
@@ -244,10 +313,15 @@ describe('emitWriteWarning (#3484)', () => {
    * spec declares and require each to produce its own sentence rather than the
    * skew wording. A pin bump that widens the enum makes this red next to the
    * compile error, in the gate a wording change is normally noticed in.
+   *
+   * The reasons driven are the installed spec's PLUS `stored_expression`, which
+   * the table carries ahead of the pin (objectui#13178): until the pin declares
+   * it, nothing else here would require that row to be worded distinctly.
    */
   it('gives every reason the pinned spec declares its own wording (#3935)', async () => {
-    const reasons = DroppedFieldsEventSchema.shape.reason.options;
-    expect(reasons).toContain('primary_key');
+    const declared: readonly string[] = DroppedFieldsEventSchema.shape.reason.options;
+    expect(declared).toContain('primary_key');
+    const reasons = [...new Set([...declared, 'stored_expression'])] as DroppedFieldsEvent['reason'][];
 
     const wordings = new Map<string, string>();
     for (const reason of reasons) {

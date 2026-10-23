@@ -292,6 +292,37 @@ captureUpdateUndoData(['config'], { id: 't1', config: { id: 'c1', mode: 'strict'
 - `fields` is required. Pass `undefined` only when the caller has no field
   definitions for the object; nothing is then treated as a relation.
 
+### Which fields an `operation: 'update'` Undo covers
+
+The platform action route writes the `patch` of the declared action the
+action's `name` names, under the collected params. So `ActionRunner`'s Undo
+snapshot covers that declaration's `patch` keys plus the collected params. The
+runner reads the declaration from its context: a host publishes the object's
+declared actions as `objectActions`, beside `objectName` and `objectFields`.
+
+```typescript
+import { ActionRunner } from '@object-ui/core'
+
+// The object definition the host already holds, as the metadata API serves it.
+declare const taskDef: { fields: Record<string, unknown>; actions: unknown[] }
+
+// The same context `ActionProvider` takes. `objectFields` and `objectActions`
+// are read for `objectName`'s object only.
+new ActionRunner({
+  objectName: 'task',
+  objectFields: taskDef.fields,
+  objectActions: taskDef.actions,
+})
+```
+
+- The list is read only for the context's own object. A dispatch to another
+  object, or a host that publishes no list, reads the dispatched action's own
+  `patch`: a host that dispatches an object's action whole hands it in.
+- A page action row's own `patch` is never covered, and no action renderer
+  forwards one: `@objectstack/spec` 18 retires the key on the row. A row that
+  names an action whose declaration has no `patch` snapshots the collected
+  params alone.
+
 ### Display time zone (`setDisplayTimeZone`)
 
 The date and datetime faces this package exports (`formatDate`,

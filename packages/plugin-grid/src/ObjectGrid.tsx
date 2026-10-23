@@ -22,7 +22,7 @@
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, TableSortItem, DataTableSchema, ListViewExportFormat, RecordNavigateAction } from '@object-ui/types';
+import type { ObjectGridSchema, DataSource, DependsOnInput, ListColumn, TableColumn, ViewData, TableSortItem, DataTableSchema, ListViewExportFormat, RecordNavigateAction } from '@object-ui/types';
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { parseFilterAST, resolveFieldScale, type FilterCondition } from '@objectstack/spec/data';
@@ -35,7 +35,7 @@ import { createSafeTranslation } from '@object-ui/i18n';
 // what stops a seventh site picking a convention of its own.
 import { resolveGridCellRendering, gridCellRendererForFixedKey, linkCellRenderer, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
 import { isMaskedGridColumn, isWithheldGridColumn } from './maskedColumn';
-import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer, withKnownObjects, RICH_TEXT_FIELD_TYPES, resolveRecordPointer } from '@object-ui/fields';
+import { formatCurrency, formatCompactCurrency, formatDate, formatDateTime, formatRelativeDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer, withKnownObjects, RICH_TEXT_FIELD_TYPES, resolveRecordPointer } from '@object-ui/fields';
 import { RecordPointerCell, type RecordPointerSource } from './RecordPointerCell';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
@@ -61,7 +61,7 @@ import {
   toast,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, isDeadlineSettled, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
+import { resolveConditionalFormatting, resolveDependsOnFields, isDeadlineSettled, leadWithNameField, declaredNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, toDisplayDate, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -531,6 +531,15 @@ const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // (objectui#11068): the words the table's own empty row shows, so leaving the
   // member out changes nothing a user reads.
   'table.noResults': 'No results found',
+  // The empty state an empty grid draws when no authored `emptyState` and no
+  // search term are in force (objectui#13142). Borrowed from the `list.*`
+  // namespace `ListEmptyState` reads, so a grid and a list say the same thing
+  // about the same empty object; the rows exist HERE too for a provider-less
+  // host.
+  'list.firstRunTitle': 'Nothing here yet',
+  'list.firstRunMessage': 'Create your first record to get started.',
+  'list.noMatches': 'No matching records',
+  'list.viewFilterNoMatchesMessage': 'No records match this view’s filter.',
   // Heading of the record-detail overlay this grid opens on row click
   // (objectui#3426). Borrowed from the `detail.*` namespace rather than minted
   // as `grid.recordDetail`: `NavigationOverlay` already resolves
@@ -1675,6 +1684,58 @@ function FooterSummaryReport({
   }, [key]);
   useEffect(() => () => onChangeRef.current(null), []);
   return null;
+}
+
+/**
+ * [objectui#13234] The face a date-family CELL paints, for one grouping field:
+ * the renderer key from the cells' one shared resolve
+ * (`resolveGridCellRendering`), and the object field's `format`, which is the
+ * `format` the cell's field metadata carries.
+ */
+interface TemporalGroupFace {
+  rendererType: 'date' | 'datetime';
+  format?: string;
+}
+
+/**
+ * [objectui#13234] A `date` / `datetime` group's key, drawn as the grid's cell
+ * draws the same value. `undefined` for a key the cell has no face for (empty
+ * or unparsable), so the band keeps the group's own label: "(empty)" for an
+ * empty key, the stored text otherwise.
+ *
+ * The formatting CALLS are the cells' own, with the cells' arguments:
+ * `DateCellRenderer` paints `formatDate(value, format || 'relative', …)`;
+ * `DateTimeCellRenderer` paints `formatRelativeDate` for `'relative'`, the
+ * compact face for no format and for `'short'`, and `formatDateTime` with the
+ * authored word otherwise (the compact face's string is the cell's two halves
+ * joined by the one space the cell draws between them). No date is formatted
+ * here. The face SELECTION is the one part those renderers do not export, and
+ * it is restated here only: `groupDateHeading-13234.test.tsx` holds every
+ * heading to the cell under it for every face, so a move on either side turns
+ * it red.
+ *
+ * A heading names a DAY, not one row's deadline, so it reads the face's
+ * neutral phrase: `dueLike`'s "Overdue" wording and red are a per-row verdict
+ * (`settledWhen` is judged per row), and the rows of one group can judge it
+ * differently.
+ */
+function temporalGroupHeading(
+  face: TemporalGroupFace,
+  key: unknown,
+  locale: string | undefined,
+): string | undefined {
+  if (typeof key !== 'string' && typeof key !== 'number') return undefined;
+  // The cells' floor: every falsy scalar is empty, the numeric epoch included.
+  if (!key) return undefined;
+  // The cells' validity guard, the shared parse step.
+  if (isNaN(toDisplayDate(key).getTime())) return undefined;
+  if (face.rendererType === 'date') return formatDate(key, face.format || 'relative', { locale });
+  // A `datetime` cell renders an INSTANT, from the engine's parse.
+  const instant = new Date(key);
+  const style = !face.format || face.format === 'short' ? 'compact' : face.format;
+  return style === 'relative'
+    ? formatRelativeDate(instant, { locale })
+    : formatDateTime(instant, { style, locale });
 }
 
 export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
@@ -2837,9 +2898,65 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                   .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
                   .filter((f) => passesProjectionGate(f))
               : [];
+            // [objectui#13036] A shown `referenceVia` pointer column's TYPE
+            // half. `recordPointerFace` resolves the record through
+            // `resolveRecordPointer` (objectui#12608), which reads the sibling
+            // off the ROW and answers null when it is absent, so a grid whose
+            // columns show the id half but not its sibling fetched rows
+            // without it and drew the raw record id. `ListView`'s harvest
+            // carries the same arm; this is the projection a grouped grid that
+            // owns its fetch (`gridOwnsGroupedFetch`) and a standalone
+            // `object-grid` send. Asked of the columns this projection keeps (a
+            // pointer the principal may not read is not drawn), then the same
+            // two gates as the harvests above: a sibling the principal may not
+            // read is not asked, and that row keeps the stored text.
+            const referenceViaFields = declared
+              ? shownColumns
+                  .filter(passesProjectionGate)
+                  .map((entry) => (declared as Record<string, { referenceVia?: unknown } | undefined>)[columnIdentity(entry) ?? '']?.referenceVia)
+                  .filter((f): f is string => typeof f === 'string' && f !== '')
+                  .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
+                  .filter((f) => passesProjectionGate(f))
+              : [];
+            // [objectui#13214] A shown column's DECLARED `dependsOn` siblings.
+            // A faced column reads them off the ROW (`dependentValues={row}`):
+            // the `recipient-picker` face names a stored id by the row's
+            // `recipient_type`, and draws the stored text when it is absent.
+            // So a grid showing `recipient_id` but not `recipient_type` fetched
+            // rows without the kind and drew the raw user id. Driven by the
+            // declaration alone: every sibling the field names, nothing mapped
+            // by name here. Asked of the columns this projection keeps and the
+            // grid draws: a column the principal may not read, or one authored
+            // `hidden: true`, pulls nothing. Then the same two gates as the
+            // harvests above: a sibling the object does not declare is never
+            // sent, and one the principal may not read is never asked.
+            const dependsOnFields = declared
+              ? shownColumns
+                  .filter((entry) => !(entry && typeof entry === 'object' && (entry as { hidden?: unknown }).hidden === true))
+                  .filter(passesProjectionGate)
+                  .flatMap((entry) => resolveDependsOnFields(
+                    (declared as Record<string, { dependsOn?: DependsOnInput } | undefined>)[columnIdentity(entry) ?? '']?.dependsOn,
+                  ))
+                  .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
+                  .filter((f) => passesProjectionGate(f))
+              : [];
+            // [objectui#13107] The object's DECLARED name field. The bulk
+            // confirm step names each affected record from the row this
+            // projection fetched (`getRecordDisplayName`, ADR-0079), so a
+            // `nameField` no column shows arrived absent and the step listed
+            // another text field in its place (a contact's job title). Asked
+            // by name whatever its type: the server serves a formula field
+            // like any other. Fetched, never drawn: it joins the projection,
+            // not the columns. The same two gates as the harvests above.
+            const declaredName = declaredNameField(resolvedSchema);
+            const nameFields = declared && typeof declaredName === 'string' && declaredName !== ''
+              ? [declaredName]
+                  .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
+                  .filter((f) => passesProjectionGate(f))
+              : [];
             // A UNION, never an append: a grouping field that IS also a column
             // must not produce a duplicate `$select` entry.
-            const extraFields = [...predicateFields, ...groupingFields, ...concurrencyFields, ...rowColorFields, ...deadlineFields];
+            const extraFields = [...predicateFields, ...groupingFields, ...concurrencyFields, ...rowColorFields, ...deadlineFields, ...referenceViaFields, ...dependsOnFields, ...nameFields];
             const withHarvestedFields = (list: any[]): any[] => {
               if (extraFields.length === 0) return list;
               const names = new Set(list.map((f: any) => columnIdentity(f)));
@@ -3296,6 +3413,38 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       return undefined;
     };
   }, [schema.grouping, schema.columns, schema.objectName, objectFields, translateOptions, t]);
+
+  // [objectui#13234] Per grouping field whose cell paints a date-family face,
+  // that face; `temporalGroupHeading` draws the field's group headings through
+  // it. The type is the one `groupValueFormatter` reads (the authored column's
+  // `type` over the object field's), taken through the cells' one shared
+  // resolve, so a heading is drawn as a date exactly when the cell under it is.
+  //
+  // ⚠️ Drawn at the band (`groupBandsOf`), NOT returned from
+  // `groupValueFormatter`: the grouping hook ORDERS groups by the label that
+  // formatter returns, and a stored day sorts in calendar order only as the
+  // stored string ("Aug 1" < "Oct 1" < "Sep 1" alphabetically). The group keeps
+  // the stored key as its label, so its order and count are what they were;
+  // only the text in its band changes.
+  const temporalGroupFaces = React.useMemo(() => {
+    const faces = new Map<string, TemporalGroupFace>();
+    const cols: ReadonlyArray<string | ListColumn> = normalizeColumns(schema.columns) ?? [];
+    for (const gf of usableGroupingFields(schema.grouping?.fields)) {
+      const objectDefField = objectFields?.[gf.field];
+      const colOverride = cols.find(
+        (c): c is ListColumn => typeof c === 'object' && c !== null && c.field === gf.field,
+      );
+      const { rendererType } = resolveGridCellRendering({
+        type: colOverride?.type || objectDefField?.type,
+        format: objectDefField?.format,
+        widget: objectDefField?.widget,
+      });
+      if (rendererType === 'date' || rendererType === 'datetime') {
+        faces.set(gf.field, { rendererType, format: objectDefField?.format || undefined });
+      }
+    }
+    return faces;
+  }, [schema.grouping, schema.columns, objectFields]);
 
   const groupingForRender = groupingRefusesNothing || !schema.grouping
     ? schema.grouping
@@ -6565,8 +6714,29 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     const colMap = new Map<string, ObjectGridColumnDraft>();
     displayColumns.forEach((col) => colMap.set(col.accessorKey, col));
 
+    // [objectui#13150] The card is titled by the object's DECLARED name field,
+    // read through `declaredNameField` (the resolver's single spelling of the
+    // pointer, the one the bulk confirm step names records by), never by
+    // whichever column a view happens to show first: a view leading with
+    // Owner titled every card with the owner's name and pushed the record's
+    // own name down into a body row. Where the name field is a shown column,
+    // that column is the title. Where it is not, the title reads the row's
+    // value of it: both fetches that feed this grid ask for the declared name
+    // field whether or not a column shows it (`getSelectFields` here,
+    // objectui#13107; `ListView`'s harvest, objectui#13116), and a value the
+    // row lacks (the viewer may not read it) draws the card's empty title,
+    // never another field's value. Only an object that declares no name field
+    // keeps the first shown column as its title.
+    const declaredName = declaredNameField(objectSchema);
+    const nameFieldKey = typeof declaredName === 'string' && declaredName !== '' ? declaredName : undefined;
+    const titleCol = nameFieldKey !== undefined ? colMap.get(nameFieldKey) : displayColumns[0];
+    const titleKey = titleCol?.accessorKey ?? nameFieldKey;
+    // The body never repeats the title: it is every shown column but the one
+    // that titles the card, so a first column the name field displaced (the
+    // Owner above) reads as an ordinary body row.
+    const bodyColumns = displayColumns.filter((c) => c !== titleCol);
+
     // Identify special columns by inferred type for visual hierarchy
-    const titleCol = displayColumns[0]; // First column is always the title
     const amountKeys = ['amount', 'price', 'total', 'revenue', 'cost', 'value', 'budget', 'salary'];
     const stageKeys = ['stage', 'status', 'priority', 'category', 'severity', 'level'];
     const dateKeys = ['date', 'due', 'created', 'updated', 'deadline', 'start', 'end', 'expires'];
@@ -6653,13 +6823,30 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       return { label: /^[a-z0-9]+(_[a-z0-9]+)+$/.test(str) ? humanizeLabel(str) : str };
     };
 
+    // objectui#13134 — the card list scrolls in a box of its own, as the
+    // table does in its own body. Its host bounds it (`ListView`'s view area
+    // is `overflow-hidden`), so without this box a list taller than the
+    // screen was clipped with nothing to scroll, and a host could not leave
+    // room at its end: padding inside a clipping box makes no scroll room.
+    //
+    // `data-fab-clearance` marks it as the scroller whose end a host's
+    // floating button can cover. The host that draws such a button pads it
+    // from outside (the console object page does, for its phone create
+    // button), so this component learns nothing about buttons it does not
+    // draw: a DOM attribute, the same posture as `data-fab-yield`, rather
+    // than a prop or an export. With no such host it is unpadded.
     return (
       <>
+        <div
+          className="h-full overflow-y-auto overflow-x-hidden"
+          data-fab-clearance=""
+          data-testid="object-grid-card-scroller"
+        >
         {gridDescription}
         <div className="space-y-2 p-2" {...anchorCaptureProps}>
           {data.map((row, idx) => {
             // Collect secondary fields (skip the title column)
-            const secondaryCols = displayColumns.slice(1, 5);
+            const secondaryCols = bodyColumns.slice(0, 4);
             const amountCol = secondaryCols.find((c: any) => classify(c.accessorKey) === 'amount');
             const stageCol = secondaryCols.find((c: any) => classify(c.accessorKey) === 'stage');
             const dateCols = secondaryCols.filter((c: any) => classify(c.accessorKey) === 'date');
@@ -6683,11 +6870,15 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                 onClick={() => navigation.handleClick(row)}
               >
                 {/* Title row - Name as bold prominent title */}
-                {titleCol && (
-                  <div className="font-semibold text-sm truncate mb-1">
-                    {isMaskedCardColumn(titleCol.accessorKey)
-                      ? titleCol.cell?.(row[titleCol.accessorKey], row)
-                      : (coerceToSafeValue(row[titleCol.accessorKey]) ?? '—')}
+                {titleKey !== undefined && (
+                  <div data-testid="grid-card-title" className="font-semibold text-sm truncate mb-1">
+                    {isMaskedCardColumn(titleKey)
+                      ? (titleCol
+                          ? titleCol.cell?.(row[titleKey], row)
+                          // A masked name field no column shows has no `cell`
+                          // to draw its mask, so the mask is drawn here.
+                          : <MaskedCellRenderer value={row[titleKey]} />)
+                      : (coerceToSafeValue(row[titleKey]) ?? '—')}
                   </div>
                 )}
 
@@ -6831,6 +7022,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               </div>
             );
           })}
+        </div>
         </div>
         {navigation.isOverlay && (
           <NavigationOverlay
@@ -7083,6 +7275,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     const bands: NonNullable<ObjectGridDataTableSchema['rowGroups']> = [];
     const visit = (group: typeof groups[number]) => {
       const { fieldLabel, labelColorClass, labelColorStyle } = resolveGroupHeader(group.field, group.label);
+      // [objectui#13234] A date-family key reads as its cell reads; the
+      // group's own label (its sort key) everywhere else.
+      const temporalFace = temporalGroupFaces.get(group.field);
+      const heading = (temporalFace && temporalGroupHeading(temporalFace, group.keyValues[group.field], displayLocale))
+        || group.label;
       const openLeaf = !group.collapsed && group.subgroups.length === 0;
       bands.push({
         key: group.key,
@@ -7090,7 +7287,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         band: (
           <GroupRow
             groupKey={group.key}
-            label={group.label}
+            label={heading}
             count={group.count}
             collapsed={group.collapsed}
             aggregations={group.aggregations}
@@ -7228,12 +7425,45 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const authoredEmptyTitle = resolveInlineI18nLabel(authoredEmptyState?.title, displayLocale);
   const authoredEmptyMessage = resolveInlineI18nLabel(authoredEmptyState?.message, displayLocale);
   const searchEmptiedRows = manualSearchOn && manualSearch.trim() !== '';
+  const holdsNoRows = !loading && (isGrouped ? groups.length === 0 : data.length === 0);
   const drawsAuthoredEmptyState = authoredEmptyState != null
-    && !loading
-    && !searchEmptiedRows
-    && (isGrouped ? groups.length === 0 : data.length === 0);
+    && holdsNoRows
+    && !searchEmptiedRows;
+  // objectui#13142 — with no authored `emptyState`, an empty grid used to fall
+  // through to the table's own empty row, "No results found / Try adjusting
+  // your filters or search query.", which is the right sentence only when the
+  // USER's query emptied it. Over an object that has no record and a grid
+  // nobody searched, there is no filter to adjust. So the grid tells the two
+  // apart, the way `ListEmptyState` (plugin-list) does, with the same `list.*`
+  // copy:
+  //
+  // - a search term (this grid's own box, or the host's `search`) is the
+  //   user's query: the table stays, with its row and its search box, so the
+  //   term can be cleared;
+  // - the declared `filter` alone is the view's, not the user's: "No matching
+  //   records / No records match this view's filter." — never the first-run
+  //   invitation over an object that may be full of records (objectui#4155);
+  // - neither: the first-run copy, "Nothing here yet / Create your first
+  //   record to get started.", which points at the host's own create control.
+  //
+  // This grid has no user-filter or quick-filter control of its own. The one
+  // host that merges its user's filters into `filter` (`ListView`, for a grid
+  // grouping on the server) draws its own empty state before it mounts this
+  // grid, from its window fetched under the same filter.
+  const userQueryEmptiedRows = querySearchTerm.trim() !== '';
+  const drawsDefaultEmptyState = authoredEmptyState == null
+    && holdsNoRows
+    && !userQueryEmptiedRows;
+  const viewFilterEmptiedRows = schemaFilter !== undefined;
   const AuthoredEmptyIcon = drawsAuthoredEmptyState ? resolveIcon(authoredEmptyState?.icon) : null;
-  const renderedGridContent = drawsAuthoredEmptyState ? (
+  const renderedGridContent = drawsDefaultEmptyState ? (
+    <DataEmptyState
+      data-testid="object-grid-empty-state"
+      className="flex-1 min-h-[200px]"
+      title={viewFilterEmptiedRows ? t('list.noMatches') : t('list.firstRunTitle')}
+      description={viewFilterEmptiedRows ? t('list.viewFilterNoMatchesMessage') : t('list.firstRunMessage')}
+    />
+  ) : drawsAuthoredEmptyState ? (
     <DataEmptyState
       data-testid="object-grid-empty-state"
       className="flex-1 min-h-[200px]"

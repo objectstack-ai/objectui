@@ -195,6 +195,78 @@ describe('referencing the spec NavigationItemSchema would reject metadata object
 
 
 // ─────────────────────────────────────────────────────────────────────────────
+// `visible`: the spec's expression input, both ways (objectui#13075)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The spec types every nav branch's `visible` as `EvaluatedExpressionInputSchema`:
+ * a non-blank predicate string, or the `{ dialect, source }` envelope its own
+ * parse produces. The mirror's slot was `boolean | string`, so it refused the
+ * envelope and accepted a blank string — a divergence both ways that no row
+ * above recorded. The mirror now takes the spec's schema by reference beside
+ * its boolean arm, so the boolean (the `visible: boolean` row above) is the one
+ * divergence left on this key.
+ *
+ * Each verdict is read off BOTH schemas, on an ordinary entry and on a `doc`
+ * entry (which the spec's `doc` arm judges), so an agreement cannot pass
+ * because one side refuses everything.
+ */
+describe('objectui#13075 — `visible` takes the spec\'s expression input', () => {
+  const ENTRIES: Array<[string, Record<string, unknown>]> = [
+    ['a url entry', { id: 'nav_ai', type: 'url', label: 'AI', url: '/ai' }],
+    ['a doc entry', { id: 'nav_help', type: 'doc', book: 'crm_manual' }],
+  ];
+  /** An envelope that reads no `data`, so the spec's data-source rule does not apply. */
+  const ENVELOPE = { dialect: 'cel', source: "'org_admin' in current_user.positions" };
+
+  it.each(ENTRIES)('the `{ dialect, source }` envelope parses on both (%s), and the mirror keeps it as written', (_name, entry) => {
+    const input = { ...entry, visible: ENVELOPE };
+    expect(SpecNavigationItemSchema.safeParse(input).success).toBe(true);
+    expect(keep(input)).toEqual(input);
+  });
+
+  it.each(ENTRIES.flatMap(([name, entry]) => [
+    [name, '\'\'', { ...entry, visible: '' }],
+    [name, 'whitespace', { ...entry, visible: '   ' }],
+  ] as Array<[string, string, Record<string, unknown>]>))(
+    'a blank string is refused by both (%s, %s), with the spec\'s code and sentence',
+    (_name, _blank, input) => {
+      const spec = SpecNavigationItemSchema.safeParse(input);
+      const mirror = NavigationItemSchema.safeParse(input);
+      expect(refusal(spec)).toEqual(['invalid_union @ visible']);
+      expect(refusal(mirror)).toEqual(['invalid_union @ visible']);
+      expect(!mirror.success && mirror.error.issues[0].message).toBe(!spec.success && spec.error.issues[0].message);
+    },
+  );
+
+  it('a blank `source` inside the envelope is refused by both, once, at `source`', () => {
+    const input = { id: 'nav_ai', type: 'url', label: 'AI', url: '/ai', visible: { dialect: 'cel', source: ' ' } };
+    expect(refusal(SpecNavigationItemSchema.safeParse(input))).toEqual(['custom @ visible.source']);
+    expect(refusal(NavigationItemSchema.safeParse(input))).toEqual(['custom @ visible.source']);
+  });
+
+  it('CONTROL — a bare non-blank string parses on both, and the mirror does not rewrite it into an envelope', () => {
+    const input = { id: 'nav_ai', type: 'url', label: 'AI', url: '/ai', visible: "'org_admin' in current_user.positions" };
+    expect(SpecNavigationItemSchema.safeParse(input).success).toBe(true);
+    expect(keep(input)).toEqual(input);
+  });
+
+  it('CONTROL — a boolean still parses on the mirror and stays the one divergence (the `visible: boolean` row)', () => {
+    for (const visible of [true, false]) {
+      const input = { id: 'nav_ai', type: 'url', label: 'AI', url: '/ai', visible };
+      expect(keep(input)).toEqual(input);
+      expect(SpecNavigationItemSchema.safeParse(input).success).toBe(false);
+    }
+  });
+
+  it('the TypeScript face admits the envelope (compile-time)', () => {
+    const entry: NavigationItem = { id: 'nav_ai', type: 'url', label: 'AI', url: '/ai', visible: { dialect: 'cel', source: 'true' } };
+    expect(keep(entry)).toEqual(entry);
+  });
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 // The type vocabulary and the `doc` entry (objectui#11197)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -335,5 +407,58 @@ describe('objectui#11197 — an unknown type is still refused on both faces (con
     const group = (child: Record<string, unknown>) => ({ id: 'nav_help_grp', type: 'group', label: 'Help', children: [child] });
     expect(keep(group({ id: 'nav_help', type: 'doc', book: 'crm_manual' }))).not.toBeNull();
     expect(refusal(NavigationItemSchema.safeParse(group({ id: 'nav_help', type: 'doc' })))).toEqual(['custom @ children.0']);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A `visible` that reads `data` needs a `dataSource` (objectui#13076)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The spec mounts its exported `navItemVisibleDataNeedsDataSource` on its whole
+ * navigation union (objectstack#24534): an entry whose `visible` reads `data`,
+ * with no `dataSource` to bind it, is refused at `visible`. The mirror chains
+ * that very function on every arm, so each refusal below is read off BOTH
+ * schemas and compared issue for issue — the issue text is the spec's, compared
+ * rather than pinned.
+ */
+describe('objectui#13076 — a `visible` that reads `data` needs a `dataSource`, on both faces', () => {
+  const DATA_SOURCE = { provider: 'api', read: { url: '/api/v1/environments' } };
+  /** The spec card's own entry. */
+  const NAV_ENVS = { id: 'nav_envs', type: 'object', objectName: 'sys_environment', visible: 'data.total == 1' };
+
+  /** Code, path and message of every issue, so "the same issue" is the whole issue. */
+  function issues(result: { success: boolean; error?: { issues: Array<{ code: string; path: PropertyKey[]; message: string }> } }) {
+    return result.success ? [] : result.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message }));
+  }
+
+  const REFUSED: Array<[string, Record<string, unknown>, string]> = [
+    ['the card\'s `object` entry', NAV_ENVS, 'visible'],
+    ['a `url` entry (a non-`object` branch)', { id: 'nav_ai', type: 'url', url: '/ai', visible: 'data.enabled' }, 'visible'],
+    ['a `doc` entry (judged by its own arm)', { id: 'nav_help', type: 'doc', book: 'crm_manual', visible: 'data.enabled' }, 'visible'],
+    ['a `url` entry nested under a group', { id: 'nav_grp', type: 'group', label: 'G', children: [{ id: 'nav_ai', type: 'url', url: '/ai', visible: 'data.enabled' }] }, 'children.0.visible'],
+  ];
+
+  it.each(REFUSED)('%s — refused by the spec and by the mirror, with the same issue', (_name, entry, at) => {
+    const spec = issues(SpecNavigationItemSchema.safeParse(entry));
+    const mirror = issues(NavigationItemSchema.safeParse(entry));
+    expect(spec.map((i) => `${i.code} @ ${i.path}`)).toEqual([`custom @ ${at}`]);
+    expect(mirror).toEqual(spec);
+  });
+
+  it('CONTROL — the card\'s entry WITH a `dataSource` is accepted by both, and the mirror keeps it', () => {
+    const entry = { ...NAV_ENVS, dataSource: DATA_SOURCE };
+    expect(SpecNavigationItemSchema.safeParse(entry).success).toBe(true);
+    expect(keep(entry)).toEqual(entry);
+  });
+
+  it('CONTROL — an absent `visible` passes both; a boolean `visible` passes the mirror (the `visible: boolean` row)', () => {
+    const { visible: _drop, ...absent } = NAV_ENVS;
+    expect(SpecNavigationItemSchema.safeParse(absent).success).toBe(true);
+    expect(keep(absent)).toEqual(absent);
+    for (const visible of [true, false]) {
+      const entry = { ...NAV_ENVS, visible };
+      expect(keep(entry)).toEqual(entry);
+    }
   });
 });

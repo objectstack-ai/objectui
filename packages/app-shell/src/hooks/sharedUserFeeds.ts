@@ -5,8 +5,8 @@
  *
  *   | feed                     | producer                                   | consumers                          |
  *   | ------------------------ | ------------------------------------------ | ---------------------------------- |
- *   | pending approvals count  | `GET /api/v1/approvals/requests?status=…`  | AppHeader bell badge + Approvals   |
- *   |                          |                                            | tab; Home's To-do card             |
+ *   | pending approvals count  | `GET /api/v1/approvals/requests?status=…`, | AppHeader bell badge + Approvals   |
+ *   | (+ the first rows)       | one page of `APPROVALS_PAGE_ROWS` + `total`| tab; Home's To-do card             |
  *   | recent activity          | `find('sys_activity', top 20, desc)`,      | AppHeader bell Activity tab;       |
  *   |                          | asked only with the caller's read grant,   | Home's activity card               |
  *   |                          | filtered to the app object roster          |                                    |
@@ -698,15 +698,37 @@ export interface PendingApprovalRequest {
   createdAt?: string;
 }
 
-const NO_APPROVALS: PendingApprovalRequest[] = [];
+/**
+ * How many approval requests the one shared read asks for (objectui#13027).
+ *
+ * The rows are drawn by one surface only — Home's approvals column, which
+ * previews at most `useHomeInbox`'s default `limit` (5) of them — while the
+ * COUNT is drawn on every console page (the bell badge's second addend, the
+ * tab strip, Home's count). So the read is one PAGE of this many rows plus the
+ * route's exact `total` (`countRequests`, answered whenever `limit` is sent),
+ * instead of the unpaged legacy window of up to 500 enriched rows it used to
+ * pull on every console open. ⚠️ Keep it at least Home's row cap: a smaller
+ * page would shorten Home's preview, while the count would stay right.
+ */
+const APPROVALS_PAGE_ROWS = 5;
+
+/**
+ * One answer of the approvals feed: the first page of requests, and how many
+ * are waiting in all. `total` is the server's count, not `requests.length` —
+ * the page is a preview of it.
+ */
+type PendingApprovalPage = { requests: PendingApprovalRequest[]; total: number };
+
+const NO_APPROVALS: PendingApprovalPage = { requests: [], total: 0 };
 
 /**
  * The approval requests themselves, not only how many (objectui#12602): Home's
  * approvals column lists the first of them, and the count every surface shows
- * is this list's length — one request, one answer, so the column and the bell
- * cannot disagree about how many are waiting.
+ * is the same answer's `total` — one request, one answer, so the column and
+ * the bell cannot disagree about how many are waiting (objectui#13027 moved
+ * the count from the list's length to the page's `total`, still one read).
  */
-const approvalsFeed = new SharedFeed<PendingApprovalRequest[]>(NO_APPROVALS, APPROVALS_POLL_MS);
+const approvalsFeed = new SharedFeed<PendingApprovalPage>(NO_APPROVALS, APPROVALS_POLL_MS);
 
 function str(v: unknown): string | undefined {
   return typeof v === 'string' && v.trim() ? v : undefined;
@@ -786,18 +808,33 @@ export function useSharedPendingApprovalsCount(): number {
  */
 export function useSharedPendingApprovals(): SharedFeedSnapshot<number> {
   const { value, status } = useSharedPendingApprovalRequests();
-  return { value: value.length, status };
+  return { value: value.total, status };
 }
 
 /**
- * The pending approval requests themselves, with the feed's status — the rows
- * {@link useSharedPendingApprovals} counts (objectui#12602). Same feed, same
- * one request: Home's approvals column lists these, and its count is their
- * number, which is the bell's.
+ * The pending approval requests themselves, with the feed's status — the first
+ * page of the requests {@link useSharedPendingApprovals} counts (objectui#12602)
+ * and the count itself. Same feed, same one request: Home's approvals column
+ * lists `requests`, and its count is `total`, which is the bell's.
+ *
+ * ## One page and its total, not every row (objectui#13027)
+ *
+ * The read sends `limit` = `APPROVALS_PAGE_ROWS`, and the route answers that
+ * page with `total` — the exact count over the same filter. What a surface
+ * calls "how many are waiting" is that `total`, never the page's length.
+ *
+ * An answer without a numeric `total` is read as exactly one thing: a page
+ * with no rows on it. That is the route's own answer on a deployment with no
+ * approvals service (`{ data: [] }`, sent instead of a 501), and an empty first
+ * page is an exact zero. A non-empty page without `total` cannot say how many
+ * are waiting, so it is a failed read (`error`), never its own length.
  *
  * Package-internal: not exported from `./index.ts` or the package entry.
  */
-export function useSharedPendingApprovalRequests(): SharedFeedSnapshot<PendingApprovalRequest[]> {
+export function useSharedPendingApprovalRequests(): SharedFeedSnapshot<{
+  requests: PendingApprovalRequest[];
+  total: number;
+}> {
   const { user } = useAuth();
   const identities = approverIdentities(user);
   // `user?.id` is the sign-in gate; identities is what the query needs.
@@ -805,7 +842,11 @@ export function useSharedPendingApprovalRequests(): SharedFeedSnapshot<PendingAp
 
   return useSharedFeed(approvalsFeed, key, async ({ markUnavailable, markFailed }) => {
     const serverUrl = (import.meta.env?.VITE_SERVER_URL || '').replace(/\/$/, '');
-    const qs = new URLSearchParams({ status: 'pending', approverId: identities.join(',') });
+    const qs = new URLSearchParams({
+      status: 'pending',
+      approverId: identities.join(','),
+      limit: String(APPROVALS_PAGE_ROWS),
+    });
     const res = await fetch(`${serverUrl}/api/v1/approvals/requests?${qs}`, {
       credentials: 'include',
       // Bearer too — see utils/authToken (#2548 split-origin fix).
@@ -820,11 +861,20 @@ export function useSharedPendingApprovalRequests(): SharedFeedSnapshot<PendingAp
       return undefined;
     }
     const payload = await res.json().catch(() => null);
-    // One entry per request id: the count has always been the DISTINCT ids,
-    // and the list is what that count is the size of.
+    const rows = (Array.isArray(payload?.data) ? payload.data : []) as Record<string, unknown>[];
+    const served = payload?.total;
+    let total: number;
+    if (typeof served === 'number' && Number.isFinite(served) && served >= 0) total = served;
+    else if (rows.length === 0) total = 0; // the empty first page — an exact zero
+    else {
+      // A page of rows with no count: how many are waiting is unknown.
+      markFailed();
+      return undefined;
+    }
+    // One entry per request id on the page.
     const seen = new Set<string>();
     const requests: PendingApprovalRequest[] = [];
-    for (const row of (payload?.data || []) as Record<string, unknown>[]) {
+    for (const row of rows) {
       const id = String(row.id);
       if (seen.has(id)) continue;
       seen.add(id);
@@ -836,7 +886,7 @@ export function useSharedPendingApprovalRequests(): SharedFeedSnapshot<PendingAp
         createdAt: str(row.created_at),
       });
     }
-    return requests;
+    return { requests, total };
   });
 }
 

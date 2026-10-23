@@ -51,7 +51,7 @@
  * nothing" and a caller that has no data must not claim it has that answer.
  */
 
-import type { EvalPermissions } from '@objectstack/formula';
+import type { EvalPermissions, EvalSystemPermissions } from '@objectstack/formula';
 
 /**
  * The key the subject carries its effective object permissions under.
@@ -96,4 +96,54 @@ export function bindSubjectPermissions<T extends object>(
 export function subjectPermissionsOf(subject: unknown): EvalPermissions | undefined {
   if (subject === null || typeof subject !== 'object') return undefined;
   return (subject as PermissionBearing)[SUBJECT_PERMISSIONS];
+}
+
+/**
+ * The key the subject carries its held system capabilities under — the
+ * `systemPermissions` list of the `/auth/me/permissions` response, the one
+ * input `current_user.hasCapability(name)` is answered from (objectui#13006).
+ *
+ * It rides beside {@link SUBJECT_PERMISSIONS} for the same reasons: the engine
+ * reads it from `EvalContext.systemPermissions`, ⛔ never from a CEL variable,
+ * so it can be neither a scope key (every scope key is a root) nor a string
+ * member of `current_user` (`current_user.systemPermissions` would be a
+ * readable member reaching around the function). A symbol is neither.
+ *
+ * Absent is not empty, exactly as for the permissions map: a subject carrying
+ * no list hands the engine none, and `hasCapability` refuses loudly; an empty
+ * list is a real answer ("holds no capability") and evaluates to `false`.
+ */
+export const SUBJECT_CAPABILITIES: unique symbol = Symbol.for(
+  '@object-ui/core:subject-capabilities',
+) as never;
+
+type CapabilityBearing = { [SUBJECT_CAPABILITIES]?: EvalSystemPermissions };
+
+/**
+ * The subject to publish as `current_user`, carrying `systemPermissions` when
+ * there is a list — the sibling of {@link bindSubjectPermissions}, on the same
+ * terms: a shallow copy (the caller's object is never mutated, and every alias
+ * must be the returned object), and with no list a subject built from one that
+ * had a list is stripped rather than left answering from a stale one.
+ */
+export function bindSubjectCapabilities<T extends object>(
+  subject: T,
+  systemPermissions: EvalSystemPermissions | undefined,
+): T {
+  if (systemPermissions === undefined) {
+    if (!Object.prototype.hasOwnProperty.call(subject, SUBJECT_CAPABILITIES)) return subject;
+    const stripped = { ...subject } as T & CapabilityBearing;
+    delete stripped[SUBJECT_CAPABILITIES];
+    return stripped;
+  }
+  return { ...subject, [SUBJECT_CAPABILITIES]: systemPermissions };
+}
+
+/**
+ * The held system capabilities a subject carries, or `undefined` when it
+ * carries none (absent is not empty — see {@link SUBJECT_CAPABILITIES}).
+ */
+export function subjectCapabilitiesOf(subject: unknown): EvalSystemPermissions | undefined {
+  if (subject === null || typeof subject !== 'object') return undefined;
+  return (subject as CapabilityBearing)[SUBJECT_CAPABILITIES];
 }

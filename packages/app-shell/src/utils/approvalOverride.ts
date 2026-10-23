@@ -36,9 +36,15 @@
  * gate — the very predicate that admitted the button — and asks whether it ORs
  * in `can_override`. The three core levers do
  * (`… record.viewer.can_act == true || … record.viewer.can_override == true`);
- * `approval_recall` / `approval_resubmit` gate on `is_submitter` and never
- * match, so a submitter who happens to also hold override rights does not get
- * their recall button relabelled as an override.
+ * `approval_remind` / `approval_resubmit` gate on `is_submitter` alone and
+ * never match.
+ *
+ * `approval_recall` declares BOTH arms: the submitter's own, and, since
+ * objectstack#12716, the override arm spelled like the core levers'. A
+ * submitter who also holds override rights reaches that button through their
+ * own arm, so withdrawing their own request is the ordinary path, not an
+ * override. {@link isOverrideDecision} therefore reads the served
+ * `is_submitter` flag for any lever whose gate names it (objectui#13225).
  *
  * ## Fail-safe direction
  *
@@ -109,14 +115,39 @@ export function actionAdmittedByOverride(action: unknown): boolean {
 }
 
 /**
+ * Could this viewer hold the action through its SUBMITTER arm (objectui#13225)?
+ *
+ * A lever whose declared gate names `is_submitter` admits the request's
+ * submitter on that arm, whatever else it ORs in. `approval_recall` is the
+ * shipped case: its gate is the submitter arm OR the override arm, so for a
+ * submitter who also holds override rights the override flag is NOT the only
+ * term that can have made the button visible.
+ *
+ * Same fail-safe direction as the rest of this module: only an explicit
+ * `is_submitter: false` rules the submitter arm out. Absent or not a boolean,
+ * we cannot tell, and "cannot tell" must not render as "override". A gate that
+ * names the flag in some other sense (say, `is_submitter == false`) would read
+ * here as a submitter arm too; that errs the same safe way, towards no label.
+ */
+function mayHoldAsSubmitter(action: unknown, viewer: ViewerBlockLike): boolean {
+  if (!action || typeof action !== 'object') return false;
+  if (!predicateSource((action as { visible?: unknown }).visible).includes('is_submitter')) return false;
+  return viewer.is_submitter !== false;
+}
+
+/**
  * Is the button this viewer sees for this action an ADMIN OVERRIDE?
  *
- * The single question every affordance decision in objectui#5178 asks. Both
- * halves must hold: the viewer holds no slot but may override, and this
- * particular action is one the override flag admits.
+ * The single question every affordance decision in objectui#5178 asks. Every
+ * part must hold: the viewer holds no slot but may override, this particular
+ * action is one the override flag admits, and the viewer does not hold it
+ * through its submitter arm instead (objectui#13225: the submitter's own
+ * recall).
  */
 export function isOverrideDecision(action: unknown, record: unknown): boolean {
-  return isOverrideOnlyViewer(record) && actionAdmittedByOverride(action);
+  const viewer = viewerOf(record);
+  if (!viewer || !isOverrideOnlyViewer(record) || !actionAdmittedByOverride(action)) return false;
+  return !mayHoldAsSubmitter(action, viewer);
 }
 
 /**

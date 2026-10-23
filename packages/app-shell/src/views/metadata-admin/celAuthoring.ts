@@ -11,9 +11,10 @@
  *
  * Row-Level Security `USING` (read filter) / `CHECK` (write filter) predicates
  * are the highest-risk authoring surface in the permission model: a typo in a
- * predicate silently produces the wrong row scope, and some evaluation paths
- * FAIL OPEN — a malformed read filter can WIDEN access with no visible error.
- * Yet the editor shipped as a bare `<textarea>` with zero validation.
+ * predicate silently produces the wrong row scope, and a predicate the runtime
+ * cannot lower to a row filter is DROPPED at request time — the runtime fails
+ * CLOSED, so the policy grants (or admits) nothing it was written to. Yet the
+ * editor shipped as a bare `<textarea>` with zero validation.
  *
  * This module is the thin bridge from the editor to the framework's canonical
  * CEL engine, `@objectstack/formula` — the SAME parser/validator the server and
@@ -42,9 +43,10 @@ export interface CelSchemaHint {
   /** Known field names of {@link objectName}, so `<field>` refs can be checked. */
   fields?: string[];
   /**
-   * Which clause is being edited. `USING` is a read filter the server tries to
-   * push down to the query; a non-pushdown-able read filter is the fail-open
-   * blast-radius the issue calls out, so we advise on it (see {@link lintCelPredicate}).
+   * Which RLS clause is being edited: `USING` (read filter) or `CHECK` (write
+   * filter). Naming one turns on `@objectstack/lint`'s RLS rule — a clause it
+   * refuses, lowerable or not, is an `error` (see {@link lintCelPredicate}).
+   * Omitted on every non-RLS surface.
    */
   clause?: 'using' | 'check';
   /**
@@ -95,19 +97,19 @@ export interface CelSchemaHint {
 }
 
 /**
- * The two advisories {@link lintCelPredicate} words itself, as keys of the
- * designer catalogue (objectui#10862): the wrong-layer root advisory's local
- * sentence (see `rowCanonAdvisory`) and the non-pushdown-able read filter.
- * They are handed back as keys plus their values, not text, and
- * `CelPredicateField` reads them through the `t` its host binds to the
+ * The advisory {@link lintCelPredicate} words itself, as a key of the designer
+ * catalogue (objectui#10862): the wrong-layer root advisory's local sentence
+ * (see `rowCanonAdvisory`). It is handed back as a key plus its values, not
+ * text, and `CelPredicateField` reads it through the `t` its host binds to the
  * designer locale — so this module stays free of any import at load, the same
  * seam as {@link CelTestMessageKey}.
  */
-export type CelLintMessageKey = 'engine.celLint.notTheRow' | 'engine.celLint.notPushdownable';
+export type CelLintMessageKey = 'engine.celLint.notTheRow';
 
 /**
  * A single lint finding surfaced inline under the editor. `error` blocks save
- * (parse fault); `warning` is advisory (typo / blast-radius).
+ * (a parse fault, or an RLS clause `@objectstack/lint`'s rule refuses);
+ * `warning` is advisory (a typo, a wrong-layer root).
  *
  * Every error, and every advisory the engine or `@objectstack/lint` words,
  * carries that producer's `message` as written. An advisory this module words
@@ -190,10 +192,6 @@ interface FormulaModule {
     input: unknown,
     schema?: unknown,
   ) => 'number' | 'text' | 'boolean' | 'date' | 'unknown';
-  isPushdownableCel?: (
-    input: string | { source?: string },
-    opts?: { fieldRoots?: readonly string[]; variableRoots?: readonly string[] },
-  ) => { ok: true } | { ok: false; reason: string; detail: string };
   ExpressionEngine?: {
     evaluate: (
       expr: { dialect: string; source: string },
@@ -227,10 +225,103 @@ function loadFormula(): Promise<FormulaModule | null> {
   return cached;
 }
 
-/** Roots that denote a record FIELD path for pushdown analysis (`''` = bare). */
-const PUSHDOWN_FIELD_ROOTS = ['record', ''] as const;
-/** Roots resolved as scope VALUES for pushdown analysis. */
-const PUSHDOWN_VARIABLE_ROOTS = ['current_user', 'user'] as const;
+/* ── Lazy RLS rule verdict (objectui#13061, objectui#13082) ──────────── */
+
+/** One finding of `@objectstack/lint`'s published RLS rule — the fields read here. */
+interface RlsPredicateFinding {
+  severity: 'error' | 'warning';
+  message: string;
+}
+
+/** `@objectstack/lint`'s published `validateRlsPredicateEnforceability`. */
+type RlsPredicateRule = (stack: unknown) => RlsPredicateFinding[];
+
+let rlsRuleCached: Promise<RlsPredicateRule | null> | null = null;
+
+/**
+ * Feature-detect `validateRlsPredicateEnforceability` on the installed
+ * `@objectstack/lint` — the `rls-predicate-*` rule `os build` runs. Dynamic
+ * for the reason {@link loadFieldRuleVerdict} gives, and reduced to the one
+ * symbol in the callback for the reason `loadRowCanon` gives. Swallows every
+ * failure: an absent rule is "no verdict", never a throw.
+ */
+function loadRlsRule(): Promise<RlsPredicateRule | null> {
+  if (!rlsRuleCached) {
+    rlsRuleCached = import('@objectstack/lint')
+      .then((m) => {
+        const fn = (m as unknown as Record<string, unknown>)?.validateRlsPredicateEnforceability;
+        return typeof fn === 'function' ? (fn as RlsPredicateRule) : null;
+      })
+      .catch(() => null);
+  }
+  return rlsRuleCached;
+}
+
+/**
+ * `@objectstack/lint`'s verdicts on one RLS clause, in the lint's words
+ * (objectui#13061, objectui#13082).
+ *
+ * The verdicts are the publish door's. `validateRlsPredicateEnforceability` is
+ * the `rls-predicate-*` rule `os build` and the runtime publish gate run, so
+ * asking it here means Studio and the server cannot disagree about a clause.
+ * The runtime drops a policy the rule refuses, and the policy then grants (or
+ * admits) nothing: it fails CLOSED.
+ *
+ * The words are the lint's. ⛔ No sentence for any of these verdicts is written
+ * here, and none is synthesized: each finding is one the published rule returns
+ * for a one-clause stack holding this source, with its severity and message as
+ * written. What the rule does not say, the editor does not say.
+ *
+ * ## What the one-clause stack lets the rule judge
+ *
+ * Every clause that parses is asked, lowerable or not (objectui#13082; until
+ * then only a clause `isSupportedRlsExpression` refuses was). A clause the
+ * engine already refuses as a parse fault is not asked, so one fault earns one
+ * blocking finding (a `null` beside a typed list member is one). The stack names
+ * no object, so the rule answers exactly what the clause alone decides — the
+ * answer the publish door gives for the same clause. For a clause the runtime
+ * cannot lower that is the shape pass. For one that lowers it is each
+ * reference verdict that reads the clause and nothing else: a `current_user`
+ * member nothing pre-resolves, a `current_user` value of the wrong type for
+ * its position, a comparand the shared filter faces refuse. Which verdicts
+ * those are is the rule's, not a list kept here:
+ * `celAuthoring.rlsReferencePasses-13082.test.ts` pins each one against the
+ * rule.
+ *
+ * ## What stays at the publish door, and why
+ *
+ * The rule's other reference passes read metadata the editor does not hold.
+ * The one-clause stack carries no object, so they are silent here by the
+ * rule's own construction (an object the stack does not declare is one it
+ * cannot judge), and absent metadata is never an editor verdict:
+ *
+ *  - an unknown field reads the object's field map as the door's universe
+ *    holds it: the live objects plus the drafts a package publish carries with
+ *    the write. The editor holds a list of field NAMES read from the published
+ *    object (the host's `loadObjectFields`), so a field the author added in a
+ *    pending object draft is missing from it, and the rule would refuse a
+ *    predicate the package publish accepts. Here an unknown field gets at most
+ *    the engine's non-blocking "did you mean" warning, for a near miss
+ *    ({@link lintCelPredicate});
+ *  - a field compared with a field that holds a list or an object, or with a
+ *    field of another comparison class, reads each field's declared TYPE; the
+ *    editor holds names only;
+ *  - the engine's admission of the read scope reads the host engine's
+ *    `judgeFilter`, which only the server holds.
+ *
+ * A lint without the rule gives no verdict, the same degradation as every
+ * other entry point of this module.
+ */
+async function rlsPredicateVerdict(source: string, clause: 'using' | 'check'): Promise<CelLintIssue[]> {
+  const rule = await loadRlsRule();
+  if (!rule) return [];
+  const issues: CelLintIssue[] = [];
+  for (const f of rule({ permissions: [{ rowLevelSecurity: [{ [clause]: source }] }] })) {
+    if (!f?.message) continue;
+    issues.push(f.severity === 'error' ? { severity: 'error', message: f.message } : { severity: 'warning', message: f.message });
+  }
+  return issues;
+}
 
 /* ── Lazy row-canon detector (objectui#8972) ─────────────────────────── */
 
@@ -428,7 +519,7 @@ function loadRowCanon(): Promise<RowCanonModule | null> {
  * not re-derived — and the engine's own message ships with it.
  *
  * ⚠️ The reason is NOT that the engine's message refuses a `record.<root>`
- * rewrite. Measured against the installed 18.0.0-next.3 (objectui#12030, objectui#12370, objectui#12626, objectui#12873), it mostly PRESCRIBES one: the
+ * rewrite. Measured against the installed 18.0.0 (objectui#12030, objectui#12370, objectui#12626, objectui#12873, objectui#12971, objectui#13261), it mostly PRESCRIBES one: the
  * `current_user` text CONTAINS "To gate on record state, rewrite the predicate
  * against `record`." — one of the three remedies it offers, and NOT where it
  * ends (measured: `includes` true, `endsWith` false; every covered slot's text
@@ -507,8 +598,10 @@ async function rowCanonAdvisory(source: string, slot: string | undefined): Promi
 
 /**
  * Validate one CEL source. Returns the findings to surface inline: parse
- * faults as `error` (block save), unknown-field near-misses and non-pushdown-able
- * read filters as `warning` (advisory).
+ * faults as `error` (block save), unknown-field near-misses as `warning`
+ * (advisory). With {@link CelSchemaHint.clause} set, `@objectstack/lint`'s RLS
+ * rule judges the clause too, and each finding keeps the rule's severity and
+ * words — the publish door's verdict (see `rlsPredicateVerdict`).
  *
  * RLS predicates reference fields BARE (`organization_id == current_user.…`),
  * like a flattened flow condition — so a bare identifier is legal and an
@@ -548,27 +641,17 @@ export async function lintCelPredicate(
     for (const w of res?.warnings ?? []) {
       if (w?.message) issues.push({ severity: 'warning', message: w.message });
     }
-    // Blast-radius advisory: a `USING` read filter the runtime can't push down
-    // to the query is the fail-open case the issue calls out — the predicate may
-    // be dropped and WIDEN access. Only meaningful once the predicate parses
-    // (a parse fault already surfaced above), and only for the read clause.
-    if (issues.every((i) => i.severity !== 'error') && hint.clause === 'using' && mod.isPushdownableCel) {
+    // The RLS rule's verdicts (objectui#13061, objectui#13082) — see
+    // `rlsPredicateVerdict`. Both RLS clauses, lowerable or not, only once the
+    // predicate parses (a parse fault already surfaced above), at the rule's
+    // severity and in its words.
+    // (`some`, not `every`: an inferred predicate on `every` would narrow
+    // `issues` to warnings and refuse the push below.)
+    if (!issues.some((i) => i.severity === 'error') && (hint.clause === 'using' || hint.clause === 'check')) {
       try {
-        const pd = mod.isPushdownableCel(source, {
-          fieldRoots: PUSHDOWN_FIELD_ROOTS,
-          variableRoots: PUSHDOWN_VARIABLE_ROOTS,
-        });
-        if (pd && pd.ok === false && pd.reason !== 'parse-error') {
-          // objectui's own sentence, as a catalogue key (objectui#10862); the
-          // engine's `detail` fills its hole as written.
-          issues.push({
-            severity: 'warning',
-            messageKey: 'engine.celLint.notPushdownable',
-            messageVars: { detail: pd.detail },
-          });
-        }
+        issues.push(...(await rlsPredicateVerdict(source, hint.clause)));
       } catch {
-        /* advisory only — never let it break the lint */
+        /* author-time assistance — never let it break the lint */
       }
     }
     // Wrong-layer root advisory (objectui#8972, verdict re-homed by `e3cb47624`)

@@ -953,7 +953,7 @@ import type { z } from 'zod';
 import { AIConfigSchema, AIFieldSuggestionSchema, AIFormAssistSchema, AIRecommendationItemSchema, AIRecommendationsSchema, NLQueryResultSchema, NLQuerySchema } from '../zod/ai.zod.js';
 import { AppComponentSchema, AppSchemaRendererNodeSchema, MenuItemSchema as AppMenuItemSchema, NavigationAreaSchema, NavigationItemSchema } from '../zod/app.zod.js';
 import { BaseSchema, ComponentConfigSchema, ComponentInputSchema, ComponentMetaSchema, KeyedI18nLabelSchema, SchemaNodeSchema } from '../zod/base.zod.js';
-import { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from '../zod/cloud.zod.js';
+import { CloudWorkspaceTimezoneNoticeSchema } from '../zod/cloud.zod.js';
 import { ChecklistBlockItemSchema, ChecklistBlockSchema, HeroBlockSchema, StatBlockSchema, TileGridBlockAddTileSchema, TileGridBlockItemSchema, TileGridBlockSchema, UsageBarBlockSchema } from '../zod/product-blocks.zod.js';
 import { RecordApprovalDecisionBlockSchema } from '../zod/record-approval-decision.zod.js';
 import { RecordApprovalsBlockSchema, RecordAttachmentsBlockSchema } from '../zod/record-panels.zod.js';
@@ -974,7 +974,7 @@ import { DetailSectionNodeSchema, DetailViewFieldSchema, DetailViewSchema, Detai
 import type { AIConfig as Ts_AIConfig, AIFieldSuggestion as Ts_AIFieldSuggestion, AIFormAssistSchema as Ts_AIFormAssistSchema, AIRecommendationItem as Ts_AIRecommendationItem, AIRecommendationsSchema as Ts_AIRecommendationsSchema, NLQueryResult as Ts_NLQueryResult, NLQuerySchema as Ts_NLQuerySchema } from '../ai';
 import type { AppComponentSchema as Ts_AppComponentSchema, AppSchemaRendererNodeSchema as Ts_AppSchemaRendererNodeSchema, NavigationArea as Ts_NavigationArea } from '../app';
 import type { BaseSchema as Ts_BaseSchema, ComponentConfig as Ts_ComponentConfig, ComponentInput as Ts_ComponentInput, ComponentMeta as Ts_ComponentMeta, KeyedI18nLabel as Ts_KeyedI18nLabel } from '../base';
-import type { CloudPlanStatusSchema as Ts_CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema as Ts_CloudWorkspaceTimezoneNoticeSchema } from '../cloud';
+import type { CloudWorkspaceTimezoneNoticeSchema as Ts_CloudWorkspaceTimezoneNoticeSchema } from '../cloud';
 import type { ChecklistBlockItem as Ts_ChecklistBlockItem, ChecklistBlockSchema as Ts_ChecklistBlockSchema, HeroBlockSchema as Ts_HeroBlockSchema, StatBlockSchema as Ts_StatBlockSchema, TileGridBlockAddTile as Ts_TileGridBlockAddTile, TileGridBlockItem as Ts_TileGridBlockItem, TileGridBlockSchema as Ts_TileGridBlockSchema, UsageBarBlockSchema as Ts_UsageBarBlockSchema } from '../product-blocks';
 import type { RecordApprovalDecisionBlockSchema as Ts_RecordApprovalDecisionBlockSchema } from '../record-approval-decision';
 import type { RecordApprovalsBlockSchema as Ts_RecordApprovalsBlockSchema, RecordAttachmentsBlockSchema as Ts_RecordAttachmentsBlockSchema } from '../record-panels';
@@ -1813,8 +1813,6 @@ const MIRRORS = {
   'base.zod.ts#ComponentInputSchema': ComponentInputSchema,
   'base.zod.ts#ComponentMetaSchema': ComponentMetaSchema,
   'base.zod.ts#KeyedI18nLabelSchema': KeyedI18nLabelSchema,
-  // objectui#11515 — the zod-only arm's TS twin.
-  'cloud.zod.ts#CloudPlanStatusSchema': CloudPlanStatusSchema,
   // objectui#11930 — the arm and its TS twin landed together.
   'cloud.zod.ts#CloudWorkspaceTimezoneNoticeSchema': CloudWorkspaceTimezoneNoticeSchema,
   // objectui#12197 — the product-page blocks' arms and their TS twins landed together.
@@ -2030,7 +2028,6 @@ interface Declared {
   'base.zod.ts#ComponentInputSchema': Ts_ComponentInput;
   'base.zod.ts#ComponentMetaSchema': Ts_ComponentMeta;
   'base.zod.ts#KeyedI18nLabelSchema': Ts_KeyedI18nLabel;
-  'cloud.zod.ts#CloudPlanStatusSchema': Ts_CloudPlanStatusSchema;
   'cloud.zod.ts#CloudWorkspaceTimezoneNoticeSchema': Ts_CloudWorkspaceTimezoneNoticeSchema;
   'product-blocks.zod.ts#ChecklistBlockItemSchema': Ts_ChecklistBlockItem;
   'product-blocks.zod.ts#ChecklistBlockSchema': Ts_ChecklistBlockSchema;
@@ -4837,6 +4834,11 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // `./bare-kanban-node-key-retired-8802.test.ts`.
   'complex.zod.ts#RetiredKanbanNodeSchema':
     'a RETIRED node type refusal arm (objectui#8802), not a mirror — its only member is the `type` literal it refuses on, and the TS half of that retirement is the ABSENCE of an arm in `ComplexSchema`',
+  // objectui#12954 — the same kind of arm for the retired `cloud:plan-status`
+  // literal, pinned in `./cloud-plan-status-retired-12954.test.ts`. Its
+  // former pair `cloud.zod.ts#CloudPlanStatusSchema` left `MIRRORS` with it.
+  'cloud.zod.ts#RetiredCloudPlanStatusNodeSchema':
+    'a RETIRED node type refusal arm (objectui#12954), not a mirror — its only member is the `type` literal it refuses on, and the TS half of that retirement is the ABSENCE of a `cloud:plan-status` member in `AnySchema`',
   'ai.zod.ts#AIComponentSchema':
     "a union OVER the mirrors, not an object of its own — its members are checked individually above",
   'product-blocks.zod.ts#ProductBlockComponentSchema':
@@ -5308,7 +5310,7 @@ const ZOD_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'zod');
  * MINUEND under it had moved. Nothing failed on any of those days, because nothing
  * compared the registry to a number. objectui#7433 is that absence, not the digits.
  */
-const EXPECTED_MIRROR_PAIRS = 206;
+const EXPECTED_MIRROR_PAIRS = 205;
 
 /**
  * A ledger this file can size from its own AST. `WiderThanDeclared` joined at

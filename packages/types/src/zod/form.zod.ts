@@ -1132,6 +1132,10 @@ export const FormFieldSchema = z.object({
   span: z.enum(['auto', 'full']).optional().describe('Relative field width'),
   fields: z.array(z.string()).optional()
     .describe('Section grouping claim (objectui#6236) — section-divider rows only: names of the fields the section claims (the FormFieldTab.fields membership shape); the divider predicate then gates the whole group'),
+  // objectui#13055 — the fault direction of a section-divider row's predicate,
+  // mirrored from `FormField.visibleWhenFault` (the reasoning is on the TS twin).
+  visibleWhenFault: z.enum(['hidden', 'shown']).optional()
+    .describe("Section-divider rows only: what a visibleWhen that cannot be evaluated does to the section — 'hidden' hides heading and claimed fields (a field group's fail-closed predicate); 'shown' or absent keeps the fail-open default"),
   // objectui#11070 — field metadata a hand-authored form writes on the entry
   // itself, which the renderer hands to each field widget as its metadata
   // carrier. Every member but `pattern` is the spec's `FieldSchema` member BY
@@ -1280,6 +1284,9 @@ const FormFieldTabEntrySchema = z.object({
   containerClass: z.string().optional().describe('Field-grid classes for this tab panel'),
   visibleWhen: ExpressionWireSchema.optional()
     .describe('Predicate gating the tab: a bare string or the { dialect?, source } envelope; a hidden tab still submits'),
+  // objectui#13055 — mirrored from `FormFieldTab.visibleWhenFault`.
+  visibleWhenFault: z.enum(['hidden', 'shown']).optional()
+    .describe("What a visibleWhen that cannot be evaluated does to the tab: 'hidden' hides it (a field group's fail-closed predicate); 'shown' or absent keeps the fail-open default"),
 });
 
 /**

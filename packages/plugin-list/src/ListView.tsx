@@ -29,10 +29,10 @@ import {
 import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope, useDataInvalidation, useFilterScope, useResolvedFilter, NonGridRowCeilingNote } from '@object-ui/react';
 import type { LoadErrorKind } from '@object-ui/react';
 import { useDensityMode, resolveInlineAriaProps } from '@object-ui/react';
-import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
+import type { DependsOnInput, ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { type ListViewVisualization, resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveAffordance, type SchemaLike, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, applyNonGridRowCeiling, type NonGridCeilingResult, resolveNameField } from '@object-ui/core';
+import { type ListViewVisualization, resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveAffordance, type SchemaLike, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, applyNonGridRowCeiling, type NonGridCeilingResult, resolveNameField, declaredNameField, resolveDependsOnFields } from '@object-ui/core';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -3182,6 +3182,61 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               .map((def) => def!.settledWhen),
           )) addSpeculative(f);
 
+          // [objectui#13036] A shown `referenceVia` pointer column's TYPE
+          // half. The grid draws such a column through `resolveRecordPointer`
+          // (objectui#12608), which reads the sibling the field names off the
+          // ROW and answers null when it is absent, so a list whose columns
+          // show the id half but not its sibling fetched rows without it and
+          // drew the raw record id. Asked of the columns that survived the
+          // FLS gate (`cols`): a pointer the viewer may not read is not drawn.
+          // Through `addSpeculative`, like every binding here: a sibling the
+          // viewer may not read is never requested (that row keeps the stored
+          // text, the half-addressed control), and a name the object does not
+          // declare is never sent. `ObjectGrid`'s `getSelectFields` carries the
+          // same arm for the fetch a grouped grid owns.
+          const pointerDefs = objectDef?.fields as Record<string, { referenceVia?: unknown } | undefined> | undefined;
+          for (const c of cols) addSpeculative(pointerDefs?.[c]?.referenceVia);
+
+          // [objectui#13214] A shown column's DECLARED `dependsOn` siblings.
+          // A faced column reads them off the ROW (`dependentValues={row}`):
+          // the `recipient-picker` face names a stored id by the row's
+          // `recipient_type`, and draws the stored text when it is absent. So
+          // a list showing `recipient_id` but not `recipient_type` fetched
+          // rows without the kind and drew the raw user id. Driven by the
+          // declaration alone: every sibling the field names, nothing mapped
+          // by name here. Asked of the columns that survived the FLS gate
+          // (`cols`) and that the grid draws: a column authored `hidden: true`
+          // pulls nothing. Through `addSpeculative`, like every binding here:
+          // a sibling the viewer may not read is never requested, and a name
+          // the object does not declare is never sent. `ObjectGrid`'s
+          // `getSelectFields` carries the same arm for the fetch a grouped
+          // grid owns.
+          const hiddenColumns = new Set(
+            (Array.isArray(schema.columns) ? (schema.columns as unknown[]) : [])
+              .filter((c) => !!c && typeof c === 'object' && (c as { hidden?: unknown }).hidden === true)
+              .map((c) => columnIdentity(c)),
+          );
+          const dependsOnDefs = objectDef?.fields as Record<string, { dependsOn?: DependsOnInput } | undefined> | undefined;
+          for (const c of cols) {
+            if (hiddenColumns.has(c)) continue;
+            for (const f of resolveDependsOnFields(dependsOnDefs?.[c]?.dependsOn)) addSpeculative(f);
+          }
+
+          // [objectui#13116] The object's DECLARED name field. The bulk
+          // confirm step names each affected record from the rows this fetch
+          // hands the grid (`BulkActionDialog`, objectui#13107), so a
+          // `nameField` no column shows arrived absent and the step fell to
+          // the `Record #ID` floor. Read through `declaredNameField`, the
+          // resolver's single spelling of the pointer, and asked by name
+          // whatever its type: the server serves a formula field like any
+          // other. Fetched, never drawn: it joins the projection, not the
+          // columns. Through `addSpeculative`, like every binding here: a name
+          // field the viewer may not read is never requested, and a pointer
+          // the object does not declare is never sent. `ObjectGrid`'s
+          // `getSelectFields` carries the same arm for the fetch a grouped
+          // grid owns.
+          addSpeculative(declaredNameField(objectDef));
+
           for (const f of collectPredicateFieldRefs(listViewPredicates({
             conditionalFormatting: schema.conditionalFormatting as unknown[] | undefined,
             /**
@@ -4598,9 +4653,14 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   /**
    * The FILTER builder's candidates, in the order its field list draws them.
    *
-   * Membership: the view's `filterableFields` whitelist, applied to the full
-   * set (objectui#4243 moved it out of the shared memo into the one builder it
-   * was authored for, so widening the SORT picker cannot widen this).
+   * Membership: every field the user may read, minus the fields the object
+   * marks `hidden: true` — the list `@objectstack/spec` prescribes for the
+   * Filter panel. There is no per-view whitelist: the spec retired the list
+   * view's `filterableFields` in 18.0 (objectstack#24640, maintainer ruling C)
+   * and no key replaces it, so objectui#13118 removed the branch that read it
+   * here. A stored view that still carries the key gets this same list; the
+   * spec's own conversion drops the key from stored and authored views. A
+   * curated end-user filter bar is a different control, `userFilters`.
    *
    * objectui#11810 — the object definition is served with the injected system
    * columns FIRST, and this list used to be that map verbatim: the builder's
@@ -4610,10 +4670,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    *
    *   - a field the definition marks `hidden: true` (`organization_id`,
    *     `owning_business_unit_id`, the `__search` companion) is not offered —
-   *     unless the author named it in `filterableFields`, or a condition the
-   *     panel already holds filters on it, which would otherwise draw a BLANK
-   *     field trigger (a filter restored from the per-user cache, saved back
-   *     when "Add filter" still defaulted to Organization);
+   *     unless a condition the panel already holds filters on it, which would
+   *     otherwise draw a BLANK field trigger (a filter restored from the
+   *     per-user cache, saved back when "Add filter" still defaulted to
+   *     Organization);
    *   - the order is this view's columns, in the order the grid shows them
    *     (`effectiveFields`), then every other business field, then the system
    *     fields (the shared `isSystemManagedField`, which reads the spec's
@@ -4626,8 +4686,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * objectui#11925 — field-level read security, asked with the SAME call the
    * columns use (`perms.checkField(objectName, field, 'read')`, behind the same
    * `isLoaded` gate as `effectiveFields`): a field the user may not read is
-   * never offered, whatever else would keep it — not the `filterableFields`
-   * whitelist, not a held condition. Before this the list was built from the
+   * never offered, whatever else would keep it — not a held condition.
+   * Before this the list was built from the
    * object definition and the declared columns with no read check, so a field
    * the grid had dropped could still be picked here, and the two field lists
    * drifted. Both candidate sources pass through this one gate, the
@@ -4637,10 +4697,6 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * (objectui#11943).
    */
   const filterFields = React.useMemo(() => {
-    const whitelist =
-      schema.filterableFields && schema.filterableFields.length > 0
-        ? new Set<string>(schema.filterableFields)
-        : undefined;
     const defs: Record<string, { hidden?: unknown; system?: boolean } | undefined> | undefined = objectDef?.fields;
     const isHidden = (name: string) => defs?.[name]?.hidden === true;
     const held = new Set((currentFilters.conditions ?? []).map((c) => c.field));
@@ -4650,19 +4706,19 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       if (name && !columnRank.has(name)) columnRank.set(name, columnRank.size);
     }
     // 0: a column of this view · 1: another business field · 2: a system
-    // field · 3: a hidden field kept only because it was named.
+    // field · 3: a hidden field kept only because a held condition names it.
     const tierOf = (name: string) =>
       isHidden(name) ? 3 : columnRank.has(name) ? 0 : isSystemManagedField(name, defs?.[name]) ? 2 : 1;
     return candidateFields
       .filter((f) => canReadField(perms, schema.objectName, f.value))
-      .filter((f) => (!whitelist || whitelist.has(f.value)) && (!isHidden(f.value) || !!whitelist || held.has(f.value)))
+      .filter((f) => !isHidden(f.value) || held.has(f.value))
       .map((field, index) => ({ field, index, tier: tierOf(field.value) }))
       .sort((a, b) =>
         a.tier - b.tier ||
         (a.tier === 0 ? columnRank.get(a.field.value)! - columnRank.get(b.field.value)! : a.index - b.index),
       )
       .map(({ field }) => field);
-  }, [candidateFields, currentFilters.conditions, effectiveFields, objectDef, schema.filterableFields, schema.objectName, perms]);
+  }, [candidateFields, currentFilters.conditions, effectiveFields, objectDef, schema.objectName, perms]);
 
   // Sort candidates: ALL fields the view can name, minus the ones the sort
   // cannot honestly reach (objectui#4243 — previously ⊂ filter candidates).
@@ -4672,8 +4728,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // filter condition could not be expressed, and a view was free to DECLARE a
   // sort on a field this picker then refused to list — the declared sort
   // worked on load, while its rows rendered blank and the user could neither
-  // reproduce nor modify it. The whitelist is a FILTER contract; sortability
-  // is a separate question, answered by the two rules below.
+  // reproduce nor modify it. The whitelist was a FILTER contract (retired since
+  // objectui#13118, with the spec's own retirement of the key); sortability is
+  // a separate question, answered by the two rules below.
   //
 
   // This view's sort becomes a server `$orderby` on the FLAT field name, and a

@@ -49,6 +49,7 @@ import { useNavMemberGates, navEntriesShownToMember } from '../hooks/useNavMembe
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { matchAppBySegment } from '../utils/index.js';
 import { appStudioRoutePath } from '../utils/appRoute.js';
+import { confirmUnsavedLeave } from '../chrome/unsavedEdits.js';
 
 /**
  * The route an entry of a designable type opens, in the shape the app bar reads
@@ -362,7 +363,7 @@ export function SidebarItemMenu({
         {gatedDesignPath && (
           <DropdownMenuItem
             data-testid="sidebar-item-menu-design"
-            onSelect={() => navigate(gatedDesignPath)}
+            onSelect={() => confirmUnsavedLeave(() => navigate(gatedDesignPath))}
           >
             <PencilRuler className="h-4 w-4" />
             <span>{t('console.nav.design', { defaultValue: 'Design' })}</span>

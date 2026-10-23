@@ -75,7 +75,7 @@
  * site as every other fault; the VERDICT is unchanged for every input.
  */
 import { ExpressionEngine } from '@objectstack/formula';
-import { subjectPermissionsOf } from './subjectPermissions.js';
+import { subjectCapabilitiesOf, subjectPermissionsOf } from './subjectPermissions.js';
 import type { Expression } from '@objectstack/spec';
 
 import { isBlankPredicateText } from './declaredPredicate.js';
@@ -278,11 +278,16 @@ export function evalFieldPredicate(
       // with none passes none, and `can` then refuses loudly: that fault goes
       // through the caller's `fallback` like any other.
       const permissions = subjectPermissionsOf(scope?.current_user);
+      // objectui#13006 — the subject's held system capabilities, the one input
+      // `current_user.hasCapability(name)` is answered from, carried the same
+      // way and for the same reason; absent stays absent, so the call refuses.
+      const systemPermissions = subjectCapabilitiesOf(scope?.current_user);
       const res = ExpressionEngine.evaluate<boolean>(expr, {
         record,
         previous,
         ...(scope ? { extra: scope } : {}),
         ...(permissions !== undefined ? { permissions } : {}),
+        ...(systemPermissions !== undefined ? { systemPermissions } : {}),
       });
       // Parse error, type error, unbound identifier, engine fault … — every
       // not-ok verdict resolves to the fallback, but never silently (objectstack-ai/objectstack#5149).

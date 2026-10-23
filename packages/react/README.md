@@ -275,6 +275,24 @@ draws an error panel in place of the node.
 that need the same reading; `selectElementApiPath` and `readElementApi` are its
 pure halves.
 
+Elements reading the same URL at the same time share one request. To share one
+answer across readers that mount at different times, mount
+`<ElementApiOpenScope open={name}>` around them: a read that has answered under
+the same `open` is answered again with no request, while a failed read, a read
+under another `open`, and any read after a `notifyDataChanged` ask again. The
+host names the open (the console names each visit of a history entry); `readElementApi`
+takes it as its third argument (`useElementApiOpen()` reads it).
+
+```tsx
+import type { ReactNode } from 'react'
+import { ElementApiOpenScope } from '@object-ui/react'
+
+// `visit` names the host's open: a new value for each visit of a page.
+function PageOpen({ visit, children }: { visit: string; children: ReactNode }) {
+  return <ElementApiOpenScope open={visit}>{children}</ElementApiOpenScope>
+}
+```
+
 ### useSettledSchema
 
 The settled-schema RESOLUTION half, shared by every view that gates a record

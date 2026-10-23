@@ -90,6 +90,19 @@ export interface UseRecordQueryResult {
   totalPages: number;
   page: number;
   search: string;
+  /**
+   * The search term `records` answer: the term of the query that committed
+   * them, `''` before the first answer and after a reset. It is set in the same
+   * commit as `records`, so the two never disagree.
+   *
+   * `search` moves on every keystroke, and the query for it runs after the
+   * debounce, so for that window `records` still answer an earlier term. A
+   * consumer that acts on "the rows for what the user typed" compares this
+   * with `search` (objectui#13162): equal means the rows on screen answer the
+   * term in the box. A late answer to a superseded query commits nothing
+   * (objectui#10712), so it cannot set this either.
+   */
+  answeredSearch: string;
   sort: RecordQuerySort | null;
   /** Jump to a page (1-indexed). No-op unless `paginate` is set. */
   setPage: (page: number) => void;
@@ -144,6 +157,7 @@ export function useRecordQuery(options: UseRecordQueryOptions): UseRecordQueryRe
   const [total, setTotal] = useState(0);
   const [page, setPageState] = useState(1);
   const [search, setSearchState] = useState('');
+  const [answeredSearch, setAnsweredSearch] = useState('');
   const [sort, setSortState] = useState<RecordQuerySort | null>(null);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -216,10 +230,12 @@ export function useRecordQuery(options: UseRecordQueryOptions): UseRecordQueryRe
 
         setRecords(data);
         setTotal(result?.total ?? data.length);
+        setAnsweredSearch(searchTerm);
       } catch (err) {
         if (!isCurrent()) return;
         setError(err instanceof Error ? err.message : String(err));
         setRecords([]);
+        setAnsweredSearch(searchTerm);
       } finally {
         if (isCurrent()) setLoading(false);
       }
@@ -253,6 +269,7 @@ export function useRecordQuery(options: UseRecordQueryOptions): UseRecordQueryRe
     setRecords([]);
     setError(null);
     setSearchState('');
+    setAnsweredSearch('');
     setPageState(1);
     setSortState(null);
   }, [clearDebounce]);
@@ -324,6 +341,7 @@ export function useRecordQuery(options: UseRecordQueryOptions): UseRecordQueryRe
     totalPages,
     page,
     search,
+    answeredSearch,
     sort,
     setPage,
     setSearch,

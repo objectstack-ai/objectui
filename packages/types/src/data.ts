@@ -24,6 +24,7 @@ import type {
   ImportJobStatus,
   ImportRowResult,
   ImportWriteMode,
+  UndoImportJobResponse,
 } from '@objectstack/spec/api';
 import type { EngineAggregateOptions, FilterArray } from '@objectstack/spec/data';
 import type { ValidationError } from '@objectstack/spec/kernel';
@@ -972,7 +973,8 @@ export interface DataSource<T = any> {
    * is omitted or the job reports `undoable: false`.
    *
    * @param jobId - The job identifier to undo.
-   * @returns Counts of deleted / restored / failed reversal operations.
+   * @returns Counts of deleted / restored / failed reversal operations, and
+   *   one `failures` entry per row the undo did not revert.
    */
   undoImportJob?(jobId: string): Promise<ImportJobUndoResult>;
 }
@@ -1174,21 +1176,13 @@ export interface ImportJobSummaryInfo {
 }
 
 /**
- * Outcome of {@link DataSource.undoImportJob} — a logical rollback. Mirrors the
- * server's `UndoImportJobResponse`.
+ * Outcome of {@link DataSource.undoImportJob} — a logical rollback. Bound to
+ * the server's `UndoImportJobResponse` by reference (objectui#13015): the
+ * hand-written copy it replaces lacked `failures`, so the wizard never read
+ * the rows a partial undo left unreverted. `success` is false when any row is
+ * listed in `failures`; the job then stays undoable for exactly those rows.
  */
-export interface ImportJobUndoResult {
-  /** Whether the undo completed. */
-  success: boolean;
-  jobId: string;
-  object: string;
-  /** Created records deleted. */
-  deleted: number;
-  /** Updated records restored to their pre-import values. */
-  restored: number;
-  /** Reversal operations that failed. */
-  failed: number;
-}
+export type ImportJobUndoResult = UndoImportJobResponse;
 
 /**
  * Filters + pagination for {@link DataSource.listImportJobs}.

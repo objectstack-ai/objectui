@@ -10,6 +10,11 @@ import {
   backEdgePath,
   backEdgeLabelAnchor,
   bottomAnchor,
+  topAnchor,
+  edgePath,
+  edgeMidpoint,
+  forwardEdgeRoute,
+  DETOUR_LANE_GAP,
   extractRegions,
   hasManualPosition,
   manualPosition,
@@ -20,6 +25,8 @@ import {
   PADDING,
   type FlowDesignerNode,
   type FlowDesignerEdge,
+  type NodeBox,
+  type Point,
 } from './flow-canvas-layout';
 
 describe('isBackEdge', () => {
@@ -373,5 +380,255 @@ describe('withCanonicalGeometry — migrate-on-write (the strict-schema gate)', 
     // …and it is idempotent: migrating twice is migrating once.
     const once = withCanonicalGeometry([{ id: 'n', type: 'script', ui: { x: 7, y: 9 } }]);
     expect(withCanonicalGeometry(once)).toBe(once);
+  });
+});
+
+// ── objectui#13144: a forward edge that skips a node is routed around it ─────
+
+/**
+ * Points along an SVG path made of `M`, `C` and `L` commands — read back from
+ * the `d` string itself, so these pins hold whatever the router does inside.
+ */
+function pointsOnPath(d: string): Point[] {
+  const tokens = d.match(/[MCL]|-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?/g) ?? [];
+  const pt = (s: string): Point => {
+    const [x, y] = s.split(',').map(Number);
+    return { x, y };
+  };
+  const out: Point[] = [];
+  let at: Point = { x: 0, y: 0 };
+  for (let i = 0; i < tokens.length; ) {
+    const cmd = tokens[i++];
+    if (cmd === 'M') {
+      at = pt(tokens[i++]);
+      out.push(at);
+    } else if (cmd === 'L') {
+      const to = pt(tokens[i++]);
+      for (let k = 1; k <= 100; k++) out.push({ x: at.x + ((to.x - at.x) * k) / 100, y: at.y + ((to.y - at.y) * k) / 100 });
+      at = to;
+    } else if (cmd === 'C') {
+      const [c1, c2, to] = [pt(tokens[i++]), pt(tokens[i++]), pt(tokens[i++])];
+      for (let k = 1; k <= 100; k++) {
+        const t = k / 100;
+        const u = 1 - t;
+        out.push({
+          x: u * u * u * at.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * to.x,
+          y: u * u * u * at.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * to.y,
+        });
+      }
+      at = to;
+    } else {
+      throw new Error(`unexpected path token ${cmd}`);
+    }
+  }
+  return out;
+}
+
+const insideBox = (p: Point, b: NodeBox) => p.x > b.x && p.x < b.x + b.width && p.y > b.y && p.y < b.y + b.height;
+
+/** Lay out a flow and give every node's box, keyed by id. */
+function boxesOf(nodes: FlowDesignerNode[], edges: FlowDesignerEdge[]): Map<string, NodeBox> {
+  const pos = computeLayout(nodes, edges);
+  return new Map(nodes.map((n) => [n.id, { ...pos.get(n.id)!, width: NODE_W, height: NODE_H }]));
+}
+
+/** The route the canvas draws for `source → target`: every other node is an obstacle. */
+function routeOf(boxes: Map<string, NodeBox>, source: string, target: string) {
+  const s = boxes.get(source)!;
+  const t = boxes.get(target)!;
+  const from = bottomAnchor(s);
+  const to = topAnchor(t);
+  const obstacles = [...boxes].filter(([id]) => id !== source && id !== target).map(([, b]) => b);
+  return { from, to, route: forwardEdgeRoute(from, to, obstacles) };
+}
+
+describe('forwardEdgeRoute — an edge that skips a node is drawn around it (objectui#13144)', () => {
+  // The card's flow: Start → Decision → Notify → End, plus a Decision → End branch.
+  const nodes: FlowDesignerNode[] = [
+    { id: 'start', type: 'start' },
+    { id: 'decide', type: 'decision' },
+    { id: 'notify', type: 'script' },
+    { id: 'end', type: 'end' },
+  ];
+  const edges: FlowDesignerEdge[] = [
+    { id: 'e1', source: 'start', target: 'decide' },
+    { id: 'e2', source: 'decide', target: 'notify', isDefault: true },
+    { id: 'e3', source: 'notify', target: 'end' },
+    { id: 'e4', source: 'decide', target: 'end', condition: "record.status != 'done'" },
+  ];
+  const boxes = boxesOf(nodes, edges);
+
+  it('the straight curve WOULD run through the node it skips (the defect this routes around)', () => {
+    const { from, to } = routeOf(boxes, 'decide', 'end');
+    const notify = boxes.get('notify')!;
+    expect(pointsOnPath(edgePath(from, to)).some((p) => insideBox(p, notify))).toBe(true);
+    expect(insideBox(edgeMidpoint(from, to), notify)).toBe(true);
+  });
+
+  it('keeps the skip edge clear of the skipped node, and of every other node', () => {
+    const { from, to, route } = routeOf(boxes, 'decide', 'end');
+    expect(route.detour).toBe('left');
+    const points = pointsOnPath(route.d);
+    for (const [id, box] of boxes) {
+      expect(points.filter((p) => insideBox(p, box)), id).toEqual([]);
+    }
+    // It still leaves the source's bottom anchor and enters the target's top anchor.
+    expect(points[0]).toEqual(from);
+    expect(points[points.length - 1]).toEqual(to);
+    // The lane runs DETOUR_LANE_GAP clear of the node it passes.
+    const xs = points.map((p) => p.x);
+    expect(Math.min(...xs)).toBe(boxes.get('notify')!.x - DETOUR_LANE_GAP);
+  });
+
+  it('puts the pill on the routed path, outside every node box, in a band no card reaches', () => {
+    const { route } = routeOf(boxes, 'decide', 'end');
+    const points = pointsOnPath(route.d);
+    const nearest = Math.min(...points.map((p) => Math.hypot(p.x - route.label.x, p.y - route.label.y)));
+    expect(nearest).toBeLessThan(1);
+    for (const [id, box] of boxes) expect(insideBox(route.label, box), id).toBe(false);
+    // A 22px pill centred on the point, of any width, crosses no card: the band
+    // it occupies sits between the decision's bottom and the skipped node's top.
+    expect(route.label.y - 11).toBeGreaterThan(boxes.get('decide')!.y + NODE_H);
+    expect(route.label.y + 11).toBeLessThan(boxes.get('notify')!.y);
+  });
+
+  it('leaves an edge between adjacent ranks byte-for-byte unchanged', () => {
+    for (const [source, target] of [
+      ['start', 'decide'],
+      ['decide', 'notify'],
+      ['notify', 'end'],
+    ]) {
+      const { from, to, route } = routeOf(boxes, source, target);
+      expect(route).toEqual({ d: edgePath(from, to), label: edgeMidpoint(from, to) });
+    }
+    // The literal string, so a change to edgePath itself cannot pass unnoticed here.
+    expect(routeOf(boxes, 'start', 'decide').route.d).toBe('M 148,94 C 148,122 148,122 148,150');
+  });
+
+  it('leaves a skip edge that runs between two nodes (not through one) unchanged', () => {
+    const fanNodes: FlowDesignerNode[] = [
+      { id: 'decide', type: 'decision' },
+      { id: 'a', type: 'script' },
+      { id: 'b', type: 'script' },
+      { id: 'end', type: 'end' },
+    ];
+    const fanEdges: FlowDesignerEdge[] = [
+      { source: 'decide', target: 'a' },
+      { source: 'decide', target: 'b' },
+      { source: 'a', target: 'end' },
+      { source: 'b', target: 'end' },
+      { source: 'decide', target: 'end' },
+    ];
+    const { from, to, route } = routeOf(boxesOf(fanNodes, fanEdges), 'decide', 'end');
+    expect(route).toEqual({ d: edgePath(from, to), label: edgeMidpoint(from, to) });
+  });
+
+  it('moves the pill of an edge running between two cards out of their rank, onto the same path', () => {
+    // Same fan as above: the path is unchanged, but a pill as wide as a long
+    // condition centred at the midpoint would sit in the a/b rank, under both.
+    const fanNodes: FlowDesignerNode[] = [
+      { id: 'decide', type: 'decision' },
+      { id: 'a', type: 'script' },
+      { id: 'b', type: 'script' },
+      { id: 'end', type: 'end' },
+    ];
+    const fanEdges: FlowDesignerEdge[] = [
+      { source: 'decide', target: 'a' },
+      { source: 'decide', target: 'b' },
+      { source: 'a', target: 'end' },
+      { source: 'b', target: 'end' },
+      { source: 'decide', target: 'end' },
+    ];
+    const fan = boxesOf(fanNodes, fanEdges);
+    const s = fan.get('decide')!;
+    const from = bottomAnchor(s);
+    const to = topAnchor(fan.get('end')!);
+    const obstacles = [fan.get('a')!, fan.get('b')!];
+    const pill = { width: 174, height: 22 };
+    const pillBox = (p: Point): NodeBox => ({ x: p.x - pill.width / 2, y: p.y - pill.height / 2, ...pill });
+    const covered = (p: Point) =>
+      obstacles.some((b) => {
+        const q = pillBox(p);
+        return q.x < b.x + b.width && q.x + q.width > b.x && q.y < b.y + b.height && q.y + q.height > b.y;
+      });
+    expect(covered(edgeMidpoint(from, to))).toBe(true); // the defect: midpoint pill under a and b
+
+    const route = forwardEdgeRoute(from, to, obstacles, pill);
+    expect(route.d).toBe(edgePath(from, to));
+    expect(covered(route.label)).toBe(false);
+    // On the path, in the band between the decision and the a/b rank.
+    expect(route.label.x).toBe(from.x);
+    expect(route.label.y - pill.height / 2).toBeGreaterThan(s.y + NODE_H);
+    expect(route.label.y + pill.height / 2).toBeLessThan(fan.get('a')!.y);
+    // A pill that fits between the two cards stays at the midpoint.
+    expect(forwardEdgeRoute(from, to, obstacles, { width: 30, height: 22 }).label).toEqual(edgeMidpoint(from, to));
+  });
+
+  it('keeps an adjacent-rank pill at the midpoint whatever its width', () => {
+    const { from, to } = routeOf(boxes, 'decide', 'notify');
+    const obstacles = [boxes.get('start')!, boxes.get('end')!];
+    expect(forwardEdgeRoute(from, to, obstacles, { width: NODE_W, height: 22 })).toEqual({
+      d: edgePath(from, to),
+      label: edgeMidpoint(from, to),
+    });
+  });
+
+  it('runs the lane through the gap beside the node it skips, clear of that node’s neighbours', () => {
+    // The middle of three siblings is in the way; the lane takes the 44px gap
+    // between it and its left neighbour rather than crossing that neighbour.
+    const triNodes: FlowDesignerNode[] = [
+      { id: 'decide', type: 'decision' },
+      { id: 'a', type: 'script' },
+      { id: 'b', type: 'script' },
+      { id: 'c', type: 'script' },
+      { id: 'end', type: 'end' },
+    ];
+    const triEdges: FlowDesignerEdge[] = [
+      { source: 'decide', target: 'a' },
+      { source: 'decide', target: 'b' },
+      { source: 'decide', target: 'c' },
+      { source: 'a', target: 'end' },
+      { source: 'b', target: 'end' },
+      { source: 'c', target: 'end' },
+      { source: 'decide', target: 'end' },
+    ];
+    const triBoxes = boxesOf(triNodes, triEdges);
+    const { route } = routeOf(triBoxes, 'decide', 'end');
+    expect(route.detour).toBeDefined();
+    const points = pointsOnPath(route.d);
+    for (const [id, box] of triBoxes) expect(points.filter((p) => insideBox(p, box)), id).toEqual([]);
+    expect(route.label.x).toBe(triBoxes.get('b')!.x - DETOUR_LANE_GAP);
+    expect(route.label.x).toBeGreaterThan(triBoxes.get('a')!.x + NODE_W);
+  });
+
+  it('detours on the side with the shorter way round when one is shorter', () => {
+    // `skip` sits right of centre and its edge to `end` would cross the column
+    // under the decision: it goes down the right-hand side, not across to the left.
+    const nodes2: FlowDesignerNode[] = [
+      { id: 'decide', type: 'decision' },
+      { id: 'email', type: 'connector_action' },
+      { id: 'skip', type: 'update_record' },
+      { id: 'wait', type: 'wait' },
+      { id: 'end', type: 'end' },
+    ];
+    const edges2: FlowDesignerEdge[] = [
+      { source: 'decide', target: 'email' },
+      { source: 'decide', target: 'skip', isDefault: true },
+      { source: 'email', target: 'wait' },
+      { source: 'wait', target: 'end' },
+      { source: 'skip', target: 'end' },
+    ];
+    const b2 = boxesOf(nodes2, edges2);
+    const { route } = routeOf(b2, 'skip', 'end');
+    expect(route.detour).toBe('right');
+    const points = pointsOnPath(route.d);
+    for (const [id, box] of b2) expect(points.filter((p) => insideBox(p, box)), id).toEqual([]);
+  });
+
+  it('draws the straight curve when the target is not below the source (no room to detour)', () => {
+    const from = { x: 100, y: 300 };
+    const to = { x: 100, y: 0 };
+    const obstacle: NodeBox = { x: 0, y: 100, width: NODE_W, height: NODE_H };
+    expect(forwardEdgeRoute(from, to, [obstacle])).toEqual({ d: edgePath(from, to), label: edgeMidpoint(from, to) });
   });
 });

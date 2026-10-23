@@ -117,14 +117,18 @@ const CONCEALMENT_CONSEQUENCE =
   'not be evaluated.\n';
 
 /**
- * What the four NEGATED legs said before this card and must go on saying. The
- * sentence is TRUE there, and vaguening it to cover all six would be the fix
- * this file exists to refuse.
+ * What the NEGATED legs said before objectui#13299. The sentence is still the
+ * `'visibility'` copy (a blank SHOW gate that faults prints it), but a
+ * DECLARED predicate on those legs now fails closed and prints the
+ * `'withholding'` copy instead, so group 2 pins this one ABSENT there.
  */
 const NEGATED_LEG_CONSEQUENCE =
   'The node was treated as its safe default, which on this surface means the\n' +
   'gate did NOT bite - a predicate that cannot be evaluated reads on screen\n' +
   'exactly like one that said yes.\n';
+
+/** The clause the fail-closed SHOW legs carry since objectui#13299. */
+const WITHHOLDING_CLAUSE = 'WITHHELD - not drawn';
 
 /** The clause the `hidden` legs used to carry, named so it can be pinned ABSENT. */
 const THE_FALSE_CLAUSE = 'gate did NOT bite';
@@ -373,10 +377,15 @@ describe('#6503 group 1 — a faulting `hidden` says the node VANISHED, and it d
  * Group 2 — THE CONTROL. The negated legs must be UNCHANGED.
  * -------------------------------------------------------------------------- */
 
-describe('#6503 group 2 — the NEGATED legs keep their sentence, byte for byte', () => {
+describe('#6503 group 2 — the NEGATED legs are withheld and say so (flipped by objectui#13299)', () => {
   // Each leg individually, not "one of them": `shouldHide` is an early-return
   // chain, so a single mount can only ever exercise the FIRST declared leg. A
   // loop over one schema would have measured `visibleWhen` four times.
+  //
+  // objectui#13299 flipped these legs: a DECLARED predicate that faults now
+  // fails CLOSED, so the node is withheld and the line carries the
+  // `'withholding'` consequence. The sentence this group used to pin ("the
+  // gate did NOT bite") is now false here, so it is pinned ABSENT.
   const NEGATED: Array<[string, string]> = [
     ['visibleWhen', FAULT_VISIBLEWHEN_DEV],
     ['visible', FAULT_VISIBLE_DEV],
@@ -384,20 +393,19 @@ describe('#6503 group 2 — the NEGATED legs keep their sentence, byte for byte'
   ];
 
   for (const [key, source] of NEGATED) {
-    it(`\`${key}\` still says the gate did NOT bite — and the node is still SHOWN`, async () => {
+    it(`\`${key}\` is withheld, and its line says WITHHELD rather than "did NOT bite"`, async () => {
       await inProduction((mount) => {
         const warn = spyWarn();
         mount([{ id: 'n1', [key]: source }]);
-        // The fail-soft answer these legs have always given.
-        expect(shownCount()).toBe(1);
+        // The fail-closed answer (objectui#13299).
+        expect(shownCount()).toBe(0);
         const lines = reports(warn);
         expect(lines).toHaveLength(1);
         const line = lines[0];
         expect(line).toContain(key);
-        // The sentence that is TRUE here, in full. A fix that made the copy
-        // vaguer to cover all six legs fails on this line.
-        expect(line).toContain(NEGATED_LEG_CONSEQUENCE);
-        // And the concealment copy must NOT leak onto a leg that shows.
+        expect(line).toContain(WITHHOLDING_CLAUSE);
+        expect(line).not.toContain(NEGATED_LEG_CONSEQUENCE);
+        // And the concealment copy must NOT leak onto a SHOW leg either.
         expect(line).not.toContain(CONCEALMENT_CONSEQUENCE);
         expect(line).not.toContain('REMOVED the node');
       });

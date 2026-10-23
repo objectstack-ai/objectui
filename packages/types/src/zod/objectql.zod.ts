@@ -584,7 +584,9 @@ const ObjectGridBulkActionDefSchema = z.strictObject({
   operation: stripImportedDefaults(SpecBulkActionOperationSchema),
   patch: z.record(z.string(), z.unknown()).optional(),
   params: z.array(ObjectGridBulkActionParamSchema).optional(),
-  confirmText: z.string().optional(),
+  // The twin's two arms (objectui#13183): a string, or the `template` envelope a
+  // parsed def carries once the spec makes the slot a template slot (objectstack#24947).
+  confirmText: z.union([z.string(), z.object({ dialect: z.literal('template').optional(), source: z.string() })]).optional(),
   confirmLabel: z.string().optional(),
   visible: z.union([ExpressionWireSchema, stripImportedDefaults(SpecBulkActionDefSchema).shape.visible]).optional(),
   requiredPermissions: z.array(z.string()).optional(),
@@ -1223,6 +1225,9 @@ const OBJECT_VIEW_NEITHER_CHANNEL = neitherContentChannelGuidance(
  *     `NavigationConfig` for `ViewNavigationConfig`, and a literal restating it
  *     is the drift this repo keeps paying for (objectui#4588). The pin asserts
  *     identity against the spec schema, so a spec-side change moves them.
+ *     `filterableFields` is read no longer (objectui#13118: the spec retires
+ *     it); its slot stays by reference, on both faces, so the spec's
+ *     tombstone arrives with the pin bump.
  *   - `allowCreateView`, `viewActions` — READ: the renderer forwards both
  *     verbatim into the `view-switcher` node it composes
  *     (`allowCreateView: schema.allowCreateView`, `viewActions: schema.viewActions`,
@@ -1295,7 +1300,11 @@ export const ObjectViewSchema = BaseSchema.extend({
   form: z.lazy(() => ObjectFormSchema.omit({ type: true, objectName: true, mode: true }).partial()).optional().describe('Form config'),
   // Spec slots by reference (objectui#7779) — `array(string).optional()` on
   // both; the spec's own description marks `filterableFields` a legacy
-  // shorthand for `userFilters.fields`.
+  // shorthand for `userFilters.fields`. ⚠️ `filterableFields` is read by nothing
+  // since objectui#13118: `@objectstack/spec` 18 retires it (objectstack#24640,
+  // ruling C). This reference stays, because it is what carries the spec's own
+  // `retiredKey()` tombstone in on the pin bump that takes the retirement; the
+  // TypeScript face reads the same slot by reference, so both faces flip there.
   searchableFields: stripImportedDefaults(SpecListViewSchema).shape.searchableFields,
   filterableFields: stripImportedDefaults(SpecListViewSchema).shape.filterableFields,
   showSearch: z.boolean().optional().describe('Show search'),
@@ -1774,7 +1783,7 @@ const KanbanConfig = stripImportedDefaults(SpecListViewSchema).shape.kanban.unwr
  * `@objectstack/spec` 17.4.0 (the version in the lockfile then) rather than
  * reading it — RE-RUN on 17.5.0 (objectui#11073), whose answer moved, as the
  * last bullet says, RE-RUN on 17.6.0 (objectui#11438), on 17.7.0 (objectui#11717),
- * and again on the installed 18.0.0-next.3 (objectui#12030, objectui#12370, objectui#12626, objectui#12873), each of which answers
+ * and again on the installed 18.0.0 (objectui#12030, objectui#12370, objectui#12626, objectui#12873, objectui#12971, objectui#13261), each of which answers
  * every bullet below as 17.5.0 did:
  *
  *   - `CalendarConfigSchema`'s `strictObject` options carry `surface` and
@@ -1799,7 +1808,7 @@ const KanbanConfig = stripImportedDefaults(SpecListViewSchema).shape.kanban.unwr
  *     prescribes neither. `endField` still draws no hint, and a one-char typo
  *     still resolves by distance (`titleFeld` → `titleField`) — all three
  *     measured on 17.5.0, again on 17.6.0 (objectui#11438), on 17.7.0
- *     (objectui#11717), and again on the installed 18.0.0-next.3 (objectui#12030, objectui#12370, objectui#12626, objectui#12873).
+ *     (objectui#11717), and again on the installed 18.0.0 (objectui#12030, objectui#12370, objectui#12626, objectui#12873, objectui#12971, objectui#13261).
  *
  * ⇒ through 17.4.0 a generic typo-distance suggester picked the wrong sibling.
  * It was not a declaration, it contradicted no declaration, and ⛔ no upstream

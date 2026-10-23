@@ -39,6 +39,7 @@ import { FlowRegistrationSchema, GetMetaItemLayeredResponseSchema } from '@objec
 // nothing has to enumerate. See that module's docblock for why the writers are
 // deliberately not listed anywhere.
 import { assertObjectMetadataWritable } from './object-metadata-write-guard';
+import type { DraftChange } from './draft-envelope';
 import type {
   FlowRegistration,
   GetMetaItemLayeredResponse,
@@ -47,6 +48,9 @@ import type {
   PublishPackageDraftsResponse,
   RuntimeAuthoringIssue,
 } from '@objectstack/spec/api';
+// objectui#12929 — the batch publish door's request options are picked off the
+// client's declared `packages.publishDrafts` signature (type-only, erased).
+import type { ObjectStackClient } from '@objectstack/client';
 
 /**
  * One advisory finding the framework's runtime authoring gate produced for a
@@ -255,6 +259,14 @@ export interface MetadataClientConfig {
 export interface MetadataListOptions {
   /** Filter by source package id (matches the `package` query param). */
   packageId?: string;
+  /**
+   * Ask the server for what it serves on a list only on request (the
+   * `include` query param). `'grants'` on the `position` list adds each
+   * position's `_holderCount` and `_grantedPermissionSets`, read where the
+   * authorization resolver enforces them (objectstack#25333). A server that
+   * predates it, or a type it does not apply to, serves the list unchanged.
+   */
+  include?: 'grants';
 }
 
 /**
@@ -344,6 +356,30 @@ export type MetadataPublishPackageDraftsResult = Partial<PublishPackageDraftsRes
   Record<string, unknown>;
 
 /**
+ * What {@link MetadataClient.publishPackageDrafts} may ask of the batch door
+ * beyond the package id (objectui#12929): today the protocol's opt-in
+ * `backfill` (objectstack#24253), and nothing else.
+ *
+ * Picked off `@objectstack/client`'s own `packages.publishDrafts` signature
+ * rather than re-spelled, so the element shape (`{ object, field }`) is the
+ * client's declaration. The request has no spec schema of its own; the
+ * client's signature is where the protocol declares it. `actor` is not
+ * picked: the door writes as the signed-in caller, and no console surface
+ * names another.
+ *
+ * `backfill` names fields this publish ADDS whose literal `defaultValue` the
+ * server writes into the object's existing rows, as the caller, after the
+ * batch goes live; the receipt comes back as `backfillApplied`. A field that
+ * is not new, or declares no literal default, refuses the WHOLE request with a
+ * 400 before anything is published, so a caller offers only fields it has
+ * judged by the same rule.
+ */
+export type MetadataPublishPackageDraftsOptions = Pick<
+  NonNullable<Parameters<ObjectStackClient['packages']['publishDrafts']>[1]>,
+  'backfill'
+>;
+
+/**
  * Options for {@link MetadataClient.save} — a WRITE OVER HTTP to
  * `/api/v1/meta/:type/:name`.
  *
@@ -408,6 +444,19 @@ export interface MetadataClientSaveOptions {
    * Studio package workspace. Omit for an env-local overlay.
    */
   packageId?: string;
+  /**
+   * The authoring surface this save is made through (objectui#12725), sent as
+   * `?surface=`. A draft save stamps it as `by` on every key path it changes,
+   * the entries the strict draft read serves as `draftChanges`; absent, the
+   * framework stamps `api`. Studio's own saves send `'studio'`, so a person's
+   * edit there is told apart from the AI copilot's (objectstack#24395).
+   *
+   * DERIVED from the spec's authoring-surface set (the one `draftChanges[].by`
+   * reports, `MetadataAuthoringSurface`), minus `'copilot'`: the HTTP doors
+   * refuse `?surface=copilot` `400` (only an in-process tool may state it), so
+   * this client cannot send it. Omit for any other caller.
+   */
+  surface?: Exclude<DraftChange['by'], 'copilot'>;
 }
 
 export interface MetadataGetOptions {
@@ -426,7 +475,10 @@ export interface MetadataGetOptions {
   packageId?: string;
 }
 
-export interface MetadataDeleteOptions extends MetadataClientSaveOptions {
+// `surface` is a SAVE input (`?surface=` on `PUT`); the delete door reads no
+// such parameter, so a delete option of that name would be declared and never
+// sent (objectui#12725).
+export interface MetadataDeleteOptions extends Omit<MetadataClientSaveOptions, 'surface'> {
   /**
    * Target state. `'draft'` discards the pending draft (keeps the
    * published overlay intact). Omit to reset the active overlay back
@@ -1085,6 +1137,7 @@ export class MetadataClient {
   async listResponse<T = unknown>(type: string, options: MetadataListOptions = {}): Promise<MetadataListAnswer<T>> {
     const params: string[] = [];
     if (options.packageId) params.push(`package=${encodeURIComponent(options.packageId)}`);
+    if (options.include) params.push(`include=${encodeURIComponent(options.include)}`);
     if (this.previewDrafts) params.push('preview=draft');
     const qs = params.length ? `?${params.join('&')}` : '';
     const url = `${this.base}/${encodeURIComponent(type)}${qs}`;
@@ -1336,6 +1389,9 @@ export class MetadataClient {
     if (options.force) params.push('force=true');
     if (options.mode === 'draft') params.push('mode=draft');
     if (options.packageId) params.push(`package=${encodeURIComponent(options.packageId)}`);
+    // objectui#12725 - once, and only when stated: the doors refuse a repeated
+    // `?surface=` (the arity rule), and an absent one is recorded as `api`.
+    if (options.surface) params.push(`surface=${encodeURIComponent(options.surface)}`);
     const qs = params.length ? `?${params.join('&')}` : '';
     const url = `${this.base}/${encodeURIComponent(type)}/${encodeURIComponent(name)}${qs}`;
     const headers: Record<string, string> = {
@@ -1523,8 +1579,21 @@ export class MetadataClient {
    * says to read `outcome`, not the boolean), and the two callers have their
    * own, different rules for the refusal and rolled-back cases. Deciding that
    * here would change behaviour this card is not about.
+   *
+   * ## The opt-in backfill (objectui#12929)
+   *
+   * `options.backfill` is sent as the body's `backfill` key, as given, and only
+   * when the caller passes one ({@link MetadataPublishPackageDraftsOptions}).
+   * Without it the body is `{}`, byte for byte what every caller sent before,
+   * so a caller that names nothing writes nothing into existing rows. The
+   * receipt is `backfillApplied` on the returned body, unexamined like the rest
+   * of a 2xx: one element per named field with the rows written, and `error`
+   * on a field that stopped short (the publish itself stands).
    */
-  async publishPackageDrafts(packageId: string): Promise<MetadataPublishPackageDraftsResult> {
+  async publishPackageDrafts(
+    packageId: string,
+    options: MetadataPublishPackageDraftsOptions = {},
+  ): Promise<MetadataPublishPackageDraftsResult> {
     if (!packageId || !String(packageId).trim()) {
       throw new Error(
         'MetadataClient.publishPackageDrafts: packageId must be non-empty.' +
@@ -1539,7 +1608,7 @@ export class MetadataClient {
       // superset of what the bare doors carried, never less.
       credentials: 'include',
       headers: { ...this.headers, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: '{}',
+      body: JSON.stringify(options.backfill !== undefined ? { backfill: options.backfill } : {}),
     });
     if (!res.ok) throw await parseError(res);
     const body = unwrapDispatcherEnvelope(await res.json().catch(() => ({})));

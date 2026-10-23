@@ -386,7 +386,8 @@ describe('#5687 group 3 — the `record.*` bucket is NOT this card, and cannot b
     // reports for one predicate would be the "two adjacent reporters" outcome.
     const warn = spyWarn();
     mount({ visibleWhen: cel("record.status == 'draft'") }, undefined);
-    expect(shown()).toBe(true);
+    // Withheld: a declared predicate that faults fails closed (objectui#13299).
+    expect(shown()).toBe(false);
     expect(unresolvableReports(warn).length).toBeGreaterThan(0);
     expect(reports(warn)).toHaveLength(0);
   });
@@ -571,7 +572,7 @@ describe('#5756 group 5 — the design points this card left open', () => {
     // another for the same predicate.
     const warn = spyWarn();
     mount({ properties: { visible: '${totallyUndefinedIdentifierXYZ}' } }, DRAFT);
-    expect(shown()).toBe(true); // fail-soft default, unchanged
+    expect(shown()).toBe(false); // withheld: a faulting declared gate fails closed (objectui#13299)
     expect(unresolvableReports(warn).length).toBeGreaterThan(0);
     expect(reports(warn)).toHaveLength(0);
   });

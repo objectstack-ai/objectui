@@ -21,11 +21,12 @@
  * ## One request per organisation, however many readers (objectui#12808)
  *
  * Every reader of this hook shares ONE resource per (control-plane origin,
- * organisation): the in-flight resolution and its settled answer. The Cloud
- * pricing page mounts one `cloud:plan-status` per plan card and the Welcome
- * page mounts `cloud:onboarding-next` beside `cloud:workspace-timezone-notice`;
- * each used to issue its own GET, and Chrome serialises identical in-flight
- * GETs, so three cards paid three round trips in series.
+ * organisation): the in-flight resolution and its settled answer. When this
+ * landed, the Cloud pricing page mounted one `cloud:plan-status` per plan card
+ * and the Welcome page mounted `cloud:onboarding-next` beside
+ * `cloud:workspace-timezone-notice` (the first two have since retired,
+ * objectui#12954); each used to issue its own GET, and Chrome serialises
+ * identical in-flight GETs, so three cards paid three round trips in series.
  *
  * Freshness is unchanged, because nothing here is time-based:
  *   - the answer is held only while at least one reader is mounted. When the

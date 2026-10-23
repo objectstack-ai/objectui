@@ -81,6 +81,7 @@ import { PageHeader } from '../../layout/PageHeader.js';
 import { errorCodeIs } from '@object-ui/types';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { refusedItemsText } from '../../preview/publishRefusal.js';
+import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
 import { duplicatePackage, isSpecPackageId } from '../studio-design/packages-io.js';
 import { PackageIdInput } from '../studio-design/PackageIdInput.js';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
@@ -88,6 +89,7 @@ import { getRuntimeConfig } from '../../runtime-config.js';
 import { readMarketplaceInstalls, type LocalInstallEntry } from '../../console/marketplace/marketplaceApi.js';
 import { MarketplaceNotLoaded, MarketplaceRowActions } from '../../console/marketplace/MarketplaceRowActions.js';
 import type { InstalledPackageAtEitherStage } from '@objectstack/spec/api-assembled';
+import type { PackagePublishResult } from '@objectstack/spec/system';
 import {
   PACKAGES_SOURCE_PARAM,
   PackageSourceRefusal,
@@ -314,6 +316,43 @@ class PackageWritableRefusal extends Error {
   }
 }
 
+/** One `validationErrors` element of the package publish door's answer (the spec's shape). */
+type PackagePublishValidationError = NonNullable<PackagePublishResult['validationErrors']>[number];
+
+/**
+ * A package publish the server refused, carrying the server's own reasons
+ * (objectui#13160).
+ *
+ * `POST /packages/:id/publish` answers a refusal on a 200: its
+ * `PackagePublishResult` says `success: false`, nothing was published, and
+ * `validationErrors` holds one `message` per reason, each against the item
+ * (`type`, `name`) it judged. The sheet used to throw the count sentence alone,
+ * so the author read "Publish blocked by 1 validation error(s)." and never the
+ * reason. `message` stays that count sentence, the heading the sheet shows;
+ * `reasons` are the lines under it, in the server's words.
+ */
+class PackagePublishRefusal extends Error {
+  readonly reasons: readonly string[];
+
+  constructor(heading: string, reasons: readonly string[]) {
+    super(heading);
+    this.name = 'PackagePublishRefusal';
+    this.reasons = reasons;
+  }
+}
+
+/**
+ * A `validationErrors` element as one line: the item it names, then the
+ * server's message. Where a reason belongs to no one item the producer leaves
+ * `name` empty (a namespace the whole package lacks: `api: …`), or `type` and
+ * `name` both (a package with no items), and the line then names only what it
+ * was given, or is the message alone.
+ */
+function publishRefusalLine(error: PackagePublishValidationError): string {
+  const subject = [error.type, error.name].filter(Boolean).join('/');
+  return subject ? `${subject}: ${error.message}` : error.message;
+}
+
 /**
  * One line of the list: a registry package with its served Source, or a
  * marketplace install the runtime did not load (it has no registry row, but it
@@ -328,6 +367,16 @@ interface PackageListRow {
   pkg: InstalledPackageRow | null;
   source: PackageSource;
   install: LocalInstallEntry | null;
+}
+
+/**
+ * The marketplace entry a row's Actions cell acts on, or `null` when the cell
+ * has nothing to draw: only a marketplace row with an install entry carries
+ * row actions. The Actions header reads this same answer over the rows in view
+ * (objectui#13166), so a header never stands over a column of empty cells.
+ */
+function rowActionEntry(row: PackageListRow): LocalInstallEntry | null {
+  return row.source === 'marketplace' ? row.install : null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -363,11 +412,16 @@ export function CreatePackageDialog({
 /* Detail sheet — manifest + lifecycle actions                                 */
 /* -------------------------------------------------------------------------- */
 
+// The value wraps at word boundaries first (objectui#13166): `break-all` let the
+// browser break between any two letters, so a Description read "marketplac / e"
+// and "Con / tracts". `break-words` still breaks inside a token, but only one
+// that alone is wider than the line (a long version or URL); `min-w-0` lets
+// this flex item shrink below such a token, so it wraps instead of overflowing.
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4 py-1.5">
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-right break-all">{children}</span>
+      <span className="min-w-0 text-sm font-medium text-right break-words">{children}</span>
     </div>
   );
 }
@@ -435,7 +489,13 @@ export function PackageDetailSheet({
   // write no metadata and stay on `apiJson`.
   const client = useMetadataClient();
   const [busy, setBusy] = React.useState<string | null>(null);
-  const [msg, setMsg] = React.useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  // `details`: the lines a refusal carries under its sentence, in the server's
+  // own words (objectui#13160).
+  const [msg, setMsg] = React.useState<{
+    kind: 'ok' | 'err';
+    text: string;
+    details?: readonly string[];
+  } | null>(null);
   // ADR-0033 — pending DRAFT items bound to this package. AI-authored metadata
   // lands as drafts that the active-only browsers hide, so without this the
   // package looks empty right after a build. We list them here with a link to
@@ -489,6 +549,15 @@ export function PackageDetailSheet({
   const id = pkg.manifest.id;
   const enabled = pkg.enabled !== false && pkg.status !== 'disabled';
   const isKernel = pkg.manifest.scope === 'system' || pkg.manifest.scope === 'cloud';
+  // objectui#13157 — the sheet offers a write action only on a package the
+  // Scope badge above draws Writable: the same served verdict, the row's
+  // top-level `writable` (objectstack#14375), read the same way (anything but
+  // `true` is never writable). On a read-only package the server refuses
+  // Edit, Publish, Revert, Disable and Delete (`WRITABLE_PACKAGE_REQUIRED`)
+  // and Duplicate (`DUPLICATE_SOURCE_NOT_A_BASE`: its source must be a
+  // writable base); Adopt orphans would bind loose items into a package the
+  // org cannot author. So none of them is offered there. The reads stay.
+  const writable = pkg.writable === true;
   // The name the delete dialog asks the author to type: the one the sheet's
   // title shows.
   const displayName = pkg.manifest.name || id;
@@ -505,7 +574,11 @@ export function PackageDetailSheet({
       setMsg({ kind: 'ok', text: okText });
       onChanged();
     } catch (e: any) {
-      setMsg({ kind: 'err', text: e?.message ?? t('engine.packages.detail.actionFailed', locale) });
+      setMsg({
+        kind: 'err',
+        text: e?.message ?? t('engine.packages.detail.actionFailed', locale),
+        ...(e instanceof PackagePublishRefusal ? { details: e.reasons } : {}),
+      });
     } finally {
       setBusy(null);
     }
@@ -515,18 +588,23 @@ export function PackageDetailSheet({
     run(
       'publish',
       () =>
-        apiJson(`${API}/${encodeURIComponent(id)}/publish`, {
+        apiJson<PackagePublishResult>(`${API}/${encodeURIComponent(id)}/publish`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
-        }).then((r: any) => {
+        }).then((r) => {
           if (r && r.success === false) {
-            const n = r.validationErrors?.length ?? 0;
-            throw new Error(
-              n
-                ? tFormat('engine.packages.detail.publishBlocked', locale, { count: n })
-                : r.validationErrors?.[0]?.message || t('engine.packages.detail.nothingToPublish', locale),
-            );
+            // objectui#13160 — the count is the heading, and each reason the
+            // server returned is a line under it; the count alone told the
+            // author that something was wrong, never what.
+            const errors = r.validationErrors ?? [];
+            if (errors.length > 0) {
+              throw new PackagePublishRefusal(
+                tFormat('engine.packages.detail.publishBlocked', locale, { count: errors.length }),
+                errors.map(publishRefusalLine),
+              );
+            }
+            throw new Error(t('engine.packages.detail.nothingToPublish', locale));
           }
           return r;
         }),
@@ -574,6 +652,14 @@ export function PackageDetailSheet({
               t('engine.packages.detail.actionFailed', locale),
           );
         }
+        // objectui#13057 — announce the publish, as every other publish path
+        // does (Studio's publish-all, Home's and the chat bar's): each mounted
+        // `MetadataProvider` drops the adapter's caches and re-reads its loaded
+        // types, so the views, forms and nav this tree already read show what
+        // just went live, and the pending-drafts surfaces converge. Sent before
+        // the `failed[]` verdict below, as Studio sends it: a pre-15.1 server's
+        // partial publish still made some drafts live.
+        emitMetadataRefresh();
         try {
           const fresh = await apiJson<{ drafts?: Array<{ type: string; name: string }> }>(
             `/api/v1/meta/_drafts?packageId=${encodeURIComponent(id)}`,
@@ -867,32 +953,42 @@ export function PackageDetailSheet({
 
         <Separator className="my-4" />
 
-        {isKernel ? (
-          <p className="text-sm text-muted-foreground">
-            {t('engine.packages.detail.kernelReadOnly', locale)}
-          </p>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t('engine.packages.detail.actions', locale)}
+        <div className="space-y-2">
+          {isKernel && (
+            <p className="text-sm text-muted-foreground">
+              {t('engine.packages.detail.kernelReadOnly', locale)}
             </p>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={() => setViewOpen(true)} disabled={!!busy}>
-                <Eye className="mr-1.5 h-3.5 w-3.5" />
-                {t('engine.packages.detail.viewInfo', locale)}
-              </Button>
+          )}
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t('engine.packages.detail.actions', locale)}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => setViewOpen(true)} disabled={!!busy}>
+              <Eye className="mr-1.5 h-3.5 w-3.5" />
+              {t('engine.packages.detail.viewInfo', locale)}
+            </Button>
+            {writable && (
               <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} disabled={!!busy}>
                 <Pencil className="mr-1.5 h-3.5 w-3.5" />
                 {t('engine.packages.detail.edit', locale)}
               </Button>
+            )}
+            {writable && (
               <Button size="sm" onClick={publish} disabled={!!busy}>
                 <Upload className="mr-1.5 h-3.5 w-3.5" />
                 {busy === 'publish' ? t('engine.packages.detail.publishing', locale) : t('engine.packages.detail.publish', locale)}
               </Button>
+            )}
+            {writable && (
               <Button size="sm" variant="outline" onClick={revert} disabled={!!busy}>
                 <Undo2 className="mr-1.5 h-3.5 w-3.5" />
                 {t('engine.packages.detail.revert', locale)}
               </Button>
+            )}
+            {/* Disable is refused on a read-only package; Enable is not (the
+                server's enable door has no writability gate), so a disabled
+                read-only package can still be switched back on. */}
+            {(writable || !enabled) && (
               <Button size="sm" variant="outline" onClick={toggleEnable} disabled={!!busy}>
                 {enabled ? (
                   <PowerOff className="mr-1.5 h-3.5 w-3.5" />
@@ -901,10 +997,12 @@ export function PackageDetailSheet({
                 )}
                 {enabled ? t('engine.packages.detail.disable', locale) : t('engine.packages.detail.enable', locale)}
               </Button>
-              <Button size="sm" variant="outline" onClick={exportPkg} disabled={!!busy}>
-                <Download className="mr-1.5 h-3.5 w-3.5" />
-                {busy === 'export' ? t('engine.packages.detail.exporting', locale) : t('engine.packages.detail.export', locale)}
-              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={exportPkg} disabled={!!busy}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              {busy === 'export' ? t('engine.packages.detail.exporting', locale) : t('engine.packages.detail.export', locale)}
+            </Button>
+            {writable && (
               <Button
                 size="sm"
                 variant="outline"
@@ -915,10 +1013,14 @@ export function PackageDetailSheet({
                 <Copy className="mr-1.5 h-3.5 w-3.5" />
                 {busy === 'duplicate' ? t('engine.packages.detail.duplicating', locale) : t('engine.packages.detail.duplicate', locale)}
               </Button>
+            )}
+            {writable && (
               <Button size="sm" variant="outline" onClick={adoptOrphans} disabled={!!busy}>
                 <Inbox className="mr-1.5 h-3.5 w-3.5" />
                 {busy === 'adopt' ? t('engine.packages.detail.adopting', locale) : t('engine.packages.detail.adoptOrphans', locale)}
               </Button>
+            )}
+            {writable && (
               <Button
                 size="sm"
                 variant="outline"
@@ -929,48 +1031,48 @@ export function PackageDetailSheet({
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" />
                 {busy === 'delete' ? t('engine.packages.detail.deleting', locale) : t('engine.packages.detail.deleteApp', locale)}
               </Button>
-            </div>
-            {dupOpen && (
-              <div className="flex flex-col gap-1.5 rounded-md border p-2.5" data-testid="pkg-detail-dup-form">
-                <input
-                  autoFocus
-                  value={dupName}
-                  onChange={(e) => setDupName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && dupArmed && !busy) void duplicateApp();
-                    if (e.key === 'Escape') setDupOpen(false);
-                  }}
-                  placeholder={t('engine.studio.landing.dupNamePlaceholder', locale)}
-                  aria-label={t('engine.studio.landing.dupNamePlaceholder', locale)}
-                  data-testid="pkg-detail-dup-name-input"
-                  className="h-7 w-full rounded-md border bg-background px-2 text-[11px] outline-none focus:ring-1 focus:ring-primary"
-                />
-                <PackageIdInput
-                  value={dupId}
-                  onChange={setDupId}
-                  onEnter={() => {
-                    if (dupArmed && !busy) void duplicateApp();
-                  }}
-                  onEscape={() => setDupOpen(false)}
-                  placeholder={t('engine.studio.landing.dupIdPlaceholder', locale)}
-                  locale={locale}
-                  testId="pkg-detail-dup-id-input"
-                />
-                <div className="flex items-center gap-1.5">
-                  <Button size="sm" onClick={() => void duplicateApp()} disabled={!!busy || !dupArmed}>
-                    <Copy className="mr-1.5 h-3.5 w-3.5" />
-                    {busy === 'duplicate'
-                      ? t('engine.packages.detail.duplicating', locale)
-                      : t('engine.packages.detail.duplicateGo', locale)}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setDupOpen(false)} disabled={!!busy}>
-                    {t('engine.cancel', locale)}
-                  </Button>
-                </div>
-              </div>
             )}
           </div>
-        )}
+          {writable && dupOpen && (
+            <div className="flex flex-col gap-1.5 rounded-md border p-2.5" data-testid="pkg-detail-dup-form">
+              <input
+                autoFocus
+                value={dupName}
+                onChange={(e) => setDupName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && dupArmed && !busy) void duplicateApp();
+                  if (e.key === 'Escape') setDupOpen(false);
+                }}
+                placeholder={t('engine.studio.landing.dupNamePlaceholder', locale)}
+                aria-label={t('engine.studio.landing.dupNamePlaceholder', locale)}
+                data-testid="pkg-detail-dup-name-input"
+                className="h-7 w-full rounded-md border bg-background px-2 text-[11px] outline-none focus:ring-1 focus:ring-primary"
+              />
+              <PackageIdInput
+                value={dupId}
+                onChange={setDupId}
+                onEnter={() => {
+                  if (dupArmed && !busy) void duplicateApp();
+                }}
+                onEscape={() => setDupOpen(false)}
+                placeholder={t('engine.studio.landing.dupIdPlaceholder', locale)}
+                locale={locale}
+                testId="pkg-detail-dup-id-input"
+              />
+              <div className="flex items-center gap-1.5">
+                <Button size="sm" onClick={() => void duplicateApp()} disabled={!!busy || !dupArmed}>
+                  <Copy className="mr-1.5 h-3.5 w-3.5" />
+                  {busy === 'duplicate'
+                    ? t('engine.packages.detail.duplicating', locale)
+                    : t('engine.packages.detail.duplicateGo', locale)}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setDupOpen(false)} disabled={!!busy}>
+                  {t('engine.cancel', locale)}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {msg && (
           <div
@@ -981,6 +1083,16 @@ export function PackageDetailSheet({
             }`}
           >
             {msg.text}
+            {msg.details && msg.details.length > 0 && (
+              // Not capped: the sheet scrolls (`overflow-y-auto`), as it does
+              // for the pending-drafts list above. `break-words` keeps a long
+              // item id inside the sheet's width.
+              <ul className="mt-1 list-disc space-y-0.5 pl-4 break-words">
+                {msg.details.map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 
@@ -1255,6 +1367,15 @@ export function PackagesPage() {
     });
   }, [rows, query, showKernel, sourceFilter.value]);
 
+  // objectui#13166 — the Actions column follows the cells it sits over: it is
+  // drawn only when a row IN VIEW carries an action. Gating it on the page-level
+  // capability alone drew an Actions header over an empty cell in every row of
+  // an install with no marketplace rows. "In view" is the filtered rows, so a
+  // filter that hides every marketplace row hides the column with them; the
+  // column moves only when the last such row leaves or the first returns, the
+  // same moment its cells do.
+  const showActionsColumn = showMarketplaceActions && filtered.some((r) => rowActionEntry(r) !== null);
+
   const clearSourceFilter = () => {
     const next = new URLSearchParams(searchParams);
     next.delete(PACKAGES_SOURCE_PARAM);
@@ -1470,54 +1591,58 @@ export function PackagesPage() {
                 <TableHead className="w-24">{t('engine.packages.col.scope', locale)}</TableHead>
                 <TableHead className="w-24">{t('engine.packages.col.status', locale)}</TableHead>
                 <TableHead className="w-28">{t('engine.packages.col.source', locale)}</TableHead>
-                {showMarketplaceActions && (
+                {showActionsColumn && (
                   <TableHead className="text-right">{t('engine.packages.col.actions', locale)}</TableHead>
                 )}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(({ id: rowId, pkg: p, source, install }) => (
-                <TableRow
-                  key={rowId}
-                  className={p ? 'cursor-pointer' : undefined}
-                  onClick={p ? () => openDetail(p) : undefined}
-                  data-testid={`pkg-row-${rowId}`}
-                >
-                  <TableCell className="font-medium">{p?.manifest.name || rowId}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {rowId}
-                  </TableCell>
-                  <TableCell>{p?.manifest.version || install?.version || '—'}</TableCell>
-                  <TableCell>
-                    {p ? <ScopeBadge pkg={p} /> : '—'}
-                  </TableCell>
-                  <TableCell>
-                    {install?.notLoaded ? (
-                      <MarketplaceNotLoaded marker={install.notLoaded} />
-                    ) : p ? (
-                      <StatusBadge pkg={p} />
-                    ) : (
-                      '—'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <SourceBadge source={source} />
-                  </TableCell>
-                  {showMarketplaceActions && (
-                    <TableCell className="text-right">
-                      {source === 'marketplace' && install && (
-                        <MarketplaceRowActions
-                          entry={install}
-                          listSource={marketplaceList}
-                          basePath={appBase}
-                          onResult={setMarketplaceMsg}
-                          onChanged={() => void load()}
-                        />
+              {filtered.map((row) => {
+                const { id: rowId, pkg: p, source, install } = row;
+                const actionEntry = rowActionEntry(row);
+                return (
+                  <TableRow
+                    key={rowId}
+                    className={p ? 'cursor-pointer' : undefined}
+                    onClick={p ? () => openDetail(p) : undefined}
+                    data-testid={`pkg-row-${rowId}`}
+                  >
+                    <TableCell className="font-medium">{p?.manifest.name || rowId}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {rowId}
+                    </TableCell>
+                    <TableCell>{p?.manifest.version || install?.version || '—'}</TableCell>
+                    <TableCell>
+                      {p ? <ScopeBadge pkg={p} /> : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {install?.notLoaded ? (
+                        <MarketplaceNotLoaded marker={install.notLoaded} />
+                      ) : p ? (
+                        <StatusBadge pkg={p} />
+                      ) : (
+                        '—'
                       )}
                     </TableCell>
-                  )}
-                </TableRow>
-              ))}
+                    <TableCell>
+                      <SourceBadge source={source} />
+                    </TableCell>
+                    {showActionsColumn && (
+                      <TableCell className="text-right">
+                        {actionEntry && (
+                          <MarketplaceRowActions
+                            entry={actionEntry}
+                            listSource={marketplaceList}
+                            basePath={appBase}
+                            onResult={setMarketplaceMsg}
+                            onChanged={() => void load()}
+                          />
+                        )}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}

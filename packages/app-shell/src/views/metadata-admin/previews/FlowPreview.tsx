@@ -38,9 +38,10 @@ import { EmptyDescription } from '@object-ui/components';
 import type { MetadataPreviewProps, MetadataSelection } from '../preview-registry.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 import { appendArray } from '../inspectors/_shared.js';
+import { useObjectCatalog, type ObjectCatalogEntry } from '../inspectors/ObjectPicker.js';
 import { t as tr, translateFlowMeta } from '../i18n.js';
 import { FlowCanvas } from './FlowCanvas.js';
-import { defaultNodeLabel } from './flow-canvas-parts.js';
+import { defaultNodeLabel, flowEdgeDisplayName, flowNodeDisplayName } from './flow-canvas-parts.js';
 import { edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
 import { NESTED_NODE_KIND, parseNestedNodeId, encodeNestedNodeId, locateFlowNode } from '../inspectors/flow-nested-selection.js';
 import { FlowSimulatorPanel } from './FlowSimulatorPanel.js';
@@ -123,7 +124,7 @@ export function FlowPreviewChromeProvider({ value, children }: { value: FlowPrev
  * aside, under `InspectorShellHostProvider`): the eyebrow names the kind — a
  * node with its type's display name ("Node · Decision"), or a connection — and
  * the title is the one the inspector's own header would show (the node's label
- * or id; the connection's selection label, else `source → target`).
+ * or id; the connection's `source → target`, each end by its node's name).
  */
 export function flowSelectionHeading(
   draft: Record<string, unknown>,
@@ -135,7 +136,11 @@ export function flowSelectionHeading(
     const edge = edges.find((e, i) => edgeKey(e, i) === selection.id);
     return {
       eyebrow: tr('engine.inspector.flowEdge.kind', locale),
-      title: selection.label ?? (edge ? `${edge.source} → ${edge.target}` : selection.id),
+      // Each end by its node's name (objectui#13143), read off the edge, as
+      // `FlowEdgeInspector` titles it.
+      title: edge
+        ? flowEdgeDisplayName(edge, Array.isArray(draft.nodes) ? draft.nodes : [], locale)
+        : (selection.label ?? selection.id),
     };
   }
   const kind = tr('engine.inspector.flowNode.kind', locale);
@@ -169,10 +174,20 @@ export function flowSelectionHeading(
  * The words are the Start node inspector's own option labels for the same
  * tokens (`flow-node-config`), localized the way the inspector localizes them,
  * so the header and the inspector name one trigger one way.
+ *
+ * The object reads as its label (objectui#13056), from the catalog the Start
+ * node's object picker reads, with its name on the pill's `title`; while the
+ * catalog loads, when it fails, or for an object it does not label, the name
+ * is the text, as before.
  */
-function flowTriggerLabel(d: Record<string, unknown>, nodes: FlowNode[], locale?: string): string {
+function flowTriggerLabel(
+  d: Record<string, unknown>,
+  nodes: FlowNode[],
+  objects: readonly ObjectCatalogEntry[],
+  locale?: string,
+): { value: string; title?: string } {
   const kind = resolveFlowTriggerKind(d);
-  if (!kind) return translateFlowMeta('type', String(d.type ?? 'autolaunched'), locale);
+  if (!kind) return { value: translateFlowMeta('type', String(d.type ?? 'autolaunched'), locale) };
   const config = nodes.find((n) => n?.type === 'start')?.config ?? {};
   // A record kind means the Start node's `triggerType` IS a `record-*` token —
   // the resolver read it to answer.
@@ -186,8 +201,13 @@ function flowTriggerLabel(d: Record<string, unknown>, nodes: FlowNode[], locale?
       : kind === 'time_relative'
         ? (typeof sweep?.object === 'string' ? sweep.object : config.objectName)
         : undefined;
-  return typeof object === 'string' && object ? `${label} · ${object}` : label;
+  if (typeof object !== 'string' || !object) return { value: label };
+  const objectLabel = objects.find((o) => o.name === object)?.label;
+  return objectLabel ? { value: `${label} · ${objectLabel}`, title: object } : { value: `${label} · ${object}` };
 }
+
+/** The catalog before it answered, or when it failed: one stable empty list. */
+const NO_OBJECTS: ObjectCatalogEntry[] = [];
 
 /**
  * The flow's meta — Trigger, Status, Run as, version and, when set, On error —
@@ -196,6 +216,14 @@ function flowTriggerLabel(d: Record<string, unknown>, nodes: FlowNode[], locale?
  * status the same way (objectui#11779). `bar` keeps the info bar's glyphs;
  * `header` drops them and separates the items with dots, at the header's meta
  * size. Each item keeps its `Label:` caption and its value as sibling spans.
+ *
+ * objectui#13135 — the header lays its items out as a one-row grid whose
+ * columns may shrink to nothing (`minmax(0, max-content)`), so the row's own
+ * minimum width is near zero and it fits the meta slot instead of overflowing
+ * it. Each item then truncates with an ellipsis, and a cut item names its
+ * whole `Label: value` on hover. The row never wraps, so the header keeps its
+ * height. (A flex row cannot do it: its minimum width is the sum of its
+ * items' text, so the slot clipped it mid-word with no ellipsis.)
  */
 export function FlowMetaPills({
   draft,
@@ -215,12 +243,15 @@ export function FlowMetaPills({
   const errorStrategy = (draft.errorHandling as { strategy?: unknown } | undefined)?.strategy;
   const onError = typeof errorStrategy === 'string' && errorStrategy ? errorStrategy : undefined;
   const header = variant === 'header';
+  const catalog = useObjectCatalog();
+  const trigger = flowTriggerLabel(draft, nodes, catalog.status === 'loaded' ? catalog.data : NO_OBJECTS, locale);
   const items: React.ReactNode[] = [
     <Pill
       key="trigger"
       icon={header ? undefined : Zap}
       label={tr('engine.flowPreview.pill.trigger', locale)}
-      value={flowTriggerLabel(draft, nodes, locale)}
+      value={trigger.value}
+      title={trigger.title}
       compact={header}
     />,
     <Pill
@@ -243,7 +274,9 @@ export function FlowMetaPills({
   if (version) {
     items.push(
       header ? (
-        <span key="version">v{version}</span>
+        <span key="version" className="truncate">
+          v{version}
+        </span>
       ) : (
         <Pill key="version" label="v" value={version} />
       ),
@@ -262,7 +295,7 @@ export function FlowMetaPills({
   }
   if (!header) return <>{items}</>;
   return (
-    <span className="inline-flex min-w-0 items-center gap-1.5">
+    <span className="inline-grid min-w-0 max-w-full auto-cols-[minmax(0,max-content)] grid-flow-col items-center gap-x-1.5">
       {items.map((item, i) => (
         <React.Fragment key={i}>
           {i > 0 && (
@@ -367,13 +400,14 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
         // of `p.target` inside a nested callback, so capture nodeId as a string.
         const { nodeId } = p.target;
         const node = nodes.find((n) => n.id === nodeId);
-        onSelectionChange?.({ kind: 'node', id: nodeId, label: node?.label || nodeId });
+        // Named by the designer's one rule (objectui#13200), as the canvas and inspectors name it.
+        onSelectionChange?.({ kind: 'node', id: nodeId, label: node ? flowNodeDisplayName(node, locale) : nodeId });
       } else if (p.target.kind === 'edge') {
-        onSelectionChange?.({ kind: 'edge', id: p.target.edgeKey, label: `${p.target.source} → ${p.target.target}` });
+        onSelectionChange?.({ kind: 'edge', id: p.target.edgeKey, label: flowEdgeDisplayName(p.target, nodes, locale) });
       }
       setReveal((r) => ({ target: p.target, nonce: (r?.nonce ?? 0) + 1 }));
     },
-    [nodes, onSelectionChange],
+    [nodes, onSelectionChange, locale],
   );
 
   // objectui#11772 — this editing session's memory of node ids: every id it
@@ -410,7 +444,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
     const newNode: FlowNode = { id: mintNodeId(), type: 'start', label: defaultNodeLabel('start', locale) };
     const next = appendArray(nodes, newNode);
     onPatch!({ nodes: next });
-    onSelectionChange?.({ kind: 'node', id: newNode.id, label: newNode.label || newNode.id });
+    onSelectionChange?.({ kind: 'node', id: newNode.id, label: flowNodeDisplayName(newNode, locale) });
   }, [canEdit, nodes, onPatch, onSelectionChange, locale, mintNodeId]);
 
   // Run history needs the published flow name (the engine keys runs by it).
@@ -458,12 +492,12 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
       revealSignal={reveal}
       onSelect={(n) =>
         n
-          ? onSelectionChange?.({ kind: 'node', id: n.id, label: n.label || n.id })
+          ? onSelectionChange?.({ kind: 'node', id: n.id, label: flowNodeDisplayName(n, locale) })
           : onSelectionChange?.(null)
       }
       onSelectEdge={(e, key) =>
         e
-          ? onSelectionChange?.({ kind: 'edge', id: key, label: `${e.source} → ${e.target}` })
+          ? onSelectionChange?.({ kind: 'edge', id: key, label: flowEdgeDisplayName(e, nodes, locale) })
           : onSelectionChange?.(null)
       }
       selectedNestedPath={selectedNestedPath}
@@ -472,7 +506,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
           ? onSelectionChange?.({
               kind: NESTED_NODE_KIND,
               id: encodeNestedNodeId(path),
-              label: node?.label || path.nodeId,
+              label: node ? flowNodeDisplayName(node, locale) : path.nodeId,
             })
           : onSelectionChange?.(null)
       }
@@ -525,7 +559,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
             <div className="min-h-0 overflow-hidden">
               <div className="mx-auto h-full max-w-3xl px-3 py-2">
                 {/* The engine keys runs by the flow's name; the host offers this section only with one. */}
-                {flowName && <FlowRunsPanel flowName={flowName} locale={locale} />}
+                {flowName && <FlowRunsPanel flowName={flowName} nodes={nodes} locale={locale} />}
               </div>
             </div>
           )}
@@ -534,6 +568,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
               <div className="mx-auto h-full max-w-3xl px-3 py-2">
                 <ProblemsPanel
                   problems={problems}
+                  nodes={nodes}
                   selectedKey={selectedKey}
                   onSelectProblem={(p) => {
                     handleSelectProblem(p);
@@ -640,6 +675,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
             <div className="border-l bg-muted/20">
               <ProblemsPanel
                 problems={problems}
+                nodes={nodes}
                 selectedKey={selectedKey}
                 onSelectProblem={handleSelectProblem}
                 locale={locale}
@@ -658,7 +694,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
             </div>
           ) : showRuns && flowName ? (
             <div className="border-l bg-muted/20">
-              <FlowRunsPanel flowName={flowName} locale={locale} />
+              <FlowRunsPanel flowName={flowName} nodes={nodes} locale={locale} />
             </div>
           ) : showVars ? (
             <div className="border-l bg-muted/20 p-3 text-xs space-y-2">
@@ -686,11 +722,16 @@ function Pill({
   label: string;
   value: string;
   tone?: FlowRunStatusView['tone'];
-  /** Hover text — the run status's reason, for the Status pill. */
+  /** Hover text — the run status's reason, for the Status pill; the trigger object's name, for the Trigger pill. */
   title?: string;
   /** The item header's meta (objectui#12454): the value at the caption's weight, plain text muted. */
   compact?: boolean;
 }) {
+  const ref = React.useRef<HTMLSpanElement | null>(null);
+  const cut = useCutText(ref, compact);
+  // objectui#13135 — a cut header item says its whole text first, then the
+  // hover text it already had (the run status's reason, the object's name).
+  const hover = cut ? [`${label}: ${value}`, title].filter(Boolean).join('\n') : title;
   const cls =
     tone === 'green'
       ? 'text-emerald-700 dark:text-emerald-400'
@@ -700,12 +741,35 @@ function Pill({
           ? 'text-muted-foreground'
           : 'text-foreground';
   return (
-    <span className={compact ? 'inline-flex shrink-0 items-center gap-1 whitespace-nowrap' : 'inline-flex items-center gap-1'} title={title}>
+    <span ref={ref} className={compact ? 'min-w-0 truncate' : 'inline-flex items-center gap-1'} title={hover}>
       {Icon && <Icon className="h-3 w-3 text-muted-foreground" />}
       <span className="text-muted-foreground">{label}:</span>
-      <span className={compact ? cls : `font-medium ${cls}`}>{value}</span>
+      <span className={compact ? `ml-1 ${cls}` : `font-medium ${cls}`}>{value}</span>
     </span>
   );
+}
+
+/**
+ * objectui#13135 — whether the element's text is cut (wider than its box),
+ * measured on every render and on resize, as the Studio header's title
+ * measures its own (objectui#12897). `false` while `enabled` is off.
+ */
+function useCutText(ref: React.RefObject<HTMLElement | null>, enabled: boolean): boolean {
+  const [cut, setCut] = React.useState(false);
+  const measure = React.useCallback(() => {
+    const el = ref.current;
+    setCut(enabled && !!el && el.scrollWidth > el.clientWidth + 0.5);
+  }, [ref, enabled]);
+  // Every render: the text can change without the box resizing.
+  React.useLayoutEffect(measure);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!enabled || !el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref, enabled, measure]);
+  return cut;
 }
 
 /** The flow's declared variables: the designer's side panel, and the Studio's Variables body (objectui#12454). */

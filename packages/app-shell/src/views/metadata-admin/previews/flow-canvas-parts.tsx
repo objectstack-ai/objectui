@@ -376,6 +376,49 @@ export function defaultNodeLabel(type: string, locale?: string): string {
 }
 
 /**
+ * The name a flow node goes by wherever the designer refers to it in words
+ * (objectui#13143): the Problems messages, a connection's `source → target`
+ * title, a run step. The one rule, in order:
+ *
+ * 1. the author's `label`, when it is a non-blank string;
+ * 2. else the palette label of the node's type, when the palette offers it
+ *    (localized as {@link defaultNodeLabel} localizes it);
+ * 3. else the node's `id`.
+ *
+ * An unknown type does not get the title-cased name {@link defaultNodeLabel}
+ * makes up for a new node: a made-up name would read as a label nobody wrote.
+ */
+export function flowNodeDisplayName(
+  node: { id: string; type?: unknown; label?: unknown },
+  locale?: string,
+): string {
+  if (typeof node.label === 'string' && node.label.trim()) return node.label;
+  const item = typeof node.type === 'string' ? NODE_PALETTE.find((p) => p.type === node.type) : undefined;
+  if (item) return translateNodeLabel(item.type, locale, item.label);
+  return node.id;
+}
+
+/**
+ * A connection's title, `source → target`, each end named by
+ * {@link flowNodeDisplayName} (objectui#13143). An end naming no node of
+ * `nodes` reads as its id: there is no node to name it by.
+ */
+export function flowEdgeDisplayName(
+  edge: { source: string; target: string },
+  nodes: readonly unknown[],
+  locale?: string,
+): string {
+  const end = (id: string) => {
+    const node = nodes.find(
+      (n): n is { id: string; type?: unknown; label?: unknown } =>
+        typeof n === 'object' && n !== null && (n as { id?: unknown }).id === id,
+    );
+    return node ? flowNodeDisplayName(node, locale) : id;
+  };
+  return `${end(edge.source)} → ${end(edge.target)}`;
+}
+
+/**
  * Spec-valid seed fields for a newly created node, so structured blocks start
  * in a valid-ish shape (e.g. a wait node already has a timer eventType) rather
  * than an empty intermediate state. Returns extra node props to spread in.

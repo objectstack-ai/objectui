@@ -12,6 +12,7 @@ import {
   filterCandidates,
   __setCelFormulaLoader,
 } from './celAuthoring';
+import { validateRlsPredicateEnforceability } from '@objectstack/lint';
 
 afterEach(() => {
   cleanup();
@@ -119,11 +120,15 @@ describe('CelPredicateField · inline lint (real engine)', () => {
     expect(ta.getAttribute('aria-invalid')).not.toBe('true');
   });
 
-  it('advises on a non-pushdown-able USING read filter (fail-open blast radius)', async () => {
-    render(<Harness initial={'upper(status) == "OPEN"'} />);
-    // objectui's own sentence, read through the host's `t` (objectui#10862);
-    // this harness's `t` echoes the key, as it does for `perm.cel.valid`.
-    expect(await screen.findByText('engine.celLint.notPushdownable', {}, { timeout: 3000 })).toBeTruthy();
+  it('blocks on a USING clause the runtime cannot lower, in @objectstack/lint\'s words (objectui#13061)', async () => {
+    const source = 'upper(status) == "OPEN"';
+    const [rule] = validateRlsPredicateEnforceability({ permissions: [{ rowLevelSecurity: [{ using: source }] }] });
+    render(<Harness initial={source} />);
+    const ta = screen.getByRole('combobox');
+    // The producer's message as written — no catalogue key, so the harness's
+    // echoing `t` is never consulted for it.
+    expect(await screen.findByText(rule.message, {}, { timeout: 3000 })).toBeTruthy();
+    expect(ta.getAttribute('aria-invalid')).toBe('true');
   });
 });
 

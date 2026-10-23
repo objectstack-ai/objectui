@@ -44,7 +44,7 @@ import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // Both sets are derived, not restated — see record-detail-system-fields.ts.
 import { deriveRecordDetailSections } from './recordDetailSections.js';
 import type { DataSource, FeedItem, Reaction } from '@object-ui/types';
-import type { ActionDef, ActionParamDef, ConfirmationHandler } from '@object-ui/core';
+import type { ActionDef, ActionParamDef, ConfirmationHandler, ParamCollectionHandler } from '@object-ui/core';
 import type { ConsoleActionDispatch } from '../consoleActionDispatch.js';
 import { useRecordApprovals, recordLockedByApproval, isSubmitterOf } from '../hooks/useRecordApprovals.js';
 import { RecordAttachmentsPanel } from './RecordAttachmentsPanel.js';
@@ -1050,7 +1050,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // not read `overrideNotice` itself — it takes the envelope so the two
   // handlers on this seam cannot drift apart from each other, and so a reader
   // added here later has the key declared rather than reaching for a cast.
-  const paramCollectionHandler = useCallback((params: ActionParamDef[], action?: ConsoleActionDispatch, interpolate?: (text: string) => string) => {
+  const paramCollectionHandler = useCallback((params: ActionParamDef[], action?: ConsoleActionDispatch, interpolate?: (text: string) => string, run?: Parameters<ParamCollectionHandler>[3]) => {
     return new Promise<Record<string, any> | null>((resolve) => {
       // Related-list row actions retarget a CHILD object (e.g. sys_member rows
       // on an org record page) and stash the clicked row under
@@ -1108,6 +1108,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         description: interpolate && declaredDescription ? interpolate(declaredDescription) : declaredDescription,
         interpolate,
         resolve,
+        // The runner's `run`, as `useConsoleActionRuntime` forwards it: a
+        // refused run keeps what the user typed (objectui#13161).
+        run,
       });
     });
   }, [objectName, objectDef, objects, fieldLabel, fieldOptionLabel, actionParamText, actionParamOptionLabel]);
@@ -1749,17 +1752,28 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // engine for the row-level verdict (fail-open; the server stays the
   // authority per the framework's ADR-0124 D1 — server enforces, client is
   // courtesy) and fold it into the same affordance gates.
+  //
+  // [objectui#13045] An operation the object turns off with a STATIC
+  // `userActions` boolean is not asked about: the affordance resolver already
+  // hides that affordance (the `false` reaches `resolveRecordHeaderActionGates`
+  // from this same `objectDef.userActions` entry), so its verdict would gate
+  // nothing on screen and only cost a `security/explain` round trip before the
+  // first paint. Only the literal `false` skips. A per-record predicate form,
+  // `true`, or an absent entry still asks, and the affordance still follows
+  // the verdict.
+  const editOffByObject = objectDef?.userActions?.edit === false;
+  const deleteOffByObject = objectDef?.userActions?.delete === false;
   const recordWriteAllowed = useRecordEditable(
     objectDef?.name,
     pureRecordId,
     'update',
-    !!objectDef?.name && !!pureRecordId,
+    !!objectDef?.name && !!pureRecordId && !editOffByObject,
   );
   const recordDeleteAllowed = useRecordEditable(
     objectDef?.name,
     pureRecordId,
     'delete',
-    !!objectDef?.name && !!pureRecordId,
+    !!objectDef?.name && !!pureRecordId && !deleteOffByObject,
   );
 
   // ── Per-record `userActions` predicates — the header's FOURTH gate ────────
@@ -3676,6 +3690,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             // (objectui#11122): the runner's `operation: 'update'` Undo capture
             // reads them to capture a relation `$expand` filled as its stored id.
             ...(objectDef?.fields ? { objectFields: objectDef.fields } : {}),
+            // Its declared actions (objectui#13022): the same capture reads the
+            // `patch` of the declaration an update action's `name` names,
+            // which is what the platform action route writes.
+            ...(Array.isArray(objectDef?.actions) ? { objectActions: objectDef.actions } : {}),
             user: currentUser,
             org: actionContextOrg(activeOrganization),
           }}

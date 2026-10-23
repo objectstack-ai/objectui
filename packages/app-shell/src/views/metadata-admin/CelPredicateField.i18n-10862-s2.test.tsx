@@ -3,13 +3,14 @@
 /**
  * objectui#10862, slice 2 — the CEL lint advisories under zh-CN.
  *
- * `lintCelPredicate` words two advisories itself and they rendered in English
+ * `lintCelPredicate` words one advisory itself and it rendered in English
  * beneath every CEL editor, whatever the designer's language: the wrong-layer
- * root (`data.*` on a record-scope surface, the local instrument's sentence)
- * and the non-pushdown-able `USING` read filter. The lint now hands them back
- * as a catalogue key plus its values, and `CelPredicateField` reads them
- * through the `t` its host binds to the designer locale — `celAuthoring.ts`
- * stays free of any import at load, the slice-1 seam.
+ * root (`data.*` on a record-scope surface, the local instrument's sentence).
+ * The lint now hands it back as a catalogue key plus its values, and
+ * `CelPredicateField` reads it through the `t` its host binds to the designer
+ * locale — `celAuthoring.ts` stays free of any import at load, the slice-1
+ * seam. (A second, the non-pushdown-able `USING` read filter, was retired by
+ * objectui#13061: that verdict now ships `@objectstack/lint`'s own message.)
  *
  * ── How each site is read ────────────────────────────────────────────────────
  * Each case drives the REAL field against the REAL engine with a predicate
@@ -21,16 +22,16 @@
  * wording.
  *
  * ── Left as written on purpose ───────────────────────────────────────────────
- * Producer text: the engine's `detail` inside the pushdown advisory, the
- * runtime's `Unknown variable: …` inside the wrong-layer one, and — on a slot
- * `@objectstack/lint` covers — that package's whole message, which ships
- * instead of objectui's sentence.
+ * Producer text: the runtime's `Unknown variable: …` inside the wrong-layer
+ * advisory, and `@objectstack/lint`'s whole message wherever it judges — a
+ * slot its field-rule verdict covers, and an RLS clause the runtime cannot
+ * lower.
  */
 
 import * as React from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import { fieldRuleRootIssue } from '@objectstack/lint';
+import { fieldRuleRootIssue, validateRlsPredicateEnforceability } from '@objectstack/lint';
 
 import { t, tFormat } from './i18n';
 import { CelPredicateField } from './CelPredicateField';
@@ -73,17 +74,14 @@ async function keyedAdvisory(source: string, hint: CelSchemaHint, key: string) {
 
 describe('CelPredicateField reads its advisories in the designer locale (objectui#10862)', () => {
   for (const lang of LANGS) {
-    it(`${lang}: the non-pushdown-able USING read filter`, async () => {
+    it(`${lang}: CONTROL — an RLS clause the runtime cannot lower ships \`@objectstack/lint\`'s message as written (objectui#13061)`, async () => {
       const source = 'upper(status) == "OPEN"';
-      const key = 'engine.celLint.notPushdownable';
-      const vars = await keyedAdvisory(source, { objectName: 'account', fields: FIELDS, clause: 'using' }, key);
-      // The engine's own reason fills the hole as written, in every locale.
-      expect(vars.detail).toBeTruthy();
+      const [rule] = validateRlsPredicateEnforceability({ permissions: [{ rowLevelSecurity: [{ using: source }] }] });
+      expect(rule).toBeDefined();
+      const issues = await lintCelPredicate(source, { objectName: 'account', fields: FIELDS, clause: 'using' });
+      expect(issues.filter((i) => i.messageKey !== undefined)).toEqual([]);
       mount(lang, source, { clause: 'using' });
-      const text = tFormat(key, LOCALE[lang], vars);
-      expect(text).toContain(vars.detail);
-      expect(await screen.findByText(text, {}, { timeout: 3000 })).toBeTruthy();
-      if (lang === 'zh') zhRow(key);
+      expect(await screen.findByText(rule.message, {}, { timeout: 3000 })).toBeTruthy();
     });
 
     it(`${lang}: the wrong-layer \`data.*\` root on a record-scope surface (the local sentence)`, async () => {

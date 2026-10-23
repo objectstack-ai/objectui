@@ -12,7 +12,10 @@
 // into ≤500-row batches — the endpoint's hard cap, because password-related
 // work is CPU-bound server-side — and (2) inject the admin's chosen password
 // policy. The endpoint is idempotent on upsert (matched by email/phone), so
-// re-running a failed batch is safe.
+// re-running a failed batch is safe. A CSV file's request arrives as CSV text
+// (objectui#13315) and each batch is posted as CSV text too, so the endpoint
+// reads the file's cells through the same CSV rule as the generic import door;
+// JSON rows (a workbook, a paste) are batched as JSON rows.
 //
 // Password policies: `auto` (default, framework#3236 — per row: deliverable
 // rows get an invitation, unreachable rows fall back to a one-time password),
@@ -69,6 +72,90 @@ export function splitIntoBatches<T>(rows: T[], size = IDENTITY_IMPORT_BATCH_SIZE
   const batches: T[][] = [];
   for (let i = 0; i < rows.length; i += size) batches.push(rows.slice(i, i + size));
   return batches;
+}
+
+/** One record of a CSV request's text: the record as written, without its
+ *  line break, and its cells. */
+export interface CsvRequestRecord {
+  text: string;
+  cells: string[];
+}
+
+/**
+ * Cut a CSV request's text into its records, header first (pure; exported for
+ * tests). The text is the import wizard's (`sourceRowsToCsv` in
+ * `@object-ui/plugin-grid`): records joined by CRLF, every cell holding a
+ * quote, a comma, a CR or an LF quoted (RFC 4180). The scan splits records the
+ * way the identity endpoint's CSV parse does — a quote opens a quoted run, a
+ * doubled quote inside one is a quote, an LF outside one ends the record, a CR
+ * outside one is dropped, and a last line holding nothing is no record — so a
+ * record cut here is a row the endpoint reads, in the same order.
+ *
+ * A record's text is kept as written, so a batch re-joined from these texts
+ * reaches the endpoint with the wizard's own bytes. The cells are read only to
+ * name each row's identity in the result (see mergeIdentityBatchResults); no
+ * imported value is decided here.
+ */
+export function readCsvRequestRecords(csv: string): CsvRequestRecord[] {
+  const text = csv.replace(/^\uFEFF/, '');
+  const records: CsvRequestRecord[] = [];
+  let cells: string[] = [];
+  let cell = '';
+  let start = 0;
+  let inQuotes = false;
+  const close = (end: number) => {
+    cells.push(cell);
+    const written = text.slice(start, end);
+    records.push({ text: written.endsWith('\r') ? written.slice(0, -1) : written, cells });
+    cells = [];
+    cell = '';
+    start = end + 1;
+  };
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch !== '"') cell += ch;
+      else if (text[i + 1] === '"') { cell += '"'; i++; }
+      else inQuotes = false;
+    } else if (ch === '"') inQuotes = true;
+    else if (ch === ',') { cells.push(cell); cell = ''; }
+    else if (ch === '\n') close(i);
+    else if (ch !== '\r') cell += ch;
+  }
+  if (cell.length > 0 || cells.length > 0) close(text.length);
+  return records;
+}
+
+/** One request to the identity endpoint: its payload, and the rows it carries
+ *  (read back to name each row's identity in the result). */
+export interface IdentityImportBatch {
+  payload: { format: 'csv'; csv: string } | { format: 'json'; rows: Array<Record<string, unknown>> };
+  rows: Array<Record<string, unknown>>;
+}
+
+/**
+ * Split the wizard's request into endpoint-sized batches (pure; exported for
+ * tests). CSV text (a CSV file, objectui#13315) is cut into records and every
+ * batch is the header record plus up to `size` data records, joined by CRLF —
+ * for the wizard's text, exactly `sourceRowsToCsv` of that batch's rows. JSON
+ * rows (a workbook, a paste) are batched as JSON rows. Each batch carries its
+ * rows in file order, so per-batch row numbers renumber onto the preview's.
+ */
+export function batchIdentityImportRequest(
+  request: ImportRequestOptions,
+  size = IDENTITY_IMPORT_BATCH_SIZE,
+): IdentityImportBatch[] {
+  if (request.format === 'csv' && typeof request.csv === 'string') {
+    const [header, ...records] = readCsvRequestRecords(request.csv);
+    if (!header) return [];
+    const columns = header.cells.map((c) => c.trim());
+    return splitIntoBatches(records, size).map((batch) => ({
+      payload: { format: 'csv' as const, csv: [header, ...batch].map((r) => r.text).join('\r\n') },
+      rows: batch.map((r) => Object.fromEntries(columns.map((column, i) => [column, r.cells[i] ?? '']))),
+    }));
+  }
+  const rows = Array.isArray(request.rows) ? request.rows : [];
+  return splitIntoBatches(rows, size).map((batch) => ({ payload: { format: 'json' as const, rows: batch }, rows: batch }));
 }
 
 /**
@@ -206,20 +293,18 @@ export function createIdentityImportDataSource(opts: IdentityImportDataSourceOpt
   ): Promise<ImportRecordsResult> => {
     const { mode, matchBy } = resolveIdentityWriteOptions(request);
     const passwordPolicy = getPasswordPolicy();
-    const rows = Array.isArray(request.rows) ? request.rows : [];
-    if (rows.length === 0) {
-      throw new Error('Identity import needs mapped rows (rows[]) — file uploads are parsed client-side.');
+    const batches = batchIdentityImportRequest(request);
+    if (batches.length === 0) {
+      throw new Error('Identity import needs at least one mapped row (rows[] or csv).');
     }
 
-    const batches = splitIntoBatches(rows);
     const responses: Array<NonNullable<IdentityImportResponse['data']>> = [];
     for (const batch of batches) {
       const res = await authFetch(`${baseUrl}/api/v1/auth/admin/import-users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          format: 'json',
-          rows: batch,
+          ...batch.payload,
           mode,
           ...(matchBy ? { matchBy } : {}),
           passwordPolicy,
@@ -241,7 +326,7 @@ export function createIdentityImportDataSource(opts: IdentityImportDataSourceOpt
 
     return mergeIdentityBatchResults(
       responses,
-      batches as Array<Array<Record<string, unknown>>>,
+      batches.map((batch) => batch.rows),
       { dryRun: request.dryRun === true, writeMode: mode },
     );
   };

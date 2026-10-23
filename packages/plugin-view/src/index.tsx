@@ -87,7 +87,6 @@ ComponentRegistry.register('object-view', ObjectViewRenderer, {
     { name: 'listViews', type: 'object' },
     { name: 'navigation', type: 'object' },
     { name: 'searchableFields', type: 'array' },
-    { name: 'filterableFields', type: 'array' },
   ],
   defaultProps: {
     layout: 'drawer',

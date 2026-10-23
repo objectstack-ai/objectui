@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# copied from objectstack@7c2c5aedd94d7b0d94c91432bc607862e9c83c6c
+# copied from objectstack@338297e46018ae96256262590a308c8be735f825
 # guard-shared-stash.sh — PreToolUse guard: the stash stack is SHARED across worktrees.
 # Blocks Bash commands that push to / pop from / drop the shared stash stack, and lets
 # the read-only and SHA-pinned forms through.
@@ -47,10 +47,11 @@
 # for anyone who means it. Widening it to string-match anywhere in the command would block
 # every `grep "git stash"` run against this very file.
 #
-# Self-test (50 cases, no network, no build): .claude/hooks/guard-shared-stash.selftest.sh
-# 50 = 46 `expect ` lines + 2 inline specials (empty-tool_input fail-open, no-jq fallback)
-# + 2 hatch-message assertions (`lacks`/`says`, which are not `expect ` lines).
-# Re-derive when the matrix changes: `grep -c '^expect ' <selftest>` + 4, and the run's own
+# Self-test (62 cases, no network, no build): .claude/hooks/guard-shared-stash.selftest.sh
+# 62 = 57 `expect ` lines + 2 inline specials (empty-tool_input fail-open, no-jq fallback)
+# + 2 hatch-message assertions (`lacks`/`says`, which are not `expect ` lines) + 1 identity
+# pin (`same_fn`, the subst_end() copy, which is not an `expect ` line either).
+# Re-derive when the matrix changes: `grep -c '^expect ' <selftest>` + 5, and the run's own
 # tail prints the total ("N passed, N failed") — keep this number equal to it.
 
 set -uo pipefail
@@ -98,6 +99,63 @@ fi
 # same shape and with the same escapee list as guard-main-checkout-bash.sh's
 # split_segments() carries; that guard's `word` bookkeeping has no analogue here because
 # this pass has no comment rule to track word starts for.
+#
+# INSIDE "…" a `$(`, a backtick or a `${` opens a quoting context of its own, so a `"` in its
+# body nests instead of closing the outer string. Without that rule this pass read the inner
+# `"` as the closer, the `;` inside the body split, and a pure read became a stash command —
+# measured on this repo's copy before the fix: `echo "a $(echo "x; git stash pop")"` and
+# `echo "${x:-"a; git stash pop"}"` were BLOCKED (objectstack#24901). The body is kept verbatim inside
+# the segment, so a stash inside a QUOTED substitution stays the fail-open it always was.
+#
+# subst_end() is copied byte-for-byte from guard-main-checkout-bash.sh, whose comment above
+# the function is its documentation; this hook's self-test fails when the copy differs.
+SUBST_END=0
+subst_end() {
+  local s="$1" i="$2" n=${#1} st ch top run
+  case "${s:i:2}" in
+    '$(') st=')' ; i=$((i + 1)) ;;
+    '${') st='}' ; i=$((i + 1)) ;;
+    '`'*) st='`' ;;
+    *) return 1 ;;
+  esac
+  for ((i = i + 1; i < n; i++)); do
+    ch="${s:i:1}" ; top="${st:${#st}-1:1}"
+    if [ "$top" = "'" ]; then [ "$ch" = "'" ] && st="${st%?}"; continue; fi
+    if [ "$ch" = '\' ]; then i=$((i + 1)); continue; fi
+    if [ "$top" = '"' ] || [ "$top" = '}' ]; then
+      case "$ch" in
+        '"') if [ "$top" = '"' ]; then st="${st%?}"; else st+='"'; fi ;;
+        '`') st+='`' ;;
+        '$')
+          case "${s:i+1:1}" in
+            '(') st+=')' ; i=$((i + 1)) ;;
+            '{') st+='}' ; i=$((i + 1)) ;;
+          esac ;;
+        '}') [ "$top" = '}' ] && st="${st%?}" ;;
+        "'")
+          if [ "$top" = '}' ]; then
+            run="${s:i+1}"
+            case "$run" in *"'"*) ;; *) SUBST_END=$((n - 1)); return 0 ;; esac
+            run="${run%%"'"*}"
+            case "$run" in *[\"\\\`\$\}]*) SUBST_END=$((n - 1)); return 0 ;; esac
+            i=$((i + ${#run} + 1))
+          fi ;;
+      esac
+      if [ -z "$st" ]; then SUBST_END=$i; return 0; fi
+      continue
+    fi
+    case "$ch" in
+      "'" | '"') st+="$ch" ;;
+      '(') st+=')' ;;
+      ')') [ "$top" = ')' ] && st="${st%?}" ;;
+      '`') if [ "$top" = '`' ]; then st="${st%?}"; else st+='`'; fi ;;
+    esac
+    if [ -z "$st" ]; then SUBST_END=$i; return 0; fi
+  done
+  SUBST_END=$((n - 1))
+  return 0
+}
+
 segments=()
 split_segments() {
   local s="$1" seg="" q="" ch i n=${#1}
@@ -110,17 +168,15 @@ split_segments() {
             seg+="$ch" ; i=$((i + 1)) ; seg+="${s:i:1}" ; continue ;;
         esac
       fi
+      if [ "$q" = '"' ] && { [ "$ch" = '$' ] || [ "$ch" = '`' ]; } && subst_end "$s" "$i"; then
+        seg+="${s:i:SUBST_END-i+1}" ; i=$SUBST_END ; continue
+      fi
       seg+="$ch"
       [ "$ch" = "$q" ] && q=""
       continue
     fi
     case "$ch" in
       '\')
-        # An escaped character opens no quote and separates nothing: consume BOTH characters
-        # and keep scanning outside quotes, so the separator behind a `\"` still splits
-        # (objectstack#11131). Both are kept verbatim because this pass only SPLITS —
-        # check_segment() re-reads the segment with `read -r -a`, and `-r` leaves the
-        # backslash literal, exactly as a real shell argument would carry it.
         seg+="$ch"
         if [ $((i + 1)) -lt "$n" ]; then i=$((i + 1)) ; seg+="${s:i:1}" ; fi
         ;;

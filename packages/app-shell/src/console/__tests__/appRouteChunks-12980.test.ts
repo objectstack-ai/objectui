@@ -130,6 +130,9 @@ describe('every lazy route view AppContent declares is preloaded for its route (
     expect(routes.get('dashboard/:dashboardName')).toBe('DashboardView');
     expect(routes.get(RECORD_NAMED_PAGE_ROUTE)).toBe('RecordDetailView');
     expect(table.get('page/:pageName')).toBe('PageView');
+    // objectui#13020: the app's report index preloads like every app route.
+    expect(routes.get('reports')).toBe('AppReportIndexView');
+    expect(table.get('reports')).toBe('AppReportIndexView');
   });
 
   it('a lazy route view has its row, naming the same view', () => {

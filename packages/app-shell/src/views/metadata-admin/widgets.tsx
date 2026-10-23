@@ -59,6 +59,7 @@ import { humanizeKey } from './inspectors/json-schema-to-fields.js';
 import { datasetSelectOptions } from './inspectors/dataset-picker-options.js';
 import type { DatasetCatalogEntry } from './previews/useDatasetCatalog.js';
 import { useMonacoFallback } from './useMonacoFallback.js';
+import { DraftChip } from '../studio-design/StudioDraftMark.js';
 import {
   type LoadState,
   isLoading,
@@ -359,6 +360,13 @@ export interface WidgetProps {
   fieldSpec?: FormFieldSpec;
   /** All form data (for reading dependency values) */
   formData?: Record<string, unknown>;
+  /**
+   * objectui#12725 — the elements of this value the AI copilot added in the
+   * pending draft, by stored value. Read by `field-multi` only, which draws the
+   * copilot's draft chip inside each such element's row. Absent (every host but
+   * Studio's list-view properties), nothing is marked.
+   */
+  copilotAdded?: ReadonlySet<string>;
 }
 
 export type WidgetRenderer = (props: WidgetProps) => React.ReactElement;
@@ -2005,7 +2013,7 @@ function ViewRefWidget({ id, ariaLabelledBy, required, value, onChange, readOnly
  * `yAxisFields`, `searchableFields`, …). Preserves order; supports reorder
  * and removal; values outside the catalog are retained.
  */
-function FieldRefMultiWidget({ value, onChange, readOnly, context, ariaLabelledBy }: WidgetProps) {
+function FieldRefMultiWidget({ value, onChange, readOnly, context, ariaLabelledBy, copilotAdded }: WidgetProps) {
   const locale = useMetadataLocale();
   const fieldsState = context?.objectFields ?? NOT_ASKED;
   // objectui#5228 — the failure is decided here, before the catalog is read:
@@ -2058,6 +2066,9 @@ function FieldRefMultiWidget({ value, onChange, readOnly, context, ariaLabelledB
                 {labelFor(name)}
                 <code className="ml-2 text-xs text-muted-foreground">{name}</code>
               </span>
+              {copilotAdded?.has(name) && (
+                <DraftChip locale={locale} testId="studio-draft-element-chip" of={name} />
+              )}
               {!readOnly && (
                 <>
                   <button

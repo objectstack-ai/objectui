@@ -284,7 +284,7 @@ describe('deleteView removes every home the view has (#4479)', () => {
 
       // Two homes deleted, still ONE ordered pair: the #4363 rule is per
       // WRITE METHOD, not per request.
-      expect(h.invalidated).toEqual([`view:account:${VIEW}`, 'view-overrides:account']);
+      expect(h.invalidated).toEqual([`view:account:${VIEW}`, 'view-overrides:account', 'list:view']);
     });
   });
 
@@ -375,7 +375,7 @@ describe('deleteView removes every home the view has (#4479)', () => {
       // The draft row IS gone, so a cache still holding it is stale for the
       // full TTL. #4363's asymmetry decides it: an unnecessary invalidation
       // costs one refetch, a missed one costs five minutes of stale overrides.
-      expect(h.invalidated).toEqual([`view:account:${VIEW}`, 'view-overrides:account']);
+      expect(h.invalidated).toEqual([`view:account:${VIEW}`, 'view-overrides:account', 'list:view']);
     });
   });
 

@@ -179,6 +179,10 @@ export {
   useTheme,
 } from './chrome/index.js';
 
+// Unsaved edits (objectui#13231): a console page outside this package registers
+// the edits it holds, and every shell departure asks before dropping them.
+export { useRegisterUnsavedEdits, confirmUnsavedLeave } from './chrome/unsavedEdits.js';
+
 // Observability — Sentry integration, configured by the runtime on
 // `/api/v1/runtime/config` (objectstack#12681). No build-time DSN.
 export { initSentry, captureError, setSentryUser, getSentry } from './observability/index.js';
@@ -338,10 +342,6 @@ import './console/connect/ConnectAgentWidget.js';
 // Generic product-page blocks — hero, stat, usage-bar, checklist, tile-grid
 // (objectui#12197).
 import './console/blocks/productBlocks.js';
-// SDUI widget for the Cloud Welcome page's state-aware onboarding next-step.
-import './console/home/CloudOnboardingNext.js';
-// SDUI widget for the Cloud pricing page's "current plan" marker (objectui#10919).
-import './console/home/CloudPlanStatus.js';
 // SDUI widget for the Cloud welcome page's seeded workspace-timezone line (objectui#11930).
 import './console/home/CloudWorkspaceTimezoneNotice.js';
 // SDUI widget: read-only admin diagnostic for the env's effective AI model

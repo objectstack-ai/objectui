@@ -65,6 +65,12 @@ export interface FieldsListEditorProps {
   onSelectionChange?: (
     sel: { kind: string; id: string; label?: string } | null,
   ) => void;
+  /**
+   * objectui#12725 — the field names of the columns the AI copilot added in the
+   * pending draft: each such row carries the copilot's draft chip. Absent, no
+   * row is marked.
+   */
+  copilotAdded?: ReadonlySet<string>;
 }
 
 export function FieldsListEditor({
@@ -78,6 +84,7 @@ export function FieldsListEditor({
   readOnly,
   onPatch,
   onSelectionChange,
+  copilotAdded,
 }: FieldsListEditorProps) {
   const canEdit = !readOnly;
   // The designer locale, read the way this editor's add-field popover
@@ -204,6 +211,7 @@ export function FieldsListEditor({
               index={i}
               label={rowLabelOf(c, i)}
               fieldName={colFieldName(c)}
+              copilotAdded={copilotAdded?.has(colFieldName(c) ?? '')}
               fieldType={fieldTypeByName.get(colFieldName(c) ?? '') ?? 'text'}
               selected={selectedIndex === i}
               canEdit={canEdit}

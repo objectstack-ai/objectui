@@ -20,6 +20,7 @@ import { z } from 'zod';
 import {
   AppSchema as SpecAppSchema,
   AppContextSelectorSchema as SpecAppContextSelectorSchema,
+  ElementApiDataSourceSchema as SpecElementApiDataSourceSchema,
   I18nLabelSchema as SpecI18nLabelSchema,
   NavigationAreaSchema as SpecNavigationAreaSchema,
   // ⚠️ NOT a crossing, so it stays RAW — see THE IMPORT BOUNDARY below. This is
@@ -29,7 +30,14 @@ import {
   // as such in `../__tests__/imported-defaults-8317.test.ts` rather than left
   // to this paragraph.
   objectNavTargetExclusivity,
+  // RAW for the same reason: the spec's own refinement function, chained on
+  // every navigation arm below (objectui#13076).
+  navItemVisibleDataNeedsDataSource,
 } from '@objectstack/spec/ui';
+import {
+  EvaluatedExpressionInputSchema as SpecEvaluatedExpressionInputSchema,
+  EvaluatedExpressionSchema as SpecEvaluatedExpressionSchema,
+} from '@objectstack/spec/shared';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
 import { aliasKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import type { AppMenuItem, NavigationItemType } from '../app.js';
@@ -195,6 +203,49 @@ function refuseEmptyNavLabel(item: { type: string; label?: unknown }, ctx: z.Ref
   });
 }
 
+/**
+ * A navigation entry's `visible`: the spec's `EvaluatedExpressionInputSchema`,
+ * by reference, beside the one pinned objectui arm, `boolean` (objectui#13075).
+ *
+ * The spec types every nav branch's `visible` as `EvaluatedExpressionInputSchema`:
+ * a non-blank predicate string, or the `{ dialect, source }` envelope its own
+ * parse produces (`defineApp` returns the parsed app, so a string authored there
+ * comes back as the envelope). Until objectui#13075 this slot was
+ * `boolean | string`: it refused the envelope the spec accepts, and accepted a
+ * blank string the spec refuses. Both are the spec's verdicts now.
+ *
+ * Spelled the way `visibleWhen`'s wire is in `./base.zod.ts`, and for the same
+ * reason: the accept set is the spec's input type (a string, or the spec's own
+ * `EvaluatedExpressionSchema` read by reference), and every verdict on a
+ * non-boolean value is the spec's — the value is handed to
+ * `EvaluatedExpressionInputSchema` and its issues are the refusal, so a blank
+ * string is refused with the spec's code and sentence. The judge runs only on a
+ * value an arm already took, so one fault is never reported twice. What is NOT taken is the
+ * spec's transform, which rewrites a bare string into `{ dialect: 'cel', source }`:
+ * this mirror writes nothing into an author's document (decision batches #69 /
+ * #90), so a string stays a string.
+ *
+ * `boolean` is the stated divergence: the spec admits it at neither tier, and
+ * `menuItemToNavigationItem` manufactures one when it inverts legacy
+ * `AppMenuItem.hidden`. `../__tests__/navigation-spec-parity.test.ts` pins all
+ * three rows: the envelope and the blank string agree with the spec, the boolean
+ * does not.
+ */
+function specVisibleRefusal(visible: unknown): z.core.$ZodIssue[] {
+  const verdict = stripImportedDefaults(SpecEvaluatedExpressionInputSchema).safeParse(visible);
+  return verdict.success ? [] : verdict.error.issues;
+}
+const NavigationVisibleSchema = z
+  .union([z.boolean(), z.string(), stripImportedDefaults(SpecEvaluatedExpressionSchema)], {
+    // A value no arm takes (`{ dialect: 'cel' }`, a number) is refused with the
+    // spec's own sentence for it, not zod's generic one.
+    error: (issue) => specVisibleRefusal(issue.input)[0]?.message,
+  })
+  .superRefine((visible, ctx) => {
+    if (typeof visible === 'boolean') return;
+    for (const issue of specVisibleRefusal(visible)) ctx.addIssue({ ...issue, message: issue.message });
+  }, { when: (payload) => payload.issues.length === 0 });
+
 /** `a`, `b` and `c` — the separator refusal's list of what a separator may carry. */
 function codeList(keys: readonly string[]): string {
   const quoted = keys.map((key) => `\`${key}\``);
@@ -252,7 +303,16 @@ const NavigationItemObject = z.object({
   }).optional().describe('Action payload (type: action)'),
 
   // Visibility & Permissions
-  visible: z.union([z.boolean(), z.string()]).optional().describe('Visibility expression'),
+  visible: NavigationVisibleSchema.optional().describe("Visibility predicate: a non-blank CEL string or the spec's `{ dialect, source }` envelope (`@objectstack/spec` `EvaluatedExpressionInputSchema`), or a boolean"),
+  // objectui#12971: the spec's shared nav-item base declares one API data source
+  // (objectstack#24332, `ElementApiDataSourceSchema` by reference), whose bound
+  // value an entry's `visible` reads as `data`. Taken by reference for the
+  // reason `runAction` is declared above: this schema strips unknown keys, so an
+  // authored binding would have validated clean and been thrown away. The
+  // console reads it (objectui#13029): the shell's navigation `visible`
+  // evaluator (`useNavVisibility` in `@object-ui/app-shell`) reads the binding
+  // and hides the entry until it answers.
+  dataSource: stripImportedDefaults(SpecElementApiDataSourceSchema).optional().describe("One API data source whose bound value the entry's `visible` reads as `data` (`@objectstack/spec` `ElementApiDataSourceSchema`). The console reads it with the signed-in fetch; the entry stays hidden while the read is pending or after it fails. Only `visible` reads `data`; the label, the target and `children` do not"),
   requiredPermissions: z.array(z.string()).optional().describe('Required permissions'),
   // Runtime capability gates. `NavigationRenderer` has always honoured these
   // and `NavigationItem` has always declared them — only this schema lagged,
@@ -326,6 +386,15 @@ const NavigationItemObject = z.object({
   if (item.type === 'object') {
     objectNavTargetExclusivity(item, ctx);
   }
+
+  // The spec's own `visible`-reads-`data` rule, CHAINED for EVERY type
+  // (objectui#13076, objectstack#24534): an entry whose `visible` reads `data`
+  // must declare the `dataSource` that binds it. `@objectstack/spec` mounts this
+  // function on its whole navigation union, not on one branch, so it is called
+  // here outside the `object` branch above, and again on the `doc` arm below.
+  // `visible` is handed over as authored: the function reads the bare string
+  // and the `{ dialect, source }` envelope alike, and a boolean judges nothing.
+  navItemVisibleDataNeedsDataSource(item, ctx);
 });
 
 /**
@@ -389,6 +458,10 @@ const NavigationDocItemObject = z.looseObject({
     for (const issue of verdict.error.issues) ctx.addIssue({ ...issue, message: issue.message });
   }
   refuseEmptyNavLabel(item, ctx);
+  // The judge above is the spec's `doc` ARM, which does not carry the rule the
+  // spec mounts on its whole union, so it is chained here as on the flat arm
+  // (objectui#13076).
+  navItemVisibleDataNeedsDataSource(item, ctx);
 }, { when: (payload) => payload.issues.length === 0 });
 
 /**
@@ -427,7 +500,10 @@ export const NavigationItemSchema: z.ZodType<any> = z.lazy(() => NavigationItemA
  *    against spec 17.2.0, referencing the spec's schema would make `objectui
  *    validate` REJECT metadata this renderer accepts today: `pinned` and
  *    `defaultOpen` fail `unrecognized_keys`, `visible: boolean` fails
- *    `invalid_union`, and a one-character `id` fails `too_small`. Pinned by
+ *    `invalid_union`, and a one-character `id` fails `too_small`. (`visible`'s
+ *    other arms are the spec's own `EvaluatedExpressionInputSchema` since
+ *    objectui#13075, so its envelope and its blank-string refusal agree; only
+ *    the boolean parts.) Pinned by
  *    `__tests__/navigation-spec-parity.test.ts`. (A separator carrying `label`
  *    was a fifth until objectui#10867, which made the mirror refuse it too.)
  *

@@ -57,6 +57,14 @@ to nothing collapses to an empty string rather than leaking the raw template: wi
 in scope, `"Hello {name}"` renders `Hello`. Without a record, a header with no `title` draws
 no `<h1>` at all. On a record page, omit `title` and the heading is derived from the record.
 
+When the heading is the object's declared `nameField` and that field declares a widget whose
+read face is a component of its own, as `recipient-picker` and `object-ref` are, the heading
+draws the value through that face, the one the field's list column draws. A record share
+(`nameField: 'recipient_id'`, which declares `widget: 'recipient-picker'`) heads its page with
+the recipient's name, not the user id it stores. The face comes from the
+[field registry](/docs/guide/fields#a-widgets-face-on-the-record-heading); where no face is
+registered for the widget, the heading prints the stored value.
+
 There is no `description` key on this node: the contract refuses it and names `subtitle`.
 
 The favorites star beside the record title draws where the host wires a favorites toggle, and metadata does not control it.
@@ -177,6 +185,7 @@ declaration gates both places.
 - `requiredPermissions` is a different gate: it names system capabilities, which the
   platform action route enforces as well as the UI. `current_user.can` asks about
   object permissions and does nothing on the server.
+- `current_user.hasCapability('manage_org_users')` asks the capability question itself, from the same payload's `systemPermissions` list (so a page node and an action gated on one name agree); like `can`, it faults until that payload has loaded, and an empty list answers `false`.
 
 **Client-side UI gating only.** This first phase is client-side: `current_user.can` decides
 whether the button is shown, nothing more. It is not an authorization boundary — the

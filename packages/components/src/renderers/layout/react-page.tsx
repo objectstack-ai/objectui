@@ -148,6 +148,57 @@ function buildComponentScope(): Record<string, React.ComponentType<any>> {
  * an adapter.
  */
 
+/**
+ * The scope a react page's `source` is compiled against. Everything in it is
+ * either module-level (the block wrappers resolve through the registry when
+ * they render, the hooks are module functions) or read off `schema`, so equal
+ * schema content yields an equivalent scope.
+ */
+function buildPageScope(schema: { data?: unknown; variables?: unknown } | null | undefined): Record<string, unknown> {
+  return {
+    ...buildComponentScope(),
+    // Live data access — `const adapter = useAdapter()` inside the page, then
+    // adapter.find('object', {...}) / .create / .update. Hooks injected as
+    // closure vars; the page calls them from its own component body.
+    useAdapter,
+    // The data-invalidation bus reader (objectui#10887), the same hook
+    // `ListView` reads to refresh its rows. `useDataInvalidation('object')`
+    // returns a nonce that moves when the bus reports a write to that object
+    // (or `'*'`); a page names it in the dependency list of the effect that
+    // reads through `useAdapter`, and the read re-runs in place, with no
+    // remount. A module-level function, so it leaves the scope's identity
+    // exactly as stable as before.
+    useDataInvalidation,
+    data: schema?.data ?? schema?.variables ?? {},
+    variables: schema?.variables ?? {},
+    page: schema ?? {},
+  };
+}
+
+/**
+ * Structural equality for page metadata: plain objects and arrays compare by
+ * their own enumerable keys, everything else by `Object.is`. A value that is
+ * not plain data (a function, a `Date`, a class instance) is equal only to
+ * itself, so a host that hands over a new one recompiles the page, which is
+ * the conservative answer. `seen` keeps a cyclic value from recursing forever.
+ */
+function sameContent(a: unknown, b: unknown, seen: Map<object, object> = new Map()): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  const proto = Object.getPrototypeOf(a);
+  if (proto !== Object.getPrototypeOf(b)) return false;
+  if (proto !== Object.prototype && proto !== Array.prototype && proto !== null) return false;
+  if (seen.get(a) === b) return true;
+  seen.set(a, b);
+  const aKeys = Object.keys(a);
+  if (aKeys.length !== Object.keys(b).length) return false;
+  for (const key of aKeys) {
+    if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+    if (!sameContent((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key], seen)) return false;
+  }
+  return true;
+}
+
 function CapabilityDisabledNotice(): React.ReactElement {
   return (
     <div className="m-4 rounded-md border border-amber-400/40 bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
@@ -195,36 +246,31 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
   // scope there would reset every interactive page on the screen. It doesn't
   // need to — `buildComponentScope` already sees lazy blocks (objectui#2953).
   //
-  // `adapter` stays in the dependency list although the scope no longer
-  // carries it (objectui#11070). The blocks follow a swapped adapter through the
+  // The scope is rebuilt only when what it is compiled FROM changes: the
+  // schema's CONTENT (`page` carries all of it, `data` / `variables` are read
+  // off it) or the adapter. Not the schema object's identity — the console's
+  // `PageView` hands a fresh spread of the page on every render, and any host
+  // may, so keying on identity remounted the page on every host re-render
+  // (objectui#13268). The scope is held in state, not in a `useMemo`: React
+  // may discard a memo and hand back a new object, and here a new object IS a
+  // remount (AGENTS.md #10). When the content does change, the new scope is
+  // stored during render, React's pattern for state derived from props.
+  //
+  // `adapter` stays a rebuild trigger although the scope no longer carries it
+  // (objectui#11070). The blocks follow a swapped adapter through the
   // provider below without a recompile. The page's OWN code may not: an effect
   // that reads through `useAdapter()` and omits `adapter` from its dependencies
   // ran once, against the absent adapter, and the recompile on a swap (the
-  // host connecting one) is what re-runs it. Dropping the dependency would keep
+  // host connecting one) is what re-runs it. Dropping the trigger would keep
   // the page's state across a swap, but it would also leave such a page empty.
   // That is a separate behaviour change, not made here.
-  const scope = React.useMemo(
-    () => ({
-      ...buildComponentScope(),
-      // Live data access — `const adapter = useAdapter()` inside the page, then
-      // adapter.find('object', {...}) / .create / .update. Hooks injected as
-      // closure vars; the page calls them from its own component body.
-      useAdapter,
-      // The data-invalidation bus reader (objectui#10887), the same hook
-      // `ListView` reads to refresh its rows. `useDataInvalidation('object')`
-      // returns a nonce that moves when the bus reports a write to that object
-      // (or `'*'`); a page names it in the dependency list of the effect that
-      // reads through `useAdapter`, and the read re-runs in place, with no
-      // remount. A module-level function, so it leaves the scope's identity
-      // exactly as stable as before.
-      useDataInvalidation,
-      data: schema?.data ?? schema?.variables ?? {},
-      variables: schema?.variables ?? {},
-      page: schema ?? {},
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `adapter` is a recompile trigger kept on purpose, not a read; the reason is above this memo.
-    [schema, adapter],
-  );
+  const [compiled, setCompiled] = React.useState(() => ({ schema, adapter, scope: buildPageScope(schema) }));
+  let scope = compiled.scope;
+  if (compiled.adapter !== adapter || !sameContent(compiled.schema, schema)) {
+    const next = { schema, adapter, scope: buildPageScope(schema) };
+    setCompiled(next);
+    scope = next.scope;
+  }
 
   // Capability gate — returned after all hooks above so hook order stays stable.
   if (!capabilityEnabled) {

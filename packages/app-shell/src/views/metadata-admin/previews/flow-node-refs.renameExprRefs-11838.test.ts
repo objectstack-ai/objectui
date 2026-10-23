@@ -24,6 +24,7 @@ import {
 import { missingNodeRefDiagnostics } from './simulator/flow-sim-validate';
 import { buildFlowProblems } from './flow-problems';
 import { tFormat } from '../i18n';
+import { flowNodeDisplayName } from './flow-canvas-parts';
 
 type Rec = Record<string, unknown>;
 type Flow = { nodes: Rec[]; edges: Rec[]; variables?: unknown[] };
@@ -268,7 +269,7 @@ describe('the Problems check names a position left naming a missing node, as an 
     const flow = card();
     flow.nodes.push({ id: 'be', type: 'boundary_event', boundaryConfig: { attachedToNodeId: 'gone', eventType: 'error' } });
     expect(missingNodeRefDiagnostics(flow, 'zh-CN')).toEqual([
-      { level: 'error', nodeId: 'be', message: tFormat('engine.flowValidate.boundaryHostMissing', 'zh-CN', { id: 'be', host: 'gone' }) },
+      { level: 'error', nodeId: 'be', message: tFormat('engine.flowValidate.boundaryHostMissing', 'zh-CN', { name: flowNodeDisplayName({ id: 'be', type: 'boundary_event' }, 'zh-CN'), id: 'be', host: 'gone' }) },
     ]);
   });
 

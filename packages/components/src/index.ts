@@ -96,6 +96,13 @@ export type { PageRegionPosture } from './renderers/layout/page-region-posture';
 export { PageHeaderActions } from './renderers/layout/containers';
 export type { PageHeaderActionsProps } from './renderers/layout/containers';
 
+// The field-face seam (objectui#13216): the slot `@object-ui/fields` fills
+// with its read-face registry when it loads, so `page:header` can draw a
+// declared `nameField` through its widget's face without importing that
+// package (which depends on this one, so the import would close a cycle).
+export { setFieldReadFaceResolver, resolveFieldReadFace } from './lib/field-face';
+export type { FieldReadFace, FieldReadFaceProps, FieldReadFaceResolver } from './lib/field-face';
+
 // THE icon-name seam (objectui#5935) — `name -> LucideIcon | null`, one
 // tokeniser and one rename map for the whole repo.
 //

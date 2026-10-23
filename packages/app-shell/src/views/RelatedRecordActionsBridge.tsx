@@ -90,6 +90,7 @@ import { usePermissions } from '@object-ui/permissions';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM, RECORD_TRAIL_PARAM, appendRecordTrail } from '../urlParams.js';
 import { documentHref } from './documentHref.js';
 import { recordListPath } from './useOpenRecordList.js';
+import { resolveRecordFormTarget } from '../utils/recordFormNavigation.js';
 
 /**
  * Notify open related lists for `objectName` to refetch.
@@ -298,7 +299,7 @@ export function RelatedRecordActionsBridge({
   children,
 }: RelatedRecordActionsBridgeProps) {
   const navigate = useNavigate();
-  const { execute } = useAction();
+  const { runner } = useAction();
   const [, setSearchParams] = useSearchParams();
   const perms = usePermissions();
   // [#4646] The host predicate scope (`features.*` / `os.user.*` / …), read
@@ -398,8 +399,25 @@ export function RelatedRecordActionsBridge({
   // form overlay, by URL params. Pushes ONE history entry (Back = close, the
   // parent detail stays mounted underneath). The read side lives in
   // `AppContent` (see its record-form URL contract).
+  //
+  // objectui#13089 — a create linked to NO parent is not a child task: it is
+  // the object's own create (a page `list-view` node's Add button), so it
+  // takes the object list's create semantics. For an `editMode: 'page'`
+  // object that is the full-page create route `AppContent`'s `handleEdit`
+  // navigates to (`resolveRecordFormTarget`), not the overlay.
   const openChildForm = useCallback(
     (opts: { objectName: string; recordId?: string; link?: { field: string; parentId: string | number } }) => {
+      if (opts.recordId == null && !opts.link) {
+        const target = resolveRecordFormTarget({
+          objectDef: objects.find((o: any) => o?.name === opts.objectName),
+          baseUrl: base,
+          record: null,
+        });
+        if (target.kind === 'page') {
+          navigate(target.url);
+          return;
+        }
+      }
       const sp = new URLSearchParams(window.location.search);
       sp.set(RECORD_FORM_PARAM, opts.recordId ?? 'new');
       sp.set(RECORD_FORM_OBJECT_PARAM, opts.objectName);
@@ -407,13 +425,27 @@ export function RelatedRecordActionsBridge({
       else sp.delete(RECORD_FORM_LINK_PARAM);
       setSearchParams(sp); // push → Back closes the overlay
     },
-    [setSearchParams],
+    [setSearchParams, objects, base, navigate],
   );
 
   // Execute a child object's row action against the clicked record. Reuses the
   // page's ActionRunner (confirm dialog, toast, param collection are handled by
-  // it) but retargets it at the CHILD object + row via the action's
-  // `objectName` / `recordId`, which the record-detail action handlers honor.
+  // it) and retargets it at the CHILD object + row in two ways:
+  //
+  //   - the row is the dispatch's EXECUTION CONTEXT (objectui#13063): the
+  //     runner's context names the page, the parent record, and the row is a
+  //     record of the child object. Handed as `{ record, objectName }`, every
+  //     executor reads the row as the record the action runs against, exactly
+  //     as a dispatch from the child's own record page does. A `type: 'form'`
+  //     action needs nothing else: `executeForm` reads the record and its
+  //     object from the context only (it ignores `action.objectName`,
+  //     objectui#4292), so with the page's context it compared the child's
+  //     view against the parent object and opened a blank create form;
+  //   - the action's `objectName` / `recordId` and the `_rowRecord` stash stay
+  //     on the definition, which the record-detail and console handlers
+  //     (`api`, `flow`, `script`) and the update path read.
+  //
+  // A toolbar dispatch (no row) keeps the page's context.
   const runRowAction = useCallback(
     async (childObject: string, record: any, action: RelatedRowActionDef) => {
       const id = record?.id ?? record?._id;
@@ -434,12 +466,15 @@ export function RelatedRecordActionsBridge({
       if (Array.isArray(rawParams) && rawParams.length > 0) {
         def.actionParams = rawParams;
       }
-      const res = await execute(def as ActionDef);
+      const rowContext = record && typeof record === 'object'
+        ? { record, objectName: childObject }
+        : undefined;
+      const res = await runner.execute(def as ActionDef, rowContext);
       // Refresh open related lists for this child object after a successful
       // mutating action (the row menu handler is otherwise fire-and-forget).
       if (res?.success) notifyRelatedChanged(childObject);
     },
-    [execute],
+    [runner],
   );
 
   const value = useMemo<RelatedRecordActionsValue>(

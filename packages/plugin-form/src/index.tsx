@@ -92,16 +92,26 @@ export type { DerivedDetail, InlineMode, ChildObjectSchemaLike } from './deriveM
  * reach one and not the other can build exactly that state, which is the defect
  * #4069 and #5883 closed on the two chains separately.
  *
+ * `optionListDefault` joined them for a named consumer (objectui#13049): the
+ * console's public form page (`/f/:slug`) seeds its own create values and had
+ * no reading of an option's `default: true`, so a required select the server
+ * would default opened empty and the client refused the submit. That page now
+ * calls the very function `schemaDefaultValues` calls (objectui#11914), so the
+ * two renderers cannot disagree about which option is the default. It travels
+ * with its parameter type, `OptionListFieldLike` (objectui#7324).
+ *
  * Deliberately NOT the rest of `schemaDefaults.ts`. `seedCreateValues`,
  * `schemaDefaultValues`, `isSeedableDefault`, `isCreateFormMode` and
  * `SeedContext` are adjacent, not asked for — no consumer outside this package
  * has needed them, and every added name is published surface somebody then has
- * to keep. `isRuntimeDefault` stays out for a stronger reason: it is
- * `@object-ui/core`'s to publish, this module only re-exports it for its own
- * call sites, and a second published spelling of one classifier is the very
- * thing #4085 collapsed.
+ * to keep. The public form page needed the option-list reading alone: its
+ * literal-default and runtime-default rules were already its own (#5727), and
+ * the precedence gate (`defaultValue == null`) is the caller's. `isRuntimeDefault`
+ * stays out for a stronger reason: it is `@object-ui/core`'s to publish, this
+ * module only re-exports it for its own call sites, and a second published
+ * spelling of one classifier is the very thing #4085 collapsed.
  */
-export { omitServerResolvedDefaults, isRequiredInForm } from './schemaDefaults';
+export { omitServerResolvedDefaults, isRequiredInForm, optionListDefault } from './schemaDefaults';
 
 /**
  * The `form.sections[].group` RESOLVER, published for the third form-section
@@ -182,9 +192,10 @@ export { sectionEntryName } from './sectionFields';
  *
  * These are types, not values: they add no runtime surface, and each is the
  * type a signature already published requires — not an adjacent name lifted
- * because it was nearby.
+ * because it was nearby. `OptionListFieldLike` is the `field` of
+ * `optionListDefault` (objectui#13049), on the same rule.
  */
-export type { FieldDefaultsSchemaLike } from './schemaDefaults';
+export type { FieldDefaultsSchemaLike, OptionListFieldLike } from './schemaDefaults';
 
 // Register object-form component
 const ObjectFormRenderer: React.FC<{ schema: any; dataSource?: unknown }> = elementDataSourceBlock(({

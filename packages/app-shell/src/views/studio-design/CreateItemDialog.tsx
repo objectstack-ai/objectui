@@ -88,6 +88,10 @@ export function CreateItemDialog({
   const [label, setLabel] = React.useState('');
   const [name, setName] = React.useState('');
   const [nameTouched, setNameTouched] = React.useState(false);
+  // objectui#13128 — each label names its input (`htmlFor` + `id`), unique
+  // per mount, so a screen reader and `getByLabelText` reach both fields.
+  const labelInputId = React.useId();
+  const nameInputId = React.useId();
 
   // Reset the transient inputs each time the dialog opens.
   React.useEffect(() => {
@@ -118,8 +122,9 @@ export function CreateItemDialog({
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label>{labelFieldLabel}</Label>
+            <Label htmlFor={labelInputId}>{labelFieldLabel}</Label>
             <Input
+              id={labelInputId}
               autoFocus
               value={label}
               onChange={(e) => {
@@ -133,8 +138,9 @@ export function CreateItemDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>{idFieldLabel}</Label>
+            <Label htmlFor={nameInputId}>{idFieldLabel}</Label>
             <Input
+              id={nameInputId}
               className="font-mono"
               value={name}
               onChange={(e) => {

@@ -17,8 +17,9 @@
  * whole. Only the HTTP transport, the console adapter and the metadata store
  * are doubled.
  *
- * The sheet's pins are the spec of the face, matched by assertion and not by
- * markup: `ApprovalsInboxPage.summaryFaces-11677.test.tsx` (declared labels,
+ * The sheet's pins were the spec of the face, matched by assertion and not by
+ * markup, and the first two retired with the sheet (objectui#12484), against
+ * this file: `ApprovalsInboxPage.summaryFaces-11677.test.tsx` (declared labels,
  * the record page's cell, an undeclared key takes no row, labels told apart),
  * `ApprovalsInboxPage.hiddenFieldTrim.test.tsx` (a hidden field is dropped
  * before the row cut and never leads) and
@@ -105,12 +106,14 @@ const PAYLOAD = {
 
 const BASE_ROW = {
   id: REQ,
-  display_title: 'invoice_approval · inv_1',
-  process_name: 'invoice_approval',
+  process_name: 'flow:invoice_approval',
+  process_label: 'Invoice Approval',
   object_name: 'invoice',
   record_id: 'inv_1',
   status: 'pending',
   current_step: 'manager_review',
+  current_step_label: 'Manager Review',
+  submitter_id: 'u2',
   updated_at: '2026-10-02T09:00:00Z',
   viewer: { can_act: true, is_submitter: false, can_override: false },
   pending_approvers: [],
@@ -132,13 +135,14 @@ const REQUEST_DEF = {
   name: APPROVAL_REQUEST_OBJECT,
   label: 'Approval Request',
   pluralLabel: 'Approval Requests',
-  nameField: 'display_title',
-  titleFormat: '{process_name} · {record_id}',
-  highlightFields: ['process_name', 'object_name', 'record_id', 'status', 'current_step', 'submitter_id', 'updated_at'],
+  nameField: 'process_label',
+  titleFormat: '{process_name}',
+  highlightFields: ['process_label', 'record_id', 'status', 'current_step_label', 'submitter_id', 'updated_at'],
   fields: {
     id: { label: 'Request ID', type: 'text', readonly: true, group: 'System' },
     display_title: { label: 'Title', type: 'formula', returnType: 'text', group: 'Target' },
     process_name: { label: 'Source', type: 'text', group: 'Target' },
+    process_label: { label: 'Flow', type: 'text', readonly: true, group: 'Target' },
     object_name: { label: 'Object', type: 'text', group: 'Target' },
     record_id: { label: 'Record ID', type: 'text', referenceVia: 'object_name', group: 'Target' },
     submitter_id: { label: 'Submitter', type: 'lookup', reference: 'sys_user', group: 'Target' },
@@ -147,6 +151,7 @@ const REQUEST_DEF = {
       options: [{ value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }],
     },
     current_step: { label: 'Current Step', type: 'text', group: 'State' },
+    current_step_label: { label: 'Approval Step', type: 'text', readonly: true, group: 'State' },
     pending_approvers: { label: 'Pending Approvers', type: 'textarea', group: 'State' },
     updated_at: { label: 'Updated At', type: 'datetime', group: 'System' },
   },
@@ -204,7 +209,7 @@ const SERVED_PAGE = {
     highlights: {
       type: 'record:highlights',
       properties: {
-        fields: ['process_name', 'object_name', 'status', 'current_step', 'submitter_id', 'updated_at'],
+        fields: ['process_label', 'status', 'current_step_label', 'submitter_id', 'updated_at'],
       },
     },
     tabs: {

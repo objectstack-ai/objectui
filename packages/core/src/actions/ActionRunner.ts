@@ -441,6 +441,12 @@ export interface ActionDef {
    * The ROUTE applies it, from the declaration it resolves by name; this
    * runner never sends it (objectui#12941) and reads it only to know which
    * fields an Undo must restore.
+   *
+   * It is a DECLARATION's key here: a host that dispatches an object's action
+   * whole hands it along. No action renderer forwards a page row's own `patch`
+   * (objectui#13022, following `@objectstack/spec` 18's retirement of the row
+   * key), and the runner reads the host-published declaration ahead of this
+   * one (`declaredUpdatePatch`).
    */
   patch?: SpecActionInput['patch'];
   /** Execution mode of the action. */
@@ -640,11 +646,31 @@ export type NavigationHandler = (url: string, options?: {
  * call: the handler localizes that copy AFTER it receives it (a translation
  * bundle entry or an inline per-locale map), so the hole has to be filled on
  * the text the user will actually read (objectui#12967).
+ *
+ * `run` lets the handler keep its dialog open until the run its values start
+ * has an outcome (objectui#13161). Called with the collected values, it
+ * dispatches the action with them and resolves with that run's
+ * {@link ActionResult} (a dispatch that throws resolves as a refused run, the
+ * way `execute` reports one). A refused run has already had its
+ * post-execution (the error toast, `onFailure`), so the handler can show the
+ * refusal beside the values the user typed and call `run` again with the
+ * edited values. A successful run's post-execution (success toast, result
+ * dialog, chain, `onSuccess`) waits until the handler settles its promise,
+ * so the dialog is closed before any of it shows. A call made while an
+ * earlier one is still in flight returns that earlier run, and dispatches
+ * nothing new.
+ *
+ * Once `run` has been called, the handler's own promise only ends the
+ * session: the runner never dispatches the values it resolves with. `null`
+ * after a refused run is a cancel, reported exactly as a cancel before any
+ * run. A handler that never calls `run` keeps the old contract: the runner
+ * dispatches once with the values it resolves.
  */
 export type ParamCollectionHandler = (
   params: ActionParamDef[],
   action?: ActionDef,
   interpolate?: (text: string) => string,
+  run?: (values: Record<string, any>) => Promise<ActionResult>,
 ) => Promise<Record<string, any> | null>;
 
 /**
@@ -935,6 +961,73 @@ function readContextObjectFields(context: ActionContext, objectName: string): Fi
   if (readContextObjectName(context) !== objectName) return undefined;
   const fields: unknown = context.objectFields;
   return fields && typeof fields === 'object' ? (fields as FieldContainerLike) : undefined;
+}
+
+/**
+ * The declared actions the host published for `objectName`, or `undefined`
+ * (objectui#13022).
+ *
+ * A host publishes `objectActions` (the object's `actions` list, the
+ * declarations the platform action route resolves an action's `name` against)
+ * beside `objectName` and `objectFields`; `useConsoleActionRuntime` and
+ * `RecordDetailView` both do. Answered only for THAT object, for the reason
+ * {@link readContextObjectFields} gives: a dispatch that retargets another
+ * object names a declaration this list does not hold.
+ */
+function readContextObjectActions(
+  context: ActionContext,
+  objectName: string | undefined,
+): readonly unknown[] | undefined {
+  if (!objectName || readContextObjectName(context) !== objectName) return undefined;
+  const actions: unknown = context.objectActions;
+  return Array.isArray(actions) ? actions : undefined;
+}
+
+/** A `patch` as the route reads one: a plain object's own members, else none. */
+function patchMembers(patch: unknown): Record<string, unknown> {
+  return patch && typeof patch === 'object' && !Array.isArray(patch)
+    ? { ...(patch as Record<string, unknown>) }
+    : {};
+}
+
+/**
+ * The static values the platform action route writes for an
+ * `operation: 'update'` dispatch: the `patch` of the DECLARATION the action's
+ * `name` names (objectui#13022).
+ *
+ * The route resolves that declaration by the dispatch's object and the
+ * action's `name`, and writes its `patch` under the params it is sent
+ * (`declarativeUpdateWrite`). A page action row's own `patch` is never that
+ * write: `@objectstack/spec` 18 retires the key on `action:button`,
+ * `action:icon` and the `action:group` / `action:menu` member, and none of
+ * those renderers forwards it. So the declaration is read from one of two
+ * places, and no third:
+ *
+ *  1. The declarations the host published for the dispatch's object
+ *     ({@link readContextObjectActions}), when they name this action: the
+ *     lookup the route performs. A declaration with no `patch` writes the
+ *     collected params alone.
+ *  2. Otherwise the def itself. A host that dispatches an object's action whole
+ *     (`ObjectGrid`'s rows, `DeclaredActionsBar`, `RelatedRecordActionsBridge`,
+ *     `page:header`) hands the runner the declaration, `patch` included. A page
+ *     row reaches the runner through a renderer, which forwards no `patch`, so
+ *     this reads nothing for one.
+ *
+ * Read for the Undo snapshot only; ⛔ never sent (objectui#12941).
+ */
+function declaredUpdatePatch(
+  action: ActionDef,
+  context: ActionContext,
+  objectName: string | undefined,
+): Record<string, unknown> {
+  const name = typeof action.name === 'string' && action.name !== '' ? action.name : undefined;
+  const declared = name === undefined
+    ? undefined
+    : readContextObjectActions(context, objectName)?.find(
+      (candidate) =>
+        !!candidate && typeof candidate === 'object' && (candidate as { name?: unknown }).name === name,
+    );
+  return patchMembers(declared ? (declared as { patch?: unknown }).patch : action.patch);
 }
 
 /**
@@ -1268,7 +1361,25 @@ export class ActionRunner {
     this.scripts.delete(scriptName);
   }
 
-  async execute(action: ActionDef): Promise<ActionResult> {
+  /**
+   * Run `action`; with `callContext`, run it against that context for this
+   * one dispatch (objectui#13063).
+   *
+   * The runner's context names the PAGE: its `record` and its `objectName`.
+   * A dispatch that runs against some other record, such as a related-list
+   * row on a record page, which is a record of the CHILD object, hands that
+   * record here as `{ record, objectName }`. Every executor then reads it as
+   * the record the action runs against, the way a dispatch from that record's
+   * own page does: `executeForm` forwards its id and object, and its
+   * boundary check compares the target view against the child object instead
+   * of the page's.
+   *
+   * The runner's own context is not touched: the dispatch runs on a one-shot
+   * runner over the merged context that shares this runner's handlers (see
+   * {@link ActionRunner.scopedTo}).
+   */
+  async execute(action: ActionDef, callContext?: Partial<ActionContext>): Promise<ActionResult> {
+    if (callContext) return this.scopedTo(callContext).execute(action);
     try {
       // `ActionDef` accepts any key of any type, so a typo (`targt`) and a
       // retired key (`execute`) both reach here having type-checked. Neither
@@ -1375,24 +1486,89 @@ export class ActionRunner {
           : (Array.isArray(action.params) ? (action.params as unknown as ActionParamDef[]) : undefined);
       if (paramDefs && paramDefs.length > 0) {
         if (this.paramCollectionHandler) {
+          // Merge collected params into action.params as a values map for downstream consumers.
+          // Preserve any pre-attached row context (`_rowRecord`) used by list_item
+          // actions so downstream handlers (apiHandler) can inject the row id.
+          // Read ONCE, before any run: a second `run` after a refusal merges
+          // its values over the same base, not over the first run's values.
+          const priorParams: Record<string, any> = Array.isArray(action.params) ? {} : (action.params as Record<string, any> || {});
+          const rowRecord = priorParams._rowRecord;
+          const applyCollected = (collected: Record<string, any>) => {
+            action.params = { ...priorParams, ...collected };
+            if (rowRecord !== undefined) (action.params as Record<string, any>)._rowRecord = rowRecord;
+          };
+          const cancelled: ActionResult = { success: false, error: 'Action cancelled by user (params)' };
+
+          // The handler-driven session (objectui#13161) — see `ParamCollectionHandler`.
+          // The dialog that collected the values stays open until it hears
+          // how the run went, so a refusal lands beside what the user typed
+          // instead of on a closed dialog.
+          let lastRun: Promise<ActionResult> | undefined;
+          let inFlight = false;
+          const run = (values: Record<string, any>): Promise<ActionResult> => {
+            if (inFlight && lastRun) return lastRun;
+            inFlight = true;
+            lastRun = (async () => {
+              try {
+                let attempt: ActionResult;
+                try {
+                  applyCollected(values);
+                  attempt = await this.dispatchCollected(action, actionType);
+                } catch (error) {
+                  // A dispatch that throws is a refused run, exactly as the
+                  // `catch` at the end of `execute` reports one.
+                  attempt = { success: false, error: (error as Error).message };
+                }
+                // A refused attempt gets its post-execution now, as a lone run
+                // would; a successful one waits for the session to end below.
+                if (!attempt.success) await this.handlePostExecution(action, attempt);
+                return attempt;
+              } finally {
+                inFlight = false;
+              }
+            })();
+            return lastRun;
+          };
+
           const collected = await this.paramCollectionHandler(
             paramDefs,
             action,
             (text: string) => String(templates.evaluate(text) ?? ''),
+            run,
           );
-          if (collected === null) {
-            return { success: false, error: 'Action cancelled by user (params)' };
+          if (lastRun) {
+            const last = await lastRun;
+            if (last.success) {
+              await this.handlePostExecution(action, last);
+              return last;
+            }
+            return collected === null ? cancelled : last;
           }
-          // Merge collected params into action.params as a values map for downstream consumers.
-          // Preserve any pre-attached row context (`_rowRecord`) used by list_item
-          // actions so downstream handlers (apiHandler) can inject the row id.
-          const priorParams: Record<string, any> = Array.isArray(action.params) ? {} : (action.params as Record<string, any> || {});
-          const rowRecord = priorParams._rowRecord;
-          action.params = { ...priorParams, ...collected };
-          if (rowRecord !== undefined) (action.params as Record<string, any>)._rowRecord = rowRecord;
+          if (collected === null) {
+            return cancelled;
+          }
+          applyCollected(collected);
         }
       }
 
+      const result = await this.dispatchCollected(action, actionType);
+      await this.handlePostExecution(action, result);
+      return result;
+    } catch (error) {
+      const result: ActionResult = { success: false, error: (error as Error).message };
+      await this.handlePostExecution(action, result);
+      return result;
+    }
+  }
+
+  /**
+   * Dispatch an action whose params are collected, and answer what it
+   * returned — WITHOUT post-execution, which each caller runs itself:
+   * `execute` right after a lone run, and the param-collection session
+   * (`ParamCollectionHandler`'s `run`, objectui#13161) once per refused attempt
+   * and once for the successful one when the session ends.
+   */
+  private async dispatchCollected(action: ActionDef, actionType: string): Promise<ActionResult> {
       // ── `operation` is read BEFORE `type`, and this is the only order that
       // can work ────────────────────────────────────────────────────────────
       //
@@ -1418,46 +1594,32 @@ export class ActionRunner {
       // and never run. Reading `operation` first is what makes all of those
       // impossible.
       if (isUpdateOperationAction(action)) {
-        const result = await this.executeUpdateOperation(action);
-        await this.handlePostExecution(action, result);
-        return result;
+        return this.executeUpdateOperation(action);
       }
 
       // Check for a registered custom handler first
       if (actionType && this.handlers.has(actionType)) {
         const handler = this.handlers.get(actionType)!;
-        const result = await handler(action, this.context);
-        await this.handlePostExecution(action, result);
-        return result;
+        return handler(action, this.context);
       }
 
       // Built-in action execution by type.
-      let result: ActionResult;
       const builtin = actionType
         ? this.builtinExecutors[actionType as RunnableActionType]
         : undefined;
 
       if (builtin) {
-        result = await builtin(action);
+        return builtin(action);
       } else if (action.navigate) {
         // Legacy fallback: check for navigate, api, or onClick
-        result = await this.executeNavigation(action);
+        return this.executeNavigation(action);
       } else if (action.api || action.endpoint) {
-        result = await this.executeAPI(action);
+        return this.executeAPI(action);
       } else if (action.onClick) {
         await action.onClick();
-        result = { success: true };
-      } else {
-        result = await this.executeActionSchema(action);
+        return { success: true };
       }
-
-      await this.handlePostExecution(action, result);
-      return result;
-    } catch (error) {
-      const result: ActionResult = { success: false, error: (error as Error).message };
-      await this.handlePostExecution(action, result);
-      return result;
-    }
+      return this.executeActionSchema(action);
   }
 
   /**
@@ -1797,6 +1959,14 @@ export class ActionRunner {
    * WINS — the author declared a default, and the user answered it. This
    * runner still computes that same merge, but only to know what the route
    * WROTE, which is what an Undo snapshot must cover; it is never sent.
+   *
+   * ## The `patch` in that merge is the DECLARATION's (objectui#13022)
+   *
+   * The route writes the `patch` of the declaration the action's `name` names,
+   * so that is the `patch` the snapshot covers: read by
+   * {@link declaredUpdatePatch} from the declarations the host published, else
+   * off a def that is the declaration itself. A page action row's own `patch`
+   * is never written (`@objectstack/spec` 18 retires it) and never covered.
    */
   private async executeUpdateOperation(action: ActionDef): Promise<ActionResult> {
     const dispatch = this.handlers.get('script');
@@ -1816,13 +1986,13 @@ export class ActionRunner {
     const collected: Record<string, unknown> = (action.params && !Array.isArray(action.params))
       ? { ...(action.params as Record<string, unknown>) }
       : {};
-    const patch: Record<string, unknown> =
-      (action.patch && typeof action.patch === 'object' && !Array.isArray(action.patch))
-        ? { ...(action.patch as Record<string, unknown>) }
-        : {};
-    // What the route WRITES: `patch` UNDER the collected params, the route's
-    // own merge (see the doc above). Read for the Undo snapshot only — ⛔ never
+    // The object the write lands on: the action's own, else the host's.
+    const objectName = action.objectName || readContextObjectName(this.context);
+    // What the route WRITES: the DECLARATION's `patch` UNDER the collected
+    // params, the route's own merge (see the doc above), never a page row's
+    // own `patch` (objectui#13022). Read for the Undo snapshot only — ⛔ never
     // the request: the route applies `patch` from its declaration.
+    const patch = declaredUpdatePatch(action, this.context, objectName);
     const written = { ...patch, ...collected };
 
     // The row stash and the record selector are transport mechanics, not
@@ -1854,7 +2024,6 @@ export class ActionRunner {
     // carries expanded is captured as its stored id, read against the field
     // map the host published for this object (objectui#11122).
     if (action.undoable && rowRecord && writtenFields.length > 0) {
-      const objectName = action.objectName || readContextObjectName(this.context);
       const recordId = collected.recordId ?? rowRecord.id;
       if (objectName && recordId != null) {
         const undoData = captureUpdateUndoData(
@@ -2598,6 +2767,56 @@ export class ActionRunner {
 
   getContext(): ActionContext {
     return this.context;
+  }
+
+  /**
+   * A one-shot runner for {@link ActionRunner.execute}'s `callContext`
+   * (objectui#13063): this runner's context with `callContext` merged over it,
+   * and this runner's handlers, translator and registries, shared rather than
+   * copied, so the dispatch confirms, collects params, toasts and navigates
+   * exactly as this runner does.
+   *
+   * Two keys follow the merge rather than the base:
+   *
+   *  - `ctx`, the `ctx.*` mirror `ActionProvider` publishes beside the flat
+   *    keys. A `${ctx.record.…}` hole has to read the same record as a
+   *    `${record.…}` one.
+   *  - `objectFields` / `objectActions`. A host publishes them BESIDE
+   *    `objectName`, so the pair names one object (objectui#11122,
+   *    objectui#13022). When `callContext` names another object and brings no
+   *    definitions of its own, the base's are dropped: the page object's field
+   *    types and declarations must not answer for the child's record. That is
+   *    what a dispatch with no `callContext` already gets for a retargeted
+   *    action, so the update path's capture sees the same input either way.
+   */
+  private scopedTo(callContext: Partial<ActionContext>): ActionRunner {
+    const objectChanged =
+      'objectName' in callContext &&
+      readContextObjectName(callContext as ActionContext) !== readContextObjectName(this.context);
+    const follow = (bag: Record<string, unknown>): Record<string, unknown> => {
+      const merged: Record<string, unknown> = { ...bag, ...callContext };
+      if (objectChanged) {
+        if (!('objectFields' in callContext)) delete merged.objectFields;
+        if (!('objectActions' in callContext)) delete merged.objectActions;
+      }
+      return merged;
+    };
+    const merged = follow(this.context) as ActionContext;
+    const mirror: unknown = this.context.ctx;
+    if (mirror && typeof mirror === 'object' && !Array.isArray(mirror)) {
+      merged.ctx = follow(mirror as Record<string, unknown>);
+    }
+    const scoped = new ActionRunner(merged);
+    scoped.handlers = this.handlers;
+    scoped.scripts = this.scripts;
+    scoped.confirmHandler = this.confirmHandler;
+    scoped.toastHandler = this.toastHandler;
+    scoped.modalHandler = this.modalHandler;
+    scoped.navigationHandler = this.navigationHandler;
+    scoped.paramCollectionHandler = this.paramCollectionHandler;
+    scoped.resultDialogHandler = this.resultDialogHandler;
+    scoped.translate = this.translate;
+    return scoped;
   }
 
   /**

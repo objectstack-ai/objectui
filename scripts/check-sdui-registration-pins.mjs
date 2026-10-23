@@ -26,7 +26,9 @@
  *
  * The maintainer ruling of 2026-08-29 names those three as the controls this
  * work must pin present at >= 1 chunk each. This file is that pin, and it is
- * wider than the three on purpose (see below).
+ * wider than the three on purpose (see below). `cloud:onboarding-next` has
+ * since retired with its widget (objectui#12954), so two of the three remain
+ * as controls.
  *
  * ## The key set is DERIVED from the array, not listed here
  *
@@ -36,8 +38,8 @@
  * component keys does this source register?". Change the array and the pinned
  * key set changes with it; there is no second list to keep honest.
  *
- * `RULED_CONTROLS` below is not that list. It is an ANTI-VACUITY FLOOR: three
- * keys the ruling names, asserted to be IN the derived set, so a derivation that
+ * `RULED_CONTROLS` below is not that list. It is an ANTI-VACUITY FLOOR: the
+ * keys the ruling names that are still registered, asserted to be IN the derived set, so a derivation that
  * quietly stopped seeing registrations cannot report "0 keys, all present".
  * A floor is checked against the derivation; a list would replace it.
  *
@@ -71,8 +73,9 @@ export const EXIT_DROPPED = 1;
 export const EXIT_NO_MEASUREMENT = 2;
 
 /**
- * The three registrations the 2026-08-29 ruling names as this work's controls,
- * each measured at 0 chunks under `"sideEffects": false`.
+ * The registrations the 2026-08-29 ruling names as this work's controls, each
+ * measured at 0 chunks under `"sideEffects": false`. The ruling named three;
+ * `cloud:onboarding-next` left with its widget (objectui#12954).
  *
  * ⚠️ This is a FLOOR on the derived set, never the set itself. It answers "is
  * the derivation still seeing the registrations the ruling cared about?", and
@@ -80,7 +83,6 @@ export const EXIT_NO_MEASUREMENT = 2;
  */
 export const RULED_CONTROLS = Object.freeze([
   'cloud:ai-model-status',
-  'cloud:onboarding-next',
   'mcp:connect-agent',
 ]);
 

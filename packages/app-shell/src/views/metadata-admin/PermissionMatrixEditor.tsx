@@ -92,12 +92,20 @@ import { useDraftAutoSave, type DraftSend } from '../studio-design/useDraftAutoS
 import { StudioItemHeader, StudioTab } from '../studio-design/StudioItemHeader.js';
 import { STUDIO_KIND_CHIP } from '../studio-design/studio-tokens.js';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { t as translate, tFormat, translateMetadataType, useMetadataLocale } from './i18n.js';
+import {
+  t as translate,
+  tFormat,
+  translateMetadataType,
+  translateValidationMessage,
+  useMetadataLocale,
+} from './i18n.js';
 import { PermissionAdvancedFacets } from './PermissionAdvancedFacets.js';
+import { useRegisterUnsavedEdits } from '../../chrome/unsavedEdits.js';
 import { AssignedUsersSection } from './AssignedUsersSection.js';
 import { isEnvironmentScope, useWalledCatalogReadOnly } from './catalog-scope.js';
 import { useCanAuthorMetadata, useCanReadAuthoringTrail } from '../../hooks/useCanAuthorMetadata.js';
 import { errorCodeIs } from '@object-ui/types';
+import type { MetadataError } from '@object-ui/data-objectstack';
 import { PermissionSetCloneDialog } from './PermissionSetCloneDialog.js';
 import type { PermissionSetCloned } from './permission-set-clone.js';
 import {
@@ -107,6 +115,50 @@ import {
   type FieldPerm,
   type PermissionSetDraft,
 } from './permission-slice.js';
+
+/**
+ * objectui#13113 — a refused save, in the author's words where the refusal
+ * names an RLS policy's name.
+ *
+ * The server's message lists its issues by schema path and zod code
+ * (`rowLevelSecurity.0.name [invalid_format]`), which the author cannot map to
+ * the form. This reads the refusal's OWN issue paths (`MetadataError.issues`)
+ * and words each `rowLevelSecurity.N.name` one as the input the editor shows:
+ * the policy name, on row N + 1, with the door's message for what is wrong.
+ * It is a display mapping of the door's answer, ⛔ not a second validator: no
+ * rule of the spec is restated, and the problem text is the server's own.
+ *
+ * `null` when no issue names a policy name: the caller keeps today's text. When
+ * other issues come with it, today's text follows the mapped lines, so nothing
+ * the strip printed before is lost.
+ */
+const RLS_NAME_ISSUE_PATH = /^rowLevelSecurity\.(\d+)\.name$/;
+
+function rlsNameRefusal(err: unknown, locale: string): string | null {
+  const issues = (err as Partial<MetadataError> | null | undefined)?.issues;
+  if (!Array.isArray(issues) || issues.length === 0) return null;
+  const lines: string[] = [];
+  let unmapped = 0;
+  for (const issue of issues) {
+    const at = RLS_NAME_ISSUE_PATH.exec(String(issue?.path ?? ''));
+    if (!at) {
+      unmapped += 1;
+      continue;
+    }
+    lines.push(
+      tFormat('perm.rls.nameRefused', locale, {
+        row: Number(at[1]) + 1,
+        problem: translateValidationMessage(issue.message, locale),
+      }),
+    );
+  }
+  if (lines.length === 0) return null;
+  if (unmapped > 0) {
+    const raw = (err as { message?: unknown } | null | undefined)?.message;
+    lines.push(typeof raw === 'string' ? raw : String(err));
+  }
+  return lines.join('\n');
+}
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Domain shapes                                                      */
@@ -807,6 +859,20 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // (objectui#2413): a malformed predicate silently mis-scopes rows, so we
   // don't let it persist.
   const [celErrorCount, setCelErrorCount] = React.useState(0);
+  // objectui#13113 — RLS rows with no name yet ("Add policy" inserts one
+  // blank). Incomplete, not wrong: like a CEL error, they hold the save, and
+  // each row says beside itself what it needs (`policyNamed` in
+  // `PermissionAdvancedFacets`, the same emptiness test). Read from the draft
+  // itself, so the hold moves with the very edit that adds or names a row.
+  // Emptiness only: ⛔ the spec's name format is not restated; a non-empty name
+  // the server refuses is sent, and its refusal worded (`rlsNameRefusal`).
+  const rlsUnnamedCount = (Array.isArray(draft.rowLevelSecurity) ? draft.rowLevelSecurity : []).filter(
+    (p) => {
+      const n = (p as { name?: unknown } | null)?.name;
+      return !(typeof n === 'string' && n.trim() !== '');
+    },
+  ).length;
+  const saveHeld = celErrorCount > 0 || rlsUnnamedCount > 0;
 
   // Dirty detection — cheap JSON snapshot comparison against the last
   // loaded/saved baseline (same approach as ResourceEditPage). Every mutation
@@ -852,6 +918,11 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [isDirty]);
+  // objectui#13253 — the shell's own departures (header menus, palette, inbox,
+  // AI entry) navigate from buttons, which neither guard above sees. While the
+  // matrix holds edits it registers them with the shell's seam, with the
+  // question its hosts already ask before dropping them.
+  useRegisterUnsavedEdits(isDirty, translate('engine.edit.unsavedLeaveConfirm', locale));
 
   function toggleExpand(objectName: string) {
     setExpanded((prev) => {
@@ -1024,9 +1095,14 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
       // Environment door (no packageId) stays live (config).
       // objectui#11773 — the guard pins the package door's DRAFT save; the
       // environment door's live write passes through it unpinned, as before.
+      // objectui#12725 — the draft names its authoring surface only under the
+      // Studio host (`embedded`, the Access pillar), so a person's edit there
+      // is recorded `studio`, not `api`. metadata-admin mounts this page with
+      // neither `packageId` nor `embedded`, and states no surface.
       const outcome = await saveVersioned(type, payload.name, toSave, {
         force,
         ...(packageId ? { mode: 'draft' as const, packageId } : {}),
+        ...(packageId && embedded ? { surface: 'studio' as const } : {}),
       });
       // The author chose the saved version; the load replaces the matrix.
       if (outcome === 'reloaded') return;
@@ -1086,6 +1162,14 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         // when it was saved under the name this page lists holders for.
         if (payload.name === name) setExistsOnServer(true);
       }
+      // objectui#13272 — the clone notice is the server's point-in-time answer
+      // to the clone, and a saved copy is past that moment: the copy is now
+      // customised and saved, so the notice goes. Only a save OF THE COPY
+      // ends it — an embedded host announces the copy on its base, and saving
+      // the base changes nothing about the copy. The notice is one server
+      // string shown verbatim and goes whole: cutting out one sentence would
+      // key the editor on the server's prose.
+      setCloned((c) => (c && c.name === payload.name ? null : c));
       setDestructive(null);
     } catch (err: any) {
       if (err?.status === 409 && errorCodeIs(err, 'DESTRUCTIVE_CHANGE')) {
@@ -1102,7 +1186,9 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         // different meaning there (the package is not writable).
         setSaveRefusedAsLocked(err?.message ?? String(err));
       } else {
-        setError(err?.message ?? String(err));
+        // objectui#13113 — a refusal naming a policy name reads in the
+        // author's words; any other keeps the transport's text.
+        setError(rlsNameRefusal(err, locale) ?? err?.message ?? String(err));
       }
     } finally {
       setSaving(false);
@@ -1126,7 +1212,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     target: autosaveTarget,
     loadedFor: loading ? '' : autosaveTarget,
     dirty: isDirty,
-    blocked: !packageId || !writable || saving || celErrorCount > 0 || destructive !== null,
+    blocked: !packageId || !writable || saving || saveHeld || destructive !== null,
     snapshot: draft,
     save: (sent) => doSave(false, undefined, sent),
   });
@@ -1161,6 +1247,17 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         { relative: 'path' },
       );
     }
+  }
+
+  /**
+   * objectui#13272 — the clone notice ends "The copy is held by nobody yet",
+   * which stops being true once the copy has a holder. The holders section
+   * reports every read; one that lists anybody for the copy retires the
+   * notice, whole (the server's string is never cut into sentences). Keyed on
+   * the set the read was FOR, so a late read of another set cannot retire it.
+   */
+  function onHoldersRead(count: number, setName: string) {
+    if (count > 0) setCloned((c) => (c && c.name === setName ? null : c));
   }
 
   /* ── Render helpers ──────────────────────────────────────── */
@@ -1209,8 +1306,14 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         <Button
           size="sm"
           onClick={() => doSave(false)}
-          disabled={saving || celErrorCount > 0}
-          title={celErrorCount > 0 ? t('perm.cel.saveBlocked') : undefined}
+          disabled={saving || saveHeld}
+          title={
+            celErrorCount > 0
+              ? t('perm.cel.saveBlocked')
+              : rlsUnnamedCount > 0
+                ? t('perm.rls.nameNeeded')
+                : undefined
+          }
         >
           {saving ? (
             <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -1240,6 +1343,11 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         ) : celErrorCount > 0 && isDirty ? (
           <span className="text-[11px] text-destructive" data-testid="perm-autosave-held">
             {t('perm.cel.saveBlocked')}
+          </span>
+        ) : rlsUnnamedCount > 0 && isDirty ? (
+          // objectui#13113 — held, not refused: a neutral line, no error tone.
+          <span className="text-[11px] text-muted-foreground" data-testid="perm-autosave-held">
+            {t('perm.rls.nameNeeded')}
           </span>
         ) : savedAt && !isDirty ? (
           <span className="text-[11px] text-muted-foreground" data-testid="perm-saved-at">
@@ -1327,7 +1435,9 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           once the routed hop opens it, or, on an embedded host (no route to
           open it on), announced by name on this set. The server's notice
           (what was not copied, and that the copy is held by nobody yet) is
-          shown as sent (advisory, like the re-read notice below). */}
+          shown as sent (advisory, like the re-read notice below), and only
+          until the copy is saved or held (objectui#13272: `doSave`,
+          `onHoldersRead`). */}
       {cloned !== null && (embedded || cloned.name === name) && (cloned.name !== name || !!cloned.notice) && (
         <div
           role="status"
@@ -1921,7 +2031,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
             set's holders render under its definition, by name. */}
         {showAssignments && (
           <div className="mx-4 mb-4 shrink-0 max-h-[35vh] overflow-y-auto rounded-md border" data-testid="perm-assignments">
-            <AssignedUsersSection permissionSetName={name} />
+            <AssignedUsersSection permissionSetName={name} onHoldersRead={onHoldersRead} />
           </div>
         )}
       </div>

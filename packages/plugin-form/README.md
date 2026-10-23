@@ -101,6 +101,7 @@ import {
   resolveInlineMode,
   omitServerResolvedDefaults,
   isRequiredInForm,
+  optionListDefault,
   resolveSectionGroupReferences,
   sectionEntryName,
 } from '@object-ui/plugin-form';
@@ -344,6 +345,12 @@ form preselects exactly what omitting the field would store:
 - a single-valued field takes the **first** marked option;
 - a multi-valued field (`@objectstack/spec`'s `isMultiValueField`: `multiselect`,
   or `select` with `multiple: true`) takes **every** marked option, as an array.
+
+That reading is published as `optionListDefault` (its parameter type is
+`OptionListFieldLike`), so a host with its own form renderer seeds the same
+option instead of re-deriving it (objectui#13049). The console's public form page
+(`/f/:slug`) calls it. The `defaultValue` gate stays the caller's: call it only
+for a field whose `defaultValue` is absent or `null`, as the containers do.
 
 **Edit forms are never seeded.** An edit form shows the row as the server holds
 it; folding a default in over a column the record leaves unset would arm a

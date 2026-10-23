@@ -9,11 +9,11 @@
 /**
  * @object-ui/types/zod - Cloud Widget Zod Validators
  *
- * The arms for `@object-ui/app-shell`'s armed `cloud:` SDUI widgets:
- * `cloud:plan-status`, for the Cloud pricing page
- * (`console/home/CloudPlanStatus.tsx`, objectui#10919), and
+ * The arm for `@object-ui/app-shell`'s armed `cloud:` SDUI widget:
  * `cloud:workspace-timezone-notice`, for the Cloud welcome page
- * (`console/home/CloudWorkspaceTimezoneNotice.tsx`, objectui#11930).
+ * (`console/home/CloudWorkspaceTimezoneNotice.tsx`, objectui#11930) — and
+ * the refusal arm of the retired `cloud:plan-status` (objectui#12954), which
+ * {@link RetiredCloudPlanStatusNodeSchema} explains.
  *
  * ## Why the arm lands with the registration
  *
@@ -29,18 +29,6 @@
  * `@objectstack/spec` has no `ComponentPropsMap` row for a `cloud:` widget, so
  * nothing is read by reference: the members below are the keys the widget
  * reads, and no other.
- *
- * `cloud:plan-status`:
- *
- *   - `properties.plan` — the plan code of the card the node sits on. The page
- *     authors it in the `properties` bag, the one spelling a page component is
- *     written in, and the widget reads it there alone. Required: a node that
- *     names no plan can never mark anything. It is an opaque, non-empty
- *     string, because the plan catalog belongs to the control plane; ObjectUI
- *     does not list the codes.
- *   - `properties` is closed: the widget reads no other key of the bag.
- *   - `body` / `children` — refused by name. The widget renders a badge and
- *     reads neither content channel (objectui#9256's rule for such nodes).
  *
  * `cloud:workspace-timezone-notice`:
  *
@@ -61,39 +49,34 @@
 
 import { z } from 'zod';
 import { BaseSchema } from './base.zod.js';
-import { retirementTombstone } from './tombstone.zod.js';
-
-/** One refusal string for both content channels of `CloudPlanStatusSchema`. */
-const CLOUD_PLAN_STATUS_NEITHER_CHANNEL =
-  'REFUSED (objectui#10919) — `cloud:plan-status` reads NEITHER content channel: its registration hands '
-  + 'the node to `CloudPlanStatus`, which reads only `properties.plan` and `className`, and '
-  + '`SchemaRenderer` strips both channels out of the props bag it spreads. An authored value would '
-  + 'render NOTHING — no render-time error or warning and no element; only the parser tier\'s '
-  + '`not-a-container` warning (objectui#9910) noticed it, because the registration declares no '
-  + '`children` input. What it renders instead: a "Current plan" badge when `properties.plan` is the '
-  + 'organization\'s plan, and nothing otherwise.';
+import { retiredNodeType, retirementTombstone } from './tombstone.zod.js';
 
 /**
- * `cloud:plan-status` — the "current plan" marker for one plan card
- * (objectui#10919). Pinned by `../__tests__/cloud-plan-status-arm-10919.test.ts`.
+ * ⛔ `cloud:plan-status` is RETIRED (objectui#12954) — this is its NAMED
+ * REFUSAL, the half a deletion would not have given.
+ *
+ * The widget, its registration and its member-by-member arm went: the Cloud
+ * pricing page stopped placing the node (objectstack-ai/cloud#3010). The
+ * literal was declared on this face (an arm of `AnyComponentSchema`), so it is
+ * the case `retiredNodeType()` exists for, in the shape of
+ * `complex.zod.ts#RetiredKanbanNodeSchema` (objectui#8802, maintainer ruling
+ * 2026-09-09): deleting the arm would already refuse, but with the union's
+ * remedy-free `Invalid input`. What stays is an arm claiming the literal, so a
+ * stale `{ "type": "cloud:plan-status" }` document is refused BY NAME, at
+ * `type`, with the remedy the retirement's changeset states.
+ *
+ * Deliberately NOT exported from `index.zod.ts`: nothing outside this package
+ * parses against a refusal arm. No TypeScript twin either — the TS half of the
+ * retirement is the ABSENCE of a `cloud:plan-status` member in `AnySchema`.
+ *
+ * Pinned in `../__tests__/cloud-plan-status-retired-12954.test.ts`.
  */
-export const CloudPlanStatusSchema = BaseSchema.extend({
-  type: z.literal('cloud:plan-status'),
-  properties: z
-    .strictObject({
-      plan: z
-        .string()
-        .min(1)
-        .describe(
-          'The plan code of the card this node marks, spelled exactly as the control plane\'s '
-          + 'entitlements summary reports it (for example `free`). The badge renders only when it equals '
-          + 'the organization\'s plan.',
-        ),
-    })
-    .describe('The `cloud:plan-status` props bag: `plan`, and no other key.'),
-  body: retirementTombstone(CLOUD_PLAN_STATUS_NEITHER_CHANNEL),
-  children: retirementTombstone(CLOUD_PLAN_STATUS_NEITHER_CHANNEL),
-});
+export const RetiredCloudPlanStatusNodeSchema = retiredNodeType(
+  'cloud:plan-status',
+  'Its widget retired with it (objectui#12954). Compose the page from generic blocks, as ' +
+    'objectstack-ai/cloud#3010 did: mark the current plan with a `visibleWhen` on the same ' +
+    'summary the page\'s blocks read (`GET /api/v1/cloud/home`), in place of `cloud:plan-status`.',
+);
 
 /** One refusal string for both content channels of `CloudWorkspaceTimezoneNoticeSchema`. */
 const CLOUD_WORKSPACE_TIMEZONE_NOTICE_NEITHER_CHANNEL =

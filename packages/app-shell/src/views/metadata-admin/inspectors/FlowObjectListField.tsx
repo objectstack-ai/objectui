@@ -38,6 +38,7 @@ import {
 import { flagUnknownValue, RequiredMarker, uniqueId, useInspectorShellHost } from './_shared.js';
 import type { FlowConfigColumn } from './flow-node-config.js';
 import { conditionText, edgeKey, type FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
+import { flowEdgeDisplayName, flowNodeDisplayName } from '../previews/flow-canvas-parts.js';
 import { t, useMetadataLocale } from '../i18n.js';
 import { ReferenceCombobox, resolveRefKind, type FlowReferenceContext } from './FlowReferenceField.js';
 import { FlowStringListField } from './FlowStringListField.js';
@@ -181,7 +182,7 @@ function rowsToList(rows: Row[], columns: FlowConfigColumn[]): Array<Record<stri
 export interface EdgeBranch {
   /** The edge's selection key (`edgeKey`), which the connection inspector opens by. */
   key: string;
-  /** The target node's id, and its label (the id when it has none). */
+  /** The target node's id, and its name by `flowNodeDisplayName` (objectui#13200). */
   target: string;
   targetLabel: string;
   /** The edge's authored branch label, if any. */
@@ -201,15 +202,22 @@ export interface EdgeBranch {
 export function decisionEdgeBranches(
   decisionId: string,
   edges: readonly FlowDesignerEdge[],
-  nodes: ReadonlyArray<{ id?: unknown; label?: unknown } | null | undefined>,
+  nodes: ReadonlyArray<{ id?: unknown; type?: unknown; label?: unknown } | null | undefined>,
+  /** objectui#13138 — only these edge indices (the out-edges no branch row is paired with). */
+  only?: ReadonlySet<number>,
+  /** The designer locale a palette label is read in (objectui#13200). */
+  locale?: string,
 ): EdgeBranch[] {
+  // The target named by the designer's one rule (objectui#13200); a target
+  // naming no node of the flow reads as its id.
   const labelOf = (id: string): string => {
     const n = nodes.find((x) => x?.id === id);
-    return typeof n?.label === 'string' && n.label ? n.label : id;
+    return n ? flowNodeDisplayName({ ...n, id }, locale) : id;
   };
   const out: EdgeBranch[] = [];
   edges.forEach((e, i) => {
     if (!e || e.source !== decisionId || e.type === 'fault' || e.type === 'back') return;
+    if (only && !only.has(i)) return;
     out.push({
       key: edgeKey(e, i),
       target: e.target,
@@ -270,8 +278,10 @@ export interface FlowObjectListFieldProps {
   variant?: 'branches';
   /**
    * objectui#12488 — with `variant="branches"`: the decision's out-edge
-   * branches, shown read-only while the list holds no rows, each with a link
-   * that opens its connection when the host can move the selection.
+   * branches, shown read-only, each with a link that opens its connection
+   * when the host can move the selection. objectui#13138 — drawn beside the
+   * rows too, not only while the list is empty: the host passes the
+   * connections no row is paired with, so adding a branch never hides one.
    */
   edgeBranches?: EdgeBranch[];
 }
@@ -592,7 +602,7 @@ export function FlowObjectListField({
   if (variant === 'branches') {
     const targetCol = columns.find((c) => c.key === 'target');
     const bodyCols = columns.filter((c) => c !== targetCol);
-    const readOnlyBranches = rows.length === 0 ? (edgeBranches ?? []) : [];
+    const readOnlyBranches = edgeBranches ?? [];
     const conditionLabel = t('engine.inspector.flowEdge.condition', locale);
     return (
       <div className="space-y-2.5" data-testid="flow-branch-list">
@@ -640,8 +650,19 @@ export function FlowObjectListField({
                   variant="ghost"
                   size="sm"
                   className="h-7 px-2 text-xs"
-                  // The canvas's own edge selection: its key, labelled `source → target`.
-                  onClick={() => host.onSelectionChange?.({ kind: 'edge', id: b.key, label: `${String(context?.node?.id ?? '')} → ${b.target}` })}
+                  // The canvas's own edge selection: its key, labelled `source → target`
+                  // by the nodes' names, as the canvas labels it (objectui#13200).
+                  onClick={() =>
+                    host.onSelectionChange?.({
+                      kind: 'edge',
+                      id: b.key,
+                      label: flowEdgeDisplayName(
+                        { source: String(context?.node?.id ?? ''), target: b.target },
+                        Array.isArray(context?.draft?.nodes) ? context.draft.nodes : [],
+                        locale,
+                      ),
+                    })
+                  }
                 >
                   {t('engine.inspector.flowNode.branch.openEdge', locale)}
                 </Button>

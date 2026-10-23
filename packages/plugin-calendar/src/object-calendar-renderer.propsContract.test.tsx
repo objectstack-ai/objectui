@@ -82,7 +82,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 import { __clearRecordEditableCache } from '@object-ui/plugin-detail';
 // Module scope: the registration side effect this file renders through
@@ -408,8 +408,14 @@ describe('object-calendar: an authored handler key can no longer crash a gesture
    * `schema.objectName` ('accounts'), not from `dataConfig`'s 'object'
    * provider shape (this file's nodes carry a literal `data` array, so
    * `getDataConfig` never reaches that branch).
+   *
+   * objectui#13045 — `DetailView` asks a verdict only for a button its host
+   * shows. The drawer's `RecordDetailPanel` passes `showDelete: !!onDelete`
+   * (the calendar hands it an `onDelete`) and never sets `showEdit`, so the
+   * drawer shows Delete and no Edit button: the `delete` verdict is asked and
+   * the `update` verdict, which would gate nothing on screen, is not.
    */
-  it('probes the record-level explain endpoint (update + delete) when the DEFAULT-navigation drawer opens, from the double — not the network', async () => {
+  it('probes the record-level explain endpoint (delete only — the drawer shows no Edit button) when the DEFAULT-navigation drawer opens, from the double — not the network', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       renderCalendar(calendarNode('plugin-calendar:object-calendar'));
@@ -418,18 +424,16 @@ describe('object-calendar: an authored handler key can no longer crash a gesture
       const event = await screen.findByRole('button', { name: 'Computed Standup' });
       fireEvent.click(event);
 
-      await waitFor(() => expect(explainCalls).toHaveLength(2));
+      await waitFor(() => expect(explainCalls).toHaveLength(1));
+      // Let any further verdict effect run, so a second ask would be counted.
+      await act(async () => {
+        for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+      });
 
-      expect(explainCalls.map((c) => c.url)).toEqual([
-        '/api/v1/security/explain',
-        '/api/v1/security/explain',
+      expect(explainCalls.map((c) => c.url)).toEqual(['/api/v1/security/explain']);
+      expect(explainCalls.map((c) => c.body)).toEqual([
+        { object: 'accounts', operation: 'delete', recordId: 'r1' },
       ]);
-      expect(explainCalls.map((c) => c.body)).toEqual(
-        expect.arrayContaining([
-          { object: 'accounts', operation: 'update', recordId: 'r1' },
-          { object: 'accounts', operation: 'delete', recordId: 'r1' },
-        ]),
-      );
     } finally {
       errors.mockRestore();
     }

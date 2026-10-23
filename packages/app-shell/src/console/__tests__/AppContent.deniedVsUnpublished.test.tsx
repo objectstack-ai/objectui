@@ -565,6 +565,57 @@ describe('AppContent — every screen here states what the probe measured (objec
       expect(screen.getByTestId('pathname').textContent).toBe('/apps/cloud_control'),
     );
   });
+
+  // objectui#13122 — the three retryable verdicts render above `ConsoleLayout`
+  // just as the denial does, so Retry alone was a full-screen dead end for a
+  // stale bookmark or an uninstalled app's link. Each now offers the denial
+  // screen's way home beside Retry: same copy, same navigation.
+  const RETRYABLE_VERDICTS: ReadonlyArray<{ testId: string; arrange: () => void }> = [
+    { testId: 'app-not-found', arrange: () => { byName.finance = () => json(404, ABSENT_BODY); } },
+    {
+      testId: 'app-unreachable',
+      arrange: () => {
+        byName.finance = () => {
+          throw new Error('network down');
+        };
+      },
+    },
+    {
+      testId: 'app-not-available',
+      arrange: () => {
+        adapter = { onConnectionStateChange: () => () => {}, getConnectionState: () => 'connected' };
+      },
+    },
+  ];
+
+  it.each(RETRYABLE_VERDICTS)('the $testId screen offers the way home beside Retry, and it goes home', async ({ testId, arrange }) => {
+    arrange();
+
+    renderConsoleAt('/apps/finance');
+    const home = await screen.findByTestId(`${testId}-home`);
+    expect(home).toHaveTextContent('Back to home');
+    expect(screen.getByTestId(`${testId}-retry`)).toBeInTheDocument();
+    home.click();
+
+    await waitFor(() => expect(screen.getByTestId('pathname').textContent).toBe('/home'));
+    expect(screen.getByTestId('home-launcher')).toBeInTheDocument();
+  });
+
+  // Independent of the way home on purpose: dropping that button leaves these
+  // green, so a red here is Retry itself, never the button beside it.
+  it.each(RETRYABLE_VERDICTS)('CONTROL — Retry on the $testId screen is still drawn and still re-checks', async ({ testId, arrange }) => {
+    arrange();
+
+    renderConsoleAt('/apps/finance');
+    const retry = await screen.findByTestId(`${testId}-retry`);
+    const before = refreshMetadata.mock.calls.length;
+    expect(before).toBeGreaterThan(0);
+    retry.click();
+
+    await waitFor(() => expect(refreshMetadata.mock.calls.length).toBeGreaterThan(before));
+    expect(await screen.findByTestId(`${testId}-retry`)).toBeInTheDocument();
+    expect(screen.getByTestId('pathname').textContent).toBe('/apps/finance');
+  });
 });
 
 /**

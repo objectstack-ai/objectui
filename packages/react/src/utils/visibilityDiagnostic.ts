@@ -227,14 +227,24 @@ const SCOPE_TIER_ADVICE: Record<PredicateScopeTier, string> = {
  * gains a case to answer. That is a type-level change only: no runtime
  * signature moved, and every value that was accepted before still is.
  *
- * `'withholding'` - the app-shell's navigation `visible` gate (objectui#12700).
- * A visibility predicate on a navigation entry, but one whose FAULT is answered
- * fail-CLOSED: the shell withholds an entry whose gate it cannot evaluate (most
- * often a `current_user.can(...)` asked before the permissions payload is
- * there) instead of drawing it for everyone. So the default BITES, and the
- * sentence `'visibility'` prints - "reads on screen exactly like one that said
- * yes" - would be the opposite of what the member sees. Same opening line as
- * `'visibility'`, for the same reason `'concealment'` keeps it.
+ * `'withholding'` - a visibility predicate whose FAULT is answered
+ * fail-CLOSED: the element it gates is withheld - not drawn - instead of being
+ * drawn for everyone. Three gates report through it:
+ *
+ * - the app-shell's navigation `visible` gate (objectui#12700), whose usual
+ *   fault is a `current_user.can(...)` asked before the permissions payload is
+ *   there;
+ * - the `page:tabs` item `visibleWhen` gate (objectui#13286);
+ * - a page node's `visibleWhen` / `visible` / `visibleOn` (objectui#13299), for
+ *   a DECLARED predicate - a blank gate still means "no gate" and still prints
+ *   `'visibility'`.
+ *
+ * So the default BITES, and the sentence `'visibility'` prints - "reads on
+ * screen exactly like one that said yes" - would be the opposite of what the
+ * author sees. The paragraph calls the withheld thing "an element" because one
+ * paragraph serves all three, and a noun for one surface is false on the other
+ * two (objectui#13303). Same opening line as `'visibility'`, for the same
+ * reason `'concealment'` keeps it.
  */
 export type PredicateGateKind = 'visibility' | 'enablement' | 'concealment' | 'withholding';
 
@@ -276,14 +286,18 @@ const GATE_KIND_COPY: Record<PredicateGateKind, { prefix: string; consequence: s
       'in the renderer: the block is missing because the predicate above could\n' +
       'not be evaluated.\n',
   },
-  // The app-shell navigation gate (objectui#12700): fail-CLOSED on a fault.
+  // The fail-CLOSED visibility gates: the app-shell navigation `visible` gate
+  // (objectui#12700), the `page:tabs` item gate (objectui#13286) and a page
+  // node's SHOW legs (objectui#13299). One paragraph serves all three, so it
+  // names what is withheld as "an element", never as one surface's thing
+  // (objectui#13303).
   withholding: {
     prefix: UNRESOLVABLE_VISIBILITY_PREFIX,
     consequence:
-      'The entry was treated as its safe default, which on THIS gate is the one\n' +
-      'that BITES: a navigation entry whose predicate cannot be evaluated is\n' +
-      'WITHHELD - not drawn - until it can be, so a missing entry may be this\n' +
-      'fault rather than a gate that said no.\n',
+      'The element was treated as its safe default, which on THIS gate is the\n' +
+      'one that BITES: an element whose visibility predicate cannot be evaluated\n' +
+      'is WITHHELD - not drawn - until it can be, so a missing element may be\n' +
+      'this fault rather than a gate that said no.\n',
   },
   enablement: {
     prefix: UNRESOLVABLE_ENABLEMENT_PREFIX,

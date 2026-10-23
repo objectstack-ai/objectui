@@ -316,10 +316,15 @@ row becomes its record, so a product page shows a record without being a
 }
 ```
 
-When no row matches — or the server refuses the read — the block draws what it
-draws for a record that is not there: `record:details` its "record not found"
-state, `record:highlights` nothing, `record:quick_actions` an empty bar. A read
-that fails any other way is reported in the block's place. `record:quick_actions`
+When no row matches — or the server refuses the read — the block draws its
+authored `emptyState` in its place, when its `properties` declare one. That is
+the spec's empty-state shape, the one `object-grid` takes: `{ title, message,
+icon, link }`, with `title` and `message` as plain strings or inline locale maps
+and `link` as `{ label, url }`. A block that declares none draws what it draws
+for a record that is not there: `record:details` its "record not found" state,
+`record:highlights` nothing, `record:quick_actions` an empty bar. The empty state
+is never drawn while the read loads, on a block with no `dataSource`, or for a
+read that fails any other way, which is reported in the block's place. `record:quick_actions`
 runs the object's declared actions against the bound row's id. The bound row is
 re-read whenever a write to its object is announced on the page (the data
 source's mutation events, or `notifyDataChanged`). `objectui validate` warns on a
@@ -561,8 +566,23 @@ instead of the rows of an object:
   absolute or protocol-relative `url`, a credential key, or a `method` other
   than `GET` is refused with the spec's message, and no request is sent.
 
-Elements that bind the same URL at the same time share one request. Nothing is
-cached: a page that mounts again reads again.
+Elements that bind the same URL at the same time share one request. A host can
+also keep one open's answers: inside `ElementApiOpenScope` (from
+`@object-ui/react`), a read that has already answered in the same open is
+answered again with no request. The console mounts it and counts one open per
+visit of a history entry, so a navigation entry's `visible` and a page element bound to
+the same URL make one request, even when the entry's read settled first:
+
+- following a link, a navigation entry, or Back and Forward starts a new open,
+  and the page reads again, even on an entry visited before;
+- a redirect that replaces the address (the app root's landing on its first
+  entry) stays in the open;
+- a failed read is not kept, and any declared data change (`notifyDataChanged`,
+  which every save and action reports) drops what the open kept, so a read
+  after a write asks the server.
+
+Outside such a scope nothing is kept beyond the request in flight: a page that
+mounts again reads again.
 
 The console's product-page blocks — `hero`, `stat`, `usage-bar`, `checklist` and
 `tile-grid` — accept this binding in their arms; see the `@object-ui/app-shell`

@@ -1,56 +1,143 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * Guards `ACTION_OPTIONS` against drifting from the server-declared
- * `sys_audit_log.action` enum (objectstack
- * packages/plugins/plugin-audit/src/objects/sys-audit-log.object.ts).
+ * The Audit Log's Action filter offers `sys_audit_log.action`'s declared
+ * options, and an action with no local badge tone gets the neutral badge
+ * (objectui#13175).
  *
- * objectui#4476: this console filter list previously carried three values
- * (`permission_change`, `export`, `restore`) the server never wrote or, by
- * the time this landed, no longer declared — an audit filter that always
- * returns zero rows is a visible product defect ("审计面宁窄勿谎" — narrow
- * but honest beats broad but lying). The corrected member set was itself
- * revised twice mid-flight (see issue comments 2026-08-13/14): `import`
- * turned out to have a real writer (plugin-auth's admin-import-users.ts)
- * and stayed; `restore` turned out to have none and was added to the
- * retirement list after the server enum dropped it in objectstack#8315
- * (landed as `4827e915d`, verified again on objectstack@a5262d5 below).
+ * The filter used to read a hand-kept `ACTION_OPTIONS` list that claimed to
+ * mirror the server's declaration. It fell behind it: `read`,
+ * `platform_admin_standing_change`, `login_failed` and `account_locked` are
+ * declared and written by the server and could not be picked. A guard test
+ * compared that list with a second hand-kept literal, so it stayed green
+ * while both lists were behind the server.
  *
- * The expected list below is written as an INDEPENDENT literal — not
- * derived from `ACTION_OPTIONS` — on purpose. A test that compares a
- * constant to itself (e.g. via a shared source) cannot fail no matter how
- * far the two drift apart; objectstack's own sibling card for this
- * retirement (objectstack#8148) hit exactly that shape of blind spot with
- * a stale prose comment that had been wrong since the day it was written.
- * Keeping this list hand-written means a future edit to either side (a
- * console dev adding an option back, or a server dev changing the enum
- * without checking here) actually turns this test red.
+ * The list is gone. These pins feed `actionFilterOptionsOf` an object
+ * document as the console's metadata serves it and read back what the filter
+ * offers:
+ *  - every declared option, exactly, in declared order — no option dropped
+ *    and none added from anywhere else (`create` is not declared by the
+ *    second fixture and is not offered; `nightly_purge` is a value no code
+ *    names and is offered);
+ *  - each choice keeps its declared value and its declared label;
+ *  - a document with no declared action options offers nothing, never a list
+ *    of the console's own;
+ *  - `actionBadgeVariant` keeps the local tones and gives every other action
+ *    the neutral `outline`.
  */
 import { describe, expect, it } from 'vitest';
-import { ACTION_OPTIONS } from './auditLogActions';
+import * as auditLogActions from './auditLogActions';
+import { actionBadgeVariant, actionFilterOptionsOf } from './auditLogActions';
 
-// Last verified directly against
-// objectstack packages/plugins/plugin-audit/src/objects/sys-audit-log.object.ts
-// at objectstack@a5262d5 (2026-08-15). Update this literal by hand whenever
-// the server enum changes — that is the point of the guard.
-const SERVER_ACTION_ENUM = [
+/**
+ * `sys_audit_log.action` as objectstack's `sys-audit-log.object.ts` declares it
+ * (`Field.select` over a list of strings, so each label is its value). A
+ * fixture, not a mirror: the filter reads whatever the server serves, so this
+ * literal never has to follow the server's list again.
+ */
+const SERVER_DECLARED = [
   'create',
+  'read',
   'update',
   'delete',
   'login',
   'logout',
+  'login_failed',
+  'account_locked',
   'config_change',
   'import',
+  'platform_admin_standing_change',
 ];
 
-describe('ACTION_OPTIONS', () => {
-  it('matches the server-declared sys_audit_log.action enum exactly', () => {
-    expect([...ACTION_OPTIONS].sort()).toEqual([...SERVER_ACTION_ENUM].sort());
+/** A served `sys_audit_log` document whose `action` declares these options. */
+function auditObject(options: unknown): Record<string, unknown> {
+  return {
+    name: 'sys_audit_log',
+    label: 'Audit Log',
+    fields: {
+      created_at: { type: 'datetime', label: 'Timestamp' },
+      action: { type: 'select', label: 'Action', options },
+      user_id: { type: 'lookup', reference: 'sys_user', label: 'User' },
+    },
+  };
+}
+
+describe('actionFilterOptionsOf (objectui#13175)', () => {
+  it('offers every declared option of sys_audit_log.action, exactly and in declared order', () => {
+    const served = auditObject(SERVER_DECLARED.map((value) => ({ label: value, value })));
+
+    const offered = actionFilterOptionsOf(served);
+
+    expect(offered).toHaveLength(SERVER_DECLARED.length);
+    expect(offered.map((o) => o.value)).toEqual(SERVER_DECLARED);
+    // The four the hand-kept list could not offer.
+    for (const action of ['read', 'platform_admin_standing_change', 'login_failed', 'account_locked']) {
+      expect(offered.map((o) => o.value)).toContain(action);
+    }
   });
 
-  it('does not carry any of the retired action values', () => {
-    for (const retired of ['permission_change', 'export', 'restore']) {
-      expect(ACTION_OPTIONS).not.toContain(retired);
+  it('offers only what is declared: an undeclared action is absent and a value no code names is offered', () => {
+    const served = auditObject([
+      { label: 'Signed in', value: 'login' },
+      { label: 'Nightly purge', value: 'nightly_purge' },
+    ]);
+
+    expect(actionFilterOptionsOf(served)).toEqual([
+      { value: 'login', label: 'Signed in' },
+      { value: 'nightly_purge', label: 'Nightly purge' },
+    ]);
+  });
+
+  it('labels each choice as the server declares it, and a blank label reads as the value', () => {
+    const served = auditObject([
+      { label: 'Sign-in refused', value: 'login_failed' },
+      { label: '  ', value: 'account_locked' },
+    ]);
+
+    expect(actionFilterOptionsOf(served)).toEqual([
+      { value: 'login_failed', label: 'Sign-in refused' },
+      { value: 'account_locked', label: 'account_locked' },
+    ]);
+  });
+
+  it('offers nothing when no action options are served, never a list of its own', () => {
+    expect(actionFilterOptionsOf(undefined)).toEqual([]);
+    expect(actionFilterOptionsOf({ name: 'sys_audit_log' })).toEqual([]);
+    expect(actionFilterOptionsOf({ name: 'sys_audit_log', fields: {} })).toEqual([]);
+    expect(actionFilterOptionsOf(auditObject(undefined))).toEqual([]);
+    expect(actionFilterOptionsOf(auditObject([]))).toEqual([]);
+  });
+
+  it('skips an option with no value, which a select item cannot carry', () => {
+    const served = auditObject([{ label: 'Nothing', value: '' }, null, { label: 'Created', value: 'create' }]);
+
+    expect(actionFilterOptionsOf(served)).toEqual([{ value: 'create', label: 'Created' }]);
+  });
+
+  it('the module exports no list of actions', () => {
+    for (const [name, value] of Object.entries(auditLogActions)) {
+      expect(Array.isArray(value), `${name} is an array`).toBe(false);
     }
+  });
+});
+
+describe('actionBadgeVariant (objectui#13175)', () => {
+  it('keeps the local tone of an action that has one', () => {
+    expect(actionBadgeVariant('create')).toBe('default');
+    expect(actionBadgeVariant('update')).toBe('secondary');
+    expect(actionBadgeVariant('delete')).toBe('destructive');
+  });
+
+  it('gives a declared action with no local tone the neutral outline badge', () => {
+    for (const action of ['read', 'platform_admin_standing_change', 'login_failed', 'account_locked', 'nightly_purge']) {
+      expect(actionBadgeVariant(action)).toBe('outline');
+    }
+  });
+
+  it('gives a missing action, or one spelled like an Object.prototype member, the neutral badge', () => {
+    expect(actionBadgeVariant(undefined)).toBe('outline');
+    expect(actionBadgeVariant(null)).toBe('outline');
+    expect(actionBadgeVariant('')).toBe('outline');
+    expect(actionBadgeVariant('constructor')).toBe('outline');
   });
 });

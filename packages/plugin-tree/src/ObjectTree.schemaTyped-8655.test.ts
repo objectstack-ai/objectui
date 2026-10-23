@@ -402,11 +402,14 @@ describe('objectui#8655 — the spec has no element schema for this node', () =>
 });
 
 describe('objectui#8655 — `navigation` is objectui#8652\'s, its unlock HAS happened, and objectui#11168 mirrored it', () => {
-  it('the spec declares it on seven element entries since 17.5.0, this one included', () => {
+  it('the spec declares it on seven element entries since 17.5.0, this one included, and on the `list-view` row', () => {
     // Through 17.4.0: ONE entry, `object-grid`, and not this one. 17.5.0 met
     // objectui#8652's unlock criterion (objectui#11073); mirroring is that
-    // card's ruled second step.
+    // card's ruled second step. The spec after 18.0.0-next.3 gives `list-view`
+    // a `ComponentPropsMap` row (objectstack#22444), the list view's own
+    // schema, which carries the view-level `navigation` (objectui#12971).
     expect(specElementsDeclaring('navigation')).toEqual([
+      'list-view',
       'object-calendar',
       'object-gantt',
       'object-grid',
@@ -461,10 +464,13 @@ describe('objectui#8655 — `tree` was a VIEW-level block, and since 17.5.0 the 
     expect(blockKeys).toEqual(['defaultExpandedDepth', 'fields', 'labelField', 'parentField']);
   });
 
-  it('…and ONE element face declares a `tree` key since 17.5.0 — this node\'s (control: one key that IS on four)', () => {
+  it('…and ONE element face declares a `tree` key since 17.5.0 — this node\'s — beside the `list-view` row (control: one key that IS on four)', () => {
     // `[]` through 17.4.0. The premise this describe is named for expired at
     // the bump (objectui#11073): see the UPDATE note in this file's header.
-    expect(specElementsDeclaring('tree')).toEqual(['object-tree']);
+    // The `list-view` row the spec gained after 18.0.0-next.3 (objectstack#22444)
+    // is the list view's own schema, so its `tree` IS the view-level block this
+    // describe is named for, not a second element face (objectui#12971).
+    expect(specElementsDeclaring('tree')).toEqual(['list-view', 'object-tree']);
     // FIRING CONTROL on that zero, same instrument, same corpus.
     expect(specElementsDeclaring('filter').length).toBeGreaterThan(3);
   });

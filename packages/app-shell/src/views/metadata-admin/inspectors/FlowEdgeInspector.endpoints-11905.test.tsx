@@ -85,7 +85,7 @@ describe('From / To re-point the connection (objectui#11905)', () => {
     const patch = onPatch.mock.calls[0][0] as { edges: unknown[] };
     expect(Object.keys(patch), 'the edges alone; no node is rewritten').toEqual(['edges']);
     expect(patch.edges).toEqual([d.edges[0], { id: 'e2', source: 'notify_1', target: 'review', label: 'done' }, d.edges[2]]);
-    expect(onSelectionChange).toHaveBeenCalledWith({ kind: 'edge', id: 'e2', label: 'notify_1 → review' });
+    expect(onSelectionChange).toHaveBeenCalledWith({ kind: 'edge', id: 'e2', label: 'Tell the owner → Review' });
   });
 
   it('an edge with no id is re-selected under the key its new endpoints make', async () => {
@@ -94,7 +94,7 @@ describe('From / To re-point the connection (objectui#11905)', () => {
     const { onPatch, onSelectionChange } = renderEdge(d, 'notify_1->end#1');
     await pick('From', 'Review');
     expect((onPatch.mock.calls[0][0] as { edges: unknown[] }).edges[1]).toEqual({ source: 'review', target: 'end' });
-    expect(onSelectionChange).toHaveBeenCalledWith({ kind: 'edge', id: 'review->end#1', label: 'review → end' });
+    expect(onSelectionChange).toHaveBeenCalledWith({ kind: 'edge', id: 'review->end#1', label: 'Review → End' });
   });
 
   it('a From naming no node shows flagged, and picking a real node repairs the edge', async () => {

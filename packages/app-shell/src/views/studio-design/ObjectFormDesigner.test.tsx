@@ -11,6 +11,7 @@ import React from 'react';
 import { I18nProvider, createI18n } from '@object-ui/i18n';
 import { ObjectFormDesigner } from './ObjectFormDesigner';
 import { toFormFieldType } from './formFieldType';
+import { t } from '../metadata-admin/i18n';
 
 /** Build an array-shape `draft.fields` with `n` plain text fields. */
 function textFields(n: number): Array<Record<string, unknown>> {
@@ -298,7 +299,7 @@ describe('ObjectFormDesigner — emits the one legal `FormField.type` spelling (
     expect(card.className).toContain('col-span-full');
   });
 
-  it('keeps a bare rich-text field wide, and still shows the admin the SPEC spelling', () => {
+  it('keeps a bare rich-text field wide, and never shows the admin the widget id', () => {
     render(
       <ObjectFormDesigner
         draft={{ fields: [...textFields(15), { name: 'body', type: 'markdown', label: 'Body' }] }}
@@ -309,10 +310,10 @@ describe('ObjectFormDesigner — emits the one legal `FormField.type` spelling (
     );
     const card = screen.getByText('Body').closest('.cursor-grab') as HTMLElement;
     expect(card.className).toContain('col-span-full');
-    // The normalization is for FORM vocabulary only. The visible type hint and
-    // the control preview still speak the object-metadata vocabulary, so the
-    // admin reads `markdown` — what they declared — not `field:markdown`.
-    expect(card.textContent).toContain('markdown');
+    // The normalization is for FORM vocabulary only: the widget id never
+    // reaches the card. Its type tag names the type the way the type picker
+    // does (objectui#13148), read through the catalog's row.
+    expect(card.textContent).toContain(t('engine.fieldType.markdown', 'en-US'));
     expect(card.textContent).not.toContain('field:markdown');
   });
 });

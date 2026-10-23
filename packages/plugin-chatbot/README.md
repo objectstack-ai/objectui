@@ -414,6 +414,26 @@ declare const messages: ChatbotEnhancedMessage[];
 />;
 ```
 
+A host can add its own row to the prompt area with `promptHeaderSlot`. The row
+is laid out in flow directly above the prompt input (and outside its form), so
+the conversation gives up the room and the row never covers the input or the
+last message. Content that renders nothing takes no space. Use it for standing
+affordances such as an "unpublished changes" bar; `promptOverlaySlot` stays the
+absolute-positioned overlay for slash-command palettes.
+
+```tsx
+import { ChatbotEnhanced, type ChatbotEnhancedMessage } from '@object-ui/plugin-chatbot';
+
+declare const messages: ChatbotEnhancedMessage[];
+declare const pendingChanges: number;
+
+<ChatbotEnhanced
+  messages={messages}
+  surface="plain"
+  promptHeaderSlot={pendingChanges > 0 ? <div>{pendingChanges} changes are not published yet</div> : null}
+/>;
+```
+
 ### Agent process visibility
 
 `ChatbotEnhanced` defaults to an end-user friendly agent process view. Tool

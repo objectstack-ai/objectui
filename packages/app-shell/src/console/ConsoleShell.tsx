@@ -50,6 +50,7 @@ import { LoadingScreen } from '../chrome/LoadingScreen.js';
 import { RedirectWithSplash } from '../chrome/RedirectWithSplash.js';
 import { RemediationOverlay } from './RemediationOverlay.js';
 import { HostNavigationBridge } from './HostNavigationBridge.js';
+import { ConsoleElementApiOpen } from './ConsoleElementApiOpen.js';
 import { ImpersonationBanner } from '../layout/ImpersonationBanner.js';
 import { ReadRateBanner } from '../layout/ReadRateBanner.js';
 import { StorageUsageBanner } from '../layout/StorageUsageBanner.js';
@@ -312,10 +313,15 @@ function ConnectedShellInner({ children }: { children: ReactNode }) {
   return (
     <SchemaRendererProvider dataSource={adapter} apiFetch={apiProviderFetch}>
       <MetadataProvider key={language} adapter={adapter}>
-        <UserStateBridge />
-        <GlobalActionRuntimeProvider dataSource={adapter}>
-          {children}
-        </GlobalActionRuntimeProvider>
+        {/* objectui#13323 — one open's API reads, shared by the navigation's
+            gates and the page's elements. Inside the language key, so a
+            switch of language reads again. */}
+        <ConsoleElementApiOpen>
+          <UserStateBridge />
+          <GlobalActionRuntimeProvider dataSource={adapter}>
+            {children}
+          </GlobalActionRuntimeProvider>
+        </ConsoleElementApiOpen>
       </MetadataProvider>
     </SchemaRendererProvider>
   );

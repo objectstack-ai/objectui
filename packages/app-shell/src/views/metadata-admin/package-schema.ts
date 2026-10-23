@@ -70,11 +70,14 @@ export function getPackageSchema(): JsonSchema | undefined {
 /**
  * Curated authoring FormView for a package manifest.
  *
- * `id` / `type` / `namespace` / `defaultDatasource` / `scope` / `dependencies`
- * are marked `immutable` — editable when CREATING (SchemaForm `createMode`;
- * `scope` has no create row, see below) but locked once the package exists, because the REST `PATCH /packages/:id`
- * only persists `name` / `description` / `version`. `name` / `version` /
- * `description` stay editable in every non-view mode.
+ * `id` / `type` / `namespace` / `defaultDatasource` / `scope` are marked
+ * `immutable` — editable when CREATING (SchemaForm `createMode`; `scope` has
+ * no create row, see below) but locked once the package exists, because the
+ * REST `PATCH /packages/:id` does not persist them. `name` / `version` /
+ * `description` / `dependencies` stay editable in every non-view mode: the
+ * PATCH door persists those four, judging `dependencies` by the same
+ * `ManifestSchema` row this form is derived from (objectstack#24670,
+ * objectui#13121).
  *
  * ## Help text (`add10d8f9`)
  *
@@ -178,7 +181,6 @@ export function getPackageForm(locale: string, { create = false }: { create?: bo
             field: 'dependencies',
             label: t('engine.packages.form.dependencies', locale),
             helpText: tOptional('engine.packages.form.help.dependencies', locale),
-            immutable: true,
           },
         ],
       },

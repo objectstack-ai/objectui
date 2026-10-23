@@ -60,7 +60,7 @@ describe('withBranchTargets — Target column derivation (#1942)', () => {
 
 describe('applyDecisionBranches — commit reconciliation (#1942)', () => {
   it('strips the virtual target column from the stored conditions', () => {
-    const { conditions } = applyDecisionBranches(DEC, [{ label: 'A', expression: 'a', target: 'n1' }], []);
+    const { conditions } = applyDecisionBranches(DEC, [{ label: 'A', expression: 'a', target: 'n1' }], [], []);
     expect(conditions).toEqual([{ label: 'A', expression: 'a' }]);
   });
 
@@ -71,6 +71,7 @@ describe('applyDecisionBranches — commit reconciliation (#1942)', () => {
         { label: 'Yes', expression: 'amount > 10', target: 'n_yes' },
         { label: 'Else', expression: 'true', target: 'n_no' },
       ],
+      [],
       [],
     );
     expect(edges).toEqual([
@@ -95,20 +96,27 @@ describe('applyDecisionBranches — commit reconciliation (#1942)', () => {
         { label: 'C', expression: 'c', target: 'n3' },
       ],
       existing,
+      [{ label: 'A', expression: 'a' }],
     );
     expect(edges.map((e) => e.id)).toEqual(['edge_1', 'edge_2', 'edge_3', 'edge_4']);
     expect(new Set(edges.map((e) => e.id)).size).toBe(edges.length);
   });
 
   it('updates the existing edge in place, carrying condition/label/default', () => {
+    // The branch's own edge: the stored branch it replaces owned it (objectui#13138 —
+    // a conditioned edge no branch owns is never rewritten, see the addBranch pins).
     const existing = [edge({ id: 'e1', target: 'n1', condition: 'old' })];
-    const { edges } = applyDecisionBranches(DEC, [{ label: 'A', expression: 'fresh', target: 'n1' }], existing);
+    const { edges } = applyDecisionBranches(DEC, [{ label: 'A', expression: 'fresh', target: 'n1' }], existing, [
+      { label: 'A', expression: 'old' },
+    ]);
     expect(edges).toEqual([{ id: 'e1', source: DEC, target: 'n1', label: 'A', condition: 'fresh' }]);
   });
 
   it('retargets the branch’s bound edge when a different node is picked (edge identity kept)', () => {
     const existing = [edge({ id: 'e1', target: 'n1', condition: 'a', label: 'A' })];
-    const { edges } = applyDecisionBranches(DEC, [{ label: 'A', expression: 'a', target: 'n3' }], existing);
+    const { edges } = applyDecisionBranches(DEC, [{ label: 'A', expression: 'a', target: 'n3' }], existing, [
+      { label: 'A', expression: 'a' },
+    ]);
     expect(edges).toEqual([{ id: 'e1', source: DEC, target: 'n3', label: 'A', condition: 'a' }]);
   });
 
@@ -125,6 +133,10 @@ describe('applyDecisionBranches — commit reconciliation (#1942)', () => {
         { label: 'B', expression: 'b', target: 'n1' },
       ],
       existing,
+      [
+        { label: 'A', expression: 'a' },
+        { label: 'B', expression: 'b' },
+      ],
     );
     expect(edges).toEqual([
       { id: 'eA', source: DEC, target: 'n3', label: 'A', condition: 'a' },
@@ -144,6 +156,10 @@ describe('applyDecisionBranches — commit reconciliation (#1942)', () => {
         { label: 'Else', expression: 'true', target: 'n2' },
       ],
       existing,
+      [
+        { label: 'A', expression: 'a' },
+        { label: 'Else', expression: 'true' },
+      ],
     );
     expect(edges).toEqual([{ id: 'e2', source: DEC, target: 'n2', label: 'Else', isDefault: true }]);
   });
@@ -161,6 +177,7 @@ describe('applyDecisionBranches — commit reconciliation (#1942)', () => {
         { label: 'New', expression: 'n' }, // no target, binds nothing
       ],
       existing,
+      [{ label: 'A', expression: 'a' }],
     );
     expect(edges).toEqual(existing.map((e, i) => (i === 2 ? { ...e, label: 'A' } : e)));
   });
@@ -174,6 +191,7 @@ describe('applyDecisionBranches — commit reconciliation (#1942)', () => {
         { label: 'Else', expression: 'true' },
       ],
       existing,
+      [],
     );
     expect(conditions).toEqual([
       { label: 'A', expression: 'a' },
@@ -190,7 +208,7 @@ describe('applyDecisionBranches — commit reconciliation (#1942)', () => {
       { label: 'Yes', expression: 'amount > 10', target: 'n_yes' },
       { label: 'Else', expression: 'true', target: 'n_no' },
     ];
-    const { conditions, edges } = applyDecisionBranches(DEC, committed, []);
+    const { conditions, edges } = applyDecisionBranches(DEC, committed, [], []);
     // The edge the picker (#1930) would select for each branch is the one we
     // wrote — and the display derivation re-injects the exact same targets.
     expect(edges.every((e, i) => edgeBindsBranch(conditions[i], e))).toBe(true);
@@ -213,6 +231,7 @@ describe('syncDecisionEdgesByOrder — legacy #1927 mirror', () => {
         { label: 'Else', expression: 'true' },
       ],
       edges,
+      [],
     );
     expect(out).toEqual([
       edges[0],
@@ -223,7 +242,7 @@ describe('syncDecisionEdgesByOrder — legacy #1927 mirror', () => {
   });
 
   it('an empty expression clears both guard and default flag', () => {
-    const out = syncDecisionEdgesByOrder(DEC, [{ label: 'A' }], [edge({ target: 'n1', condition: 'x', isDefault: true })]);
+    const out = syncDecisionEdgesByOrder(DEC, [{ label: 'A' }], [edge({ target: 'n1', condition: 'x', isDefault: true })], []);
     expect(out).toEqual([{ source: DEC, target: 'n1', label: 'A' }]);
   });
 });
@@ -271,11 +290,12 @@ describe('spec gate — every produced edge satisfies FlowEdgeSchema (#3202)', (
             { label: 'Else', expression: 'true', target: 'n_no' },
           ],
           [],
+          [],
         ).edges,
     },
     {
       name: 'applyDecisionBranches — created default edge (no condition, isDefault)',
-      produce: () => applyDecisionBranches(DEC, [{ label: 'Else', expression: 'true', target: 'n_no' }], []).edges,
+      produce: () => applyDecisionBranches(DEC, [{ label: 'Else', expression: 'true', target: 'n_no' }], [], []).edges,
     },
     {
       name: 'applyDecisionBranches — mixes creation with update-in-place and retarget',
@@ -287,6 +307,7 @@ describe('spec gate — every produced edge satisfies FlowEdgeSchema (#3202)', (
             { label: 'B', expression: 'b', target: 'n2' },
           ],
           [{ id: 'edge_1', source: DEC, target: 'n1', condition: 'a', label: 'A' }],
+          [{ label: 'A', expression: 'a' }],
         ).edges,
     },
     {
@@ -303,6 +324,10 @@ describe('spec gate — every produced edge satisfies FlowEdgeSchema (#3202)', (
             { id: 'edge_2', source: DEC, target: 'n2', isDefault: true },
             { id: 'edge_3', source: DEC, target: 'n_err', type: 'fault' },
           ],
+          [
+            { label: 'A', expression: 'a' },
+            { label: 'Else', expression: 'true' },
+          ],
         ).edges,
     },
     {
@@ -312,6 +337,7 @@ describe('spec gate — every produced edge satisfies FlowEdgeSchema (#3202)', (
           DEC,
           [{ label: 'Hot', expression: 'score > 90', target: 'n1' }],
           [{ id: 'edge_1', source: DEC, target: 'n1', condition: { dialect: 'cel', source: 'score > 90' } }],
+          [{ label: 'Hot', expression: 'score > 90' }],
         ).edges,
     },
     {
@@ -327,6 +353,7 @@ describe('spec gate — every produced edge satisfies FlowEdgeSchema (#3202)', (
             { id: 'edge_1', source: DEC, target: 'n1' },
             { id: 'edge_2', source: DEC, target: 'n2' },
           ],
+          [],
         ).edges,
     },
     {
@@ -344,6 +371,7 @@ describe('spec gate — every produced edge satisfies FlowEdgeSchema (#3202)', (
             { id: 'edge_3', source: DEC, target: 'n2', condition: 'stale', isDefault: false },
             { id: 'edge_4', source: DEC, target: 'n3', type: 'back' },
           ],
+          [],
         ),
     },
     {
@@ -353,6 +381,7 @@ describe('spec gate — every produced edge satisfies FlowEdgeSchema (#3202)', (
           DEC,
           [{ label: 'A' }],
           [{ id: 'edge_1', source: DEC, target: 'n1', condition: 'x', isDefault: true }],
+          [],
         ),
     },
   ];

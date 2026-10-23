@@ -195,6 +195,22 @@ has none, the list is empty, or the load fails, the field is a text box that
 takes the typed name; a failure is shown with its cause, and the box stays
 editable.
 
+## A widget's face on the record heading
+
+A `text` field that declares `widget: 'recipient-picker'` or `widget: 'object-ref'` is drawn
+in a list column through the read cell registered under that widget's key, which names what
+the stored value references. When that field is also the object's `nameField`, the record
+page heading draws the value through the same cell: a record share heads its page with the
+recipient's name, not the user id it stores. Nothing is authored for this; the `widget`
+declaration on the field is the whole contract.
+
+The heading lives in `@object-ui/components`, which this package depends on and so cannot be
+imported from here the other way round. `@object-ui/components` therefore owns a slot,
+`setFieldReadFaceResolver` / `resolveFieldReadFace`, and this package fills it when it loads with the
+lookup the list cells make. The widget's key draws the stored text until a host registers a
+face under it (the console registers its own), and while it does, the heading prints the
+stored value as before. So does a host that does not load `@object-ui/fields`.
+
 ## Using Renderers in Custom Components
 
 If you are building your own custom component (like a Kanban board card), you can leverage the registry to render fields without reinventing the wheel.

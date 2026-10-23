@@ -114,7 +114,25 @@ export function Combobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
+                  // `value` stays the option's value: it is what cmdk hands
+                  // `onSelect`, so it is what a pick commits.
                   value={option.value}
+                  // objectui#13229 — cmdk filters on `value` plus `keywords`
+                  // and never reads the children, so with `value` alone a
+                  // visible label that is not inside the value ("Opportunities"
+                  // for `crm_opp`, a user's name for a record id, a Chinese
+                  // label) matched nothing. The label is passed as a keyword,
+                  // so typing either the label or the value finds the option.
+                  //
+                  // `label` is declared `string` on both faces of
+                  // `ComboboxOption`, but the `combobox` schema node hands this
+                  // component its options straight from JSON, unvalidated at
+                  // render. cmdk calls `.trim()` on every keyword, so a number
+                  // or missing label passed through would throw and take the
+                  // picker down, where before this change it rendered. Such an
+                  // option gets no keyword and stays searchable by its value
+                  // only, exactly as before: nothing is coerced or widened.
+                  keywords={typeof option.label === "string" ? [option.label] : undefined}
                   // objectui#7687 — `options[].disabled` is declared by
                   // `@object-ui/types` and validated by the zod mirror, so it
                   // has to be READ; the sibling select renderer already spells

@@ -13,7 +13,7 @@
  * Aligns with @objectstack/spec FormView type: 'modal'
  */
 
-import React, { Suspense, useState, useCallback, useEffect, useMemo, useId, useRef } from 'react';
+import React, { Suspense, startTransition, useState, useCallback, useEffect, useMemo, useId, useRef } from 'react';
 import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSection } from '@object-ui/types';
 import {
   Dialog,
@@ -80,6 +80,7 @@ import {
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 import { useRecordInvalidation } from './recordInvalidation';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
+import { useInitialFieldFocus } from './initialFieldFocus';
 
 // Localized strings for the unsaved-changes guard and, since objectui#11039,
 // the form's own chrome (the default submit and cancel labels and the
@@ -137,6 +138,12 @@ export interface ModalFormSectionConfig {
    * engine and the host predicate scope (#6010/#6111). Fails OPEN.
    */
   visibleWhen?: string | { dialect?: string; source: string };
+  /**
+   * The fault direction of {@link visibleWhen}, by reference to
+   * `ObjectFormSection.visibleWhenFault` (objectui#13055): `'hidden'` (a field
+   * group's predicate) hides the section when it cannot be evaluated.
+   */
+  visibleWhenFault?: ObjectFormSection['visibleWhenFault'];
   /** Custom CSS class for the section's header row (stacked layout). */
   className?: string;
   /**
@@ -353,6 +360,17 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   // inside `resolveSectionCollapse`, the one reader of that member — the same
   // shape as ObjectForm's grouped layout and DrawerForm (objectui#9849).
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  // objectui#13246 — a section toggle is a TRANSITION. Opening a group draws
+  // its field widgets, which are `React.lazy`, so the first time a type is
+  // drawn the render suspends. As an ordinary update that suspension hid the
+  // drawn body behind `ModalFormBodyPending` — the header the user had just
+  // pressed included — and a browser drops focus from an element it stops
+  // rendering, so the dialog's focus scope ended up holding it. As a
+  // transition React keeps the drawn body on screen until the group's rows can
+  // be drawn: the header keeps focus, and the next Tab reaches the group's
+  // first field.
+  const setSectionCollapsed = (key: string, next: boolean) =>
+    startTransition(() => setCollapsedSections((prev) => ({ ...prev, [key]: next })));
   // OCC-guarded edit save + its conflict dialog (see occSave.tsx).
   const { saveWithOcc, conflictDialog } = useOccSave();
   // Whether the pending close came from the explicit Cancel button (so we fire
@@ -368,6 +386,11 @@ export const ModalForm: React.FC<ModalFormProps> = ({
 
   // Stable form id for linking the external submit button to the form element
   const formId = useId();
+
+  // objectui#13130 — the dialog opens on its first editable field, not on its
+  // Close button: the body loads after the content mounts, so Radix's own
+  // first-tabbable pick found only Close. See `initialFieldFocus.ts`.
+  const initialFieldFocus = useInitialFieldFocus();
 
   // `form.sections[].group` (objectui#11542): a section that points `group` at
   // one of the object's `fieldGroups` becomes the section that group declares,
@@ -903,11 +926,12 @@ export const ModalForm: React.FC<ModalFormProps> = ({
                 title,
                 description: section.description,
                 where: `ModalForm section '${key}' of object '${schema.objectName}'`,
-                setCollapsed: (next) => setCollapsedSections((prev) => ({ ...prev, [key]: next })),
+                setCollapsed: (next) => setSectionCollapsed(key, next),
               }),
             // Key-by-key rebuild: an uncopied key never reaches the divider
             // synthesis below (#6111).
             visibleWhen: section.visibleWhen,
+            visibleWhenFault: section.visibleWhenFault,
             className: section.className,
             gridClassName: section.gridClassName,
             fields: sectionGrid.layOut(body, section.columns),
@@ -940,6 +964,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
             // divider; the renderer evaluates it and hides trigger, panel
             // and fields together under the ruled hidden-group semantics.
             visibleWhen: g.visibleWhen,
+            visibleWhenFault: g.visibleWhenFault,
           })),
         };
         return <SchemaRenderer schema={tabbedFormSchema} />;
@@ -964,6 +989,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
             title: g.title,
             description: g.description,
             visibleWhen: g.visibleWhen,
+            visibleWhenFault: g.visibleWhenFault,
             members: g.fields.map((f) => f.name),
             className: g.className,
             collapse,
@@ -1002,7 +1028,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
           title,
           description: section.description,
           where: `ModalForm field group '${key}' of object '${schema.objectName}'`,
-          setCollapsed: (next) => setCollapsedSections((prev) => ({ ...prev, [key]: next })),
+          setCollapsed: (next) => setSectionCollapsed(key, next),
         });
         // The ONE path (objectui#9849). This push is the site the card was
         // filed on: it rebuilt the row key by key WITHOUT `description`, while
@@ -1014,6 +1040,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
             title,
             description: section.description,
             visibleWhen: (section as any).visibleWhen,
+            visibleWhenFault: section.visibleWhenFault,
             members: body.map((f) => f.name),
             collapse,
           }),
@@ -1090,7 +1117,12 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   if (subforms?.length && schema.mode !== 'view') {
     return (
       <Dialog open={isOpen} onOpenChange={schema.onOpenChange}>
-        <MobileDialogContent showCloseButton={showCloseButton} className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
+        <MobileDialogContent
+          showCloseButton={showCloseButton}
+          onOpenAutoFocus={initialFieldFocus.onOpenAutoFocus}
+          onCloseAutoFocus={initialFieldFocus.onCloseAutoFocus}
+          className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}
+        >
           {(schema.title || schema.description) && (
             <DialogHeader className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6 pb-2 border-b">
               {schema.title && <DialogTitle>{schema.title}</DialogTitle>}
@@ -1144,7 +1176,12 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         attemptClose(false);
       }}
     >
-      <MobileDialogContent showCloseButton={showCloseButton} className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
+      <MobileDialogContent
+        showCloseButton={showCloseButton}
+        onOpenAutoFocus={initialFieldFocus.onOpenAutoFocus}
+        onCloseAutoFocus={initialFieldFocus.onCloseAutoFocus}
+        className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}
+      >
         {(schema.title || schema.description) && (
           <DialogHeader className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6 pb-2 border-b">
             {schema.title && <DialogTitle>{schema.title}</DialogTitle>}
@@ -1258,6 +1295,13 @@ export const ModalForm: React.FC<ModalFormProps> = ({
  * section the user opened is open and every typed value is kept when the
  * widget lands. Distinct from `modal-form-skeleton`, which is the record READ's
  * loading state.
+ *
+ * A section toggle no longer reaches it (objectui#13246): the toggle is a
+ * transition (`setSectionCollapsed`), which keeps the drawn body on screen
+ * instead. Hiding the body hid the header the user had just pressed, and a
+ * browser drops focus from an element it stops rendering. The boundary still
+ * owns every wait an ordinary update starts, the body's first draw after the
+ * load among them.
  */
 function ModalFormBodyPending() {
   return (

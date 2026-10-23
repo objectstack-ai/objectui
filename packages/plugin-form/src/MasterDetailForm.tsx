@@ -59,6 +59,8 @@ import {
   type ChildSchema,
 } from './masterDetailTx';
 import { isSameStoredValue } from './sanitize';
+import { resolveInitialRecord } from './initialRecord';
+import { sectionEntryName } from './sectionFields';
 import { deriveDetail } from './deriveMasterDetail';
 // objectui#11428 — the per-row form's offer test is the spec's rule.
 import { isInlineRowFormOffered } from '@objectstack/spec/data';
@@ -605,13 +607,129 @@ function linesUnsaved(
 }
 
 /**
- * Read the live header record from the rendered parent-form host by scraping its
- * named controls. The header is owned by react-hook-form (inside <ObjectForm>),
- * which exposes no values callback here; rather than couple into its internals
- * we read the DOM the same way the tax-rate stack does. Radix <Select> renders a
- * visually-hidden native `<select name=...>` for form participation, so selects
- * (e.g. an invoice `status`) are captured too, and a user's pick dispatches a
- * bubbling `change` the host listener catches.
+ * The header's RECORD, as the header itself obtained it (objectui#13062): the
+ * record its edit-mode read answered, or the record a create form opens on;
+ * and the header object's FIELD NAMES, as its schema read answered them.
+ *
+ * The line grids evaluate their `parent.*` rules against the record, and the
+ * totals stack asks whether the header carries the tax-rate field. Before
+ * #13062 both read a DOM scrape of the header taken at mount and on three
+ * timers (120 / 360 / 800 ms), so a header that answered later than the last
+ * tick left `parent` empty: a stored paid invoice opened with its locked line
+ * cells editable.
+ *
+ * A listener set, not React state in <MasterDetailForm>: a landing reaches only
+ * <MasterDetailLines>, and never re-renders the header <ObjectForm> (#1581).
+ */
+interface HeaderRecordFeed {
+  /** The latest record; read by a subscriber that mounts after a landing. */
+  record: Record<string, unknown>;
+  /** The header object's field names, once its schema read has answered. */
+  objectFields: readonly string[] | null;
+  /** Bumped per header record read started, so only the newest answer lands. */
+  seq: number;
+  listeners: Set<(landed: 'record' | 'objectFields') => void>;
+}
+
+function createHeaderRecordFeed(opening: Record<string, unknown>): HeaderRecordFeed {
+  return { record: opening, objectFields: null, seq: 0, listeners: new Set() };
+}
+
+/**
+ * The data source the header <ObjectForm> reads through, observing the two
+ * reads that ARE the header's record and field set: `findOne(objectName,
+ * recordId)` and `getObjectSchema(objectName)`. The header's own value channels
+ * do not carry them. <ObjectForm> forwards no value callback to its host, and
+ * the form renderer's `onChange` keeps a `defaultValues` reset (the record
+ * landing) off its channel by design (#2968, #5235). The read itself is the
+ * moment the record lands, and every re-read of it (a data-invalidation
+ * re-read, a remount) lands here too.
+ *
+ * Every call is passed through untouched: the same arguments, the same
+ * promise back (its rejection still reaches the header), with `this` the
+ * caller's own data source. A read of any other record or object (a lookup's
+ * display read, say) is not observed.
+ */
+function observeHeaderReads(
+  dataSource: DataSource | undefined,
+  objectName: string,
+  recordId: string | number | undefined,
+  feed: HeaderRecordFeed,
+): DataSource | undefined {
+  if (!dataSource) return dataSource;
+  const readsRecord = recordId !== undefined && recordId !== null && recordId !== '';
+  const bound = new Map<PropertyKey, unknown>();
+  const observe = (answer: unknown, land: (value: unknown) => void) => {
+    // The header reports its own failed read; nothing lands here.
+    Promise.resolve(answer).then(land, () => undefined);
+  };
+  return new Proxy(dataSource, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop, target);
+      if (typeof value !== 'function') return value;
+      if (!bound.has(prop)) {
+        const call = (args: unknown[]) => (value as (...a: unknown[]) => unknown).apply(target, args);
+        let wrapped: unknown;
+        if (prop === 'findOne' && readsRecord) {
+          wrapped = (...args: unknown[]) => {
+            const answer = call(args);
+            if (args[0] === objectName && String(args[1]) === String(recordId)) {
+              const seq = ++feed.seq;
+              observe(answer, (record) => {
+                if (seq !== feed.seq) return; // a newer read superseded this one
+                feed.record = (record ?? {}) as Record<string, unknown>;
+                feed.listeners.forEach((listener) => listener('record'));
+              });
+            }
+            return answer;
+          };
+        } else if (prop === 'getObjectSchema') {
+          wrapped = (...args: unknown[]) => {
+            const answer = call(args);
+            if (args[0] === objectName) {
+              observe(answer, (objectSchema) => {
+                const fields = (objectSchema as { fields?: Record<string, unknown> } | null)?.fields;
+                feed.objectFields = fields ? Object.keys(fields) : [];
+                feed.listeners.forEach((listener) => listener('objectFields'));
+              });
+            }
+            return answer;
+          };
+        } else {
+          wrapped = (value as (...a: unknown[]) => unknown).bind(target);
+        }
+        bound.set(prop, wrapped);
+      }
+      return bound.get(prop);
+    },
+  });
+}
+
+/**
+ * The header fields an author DECLARED for the form — its `sections`' members,
+ * else its `fields` — or null when it declares none and the header draws the
+ * object's own field set. The same precedence <ObjectForm> draws by.
+ */
+function declaredHeaderFields(schema: {
+  sections?: ReadonlyArray<{ fields?: unknown[] } | null | undefined>;
+  fields?: unknown[];
+}): string[] | null {
+  const names = (entries: unknown[] | undefined) =>
+    (entries ?? []).map(sectionEntryName).filter((n): n is string => typeof n === 'string');
+  if (schema.sections?.length) return schema.sections.flatMap((section) => names(section?.fields));
+  if (schema.fields?.length) return names(schema.fields);
+  return null;
+}
+
+/**
+ * Read the header's controls as the user edits them, by scraping the named
+ * controls of the rendered parent-form host. It runs ONLY on the host's
+ * bubbling `input` / `change` events, overlaid on the header record above: the
+ * header is owned by react-hook-form (inside <ObjectForm>), which exposes no
+ * values callback to this host. Radix <Select> renders a visually-hidden native
+ * `<select name=...>` for form participation, so selects (e.g. an invoice
+ * `status`) are captured too, and a user's pick dispatches a bubbling `change`
+ * the host listener catches.
  */
 function scrapeHeaderRecord(host: HTMLElement | null): Record<string, unknown> {
   if (!host) return {};
@@ -675,11 +793,17 @@ interface MasterDetailLinesProps {
    * created without its id.
    */
   saving: boolean;
-  /** Host wrapping the header <ObjectForm> — scraped for the live parent record. */
+  /** Host wrapping the header <ObjectForm> — scraped on the user's edits. */
   formHostRef: React.RefObject<HTMLDivElement | null>;
   taxRateField: string;
-  /** Bumped when the header form remounts (after create) so the lines re-scrape. */
-  formKey: number;
+  /**
+   * The header's record and object field set (objectui#13062). A new feed per
+   * record and per header remount (after create), which drops the edits
+   * scraped against the old one.
+   */
+  headerRecord: HeaderRecordFeed;
+  /** The header fields the author declared, or null for the object's own set. */
+  declaredHeaderFieldNames: readonly string[] | null;
   onRowExpand: (entryId: string, rowIdx: number) => void;
   onAddViaForm: (entryId: string) => void;
   /**
@@ -702,10 +826,11 @@ interface MasterDetailLinesProps {
 /**
  * The line-item grids + document totals, isolated from the header form.
  *
- * It owns `parentRecord` — the live header values, scraped from the form host —
- * and binds it to every grid as `contextRecord`, so a column's `readonlyWhen` /
- * `requiredWhen` CEL rule can react to the header (the "paid invoice → lock
- * lines" case, `parent.status == 'paid'`; see #1581 / ADR-0036).
+ * It owns `parentRecord` — the header's record (`headerRecord`) with the user's
+ * live edits scraped from the form host over it — and binds it to every grid as
+ * `contextRecord`, so a column's `readonlyWhen` / `requiredWhen` CEL rule can
+ * react to the header (the "paid invoice → lock lines" case,
+ * `parent.status == 'paid'`; see #1581 / ADR-0036).
  *
  * Holding `parentRecord` HERE rather than in <MasterDetailForm> is the whole
  * point: a header keystroke re-renders only these lines, never the header
@@ -719,7 +844,8 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   saving,
   formHostRef,
   taxRateField,
-  formKey,
+  headerRecord,
+  declaredHeaderFieldNames,
   onRowExpand,
   onAddViaForm,
   parentObjectName,
@@ -743,40 +869,69 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   // mounted this is the fail-open answer (`isLoaded` false) and every grid below
   // renders exactly as it did before permissions existed (objectui#10163).
   const perms = usePermissions();
-  const [parentRecord, setParentRecord] = useState<Record<string, unknown>>({});
-  const parentKeyRef = useRef<string>('');
+  // The header's record, whenever it lands (objectui#13062) — no timer bounds
+  // it, so a header that answers late still locks a paid invoice's lines.
+  const [loadedRecord, setLoadedRecord] = useState<Record<string, unknown>>(headerRecord.record);
+  const [objectFields, setObjectFields] = useState<readonly string[] | null>(headerRecord.objectFields);
+  // The user's edits, scraped from the host on its input/change events; null
+  // until the first one. A landing record replaces the form's values, so it
+  // drops them.
+  const [editedRecord, setEditedRecord] = useState<Record<string, unknown> | null>(null);
+  const editedKeyRef = useRef<string>('');
+
+  useEffect(() => {
+    const land = (landed: 'record' | 'objectFields') => {
+      if (landed === 'objectFields') {
+        setObjectFields(headerRecord.objectFields);
+        return;
+      }
+      editedKeyRef.current = '';
+      setEditedRecord(null);
+      setLoadedRecord(headerRecord.record);
+    };
+    // What landed before this subscription (or a new feed's opening).
+    land('record');
+    land('objectFields');
+    headerRecord.listeners.add(land);
+    return () => {
+      headerRecord.listeners.delete(land);
+    };
+  }, [headerRecord]);
 
   useEffect(() => {
     const host = formHostRef.current;
     if (!host) return;
-    const read = () => {
+    const onEvt = () => {
       const next = scrapeHeaderRecord(host);
       let key: string;
       try { key = JSON.stringify(next); } catch { key = String(Math.random()); }
-      if (key === parentKeyRef.current) return; // value-identical → no re-render
-      parentKeyRef.current = key;
-      setParentRecord(next);
+      if (key === editedKeyRef.current) return; // value-identical → no re-render
+      editedKeyRef.current = key;
+      setEditedRecord(next);
     };
-    read();
-    const onEvt = () => read();
     host.addEventListener('input', onEvt);
     host.addEventListener('change', onEvt);
-    // The header populates asynchronously (schema fetch → edit-mode load → RHF
-    // reset), none of which fire input events, so re-read on a few ticks to
-    // capture the initial record (e.g. an already-paid invoice loads locked).
-    const timers = [120, 360, 800].map((ms) => setTimeout(read, ms));
     return () => {
       host.removeEventListener('input', onEvt);
       host.removeEventListener('change', onEvt);
-      timers.forEach(clearTimeout);
     };
-  }, [formHostRef, formKey, entries.length]);
+  }, [formHostRef]);
+
+  const parentRecord = useMemo(
+    () => (editedRecord ? { ...loadedRecord, ...editedRecord } : loadedRecord),
+    [loadedRecord, editedRecord],
+  );
 
   // Document totals: Subtotal (Σ line amounts) → Tax (header rate %) → Total.
   // Shown only when the header carries the tax-rate field AND a detail has an
   // amount column; otherwise each grid keeps its own footer total.
+  // "The header carries the field" is the header's field set, not whether the
+  // record happens to hold a value for it (objectui#13062).
+  const headerCarriesTax =
+    Object.prototype.hasOwnProperty.call(parentRecord, taxRateField) ||
+    (declaredHeaderFieldNames ?? objectFields ?? []).includes(taxRateField);
   const taxRaw = parentRecord[taxRateField];
-  const taxRate = taxRaw === undefined ? null : (Number.isFinite(Number(taxRaw)) ? Number(taxRaw) : 0);
+  const taxRate = !headerCarriesTax ? null : (Number.isFinite(Number(taxRaw)) ? Number(taxRaw) : 0);
   // ⚠️ Addressed by ENTRY ID. This reducer read `state[i]` — so a reorder did
   // not merely show a collection the wrong grid, it MIS-COMPUTED the document
   // total: each entry summed a different collection's rows, under its own
@@ -1553,7 +1708,8 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   }, []);
 
   // Header tax-rate field name — the live value is read by <MasterDetailLines>
-  // (which scrapes the header record) and drives the Subtotal / Tax / Total stack.
+  // (from the header record and the user's edits) and drives the Subtotal / Tax
+  // / Total stack.
   const taxRateField = schema.taxRateField || 'tax_rate';
 
   const expandedRow =
@@ -1830,6 +1986,41 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   );
 
   const formHostRef = useRef<HTMLDivElement>(null);
+
+  // The header's record for the line grids' `parent.*` rules (objectui#13062).
+  // A form that READS its record (the header <ObjectForm>'s own test: a
+  // `recordId`, not create mode) publishes the read's answer when it lands; a
+  // create form opens on its seed record. A new feed per record and per header
+  // remount, keyed on those PRIMITIVES in a ref, never on a memo's identity
+  // (AGENTS.md #10): a discarded memo would hand the header a new data source,
+  // and its read effect would re-run.
+  const headerReadsRecord = !!schema.recordId && (schema.mode ?? 'create') !== 'create';
+  const headerOpening = headerReadsRecord ? {} : resolveInitialRecord(schema);
+  let headerFeedKey: string;
+  try {
+    headerFeedKey = JSON.stringify([schema.objectName, headerReadsRecord ? String(schema.recordId) : null, formKey, headerOpening]);
+  } catch {
+    headerFeedKey = JSON.stringify([schema.objectName, headerReadsRecord ? String(schema.recordId) : null, formKey]);
+  }
+  const headerReadRef = useRef<{
+    key: string;
+    source: DataSource | undefined;
+    feed: HeaderRecordFeed;
+    dataSource: DataSource | undefined;
+  } | null>(null);
+  if (!headerReadRef.current || headerReadRef.current.key !== headerFeedKey || headerReadRef.current.source !== dataSource) {
+    const feed = headerReadRef.current?.key === headerFeedKey
+      ? headerReadRef.current.feed
+      : createHeaderRecordFeed(headerOpening);
+    headerReadRef.current = {
+      key: headerFeedKey,
+      source: dataSource,
+      feed,
+      dataSource: observeHeaderReads(dataSource, schema.objectName, headerReadsRecord ? schema.recordId : undefined, feed),
+    };
+  }
+  const { feed: headerRecord, dataSource: headerDataSource } = headerReadRef.current;
+
   const submitText = pickLocalized(schema.submitText, language) || (isEdit ? t('common.save') : t('form.create'));
   const cancelText = pickLocalized(schema.cancelText, language) || t('common.cancel');
 
@@ -1894,11 +2085,12 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
     <div className={cn('space-y-6', className, schema.className)}>
       {/* 1) Header fields on top */}
       <div ref={formHostRef}>
-        <ObjectForm key={formKey} schema={parentSchema as any} dataSource={dataSource} />
+        <ObjectForm key={formKey} schema={parentSchema as any} dataSource={headerDataSource} />
       </div>
 
       {/* 2) Line items + document totals, in a sibling component that owns the
-          live header record (scraped from the form host) so header edits never
+          live header record (the header's record, with the user's edits over
+          it — objectui#13062) so header edits never
           re-render — and thus never reset — the header <ObjectForm> (see #1581). */}
       <MasterDetailLines
         entries={linesEntries}
@@ -1907,7 +2099,8 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
         saving={saving}
         formHostRef={formHostRef}
         taxRateField={taxRateField}
-        formKey={formKey}
+        headerRecord={headerRecord}
+        declaredHeaderFieldNames={declaredHeaderFields(schema)}
         onRowExpand={(entryId, rowIdx) => setExpanded({ entryId, rowIdx })}
         onAddViaForm={addRowViaForm}
         parentObjectName={schema.objectName}

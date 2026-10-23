@@ -3,7 +3,7 @@
 /**
  * Setup › Packaged automation (ADR-0126 §7.4) — behaviour.
  *
- * Six properties, in the order the page exercises them:
+ * Seven properties, in the order the page exercises them:
  *
  *   1. **scope** — the list is packaged flows only. The rule itself lives in
  *      `packagedFlows.ts` and is measured directly in `packagedFlows.test.ts`;
@@ -32,12 +32,24 @@
  *      Since objectui#12609 the sentence is not in the row at all: it opens
  *      from a neutral chip on the name's line, the same chip whatever the
  *      sentence says, so the row keeps the table's height.
+ *   7. **the effective state** (objectui#13159) — the switch holds the
+ *      activation FLAG, and the badge beside it says whether the flow RUNS: a
+ *      row the engine reports enabled but unarmed (it carries an
+ *      `unboundCause`) keeps its switch on and reads "Not running here", never
+ *      "On". Bound flows and flows with no trigger read "On" exactly as
+ *      before, and a toggle re-reads what the engine armed.
+ *   8. **the clone result's next steps** (objectui#13270) — a clone runs
+ *      beside its source, so the result offers to switch the source off
+ *      through the SAME toggle as its row, and links the clone's Studio scope.
+ *      An off source is offered nothing to switch; a refusal is the server's
+ *      sentence and the offer stays.
  */
 
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 
 import { PackagedAutomationPage } from './PackagedAutomationPage';
 
@@ -217,7 +229,13 @@ afterEach(() => {
 
 /** Render and wait for the first list paint. */
 async function renderPage() {
-  render(<PackagedAutomationPage />);
+  // A router because the clone result links the clone's Studio scope
+  // (objectui#13270); the console mounts this page inside its own.
+  render(
+    <MemoryRouter>
+      <PackagedAutomationPage />
+    </MemoryRouter>,
+  );
   await screen.findByText('Notify owner');
 }
 
@@ -582,5 +600,231 @@ describe('the platform reason for an unbound flow', () => {
     expect(flowCell('pkg_object').textContent).toBe('Object reasonpkg_object');
     expect(chipIn('pkg_numeric')).toBeNull();
     expect(chipIn('pkg_object')).toBeNull();
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* 7) The Activation cell says whether the flow runs (objectui#13159)          */
+/* -------------------------------------------------------------------------- */
+
+describe('the Activation cell says whether the flow runs', () => {
+  /** The Activation cell of ONE named row: the switch and its badge. */
+  function activationCell(flowName: string): HTMLElement {
+    const cell = screen.getByTestId(`packaged-flow-${flowName}`).querySelectorAll('td')[1];
+    if (!cell) throw new Error(`no activation cell for ${flowName}`);
+    return cell as HTMLElement;
+  }
+
+  /** A packaged schedule flow the deployment's policy left unarmed, flag on. */
+  function withPolicyRow() {
+    fixture.runtime = [
+      ...fixture.runtime,
+      {
+        name: 'pkg_digest',
+        enabled: true,
+        bound: false,
+        triggerType: 'schedule',
+        reason: POLICY_REASON,
+        unboundCause: 'deployment_policy',
+      },
+    ];
+    fixture.meta = [...fixture.meta, packagedItem('pkg_digest', 'Daily digest')];
+  }
+
+  it('does not present an unbound schedule flow with its flag on as running (acceptance)', async () => {
+    withPolicyRow();
+    await renderPage();
+
+    const cell = activationCell('pkg_digest');
+    // The switch keeps the author's flag: on, and still a live control.
+    const toggle = within(cell).getByRole('switch', { name: 'Activation for Daily digest' });
+    expect(toggle).toBeChecked();
+    expect(toggle).toBeEnabled();
+    // The badge says the flow does not run, and nothing in the cell says "On".
+    expect(within(cell).getByText('Not running here')).toBeInTheDocument();
+    expect(within(cell).queryByText('On')).toBeNull();
+    expect(cell.textContent).toBe('Not running here');
+  });
+
+  it('keeps a bound flow, a flow with no trigger and a disabled flow exactly as before (controls)', async () => {
+    fixture.runtime = [...fixture.runtime, { name: 'pkg_manual', enabled: true, bound: false }];
+    fixture.meta = [...fixture.meta, packagedItem('pkg_manual', 'Run by hand')];
+    withPolicyRow();
+    await renderPage();
+
+    // Bound to its trigger: "On".
+    expect(activationCell('pkg_notify').textContent).toBe('On');
+    // No declared trigger, so `bound: false` and no cause: it runs when
+    // invoked, and is never called "not running".
+    expect(activationCell('pkg_manual').textContent).toBe('On');
+    // Switched off: "Off".
+    expect(activationCell('pkg_escalate').textContent).toBe('Off');
+    // The policy row beside them is the only one that reads otherwise.
+    expect(activationCell('pkg_digest').textContent).toBe('Not running here');
+  });
+
+  it('reads every unbound cause the same way, and styles none of them as an error', async () => {
+    withPolicyRow();
+    fixture.runtime = [
+      ...fixture.runtime,
+      {
+        name: 'pkg_sync',
+        enabled: true,
+        bound: false,
+        triggerType: 'record_change',
+        reason: BINDING_FAILED_REASON,
+        unboundCause: 'binding_failure',
+      },
+    ];
+    fixture.meta = [...fixture.meta, packagedItem('pkg_sync', 'Sync accounts')];
+    await renderPage();
+
+    const policy = within(activationCell('pkg_digest')).getByText('Not running here');
+    const failure = within(activationCell('pkg_sync')).getByText('Not running here');
+    // The badge names no cause: the Details chip carries the platform's words.
+    expect(failure.className).toBe(policy.className);
+    for (const badge of [policy, failure]) {
+      expect(badge.className).not.toMatch(/destructive/);
+      expect(badge).not.toHaveAttribute('role', 'alert');
+    }
+  });
+
+  it('still writes the flag from a row that is not running', async () => {
+    withPolicyRow();
+    await renderPage();
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Activation for Daily digest' }));
+    await waitFor(() => expect(toggleCalls()).toHaveLength(1));
+    expect(toggleCalls()[0].url).toContain('/automation/pkg_digest/toggle');
+    expect(toggleCalls()[0].body).toEqual({ enabled: false });
+    await waitFor(() => expect(activationCell('pkg_digest').textContent).toBe('Off'));
+    expect(screen.getByRole('switch', { name: 'Activation for Daily digest' })).not.toBeChecked();
+  });
+
+  it('re-reads what the engine armed after a toggle, so switching an unarmed flow on does not read "On"', async () => {
+    // Off at load: a disabled row carries no unbound cause.
+    fixture.runtime = [
+      ...fixture.runtime,
+      { name: 'pkg_digest', enabled: false, bound: false, triggerType: 'schedule' },
+    ];
+    fixture.meta = [...fixture.meta, packagedItem('pkg_digest', 'Daily digest')];
+    await renderPage();
+    expect(activationCell('pkg_digest').textContent).toBe('Off');
+    const statusReads = () => calls.filter((c) => c.url.endsWith('/automation/_status')).length;
+    const readsBefore = statusReads();
+
+    // What the engine will report once the flag is on: the deployment's policy
+    // keeps the schedule trigger unarmed. The toggle's own answer carries only
+    // `{ name, enabled }`.
+    const row = fixture.runtime.find((r) => r.name === 'pkg_digest')!;
+    Object.assign(row, { reason: POLICY_REASON, unboundCause: 'deployment_policy' });
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Activation for Daily digest' }));
+    await waitFor(() => expect(toggleCalls()).toHaveLength(1));
+    expect(toggleCalls()[0].body).toEqual({ enabled: true });
+
+    await waitFor(() => expect(activationCell('pkg_digest').textContent).toBe('Not running here'));
+    expect(statusReads()).toBe(readsBefore + 1);
+    expect(screen.getByRole('switch', { name: 'Activation for Daily digest' })).toBeChecked();
+  });
+
+  it('does not re-read after a refused toggle', async () => {
+    fixture.toggle = [{ status: 403, body: errorEnvelope('PERMISSION_DENIED', POSTURE_REFUSAL) }];
+    await renderPage();
+    const statusReads = () => calls.filter((c) => c.url.endsWith('/automation/_status')).length;
+    const readsBefore = statusReads();
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Activation for Notify owner' }));
+    expect(await screen.findByText(POSTURE_REFUSAL)).toBeInTheDocument();
+    expect(statusReads()).toBe(readsBefore);
+    expect(activationCell('pkg_notify').textContent).toBe('On');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* 8) The clone result's next steps (objectui#13270)                           */
+/* -------------------------------------------------------------------------- */
+
+describe('the clone result offers the next steps', () => {
+  /** Clone ONE named row under a new name and wait for the result. */
+  async function cloneRow(flowName: string, newName: string) {
+    fireEvent.click(cloneButtonFor(flowName));
+    fireEvent.change(await screen.findByLabelText('New machine name'), { target: { value: newName } });
+    fireEvent.change(screen.getByLabelText('New label'), { target: { value: 'Ours' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create clone' }));
+    await screen.findByText(`Created flow "${newName}".`);
+  }
+
+  const switchOffOffer = () => screen.queryByTestId('packaged-clone-switch-source-off');
+  const rowSwitch = (label: string) => screen.getByRole('switch', { name: `Activation for ${label}` });
+
+  it('keeps the notice, and switches the source off through the row\'s own toggle (pin a)', async () => {
+    await renderPage();
+    await cloneRow('pkg_notify', 'crm_notify_owner');
+
+    // The server's notice stays, verbatim.
+    expect(screen.getByText(CLONE_NOTICE)).toBeInTheDocument();
+    const offer = switchOffOffer();
+    expect(offer).not.toBeNull();
+    expect(offer!.textContent).toBe('Switch "Notify owner" off');
+    expect(rowSwitch('Notify owner')).toBeChecked();
+
+    fireEvent.click(offer!);
+    await waitFor(() => expect(toggleCalls()).toHaveLength(1));
+    // The SAME door the row's switch calls, for the SOURCE, switching it off.
+    expect(toggleCalls()[0].url).toContain('/automation/pkg_notify/toggle');
+    expect(toggleCalls()[0].method).toBe('POST');
+    expect(toggleCalls()[0].body).toEqual({ enabled: false });
+
+    // The source row reads off, and the result reads the offer as done.
+    await waitFor(() => expect(rowSwitch('Notify owner')).not.toBeChecked());
+    expect(switchOffOffer()).toBeNull();
+    expect(screen.getByTestId('packaged-clone-source-off').textContent).toBe(
+      'The packaged flow "Notify owner" is switched off.',
+    );
+    // The result itself stays: the switch-off is a step after the clone, not
+    // a reason to forget it.
+    expect(screen.getByText('Created flow "crm_notify_owner".')).toBeInTheDocument();
+  });
+
+  it('links the clone in the package-less Studio scope (pin b)', async () => {
+    await renderPage();
+    await cloneRow('pkg_notify', 'crm_notify_owner');
+
+    const open = screen.getByTestId('packaged-clone-open');
+    expect(open.textContent).toBe('Open the clone in Studio');
+    const href = open.getAttribute('href') ?? '';
+    expect(href.startsWith('/studio/~org/automations')).toBe(true);
+    expect(decodeURIComponent(href)).toContain('crm_notify_owner');
+  });
+
+  it('shows a refused switch-off verbatim and keeps the offer (pin c)', async () => {
+    fixture.toggle = [{ status: 403, body: errorEnvelope('PERMISSION_DENIED', POSTURE_REFUSAL) }];
+    await renderPage();
+    await cloneRow('pkg_notify', 'crm_notify_owner');
+
+    fireEvent.click(switchOffOffer()!);
+    const alert = await screen.findByText(POSTURE_REFUSAL);
+    expect(alert).toHaveAttribute('role', 'alert');
+    expect(within(screen.getByTestId('packaged-clone-next-steps')).getByText(POSTURE_REFUSAL)).toBe(alert);
+    // The offer stays, usable, and the source is still on.
+    expect(switchOffOffer()).not.toBeNull();
+    expect(switchOffOffer()).toBeEnabled();
+    expect(rowSwitch('Notify owner')).toBeChecked();
+    expect(screen.getByText(CLONE_NOTICE)).toBeInTheDocument();
+  });
+
+  it('offers no switch-off when the source is already off (pin d, control)', async () => {
+    await renderPage();
+    expect(rowSwitch('Escalate case')).not.toBeChecked();
+    await cloneRow('pkg_escalate', 'crm_escalate');
+
+    expect(screen.getByText(CLONE_NOTICE)).toBeInTheDocument();
+    expect(switchOffOffer()).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Switch .* off$/ })).toBeNull();
+    expect(screen.getByTestId('packaged-clone-source-off').textContent).toBe(
+      'The packaged flow "Escalate case" is switched off.',
+    );
+    expect(toggleCalls()).toHaveLength(0);
   });
 });

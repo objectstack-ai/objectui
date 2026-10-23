@@ -470,6 +470,7 @@ const ABSENCES: Record<string, Absence> = {
   bordered: { kind: 'unread', reason: 'Retired by objectstack#7176, as `striped`.' },
   requiredPermissions: { kind: 'unread', reason: 'The ADR-0066 audience gate `@objectstack/spec` 18 adds to a list view (objectui#12030). The SERVER enforces it before the view is served: a user who lacks the capabilities is never listed the view and is refused it by name, so nothing on the ListView path has a value to consume.' },
   virtualScroll: { kind: 'unread', reason: 'Retired by objectstack#7176, as `striped`.' },
+  filterableFields: { kind: 'unread', reason: 'Retired by objectstack#24640 (maintainer ruling C, pulled into 18.0): no per-view Filter-panel whitelist replaces it. objectui#13118 removed its one reader, the whitelist branch of `ListView`\'s Filter-panel field list, and this relay\'s rung with it. Present only as the spec import that carries its tombstone from the pin bump that takes the retirement.' },
   responsive: { kind: 'unread', reason: 'Imported from the spec by reference; no objectui renderer reads it.' },
   performance: { kind: 'unread', reason: 'Imported from the spec by reference; no objectui renderer reads it.' },
   pageName: { kind: 'unread', reason: 'Page-context key with no reader on the list path.' },

@@ -58,6 +58,7 @@ import type {
   DocNavItem as SpecDocNavItem,
   App as SpecApp,
 } from '@objectstack/spec/ui';
+import type { EvaluatedExpressionInput } from '@objectstack/spec/shared';
 import type { BaseSchema } from './base.js';
 import type { z } from 'zod';
 import type { APP_SPEC_EXCLUDED, AppContextSelectorSchema } from './zod/app.zod.js';
@@ -276,19 +277,36 @@ export interface NavigationEntryItem {
   // -- Visibility & Permissions --
 
   /**
-   * Visibility expression — boolean or expression string e.g. "${user.role === 'admin'}".
+   * Visibility predicate — a CEL string, the spec's `{ dialect, source }`
+   * envelope, or a boolean.
    *
-   * NOT derived (#3177): the spec takes a CEL string on input and an Expression
-   * envelope `{ dialect, source }` on output — `boolean` is absent at BOTH
-   * tiers. `NavigationRenderer`'s `evalVis(item.visible)` honours the boolean,
+   * The expression half is the spec's input type, `EvaluatedExpressionInput`,
+   * by reference (objectui#13075) — the same type the zod twin
+   * (`NavigationItemSchema`) takes by reference. Until then this was
+   * `boolean | string`, which left out the envelope the spec's own parse
+   * produces.
+   *
+   * The `boolean` arm is NOT derived (#3177): the spec admits it at neither
+   * tier. `NavigationRenderer`'s `evalVis(item.visible)` honours the boolean,
    * and `menuItemToNavigationItem` produces one when mapping legacy
    * `AppMenuItem.hidden`. Pinned in `spec-derived-unions.test.ts`, which fails the
    * day the spec accepts a boolean and this can come off it.
    */
-  visible?: boolean | string;
+  visible?: boolean | EvaluatedExpressionInput;
 
   /** Required permissions to see/access this item */
   requiredPermissions?: string[];
+
+  /**
+   * One API data source whose bound value {@link visible} reads as `data` —
+   * the spec's shared nav-item base member, by reference (objectui#12971).
+   * The console reads it (objectui#13029): every navigation surface (the
+   * sidebar, the `nav:menu` block, the command palette) reads the binding with
+   * the signed-in fetch, and the entry is hidden while the read is pending,
+   * after it fails, or when `path` selects nothing. Only `visible` reads
+   * `data`; the label, the target and `children` do not.
+   */
+  dataSource?: SpecObjectNavItem['dataSource'];
 
   /**
    * Runtime capability gate — name of an object that must be registered

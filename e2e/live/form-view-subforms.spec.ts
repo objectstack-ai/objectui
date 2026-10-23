@@ -29,7 +29,9 @@ test('New <object> modal renders relationship-derived subforms and submits an at
 
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByTestId('md-form-submit')).toBeVisible();
-  await expect(dialog.getByText('Line Items', { exact: false })).toBeVisible();
+  // The section's heading, by role: a bare text match also hits the dialog's
+  // sr-only description ("…its line items, then save.") and fails strict mode.
+  await expect(dialog.getByRole('heading', { name: 'Line Items' })).toBeVisible();
 
   const name = `INV-${Date.now()}`;
   await dialog.locator('input[name="name"]').fill(name);

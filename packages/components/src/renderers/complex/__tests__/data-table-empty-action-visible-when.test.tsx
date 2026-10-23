@@ -41,9 +41,9 @@
  * ## The fault case is MEASURED, not chosen
  *
  * A predicate naming a genuinely unbound root must behave the way the central
- * gate behaves, not some new way. `evaluateCondition` fails SOFT — an
- * unresolvable predicate answers `true` on every one of its internal paths —
- * so the node stays visible. Pinned here so a future change to the slot cannot
+ * gate behaves, not some new way. The central gate fails CLOSED since
+ * objectui#13299 — a declared predicate that cannot be evaluated withholds its
+ * node — so the node is not drawn. Pinned here so a future change to the slot cannot
  * quietly pick a different answer than the one `SchemaRenderer` gives every
  * other node.
  */
@@ -125,7 +125,7 @@ describe('data-table emptyAction — the central visibleWhen gate applies', () =
     expect(screen.getByTestId('empty-action-cta')).toBeInTheDocument();
   });
 
-  it('renders the node on a faulting predicate — the central gate fails soft', () => {
+  it('withholds the node on a faulting predicate — the central gate fails closed (objectui#13299)', () => {
     renderEmptyTable(
       {
         type: CTA_TYPE,
@@ -134,7 +134,7 @@ describe('data-table emptyAction — the central visibleWhen gate applies', () =
       /* canCreate */ false,
     );
     expectEmptyStateReached();
-    expect(screen.getByTestId('empty-action-cta')).toBeInTheDocument();
+    expect(screen.queryByTestId('empty-action-cta')).toBeNull();
   });
 
   it('honours the bare-string spelling of the same predicate', () => {

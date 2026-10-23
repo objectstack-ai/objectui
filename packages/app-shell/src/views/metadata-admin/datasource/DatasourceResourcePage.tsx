@@ -31,6 +31,7 @@
  *  - **Sync objects**: introspect remote tables (`GET …/remote-tables`), pick
  *    which to import, generate an object definition for each (`POST …/object-draft`),
  *    and create it through the normal metadata channel (`MetadataClient.save('object', …)`).
+ *    Offered only on a federation source (`offersSync`, objectui#13318).
  *  - **Delete** a runtime datasource (`DELETE …/:name`; blocked by the backend
  *    while objects are still bound).
  *
@@ -84,11 +85,17 @@ import { t, useMetadataLocale } from '../i18n.js';
 // defence in depth. Importing the spec's type keeps this page's row and that
 // client's row incapable of disagreeing.
 import type { RemoteTable } from '@objectstack/spec/contracts';
+import type { SchemaMode } from '@objectstack/spec/data';
 
 interface DatasourceRow {
   name: string;
   label?: string;
   driver?: string;
+  /**
+   * The datasource's `schemaMode`. `GET /datasources` serves it on every row,
+   * already resolved to `managed` when the record declares none.
+   */
+  schemaMode?: SchemaMode;
   /**
    * Last connect verdict, from the framework's retained connection state
    * (framework#3827): `ok` (live driver registered) | `error` (connect
@@ -174,6 +181,32 @@ const SCHEMA_MODES = [
   { value: 'validate-only', label: 'Validate only' },
 ];
 
+/**
+ * The platform's primary datasource, the name the server's
+ * `DEFAULT_DATASOURCE_NAME` holds. Every Sync door refuses it by name,
+ * whatever its `schemaMode`.
+ */
+const PRIMARY_DATASOURCE = 'default';
+
+/** The `schemaMode` values that make a datasource a federation source. */
+const FEDERATION_SCHEMA_MODES: ReadonlySet<SchemaMode> = new Set<SchemaMode>(['external', 'validate-only']);
+
+/**
+ * Does this row offer "Sync objects"? (objectui#13318)
+ *
+ * The Sync doors (remote tables, object draft, import) refuse every datasource
+ * that is not a federation source with a `400` (objectstack#24837): a managed
+ * one, declared or by default, and the primary datasource by name. ADR-0015
+ * reserves federation for a datasource whose `schemaMode` is not `managed`, so
+ * the row offers Sync only when its `schemaMode` is `external` or
+ * `validate-only`. A row with no `schemaMode` is managed, the spec's default,
+ * and offers none. The remedy is the editor's own Schema mode select.
+ */
+function offersSync(row: DatasourceRow): boolean {
+  if (row.name === PRIMARY_DATASOURCE) return false;
+  return row.schemaMode !== undefined && FEDERATION_SCHEMA_MODES.has(row.schemaMode);
+}
+
 const SERVER = ((import.meta as { env?: Record<string, string> }).env?.VITE_SERVER_URL || '').replace(/\/+$/, '');
 
 const isPassword = (p: JsonProp) => p.format === 'password';
@@ -255,7 +288,10 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
     setBusy(`test:${name}`);
     try {
       const r = await api(`/api/v1/datasources/${encodeURIComponent(name)}/test`, { method: 'POST', body: '{}' });
-      toast.success(r?.ok === false ? `${name}: ${r?.error ?? 'failed'}` : `${name}: connection ok${r?.latencyMs != null ? ` (${r.latencyMs}ms)` : ''}`);
+      // A 200 `{ ok: false, error }` is a failed probe, so it is reported as a
+      // failure with the server's text as given (objectui#13207).
+      if (r?.ok === false) toast.error(`${name}: ${r?.error ?? 'failed'}`);
+      else toast.success(`${name}: connection ok${r?.latencyMs != null ? ` (${r.latencyMs}ms)` : ''}`);
       void load();
     } catch (err) {
       toast.error(`${name}: ${(err as Error).message}`);
@@ -436,19 +472,33 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
   // ── Sync dialog ──────────────────────────────────────────────────────────
   const [syncName, setSyncName] = React.useState<string | null>(null);
   const [tables, setTables] = React.useState<RemoteTable[] | null>(null);
+  /** The refused remote-tables read's message, drawn in the dialog instead of the empty-datasource copy. */
+  const [syncError, setSyncError] = React.useState<string | null>(null);
+  /** Which datasource's Sync dialog is open now, read when a slow introspection settles. */
+  const syncNameRef = React.useRef<string | null>(null);
+  React.useEffect(() => { syncNameRef.current = syncName; }, [syncName]);
+  /** Counts introspections, so a refusal is drawn only in the dialog that asked for it. */
+  const syncSeqRef = React.useRef(0);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [syncing, setSyncing] = React.useState(false);
 
   const openSync = async (name: string) => {
     setSyncName(name);
+    syncNameRef.current = name;
+    const seq = ++syncSeqRef.current;
     setTables(null);
+    setSyncError(null);
     setSelected(new Set());
     try {
       const data = await api(`/api/v1/datasources/${encodeURIComponent(name)}/remote-tables`);
       setTables(Array.isArray(data?.tables) ? data.tables : []);
     } catch (err) {
-      toast.error(`Introspect ${name}: ${(err as Error).message}`);
-      setTables([]);
+      // A refusal is not an empty datasource (objectui#13207): the open dialog
+      // shows the envelope's message; a toast reports it only when the dialog
+      // was closed before the refusal arrived.
+      const message = (err as Error).message;
+      if (syncNameRef.current === name && syncSeqRef.current === seq) setSyncError(message);
+      else toast.error(`Introspect ${name}: ${message}`);
     }
   };
 
@@ -592,9 +642,11 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
                 <Button variant="ghost" size="sm" disabled={busy === `test:${ds.name}`} onClick={() => void test(ds.name)}>
                   {busy === `test:${ds.name}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plug className="mr-1.5 h-4 w-4" />} Test
                 </Button>
-                <Button variant="secondary" size="sm" onClick={() => void openSync(ds.name)}>
-                  <Boxes className="mr-1.5 h-4 w-4" /> Sync objects
-                </Button>
+                {offersSync(ds) && (
+                  <Button variant="secondary" size="sm" onClick={() => void openSync(ds.name)}>
+                    <Boxes className="mr-1.5 h-4 w-4" /> Sync objects
+                  </Button>
+                )}
                 {!isCode && (
                   <>
                     <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit" disabled={busy === `edit:${ds.name}`} onClick={() => void openEdit(ds)}>
@@ -697,7 +749,9 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
             <DialogTitle>Sync objects from “{syncName}”</DialogTitle>
             <DialogDescription>Pick the remote tables to import as objects. Each becomes an object definition.</DialogDescription>
           </DialogHeader>
-          {tables == null ? (
+          {syncError != null ? (
+            <div role="alert" className="py-8 text-center text-sm text-destructive">{syncError}</div>
+          ) : tables == null ? (
             <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Introspecting…</div>
           ) : tables.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No remote tables found on this datasource.</p>

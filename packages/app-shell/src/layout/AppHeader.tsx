@@ -111,6 +111,7 @@ import { PreviewBadge } from './PreviewBadge.js';
 import { AboutDialog } from './AboutDialog.js';
 import { getConsoleBuild } from '../buildIdentity.js';
 import { GO_HOME_SHORTCUT, useAdvertiseShortcut, type ShortcutChord } from '../chrome/advertisedShortcuts.js';
+import { confirmUnsavedLeave } from '../chrome/unsavedEdits.js';
 
 function humanizeSlug(slug: string): string {
   return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -387,7 +388,8 @@ function useGoHomeShortcut(enabled: boolean, homePath: string): void {
       if (!matchesShortcutChord(e, GO_HOME_SHORTCUT.chord)) return;
       if (isTypingTarget(e.target)) return;
       e.preventDefault();
-      navigate(homePath);
+      // A page holding unsaved edits is asked first (objectui#13231).
+      confirmUnsavedLeave(() => navigate(homePath));
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
@@ -428,6 +430,10 @@ export function AppHeader({
   const location = useLocation();
   const params = useParams();
   const navigate = useNavigate();
+  // objectui#13231 — the menus below navigate from a button, which no page's
+  // link guard sees, so each departure asks first while a page holds unsaved
+  // edits (and goes at once otherwise).
+  const leaveTo = (to: string) => confirmUnsavedLeave(() => navigate(to));
   // objectui#7256 — the brand logo's target follows the product's DECLARED
   // landing, so the chrome cannot offer a second, contradicting "home".
   const homePath = useHomePath();
@@ -898,7 +904,7 @@ export function AppHeader({
               <div className="flex items-center min-w-0">
                 <AppSwitcher
                   activeAppName={activeAppName}
-                  onAppChange={onAppChange}
+                  onAppChange={(segment) => confirmUnsavedLeave(() => onAppChange(segment))}
                   designInStudioPath={studioDesignPath}
                 />
               </div>
@@ -1132,7 +1138,7 @@ export function AppHeader({
                 <DropdownMenuItem
                   className="cursor-pointer"
                   onClick={() =>
-                    navigate(
+                    leaveTo(
                       currentAppDocs.length === 1
                         ? `/apps/${currentAppPackageId}/docs/${currentAppDocs[0].name}`
                         : `/apps/${currentAppPackageId}/docs`,
@@ -1143,7 +1149,7 @@ export function AppHeader({
                   {t('help.appDocs', { defaultValue: "This app's docs" })}
                 </DropdownMenuItem>
               ) : null}
-              <DropdownMenuItem className="cursor-pointer" onClick={() => navigate('/docs')}>
+              <DropdownMenuItem className="cursor-pointer" onClick={() => leaveTo('/docs')}>
                 <Layers className="mr-2 h-4 w-4" />
                 {t('help.allDocs', { defaultValue: 'All documentation' })}
               </DropdownMenuItem>
@@ -1221,7 +1227,7 @@ export function AppHeader({
                * Developer remain reachable from its sidebar).
                */}
               <DropdownMenuItem
-                onClick={() => navigate('/apps/account/component/account/profile_card')}
+                onClick={() => leaveTo('/apps/account/component/account/profile_card')}
                 className="cursor-pointer"
               >
                 <User className="mr-2 h-4 w-4" />
@@ -1247,7 +1253,7 @@ export function AppHeader({
                */}
               {hasOrgSection && (
                 <DropdownMenuItem
-                  onClick={() => navigate('/organizations?manage=1')}
+                  onClick={() => leaveTo('/organizations?manage=1')}
                   className="cursor-pointer"
                   data-testid="header-my-organizations"
                 >
@@ -1257,7 +1263,7 @@ export function AppHeader({
               )}
               {hasOrgSection && !multiOrgDisabled && (
                 <DropdownMenuItem
-                  onClick={() => navigate('/organizations?create=1')}
+                  onClick={() => leaveTo('/organizations?create=1')}
                   className="cursor-pointer"
                   data-testid="header-create-workspace"
                 >
@@ -1281,7 +1287,7 @@ export function AppHeader({
                   return (
                     <DropdownMenuItem
                       key={`hidden_app_${app.name}`}
-                      onClick={() => navigate(`/apps/${appRouteSegment(app) ?? app.name}`)}
+                      onClick={() => leaveTo(`/apps/${appRouteSegment(app) ?? app.name}`)}
                       className="cursor-pointer"
                     >
                       <AppIcon className="mr-2 h-4 w-4" />
@@ -1327,7 +1333,7 @@ export function AppHeader({
             {isAuthEnabled && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => signOut()}>
+                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => confirmUnsavedLeave(() => signOut())}>
                   <LogOut className="mr-2 h-4 w-4" />
                   {t('user.logout', { defaultValue: 'Log out' })}
                 </DropdownMenuItem>

@@ -14,8 +14,17 @@
 
 import * as React from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Plus, Search, RefreshCw, AlertTriangle, Lock } from 'lucide-react';
-import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@object-ui/components';
+import { Plus, Search, RefreshCw, AlertTriangle, Lock, Copy } from 'lucide-react';
+import {
+  Button,
+  HorizontalOverflowBox,
+  PINNED_RIGHT_SEAM_SHADOW_CLASSES,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  cn,
+} from '@object-ui/components';
 import { Input } from '@object-ui/components';
 import { Badge } from '@object-ui/components';
 import { Switch } from '@object-ui/components';
@@ -55,7 +64,21 @@ import {
   type CatalogActivation,
 } from './catalog-activation.js';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
+import { declarationOnlyAuthoredObject } from './sharing-rule-catalog.js';
+import { resolveAffordance, type SchemaLike } from '@object-ui/core';
+import { useMetadata } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
+import { SharingRuleCloneDialog, type SharingRuleCloneDialogProps } from './SharingRuleCloneDialog.js';
 import { postureHasOrgWall, useTenancyPosture } from '../../hooks/useTenancyPosture.js';
+
+/**
+ * objectui#12982 — the Clone dialog of a declaration-only catalog
+ * (`sharing-rule-catalog.ts`), keyed by type and internal to this page, as
+ * `ResourceEditPage`'s environment sections are.
+ */
+const DECLARATION_CLONE_DIALOGS: Readonly<Record<string, React.ComponentType<SharingRuleCloneDialogProps>>> = {
+  sharing_rule: SharingRuleCloneDialog,
+};
 
 export interface MetadataResourceListPageProps {
   type?: string;
@@ -128,6 +151,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   const { entries: typesEntries } = useMetadataTypes(client);
   const entry: RichMetadataTypeEntry | undefined = typesEntries.find((t) => t.type === type);
   const config = resolveResourceConfig(type, entry);
+  const listInclude = config.listInclude;
 
   const [items, setItems] = React.useState<ItemRow[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -157,10 +181,39 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'active' | 'inactive'>('all');
   // The activation ledger's answer for the switch column, with the names the
   // door refuses to switch (`catalog-activation.ts`). `null` while unread,
-  // `'error'` when the read was refused or failed.
+  // `'error'` when the read was refused or failed, with the server's words for
+  // why (objectui#13091) beside it.
   const [ledger, setLedger] = React.useState<CatalogLedger | 'error' | null>(null);
+  const [ledgerRefusal, setLedgerRefusal] = React.useState<string | null>(null);
   const [switching, setSwitching] = React.useState<string | null>(null);
   const [switchError, setSwitchError] = React.useState<string | null>(null);
+  // objectui#12982 — a declaration-only catalog (declared sharing rules): the
+  // environment scope lists declarations read-only, and the items an
+  // environment authors are records of this object, edited on its own page.
+  const authoredObject = envScope ? declarationOnlyAuthoredObject(type) : undefined;
+  // Clone creates a record of the authored object, so it reads that write's
+  // row of the affordance-to-grant map (`resolveAffordance` in
+  // `@object-ui/core`), asked of the object with its schema as the server
+  // serves it — that one object, read by name through `readObjectScope`, not
+  // the whole object registry (objectui#12811). A caller without the create
+  // grant is offered no Clone; the server decides the write either way.
+  const perms = usePermissions();
+  const metadataStore = useMetadata();
+  const authoredScope =
+    authoredObject && metadataStore.readObjectScope
+      ? metadataStore.readObjectScope({ names: [authoredObject] })
+      : null;
+  const canClone =
+    !!authoredObject &&
+    resolveAffordance('declarationClone', {
+      objectSchema: ((authoredScope?.objects ?? []).find(
+        (o) => (o as { name?: unknown } | null)?.name === authoredObject,
+      ) ?? null) as SchemaLike | null,
+      objectName: authoredObject,
+      perms,
+    }).allowed;
+  const CloneDialog = authoredObject && canClone ? DECLARATION_CLONE_DIALOGS[type] : undefined;
+  const [cloning, setCloning] = React.useState<Record<string, unknown> | null>(null);
 
   // Studio is scoped to a single *project* package at a time. Load the
   // installed packages and keep only project-scoped ones — anything not
@@ -294,18 +347,32 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   React.useEffect(() => {
     if (!activation) {
       setLedger(null);
+      setLedgerRefusal(null);
       return;
     }
     const controller = new AbortController();
     Promise.all([readCatalogActivation(type, controller.signal), audienceAnchorsOf(type)])
       .then(([states, anchors]) => {
-        if (!controller.signal.aborted) setLedger({ states, anchors });
+        if (controller.signal.aborted) return;
+        setLedger({ states, anchors });
+        setLedgerRefusal(null);
       })
-      .catch(() => {
-        if (!controller.signal.aborted) setLedger('error');
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        setLedger('error');
+        setLedgerRefusal(err instanceof Error ? err.message : String(err));
       });
     return () => controller.abort();
   }, [activation, type, refreshKey]);
+
+  const recordSwitched = React.useCallback((itemName: string, now: boolean) => {
+    setLedger((prev) => {
+      if (!prev || prev === 'error') return prev;
+      const states = new Map(prev.states);
+      states.set(itemName, now);
+      return { ...prev, states };
+    });
+  }, []);
 
   const toggleActive = React.useCallback(
     async (itemName: string, enabled: boolean) => {
@@ -313,19 +380,14 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
       setSwitchError(null);
       try {
         const now = await writeCatalogActivation(type, itemName, !enabled);
-        setLedger((prev) => {
-          if (!prev || prev === 'error') return prev;
-          const states = new Map(prev.states);
-          states.set(itemName, now);
-          return { ...prev, states };
-        });
+        recordSwitched(itemName, now);
       } catch (err: any) {
         setSwitchError(err?.message ?? String(err));
       } finally {
         setSwitching(null);
       }
     },
-    [type],
+    [type, recordSwitched],
   );
 
   React.useEffect(() => {
@@ -334,7 +396,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
     setError(null);
     (async () => {
       try {
-        const list = await client.list<any>(type);
+        const list = await client.list<any>(type, listInclude ? { include: listInclude } : undefined);
         if (cancelled) return;
         const rows: ItemRow[] = (list ?? []).map((raw) => {
           const item = (raw && typeof raw === 'object' && 'item' in raw ? raw.item : raw) ?? {};
@@ -361,7 +423,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
     return () => {
       cancelled = true;
     };
-  }, [client, type, refreshKey]);
+  }, [client, type, refreshKey, listInclude]);
 
   const searchableFields = config.searchableFields ?? ['name', 'label', 'description'];
   // Structural scope — every row this package could ever show for this
@@ -439,7 +501,9 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   // door requires. The server refuses either way; this is the half that says
   // so before the click (objectui#7611, the #22621 → A parity gate).
   const typeWritable = !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
-  const canCreate = typeWritable && !walled && (!envScope || canAuthor);
+  // A declaration-only catalog is never authored here: its items are created
+  // on the authored object's page.
+  const canCreate = typeWritable && !walled && (!envScope || canAuthor) && !authoredObject;
   // The wall is the gate to NAME only where the type would otherwise admit a
   // write: a type with no runtime write channel is read-only for the operator
   // too, and its page says nothing about the wall.
@@ -476,8 +540,28 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   // Per-row (`list_item`) actions are not surfaced here yet — they need the
   // row's recordId from the grid.
   const typeActions = (
-    <MetadataTypeActions entry={entry} location="list_toolbar" onAfter={refresh} />
+    <>
+      <MetadataTypeActions entry={entry} location="list_toolbar" onAfter={refresh} />
+      {authoredObject && (
+        <Button asChild size="sm" variant="outline" data-testid="catalog-authored-object-link">
+          <Link to={`/apps/${encodeURIComponent(appName ?? 'setup')}/${authoredObject}`}>
+            {t(`engine.catalog.declaredOnly.authoredLink.${type}`, locale)}
+          </Link>
+        </Button>
+      )}
+    </>
   );
+
+  // objectui#13091 — the row's controls pinned to the table's right edge: the
+  // Clone column at `right-0`, at its fixed width, and the Active column just
+  // left of it. The first pinned column draws the seam shadow.
+  const pinned = activation || !!CloneDialog;
+  const cloneCellPin = CloneDialog
+    ? cn(PINNED_CELL_CLASSES, 'right-0 w-28 min-w-28', !activation && PINNED_SEAM_CLASSES)
+    : undefined;
+  const activeCellPin = activation
+    ? cn(PINNED_CELL_CLASSES, CloneDialog ? 'right-28' : 'right-0', PINNED_SEAM_CLASSES)
+    : undefined;
 
   const body = (
       <div className="p-6 space-y-4">
@@ -535,7 +619,16 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
             and tenants assign. objectui#12183 — and under a wall a tenant
             holding the capability is told the same thing, since the capability
             does not admit it there. */}
-        {((envScope && !canAuthor) || walledDeciding) && (
+        {authoredObject && (
+          <div
+            data-testid="catalog-declared-only-hint"
+            className="text-xs text-muted-foreground border rounded-md px-3 py-2.5 bg-muted/30 flex items-start gap-2"
+          >
+            <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>{t(`engine.catalog.declaredOnly.hint.${type}`, locale)}</span>
+          </div>
+        )}
+        {((envScope && !canAuthor && !authoredObject) || walledDeciding) && (
           <div
             data-testid="catalog-readonly-reason"
             className="text-xs text-amber-800 border border-amber-300/70 bg-amber-50/70 rounded-md px-3 py-2.5 dark:text-amber-200 dark:border-amber-700/40 dark:bg-amber-950/20 flex items-start gap-2"
@@ -549,6 +642,27 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
               )}
             </span>
           </div>
+        )}
+        {authoredObject && !canAuthor && (
+          <div
+            data-testid="catalog-readonly-reason"
+            className="text-xs text-amber-800 border border-amber-300/70 bg-amber-50/70 rounded-md px-3 py-2.5 dark:text-amber-200 dark:border-amber-700/40 dark:bg-amber-950/20 flex items-start gap-2"
+          >
+            <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>{t('engine.catalog.declaredOnly.switchReadOnly', locale)}</span>
+          </div>
+        )}
+        {cloning && CloneDialog && (
+          <CloneDialog
+            declaration={cloning}
+            declaredNames={scopedItems.map((r) => String(r.item.name ?? ''))}
+            sourceActive={
+              ledger && ledger !== 'error' ? isCatalogItemActive(ledger.states, String(cloning.name ?? '')) : undefined
+            }
+            locale={locale}
+            onClose={() => setCloning(null)}
+            onSourceSwitched={recordSwitched}
+          />
         )}
         {switchError && (
           <div className="text-xs text-destructive border border-destructive/30 rounded p-2 bg-destructive/5">
@@ -598,8 +712,19 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
           </Empty>
         )}
         {!loading && filtered.length > 0 && (
-          <div className="border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
+          // objectui#13091 — a table wider than its box says so (the shared
+          // overflow affordance, objectui#12708), and the row's controls (the
+          // Active switch, Clone) stay pinned at its right edge, the seam
+          // shadow on the first of them (objectui#12463).
+          <HorizontalOverflowBox
+            seam={pinned ? 'pinned' : 'edge'}
+            outerClassName="border rounded-lg overflow-hidden"
+            data-testid="metadata-list-scroller"
+          >
+            {/* Separated borders: Chrome paints a sticky cell of a collapsed-border
+                table without covering the text scrolling beneath its edge
+                (objectui#13091), so the row dividers are drawn on the cells. */}
+            <table className="w-full text-sm border-separate border-spacing-0">
               {/* Under Setup the table reads as the console's record list
                   (objectui#12606): sentence-case headers, the grid's 36px
                   rows, middle-aligned cells. */}
@@ -610,7 +735,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                     : 'bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground'
                 }
               >
-                <tr>
+                <tr className={HEAD_ROW_TINT}>
                   {columns.map((c) => (
                     <th
                       key={c.key}
@@ -620,13 +745,20 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                       {localizeColumnLabel(c)}
                     </th>
                   ))}
-                  {activation && (
-                    <th className={cn('px-3 text-left font-medium w-[90px]', inSetup ? 'h-9 py-0' : 'py-2')}>{t('engine.catalog.col.active', locale)}</th>
-                  )}
                   <th className={cn('px-3 text-right font-medium w-[80px]', inSetup ? 'h-9 py-0' : 'py-2')}>{t('engine.list.col.source', locale)}</th>
+                  {activation && (
+                    <th className={cn('px-3 text-left font-medium w-[90px]', inSetup ? 'h-9 py-0' : 'py-2', activeCellPin)}>
+                      {t('engine.catalog.col.active', locale)}
+                    </th>
+                  )}
+                  {CloneDialog && (
+                    <th className={cn('px-3', inSetup ? 'h-9 py-0' : 'py-2', cloneCellPin)}>
+                      <span className="sr-only">{t('engine.list.col.actions', locale)}</span>
+                    </th>
+                  )}
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="[&>tr+tr>td]:border-t">
                 {filtered.map((row, i) => {
                   const pk = config.primaryKey ?? 'name';
                   const name = String(row.item[pk] ?? `(unnamed-${i})`);
@@ -666,17 +798,20 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                     row.source === 'artifact'
                       ? `${t('engine.list.source.artifactDesc', locale)}${row.item._packageId ? ` (${row.item._packageId})` : ''}`
                       : t('engine.list.source.runtimeDesc', locale);
+                  const rowHref = `./${encodeURIComponent(name)}${rowEditSuffix}`;
                   return (
                     <tr
                       key={name + i}
-                      className={
-                        'hover:bg-accent/50 ' +
-                        (invalid
-                          ? 'bg-destructive/[0.04]'
-                          : warnOnly
-                            ? 'bg-amber-500/[0.05]'
-                            : '')
-                      }
+                      data-testid={`metadata-row-${name}`}
+                      onClick={(e) => openRowFromClick(e, () => navigate(rowHref))}
+                      className={cn(
+                        'cursor-pointer hover:bg-accent/50',
+                        invalid ? 'bg-destructive/[0.04]' : warnOnly ? 'bg-amber-500/[0.05]' : '',
+                        // The same fills, for the pinned cells to layer over
+                        // their opaque background.
+                        invalid ? INVALID_ROW_TINT : warnOnly ? WARN_ROW_TINT : '',
+                        HOVER_ROW_TINT,
+                      )}
                     >
                       {columns.map((c, ci) => {
                         const value = row.item[c.key];
@@ -704,7 +839,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                                   </span>
                                 )}
                                 <Link
-                                  to={`./${encodeURIComponent(name)}${rowEditSuffix}`}
+                                  to={rowHref}
                                   className="text-primary hover:underline font-mono"
                                 >
                                   {cell}
@@ -716,18 +851,6 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                           </td>
                         );
                       })}
-                      {activation && (
-                        <td className={cellClass}>
-                          <CatalogActiveCell
-                            itemName={name}
-                            ledger={ledger}
-                            canSwitch={canAuthor && !walled}
-                            busy={switching === name}
-                            locale={locale}
-                            onToggle={toggleActive}
-                          />
-                        </td>
-                      )}
                       <td className={cn(cellClass, 'text-right')}>
                         {(row.item._lock as string | undefined) && row.item._lock !== 'none' && (
                           <span
@@ -774,12 +897,40 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                           </Badge>
                         )}
                       </td>
+                      {activation && (
+                        <td className={cn(cellClass, activeCellPin)}>
+                          <CatalogActiveCell
+                            itemName={name}
+                            ledger={ledger}
+                            refusal={ledgerRefusal}
+                            canSwitch={canAuthor && !walled}
+                            busy={switching === name}
+                            locale={locale}
+                            onToggle={toggleActive}
+                          />
+                        </td>
+                      )}
+                      {CloneDialog && (
+                        <td className={cn(cellClass, 'text-right', cloneCellPin)}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 max-w-[88px] px-2 text-xs"
+                            onClick={() => setCloning(row.item)}
+                            title={t('engine.sharingRule.clone.action', locale)}
+                            data-testid={`catalog-clone-${name}`}
+                          >
+                            <Copy className="h-3.5 w-3.5 mr-1" />
+                            <span className="truncate">{t('engine.sharingRule.clone.action', locale)}</span>
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-          </div>
+          </HorizontalOverflowBox>
         )}
       </div>
   );
@@ -826,7 +977,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
           icon={React.createElement(getIcon(config.iconName ?? 'layers'), { className: 'h-4 w-4' })}
           badge={
             <span className="inline-flex shrink-0 items-center gap-1.5">
-              <WritabilityBadge entry={entry} readOnly={false} locale={locale} />
+              <WritabilityBadge entry={entry} readOnly={!!authoredObject} locale={locale} />
               {diagnosticStats.map((s, i) => (
                 <span key={i} className="inline-flex items-center gap-1 text-xs" title={s.label}>
                   {s.value}
@@ -877,6 +1028,24 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   );
 }
 
+/**
+ * objectui#13091 — a cell pinned to the right edge of the list's overflow box.
+ * It paints an opaque background, because the other columns scroll beneath
+ * it, and layers its row's fill (`--os-row-tint`, the convention `data-table`
+ * keeps for its sticky cells) over it, so a pinned cell reads as part of its
+ * row. The Clone column is the fixed `w-28` the Active column's `right-28`
+ * offset counts on; its button truncates its label to stay inside it.
+ *
+ * Complete literals: Tailwind v4 builds only from scanned source text.
+ */
+const PINNED_CELL_CLASSES =
+  'sticky z-10 bg-background bg-[image:linear-gradient(var(--os-row-tint,transparent),var(--os-row-tint,transparent))]';
+const PINNED_SEAM_CLASSES = `border-l border-border ${PINNED_RIGHT_SEAM_SHADOW_CLASSES}`;
+const HEAD_ROW_TINT = '[--os-row-tint:color-mix(in_oklab,var(--color-muted)_30%,transparent)]';
+const INVALID_ROW_TINT = '[--os-row-tint:color-mix(in_oklab,var(--color-destructive)_4%,transparent)]';
+const WARN_ROW_TINT = '[--os-row-tint:color-mix(in_oklab,var(--color-amber-500)_5%,transparent)]';
+const HOVER_ROW_TINT = 'hover:[--os-row-tint:color-mix(in_oklab,var(--color-accent)_50%,transparent)]';
+
 /** The activation ledger's states for a type, and the names its door refuses. */
 interface CatalogLedger {
   states: CatalogActivation;
@@ -887,12 +1056,13 @@ interface CatalogLedger {
  * objectui#7611 — one item's active switch in the environment scope, showing
  * the activation ledger's state (see `catalog-activation.ts`). Its non-switch
  * states are each said, never rendered as a guessed "on": the state is still
- * loading, or the read failed. An audience anchor shows its state on a
+ * loading, or the read failed (said in words, with the server's reason). An audience anchor shows its state on a
  * disabled switch with the reason, because the door refuses to switch it.
  */
 function CatalogActiveCell({
   itemName,
   ledger,
+  refusal,
   canSwitch,
   busy,
   locale,
@@ -900,6 +1070,8 @@ function CatalogActiveCell({
 }: {
   itemName: string;
   ledger: CatalogLedger | 'error' | null;
+  /** Why the read failed: the server's refusal, as `actionErrorDetail` read it. */
+  refusal: string | null;
   canSwitch: boolean;
   busy: boolean;
   locale: string;
@@ -907,9 +1079,16 @@ function CatalogActiveCell({
 }) {
   if (ledger === null) return <span className="text-xs text-muted-foreground">…</span>;
   if (ledger === 'error') {
+    // objectui#13091 — said in plain words, never a bare "?"; the server's
+    // own sentence for why rides in the title.
+    const why = [t('engine.catalog.active.unknown', locale), refusal].filter(Boolean).join(' ');
     return (
-      <span className="text-xs text-muted-foreground" title={t('engine.catalog.active.unknown', locale)}>
-        ?
+      <span
+        className="text-xs text-muted-foreground whitespace-nowrap"
+        title={why}
+        data-testid={`catalog-active-unreadable-${itemName}`}
+      >
+        {t('engine.catalog.active.notVisible', locale)}
       </span>
     );
   }
@@ -934,6 +1113,34 @@ function CatalogActiveCell({
     </span>
   );
 }
+
+/**
+ * The whole row opens its item (objectstack#25333), the way a record list's
+ * row does. The first cell keeps its link, which is what a keyboard, a screen
+ * reader and a modified click (new tab) use; this handler is the pointer's
+ * larger target and stands aside for everything the row already does:
+ *
+ *  - a click on a control in the row (the link itself, the Active switch,
+ *    Clone, a tooltip trigger) is that control's;
+ *  - a click that reached the row through a React portal (a dialog a row
+ *    control opened) did not happen on the row;
+ *  - a modified or non-primary click, and a click that ends a text selection,
+ *    are the browser's.
+ */
+export function openRowFromClick(e: React.MouseEvent<HTMLElement>, open: () => void): void {
+  if (e.defaultPrevented || e.button !== 0) return;
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const target = e.target as Node | null;
+  if (!target || !e.currentTarget.contains(target)) return;
+  const el = target instanceof Element ? target : target.parentElement;
+  if (el?.closest(ROW_OWN_CONTROLS)) return;
+  const selection = typeof window !== 'undefined' ? window.getSelection?.() : null;
+  if (selection && !selection.isCollapsed && selection.toString().trim() !== '') return;
+  open();
+}
+
+const ROW_OWN_CONTROLS =
+  'a,button,input,select,textarea,label,summary,[role="button"],[role="switch"],[role="checkbox"],[role="menuitem"],[role="link"],[contenteditable="true"]';
 
 function defaultColumns(primaryKey: string): NonNullable<import('./registry.js').MetadataResourceConfig['listColumns']> {
   return [

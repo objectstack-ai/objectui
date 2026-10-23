@@ -47,6 +47,7 @@ import {
   MessageResponse,
   type MessageProps,
 } from './elements/message';
+import { RecordLinkContext } from './recordLink';
 import {
   PromptInput,
   PromptInputBody,
@@ -573,6 +574,16 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
    * Intended for slash-command palettes / inline suggestion popups.
    */
   promptOverlaySlot?: React.ReactNode;
+  /**
+   * Optional row rendered IN FLOW at the top of the prompt area, directly
+   * above the prompt input and inside the prompt's column. Unlike
+   * {@link promptOverlaySlot} it takes layout space: the conversation above
+   * shrinks to make room, so the row covers neither the input nor the last
+   * message (objectui#12978 — the host's standing pending-drafts bar, which
+   * used to float over the input's first line). Content that renders nothing
+   * takes no space: the row is hidden while it is empty.
+   */
+  promptHeaderSlot?: React.ReactNode;
   /**
    * Fired on every keystroke in the prompt textarea (forwarded from the
    * AI Elements `PromptInputTextarea`). Lets callers drive a slash-command
@@ -1974,6 +1985,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
       onModelChange,
       headerSlot,
       promptOverlaySlot,
+      promptHeaderSlot,
       onInputChange,
       onToolApprove,
       toolApproveLabel = 'Approve',
@@ -4223,7 +4235,16 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                       ) : isEmptyAssistantStreaming ? (
                         <ThinkingDots />
                       ) : hasVisibleProse ? (
-                        <MessageResponse>{message.content}</MessageResponse>
+                        // objectui#13032 — a long answer folds only once its
+                        // stream has ended; the streaming flag tells it when.
+                        // objectui#13037 — a record link in the answer opens
+                        // the record through the same host opener as the
+                        // `open_record` card.
+                        <RecordLinkContext.Provider value={onOpenRecord ?? null}>
+                          <MessageResponse isAnimating={Boolean(message.streaming)}>
+                            {message.content}
+                          </MessageResponse>
+                        </RecordLinkContext.Provider>
                       ) : !message.streaming && !showsActivity && isToolCallPlaceholder(message.content) ? (
                         // #772: a re-hydrated tool-call-only turn is persisted with
                         // an internal placeholder ("(called todo_write,
@@ -4382,6 +4403,14 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
             isPlainSurface && 'mx-auto w-full max-w-2xl px-4 pb-4 sm:px-0',
           )}
         >
+          {/* objectui#12978 — in flow, so it pushes the conversation up instead
+              of covering the input; `empty:hidden` keeps a slot whose content
+              renders nothing from leaving a gap above the input. */}
+          {promptHeaderSlot ? (
+            <div className="mb-2 flex empty:hidden" data-testid="prompt-header-slot">
+              {promptHeaderSlot}
+            </div>
+          ) : null}
           {surfaceContextLabel ? (
             <div className="mb-1 flex" data-testid="surface-context-chip">
               <span
@@ -5529,6 +5558,23 @@ interface ToolPhaseStep {
   count: number;
 }
 
+/**
+ * objectui#13038 — tools that are the agent's own plumbing, not a step the user
+ * asked for: the phase line neither shows nor counts them. `load_tools` attaches
+ * a deferred tool family to the build agent's call; on build every data question
+ * pays one, so it read as "Load more tools" among the steps and inflated the count.
+ *
+ * A client list because nothing declares the role: the tool definition carries
+ * only name, label, description and parameters, and the stream's tool part
+ * carries no marker either. Module-private on purpose — it is this line's
+ * presentation rule, not a contract another surface may read.
+ */
+const PLUMBING_TOOL_NAMES: ReadonlySet<string> = new Set(['load_tools']);
+
+function isPlumbingTool(tool: ChatbotEnhancedToolInvocation): boolean {
+  return PLUMBING_TOOL_NAMES.has(tool.toolName);
+}
+
 /** Fold a turn's tool calls into one step per tool, in first-call order. */
 function foldToolPhaseSteps(
   tools: ChatbotEnhancedToolInvocation[],
@@ -5536,6 +5582,7 @@ function foldToolPhaseSteps(
 ): ToolPhaseStep[] {
   const steps = new Map<string, ToolPhaseStep>();
   for (const tool of tools) {
+    if (isPlumbingTool(tool)) continue;
     const step = steps.get(tool.toolName);
     if (step) step.count += 1;
     else
@@ -5613,7 +5660,12 @@ function ToolPhaseSummary({
   // 等待确认), so it does not hold the line open. A turn whose every tool has
   // its own card draws no line (the host gates on the summary strip), so a lone
   // card is never named twice.
-  const groups = summarizeTools(summaryTools, translateToolTitle);
+  // A plumbing call (objectui#13038) is no step of the user's: it leaves the
+  // expanded rows as well as the line, so it is shown nowhere in the phase.
+  const groups = summarizeTools(
+    summaryTools.filter((tool) => !isPlumbingTool(tool)),
+    translateToolTitle,
+  );
   const steps = foldToolPhaseSteps(phaseTools, translateToolTitle);
   const has = (state: ToolSummaryState) => groups.some((g) => g.state === state);
   const lineState: ToolSummaryState = has('failed')
@@ -5640,6 +5692,12 @@ function ToolPhaseSummary({
   const stepText = steps
     .map((step) => (step.count > 1 ? `${step.title} ×${step.count}` : step.title))
     .join(' · ');
+  // The host draws this line only when the summary strip has a row; with the
+  // plumbing gone that gate is re-read here. A phase that so far called only
+  // plumbing (or plumbing beside tools with their own card) draws no line,
+  // rather than "0 steps" over an empty step list or a lone card named twice.
+  // Hooks above still ran, so the phase clock started with the turn.
+  if (groups.length === 0) return null;
   return (
     <div className="not-prose mb-2" data-testid="tool-phase">
       <div

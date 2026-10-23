@@ -263,17 +263,23 @@ export function useActionModal(dataSource?: any) {
       // selection/order + master-detail subforms) unless the action descriptor
       // passed an explicit field list. Without this the modal falls back to the
       // raw object schema — every field, in schema order. Mirrors the global
-      // New/Edit modal in AppContent so action-opened forms stay consistent.
+      // New/Edit modal in AppContent so action-opened forms stay consistent:
+      // a create uses the object's `create` form view when it declares one
+      // (objectui#13099), read from the same mode the form below opens in.
+      const formMode = (d.mode as 'create' | 'view' | 'edit') || 'create';
       const viewLayout = (d.fields || (d as any).sections)
         ? {}
-        : resolveFormViewLayout(metadata.objects.find((o: any) => o?.name === d.objectName));
+        : resolveFormViewLayout(
+          metadata.objects.find((o: any) => o?.name === d.objectName),
+          formMode === 'create' ? 'create' : 'edit',
+        );
       modalElement = (
         <ModalForm
           schema={{
             type: 'object-form',
             formType: 'modal',
             objectName: d.objectName,
-            mode: (d.mode as 'create' | 'view' | 'edit') || 'create',
+            mode: formMode,
             recordId: d.recordId,
             title: d.title,
             description: d.description,

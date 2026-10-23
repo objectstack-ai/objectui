@@ -137,6 +137,7 @@ import {
   // objectui#10872 batch 8 — the node-level `responsiveStyles` every public-block arm declares.
   ResponsiveStylesSchema as SpecResponsiveStylesSchema,
   objectNavTargetExclusivity,
+  navItemVisibleDataNeedsDataSource,
   checkListViewCalendarVisualization,
   checkListViewChartBinding,
   checkPageSourceCompleteness,
@@ -147,6 +148,8 @@ import {
   checkPageSlotPair,
   checkPageRegionPlacement,
   checkPageDefaultPlacement,
+  checkPageMainRegionWidth,
+  checkPageRecordBindingPlacement,
   VIEW_METADATA_MEMBERS as SpecViewMetadataMembers,
   // objectui#12736 — the form option's spec shape: the form-view option.
   FormSelectOptionSchema as SpecFormSelectOptionSchema,
@@ -696,6 +699,9 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
      */
     const REFINEMENT_EXCEPTIONS = new Map<string, unknown>([
       ['objectNavTargetExclusivity', objectNavTargetExclusivity],
+      // objectui#13076: the spec's `visible`-reads-`data` rule, which `@objectstack/spec` mounts on its
+      // whole navigation union; chained on `NavigationItemSchema`'s flat arm and its `doc` arm.
+      ['navItemVisibleDataNeedsDataSource', navItemVisibleDataNeedsDataSource],
       // objectui#7715 (ruling B1): the spec's exported object-level checks that
       // `ListViewSchema` and `PageNodeSchema` re-attach after `specFieldsExcept`
       // rebuilt them without the spec object's own checks.
@@ -722,6 +728,11 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       // `PageKindNodeSchema`, and `isDefault` placement, on `PageKindNodeSchema` only.
       ['checkPageRegionPlacement', checkPageRegionPlacement],
       ['checkPageDefaultPlacement', checkPageDefaultPlacement],
+      // objectui#12971: the two page checks objectstack `main` adds to `PageSchema` after
+      // 18.0.0-next.3 — the `main` region's `width`, re-attached on `PageNodeSchema` and
+      // `PageKindNodeSchema`, and `record` binding placement, on `PageKindNodeSchema` only.
+      ['checkPageMainRegionWidth', checkPageMainRegionWidth],
+      ['checkPageRecordBindingPlacement', checkPageRecordBindingPlacement],
       // objectui#12670: the list view chart-binding check `@objectstack/spec` 18 carries on
       // `ListViewSchema`, attached on the authored page `list-view` node's bag
       // (`ListViewPropsBag`), whose `type` is the spec's view kind.

@@ -95,7 +95,7 @@ describe('objectui validate — the documents objectui#11440 arms', () => {
       kind: 'full',
       regions: [
         { name: 'header', width: 'full', components: [{ type: 'page:header', properties: { title: 'Welcome to the CRM' } }] },
-        { name: 'main', width: 'large', components: [{ type: 'element:text', properties: { content: 'A sample page.' } }] },
+        { name: 'main', components: [{ type: 'element:text', properties: { content: 'A sample page.' } }] },
       ],
     });
     expect(text).not.toContain('Schema validation failed');

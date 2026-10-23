@@ -243,6 +243,9 @@ describe('DraftChangesPanel — /meta routes are addressed in the singular', () 
     mockRoutesRecording([{ type: 'objects', name: 'ticket' }]);
     renderPanel();
     await waitFor(() => expect(screen.getByText('ticket')).toBeInTheDocument());
-    expect(screen.getByRole('heading', { level: 4 }).textContent).toBe('object · 1');
+    // This file's `t` stub returns the default uninterpolated. The heading
+    // names its type through the `object` count family (objectui#13221); an
+    // unfolded `objects` group would read the raw `{{n}} {{type}}` fallback.
+    expect(screen.getByRole('heading', { level: 4 }).textContent).toBe('{{count}} objects');
   });
 });

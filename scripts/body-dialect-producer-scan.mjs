@@ -235,9 +235,15 @@ export const KNOWN_LIMITS = [
 ];
 
 const SCANNED_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
+// In step with `body-dialect-census.mjs`'s list, which says why each entry is
+// there. `.objectstack-pin` (objectui#13210) is the pinned `@objectstack/*`
+// build: git-ignored, another repository's packed output, present only after
+// `pnpm run setup`. Its files fell in the `other` bucket here, so they never
+// reached C2 or the producer table — walking them only cost time.
 const SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.turbo', 'out',
   '.pnpm-store', 'playwright-report', 'test-results', '.objectui-tmp',
+  '.objectstack-pin',
 ]);
 
 /**
@@ -366,6 +372,7 @@ export function deriveReaders(root, files = null) {
     if (bucketOf(rel) !== 'shipped-source') continue;
     const { comment, literal } = scanSource(text);
     const code = blank(text, comment);
+    const lineAt = lineCounter(text);
     let sawNonSchema = false;
     for (const shape of READ_SHAPES) {
       shape.re.lastIndex = 0;
@@ -376,7 +383,7 @@ export function deriveReaders(root, files = null) {
         // tree's own documentation manufacture C2 evidence for itself.
         if (literal[m.index]) continue;
         const receiver = m[1];
-        reads.push({ file: rel, line: lineOf(text, m.index), receiver, shape: shape.id });
+        reads.push({ file: rel, line: lineAt(m.index), receiver, shape: shape.id });
         receivers.add(receiver);
         if (receiver !== 'schema') sawNonSchema = true;
       }
@@ -695,6 +702,7 @@ export function scan(root, options = {}) {
     const keyText = blank(text, comment);
 
     const { hits: frameHits, frames } = walkFrames(keyText, literal);
+    const lineAt = lineCounter(text);
 
     const pathAt = (offset) =>
       enclosingScope(frames, offset)
@@ -719,7 +727,7 @@ export function scan(root, options = {}) {
       const declaration = isDeclaration(carrierPath);
       hits.push({
         file: rel,
-        line: lineOf(text, hit.offset),
+        line: lineAt(hit.offset),
         bucket,
         source: hit.source,
         carrierPath,
@@ -837,10 +845,31 @@ function* walk(dir) {
   }
 }
 
-function lineOf(text, offset) {
-  let line = 1;
-  for (let i = 0; i < offset && i < text.length; i++) if (text[i] === '\n') line++;
-  return line;
+/**
+ * Line numbers for one text from ONE pass over it (objectui#13210) — the same
+ * helper as `body-dialect-census.mjs`'s, which says why it replaced a per-hit
+ * newline count from the top of the file.
+ *
+ * @param {string} text
+ * @returns {(offset: number) => number}
+ */
+function lineCounter(text) {
+  /** @type {number[] | null} */
+  let newlines = null;
+  return (offset) => {
+    if (newlines === null) {
+      newlines = [];
+      for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) newlines.push(i);
+    }
+    let lo = 0;
+    let hi = newlines.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (newlines[mid] < offset) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo + 1;
+  };
 }
 
 /**

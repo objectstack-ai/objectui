@@ -120,10 +120,14 @@ describe('`emptyState` draws in place of an empty table (objectui#11068)', () =>
     expect(container.querySelector('table')).toBeNull();
   });
 
-  it('LIT CONTROL — without the key, the same empty grid draws the table’s own empty row', async () => {
+  it('LIT CONTROL — without the key, the same empty grid draws the first-run state, not the authored one', async () => {
+    // objectui#13142: an unsearched empty grid no longer falls through to the
+    // table's "No results found" row; the first-run rows are
+    // `ObjectGrid.firstRunEmptyState-13142.test.tsx`'s.
     render(<ObjectGridRenderer schema={grid([])} />);
-    await screen.findByText(TABLE_EMPTY_HEADING, {}, { timeout: 5000 });
-    expect(screen.queryByTestId('object-grid-empty-state')).toBeNull();
+    const state = await screen.findByTestId('object-grid-empty-state', {}, { timeout: 5000 });
+    expect(state).not.toHaveTextContent('No contacts yet');
+    expect(screen.queryByText(TABLE_EMPTY_HEADING)).toBeNull();
   });
 
   it('a member left out keeps the default: the table’s heading, no message, the shared glyph', async () => {

@@ -21,10 +21,12 @@
  * The names come from the row the get serves (`pending_approver_names`,
  * `pending_approver_groups`) and, for a `position:` slot the server left
  * unnamed, from the `position` registry the metadata store lists and the
- * seat's holders the adapter reads. The face the sheet asserts is the
+ * seat's holders the adapter reads. The face the sheet asserted is the
  * reference: two people sharing a name in two groups stay two labelled chips
  * (`ApprovalsInboxPage.characterizationPins.test.tsx`), and a position reads its
  * registry label, never `positi…ager` (`ApprovalsInboxPage.approverHeadline-12110.test.tsx`).
+ * Both sheet pins retired with the sheet (objectui#12484), against this file
+ * and the decision panel's own pins.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, within } from '@testing-library/react';
@@ -61,12 +63,14 @@ const ADA = 'usr_qFpo8Zk2LmN4pR7t';
 /** The request as the approvals get serves it; each case overrides the slate. */
 const BASE_ROW = {
   id: REQ,
-  display_title: 'invoice_approval · inv_1',
-  process_name: 'invoice_approval',
+  process_name: 'flow:invoice_approval',
+  process_label: 'Invoice Approval',
   object_name: 'invoice',
   record_id: 'inv_1',
   status: 'pending',
   current_step: 'manager_review',
+  current_step_label: 'Manager Review',
+  submitter_id: 'u2',
   updated_at: '2026-10-02T09:00:00Z',
   viewer: { can_act: true, is_submitter: false, can_override: false },
 };
@@ -108,13 +112,14 @@ const REQUEST_DEF = {
   name: APPROVAL_REQUEST_OBJECT,
   label: 'Approval Request',
   pluralLabel: 'Approval Requests',
-  nameField: 'display_title',
-  titleFormat: '{process_name} · {record_id}',
-  highlightFields: ['process_name', 'object_name', 'record_id', 'status', 'current_step', 'submitter_id', 'updated_at'],
+  nameField: 'process_label',
+  titleFormat: '{process_name}',
+  highlightFields: ['process_label', 'record_id', 'status', 'current_step_label', 'submitter_id', 'updated_at'],
   fields: {
     id: { label: 'Request ID', type: 'text', readonly: true, group: 'System' },
     display_title: { label: 'Title', type: 'formula', returnType: 'text', group: 'Target' },
     process_name: { label: 'Source', type: 'text', group: 'Target' },
+    process_label: { label: 'Flow', type: 'text', readonly: true, group: 'Target' },
     object_name: { label: 'Object', type: 'text', group: 'Target' },
     record_id: { label: 'Record ID', type: 'text', referenceVia: 'object_name', group: 'Target' },
     submitter_id: { label: 'Submitter', type: 'lookup', reference: 'sys_user', group: 'Target' },
@@ -123,6 +128,7 @@ const REQUEST_DEF = {
       options: [{ value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }],
     },
     current_step: { label: 'Current Step', type: 'text', group: 'State' },
+    current_step_label: { label: 'Approval Step', type: 'text', readonly: true, group: 'State' },
     pending_approvers: { label: 'Pending Approvers', type: 'textarea', group: 'State' },
     updated_at: { label: 'Updated At', type: 'datetime', group: 'System' },
   },
@@ -179,7 +185,7 @@ const SERVED_PAGE = {
     highlights: {
       type: 'record:highlights',
       properties: {
-        fields: ['process_name', 'object_name', 'status', 'current_step', 'submitter_id', 'updated_at'],
+        fields: ['process_label', 'status', 'current_step_label', 'submitter_id', 'updated_at'],
       },
     },
     tabs: {

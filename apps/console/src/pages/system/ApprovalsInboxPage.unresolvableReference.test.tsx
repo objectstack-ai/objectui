@@ -402,16 +402,11 @@ describe('Approvals Inbox — unresolvable record reference (objectui#8631)', ()
     expect(within(row).queryAllByText(COPY)).toHaveLength(0);
   });
 
-  it('renders the same affordance in the drawer — not one click deeper', async () => {
-    await renderAllTab();
-
-    fireEvent.click(rowFor('Uma Unknown'));
-    const drawer = await screen.findByRole('dialog');
-
-    await waitFor(() => expect(within(drawer).queryAllByText(COPY).length).toBeGreaterThan(0));
-    expect(drawer.innerHTML).not.toContain('Un0pen');
-    expect(within(drawer).queryByRole('link', { name: new RegExp(COPY) })).toBeNull();
-    // Three surfaces now: desktop row, mobile card, drawer.
-    expect(leafNodes(COPY)).toHaveLength(3);
-  });
+  // The drawer case ("renders the same affordance in the drawer — not one
+  // click deeper") retired with the inbox side sheet (objectui#12484). A
+  // request now opens on its served page, whose unresolvable state is pinned by
+  // `approvalRequestsDataSource.servedPageReferenceStates-12489.test.tsx`
+  // ("unresolvable (sheet: unresolvableReference)": the cause-free text, no
+  // link, and the id nowhere on the page, the H1 included), in
+  // `apps/console/src/services/`.
 });

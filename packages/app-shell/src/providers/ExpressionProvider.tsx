@@ -15,10 +15,10 @@
  */
 
 import React, { createContext, useContext, useMemo } from 'react';
-import { ExpressionEvaluator, bindSubjectPermissions } from '@object-ui/core';
-import { PredicateScopeProvider, reportUnresolvableVisibilityPredicate } from '@object-ui/react';
+import { ExpressionEvaluator, bindSubjectCapabilities, bindSubjectPermissions } from '@object-ui/core';
+import { PredicateScopeProvider, reportUnresolvableVisibilityPredicate, usePredicateScope } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
-import { toEvalPermissions, type EvalPermissions } from '@objectstack/formula';
+import { toEvalPermissions, type EvalPermissions, type EvalSystemPermissions } from '@objectstack/formula';
 
 export interface ExpressionContextValue {
   /** Current authenticated user */
@@ -71,6 +71,15 @@ export interface ExpressionScopeInput {
    * payload cannot pass for one.
    */
   permissions?: EvalPermissions;
+  /**
+   * The caller's held system capabilities — the `systemPermissions` list of
+   * the same `/auth/me/permissions` answer, the data
+   * `current_user.hasCapability(name)` is answered from (objectui#13006) — or
+   * `undefined` while there is no loaded answer. Take it from
+   * {@link useExpressionSystemPermissions}; ⛔ never pass `[]` for "not
+   * loaded": an empty list is a real answer ("holds no capability").
+   */
+  systemPermissions?: EvalSystemPermissions;
 }
 
 /**
@@ -177,16 +186,30 @@ export interface ExpressionScopeInput {
  * Every root below is one the engine accepts AND one this tier can actually
  * answer, so the three surfaces — what this binds, what the editor advertises,
  * what the linter admits — now agree.
+ *
+ * ## Why `record` is not here either, and where an app page gets it
+ *
+ * `record` is the PAGE's row, not the tier's: `@objectstack/spec`'s
+ * `PageSchema.record` (objectstack#24265) lets an `app` page declare one, and
+ * every component `visibleWhen` on that page reads it as `record`. This builder
+ * runs once for the whole shell, so it has no row to bind and binds none; an
+ * app page that declares a binding adds its row BELOW this bag, through
+ * {@link PageRecordScope} (objectui#12931). Every other surface, and an app page
+ * with no binding, therefore sees exactly the roots listed here.
  */
 export function buildExpressionScope({
   user = {},
   features = {},
   permissions,
+  systemPermissions,
 }: ExpressionScopeInput = {}): Record<string, any> {
   // ONE subject object under all four spellings, and it is the one carrying the
-  // permissions: the engine answers `can` only for a receiver IDENTICAL to the
-  // bound `current_user`, so a second copy under any alias would be refused.
-  const subject = bindSubjectPermissions(user, permissions);
+  // permissions and the capability list: the engine answers `can` and
+  // `hasCapability` only for a receiver IDENTICAL to the bound `current_user`,
+  // so a second copy under any alias would be refused. Both ride under symbols
+  // (`@object-ui/core` `subjectPermissions.ts`), so neither is a CEL root nor a
+  // readable member of `current_user`.
+  const subject = bindSubjectCapabilities(bindSubjectPermissions(user, permissions), systemPermissions);
   return { current_user: subject, user: subject, ctx: { user: subject }, os: { user: subject }, features };
 }
 
@@ -259,6 +282,34 @@ export function useExpressionPermissions(): EvalPermissions | undefined {
 }
 
 /**
+ * The caller's held system capabilities the predicate scope binds for
+ * `current_user.hasCapability(name)` (objectui#13006), or `undefined` when
+ * there is no loaded answer to read them from.
+ *
+ * The list is the `systemPermissions` of the SAME `/auth/me/permissions`
+ * answer `usePermissions()` holds — the one the action gate checks
+ * `requiredPermissions` against — so there is no second fetch. It is handed on
+ * on exactly the terms {@link useExpressionPermissions} hands on the object
+ * map, and only when that map is bound too:
+ *
+ *  - not loaded, no provider, or a backend that never reported
+ *    `systemPermissions` (a deployment predating ADR-0066): `undefined`, and
+ *    the engine REFUSES `hasCapability` loudly. ⛔ Never `[]`: an empty list is
+ *    a real answer and would read as a quiet denial.
+ *  - a loaded answer whose object map the formula adapter refused: `undefined`
+ *    as well. One answer binds both halves or neither, so the subject's
+ *    capability list can never change while its permissions map stays the
+ *    same object — the pair `packages/react` re-binds the runner's
+ *    `current_user` on (`JSON.stringify` cannot see a symbol-keyed list).
+ *    `providers/__tests__/hasCapability-13006.render.test.tsx` pins it.
+ */
+export function useExpressionSystemPermissions(): EvalSystemPermissions | undefined {
+  const { systemPermissions } = usePermissions();
+  const permissions = useExpressionPermissions();
+  return permissions !== undefined ? systemPermissions : undefined;
+}
+
+/**
  * An `ExpressionEvaluator` over {@link buildExpressionScope}.
  *
  * Every app-shell site that needs an evaluator imperatively (i.e. one it cannot
@@ -283,13 +334,16 @@ export function ExpressionProvider({ children, user = {}, app = {}, data = {}, f
   // surface under it) binds `current_user.can(...)` from the same payload with
   // no prop to thread and no per-surface copy of the hand-off.
   const permissions = useExpressionPermissions();
+  // objectui#13006 — the capability list `current_user.hasCapability(name)`
+  // reads, from the same answer, bound with the map or not at all.
+  const systemPermissions = useExpressionSystemPermissions();
   const value = useMemo(() => {
-    const evaluator = createExpressionEvaluator({ user, features, permissions });
+    const evaluator = createExpressionEvaluator({ user, features, permissions, systemPermissions });
     // `app` and `data` are still published on the context value — `DashboardView`
     // reads `app` as a plain value. Neither is handed to the evaluator:
     // objectui#8155 (`app`), objectui#8166 (`data`).
     return { user, app, data, features, evaluator };
-  }, [user, app, data, features, permissions]);
+  }, [user, app, data, features, permissions, systemPermissions]);
 
   // Also feed the predicate scope used by useCondition/useExpression in
   // @object-ui/react so action visibility predicates (e.g. on toolbar
@@ -297,8 +351,8 @@ export function ExpressionProvider({ children, user = {}, app = {}, data = {}, f
   // The SAME bag the evaluator above got — one builder, so the imperative and
   // the hook-driven halves of this provider cannot drift apart either.
   const scope = useMemo(
-    () => buildExpressionScope({ user, features, permissions }),
-    [user, features, permissions],
+    () => buildExpressionScope({ user, features, permissions, systemPermissions }),
+    [user, features, permissions, systemPermissions],
   );
 
   return (
@@ -306,6 +360,47 @@ export function ExpressionProvider({ children, user = {}, app = {}, data = {}, f
       <PredicateScopeProvider scope={scope}>{children}</PredicateScopeProvider>
     </ExprCtx.Provider>
   );
+}
+
+/**
+ * The row an `app` page binds, published as `record` in that page's predicate
+ * scope (objectui#12931, the renderer half of objectstack#24265).
+ *
+ * The page's components read their `visibleWhen` against the ambient predicate
+ * scope (`SchemaRenderer`'s `buildNodeEvaluationScope` spreads it first), so
+ * the row joins that scope here: the ambient bag {@link ExpressionProvider}
+ * published, plus `record`, and nothing else. No new root: `record` is the root
+ * the spec already binds for a component predicate, and a count or a plan is a
+ * FIELD on the row (`record.environment_count > 1`, `record.plan != 'free'`).
+ *
+ * `null` is the bound set with no row, or a row the caller may not read: the
+ * page HAS a binding and it answered nothing, so `record == null` holds and a
+ * read of a field on it faults, which a fail-soft `visibleWhen` renders — the
+ * same verdict the spec gives an unbound row.
+ *
+ * Only the page's own host mounts this, and only when the page declares a
+ * binding; a page with none keeps the ambient bag untouched.
+ *
+ * Why the ambient scope rather than `RecordContextProvider`: that context is
+ * the RECORD PAGE's, and the `record:*` blocks read their body from it. Put
+ * there, the page's row would become the record of every unbound record block
+ * on the page — a binding the spec does not give (a block's own `dataSource`
+ * decides its body). A record block that binds its own row still provides it
+ * through `RecordContextProvider`, and that row wins for its own subtree, as
+ * `buildNodeEvaluationScope` writes `record` after the ambient spread.
+ */
+export function PageRecordScope({
+  record,
+  children,
+}: {
+  record: Record<string, unknown> | null;
+  children: React.ReactNode;
+}) {
+  const ambient = usePredicateScope();
+  // Memoised for cost only (AGENTS.md #10): every consumer evaluates against
+  // the values in it, never against this object's identity.
+  const scope = useMemo(() => ({ ...ambient, record }), [ambient, record]);
+  return <PredicateScopeProvider scope={scope}>{children}</PredicateScopeProvider>;
 }
 
 /**

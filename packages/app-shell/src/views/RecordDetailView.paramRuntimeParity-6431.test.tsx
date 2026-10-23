@@ -224,6 +224,10 @@ const DIALOG_READS = [
   'open',
   'params',
   'resolve',
+  // The runner's `run` (objectui#13161): Confirm runs the action from inside
+  // the dialog, so a refusal keeps the typed values. Called without one here,
+  // so it is written `undefined`; the key is on both runtimes' state.
+  'run',
   'title',
 ];
 

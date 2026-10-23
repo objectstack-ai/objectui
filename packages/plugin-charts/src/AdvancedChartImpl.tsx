@@ -440,6 +440,19 @@ const X_AXIS_TICK_MARGIN = 10;
  */
 const RECHARTS_TICK_SIZE = 6;
 
+/**
+ * The tick text style every axis this file draws shares (objectui#13129): the
+ * theme's muted foreground, as `ChartImpl` paints its ticks. Without a `tick`
+ * fill recharts paints tick text in the axis `stroke` default, #666, which on
+ * a dark card is about 3:1. The container's
+ * `[&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground` class does
+ * not reach it: recharts 3 renders the text under
+ * `.recharts-cartesian-axis-tick-label`, not under
+ * `.recharts-cartesian-axis-tick`, and polar axes match neither. Only the
+ * fill: the font size stays `ChartContainer`'s `text-xs`.
+ */
+const AXIS_TICK_STYLE = { fill: 'hsl(var(--muted-foreground))' };
+
 /** The axis tick text's font size: `ChartContainer`'s `text-xs`. */
 const AXIS_TICK_FONT_PX = 12;
 
@@ -461,6 +474,34 @@ function estimateLabelWidthPx(label: string): number {
   let ems = 0;
   for (const glyph of label) ems += WIDE_GLYPH.test(glyph) ? 1 : NARROW_GLYPH_EM;
   return ems * AXIS_TICK_FONT_PX;
+}
+
+/** recharts' default chart margin, left plus right (5px each side). */
+const CHART_MARGIN_X_PX = 10;
+
+/** The width every value axis of the vertical cartesian families draws (`YAxis width={48}`). */
+const VALUE_AXIS_WIDTH_PX = 48;
+
+/**
+ * Clear space a horizontal x-axis label keeps inside its band, so two
+ * neighbouring names never touch (objectui#13241).
+ */
+const X_LABEL_BAND_GAP_PX = 8;
+
+/**
+ * Whether every drawn category label fits its band unrotated (objectui#13241).
+ *
+ * A band axis gives each category `plotWidth / categories` px. A label fits
+ * when its estimated width (the same upper estimate the rotated band is sized
+ * from, {@link estimateLabelWidthPx}) plus {@link X_LABEL_BAND_GAP_PX} is no
+ * wider than that. Rotation and the 12-character cut are for a band that
+ * cannot hold the name — not for a long name on a chart wide enough for it.
+ */
+function categoryLabelsFitBand(labels: readonly string[], plotWidthPx: number): boolean {
+  if (labels.length === 0 || plotWidthPx <= 0) return false;
+  const band = plotWidthPx / labels.length;
+  const widest = labels.reduce((max, label) => Math.max(max, estimateLabelWidthPx(label)), 0);
+  return widest + X_LABEL_BAND_GAP_PX <= band;
 }
 
 /**
@@ -1563,6 +1604,26 @@ function AdvancedChartImplInner({
   };
   const [isMobile, setIsMobile] = React.useState(false);
 
+  // objectui#13241 — the drawn width of the cartesian chart surface, so the x
+  // axis rotates only labels that do not fit their band. `undefined` until a
+  // real box is measured (first render, SSR, a layout-less test DOM): the
+  // rotation decision then keeps its length-only rule, and switches to the fit
+  // rule once a width arrives. The width only decides rotation, which changes
+  // the axis HEIGHT, never the surface width, so a measurement cannot feed back
+  // into itself. The surface element survives the container's settle re-mount
+  // as a new node; the last width is kept across it, so nothing flickers.
+  const [chartSurface, setChartSurface] = React.useState<SVGSVGElement | null>(null);
+  const [measuredChartWidth, setMeasuredChartWidth] = React.useState<number | undefined>(undefined);
+  React.useEffect(() => {
+    if (chartSurface == null || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width != null && width > 0) setMeasuredChartWidth(Math.round(width));
+    });
+    observer.observe(chartSurface);
+    return () => observer.disconnect();
+  }, [chartSurface]);
+
   // Recharts' top-level onClick payload: { activeLabel, activeTooltipIndex, … }
   // — `MouseHandlerDataParam`, which carries an INDEX into this chart's `data`
   // and no row of its own. So the clicked bucket's row (and with it the
@@ -1714,9 +1775,10 @@ function AdvancedChartImplInner({
 
   // Per-category colour: a select/lookup dimension's option colour (passed via
   // `categoryColors`, keyed by value OR label) wins per slice/bar; categories
-  // with no option colour fall back to their positional palette slot. Used by
-  // pie/donut and single-series categorical bars so semantic colours (health
-  // green/red/yellow) survive even when a generic brand palette is also set.
+  // with no option colour fall back to the `palette` the caller passes — the
+  // positional palette for pie/donut slices, the one series colour for
+  // single-series bars — so semantic colours (health green/red/yellow)
+  // survive even when a generic brand palette is also set.
   const colorForCategory = React.useCallback((rawKey: any, index: number, palette: string[]): string => {
     const mapped = categoryColors && categoryColors[rawKey == null ? '' : String(rawKey)];
     return mapped || palette[index % palette.length];
@@ -1816,11 +1878,6 @@ function AdvancedChartImplInner({
   // categorical axis draws every label instead of thinning like a time axis.
   const labelEveryBucket = data.length > 0 && data.length <= X_AXIS_ALL_LABELS_MAX_BUCKETS;
 
-  // Rotation is what BUYS the complete axis, so in the forced branch it applies
-  // on mobile too: drawing every label without rotating is the horizontal
-  // overlap the old thinning avoided. Above the bound the trigger is unchanged.
-  const rotateXLabels = labelEveryBucket ? hasLongLabels : (!isMobile && hasLongLabels);
-
   // Helper function to get color palette. An explicit `colors` prop (set by the
   // page/dashboard) wins; otherwise fall back to the theme's --chart-1..5 vars.
   const getPalette = () => (Array.isArray(colors) && colors.length > 0 ? colors : [
@@ -1889,6 +1946,26 @@ function AdvancedChartImplInner({
     () => formatterFor(xAxisSpec?.format, displayLocale) ?? formatTick,
     [xAxisSpec?.format, displayLocale, formatTick],
   );
+
+  // objectui#13241 — whether the drawn labels fit their bands unrotated, read
+  // only once the surface width is measured (`undefined` before). The plot is
+  // the surface less recharts' side margins and the value axes drawn beside
+  // it: two for a combo or a dual-axis chart, one otherwise.
+  const xLabelsFitBand = measuredChartWidth === undefined
+    ? undefined
+    : categoryLabelsFitBand(
+      data.map((d) => String(xTickFormatter(d?.[xAxisKey]) ?? '')),
+      measuredChartWidth - CHART_MARGIN_X_PX
+        - (chartType === 'combo' || hasDualAxis ? 2 : 1) * VALUE_AXIS_WIDTH_PX,
+    );
+
+  // Rotation is what BUYS the complete axis, so in the forced branch it applies
+  // on mobile too: drawing every label without rotating is the horizontal
+  // overlap the old thinning avoided. Above the bound the trigger is unchanged.
+  // A long label rotates only when the measured band cannot hold it
+  // (objectui#13241); before a width is measured, its length alone decides.
+  const labelsWantRotation = hasLongLabels && xLabelsFitBand !== true;
+  const rotateXLabels = labelEveryBucket ? labelsWantRotation : (!isMobile && labelsWantRotation);
 
   /**
    * The x-axis formatter, plus the ellipsis step a rotated label owes
@@ -2096,6 +2173,7 @@ function AdvancedChartImplInner({
   // 180-point daily series at 800px still thinned to 11 ticks with zero
   // overlap, unchanged in kind from before this change.
   const xAxisCommonProps = React.useMemo(() => ({
+    tick: AXIS_TICK_STYLE,
     tickLine: false as const,
     tickMargin: X_AXIS_TICK_MARGIN,
     axisLine: false as const,
@@ -2524,8 +2602,8 @@ function AdvancedChartImplInner({
       <ChartContainer config={config} className={className} {...containerProps}>
         <RadarChart data={data}>
           <PolarGrid />
-          <PolarAngleAxis dataKey={xAxisKey} />
-          <PolarRadiusAxis />
+          <PolarAngleAxis dataKey={xAxisKey} tick={AXIS_TICK_STYLE} />
+          <PolarRadiusAxis tick={AXIS_TICK_STYLE} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <ChartLegend
             content={<ChartLegendContent />}
@@ -2641,6 +2719,7 @@ function AdvancedChartImplInner({
             type="number"
             dataKey={xAxisKey}
             name={String(config[xAxisKey]?.label || xAxisKey)}
+            tick={AXIS_TICK_STYLE}
             tickLine={false}
             axisLine={false}
             minTickGap={isMobile ? 32 : 48}
@@ -2656,6 +2735,7 @@ function AdvancedChartImplInner({
             type="number"
             dataKey={scatterYKey}
             name={String(config[series[0]?.dataKey]?.label || series[0]?.dataKey)}
+            tick={AXIS_TICK_STYLE}
             tickLine={false}
             axisLine={false}
             tickFormatter={yTickFormatter}
@@ -2750,7 +2830,7 @@ function AdvancedChartImplInner({
             happens at chart level because that is the only place the CATEGORY
             is known — a line/area item handler is handed the curve's props and
             no datum. */}
-        <ComposedChart data={data} {...comboClickProps}>
+        <ComposedChart ref={setChartSurface} data={data} {...comboClickProps}>
           <CartesianGrid {...gridProps} {...valueAxisIdFor(valueAxesHaveIds, categoriesRunDown)} />
           <XAxis dataKey={xAxisKey} {...xAxisCommonProps} />
           {/* A combo always draws both value axes (an authored combo binds an
@@ -2758,8 +2838,8 @@ function AdvancedChartImplInner({
               `placeYAxes` drew in its slot, or no spec config when none was —
               so a lone entry at `position: 'right'` configures the right axis
               only, and its title is not drawn on both sides (objectui#10654). */}
-          <YAxis yAxisId="left" tickLine={false} axisLine={false} tickFormatter={leftYTickFormatter} width={48} {...yAxisSpecProps(leftY, 'left')} />
-          <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tickFormatter={rightYTickFormatter} width={48} {...yAxisSpecProps(rightY, 'right')} />
+          <YAxis yAxisId="left" tick={AXIS_TICK_STYLE} tickLine={false} axisLine={false} tickFormatter={leftYTickFormatter} width={48} {...yAxisSpecProps(leftY, 'left')} />
+          <YAxis yAxisId="right" orientation="right" tick={AXIS_TICK_STYLE} tickLine={false} axisLine={false} tickFormatter={rightYTickFormatter} width={48} {...yAxisSpecProps(rightY, 'right')} />
           {tooltipsEnabled ? <ChartTooltip content={<ChartTooltipContent />} /> : null}
           {legendVisible ? (
             <ChartLegend
@@ -2838,7 +2918,7 @@ function AdvancedChartImplInner({
     <ChartFrame title={title} subtitle={subtitle}>
     <ChartFootnote note={joinNotes(xPositionNote, yPositionNote)}>
     <ChartContainer config={config} className={className} {...containerProps}>
-      <ChartComponent data={data} layout={isHorizontal ? 'vertical' : 'horizontal'} {...cartesianClickProps}>
+      <ChartComponent ref={setChartSurface} data={data} layout={isHorizontal ? 'vertical' : 'horizontal'} {...cartesianClickProps}>
         <defs>
           {gradColors.map((c) => (
             <React.Fragment key={gslug(c)}>
@@ -2867,12 +2947,13 @@ function AdvancedChartImplInner({
                 carries none. */}
             {hasDualAxis ? (
               <>
-                <XAxis xAxisId="left" type="number" tickLine={false} axisLine={false} tickFormatter={leftYTickFormatter} {...yAxisSpecProps(leftY, 'left', X_AXIS_TITLE_LAYOUT)} />
-                <XAxis xAxisId="right" orientation="top" type="number" tickLine={false} axisLine={false} tickFormatter={rightYTickFormatter} {...yAxisSpecProps(rightY, 'right', X_AXIS_TOP_TITLE_LAYOUT)} />
+                <XAxis xAxisId="left" type="number" tick={AXIS_TICK_STYLE} tickLine={false} axisLine={false} tickFormatter={leftYTickFormatter} {...yAxisSpecProps(leftY, 'left', X_AXIS_TITLE_LAYOUT)} />
+                <XAxis xAxisId="right" orientation="top" type="number" tick={AXIS_TICK_STYLE} tickLine={false} axisLine={false} tickFormatter={rightYTickFormatter} {...yAxisSpecProps(rightY, 'right', X_AXIS_TOP_TITLE_LAYOUT)} />
               </>
             ) : (
               <XAxis
                 type="number"
+                tick={AXIS_TICK_STYLE}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={yTickFormatter}
@@ -2887,6 +2968,7 @@ function AdvancedChartImplInner({
             <YAxis
               type="category"
               dataKey={xAxisKey}
+              tick={AXIS_TICK_STYLE}
               tickLine={false}
               axisLine={false}
               width={Math.min(140, Math.max(60, Math.max(...data.map(d => String(d[xAxisKey] ?? '').length)) * 7))}
@@ -2905,6 +2987,7 @@ function AdvancedChartImplInner({
               <>
                 <YAxis
                   yAxisId="left"
+                  tick={AXIS_TICK_STYLE}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={leftYTickFormatter}
@@ -2914,6 +2997,7 @@ function AdvancedChartImplInner({
                 <YAxis
                   yAxisId="right"
                   orientation="right"
+                  tick={AXIS_TICK_STYLE}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={rightYTickFormatter}
@@ -2923,6 +3007,7 @@ function AdvancedChartImplInner({
               </>
             ) : (
               <YAxis
+                tick={AXIS_TICK_STYLE}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={yTickFormatter}
@@ -2968,17 +3053,23 @@ function AdvancedChartImplInner({
           const valueFormatter = formatterFor(axisOfSeries(s)?.format, displayLocale);
 
           if (chartType === 'bar' || chartType === 'horizontal-bar') {
-            // For categorical bar charts with a single primary series,
-            // color each bar distinctly. With a comparison overlay the
-            // chart effectively has two series, so revert to one color
-            // per series for visual consistency.
+            // One series, one colour: a bar's colour names its SERIES, so a
+            // single-series bar chart draws every bar in the series colour.
+            // A positional palette slot per bar carried no meaning — the
+            // System Overview "Events by User" board drew each user in a
+            // different hue (objectstack#25330). The one per-bar colour that
+            // does carry meaning is a dimension's semantic option colour
+            // (`categoryColors`, e.g. health green/red/yellow): a category
+            // that has one keeps it, every other bar takes the series colour.
+            // With a comparison overlay the chart has two series, so each
+            // keeps its own series colour.
             const primaryCount = series.filter((p: any) => p.variant !== 'comparison').length;
-            const colorPerCategory = primaryCount === 1 && !isComparison && series.length === 1 && data.length > 1;
+            const semanticPerCategory = !!categoryColors && primaryCount === 1 && !isComparison && series.length === 1 && data.length > 1;
             const pres = seriesStyle(s, 'bar');
             return (
               <Bar key={s.dataKey} dataKey={s.dataKey} fill={`url(#bg-${gslug(seriesColor)})`} radius={4} fillOpacity={pres.fillOpacity} strokeOpacity={pres.strokeOpacity} strokeDasharray={pres.strokeDasharray} {...stackProps} {...axisProps} {...animProps} {...markClickProps(s)}>
-                {colorPerCategory && data.map((entry, idx) => (
-                  <Cell key={`cell-${idx}`} fill={`url(#bg-${gslug(resolveColor(colorForCategory(entry?.[xAxisKey], idx, palette)))})`} />
+                {semanticPerCategory && data.map((entry, idx) => (
+                  <Cell key={`cell-${idx}`} fill={`url(#bg-${gslug(resolveColor(colorForCategory(entry?.[xAxisKey], idx, [seriesColor])))})`} />
                 ))}
                 {dataLabel(valueFormatter)}
               </Bar>

@@ -125,14 +125,15 @@ describe('page:tabs derived count skips a related list its own visibleWhen hides
     expect(probedObjects(ds)).toEqual([SHOWN_CHILD]);
   });
 
-  it('counts a list whose visibleWhen cannot be evaluated, as the body draws it (fail-open)', async () => {
+  it('skips a list whose visibleWhen cannot be evaluated, as the body withholds it (fail-closed, objectui#13299)', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      const { findByLabelText } = renderTabs('free', {
+      const { findByLabelText, queryByLabelText } = renderTabs('free', {
         children: [relatedList(HIDDEN_CHILD, 'record.plan ==== )('), relatedList(SHOWN_CHILD)],
       });
 
-      expect((await findByLabelText('5 items')).textContent).toBe('5');
+      expect((await findByLabelText('2 items')).textContent).toBe('2');
+      expect(queryByLabelText('5 items')).toBeNull();
     } finally {
       warn.mockRestore();
     }

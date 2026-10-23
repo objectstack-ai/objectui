@@ -27,6 +27,7 @@ import {
   createExpressionEvaluator,
   isObjectFieldVisible,
   useExpressionPermissions,
+  useExpressionSystemPermissions,
 } from '../providers/ExpressionProvider.js';
 import { buildExpressionUser } from '../providers/expressionUser.js';
 import { useTrackRouteAsRecent } from '../hooks/useTrackRouteAsRecent.js';
@@ -46,13 +47,20 @@ import { ErrorBoundary } from '../chrome/ErrorBoundary.js';
 import { LoadingScreen } from '../chrome/LoadingScreen.js';
 import { RedirectWithSplash } from '../chrome/RedirectWithSplash.js';
 import { ObjectView } from '../views/ObjectView.js';
+// objectui#13052 — on its own line: the line above is the eager-walk control
+// `scripts/__tests__/vite-declared-lazy-views.test.ts` reads verbatim.
+import { ObjectNotFoundState } from '../views/ObjectView.js';
 import { KeyboardShortcutsDialog } from '../chrome/KeyboardShortcutsDialog.js';
 import { OnboardingWalkthrough } from '../chrome/OnboardingWalkthrough.js';
 import { RouteFader } from '../chrome/RouteFader.js';
 import { NavigationSyncEffect } from '../hooks/useNavigationSync.js';
 import { AppNoAccessEmptyState } from './AppNoAccessEmptyState.js';
-import { appServesNoNavigation } from './appServesNoNavigation.js';
-import { useNavMemberGates, navEntriesShownToMember } from '../hooks/useNavMemberGates.js';
+import { appNamesOnlyUnreadableObjects, appServesNoNavigation } from './appServesNoNavigation.js';
+import {
+  useNavMemberGates,
+  navEntriesShownToMember,
+  navEntriesShownOncePendingReadsShow,
+} from '../hooks/useNavMemberGates.js';
 import { resolveSetupAppPath } from './ConsoleShell.js';
 import { APP_ROUTE_METADATA_READS, collectRoutePaths, metadataReadsForAppRoute, type LazyMetadataType } from './appRouteMetadataReads.js';
 import { readAppObjectScope } from './appObjectScope.js';
@@ -117,6 +125,7 @@ const RecordDetailView = routeChunk.lazy(() => import('../views/RecordDetailView
 const DashboardView = routeChunk.lazy(() => import('../views/DashboardView.js').then(m => m.DashboardView));
 const PageView = routeChunk.lazy(() => import('../views/PageView.js').then(m => m.PageView));
 const ReportView = routeChunk.lazy(() => import('../views/ReportView.js').then(m => m.ReportView));
+const AppReportIndexView = routeChunk.lazy(() => import('../views/AppReportIndexView.js').then(m => m.AppReportIndexView));
 const SearchResultsPage = routeChunk.lazy(() => import('../views/SearchResultsPage.js').then(m => m.SearchResultsPage));
 const RecordFormPage = routeChunk.lazy(() => import('../views/RecordFormPage.js').then(m => m.RecordFormPage));
 const ComponentNavView = routeChunk.lazy(() => import('../views/ComponentNavView.js').then(m => m.ComponentNavView));
@@ -162,6 +171,7 @@ const APP_ROUTE_CHUNKS: ReadonlyArray<{ path: string; chunk: { preload: () => Pr
   { path: ':objectName/record/:recordId/page/:pageName', chunk: RecordDetailView },
   { path: 'dashboard/:dashboardName', chunk: DashboardView },
   { path: 'report/:reportName', chunk: ReportView },
+  { path: 'reports', chunk: AppReportIndexView },
   { path: 'page/:pageName', chunk: PageView },
   { path: 'component/:ns/:name/*', chunk: ComponentNavView },
   { path: 'design/dashboard/:dashboardName', chunk: DashboardDesignPage },
@@ -395,8 +405,15 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // the app's object scope on the routes `appObjectScope.ts` names, inside an
   // app whose served item carries its package; the whole registry everywhere
   // else, as before (that module says why). A page route reads the objects
-  // its page binds (objectui#12980), resolved as `PageView` resolves the page.
-  const { candidate: scopeCandidate, scope: objectScope, ready: objectScopeReady } = readAppObjectScope(
+  // its page binds (objectui#12980), resolved as `PageView` resolves the page,
+  // and a record route those of its declared record page (objectui#13046).
+  const {
+    candidate: scopeCandidate,
+    scope: objectScope,
+    ready: objectScopeReady,
+    failedNames: routeObjectReadsFailed,
+    routeObjectRefusal,
+  } = readAppObjectScope(
     readObjectScope,
     activeApp,
     appSubPath,
@@ -406,6 +423,15 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
       const status = getTypeStatus?.('page');
       return {
         page: preferLocal(metadata.pages as any[], pageName, (activeApp as any)?._packageId),
+        settled: status === undefined || status === 'ready' || status === 'error',
+      };
+    },
+    // objectui#13046 — a record route reads the objects its declared record
+    // page binds, picked from the page list as `RecordDetailView` picks it.
+    () => {
+      const status = getTypeStatus?.('page');
+      return {
+        pages: Array.isArray(metadata.pages) ? (metadata.pages as unknown[]) : [],
         settled: status === undefined || status === 'ready' || status === 'error',
       };
     },
@@ -916,7 +942,11 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // objectui#4421 — the same `permissions` input the provider below reads, so
   // `current_user.can(...)` in a field's `visibleWhen` answers here exactly as
   // it does under the provider (one bag, objectui#6493).
+  // objectui#13083 — and the `systemPermissions` list beside it, so
+  // `current_user.hasCapability(name)` answers here as it does under the
+  // provider (objectui#13006) instead of faulting on an unbound list.
   const expressionPermissions = useExpressionPermissions();
+  const expressionSystemPermissions = useExpressionSystemPermissions();
   const expressionEvaluator = useMemo(
     // ⛔ No `app`: objectui#8155 removed it from the predicate scope, because
     // neither ADR-0068 nor the engine's `SCOPE_ROOTS` declares such a root.
@@ -935,8 +965,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
       user: buildExpressionUser(user),
       features,
       permissions: expressionPermissions,
+      systemPermissions: expressionSystemPermissions,
     }),
-    [user, features, expressionPermissions],
+    [user, features, expressionPermissions, expressionSystemPermissions],
   );
 
   // objectui#5619 — `isWorkspaceAdminResolved` belongs in this readiness gate
@@ -1009,6 +1040,16 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // outer skeleton every host mounting this component provides (see this
   // file's header).
   //
+  // The way home itself is shared with the app-missing screen below
+  // (objectui#13122): that screen returns above `ConsoleLayout` too, so a Retry
+  // alone left a stale bookmark or an uninstalled app's link a full-screen dead
+  // end. One button, one copy key, one navigation for every screen that owes it.
+  const renderBackHomeButton = (testId: string) => (
+    <Button onClick={() => navigate(homePath)} data-testid={testId}>
+      {t('empty.appAccessDeniedHome', { defaultValue: 'Back to home' })}
+    </Button>
+  );
+
   // One screen for both branches that draw a `denied` verdict below.
   const renderAppAccessDenied = () => (
     <div className="h-screen flex items-center justify-center">
@@ -1022,11 +1063,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
               'This app exists, but your account is not authorized to open it. Ask an administrator to grant you access.',
           })}
         </EmptyDescription>
-        <div className="mt-4">
-          <Button onClick={() => navigate(homePath)} data-testid="app-access-denied-home">
-            {t('empty.appAccessDeniedHome', { defaultValue: 'Back to home' })}
-          </Button>
-        </div>
+        <div className="mt-4">{renderBackHomeButton('app-access-denied-home')}</div>
       </Empty>
     </div>
   );
@@ -1058,7 +1095,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     // Retry is offered on all three because all three can change on their own:
     // an absence ends when the app is created or published, an unreachable
     // server comes back, and an unasked question is still unasked. That is the
-    // opposite of `denied` above, which no retry can move.
+    // opposite of `denied` above, which no retry can move. Retry is never the
+    // ONLY way out, though: each of the three also offers the denied screen's
+    // way home (objectui#13122), since nothing here is guaranteed to change.
     //
     // ⭐ `granted` lands on the NEUTRAL screen deliberately, with `unknown`.
     // Reaching here with `granted` means the by-name route served the app while
@@ -1095,10 +1134,11 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
         <Empty data-testid={verdictScreen.testId}>
           <EmptyTitle>{verdictScreen.title}</EmptyTitle>
           <EmptyDescription>{verdictScreen.description}</EmptyDescription>
-          <div className="mt-4">
+          <div className="mt-4 flex items-center justify-center gap-2">
             <Button onClick={() => setMissingRecheckRun(null)} data-testid={`${verdictScreen.testId}-retry`}>
               {t('common.retry', { defaultValue: 'Retry' })}
             </Button>
+            {renderBackHomeButton(`${verdictScreen.testId}-home`)}
           </div>
         </Empty>
       </div>
@@ -1306,7 +1346,21 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
               <RouteFader className="h-full">
                 {/* objectui#12809 — the route's metadata has not landed: its
                     skeleton, never its empty or "not found" state. */}
-                {!routeReadsSettled ? <RouteMetadataSkeleton reads={routeReadsKey || 'object'} /> : (
+                {!routeReadsSettled ? <RouteMetadataSkeleton reads={routeReadsKey || 'object'} /> : objectScope && routeObjectReadsFailed.length > 0 ? (
+                  // objectui#13052 — the route's object read failed (a 5xx, a
+                  // network drop, a code this build does not know): say so in
+                  // the shell, and let Retry ask those names once more.
+                  <RouteObjectReadFailed
+                    onRetry={() => {
+                      for (const name of routeObjectReadsFailed) metadata.invalidate('object', name);
+                    }}
+                  />
+                ) : routeObjectRefusal?.code === 'OBJECT_PACKAGE_DISABLED' ? (
+                  // objectui#13052 — the server answered that the route's
+                  // object exists and its package is disabled: the not-found
+                  // view, with the sentence that says so.
+                  <ObjectNotFoundState objectName={routeObjectRefusal.objectName} packageDisabled />
+                ) : (
                 <Routes>
                 <Route
                   path="/"
@@ -1362,6 +1416,8 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                 } />
                 <Route path="dashboard/:dashboardName" element={<DashboardView dataSource={dataSource} />} />
                 <Route path="report/:reportName" element={<ReportView dataSource={dataSource} />} />
+                {/* objectui#13020: the app's report index, linked from the sidebar. */}
+                <Route path="reports" element={<AppReportIndexView />} />
                 <Route path="page/:pageName" element={<PageView />} />
                 <Route path="component/:ns/:name/*" element={<ComponentNavView />} />
                 {/* Legacy: old metadata routes built before the REST-style nesting
@@ -1431,6 +1487,11 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                 // desktop, and a derived `'full'` (the phone posture) stays full.
                 // The precedence lives in `resolveRecordFormModalLayout`, not in
                 // spread order. Child tasks size to the CHILD object's def.
+                //
+                // The form view: a create uses the object's `create` form view
+                // when it declares one (objectui#13099), an edit its default.
+                // The flow is the same `editingRecord` test the `mode` above
+                // reads, so the selected view always matches the form's mode.
                 ...resolveRecordFormModalLayout(
                   formObjectDef as any,
                   deriveRecordFlowSurface(
@@ -1439,6 +1500,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                       ? (editingRecord ? 'child-edit' : 'child-create')
                       : (editingRecord ? 'edit' : 'create'),
                   ).size,
+                  editingRecord ? 'edit' : 'create',
                 ),
                 title: editingRecord
                   ? t('form.editTitle', { object: objectLabel(formObjectDef as any) })
@@ -1561,6 +1623,18 @@ function resolveLandingRoute(navigation: NavigationItem[], ctx?: NavTemplateCont
  * `service_agent` landed on a dashboard built on an object they may not read,
  * with no active sidebar entry.
  *
+ * An entry whose API `dataSource` read is still pending is hidden by those
+ * gates (objectui#13029), but it is not decided yet (objectui#13097). So the
+ * landing is asked twice: over the trees as the member is shown them now, and
+ * over the trees as they would be shown if every pending entry were shown once
+ * it answers. When the two disagree, on the landing route or on whether the
+ * app shows this member anything, a pending read ahead of the first decided
+ * entry could still change the answer: the root holds on a skeleton, neither
+ * navigating nor saying "nothing here", and lands when the reads answer. A
+ * failed read hides its entry, and the landing moves on. An app with no bound
+ * entry, or whose first decided entry comes before every pending one, gets the
+ * same answer twice and lands on first render, as before.
+ *
  * It is a component, not an expression in `AppContent`'s render, because the
  * `visible` evaluator is the `ExpressionProvider` mounted INSIDE that render;
  * read from `AppContent` itself it would be an outer one, not the sidebar's.
@@ -1575,8 +1649,38 @@ function AppRootLanding({
   setupPath: string | null;
 }) {
   const gates = useNavMemberGates();
+  // objectstack#25338 — an app that names objects, none of which this member
+  // may read, has nothing for them: its dashboards and pages would answer a
+  // grid of "You don't have access" tiles. Say so once, before any landing is
+  // chosen. The verdict is the object-read prune's own (`gates.can`), already
+  // held for the whole shell, so nothing here waits on a read.
+  if (appNamesOnlyUnreadableObjects(app, gates.can)) {
+    return <AppNoAccessEmptyState app={app} setupPath={setupPath} reason="no-readable-object" />;
+  }
   const navigation = navEntriesShownToMember(app?.navigation || [], gates);
   const landing = resolveLandingRoute(navigation, ctx);
+  const areas = (app?.areas || []) as Array<{ navigation?: NavigationItem[] } | null | undefined>;
+  const shownApp = {
+    navigation,
+    areas: areas.map((area) => ({ navigation: navEntriesShownToMember(area?.navigation || [], gates) })),
+  };
+  // objectui#13097 — the same questions, as if every pending read showed its
+  // entry. A different answer means a pending read is still deciding it.
+  const undecided = navEntriesShownOncePendingReadsShow(app?.navigation || [], gates);
+  const undecidedApp = {
+    navigation: undecided,
+    areas: areas.map((area) => ({ navigation: navEntriesShownOncePendingReadsShow(area?.navigation || [], gates) })),
+  };
+  if (
+    resolveLandingRoute(undecided, ctx) !== landing ||
+    (!landing && appServesNoNavigation(shownApp) !== appServesNoNavigation(undecidedApp))
+  ) {
+    return (
+      <div data-testid="app-landing-pending" className="h-full">
+        <SkeletonGrid />
+      </div>
+    );
+  }
   if (landing) return <Navigate to={landing} replace />;
   // objectui#12079 — an app that shows this member NO navigation (every entry
   // gated away from them, or none served at all) is an app they have no access
@@ -1586,12 +1690,6 @@ function AppRootLanding({
   // asked of the trees as this member is shown them (objectui#12426), so a
   // member who can see no entry gets this answer, never a page the sidebar
   // hides.
-  const shownApp = {
-    navigation,
-    areas: (app?.areas || []).map((area: any) => ({
-      navigation: navEntriesShownToMember(area?.navigation || [], gates),
-    })),
-  };
   if (appServesNoNavigation(shownApp)) {
     return <AppNoAccessEmptyState app={app} setupPath={setupPath} />;
   }
@@ -1685,6 +1783,34 @@ function RouteNotFound() {
         <div className="mt-4">
           <Button variant="outline" onClick={() => navigate(-1)}>
             {t('console.notFound.back', { defaultValue: 'Go back' })}
+          </Button>
+        </div>
+      </Empty>
+    </div>
+  );
+}
+
+/**
+ * objectui#13052 — the route slot when the by-name read of the object it
+ * shows obtained no answer: inside the shell, never the boot splash, with a
+ * Retry that asks again once (`invalidate` drops the failed read; the next
+ * render asks it). The list's own load-failure copy: this is the same
+ * question, a list that could not be loaded.
+ */
+function RouteObjectReadFailed({ onRetry }: { onRetry: () => void }) {
+  const { t } = useObjectTranslation();
+  return (
+    <div className="flex h-full w-full items-center justify-center p-8">
+      <Empty data-testid="route-object-read-failed">
+        <EmptyTitle>{t('list.loadErrorTitle', { defaultValue: 'Couldn\u2019t load records' })}</EmptyTitle>
+        <EmptyDescription>
+          {t('list.loadErrorMessage', {
+            defaultValue: 'Something went wrong while loading this data. Check your connection and try again.',
+          })}
+        </EmptyDescription>
+        <div className="mt-4">
+          <Button onClick={onRetry} data-testid="route-object-read-failed-retry">
+            {t('common.retry', { defaultValue: 'Retry' })}
           </Button>
         </div>
       </Empty>

@@ -28,7 +28,7 @@
  * nothing.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -478,6 +478,8 @@ export function CreateViewDialog({
   objectDef,
 }: CreateViewDialogProps) {
   const { t } = useObjectTranslation();
+  // Prefix for the type cards' label / text ids (aria-labelledby, -describedby).
+  const typeGridId = useId();
   const allTypes = useMemo(() => buildViewTypeMeta(t), [t]);
   const types = useMemo(
     () => (availableTypes && availableTypes.length > 0
@@ -737,18 +739,27 @@ export function CreateViewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-4 gap-2 py-2" data-testid="create-view-type-grid">
+        {/* Three columns at dialog width, two on a phone: at four, a card's
+            text column was too narrow for a description or a reason to read
+            in full, so the text was clamped mid-word (objectui#13141). */}
+        <div className="grid grid-cols-2 gap-2 py-2 sm:grid-cols-3" data-testid="create-view-type-grid">
           {types.map(({ type, label: typeLabel, description, icon: Icon }) => {
             const selected = type === selectedType;
             const blocker = typeUnavailability[type];
             const disabled = !!blocker;
-            // A dataset is not a field, so a chart card blocked on one says so
-            // in its own words rather than "no field that can serve as".
-            const disabledTitle = disabled
+            // A card that cannot be chosen says WHY on its face, not in a
+            // `title` on a disabled button: a disabled button takes no focus
+            // and touch has no hover, so a tooltip reached only the mouse
+            // (objectui#13141). A dataset is not a field, so a chart card
+            // blocked on one says so in its own words rather than "no field
+            // that can serve as".
+            const unavailableReason = disabled
               ? blocker!.kind === 'dataset'
                 ? t('console.objectView.viewTypeUnavailableDataset')
                 : t('console.objectView.viewTypeUnavailable', { field: t(blocker!.i18nKey) })
               : undefined;
+            const labelId = `${typeGridId}-${type}-label`;
+            const textId = `${typeGridId}-${type}-text`;
             return (
               <button
                 key={type}
@@ -756,8 +767,9 @@ export function CreateViewDialog({
                 data-testid={`create-view-type-${type}`}
                 aria-pressed={selected}
                 aria-disabled={disabled}
+                aria-labelledby={labelId}
+                aria-describedby={textId}
                 disabled={disabled}
-                title={disabledTitle}
                 onClick={() => { if (!disabled) setSelectedType(type); }}
                 className={cn(
                   'group flex flex-col items-start gap-1 rounded-lg border bg-background p-3 text-left transition-colors',
@@ -776,9 +788,13 @@ export function CreateViewDialog({
                       : 'text-muted-foreground group-hover:text-foreground',
                   )}
                 />
-                <div className="text-xs font-medium leading-tight">{typeLabel}</div>
-                <div className="text-[10px] leading-tight text-muted-foreground line-clamp-2">
-                  {disabled ? t('console.objectView.viewTypeUnavailableShort') : description}
+                <div id={labelId} className="text-xs font-medium leading-tight">{typeLabel}</div>
+                <div
+                  id={textId}
+                  className="text-[10px] leading-tight text-muted-foreground"
+                  data-testid={`create-view-type-${type}-text`}
+                >
+                  {unavailableReason ?? description}
                 </div>
               </button>
             );

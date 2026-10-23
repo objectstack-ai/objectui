@@ -80,7 +80,10 @@ function renderGrid(
   warn.mockRestore();
   return {
     diagnostics,
-    headers: screen.getAllByRole('columnheader').map((h) => (h.textContent ?? '').trim()),
+    // `queryAll`, not `getAll`: a grid with no row draws its empty state in
+    // place of the table (objectui#13142), so it has no header to read. Every
+    // row that reads headers asserts the exact list, which an empty one fails.
+    headers: screen.queryAllByRole('columnheader').map((h) => (h.textContent ?? '').trim()),
   };
 }
 
@@ -233,7 +236,10 @@ describe('objectui#5349 — the row-side fallbacks a `needs columns` predicate w
     // about the row carrier, so it stays silent for GOOD and fires once for BAD
     // on a grid with no rows at all.
     const ok = renderGrid({ objectName: 'opportunities', data: ROWS, columns: GOOD });
-    expect(ok.headers).toEqual(['#', 'Name']);
+    // No row, so the grid draws its own empty state in place of the table and
+    // its headers (objectui#13142): the block rendered, with nothing to show.
+    expect(screen.getByTestId('object-grid-empty-state')).toBeInTheDocument();
+    expect(ok.headers).toEqual([]);
     expect(screen.queryByText('Ada')).toBeNull();
     expect(ok.diagnostics).toEqual([]);
 

@@ -29,6 +29,7 @@ import type { FlowSimDiagnostic, DiagnosticLevel, SimEdge, SimNode } from './sim
 import { conditionText, edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
 import { flowExpressionProblems } from './flow-expr-problems.js';
 import { describeExprSite, flowNodeIds, nodeIdPositions, type ExprSite } from './flow-node-refs.js';
+import { flowNodeDisplayName } from './flow-canvas-parts.js';
 import { t, tFormat } from '../i18n.js';
 import { uniqueId } from '../inspectors/unique-id.js';
 
@@ -110,7 +111,13 @@ export function edgeRouteKey(edge: FlowDesignerEdge): string {
  * edge inspector — the repair path for a flow already saved with repeats (no
  * stored flow is rewritten for the author).
  */
-function repeatedEdgeProblems(edges: FlowDesignerEdge[], locale?: string): FlowProblem[] {
+function repeatedEdgeProblems(edges: FlowDesignerEdge[], nodes: FlowDesignerNode[], locale?: string): FlowProblem[] {
+  // Each end named by the rule, its id kept beside it: two nodes may share a
+  // label (objectui#13242). An end naming no node reads as its id.
+  const nameOf = (id: string) => {
+    const node = nodes.find((n) => n.id === id);
+    return node ? flowNodeDisplayName(node, locale) : id;
+  };
   const seen = new Set<string>();
   const out: FlowProblem[] = [];
   edges.forEach((edge, index) => {
@@ -123,7 +130,12 @@ function repeatedEdgeProblems(edges: FlowDesignerEdge[], locale?: string): FlowP
     out.push({
       id: `structural:error:repeated:${index}:${targetKey(target)}`,
       level: 'error',
-      message: tFormat('engine.flowProblems.repeatedEdge', locale, { source: edge.source, target: edge.target }),
+      message: tFormat('engine.flowProblems.repeatedEdge', locale, {
+        sourceName: nameOf(edge.source),
+        source: edge.source,
+        targetName: nameOf(edge.target),
+        target: edge.target,
+      }),
       target,
       source: 'structural',
     });
@@ -251,7 +263,7 @@ export function buildFlowProblems({ nodes, edges, serverDiagnostics, variables, 
   // objectui#11838 — the other positions that name a node by id: an expression
   // reference rooted at a missing node, a boundary event on a missing host.
   pushStructural('error', missingNodeRefDiagnostics({ nodes, edges, variables }, locale), ':ref');
-  problems.push(...repeatedEdgeProblems(edges, locale));
+  problems.push(...repeatedEdgeProblems(edges, nodes, locale));
   pushStructural('warning', v.warnings);
 
   (serverDiagnostics ?? []).forEach((diag, i) => {

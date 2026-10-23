@@ -181,12 +181,9 @@ describe('P1.1 ListView Spec Alignment', () => {
       addRecord: {
         enabled: true,
         position: 'top',
-        mode: 'inline',
-        formView: 'quick_create',
       },
     };
     expect(schema.addRecord?.enabled).toBe(true);
-    expect(schema.addRecord?.mode).toBe('inline');
   });
 
   it('should accept ObjectGridSchema with spec-aligned conditionalFormatting and emptyState', () => {

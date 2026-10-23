@@ -248,6 +248,55 @@ function mapFieldTypeToFilterType(
 }
 
 /**
+ * Fit one option's preview line to its one line (objectui#13123): show every
+ * segment, then hide the last one still shown for as long as the line
+ * overflows, so a column the line cannot hold leaves WHOLE, together with every
+ * column after it. A segment that draws a badge never shrinks and a text
+ * segment never shrinks below its label (`previewOf`), so this is the only way
+ * a column gives way once the text values are cut as far as they go.
+ *
+ * Read off the rendered box, never computed from field types: a cell renderer
+ * draws what it draws, and only the browser knows how wide that is. jsdom has
+ * no layout, where both widths read 0 and nothing is hidden.
+ */
+function fitPreviewLine(line: HTMLElement): void {
+  const segments = Array.from(line.children) as HTMLElement[];
+  for (const segment of segments) segment.hidden = false;
+  for (let i = segments.length - 1; i >= 0 && line.scrollWidth > line.clientWidth; i -= 1) {
+    segments[i].hidden = true;
+  }
+}
+
+/**
+ * The line under an option's label: the segments `previewOf` builds, fitted by
+ * {@link fitPreviewLine} after every commit (the segments may have changed)
+ * and whenever the line's own box is resized (the popover follows its
+ * trigger's width).
+ */
+function OptionPreviewLine({ children }: { children: React.ReactNode }) {
+  const lineRef = useRef<HTMLSpanElement>(null);
+  React.useLayoutEffect(() => {
+    if (lineRef.current) fitPreviewLine(lineRef.current);
+  });
+  React.useLayoutEffect(() => {
+    const line = lineRef.current;
+    if (!line || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => fitPreviewLine(line));
+    observer.observe(line);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <span
+      ref={lineRef}
+      className="flex min-w-0 items-center gap-1 overflow-hidden text-xs text-muted-foreground"
+      data-testid="lookup-option-preview"
+    >
+      {children}
+    </span>
+  );
+}
+
+/**
  * Lookup field for selecting related records.
  * Supports single and multi-select with search.
  *
@@ -725,11 +774,6 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     );
   }, [hasDataSource, allOptions, searchQuery]);
 
-  // Reset active index when options change
-  useEffect(() => {
-    setActiveIndex(-1);
-  }, [filteredOptions.length]);
-
   // Reset the keyboard cursor when the popover closes. Fetch state (records,
   // search, error, total) is owned by `popoverQuery` and resets automatically
   // when it becomes disabled (via `enabled`), including its debounced search.
@@ -743,9 +787,15 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // mount (`refObjectSchema`); until it is known the box is kept, as before.
   const searchOffered = objectResolvesSearch(refObjectSchema) !== false;
 
-  // Search is the kernel's debounced setter.
+  // Search is the kernel's debounced setter. A keystroke also clears the
+  // active row: the rows on screen answer the previous term until the new
+  // answer lands, and the row Enter takes is chosen again from that answer
+  // (objectui#13162, see `defaultActiveIndex`).
   const handleSearchChange = useCallback(
-    (query: string) => popoverQuery.setSearch(query),
+    (query: string) => {
+      setActiveIndex(-1);
+      popoverQuery.setSearch(query);
+    },
     [popoverQuery.setSearch],
   );
 
@@ -1173,7 +1223,33 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     const recentIds = new Set(recentOptions.map((o) => o.value));
     return [...recentOptions, ...filteredOptions.filter((o) => !recentIds.has(o.value))];
   }, [searchQuery, hasDataSource, recentOptions, filteredOptions]);
-  useEffect(() => { setActiveIndex(-1); }, [visibleOptions.length]);
+
+  /**
+   * The row Enter takes after a search (objectui#13162).
+   *
+   * No row used to be active until an arrow key moved to one, and the active
+   * row was dropped whenever the list changed. So typing a term and pressing
+   * Enter took nothing, and an arrow key pressed before the debounced answer
+   * landed was undone by it: after a search, Enter set no value.
+   *
+   * Now, once the rows on screen answer the typed term, the first one is
+   * active (`aria-activedescendant` names it), and Enter takes the match the
+   * user can see. Until then the rows answer an EARLIER term — the query for
+   * this one is debounced or in flight, which `answeredSearch` tells apart —
+   * and no row is made active, so Enter cannot take a row the term did not ask
+   * for. An authored option list filters here, at once, so its rows always
+   * answer the term. Without a term nothing is made active, as before.
+   *
+   * Keyed on primitives (AGENTS.md #10): the values the list shows, and the
+   * index itself. A row the user moved to with the arrow keys stays active
+   * until either changes.
+   */
+  const searchAnswered = !hasDataSource || popoverQuery.answeredSearch === searchQuery;
+  const defaultActiveIndex = searchQuery && searchAnswered && visibleOptions.length > 0 ? 0 : -1;
+  const visibleValuesKey = JSON.stringify(visibleOptions.map((o) => o.value));
+  useEffect(() => {
+    setActiveIndex(defaultActiveIndex);
+  }, [visibleValuesKey, defaultActiveIndex]);
 
   const [creating, setCreating] = useState(false);
   // Open the referenced object's create form through the ActionProvider's modal
@@ -1270,6 +1346,18 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    * key is a held value, so it keeps its column and shows whatever the lookup
    * cell renderer shows for it — never a silently empty slot, which the field
    * report behind this issue calls out as worse than showing the bare id.
+   *
+   * Each column is one SEGMENT — its separator, its label and its value — and
+   * the line shows a column whole or not at all (objectui#13123). Every
+   * column used to be a `min-w-0 truncate` span, so the line shrank them all
+   * together and a badge was cut to its first glyph ("A.", "P..."):
+   *  - a column whose cell is drawn by the renderer that draws a `select`
+   *    badge keeps its full width: no shrink, no clamp on its value;
+   *  - any other column truncates its VALUE, never below its label (the
+   *    `minmax(0, max-content)` track gives the value nothing of the
+   *    segment's minimum width, so that minimum is the label);
+   *  - a column the line still cannot hold leaves whole, with every column
+   *    after it (`fitPreviewLine`).
    */
   const previewOf = useCallback(
     (option: LookupOption): React.ReactNode => {
@@ -1282,21 +1370,40 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         return v !== null && v !== undefined && v !== '';
       });
       if (cols.length === 0) return null;
-      return cols.map((col, i) => (
-        <React.Fragment key={col.field}>
-          {i > 0 && <span aria-hidden="true" className="shrink-0 opacity-60">·</span>}
-          <span className="flex min-w-0 items-center gap-1 truncate">
-            <span className="shrink-0 opacity-70">{`${col.label || fieldToLabel(col.field)}:`}</span>
-            <span className="min-w-0 truncate" data-lookup-preview={col.field}>
-              {renderLookupColumnValue(row, col, {
-                descriptors: previewDescriptors,
-                cellRenderer: getCellRendererResolver(),
-                displayLocale,
-              })}
-            </span>
+      const cellRenderer = getCellRendererResolver();
+      // Asked of the renderer map itself, so every type it draws as a badge
+      // (`status`, `multiselect`, `radio`, …) is one with `select`, and no
+      // second list of those types can drift from it.
+      const badgeRenderer = cellRenderer?.('select');
+      return cols.map((col, i) => {
+        const type = previewDescriptors[col.field]?.type;
+        const drawsBadge = !!badgeRenderer && !!type && cellRenderer?.(type) === badgeRenderer;
+        // `whitespace-nowrap`: in the grid's `auto` track a label that may wrap
+        // ("Annual Revenue:") would break onto a second line before its value
+        // gave way, and the row would grow.
+        const lead = (
+          <span className="flex items-center gap-1 whitespace-nowrap">
+            {i > 0 && <span aria-hidden="true" className="opacity-60">·</span>}
+            <span className="opacity-70">{`${col.label || fieldToLabel(col.field)}:`}</span>
           </span>
-        </React.Fragment>
-      ));
+        );
+        const value = renderLookupColumnValue(row, col, {
+          descriptors: previewDescriptors,
+          cellRenderer,
+          displayLocale,
+        });
+        return drawsBadge ? (
+          <span key={col.field} className="flex shrink-0 items-center gap-1">
+            {lead}
+            <span data-lookup-preview={col.field}>{value}</span>
+          </span>
+        ) : (
+          <span key={col.field} className="grid grid-cols-[auto_minmax(0,max-content)] items-center gap-1">
+            {lead}
+            <span className="min-w-0 truncate" data-lookup-preview={col.field}>{value}</span>
+          </span>
+        );
+      });
     },
     [previewRows, readablePreviewColumns, previewDescriptors, displayLocale],
   );
@@ -1365,11 +1472,33 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     );
   }
 
-  // Compact mode (e.g. inside a line-item grid cell): show the selected value
-  // INSIDE a borderless trigger on a single line — no chip stacked above a
-  // separate "Select…" button (which double-stacks and wastes the row height).
+  // A single-select field draws its value INSIDE the trigger, in every mode
+  // (objectui#13162). Compact mode (e.g. a line-item grid cell) always did:
+  // a borderless trigger on one line, no chip stacked above it. The full-size
+  // field drew the value as a chip ABOVE a trigger that went on reading
+  // "Select…", so a field holding a value read as one still asking for it.
+  // A multi-select field keeps its chips and its "N selected" trigger.
   const compact = !!props.compact;
   const singleSelectedLabel = selectedOptions[0]?.label || selectedOptions[0]?.[displayField];
+  const showsSingleValue = !multiple && selectedOptions.length > 0;
+
+  /**
+   * A search-first chip's avatar, read only from a field the user may read on
+   * `referenceTo` (objectui#10433). The option carries the row as served (see
+   * `recordToOption`), so the chip used to draw a denied avatar on a backend
+   * that does not strip it. Both keys the chip reads come from the option as
+   * the user may read it (`withoutDeniedFields`, objectui#10594), so each is
+   * judged by its own name: the configured avatar field, and `image`, the
+   * fallback, which is a field of the same row. Before a policy loads nothing
+   * is withheld, as at every other gate in this file. A single-select
+   * search-first field draws the same avatar in its trigger (objectui#13162).
+   */
+  const chipAvatarUrl = (opt: LookupOption | undefined): string | undefined => {
+    const shown = withoutDeniedFields(opt, perms, referenceTo, [idField]);
+    const url = shown?.[avatarField] || shown?.image;
+    return url ? String(url) : undefined;
+  };
+  const singleAvatarUrl = pickerVariant === 'search' && showsSingleValue ? chipAvatarUrl(selectedOptions[0]) : undefined;
 
   // Shared field trigger — the anchor for either the inline PeoplePicker
   // (search fields) or the classic quick-select popover. No onClick: the Radix
@@ -1409,10 +1538,23 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           className={cn('size-4 shrink-0 animate-spin text-muted-foreground', compact ? 'mr-1.5' : 'mr-2')}
           data-testid="lookup-hydrating"
         />
+      ) : pickerVariant === 'search' && showsSingleValue && !dependenciesMissing ? (
+        // The avatar the single-select chip used to draw (objectui#10433's
+        // read gate, via `chipAvatarUrl`). Decorative: the name follows.
+        <Avatar className={cn('size-5 shrink-0', compact ? 'mr-1.5' : 'mr-2')}>
+          {singleAvatarUrl && <AvatarImage src={singleAvatarUrl} alt="" />}
+          <AvatarFallback className="text-[9px]">
+            {getPersonInitials(String(singleSelectedLabel || ''))}
+          </AvatarFallback>
+        </Avatar>
       ) : (
         <Search className={cn('size-4 shrink-0 text-muted-foreground', compact ? 'mr-1.5' : 'mr-2')} />
       )}
-      <span className={cn('truncate', compact && selectedOptions.length === 0 && 'text-muted-foreground')}>
+      <span
+        className={cn('truncate', selectedOptions.length === 0 && !hydrating && 'text-muted-foreground')}
+        // A long name is cut by `truncate`; the whole of it stays on hover.
+        title={!dependenciesMissing && !hydrating && showsSingleValue ? String(singleSelectedLabel ?? '') : undefined}
+      >
         {dependenciesMissing
           ? t('lookup.selectFirst', { fields: dependsOnFieldsText })
           : hydrating
@@ -1421,11 +1563,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
             ? multiple
               ? t('table.selected', { count: rawSelectedCount })
               : t('lookup.loading')
-            : compact && !multiple && selectedOptions.length > 0
-              ? singleSelectedLabel
-              : selectedOptions.length === 0
-                ? lookupField?.placeholder || t('common.select')
-                : multiple ? t('table.selected', { count: selectedOptions.length }) : t('common.select')}
+            : selectedOptions.length === 0
+              ? lookupField?.placeholder || t('common.select')
+              : multiple
+                ? t('table.selected', { count: selectedOptions.length })
+                : singleSelectedLabel}
       </span>
     </Button>
   );
@@ -1447,25 +1589,30 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   const chipsRemovable = !props.disabled;
 
   /**
-   * A search-first chip's avatar, read only from a field the user may read on
-   * `referenceTo` (objectui#10433). The option carries the row as served (see
-   * `recordToOption`), so the chip used to draw a denied avatar on a backend
-   * that does not strip it. Both keys the chip reads come from the option as
-   * the user may read it (`withoutDeniedFields`, objectui#10594), so each is
-   * judged by its own name: the configured avatar field, and `image`, the
-   * fallback, which is a field of the same row. Before a policy loads nothing
-   * is withheld, as at every other gate in this file.
+   * The single-select field's clear control (objectui#13162). The value moved
+   * from a chip into the trigger, and the chip's ✕ moves beside it: the same
+   * accessible name, the same `handleRemove`, gated by `chipsRemovable` like
+   * the chip's (objectui#10120). Compact mode never had one, and still has none.
    */
-  const chipAvatarUrl = (opt: LookupOption | undefined): string | undefined => {
-    const shown = withoutDeniedFields(opt, perms, referenceTo, [idField]);
-    const url = shown?.[avatarField] || shown?.image;
-    return url ? String(url) : undefined;
-  };
+  const singleClear = showsSingleValue && !compact && chipsRemovable ? (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="shrink-0 text-muted-foreground hover:text-destructive"
+      type="button"
+      onClick={() => handleRemove(selectedOptions[0]?.value)}
+      aria-label={t('lookup.remove', { label: singleSelectedLabel })}
+      data-testid="lookup-clear"
+    >
+      <X className="size-4" />
+    </Button>
+  ) : null;
 
   return (
     <div className={compact ? '' : 'space-y-2'}>
-      {/* Selected values display (full mode only — compact shows it in-trigger) */}
-      {selectedOptions.length > 0 && !compact && (
+      {/* Selected values display — a multi-select field's chips (full mode
+          only; compact and single-select show the value in the trigger) */}
+      {multiple && selectedOptions.length > 0 && !compact && (
         <div className="flex flex-wrap gap-1">
           {selectedOptions.map((opt, idx) => {
             const chipLabel = opt?.label || opt?.[displayField];
@@ -1521,6 +1668,9 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       {/* Field control: search-first inline combobox (anchored dropdown / mobile
           sheet), else the classic quick-select popover. */}
       {pickerVariant === 'search' && hasDataSource && dataSource && referenceTo ? (
+        // A single-select field's row holds the trigger and its clear control,
+        // as the classic row below does; a multi-select field is unchanged.
+        <div className={multiple ? 'contents' : 'flex items-center gap-1.5'}>
         <PeoplePicker
           inline
           trigger={triggerButton}
@@ -1541,6 +1691,8 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           lookupFilters={lookupFilters}
           baseFilter={dependentFilter}
         />
+        {singleClear}
+        </div>
       ) : (
       <div className="flex items-center gap-1.5">
       <Popover
@@ -1676,14 +1828,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
                             {(() => {
                               const preview = previewOf(option);
                               if (!preview) return null;
-                              return (
-                                <span
-                                  className="flex min-w-0 items-center gap-1 overflow-hidden text-xs text-muted-foreground"
-                                  data-testid="lookup-option-preview"
-                                >
-                                  {preview}
-                                </span>
-                              );
+                              return <OptionPreviewLine>{preview}</OptionPreviewLine>;
                             })()}
                           </div>
                           {isSelected && (
@@ -1732,6 +1877,8 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           )}
         </PopoverContent>
       </Popover>
+
+      {singleClear}
 
       {/* "Browse All" button — classic lookups only; search fields open the
           PeoplePicker from the trigger itself, so this would be redundant. */}

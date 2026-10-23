@@ -312,7 +312,7 @@ export function recogniseLine(line, bareMajors = DEFAULT_BARE_MAJORS) {
  *
  * ⭐ Since objectui#12957 the lockfile names no `@objectstack/*` VERSION: every
  * one resolves to a directory of the build `.objectstack-sha` pins
- * (`'@objectstack/spec@file:node_modules/.cache/objectstack/spec(ai@…)'`), and the
+ * (`'@objectstack/spec@file:.objectstack-pin/spec(ai@…)'`), and the
  * lockfile records that directory with no version. So this face FOLLOWS the
  * resolution: the version is the one the directory's manifest declares — the
  * packed `package.json` of the pinned commit. A directory that is not there (the
@@ -941,6 +941,14 @@ export const LEDGER = [
     sites: 1,
     class: "historical",
     why: "Anchored to a named commit: \"`5488ae7` is objectui#12030's branch commit: `main` at `cea429b` with `@objectstack/*` 18.0.0-next.0 resolved\" describes the tree the eager-closure baseline was measured on. A measurement that names its tree is a record, not a claim about today (objectui#12370).",
+  },
+  {
+    file: "scripts/check-lockfile-integrity.mjs",
+    package: "@objectstack/spec",
+    version: "18.0.0-next.3",
+    sites: 2,
+    class: "historical",
+    why: "Two lines of the gate's own `--self-test`, neither a claim about today: `@objectstack/spec@18.0.0-next.3` is a synthetic REGISTRY lockfile key the fixture sets beside the pinned build (`file:` directory) to show a registry copy is a duplication and a move onto the build is clean. The line's `pinned` is the build's name, and the fixture means a registry version that is NOT the pin, so it never restamps (objectui#12971).",
   },
 ];
 

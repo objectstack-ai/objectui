@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# copied from objectstack@7c2c5aedd94d7b0d94c91432bc607862e9c83c6c
+# copied from objectstack@338297e46018ae96256262590a308c8be735f825
 # guard-main-checkout-bash.sh — PreToolUse guard: the SAME worktree-first rule as
 # guard-main-checkout.sh, applied to file writes that arrive through Bash instead of
 # through the Edit / Write / NotebookEdit tools.
@@ -32,11 +32,15 @@
 #
 # Fails open, deliberately, on:
 #   - wrapped invocations: bash -c '…', xargs, ssh host '…', make, a shell script that
-#     writes (same known boundary guard-shared-stash.sh documents for itself);
+#     writes, a command inside a QUOTED "$(…)" (same known boundary guard-shared-stash.sh
+#     documents for itself);
 #   - programs whose writes live inside their own source text: python -c "open(p,'w')",
 #     node -e, awk > (the target is not a shell token, so there is nothing to read);
 #   - any target containing an expansion or glob ($VAR, `…`, $(…), *, ?, ~) — unresolvable
 #     without running it;
+#   - everything after a `'` inside a QUOTED "${…}" unless the quoted run holds none of
+#     `"` `\` `$` `}` or a backtick: bash and POSIX shells disagree on where such an expansion
+#     ends (subst_end());
 #   - relative targets when the payload carries no cwd.
 # Each of those is a hole by choice, not by accident: OS_ALLOW_MAIN_EDITS=1 already exists
 # for anyone who means to write there, and the target of this guard is the reflexive
@@ -45,6 +49,8 @@
 # Writing ABOUT the ban must never trip the ban (objectstack#4890's lesson). Four layers:
 #   1. quote-aware segmentation + tokenisation — a `>` or a `sed -i` inside '…' or "…" is
 #      literal text, so `grep -n "sed -i" .claude/` and `echo "never sed -i in main"` pass;
+#      a `$(…)`, a backtick or a `${…}` inside "…" is a quoting context of its own, so a `"` in
+#      its body nests instead of closing the outer string (subst_end(), shared by every pass);
 #   2. heredoc bodies are stripped before analysis — the LINES of a `cat > /tmp/notes <<EOF`
 #      body are documentation, not commands, and segmentation alone (which splits on
 #      newlines) would happily read them as such;
@@ -114,6 +120,81 @@ fi
 
 [ -n "$cmd" ] || exit 0
 
+# --- an expansion inside "…" is its own quoting context --------------------------------
+# Inside "…", `$(`, a backtick or `${` opens a NEW quoting context: a `"` in the body starts a
+# string of its own and does not close the outer one. Each scanner below used to read that `"`
+# as the closer, so the rest of the body became bare shell, and a `>` in a quoted curl body was
+# taken for a redirect whose "target" was the next fragment — a false BLOCK (objectstack#24812);
+# the same reading of `echo "${x:-"a > b"}"` named `b}` as a target (objectstack#24901). All
+# three quote-aware scanners hand such a body to this ONE function, so they agree on where it
+# ends. guard-shared-stash.sh and guard-tree-enum.sh segment commands the same way and carry a
+# byte-identical copy; their self-tests fail when a copy differs from this one. (objectstack's
+# guard-process-kill.sh carries one too; it has no twin in this repo.)
+#
+# subst_end S I: when S[I] opens such a context (the `$` of a `$(` or a `${`, or a backtick),
+# sets SUBST_END to the index of the character that closes it and returns 0; otherwise returns 1
+# and changes nothing. The body is read with its own quotes, escapes and nesting; when the input
+# ends first, SUBST_END is the last index — the rest is one inert run (bash refuses such a
+# command anyway). The body is kept verbatim as part of the word, so a target holding it still
+# fails open on its `$`.
+#
+# A `${…}` body reads like "…" with one more closer: `"`, `$(`, `${` and a backtick nest in it,
+# a backslash escapes, and `}` closes it. A `'` there is where shells part ways, measured: bash
+# 5.2 reads `'…'` as a quoted run while it looks for the `}` (`"${x:-'}'}"` prints `'}'`), and
+# `bash --posix` and dash read the `'` as a literal. The two readings agree only when the run
+# holds none of `"` `\` `$` `}` or a backtick, so such a run is skipped, and any other `'` makes
+# the rest one inert run: an extent that depends on the shell is not one this guard can read.
+#
+# Boundary: a `(` or `)` bash would not count (a `case` pattern, a comment, an unquoted `${…}`
+# holding one) moves the end — too early, and the rest is read as it was before this function
+# existed; too late, and the text swallowed with the body is inert, i.e. fails open.
+SUBST_END=0
+subst_end() {
+  local s="$1" i="$2" n=${#1} st ch top run
+  case "${s:i:2}" in
+    '$(') st=')' ; i=$((i + 1)) ;;
+    '${') st='}' ; i=$((i + 1)) ;;
+    '`'*) st='`' ;;
+    *) return 1 ;;
+  esac
+  for ((i = i + 1; i < n; i++)); do
+    ch="${s:i:1}" ; top="${st:${#st}-1:1}"
+    if [ "$top" = "'" ]; then [ "$ch" = "'" ] && st="${st%?}"; continue; fi
+    if [ "$ch" = '\' ]; then i=$((i + 1)); continue; fi
+    if [ "$top" = '"' ] || [ "$top" = '}' ]; then
+      case "$ch" in
+        '"') if [ "$top" = '"' ]; then st="${st%?}"; else st+='"'; fi ;;
+        '`') st+='`' ;;
+        '$')
+          case "${s:i+1:1}" in
+            '(') st+=')' ; i=$((i + 1)) ;;
+            '{') st+='}' ; i=$((i + 1)) ;;
+          esac ;;
+        '}') [ "$top" = '}' ] && st="${st%?}" ;;
+        "'")
+          if [ "$top" = '}' ]; then
+            run="${s:i+1}"
+            case "$run" in *"'"*) ;; *) SUBST_END=$((n - 1)); return 0 ;; esac
+            run="${run%%"'"*}"
+            case "$run" in *[\"\\\`\$\}]*) SUBST_END=$((n - 1)); return 0 ;; esac
+            i=$((i + ${#run} + 1))
+          fi ;;
+      esac
+      if [ -z "$st" ]; then SUBST_END=$i; return 0; fi
+      continue
+    fi
+    case "$ch" in
+      "'" | '"') st+="$ch" ;;
+      '(') st+=')' ;;
+      ')') [ "$top" = ')' ] && st="${st%?}" ;;
+      '`') if [ "$top" = '`' ]; then st="${st%?}"; else st+='`'; fi ;;
+    esac
+    if [ -z "$st" ]; then SUBST_END=$i; return 0; fi
+  done
+  SUBST_END=$((n - 1))
+  return 0
+}
+
 # --- heredoc bodies are text, not commands ---------------------------------------------
 # `cat > /tmp/notes.md <<EOF` … `EOF` carries prose over several lines. Segmentation splits
 # on newlines, so without this pass a documented example inside the body ("sed -i … main
@@ -144,6 +225,9 @@ strip_line_comment() {
     ch="${s:i:1}"
     if [ -n "$q" ]; then
       if [ "$q" = '"' ] && [ "$ch" = '\' ] && [ $((i + 1)) -lt "$n" ]; then i=$((i + 1)); continue; fi
+      if [ "$q" = '"' ] && { [ "$ch" = '$' ] || [ "$ch" = '`' ]; } && subst_end "$s" "$i"; then
+        i=$SUBST_END ; continue
+      fi
       [ "$ch" = "$q" ] && q=""
       continue
     fi
@@ -213,6 +297,9 @@ split_segments() {
             seg+="$ch" ; i=$((i + 1)) ; seg+="${s:i:1}" ; continue ;;
         esac
       fi
+      if [ "$q" = '"' ] && { [ "$ch" = '$' ] || [ "$ch" = '`' ]; } && subst_end "$s" "$i"; then
+        seg+="${s:i:SUBST_END-i+1}" ; i=$SUBST_END ; continue
+      fi
       seg+="$ch"
       [ "$ch" = "$q" ] && q=""
       continue
@@ -270,6 +357,9 @@ tokenize() {
           '"' | '\' | '$' | '`')
             i=$((i + 1)) ; tok+="${s:i:1}" ; have=1 ; continue ;;
         esac
+      fi
+      if [ "$q" = '"' ] && { [ "$ch" = '$' ] || [ "$ch" = '`' ]; } && subst_end "$s" "$i"; then
+        tok+="${s:i:SUBST_END-i+1}" ; i=$SUBST_END ; have=1 ; continue
       fi
       if [ "$ch" = "$q" ]; then q=""; else tok+="$ch"; fi
       have=1

@@ -168,6 +168,14 @@ fires while its field stays visible is the classic symptom — open the
 browser console and the broken predicate identifies itself (most often a
 bare field name where `record.<field>` was meant).
 
+One slot is the opposite: an object **field group**'s `visibleWhen` is
+fail-CLOSED, as `@objectstack/spec` declares for
+`ObjectFieldGroupSchema.visibleWhen`. A group whose predicate cannot be
+evaluated is hidden whole, header and members, on the form and on the
+record detail page. The same one-time warning names `safe default (false)`
+and "the group is hidden". A form-view section's own `visibleWhen` keeps
+failing open (objectui#13055).
+
 At **submit**, a broken field rule is refused rather than passed (ADR-0137
 D2). A field-level `visibleWhen` that cannot be evaluated refuses the submit
 on the client — the record form, the `/forms/:name` and `/f/:slug` page, and a
@@ -209,17 +217,32 @@ and the engine's reason:
 [ObjectUI] A visibility predicate could not be evaluated - node "record:alert" (id: "a1")
   visibleWhen: "nosuchroot.status == 'draft'"
   Reason: Failed to evaluate expression "nosuchroot.status == 'draft'": nosuchroot is not defined
-The node was treated as its safe default, which on this surface means the
-gate did NOT bite - a predicate that cannot be evaluated reads on screen
-exactly like one that said yes.
+...
 ```
+
+The rest of the line says what the fault did to the node: on `visibleWhen`,
+`visible` and `visibleOn` the node was **withheld**, on `hidden` and `hiddenOn`
+it was removed (see below).
 
 The line is **rate limited to one per distinct predicate source**, so a broken
 predicate rendered down two hundred rows of a list is one line, not two
 hundred — while a second, differently-broken predicate still gets its own.
-The verdict is unchanged in every case: this is a diagnostic about a
-predicate, not a change to what the gate decides. A node gate that fails open
-renders exactly as it always did; the difference is that it now says so.
+
+Page visibility gates fail **closed**: a page node's `visibleWhen` (and its
+`visible` / `visibleOn` / `hidden` / `hiddenOn` siblings, objectui#13299) and a
+`page:tabs` item's `visibleWhen` (objectui#13286). A declared predicate that
+cannot be evaluated — over the CEL engine's AST bound, a type error, an unbound
+root such as `record` on a surface with no row, a missing function — withholds
+what it gates rather than drawing it for a viewer the predicate was written to
+exclude: the node is not rendered, and a tab is not drawn, header and panel. A
+related list withheld this way is not counted in its tab's badge either. The
+console line says the node or tab was **withheld**. If a withheld tab was the
+active one, the strip falls back to the first visible tab. A node or item with
+no gate, or a blank one (`''`, whitespace, an envelope whose `source` is blank),
+declares nothing and is still shown; a predicate that evaluates decides as it
+always did. Form field rules (`visibleWhen` / `readonlyWhen` on a field, and
+the other rules listed above) are not page visibility gates and keep their
+fail-open.
 
 The **app shell's own `visible` gate** joins the same reporter and the same
 rate limit: a `visible` predicate on a navigation item, on an area's

@@ -160,14 +160,15 @@ describe('#5454 leg 1 — node-level `visibleWhen` binds `record`', () => {
   it('binds the `record` ROOT only — bare row fields stay unbound, as the spec declares', () => {
     // `page:tabs`' item predicate ALSO spreads the row flat. That breadth is
     // undeclared on both surfaces, so this tier binds the three declared roots
-    // and nothing else. A bare `status` therefore does not resolve — and the
-    // fail-soft answer is SHOWN, so the pair is the proof: were bare fields
-    // bound, the `done` row would hide.
+    // and nothing else. A bare `status` therefore does not resolve — and a
+    // declared predicate that faults is WITHHELD (objectui#13299), so the pair
+    // is the proof: were bare fields bound, the `in_review` row would show.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
     mount({ visibleWhen: "status == 'in_review'" }, DONE);
-    expect(shown()).toBe(true);
+    expect(shown()).toBe(false);
     cleanup();
     mount({ visibleWhen: "status == 'in_review'" }, IN_REVIEW);
-    expect(shown()).toBe(true);
+    expect(shown()).toBe(false);
   });
 
   it('does NOT overwrite `data` with the row — a host-published `data` survives', () => {
@@ -258,19 +259,20 @@ describe('#5454 leg 2 — a declared `visibleWhen` outranks a hoisted `propertie
   });
 });
 
-describe('#5454 leg 3 — an unresolvable predicate is loud, and its verdict is unchanged', () => {
-  it('warns, names the node, the key and the predicate — and still SHOWS the block', () => {
+describe('#5454 leg 3 — an unresolvable predicate is loud, and fails closed (objectui#13299)', () => {
+  it('warns, names the node, the key and the predicate — and WITHHOLDS the block', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     // No row is bound, so `record.*` cannot resolve.
     mount({ visibleWhen: cel("record.status == 'in_review'") }, undefined);
-    expect(shown()).toBe(true); // the historical fail-soft answer, unchanged
+    expect(shown()).toBe(false); // fail-closed since objectui#13299
     const msg = warn.mock.calls.map(c => String(c[0])).find(m => m.includes(UNRESOLVABLE_VISIBILITY_PREFIX));
     expect(msg).toBeDefined();
     expect(msg).toContain(TYPE);
     expect(msg).toContain('visibleWhen');
     expect(msg).toContain("record.status == 'in_review'");
-    // The sentence that makes the silence diagnosable rather than merely noted.
-    expect(msg).toContain('gate did NOT bite');
+    // The sentence that makes the missing block diagnosable: it was withheld.
+    expect(msg).toContain('WITHHELD');
+    expect(msg).not.toContain('gate did NOT bite');
   });
 
   it('the paired control: a predicate that RESOLVES emits nothing', () => {
@@ -295,7 +297,7 @@ describe('#5454 leg 3 — an unresolvable predicate is loud, and its verdict is 
     // own typo depended on which dialect they wrote it in.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mount({ visibleWhen: 'record.status == ' }, IN_REVIEW);
-    expect(shown()).toBe(true);
+    expect(shown()).toBe(false);
     expect(warn.mock.calls.map(c => String(c[0])).some(m => m.includes(UNRESOLVABLE_VISIBILITY_PREFIX))).toBe(true);
   });
 
@@ -362,9 +364,10 @@ describe('#5454 leg 3 — an unresolvable predicate is loud, and its verdict is 
       mountProd({ visibleWhen: cel("record.status == 'in_review'") }, DONE);
       expect(shown()).toBe(false);
       cleanup();
-      // Unresolvable — the same fail-soft SHOWN the dev branch returns...
+      // Unresolvable — the same fail-closed WITHHELD the dev branch returns
+      // (objectui#13299)...
       mountProd({ visibleWhen: cel("record.status == 'in_review'") }, undefined);
-      expect(shown()).toBe(true);
+      expect(shown()).toBe(false);
       // ...and the non-negated leg keeps its inverted fail-soft answer too.
       cleanup();
       mountProd({ hidden: cel('record.nope.deeper == 1') }, undefined);
@@ -376,7 +379,8 @@ describe('#5454 leg 3 — an unresolvable predicate is loud, and its verdict is 
       // whole of the maintainer's 2026-08-25 ruling (option B): "A is rejected
       // — the silence is no longer an accepted property." The pin is rewritten
       // rather than deleted, because what it was really guarding is the half
-      // that did NOT move: every verdict above is untouched, and the branch is
+      // that did NOT move: every verdict above matches the dev branch (both
+      // fail closed since objectui#13299), and the branch is
       // still the SINGLE-evaluation one (production never pays for the
       // `throwOnError` probe — `EvaluationOptions.onFault` reports the fault
       // the evaluator had already caught).
@@ -426,7 +430,7 @@ describe('#6487 — the node tier`s advice paragraph', () => {
     // No row is bound, so `record.*` cannot resolve — a real fault, at the real
     // call site, on the same run as the assertions below.
     mount({ visibleWhen: cel("record.nosuchroot6487node == 'x'") }, undefined);
-    expect(shown()).toBe(true); // fail-soft verdict, unchanged
+    expect(shown()).toBe(false); // fail-closed verdict (objectui#13299)
 
     const msg = warn.mock.calls
       .map((c) => String(c[0]))

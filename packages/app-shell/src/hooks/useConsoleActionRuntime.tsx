@@ -37,6 +37,7 @@ import type {
   NavigationHandler,
   ParamCollectionHandler,
   ResultDialogHandler,
+  ServerActionHandler,
   ToastHandler,
 } from '@object-ui/core';
 import { actionErrorDetail, captureUpdateUndoData, resolveRecordIdParamSeed, resolveServerActionRecordId } from '@object-ui/core';
@@ -92,7 +93,14 @@ export interface ConsoleActionRuntime {
   // narrower restatement that nothing could catch while the tests calling it
   // with two arguments were unchecked (objectui#4040).
   apiHandler: (action: ActionDef, context?: ActionContext) => Promise<ActionResult>;
-  flowHandler: (action: ActionDef, context?: ActionContext) => Promise<ActionResult>;
+  /**
+   * Carries `refuseBeforeInput` (objectui#13397), so the runner refuses a
+   * single-record flow launched with 0 or several rows selected before its
+   * param dialog opens — the member `serverActionHandler` carries since
+   * objectui#13384, answered by the same resolver.
+   */
+  flowHandler: ((action: ActionDef, context?: ActionContext) => Promise<ActionResult>)
+    & Pick<ServerActionHandler, 'refuseBeforeInput'>;
   serverActionHandler: (action: ActionDef, context?: ActionContext) => Promise<ActionResult>;
   /** `type: 'modal'` — opens `target` as a page/object form, else runs the action server-side. */
   modalActionHandler: (action: ActionDef, context?: ActionContext) => Promise<ActionResult>;
@@ -636,8 +644,11 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
    *
    * `context` is the shared ActionRunner context (registered handlers are
    * invoked as `handler(action, runnerContext)`).
+   *
+   * This is the dispatch only; the registered `flowHandler` below wraps it
+   * with the early row-count refusal (objectui#13397).
    */
-  const flowHandler = useCallback(async (action: ActionDef, context?: ActionContext): Promise<ActionResult> => {
+  const flowDispatch = useCallback(async (action: ActionDef, context?: ActionContext): Promise<ActionResult> => {
     const flowName = action.target || action.name;
     if (!flowName) {
       return { success: false, error: 'No flow target provided for flow action' };
@@ -659,8 +670,20 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
       // ID"); a pure object-level toolbar flow keeps triggering with no record.
       // This handler used to hold a second copy of that rule, worded for flows.
       // ⛔ Never re-add one here: a rule written twice drifts.
+      //
+      // A launch through the runner is refused before its dialog by
+      // `flowHandler.refuseBeforeInput` below; this check stays for a caller
+      // that invokes the handler directly. Its refusal is shown through its
+      // pack key, as the runner shows the early one (objectui#13397), with
+      // the English source as the default and the fallback for an empty
+      // answer.
       const resolution = resolveServerActionRecordId(action, context);
-      if (resolution.error) return { success: false, error: resolution.error };
+      if (resolution.error) {
+        const error = resolution.errorKey
+          ? String(t(resolution.errorKey, { defaultValue: resolution.error })) || resolution.error
+          : resolution.error;
+        return { success: false, error };
+      }
       const recordId = resolution.recordId;
       if (recordId != null && params.recordId == null) params.recordId = recordId;
       // Ask the store for the object type BEFORE the lookup, as the param
@@ -710,7 +733,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
-  }, [authFetch, objApiName, objects, metadata, refresh, i18n, language]);
+  }, [authFetch, objApiName, objects, metadata, refresh, i18n, language, t]);
 
   // Server-side action handler — POST /api/v1/actions/{object}/{action}, built
   // from @object-ui/core's `createServerActionHandler` via the shared console
@@ -744,6 +767,30 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
       t: (key, englishDefault) => String(serverActionEnvRef.current.t(key, englishDefault)),
     }),
     [authFetch],
+  );
+
+  /**
+   * The registered flow handler: {@link flowDispatch}, plus the early
+   * row-count refusal the runner asks before its confirmation and param
+   * dialog (`ActionRunnerHandler`'s `refuseBeforeInput`, objectui#13397).
+   * Without it a single-record flow launched from a list toolbar with 0 or
+   * several rows ran its whole param dialog and was refused only after
+   * Confirm, in English.
+   *
+   * The member is `serverActionHandler`'s own — core's
+   * `createServerActionHandler` builds it (objectui#13384) and the console
+   * wrapper forwards it. That handler is built here with no `resolveRecordId`,
+   * so its member runs `resolveServerActionRecordId`, the resolver
+   * `flowDispatch` runs, and skips an action whose dialog itself collects
+   * `recordId`. ⛔ Never write a flow copy of that rule: a rule written twice
+   * drifts.
+   */
+  const flowHandler = useMemo(
+    () => Object.assign(
+      (action: ActionDef, context?: ActionContext) => flowDispatch(action, context),
+      { refuseBeforeInput: serverActionHandler.refuseBeforeInput },
+    ),
+    [flowDispatch, serverActionHandler],
   );
 
   // Client-side modal transport, shared with RecordDetailView so a

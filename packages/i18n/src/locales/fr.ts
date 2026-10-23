@@ -2102,6 +2102,7 @@ const fr = {
       popupBlockedTitle: "Fenêtre contextuelle bloquée",
       popupBlockedDescription: "Le navigateur a bloqué l'ouverture du nouvel onglet.",
       popupBlockedAction: "Ouvrir dans un nouvel onglet",
+      noRecordId: "Cette action porte sur un seul enregistrement — aucun identifiant d’enregistrement n’est disponible.",
     },
     shortcuts: {
       title: "Raccourcis clavier",

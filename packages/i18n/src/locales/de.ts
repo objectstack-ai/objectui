@@ -2057,6 +2057,7 @@ const de = {
       popupBlockedTitle: "Pop-up blockiert",
       popupBlockedDescription: "Der Browser hat das Öffnen des neuen Tabs blockiert.",
       popupBlockedAction: "In neuem Tab öffnen",
+      noRecordId: "Diese Aktion gilt für einen einzelnen Datensatz – keine Datensatz-ID verfügbar.",
     },
     shortcuts: {
       title: "Tastenkürzel",

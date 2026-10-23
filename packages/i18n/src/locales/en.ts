@@ -2210,6 +2210,9 @@ const en = {
       popupBlockedTitle: 'Popup blocked',
       popupBlockedDescription: 'Your browser blocked the new tab from opening.',
       popupBlockedAction: 'Open in new tab',
+      // The `newTabUrl` fast path's refusal when no record id resolves
+      // (`createConsoleServerActionHandler`, objectui#13397).
+      noRecordId: 'This action runs on a single record — no record id available.',
     },
     shortcuts: {
       title: 'Keyboard Shortcuts',

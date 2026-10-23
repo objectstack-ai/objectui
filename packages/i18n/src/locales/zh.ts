@@ -1845,6 +1845,7 @@ const zh = {
       popupBlockedTitle: '浏览器拦截了弹窗',
       popupBlockedDescription: '浏览器阻止了新标签页的打开。',
       popupBlockedAction: '在新标签页打开',
+      noRecordId: '此操作针对单条记录，但没有可用的记录 ID。',
     },
     shortcuts: {
       title: '键盘快捷键',

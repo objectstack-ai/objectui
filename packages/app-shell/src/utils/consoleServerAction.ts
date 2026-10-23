@@ -82,7 +82,8 @@ export interface ConsoleServerActionOptions {
   onRefresh: () => void;
   /**
    * Localizes the user-facing copy this wrapper owns (the SSO spinner tab,
-   * the popup-blocked toast) via the `console.serverAction.*` keys in
+   * the popup-blocked toast, the `newTabUrl` fast path's "no record id"
+   * refusal) via the `console.serverAction.*` keys in
    * `@object-ui/i18n`. Optional: when omitted the English defaults apply —
    * per AGENTS.md Commandment #-1, no non-English copy lives in code
    * (objectui#3321).
@@ -186,13 +187,20 @@ export function createConsoleServerActionHandler(opts: ConsoleServerActionOption
     // (multi-select, empty selection) never flashes a tab.
     const newTabUrl = typeof action.newTabUrl === 'string' ? action.newTabUrl : '';
     if (action.opensInNewTab && newTabUrl) {
+      // Both refusals below are shown in the session's language
+      // (objectui#13397): the resolver's through the pack key it names
+      // (objectui#13384), this wrapper's own through `console.serverAction.*`.
       const resolution = resolveRecordId(action, context);
       if (resolution.error) {
-        return { success: false, error: resolution.error };
+        const error = resolution.errorKey ? t(resolution.errorKey, resolution.error) : resolution.error;
+        return { success: false, error: error || resolution.error };
       }
       const recordId = resolution.recordId;
       if (recordId == null) {
-        return { success: false, error: 'This action runs on a single record — no record id available.' };
+        return {
+          success: false,
+          error: t('console.serverAction.noRecordId', 'This action runs on a single record — no record id available.'),
+        };
       }
       const preOpenedTab = preOpenSpinnerTab(t);
       // Absolute URL required: the pre-opened tab is an about:blank document,

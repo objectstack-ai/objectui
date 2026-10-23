@@ -2106,6 +2106,7 @@ const es = {
       popupBlockedTitle: "Ventana emergente bloqueada",
       popupBlockedDescription: "El navegador bloqueó la apertura de la nueva pestaña.",
       popupBlockedAction: "Abrir en una pestaña nueva",
+      noRecordId: "Esta acción se ejecuta sobre un solo registro: no hay ningún ID de registro disponible.",
     },
     shortcuts: {
       title: "Atajos de teclado",

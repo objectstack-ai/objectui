@@ -2101,6 +2101,7 @@ const pt = {
       popupBlockedTitle: "Pop-up bloqueado",
       popupBlockedDescription: "O navegador bloqueou a abertura da nova aba.",
       popupBlockedAction: "Abrir em nova aba",
+      noRecordId: "Esta ação é executada em um único registro — nenhum ID de registro disponível.",
     },
     shortcuts: {
       title: "Atalhos de teclado",

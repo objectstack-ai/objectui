@@ -2244,6 +2244,7 @@ const ar = {
       popupBlockedTitle: "تم حظر النافذة المنبثقة",
       popupBlockedDescription: "حظر المتصفح فتح علامة التبويب الجديدة.",
       popupBlockedAction: "فتح في علامة تبويب جديدة",
+      noRecordId: "يُنفَّذ هذا الإجراء على سجل واحد — لا يتوفر معرّف سجل.",
     },
     shortcuts: {
       title: "اختصارات لوحة المفاتيح",

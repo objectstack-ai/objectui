@@ -2059,6 +2059,7 @@ const ja = {
       popupBlockedTitle: "ポップアップがブロックされました",
       popupBlockedDescription: "ブラウザが新しいタブを開くのをブロックしました。",
       popupBlockedAction: "新しいタブで開く",
+      noRecordId: "この操作は 1 件のレコードに対して実行されますが、利用できるレコード ID がありません。",
     },
     shortcuts: {
       title: "キーボードショートカット",

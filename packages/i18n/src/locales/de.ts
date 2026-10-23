@@ -3229,6 +3229,7 @@ const de = {
       body: 'Für CI, Skripte und Agenten ohne Browser. Der Schlüssel handelt als Sie — wie ein Passwort behandeln. Er wird nur EINMAL angezeigt.',
       namePlaceholder: 'Schlüsselname (z. B. ci-agent)',
       mint: 'Schlüssel erstellen',
+      confirmTitle: 'API-Schlüssel „{{name}}“ erstellen?',
       minting: 'Wird erstellt…',
       showOnce: 'Schlüssel „{{name}}“ erstellt — jetzt kopieren, er wird nicht erneut angezeigt:',
       done: 'Fertig — ausblenden',

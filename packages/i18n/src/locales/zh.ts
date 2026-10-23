@@ -3409,6 +3409,7 @@ const zh = {
       body: '用于 CI、脚本和无浏览器的智能体。密钥等同于你的身份,请像密码一样保管,且仅显示一次。',
       namePlaceholder: '密钥名称(如 ci-agent)',
       mint: '创建密钥',
+      confirmTitle: '创建 API 密钥「{{name}}」？',
       minting: '创建中…',
       showOnce: '密钥「{{name}}」已创建——请立即复制,之后不再显示:',
       done: '完成——隐藏',

@@ -3228,6 +3228,7 @@ const ko = {
       body: 'CI, 스크립트, 브라우저 없는 에이전트용. 키는 본인 권한으로 동작합니다 — 비밀번호처럼 다루세요. 한 번만 표시됩니다.',
       namePlaceholder: '키 이름(예: ci-agent)',
       mint: '키 생성',
+      confirmTitle: '"{{name}}" API 키를 생성할까요?',
       minting: '생성 중…',
       showOnce: '키 "{{name}}"가 생성되었습니다 — 지금 복사하세요. 다시 표시되지 않습니다:',
       done: '완료 — 숨기기',

@@ -3930,6 +3930,7 @@ const en = {
       body: 'For CI, scripts, and agents without a browser. The key acts as you — treat it like a password. It is shown ONCE.',
       namePlaceholder: 'Key name (e.g. ci-agent)',
       mint: 'Create key',
+      confirmTitle: 'Create the API key "{{name}}"?',
       minting: 'Creating…',
       showOnce: 'Key "{{name}}" created — copy it now, it will not be shown again:',
       done: 'Done — hide it',

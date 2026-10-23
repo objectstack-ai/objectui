@@ -16,7 +16,10 @@
  *      authorization server; you sign in as yourself),
  *   3. the portable SKILL.md download (`GET /api/v1/mcp/skill`),
  *   4. API-key minting for headless callers (CI, machine accounts) via the
- *      existing `POST /api/v1/keys` — shown once, copy-once.
+ *      existing `POST /api/v1/keys` — shown once, copy-once. As on Setup →
+ *      API Keys → Create Key, the key must be named (Create stays disabled
+ *      on a blank name; nothing is minted under a default name), and an
+ *      in-app confirm naming the key stands between the click and the mint.
  *
  * When `/discovery` does not advertise `routes.mcp` (deployment opted out via
  * `OS_MCP_SERVER_ENABLED=false`) the widget renders a disabled empty state —
@@ -25,6 +28,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Card,
   CardContent,
   CardHeader,
@@ -109,6 +120,10 @@ export function ConnectAgent() {
   const [minting, setMinting] = useState(false);
   const [minted, setMinted] = useState<{ name: string; key: string } | null>(null);
   const [mintError, setMintError] = useState<string | null>(null);
+  // The name the open confirm asks about; `null` = no confirm open. Captured
+  // when the confirm opens so the name posted is the name the dialog showed.
+  const [confirmName, setConfirmName] = useState<string | null>(null);
+  const trimmedKeyName = keyName.trim();
 
   useEffect(() => {
     (async () => {
@@ -134,7 +149,10 @@ export function ConnectAgent() {
     return `cursor://anysphere.cursor-deeplink/mcp/install?name=objectstack&config=${encodeURIComponent(config)}`;
   }, [mcpUrl]);
 
-  const mintKey = async () => {
+  const mintKey = async (name: string) => {
+    // A key is always minted under the name the administrator typed — never
+    // a default one (the route would otherwise store an anonymous key).
+    if (!name) return;
     setMinting(true);
     setMintError(null);
     try {
@@ -142,14 +160,14 @@ export function ConnectAgent() {
         method: 'POST',
         credentials: 'include',
         headers: withEnvAuth({ 'content-type': 'application/json' }),
-        body: JSON.stringify({ name: keyName.trim() || 'agent-key' }),
+        body: JSON.stringify({ name }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.success === false) {
         throw new Error(json?.error?.message ?? json?.error ?? `HTTP ${res.status}`);
       }
       const data = json?.data ?? json;
-      setMinted({ name: data?.name ?? keyName, key: data?.key ?? '' });
+      setMinted({ name: data?.name ?? name, key: data?.key ?? '' });
       setKeyName('');
     } catch (e: any) {
       setMintError(e?.message ?? String(e));
@@ -313,11 +331,42 @@ export function ConnectAgent() {
                   placeholder={t('connectAgent.apiKey.namePlaceholder')}
                   className="h-8 max-w-56"
                 />
-                <Button size="sm" onClick={mintKey} disabled={minting}>
+                <Button
+                  size="sm"
+                  onClick={() => setConfirmName(trimmedKeyName)}
+                  disabled={minting || !trimmedKeyName}
+                >
                   {minting ? t('connectAgent.apiKey.minting') : t('connectAgent.apiKey.mint')}
                 </Button>
               </div>
             )}
+            <AlertDialog
+              open={confirmName !== null}
+              onOpenChange={(open) => {
+                if (!open) setConfirmName(null);
+              }}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {t('connectAgent.apiKey.confirmTitle', { name: confirmName ?? '' })}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>{t('connectAgent.apiKey.body')}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => {
+                      const name = confirmName ?? '';
+                      setConfirmName(null);
+                      void mintKey(name);
+                    }}
+                  >
+                    {t('connectAgent.apiKey.mint')}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             {mintError && (
               <p className="flex items-center gap-1 text-xs text-destructive">
                 <AlertCircle className="h-3.5 w-3.5" /> {mintError}

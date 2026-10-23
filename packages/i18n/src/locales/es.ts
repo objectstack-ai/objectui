@@ -3292,6 +3292,7 @@ const es = {
       body: 'Para CI, scripts y agentes sin navegador. La clave actúa como usted — trátela como una contraseña. Se muestra UNA sola vez.',
       namePlaceholder: 'Nombre de la clave (p. ej. ci-agent)',
       mint: 'Crear clave',
+      confirmTitle: '¿Crear la clave API «{{name}}»?',
       minting: 'Creando…',
       showOnce: 'Clave «{{name}}» creada — cópiela ahora, no se volverá a mostrar:',
       done: 'Listo — ocultar',

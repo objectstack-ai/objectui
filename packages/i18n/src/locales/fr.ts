@@ -3288,6 +3288,7 @@ const fr = {
       body: 'Pour la CI, les scripts et les agents sans navigateur. La clé agit en votre nom — traitez-la comme un mot de passe. Elle n’est affichée qu’UNE fois.',
       namePlaceholder: 'Nom de la clé (ex. ci-agent)',
       mint: 'Créer la clé',
+      confirmTitle: 'Créer la clé API « {{name}} » ?',
       minting: 'Création…',
       showOnce: 'Clé « {{name}} » créée — copiez-la maintenant, elle ne sera plus affichée :',
       done: 'Terminé — masquer',

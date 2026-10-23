@@ -3,7 +3,7 @@ import React, { useState, useEffect, useContext, useCallback, useMemo } from 're
 import { useDataScope, SchemaRendererContext, SchemaRenderer, useDrillNavigation, useFilterScope, ElementDataSourceGate, useDataInvalidation, type ElementDataSourceMapping } from '@object-ui/react';
 import { ChartRenderer } from './ChartRenderer';
 import { normalizeChartSchema } from './normalizeChartSchema';
-import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregateSpecQuery, humanizeLabel, extractRecords, computeDrillFilter, composeDrillFilter, FilterOperatorError, isDrillEnabled, resolveDrillTitle, resolveFilterPlaceholders, resolveContextTokens, shiftFilterByCompareTo, compareToTrendLabelKey, chartTypeIgnoresCompareTo, buildChartSeries, buildOptionColorMap, deriveDimensionLabelMaps, dimensionOptionTranslator, loadDimensionFieldMeta, relabelDimensions, localizeFieldOptions, elementDataSourceBlock, type DimensionFieldMeta, type CompareToConfig, type DrillEvent, type ChartResultField, type ChartSegmentClickEvent } from '@object-ui/core';
+import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregateSpecQuery, humanizeLabel, extractRecords, computeDrillFilter, composeDrillFilter, FilterOperatorError, isDrillEnabled, resolveDrillTitle, resolveFilterPlaceholders, resolveContextTokens, shiftFilterByCompareTo, compareToTrendLabelKey, chartTypeIgnoresCompareTo, buildChartSeries, buildOptionColorMap, buildCategoryOrder, buildCategoryRank, deriveDimensionLabelMaps, dimensionOptionTranslator, loadDimensionFieldMeta, relabelDimensions, localizeFieldOptions, elementDataSourceBlock, type DimensionFieldMeta, type CompareToConfig, type DrillEvent, type ChartResultField, type ChartSegmentClickEvent } from '@object-ui/core';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, Dialog, DialogContent, DialogHeader, DialogTitle, RefreshIndicator, Button, ChartSkeleton, DataEmptyState } from '@object-ui/components';
 import { AlertCircle, ArrowUpRight, Inbox } from 'lucide-react';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
@@ -166,6 +166,25 @@ function aggregateGroupByKey(
   const gb = aggregate?.groupBy;
   if (gb && typeof gb === 'object' && !Array.isArray(gb)) return gb.alias || gb.field;
   return typeof gb === 'string' ? gb : undefined;
+}
+
+/**
+ * Where a dataset chart's category sits in the order its dimension field
+ * DECLARES its options (objectui#13403), read off a `buildCategoryRank` map,
+ * which keys the stored value and the display label alike: a declared option
+ * at its declared position, then any value the options do not declare, then
+ * the empty bucket. The caller sorts STABLY on it, so undeclared values keep
+ * the dataset's order among themselves.
+ *
+ * The same reading as `declaredOptionPosition` in the dashboard's
+ * `DatasetWidget` (objectui#11809), which charts the same dataset rows, so a
+ * page block and a dashboard widget over one dimension draw one order.
+ */
+function declaredOptionPosition(value: unknown, rank: ReadonlyMap<string, number>): number {
+  const declared = value == null ? undefined : rank.get(String(value));
+  if (declared !== undefined) return declared;
+  if (value == null || value === '') return Number.MAX_SAFE_INTEGER;
+  return Number.MAX_SAFE_INTEGER - 1;
 }
 
 /**
@@ -704,8 +723,8 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // surface, through `fieldOptionLabel` — the resolver list and form surfaces
   // already translate select options with
   // (`fieldOptions.<object>.<field>.<value>`).
-  const { fieldOptionColors, dimensionLabels } = useMemo(() => {
-    if (!optionMeta) return { fieldOptionColors: null, dimensionLabels: null };
+  const { fieldOptionColors, dimensionLabels, categoryOrder } = useMemo(() => {
+    if (!optionMeta) return { fieldOptionColors: null, dimensionLabels: null, categoryOrder: null };
     const { metaByPath, colorPath, fieldByDim } = optionMeta;
     // Colours read `option.label`, so they are fed the LOCALIZED options and
     // stay keyed by the string the rendered category actually carries — on the
@@ -730,8 +749,19 @@ export const ObjectChart = (props: ObjectChartProps) => {
       fieldByDim ? Object.entries(fieldByDim).map(([dim, path]) => ({ dim, path })) : null,
       fieldOptionLabel,
     );
-    return { fieldOptionColors: buildOptionColorMap(colorOptions), dimensionLabels: labels };
-  }, [optionMeta, fieldOptionLabel]);
+    // objectui#13403 — the first dimension's DECLARED option order, the reading
+    // the dashboard's `DatasetWidget` takes for the same dataset (objectui#11809):
+    // core's `buildCategoryOrder` over the same localized options the colours
+    // read, so it keys the stored value and the display label alike. Dataset
+    // path only (`fieldByDim` is null on the aggregate path), and only when the
+    // chart names a dimension: with none, `colorPath` falls back to the
+    // dataset's own first dimension, which this chart does not draw. A field
+    // with no options yields null, so such a chart keeps its answered order.
+    const order = fieldByDim && Array.isArray(schema.dimensions) && schema.dimensions.length > 0
+      ? buildCategoryOrder(colorOptions)
+      : null;
+    return { fieldOptionColors: buildOptionColorMap(colorOptions), dimensionLabels: labels, categoryOrder: order };
+  }, [optionMeta, fieldOptionLabel, schema.dimensions]);
 
   // Run a single aggregate query (used for both the current and comparison
   // windows). Extracted so the two queries share identical logic.
@@ -1273,9 +1303,28 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // text from the locale bundle here instead of the server's English `label`;
   // an author-declared measure carries no discriminator and keeps its label
   // verbatim (objectui#4106).
+  //
+  // objectui#13403 — the rows are charted in the first dimension's DECLARED
+  // option order, as the dashboard's `DatasetWidget` charts them
+  // (objectui#11809). The dataset answers its buckets in GROUP BY order, the
+  // stored values' alphabetical order, so a priority axis read High, Low,
+  // Medium, Urgent on a page block and Low, Medium, High, Urgent on a
+  // dashboard. `categoryOrder` below reaches only the funnel inside the
+  // renderer; a bar, line or pie draws its rows in the order it is handed
+  // them, so the order is applied to the rows here, before they are charted.
+  const categoryRank = schema.dataset ? buildCategoryRank(categoryOrder) : null;
+  const datasetRows = schema.dataset ? relabelDimensions(finalData, dimensionLabels) : finalData;
+  const firstDimension = Array.isArray(schema.dimensions) ? schema.dimensions[0] : undefined;
+  const plotRows = categoryRank && firstDimension
+    ? [...datasetRows].sort(
+        (a, b) =>
+          declaredOptionPosition(a?.[firstDimension], categoryRank) -
+          declaredOptionPosition(b?.[firstDimension], categoryRank),
+      )
+    : datasetRows;
   const datasetChart = schema.dataset
     ? buildChartSeries(
-        relabelDimensions(finalData, dimensionLabels),
+        plotRows,
         schema.dimensions,
         schema.values,
         datasetFields,
@@ -1369,6 +1418,10 @@ export const ObjectChart = (props: ObjectChartProps) => {
     ...finalSchema,
     colors: paletteColors,
     ...(mergedCategoryColors ? { categoryColors: mergedCategoryColors } : {}),
+    // objectui#13403 — the declared order, for the funnel the renderer orders
+    // itself (the dashboard hands it the same key). Absent for a dimension
+    // whose field declares no options, so that chart is untouched.
+    ...(datasetChart && categoryOrder ? { categoryOrder } : {}),
   };
 
   /**

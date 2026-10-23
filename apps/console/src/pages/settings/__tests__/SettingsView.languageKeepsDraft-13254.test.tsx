@@ -65,8 +65,13 @@ function ok(body: unknown): Response {
   return { ok: true, status: 200, statusText: 'OK', json: async () => body } as unknown as Response;
 }
 
-/** GET answers the namespace named in the URL; PUT answers the values it was sent. */
+/**
+ * GET answers the namespace named in the URL; PUT answers the values it was
+ * sent and stores them, so a later GET answers the same: the page reads the
+ * namespace again after a save (objectui#13382).
+ */
 function serve() {
+  const stored = structuredClone(PAYLOADS) as Record<string, { values: Record<string, unknown> }>;
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
     const namespace = decodeURIComponent(String(url).split('/').pop() ?? '');
     if (init?.method === 'PUT') {
@@ -74,9 +79,10 @@ function serve() {
       const values = Object.fromEntries(
         Object.entries(sent).map(([k, v]) => [k, { value: v, source: 'tenant', locked: false }]),
       );
+      Object.assign(stored[namespace].values, structuredClone(values));
       return ok({ success: true, data: { values } });
     }
-    return ok({ success: true, data: structuredClone(PAYLOADS[namespace]) });
+    return ok({ success: true, data: structuredClone(stored[namespace]) });
   });
 }
 
@@ -215,13 +221,16 @@ describe('the draft still resets where it should (objectui#13254 controls)', () 
     await editDefaultCountry();
     fireEvent.click(screen.getByRole('button', { name: 'switch to zh' }));
     expect(await screen.findByText('全部设置')).toBeTruthy();
+    // The language change itself sent no GET.
+    expect(getsOf('localization')).toBe(1);
 
     fireEvent.click(screen.getByRole('button', { name: /保存更改/ }));
 
     await waitFor(() => expect(screen.queryByTestId('settings-unsaved-count')).toBeNull());
     expect(puts()).toEqual([{ default_country: 'FR' }]);
+    // The one GET after the save is the page's re-read (objectui#13382).
+    await waitFor(() => expect(getsOf('localization')).toBe(2));
     expect(screen.getByDisplayValue('FR')).toBeTruthy();
-    expect(getsOf('localization')).toBe(1);
   });
 
   it('after a language change, Discard goes back to the stored value without a GET', async () => {

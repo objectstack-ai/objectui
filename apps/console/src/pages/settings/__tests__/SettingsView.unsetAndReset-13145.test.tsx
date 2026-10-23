@@ -88,11 +88,19 @@ function ok(body: unknown): Response {
   return { ok: true, status: 200, statusText: 'OK', json: async () => body } as unknown as Response;
 }
 
-/** GET answers the page; PUT answers `values` (the read-back the view merges). */
+/**
+ * GET answers the page; PUT answers `values` (the read-back the view merges)
+ * and stores them, so a later GET answers the same: the page reads the
+ * namespace again after a save (objectui#13382).
+ */
 function serve(putValues: Record<string, unknown> = {}) {
+  const stored = structuredClone(PAYLOAD) as { values: Record<string, unknown> };
   fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
-    if (init?.method === 'PUT') return ok({ success: true, data: { values: putValues } });
-    return ok({ success: true, data: structuredClone(PAYLOAD) });
+    if (init?.method === 'PUT') {
+      Object.assign(stored.values, structuredClone(putValues));
+      return ok({ success: true, data: { values: putValues } });
+    }
+    return ok({ success: true, data: structuredClone(stored) });
   });
 }
 

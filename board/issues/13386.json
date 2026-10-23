@@ -1,0 +1,32 @@
+{
+  "number": 13386,
+  "kind": "issue",
+  "title": "[Decision] 记录页上「全部字段都为空」的分区，是逐行显示「—」，还是像其他分区一样折叠成「N 个空字段 · 展开」——objectui#12618",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T15:17:09Z",
+  "updated_at": "2026-10-23T17:02:25Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13386",
+  "body": "Ruled: 6369306878 · batch #7 item 4 · letter C · 2026-10-23T16:08:53Z (read-only mode: an all-empty `hideEmpty: false` section renders its heading plus one 「N 个空字段 · 展开」 row; edit mode unchanged; no new key; spec describe-text card first, objectui#12618 Blocked-by it; HotCRM unchanged)\n\n立卡门类别：**② 只有维护者能做的决定**（元数据协议的语义变更或新增）。动手的读者：裁定后由 objectstack `domain:spec` 席和 objectui `domain:ui` 席执行。立卡：objectstack 分诊席（`session_01AavokzJ5DndAwitDXvKy4U`），按维护者 2026-10-23 在分诊会话的指示「12614 12618 决策卡」。\n\n## 维护者速读\n\n商机记录页的「交易说明」「备注与下一步」两个分区，所有字段都还没填，于是逐行显示「客户背景 —、项目背景 —、风险分析 —……」一整列短横线。同一页上「部分有值」的分区，空字段会收成一行「显示 4 个空字段」。走查希望全空的分区也这样折叠。\n\n原因：HotCRM 在这些分区上**故意**写了 `hideEmpty: false`。它要分区标题一直在，提醒销售去填。协议目前对全空分区只有两种画法：默认整块不显示；写 `false` 就逐行显示空行。没有「保留标题 + 折叠」这一种。\n\n- **A 维持**：协议不变，#12618 关闭。HotCRM 想去掉短横线就删掉 `false`，但那样整个分区会消失。\n- **B 新增第三种状态**：例如 `hideEmpty: 'fold'`，HotCRM 改用它。\n- **C 改 `false` 的含义**（推荐）：只读模式下，`false` 的全空分区显示标题加一行「N 个空字段 · 展开」，和混合分区一致；编辑模式照旧逐行可编辑。不加新键，HotCRM 不用改。\n\n~~选 A、B 还是 C？~~ **已裁 C**（批 #7 第 4 项，评论 6369306878）。\n\n**触发的上报标准：** 元数据协议变更（B 是新增，C 是语义变更），按你的口径属于「协议变更直接处理、和我沟通」。工作量都在 S–M 之内。\n\n## 一句话问题\n\n一个全空、但作者要求保留的分区，现在只能画成一列短横线；同一页上其他分区用的是更紧凑的折叠行。\n\n## 现状\n\n- **协议原文**（`@objectstack/spec` `packages/spec/src/ui/component.zod.ts`，`record:details` 分区的 `hideEmpty`）：默认开启，全空分区不画标题、不画骨架；设为 `false` 时画出空行，新记录上也保留分区骨架。\n- **渲染器**：objectui `DetailSection.tsx` 正好实现了这两种状态。混合分区的「显示 N 个空字段」是另一条规则（objectui#7129 Q2-C）。全空分区的默认行为是在 objectui#8603 恢复的（总监批次 #137 第 3 项，维护者 2026-09-15）。\n- **作者用量**：HotCRM `origin/main` 有 14 处 `hideEmpty: false`：`opportunity_detail.page.ts` 7 处，`lead_detail.page.ts` 5 处，`case_detail.page.ts` 2 处。注释里写明是为了「全空时也要留在页面上」（objectstack-ai/hotcrm#1211）。objectstack 的 `examples/` 和 `platform-objects` 里没有。\n\n## 选项\n\n| 选项 | 做什么 | 用户能感知的后果 | 工作量 |\n| --- | --- | --- | --- |\n| A 维持 | 不改 | 新记录上还是一列「—」 | 0 |\n| B 新增 `'fold'` | spec 给 `hideEmpty` 加第三个值（`Metadata-protocol: added`）；objectui 渲染；HotCRM 把 14 处改成 `'fold'` | 用了新值的分区折叠；`false` 照旧 | spec 1 PR（S）+ objectui 1 PR（S）+ HotCRM 1 PR（XS），按协议新增定 p1 |\n| C 改 `false` 的只读画法 | spec 改 `hideEmpty` 的说明文字（`Metadata-protocol: semantic`）；objectui 在只读模式下给 `false` 的全空分区画标题加折叠行；编辑模式不变 | 所有写了 `false` 的分区都变成折叠，标题还在，点「展开」可见全部字段 | spec 1 PR（XS，只改说明和生成物）+ objectui 1 PR（S），HotCRM 不用改 |\n\n第 2 项诉求（一个标签页里所有分区都为空时只显示一行）随本裁决一起走：选 B 或 C 时，按同一规则在标签页层面再折叠一次。\n\n## 推荐：C\n\n- 作者写 `false` 的本意是「标题留着，提醒去填」，折叠行既保住标题，又去掉了一整列噪音，正好满足这个本意。\n- 不新增协议键，符合创业阶段不扩散的原则。现在只有 HotCRM 一个作者在用 `false`，它会直接受益，不需要迁移。\n- B 多一个永久的协议值，要多维护一种状态；A 保留了走查指出的问题。\n- **置信缺口**：如果有作者确实想要「每个空字段都显示成一行」（比如打印视图），C 就拿走了这种画法。目前没有测到这样的作者；真出现了，再按 B 加一个值。\n\n## 裁后执行\n\n- ~~**裁 A**：objectui#12618 关闭 `not_planned`。~~\n- **裁 C（已裁）**：在 objectstack 立 `domain:spec` 卡（改说明文字，`Metadata-protocol: semantic`，18.x 直接处理），objectui#12618 带 `Blocked-by:` 指向它；spec 落地后由 ui 席改渲染器。完成标准：HotCRM 商机新记录的「交易说明」只显示标题和一行「4 个空字段 · 展开」；编辑模式逐行可编辑；混合分区不变；有测试。\n- ~~**裁 B**：同上，spec 卡改为新增 `'fold'` 值（`Metadata-protocol: added`），另立 HotCRM 卡改用它。~~\n\n## 相关\n\nobjectui#12618（原卡）、objectui#8603、objectui#7129、objectstack-ai/hotcrm#1211。"
+}

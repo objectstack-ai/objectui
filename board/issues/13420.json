@@ -1,0 +1,36 @@
+{
+  "number": 13420,
+  "kind": "pull_request",
+  "title": "fix(plugin-charts): a line or area chart no longer cuts its edge x-axis labels (objectui#13390)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T19:39:49Z",
+  "updated_at": "2026-10-23T20:08:01Z",
+  "closed_at": "2026-10-23T20:07:59Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T20:07:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13420",
+  "body": "Closes #13390\nClause-②: no\n\n## What changed\n\nOn a line or area chart recharts lays the categorical x axis out as a **point** scale (`combineRealScaleType`: a `category` axis under `LineChart` / `AreaChart` is `point`), so the first and last categories sit exactly on the plot edges and each tick label is centred on its point. With no value axis on that side, only recharts' 5px chart margin lies between the last point and the end of the SVG surface, so the right half of the last label was cut: \"2026-10\" painted as \"2026\" on the Chart Gallery \"Tasks Created (monthly)\" / \"(area)\" and Revenue Pulse \"Invoices by Month\". Bar charts use a band scale, which centres each category, so they never clipped.\n\n`AdvancedChartImpl` (the renderer every `line` / `area` chart goes through; `ChartImpl` draws bars only) now gives the line/area branch's `XAxis` `padding={POINT_X_AXIS_PADDING}`, both ends, a module constant so recharts' axis-settings memo holds.\n\n**Size: 23px per side**, derived in code, not hard-coded: `POINT_X_AXIS_EDGE_PADDING_PX = ceil(estimateLabelWidthPx('0000-00') / 2) - CHART_MARGIN_X_PX / 2`. That is half a `YYYY-MM` label at the 12px tick font under the file's existing upper width estimate (0.65em per glyph, the same estimate the rotated label band is sized from), less the 5px chart margin already on that side. Both ends, because a lone value axis declared on the right leaves the first label exposed on the left in the same way.\n\nNot padded:\n- **bar**: band scale, already centred (pinned as the control below).\n- **combo**: it always draws a value axis on each side of its plot, so its edge labels have 48px of room; a combo with no bar is a point scale but does not clip.\n- **horizontal-bar / scatter**: the category axis is a `YAxis` / the x axis is numeric (scatter keeps its own `SCATTER_X_AXIS_PADDING`).\n- A configured `xAxis.position` (objectui#10587) composes: `padding` is independent of `orientation`, and the new pin covers `position: 'top'`.\n\n**This fix is read from recharts' layout (its axis-range and tick-placement code), not measured in a browser.** The tests check positions recharts computes arithmetically for a fixed box; happy-dom paints no text.\n\n## Tests\n\nNew `AdvancedChartImpl.pointAxisEdgeLabels-13390.test.tsx` (fixed 510x350 box as the sibling axis tests use, `ResizeObserver` reporting the same width so labels are drawn unrotated, the case the card reports):\n- line and area: the last month's tick centre is at least half the label's estimated width from the SVG's right edge;\n- line and area with the only value axis on the right: the same on the left edge for the first month;\n- line and area with `xAxis.position: 'top'`: the axis is at the top and still inset;\n- control: a bar chart's tick centres are exactly the band centres, with no inset.\n\nResults:\n- `pnpm exec vitest run --maxWorkers=2 packages/plugin-charts/`, under the verify lock, on 22f45c13a5: `Test Files 97 passed (97)`, `Tests 1265 passed | 9 skipped (1274)`. Head acf07aea1a changes only the new test's types (casts removed); the new file re-ran 7/7 there.\n- `turbo run type-check --filter=@object-ui/plugin-charts...`: `Tasks: 19 successful, 19 total` (plugin-charts' `tsc -p tsconfig.test.json` lists the new test file).\n- `eslint` on both touched source files: 0 errors (the warnings are already in `AdvancedChartImpl.tsx`; the new test adds none).\n- `pnpm check:new-line-citations`: 0 new.\n- `node scripts/check-changeset-presence.mjs`: passes with the patch changeset for `@object-ui/plugin-charts`.\n\nAblation (via objectstack's `ablation-replace.mjs`, mutation confirmed on disk, restored to the HEAD blob with `git diff HEAD` empty):\n- padding removed: 6 of 7 red (every line/area case; e.g. `\"2026-10\" runs past the chart's right edge: expected 5 to be greater than or equal to 27.3`), bar control green;\n- padding applied to every chart type: the bar control red (`\"2026-08\" is not centred in its band: expected 143.67 to be close to 128.33`), the rest green.\n\n## Acceptance notes\n\n- The padding is a fixed value. A long category name drawn unrotated on the last point (when its band was wide enough to hold it) can still overhang by however much it is wider than a `YYYY-MM` label. Above `X_AXIS_ALL_LABELS_MAX_BUCKETS`, recharts' `preserveStartEnd` already pulls the edge labels inside the plot; a rotated label hangs left of its point. The constant's doc comment says this.\n- `categoryLabelsFitBand` still judges whether labels fit as if every axis were a band axis (`plotWidth / n`). A padded point axis spaces its labels `(plotWidth - 46) / (n - 1)`, which is the wider of the two whenever a label long enough to rotate fits. Unchanged here.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj"
+}

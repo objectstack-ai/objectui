@@ -1,0 +1,35 @@
+{
+  "number": 13414,
+  "kind": "pull_request",
+  "title": "fix(app-shell): say when a display name derives no identifier, and ask for Add field's api name instead of minting field_N (objectui#13389)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T18:52:13Z",
+  "updated_at": "2026-10-23T19:22:27Z",
+  "closed_at": "2026-10-23T19:22:25Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T19:22:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13414",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-sales\"} -->\n_Requested by **Sales** · [project thread](https://claude.ai/code/project/chan_01D5bWFY3rFzgJcytD5gD4Uu?thread=cmsg_01D5bWFY3rFzgJcytD5gD4UuGfrFnjizcv4nXjQRaWczKs)_\n\nRefs #13389 (part 1)\n\nClaim: issue comment 6371778384 (Seat: `domain:ui#1`, branch `claude/issue-13389-cjk-identifier`).\nClause-②: no\nMetadata-protocol: none\n\n## What changes\n\nA display name with no Latin letters (the card measured `体验评审`, `反馈`, `满意度`) derives no identifier, because Studio's derivations (`toFieldNameLoose`, the package dialog's `toIdSegment`) keep lowercase letters, digits and underscores only. The three surfaces the card measured:\n\n1. **New object and the other Studio create dialogs (`CreateItemDialog`).** When the display name is filled in, the identifier is empty and the author has typed none, a line under the identifier says the name has no Latin letters to make one from and asks for one (`engine.studio.createItem.notDerived`, zh-CN: 请手动填写英文标识). The identifier input points at it with `aria-describedby`. Create stays off, as before, until an identifier is typed.\n2. **New package (`PackageFormDialog`).** In the same case, the id-missing line under Package ID gives that reason (`engine.packages.idRule.notDerived`, with the `com.acme.crm` example) instead of the format rule, and the \"Filled in from the display name until you edit it\" mark is not drawn over the empty box. An id the author cleared keeps the format line. The namespace keeps following the id.\n3. **Add field (`AddFieldPopover`).** The popover shows the api name the label derives (`API name: health_score`) before Create. When the label derives none, or derives a name another field already holds, the popover shows an API name box (typed through the same `toFieldNameLoose` as the inspector's API name box) and Create waits for a name no other field holds. It says which case applies (`addFieldApiNameNotDerived` / `addFieldApiNameTaken`). The host's `addField` takes that name as a third argument. Both hosts (the Data pillar's grid \"+\" and the Form toolbar in `ObjectFormDesigner`) pass the object's field names as `takenNames`. Before this change both cases silently became `field_<N>`, which turns into the column and API field name once published. The `field_<N>` fallback in `addedFieldName` stays for a caller that hands no name.\n\nA Latin label behaves as before on all three surfaces.\n\n## Not in this PR\n\n- **Pinyin transliteration (card's first suggestion).** This is a product choice: a new client dependency, and an identifier rule authors would see and keep forever (polyphonic characters get frozen into API names). It has gone to the maintainer through the project's ruling flow. This PR is needed either way, because kana, Hangul, Arabic and other scripts derive nothing even with pinyin. That is why it says `Refs`, not `Fixes`.\n- **The `com.default.` id prefix.** It is the active organization's slug (`default` on a fresh deployment), so it is not changed here.\n\n## Tests\n\n- `CreateItemDialog.notDerived-13389.test.tsx` (new): a Chinese name gives the line, an empty identifier and Create off, and the input describes itself by the line. The zh-CN text is pinned. Typing an identifier clears the line and submits with it. CONTROL: a Latin name, and an empty dialog, say nothing.\n- `PackageFormDialog.derivedFields-12512.test.tsx`: `体验评审` gives the no-letters line and no filled-in mark, and a typed id clears it and the namespace follows. CONTROL: an id the author cleared keeps the format line.\n- `DataPillar.addFieldPopover-12516.test.tsx`: the old pin \"taken / no-letters label gets the next field_N\" is rewritten. The two labels are now named by the api name the popover asks for (`full_name`, `health_score`). New cases: `满意度` keeps Create off with the reason until a name is typed, and a typed taken name is refused. CONTROL: a Latin label shows its derived name and asks nothing.\n- `StudioDesignSurface.autosaveInFlight-11204.test.tsx` and `StudioDesignSurface.draftVersionConflict-11773.test.tsx` added `New field` twice and pinned the silent `field_4`. Their subject is the save pins, so the second add now uses another label (`Second field` → `second_field`). The shared helper `completeAddFieldPopover` takes an optional `apiName`.\n- Ablation: with each of the three guards forced off on disk (`notDerived`, `idNotDerived`, `asksName`), 5 of the new or rewritten tests fail. Files restored.\n\nLocal runs on this head:\n\n- `pnpm exec vitest run packages/app-shell/src/views/studio-design/ packages/app-shell/src/views/metadata-admin/` :: 818 files, 8126 passed, 1 skipped. The only two red files, 11204 and 11773 (6 tests, the silent `field_4` above), were then fixed and re-run: 3 files, 17 passed.\n- `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec turbo run type-check --filter=@object-ui/app-shell` :: exit 0 (30 tasks)\n- `pnpm exec eslint` over the changed sources and tests :: 0 errors (the 5 warnings are existing `set-state-in-effect` / `any` lines)\n- `node scripts/check-changeset-presence.mjs` :: pass (1 changeset, `@object-ui/app-shell` patch)\n\n## Checklist\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_013zcUBV3ha3FeGmd9mV3Zza)_\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_013zcUBV3ha3FeGmd9mV3Zza\n"
+}

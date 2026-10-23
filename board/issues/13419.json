@@ -1,0 +1,37 @@
+{
+  "number": 13419,
+  "kind": "pull_request",
+  "title": "fix(fields): a boolean false is neutral whatever the field is named (objectui#13412)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: fields",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T19:11:10Z",
+  "updated_at": "2026-10-23T19:58:18Z",
+  "closed_at": "2026-10-23T19:58:16Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T19:58:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13419",
+  "body": "Closes #13412\nClause-②: no\n\n## What changed\n\n`BooleanCellRenderer` (`@object-ui/fields`) drew a red destructive \"LABEL — Off\" badge (`data-testid=\"boolean-warning-badge\"`) for `false` when the field was named `active`, `is_active`, `enabled`, `is_enabled`, `verified` or `is_verified`. So a plain `Field.boolean` named `verified` with `defaultValue: false` read as an error (\"已核验 — 已关闭\" under zh) on every new record, in lists and on the record page. Every other boolean drew an unchecked box.\n\n- The name heuristic is removed: `STATUS_FIELD_NAMES` and its badge branch are gone. Those names now draw the same disabled checkbox as any other boolean, named by the field's label. `true` still draws the checked box.\n- The completion indicator for `completed` / `is_completed` / `done` / `is_done` is unchanged.\n- The record page needed no separate fix. `DetailSection` has no heuristic of its own: an editable boolean is drawn through `BooleanCellRenderer`, and a read-only one is drawn as a word (objectui#12933).\n- No metadata opt-in flag was added. The spec has none and inventing one is out of scope.\n\nWhere the heuristic came from: commit `635923cc0e` (2026-03-01, in PR #922, a DetailView rendering optimisation bundle) added it with no issue behind it. The only rationale is a ROADMAP line, \"warning Badge for active/enabled/verified fields when false\". `96137df9ba` in the same PR pulled the names out into the constant.\n\n`fields.boolean.offBadge` has no reader now. It is left in all ten locale packs and in `useFieldTranslation`'s defaults table on purpose. `check-i18n-dead-keys` is report-only and no CI workflow runs it, so nothing requires removing it, and removing it would widen this change into the i18n package. ROADMAP.md's historical checked item for the badge is also left alone.\n\nDocs: `content/docs/fields/boolean.mdx` \"Cell Renderer\" now says `false` is a neutral unchecked box whatever the field is named. Comments that gave the badge as their example are updated in `ObjectGrid.tsx` (the face-label hand-off) and `ObjectTree.tsx` (the `columnLabel` prop). These are comment-only changes.\n\nChangeset: `.changeset/13412-boolean-false-neutral.md`, a patch for `@object-ui/fields`.\n\n## Tests\n\n- New pin `booleanCell.statusNameNeutral-13412.test.tsx`: for each of the six names, as `boolean` and as `toggle`, `false` draws no `boolean-warning-badge`, no destructive class and an unchecked box named by its label. A control checks that `true` still draws the checked box. The card's pair, `verified` and `is_mandatory` holding `false`, render the same HTML.\n- Suites that pinned the badge now assert their original intent on the checkbox face. No tests were deleted.\n  - `booleanCell.accessibleName-12584` checks the accessible name, labelled and humanized.\n  - `cellRenderers.fabricatedValue-8490` checks the fabricated-value case: a real `false` is an unchecked box.\n  - `booleanCell.nonBooleanScalar-8582` checks a non-boolean scalar: a real `false` on `active` is an unchecked box named \"Active\".\n  - `booleanValueLabel.locale-11689` checks the locale case: the box carries the label it is handed and no pack word, under every pack.\n  - `ObjectGrid.cellFaceLabel-11689` (plugin-grid) checks that the box is named by the translated header label in all three column paths.\n  - `ObjectTree.cellFaces-11686` (plugin-tree) checks that the box is named 启用 under zh, with no badge. Its byte-for-byte check against the list face is kept.\n\nResults, at head `199bc0594e`:\n- `pnpm exec vitest run --maxWorkers=2 packages/fields/`: 275 test files passed and 1 skipped; 4236 tests passed and 7 skipped. This ran at the first commit `afdcca88b3`; the second commit does not touch `packages/fields`.\n- `pnpm exec vitest run --maxWorkers=2 packages/plugin-tree/ packages/plugin-grid/`: 271/271 test files and 2377/2377 tests passed.\n- `plugin-detail` boolean suites (`DetailSection.readonlyBooleanText-12933`, `DetailSection.copyObjectValues-8395`): 24/24 passed.\n- Ablation: I put the badge branch back on disk (marker counted once) and ran the five fields suites. 23 failed and 93 passed: every `false` leg went red, while the `true` controls and the completion cases stayed green. I then restored the file and confirmed `git diff HEAD` was empty and the hash matched the HEAD blob.\n- `turbo run type-check --filter=@object-ui/fields...`: 23/23 tasks passed. `--filter=@object-ui/plugin-grid --filter=@object-ui/plugin-tree`: 16/16 passed. Both include each package's `tsconfig.test.json`.\n- eslint on the touched files reports 0 errors in this diff. `ObjectGrid.tsx` carries one error, `Cannot create components during render`, under `--no-inline-config`. It is pre-existing: the same error shows on that file at base `01b85d8f8`.\n- `check-changeset-presence` passes. `check-new-cross-file-line-citations` reports 0 new citations.\n\n## Checklist\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

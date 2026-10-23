@@ -1,0 +1,37 @@
+{
+  "number": 13379,
+  "kind": "issue",
+  "title": "ActionRunner: onSuccess.navigate passes an app-relative path to the console router verbatim, so '/object/id' lands on /_console/home; host it under the current app the way resolveNotificationTarget does",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "domain:ui",
+    "enhancement",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T14:46:03Z",
+  "updated_at": "2026-10-23T16:35:56Z",
+  "closed_at": "2026-10-23T16:34:38Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13379",
+  "body": "## 维护者速读\n\n- **事由：** 动作成功后的跳转 `onSuccess: { navigate: '/crm_opportunity/${result.id}' }` 在控制台里落到 `/_console/home`，而不是新记录。控制台把这个路径原样交给路由器，路由里没有它。\n- **要做：** 动作成功后的跳转，像收件箱通知链接一样，把不带应用段的路径放到当前应用下（复用 `resolveNotificationTarget`）。\n- **完成标准：** 不写应用 id 的跳转能打开当前应用里的那条记录；写了 `/apps/…` 的跳转照旧。\n\nFiling gate **③ a task the maintainer set**: the maintainer's ruling on objectstack-ai/hotcrm#2247, recorded there at comment `6367379843` (director batch #6 item 1, letter C): 「同意」, 2026-10-23T14:34:48Z. Its item 2(a) orders this objectui card; item 2(b) orders the paired spec card, objectstack-ai/objectstack — number in the comment below. Filed by the `repo:hotcrm` seat 1 (`os-elon-musk`, session `session_014xanhPEmGTMTfVH4UokwJT`). ⛔ Not a claim.\n\n**Suggested grade: `priority:p2`** (the seat's reading; grade, `domain:*` and `area:*` are objectui triage's): spec-valid metadata that parses clean and then silently lands on the wrong page is the metadata-authoring trap class (c), with reach measured in a real browser below. A working spelling exists (the app-qualified path), which is why it is not p1.\n\n**Reader (who acts):** objectui triage, then the `domain:ui` lane.\n\n## Governing text\n\n- The ruling above, item 2(a): 「ask for the hop to host app-relative paths the same way」.\n- `@objectstack/spec` `src/ui/action.zod.ts`, `onSuccess.navigate` (~:1763 on objectstack `origin/main` `2581efbcbd`): \"an in-app path starting with / or ./ (an SPA route hop)\". Read the way an author reads it, `/crm_opportunity/<id>` is such a path; the console does not deliver it. The wording half is the paired spec card.\n\n## Measured\n\nOn `@objectstack/*` 18.0.0 (`@objectstack/console` 18.0.0), HotCRM `origin/main` `c14ffde`, in a real browser:\n\n- An action with `onSuccess: { navigate: '/crm_opportunity/${result.id}' }` succeeds. The runner hands `/crm_opportunity/<id>` to react-router, whose basename is `/_console`. That makes `/_console/crm_opportunity/<id>`, which matches no route, and the catch-all redirects to `/_console/home`.\n- The record's real route is `/_console/apps/<app segment>/<object>/record/<id>`.\n- Installed code: `node_modules/@objectstack/console/dist/assets/framework-D2CDLHVn.js`, `ActionRunner.navigateOnSuccess` → `navigationHandler`.\n\n## Where it lands (read on objectui `origin/main` `241cb78bd`)\n\n- `packages/core/src/actions/ActionRunner.ts` `navigateOnSuccess` (~:1874–1917): interpolates `navigate`, classifies the scheme, and calls `this.navigationHandler(url, { external, newTab })` with the path unchanged.\n- `packages/react/src/context/ActionContext.tsx` (~:123): `onNavigate` becomes the runner's `setNavigationHandler`.\n- `packages/app-shell/src/hooks/useConsoleActionRuntime.tsx` `navigateHandler` (~:355–361): `navigate(url)`, nothing else.\n- The precedent: `packages/app-shell/src/utils/appRoute.ts` `resolveNotificationTarget` (~:328–343, objectui#5179) already sorts the same three shapes for the inbox: a scheme or `//host` is external, `/apps/…` is already a console route, and anything else is hosted under `/apps/<host app segment>`. The card asks for the post-success hop to reuse that resolver (or one shared with it), ⛔ not a second copy of the rule.\n- Open question for the lane: hosting belongs where the current app is known (the console handler), not in `@object-ui/core`, which has no app. Whether `type: 'url'` targets take the same resolver is the lane's call; this card asks only for `onSuccess.navigate`.\n\n## Done when\n\n- An `onSuccess.navigate` with no app segment opens the record in the current app: `/crm_opportunity/record/${result.id}`, and the shorthand `/crm_opportunity/${result.id}`, which the console already redirects to `…/record/<id>` once it is inside an app.\n- An app-qualified `/apps/<app>/…` path, an external URL and `mailto:` behave as today.\n- A pin on the console's handler for each of the three shapes.\n- After a release carrying it, objectstack-ai/hotcrm#2247's hard-coded `'/apps/app.objectstack.hotcrm/crm_opportunity/record/${result.id}'` may be shortened. The ruling calls that optional cleanup, not a task: the app-qualified spelling keeps working.\n\n**Size:** S–M.\n\n## Dedupe\n\nMethod: every open objectstack-ai/objectui issue (36) and every issue updated since 2026-10-09 (697, any state), listed through the repo-scoped `issues` endpoint (paged by hand) on 2026-10-23, and matched case-insensitively on their titles; the search API is refused for this session. Words: `onSuccess`, `navigate`, `navigation`, `app-relative`, `current app`, `ActionRunner`, `basename`, `redirectUrl`. Nearest hits: #12755 (closed, the success toast after a url action), #12191 (closed, `mailto:` targets), #12338 (closed, a test row's `onSuccess`). None on point. **New.**\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

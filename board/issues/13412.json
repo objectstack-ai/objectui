@@ -1,0 +1,37 @@
+{
+  "number": 13412,
+  "kind": "issue",
+  "title": "Console renders a plain boolean field set to false as a red \"<label> — 已关闭\" badge",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "marchtian",
+    "id": 7553007,
+    "type": "User"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T15:35:58Z",
+  "updated_at": "2026-10-23T20:13:38Z",
+  "closed_at": "2026-10-23T19:58:18Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13412",
+  "body": "## What happens\n\nOn the same object, two plain `Field.boolean` fields render differently when their value is `false`:\n\n```ts\nis_mandatory: Field.boolean({ label: '必备资质', group: 'review', defaultValue: false }),\nverified:     Field.boolean({ label: '已核验',   group: 'review', defaultValue: false }),\n```\n\n- `is_mandatory` renders as a checkbox icon, which is correct.\n- `verified` renders as a red danger badge reading **「已核验 — 已关闭」**. This happens in the list view and on the record detail page.\n\nThe badge reads as an error (\"verified — closed\"). The value only means \"not verified yet\", which is the default state of every new record.\n\n## Repro\n\n- `@objectstack/*` 18.0.0, `objectstack dev`, locale zh-CN.\n- App: objectstack-ai/hotsrm `main`, object `srm_supplier_certificate`, default list view with a `verified` column.\n- Create any certificate and leave 已核验 off.\n- Open the list: the 已核验 column shows the red 「已核验 — 已关闭」 badge.\n\n## Expected\n\nA boolean field renders the same way whatever its name: a checkbox or check mark, with an empty or neutral state for false. It should not use a danger-colored badge. If some name-based heuristic is picking this rendering (for example `verified` treated as a status), metadata should be able to turn it off."
+}

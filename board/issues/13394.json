@@ -1,0 +1,35 @@
+{
+  "number": 13394,
+  "kind": "pull_request",
+  "title": "fix(app-shell): host an app-relative onSuccess.navigate under the current app (objectui#13379)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T16:07:38Z",
+  "updated_at": "2026-10-23T16:34:39Z",
+  "closed_at": "2026-10-23T16:34:37Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T16:34:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13394",
+  "body": "Closes #13379\nClause-②: no\n\n## What changed\n\nAn action's `onSuccess: { navigate: '/crm_opportunity/${result.id}' }` reached the console action runtime's navigator (`navigateHandler` in `useConsoleActionRuntime`) unchanged. Under the `/_console` basename that path matched no route and the catch-all sent the user to Home.\n\n- `navigateHandler` now sorts an in-place hop with the inbox's resolver, `resolveNotificationTarget` (objectui#5179), under the app `resolveHostAppSegment` names for the shell's `currentAppName`. That is the inbox bell's own pairing, so a post-success hop and a notification link land in the same app. The rule is not copied: `appRoute.ts` is untouched.\n- `currentAppName` comes from `useNavigationContext`, not `useParams`: the console-wide runtime in `ConsoleShell` sits above the route tree, where `:appName` is not matched.\n- The hosting lives in the console handler. `@object-ui/core` is untouched, and objectui#13384's `ActionRunner` work does not overlap.\n\n### Judgment call: console routes outside an app are left as written\n\nThis handler is the runner's one navigator, so it carries more than `onSuccess.navigate`, unlike a notification's `action_url`, which is app-relative by contract:\n\n- `type: 'url'` and `navigation` targets go through `ActionRunner.navigateTo` and reach the same handler.\n- `type: 'form'` goes through `ActionRunner.executeForm`, which hands it the console route `/forms/NAME`.\n\nApplying the resolver to every path would turn `/forms/NAME` into `/apps/APP/forms/NAME`, which the app router reads as a record of an object named `forms`. It would do the same to an authored `type: 'url'` target such as `/home` or `/studio/...`.\n\nSo a rooted path whose first segment is a top-level console route (`CONSOLE_ROOT_SEGMENTS`: the routes of `apps/console/src/App.tsx` plus `/studio`) stays exactly as written. Everything else goes to the resolver. A pin reads that route table and fails when a top-level route the handler would host appears there. A route a host adds outside that file is not covered.\n\n### `type: 'url'`: what I found\n\nThese targets flow through the same handler. An app-relative `type: 'url'` target, such as the spec fixtures' `/tasks` or `/users/ada`, is now hosted the same way. `/apps/...`, `/api/...` (a full-page load before the handler), external URLs, `mailto:` and the console roots behave as before.\n\n### With no app current (Home, Setup root, before the shell publishes one)\n\n`resolveHostAppSegment` answers. It takes the remembered `currentAppName` if that app is still active. Otherwise it takes the first active app in metadata order, which can be the setup app. If the app list is empty and nothing is remembered, it falls back to `setup`. This is the answer the inbox bell gives on the same page. The no-app pin and the deactivated-app pin record it.\n\n### Left unchanged on purpose\n\n- A `./` path keeps react-router's relative resolution.\n- A `newTab` or external hop still goes to `window.open(url)` unchanged.\n\n## Tests\n\nAll run from the repo root with `--maxWorkers=2`, at head `87d00ad44`:\n\n- New: `useConsoleActionRuntime.onSuccessNavigateHost-13379.test.tsx`, 35 passed. Handler pins cover each shape: the app-relative record path and `/object/id` shorthand are hosted, `/apps/...` is unchanged, an external URL opens a new tab and never reaches the router, `mailto:` is never hosted, and `./` is left alone. There is one pin per console root read off the route table. Two run end to end through the real runner: an `api` action's `onSuccess.navigate` lands on `/apps/com.acme.crm/crm_opportunity/opp_42`, and a `type: 'form'` action still opens `/forms/time_entry_form`.\n- Every `useConsoleActionRuntime*` test, `appRoute.test.ts`, `resolveNotificationTarget.test.ts`, and the `InboxPopover` and `useInboxArrivalNotifier` tests: 55 files, 547 tests, all passed.\n- Every other test file naming `useConsoleActionRuntime`, `ConsoleActionRuntimeProvider`, `DeclaredActionsBar`, `ConsoleShell` or `GlobalActionRuntime`: 121 files, 1486 tests, all passed (run under the shared verify lock, `VERDICT command-exit 0`).\n- `turbo run type-check --filter=@object-ui/app-shell`: 30/30 tasks successful. `--listFiles` shows `tsconfig.test.json` reads the new test file.\n- eslint on both touched source files: 0 errors. The hook file has 37 warnings before and after.\n- `check-changeset-presence`: one changeset declared. `check:new-line-citations`: 0 new.\n\n### Ablation (fix committed first, mutation through `ablation-replace.mjs`, restored to the HEAD blob)\n\n- `navigate(hostInConsolePath(url, hostAppSegment))` changed to `navigate(url)`: 6 failed / 29 passed. Every hosting pin and the end-to-end `onSuccess` pin went red. The preservation pins stayed green, as expected, because verbatim is the old behaviour.\n- The `CONSOLE_ROOT_SEGMENTS` guard removed: 23 failed / 12 passed. Every console-root pin except `/apps` went red, along with the end-to-end `type: 'form'` pin. `/apps` stays green because the resolver handles it.\n\n## Acceptance notes\n\n- `RecordDetailView` builds its own `navigateHandler`, a verbatim twin, outside this card's file surface. An action run from a record page's own action bar still hands an app-relative `onSuccess.navigate` to the router unhosted. This is reported to the seat, not fixed here.\n- An internal path opened with `newTab` goes to `window.open` without the `/_console` basename. This is pre-existing and untouched.\n- The handler ignores the `replace` option that `navigateTo` passes. This is pre-existing and untouched.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nSession: `https://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

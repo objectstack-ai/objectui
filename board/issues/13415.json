@@ -1,0 +1,35 @@
+{
+  "number": 13415,
+  "kind": "pull_request",
+  "title": "fix(console): settings pages re-read their namespace after a save or action (objectui#13382)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T18:53:13Z",
+  "updated_at": "2026-10-23T19:22:43Z",
+  "closed_at": "2026-10-23T19:22:42Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T19:22:42Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13415",
+  "body": "Closes #13382\nClause-②: no\n\n## What changed\n\n`SettingsView` (`apps/console/src/pages/settings/SettingsView.tsx`) now reads its namespace again after a successful save or action, through the same `getSettingsNamespace` the load effect uses, and takes the whole payload, manifest included. After objectstack#25448 the server puts a live-status `info_banner` (id `live_status`) first in `manifest.specifiers` on every read, so Setup → Email's banner now follows a save without a reload.\n\n- **Save:** the PUT's values are still merged and the draft, field-error and crypto-refusal resets are unchanged. The success toast fires, then the re-read runs.\n- **Action:** the re-read runs only when the action answers `ok`. The draft is left as it is.\n- **Re-read fails:** it is caught and ignored, so the merged values and the success toast stay and the page does not turn into an error.\n- **No placeholder flash:** `loading` is not flipped.\n- **Stale guard:** the load effect has no cancellation of its own, so a read counter (`readSeqRef`) is added. The load effect bumps it, and each re-read applies only while it is still the latest. A re-read that lands after a namespace change, or after a newer re-read, is dropped.\n\n## Tests\n\n- New `SettingsView.rereadAfterSave-13382.test.tsx`: a fake `fetch` whose first GET answers \"No mail leaves this machine\" and every later GET answers \"Mail is delivered through SMTP (…)\". Six cases:\n  - control: the first load is unchanged and sends one GET;\n  - after a save the new banner shows, with no remount (the same field-list node) and the saved value and toast present;\n  - after a successful action the new banner shows;\n  - an unsaved draft survives an action and its re-read;\n  - a save whose re-read rejects still shows the saved value and the success toast, with no error toast and no load-failure card;\n  - a re-read held in flight and released after a move to another namespace is dropped.\n- **Ablation:** with the `SettingsView.tsx` change reverted, 4 of the 6 cases fail and the control passes. The namespace-change case passes there because nothing re-reads. With only the load effect's counter bump removed, that case fails and the other 5 pass.\n- **Sibling fakes:** two existing fakes answered every GET with a fixed fixture while their PUT answered other values, a server that contradicts itself. The re-read exposed that.\n  - `SettingsView.unsetAndReset-13145` and `SettingsView.languageKeepsDraft-13254`: each fake now stores what its PUT wrote, and later GETs return it.\n  - The 13254 case \"after a language change, Save sends the kept edit and the bar goes\" still asserts that the language change sent no GET. After the save it now expects the one re-read, so it is a second pin for this fix: it fails with the fix reverted.\n- `pnpm exec vitest run apps/console/src/pages/settings/ --maxWorkers=2`: 29 files and 239 tests passed, at `5ee1459d6d`.\n- `turbo run type-check --filter=@object-ui/console...`: 71/71 successful. The console's `tsconfig.json` includes `src`, so the tests are type-checked too.\n- `eslint` on the four touched files: 0 errors and 3 `no-explicit-any` warnings, all on existing `catch (err: any)` lines. With `--no-inline-config` there is 1 error, `react-hooks/static-components` on the existing `getLazyIcon` line, whose inline disable that flag ignores. `origin/main`'s copy of the file gives the same error, so it is not new here.\n- `node scripts/check-changeset-presence.mjs` ✅, `check-changeset-no-major` ✅, `pnpm check:new-line-citations`: 0 new.\n\n## Changeset\n\n`.changeset/13382-settings-reread-after-save.md`, a `@object-ui/console` patch.\n\n## Acceptance notes\n\n- The load effect itself still has no stale guard: if namespace A's first GET resolves after a move to B, it could still land. This PR does not change that path (the card's control is \"first load unchanged\"), and it was not reproduced here.\n- I have not checked this in a running console against objectstack#25448. The pins drive the page over a stubbed `fetch`.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

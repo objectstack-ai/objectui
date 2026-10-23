@@ -1,0 +1,36 @@
+{
+  "number": 13406,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail, plugin-grid): one explain request per question after an action (objectui#13341)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T16:33:47Z",
+  "updated_at": "2026-10-23T17:00:57Z",
+  "closed_at": "2026-10-23T17:00:55Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T17:00:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13406",
+  "body": "Closes #13341\nClause-②: no\n\n## Reading on `origin/main` (3a73c07b3)\n\nEvery sender of `POST /api/v1/security/explain` (grep): `useRecordEditable` in plugin-detail (the record header and `record:details`' `DetailView`, so also the grid's detail overlay), `useRecordCrudVerdicts` in plugin-grid (the list's batch probe), and `AccessExplainPanel` (the Studio explain panel, not on the after-action path).\n\nWhat re-runs them after an action: the data-invalidation bus. One write commonly reaches the bus more than once: the console's `useMutationInvalidationBridge` announces every `DataSource` write, and the host that made it announces it again (an undoable or `refreshAfter` action's `notifyRecordChanged()`, a list host's own-write notice). Each announcement staled any explain request on the wire for that record and sent another. The page is not remounted and the server is not involved: the cause is inside the two hooks.\n\nCounted with the transport holding every request, so \"on the wire\" is literal:\n\n| After one action | main | this PR |\n|---|---|---|\n| `sys_business_unit` record page with the console bridge: save, announced again by the host while the re-check is on the wire | 4 (update 2, delete 2) | 2 (update 1, delete 1) |\n| same page, save announced once (control) | 2 | 2 |\n| list (batch probe): create announced twice, the list re-read adding the new row while the re-check is on the wire | each existing row 3 times per operation | each row once per operation |\n| list: one row's write announced twice | that row 2 times per operation | once |\n\nThe record open itself was already one request per question (objectui#11699, objectui#13010, objectui#13045) and is unchanged. Update and delete are two distinct questions, so one action on a record page is two requests, one per question, as the card's done-when reads.\n\n## What changed\n\n- `useRecordEditable` and `useRecordCrudVerdicts`: a question asked because a data change dropped its answer is that key's re-check. A further announcement that arrives while the re-check is on the wire joins it instead of staling it: every announcement is made after its write completed (the bridge on the write's response, a host after awaiting it), so a re-check sent after the first announcement already answers about the record after that write.\n- Still asked fresh: a question that was on the wire BEFORE the first announcement is refused and asked again (objectui#10184), and a change announced after the re-check has answered drops it and asks again. So a save is followed by exactly one fresh request per question, not zero, and Edit and Delete follow its answer.\n- `useRecordCrudVerdicts` also shares rows on the wire by key, the way the detail hook has since objectui#11699: an effect run while a batch is on the wire (the list's own re-read changing the id list) joins the rows already asked and sends only the rest. The batch request moved to a module-level `askBatch`; its body is unchanged. Chunks of a page over the server's cap now go out together instead of one after another.\n- The bound, written into both hooks' `forgetChangedRecords` docs: an announcement names no write, so a second, DISTINCT write this tab completes while a re-check is on the wire joins it too, and its effect on the verdict lands on the record's next change or the next page load.\n- No public export changes shape. `__clearRecordEditableCache` and `__clearRecordCrudVerdictCache` (test seams) also drop the new state. One changeset: `@object-ui/plugin-detail` and `@object-ui/plugin-grid`, patch.\n\n## Tests\n\n- New count tests: `RecordDetailView.afterActionExplain-13341` (app-shell, a `sys_*` record page over the real adapter and the console bridge, StrictMode), `useRecordEditable.recheckOnce-13341` (plugin-detail), `useRecordCrudVerdicts.afterAction-13341` (plugin-grid). Each carries its controls: the re-check is sent and followed (a save that revokes the edit hides Edit), a pre-change question is still refused, a later change still asks again.\n- Every test file that mentions `useRecordEditable`, `useRecordCrudVerdicts`, `security/explain`, `SECURITY_EXPLAIN_ROUTE` or `explainDouble`, plus the three new ones, at 46bc4ecab under the verify lock: `Test Files 134 passed | 1 skipped (135)`, `Tests 1750 passed | 8 skipped (1758)`, lock `VERDICT command-exit 0`. The later head e06fa4452 only renames one test in `useRecordEditable.recheckOnce-13341`, re-run: 3 passed.\n- Ablation (fix committed first): both hook files checked out from 3a73c07b3 (on disk, `recheckDue` 0 hits in each, `pendingVerdicts` 0 in the grid hook) made the three new files go red, `Tests 7 failed | 3 passed (10)`: the three that stayed green are the controls that hold on both trees. Restored with a checkout from HEAD; both blob hashes matched HEAD and `git diff HEAD` was empty.\n- `turbo run type-check` for plugin-detail, plugin-grid and app-shell (each runs `tsc --noEmit` and `tsc -p tsconfig.test.json`): `Tasks: 32 successful, 32 total`.\n- ESLint on the touched files: 0 errors, 2 warnings, both the existing `react-hooks/set-state-in-effect` on unchanged lines.\n- `pnpm check:new-line-citations`: 0 new. `node scripts/check-changeset-presence.mjs`: passes with the changeset.\n\n## Acceptance notes\n\n- Not addressed here, and not measured: the list's batch probe and the detail hook keep separate caches (kept in step by hand), so a record asked by the list and then opened in its detail overlay or page is asked once by each. Sharing them needs a new plugin-detail export.\n- The Setup figure of 6 after one business-unit create could not be reproduced end to end here (no live console). The list-side count above is the measured mechanism that multiplied it.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nThe session that wrote this pull request: `https://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

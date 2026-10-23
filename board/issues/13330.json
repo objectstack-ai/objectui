@@ -2,8 +2,8 @@
   "number": 13330,
   "kind": "issue",
   "title": "app-shell, auth: on a cloud-managed environment (features.cloudManaged), Setup → Users says where to invite and marks an unauthorized user, and the console hides invite, import and the recovery-password reminder (objectstack#25083 ruling)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:access",
     "domain:ui",
     "enhancement",
-    "pm:dispatched",
     "priority:p1"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-22T19:42:39Z",
-  "updated_at": "2026-10-23T13:56:06Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-23T14:46:10Z",
+  "closed_at": "2026-10-23T14:43:24Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 4,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13330",
   "body": "Filing gate ④ (a per-layer child of a cross-repo coordinating parent) · carries the objectui item of objectstack-ai/objectstack#25083; #25083 keeps the services half (plugin-auth's doors and the served flag) and the cross-lane items (core accessor, spec registry entry, platform-objects predicates, cloud, skills).\n\nWas blocked by objectstack-ai/objectstack#25083 (cleared 2026-10-23: the flag is served since objectstack-ai/objectstack#25309).\n\nFiled by the `domain:services` seat 1 card thread for #25083 (seat post objectstack-ai/objectstack#6021, project run by the Sales account, `session_017XVJLoyGccDY1WPoqow5Ff`), as ruling 6341690661's execution line asks: \"child cards per lane as above (spec, engine, objectui, cloud, skills)\". ⛔ Not a claim.\n\n**Who acts:** the `domain:ui` seat (seat post #5560) or a card thread it dispatches, once the objectstack pin covers the commit that serves `features.cloudManaged`.\n\n## Why\nThe maintainer ruled on objectstack-ai/cloud#3132 that hosted environments are managed (「云端环境就是受管模式，自托管模式不影响」). The objectstack ruling on #25083 (comment 6341690661, Q1 B / Q2 D / Q3 A / Q4 A) narrows what Setup → Users offers on such an environment: the organisation invites people in the cloud, and the environment keeps authorization and view. The server refuses the narrowed doors (409 `RESOURCE_CONFLICT` and the password-door arms in #25083's services half). This card makes the console say the same thing instead of offering buttons that answer 409.\n\n## What changes (objectui, read at `5fef032`)\nThe console reads one flag, `features.cloudManaged` (camelCase like `ssoEnforced` and `audiencePosture`; ruling Q3 A). Absent or false, nothing changes.\n- `packages/auth/src/types.ts`: `AuthFeatures` gains `cloudManaged?: boolean`.\n- Setup → Users (`packages/app-shell/src/views/ObjectView.tsx`, the Users list): one line says where to invite (the hosting organisation, in the cloud). Ruling Q1: \"Setup → Users under the managed mode shows the organisation-invite line and marks a user who holds no permission set beyond the baseline (「未授权」); no default-set control lives on that page.\"\n- The identity import wizard (`identityImportEnabled` in `ObjectView.tsx`, `identityImport.ts`, `IdentityImportPanels.tsx`) is not offered when the flag is true; the server answers 409 on `admin/import-users`.\n- The organization members page (`packages/app-shell/src/console/organizations/manage/MembersPage.tsx`, `InviteMemberDialog.tsx`, `orgCapabilities.ts`) does not offer Invite member when the flag is true; the server answers 409 on invitation creation.\n- `packages/app-shell/src/console/home/RecoveryPasswordReminder.tsx` (with `recoveryReminderGate.ts`) does not show when the flag is true. Ruling Q4 A: \"objectui hides `RecoveryPasswordReminder` when `features.cloudManaged` is true.\"\n- `packages/i18n/src/locales/*.ts`: the invite line and the marker's label.\n- The metadata actions (`invite_user`, `create_user`, `set_user_password`) are hidden by their own `visible` predicates in objectstack's platform-objects (the engine lane's item on #25083), not by console code.\n\nOpen item for the claiming seat: the 「未授权」 marker needs a readable answer to \"does this user hold any permission set beyond the baseline\" (explicit `sys_user_permission_set` rows and position grants). If no read the console can make answers it, report that on #25083 instead of inventing a client-side rule.\n\n## Acceptance\n- With `features.cloudManaged: true`: Setup → Users shows the invite line; the import wizard, Invite member and the recovery-password reminder are not offered; a user with no grant beyond the baseline carries the marker. Each case is pinned.\n- With the flag absent or false, every surface above is unchanged (pinned).\n\n## Duplicate check\n`repo:objectstack-ai/objectui \"cloudManaged\"` → 0 hits (open and closed); `repo:objectstack-ai/objectui \"25083\"` → 0 hits. objectui#11659 (closed, the first-session backup-password banner) is a different rule.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_\n"

@@ -1,0 +1,38 @@
+{
+  "number": 13407,
+  "kind": "issue",
+  "title": "chore(deps): move `.objectstack-sha` past objectstack 925fd0772c (#24947, bulk confirmText template slot) — unlocks objectui#13183 step 2",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "dependencies",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T16:45:46Z",
+  "updated_at": "2026-10-23T20:14:35Z",
+  "closed_at": "2026-10-23T20:14:35Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13407",
+  "body": "Filing gate **④**: the consumer-side follow-up that objectstack-ai/objectstack#24947's merge owes this repo (cross-repo rule 3: an accepted PR whose product flows into another repo gets a follow-up card there). Filed in maintainer-directed triage, session `session_01FLzfC4GSjCxa5gYJky3BAg`. ⛔ Not a claim.\n\n- **Reader who acts:** the objectui `domain:ui` seat, through the dedicated pin-bump path (`scripts/objectstack-pin.mjs`, with its override and lockfile; ⛔ not as a rider on another PR).\n- **Dedupe:** open objectui issues labelled `dependencies` → 0; issue search `objectstack pin bump .objectstack-sha move pin` → 25 hits, all closed (the newest, #13261, moved the pin to 18.0.0's version commit).\n\n## What\n\nMove `.objectstack-sha` from `830a63a6805f` to an objectstack `main` commit at or after `925fd0772c` (objectstack-ai/objectstack#24947, merged 2026-10-23: a bulk action's `confirmText` is a template slot over `count` and its params, judged at validate, compile and the publish gate), and follow whatever contract changes the move brings in.\n\n## Why now\n\n- objectui#13183 step 2 (fill the template slot's holes, `{{count}}` first) can only start once the pin carries #24947. Its step 1 landed as objectui#13319 on 2026-10-22, and the card has been idle since then.\n- The pin does not cover it today: `git merge-base --is-ancestor 925fd0772c 830a63a6805f` exits 1.\n\n## Done when\n\n- `.objectstack-sha` names a commit that has `925fd0772c` as an ancestor (re-check: `git merge-base --is-ancestor 925fd0772c \"$(cat .objectstack-sha)\"` exits 0), merged to `main`.\n- objectui#13183 goes back to `pm:queue` (its `Blocked-by:` line names this card).\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 13387,
+  "kind": "issue",
+  "title": "console: changing the command-palette query after record hits have loaded blanks the whole console (cmdk \"Cannot read properties of undefined (reading 'forEach')\")",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "marchtian",
+    "id": 7553007,
+    "type": "User"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "marchtian"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T15:25:33Z",
+  "updated_at": "2026-10-23T18:05:32Z",
+  "closed_at": "2026-10-23T18:00:28Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13387",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"marchtian\"} -->\n_Requested by **田騏** · [project thread](https://claude.ai/code/project/chan_01VmuUhXU9SSUzqJYyXSmYSi?thread=cmsg_01VmuUhXU9SSUzqJYyXSmYSi7SkqaNxU2Ef8P2DMmp2hPJ)_\n\nFound during an exploratory walkthrough of the showcase app.\n\n## Environment\n\n- objectui `main` @ `6fb31dc`, console served by `pnpm --filter @object-ui/console dev` (:5180)\n- objectstack `main` @ `b9c7a8f`, `PORT=3000 pnpm dev` (showcase), signed in as the dev admin, locale zh-CN\n- Chromium (Playwright), 1440×900\n\n## Steps\n\n1. Open any app page, e.g. `/apps/com.example.showcase/showcase_task`.\n2. Press Ctrl/⌘+K and type `Website`. Wait for the record hits (a 项目 group with *Website Relaunch*).\n3. Change the query to something that returns a *different* set of record groups, either by select-all + typing `华宁` / `Co`, or by deleting the text with Backspace and typing `Contoso`.\n\n## Expected\n\nThe palette shows the hits for the new query.\n\n## Actual\n\nThe palette disappears and the **entire console unmounts to an empty page** (no shell, no sidebar); only a reload recovers. The page error is:\n\n```\nTypeError: Cannot read properties of undefined (reading 'forEach')\n    at .../node_modules/.vite/deps/cmdk.js:139:6\n    at Set.forEach (<anonymous>)\n    at z (.../cmdk.js:137:29)\n    at .../cmdk.js:106:5\n    at .../cmdk.js:483:28\n    at Map.forEach (<anonymous>)\n    ...commitHookEffectListMount (react-dom_client.js)\n```\n\nfollowed by React's \"An error occurred in the <ForwardRef> component. Consider adding an error boundary…\".\n\nReproduced on every attempt (2/2 for each of the sequences above). A fresh query typed into a newly opened palette works (`华宁`, `hn`, `Contoso`, `Data`, `设置` all fine), and so does extending a query (`Web` → `Website`). It is the switch from one record-group set to another that crashes.\n\n## Reading of the cause (from the stack and the bundled cmdk 1.1.1 source, not debugged further)\n\ncmdk's sort step (`z` in the minified build) walks `state.filtered.groups` and, for each id, reads that group's item set from its group map and calls `.forEach` on it. A `CommandGroup` that unmounts deletes its own map entry. In `CommandPalette.tsx` the record hits are rendered as one `CommandGroup` per object, keyed `records:<objectName>`, so when the new query stops returning an object that group unmounts while `filtered.groups` still names it, and the sort scheduled by an item's value change runs before the filter is recomputed. The lookup returns `undefined` and throws inside a layout effect.\n\nTwo separate things make it worse than a broken palette:\n\n- nothing above the palette catches the error, so one bad search takes down the whole console;\n- the record-group set is exactly the part of the palette that changes on every query, so ordinary use hits it.\n\n## Suggested direction\n\nMake the record groups stable across queries (or let the async record hits bypass cmdk's own sort/filter, since their order and membership already come from `/api/v1/search`), and put an error boundary around the palette so a palette failure cannot unmount the shell."
+}

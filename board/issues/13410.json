@@ -1,0 +1,32 @@
+{
+  "number": 13410,
+  "kind": "issue",
+  "title": "console first load: app-shell imports helpers from the @object-ui/plugin-chatbot root, which pulls the whole chatbot (169.6 KB gzip, 3rd-largest eager chunk) into every page load",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T17:02:36Z",
+  "updated_at": "2026-10-23T18:52:38Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13410",
+  "body": "Filing gate **①**: user-visible performance defect with a named locus. `reach:` objectui's own production build of the Console, measured (below). Filed in a maintainer-directed session (`session_01FLzfC4GSjCxa5gYJky3BAg`), turning the 2026-10-23 whole-project assessment into cards. Maintainer, verbatim: 「使用 pm-dispatch 技能创建 issues」, then 「从业务角度评估合理性」. ⛔ Not a claim.\n\n- **Reader who acts:** whichever `domain:ui` seat triage assigns. One os-dev, one PR touching `packages/plugin-chatbot` (exports and package.json) and the `app-shell` import sites.\n- **Dedupe:** `search_issues` on objectstack-ai/objectui, closed included, \"app-shell imports plugin-chatbot entry first load bundle size lazy\" → 8 hits, none open. The nearest:\n  - #8208 (closed) is the same barrel costing +7 s in one *test* file.\n  - #6535 and #6681 (closed) are other eager `lazy()` views.\n\n## Business case\n\n- **Who pays:** every Console page load, including users who never open the chat.\n- **Measurement:** objectui CI `Bundle Analysis` (run 39978481965, push to `main` at 3a73c07b3e, 2026-10-23) lists `assets/plugin-chatbot-*.js` as the **third-largest eagerly loaded chunk: 169.6 KB gzip** (611.5 KB raw). Only `vendor-objectstack` and `ui-components` are bigger. The whole eager closure is 3,242.4 KB.\n- **Cost if not fixed:** about 170 KB gzip of chat UI fetched and parsed before the app renders, on every first load.\n\n## Where\n\n- `app-shell` imports small, side-effect-free helpers from the package root `@object-ui/plugin-chatbot`, in 14 non-test files on `main` (889d028944). Examples:\n  - `useAgents`: `hooks/useAiSurface.ts:44`, `layout/ChatDock.tsx:32`, `layout/AiUsageIndicator.tsx:40`, `console/home/HomePage.tsx:29`\n  - `isBuildAgent`: `hooks/chatScope.ts:40`\n  - `AI_USAGE_REFRESH_EVENT`: `hooks/useAiUsage.ts:34`\n  - `publishHealthFromResponse`: `preview/usePublishAllDrafts.ts:30`\n- The root `packages/plugin-chatbot/src/index.tsx:297` does `export * from './renderer'`. The renderer registers components at module top level, and `packages/plugin-chatbot/package.json` declares no `sideEffects`. The bundler must therefore keep the whole package whenever any helper is imported.\n\n## Done when\n\n- The helpers `app-shell` needs come from a side-effect-free subpath of `@object-ui/plugin-chatbot` (for example `./core`), and no non-test `app-shell` file imports the package root.\n- The chat renderers load lazily from the Console (registered lazily or behind the chat surface's own dynamic import).\n- `Bundle Analysis` no longer lists `plugin-chatbot-*` among the eagerly loaded chunks, and the eager-closure ceiling is re-baselined by the measured drop in the same PR.\n- Check whether `vendor-markdown` (101.8 KB eager) leaves the eager closure with it, and say so in the PR. It is not required.\n"
+}

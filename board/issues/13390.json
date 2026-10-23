@@ -1,0 +1,37 @@
+{
+  "number": 13390,
+  "kind": "issue",
+  "title": "plugin-charts: a line or area chart clips its last x-axis label at the plot's right edge — \"2026-10\" is drawn as \"2026\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "marchtian",
+    "id": 7553007,
+    "type": "User"
+  },
+  "labels": [
+    "area:reports",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T15:26:50Z",
+  "updated_at": "2026-10-23T20:13:04Z",
+  "closed_at": "2026-10-23T20:08:00Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13390",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"marchtian\"} -->\n_Requested by **田騏** · [project thread](https://claude.ai/code/project/chan_01VmuUhXU9SSUzqJYyXSmYSi?thread=cmsg_01VmuUhXU9SSUzqJYyXSmYSi7SkqaNxU2Ef8P2DMmp2hPJ)_\n\nFound during an exploratory walkthrough of the showcase dashboards (objectui `main` @ `6fb31dc`, objectstack `main` @ `b9c7a8f`, 1440×900).\n\n## Where\n\n- Showcase → 数据分析 → 图表画廊 (Chart Gallery): **Tasks Created (monthly)** (line) and **Tasks Created (area)** both show the x axis as `2026-09 … 2026`.\n- Showcase → 营收概览（带筛选） (Revenue Pulse): **Invoices by Month** (line) shows `2026-08  2026-09  2026`.\n\n## What is happening\n\nThe tick text in the DOM is complete: reading the `.recharts-cartesian-axis-tick-value` elements on the Chart Gallery returns `2026-09`, `2026-10`. The last label is centred on the final data point, which sits on the plot's right edge, so its right half falls outside the chart's clip area and only `2026` remains visible.\n\nThe bar charts on the same pages do not have the problem (Revenue Pulse **Accounts Signed by Month** shows `2026-08` and `2026-09` in full), because a band axis puts the last category in the middle of its band rather than on the edge.\n\n## Why it matters\n\nThe cut label reads as a different, coarser bucket (a year), so the newest month on a trend chart, the one a reader looks at first, is the one that is mislabelled.\n\n## Suggested direction\n\nGive line/area charts a little horizontal padding on a categorical x axis (recharts `padding={{ left, right }}` on `XAxis`), or keep the first and last ticks inside the plot (anchor them `start` / `end`), so edge labels are not clipped."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 13391,
+  "kind": "pull_request",
+  "title": "fix(console): resolve a form entry's inline locale map to the visitor's language (objectui#13380)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T15:55:38Z",
+  "updated_at": "2026-10-23T16:29:36Z",
+  "closed_at": "2026-10-23T16:29:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T16:29:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13391",
+  "body": "Closes #13380\nClause-②: no\n\n## What changed\n\nA form field entry's `label`, `placeholder` and `helpText` are `I18nLabel` in `@objectstack/spec` (`FormFieldBaseSchema`), so an inline locale map such as `{ en, 'zh-CN' }` is valid metadata, and `GET /forms/:slug` serves it unchanged. `FormPage`'s `buildSections` copied it into `string` row slots. On a label or help line the object reached JSX (the label through `fieldLabel`'s fallback, which returns an unmatched fallback untouched), and React error 31 blanked the page for every visitor. On a placeholder it reached an attribute and showed `[object Object]`.\n\n- `buildSections` takes the visitor's `language` as a third, optional parameter. It collapses the three keys with `pickLocalized` from `@object-ui/i18n`, the resolver `useActionTextLocalizer` uses for an action's `I18nLabel` copy, before the row is built. The row then carries one string, and the bundle lookup at the render site falls back to it, in the same order the action hook uses. An absent key stays absent: `pickLocalized` returns `''` for a miss, and an empty placeholder or help line is not the same as none. No per-site `typeof` check was added.\n- `FormPage` reads `language` from `useObjectTranslation()` and passes it to the memoized row build, keyed on `[loaded, language]`. Both routes (`/f/:slug` public and `/forms/:name` internal) share this build. The prefill build in the load effect reads only names and defaults, so it takes no language and a language switch does not re-run the load.\n- The `FormViewBody` docstring said no form renderer here resolves the inline-map arm. It now says this renderer resolves it for a field entry's copy but not for the view's identity label.\n- One changeset: `@object-ui/console` patch.\n\n## Tests\n\nNew pin: `apps/console/src/components/FormPage.inlineLocaleEntry-13380.test.tsx`. It mounts each route under `I18nProvider` with the console's real `loadLanguage`: public signed out (no bundle requested), and internal signed in with an empty bundle. Each surface runs for an en-US and a zh-CN visitor. One entry per key carries the map, so each key has its own leg. A sibling entry written with plain strings is the control.\n\n- New file at head `ab3fe95b0`: Test Files 1 passed (1), Tests 16 passed (16).\n- Every `FormPage*` test plus the form-route tests (`formPageRequiredMarker-10178`, `formViewFeaturesRootRefused-6262`, `internalFormShell`, `createdRecordPath`, `submitRedirect`, `PublicFormsPage.publicUrlBasename-11769`), with `pnpm exec vitest run --maxWorkers=2` at `ab3fe95b0`: Test Files 37 passed (37), Tests 400 passed (400).\n- `turbo run type-check --filter=@object-ui/console` at `ab3fe95b0`: 36/36 tasks successful. The console tsconfig includes `src`, so the new test file is type-checked too.\n- eslint on the two touched source files: 0 errors. The 20 warnings were already there; none is on a changed line.\n- `node scripts/check-changeset-presence.mjs`: pass (1 changeset for 2 published source files). `pnpm check:new-line-citations`: 0 new citations.\n\nAblation, one key at a time. Each leg used `ablation-replace.mjs` on the committed fix, which put the pre-fix line back, checked it on disk, ran the new file, then restored it and checked that the blob matched HEAD and `git diff HEAD` was empty:\n\n- `label` reverted: Tests 16 failed (16). The page is blank, so every leg fails.\n- `helpText` reverted: Tests 16 failed (16). Same.\n- `placeholder` reverted: 4 failed, 12 passed. Only `PLACEHOLDER_MAP_RESOLVES` fails, on both surfaces and both languages, and the DOM shows `placeholder=\"[object Object]\"`.\n\n## Acceptance notes\n\n- `FormFieldSpec` in `@object-ui/app-shell` still types an entry's `label` / `placeholder` / `helpText` as `string`. That is narrower than the spec's `I18nLabel`, and this PR does not change it: the file is outside this card's surface. The resolver takes `unknown`, so the fix does not depend on the declared type. The header of that type's file says neither form renderer resolves a locale map, which is no longer true for `FormPage`. No one carries that wording change; it is noted here only.\n- The object field's own `meta` is still spread whole into the widget's `field` prop (`widgetFieldOf`). `label` and `placeholder` are laid over it as resolved strings. An object-level `helpText` map would stay raw inside `meta`, but no widget on this page reads `helpText` from there. This is a read-only observation, and nothing was filed.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj"
+}

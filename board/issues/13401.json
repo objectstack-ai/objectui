@@ -1,0 +1,38 @@
+{
+  "number": 13401,
+  "kind": "pull_request",
+  "title": "fix(grid): a lookup or master_detail cell draws no tooltip carrying the raw id (objectui#13377)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T16:31:32Z",
+  "updated_at": "2026-10-23T17:37:01Z",
+  "closed_at": "2026-10-23T17:36:59Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T17:36:59Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13401",
+  "body": "Closes #13377\nClause-②: yes (widening: TableColumn gains optional foreignKey; nothing is refused)\n\n## What changed\n\n`data-table`'s plain cell wrapper set its `title` tooltip to `String(cellValue)` for every value that is not masked and not an object. For a `lookup` / `master_detail` column that value is the referenced record's raw id, so hovering beside the drawn name, or beside \"Restricted record\" (PR #13376), showed the id. The column reached the table untyped (`normalizeTableColumnType` keeps only the table's own types), so the table could not tell.\n\n- **`@object-ui/types`**: `TableColumn` gains one optional boolean, `foreignKey`, declared next to `masked` and `chips`. Doc: the column's raw value is a foreign key (the id of a referenced record: a `lookup`, `master_detail`, `tree` or `user` field) while its `cell` draws the record's name; the cell carries no `title` tooltip; unlike `masked` it withholds nothing else (copy, CSV export, inline edit, search and sort unchanged); written by `ObjectGrid` from the column's field type. Mirrored the way `chips` is: `TableColumnSchema` types it `z.boolean().optional()` (a non-strict object would strip it otherwise), and the static `table` column tombstones it in both faces (`StaticTableColumn.foreignKey?: never`, `retirementTombstone(...)` in `StaticTableColumnSchema`), which the `_SameKeySet` lockstep pin requires.\n- **`@object-ui/components`**: the cell wrapper's `title` expression adds `!col.foreignKey`. No other path reads the flag.\n- **`@object-ui/plugin-grid`**: `ObjectGrid`'s last column pass (the emit seam beside the masked and chip flags) stamps `foreignKey: true` when `isExpandableFieldType` (from `@object-ui/core`, the grid's existing reference family: lookup, master_detail, tree, user) holds for the column's type, read the same way as the chip flag (the authored type first, then the object's). Written only when true; a masked column carries `masked` alone, as before. `chips` and `foreignKey` are stamped independently.\n- One changeset: `@object-ui/types` minor (a new optional published member, as for `masked` and `chips`), `@object-ui/components` and `@object-ui/plugin-grid` patch.\n\n## Tests\n\nNew pins:\n\n- `packages/plugin-grid/src/__tests__/lookupCellTooltip-13377.test.tsx`, through the real `ObjectGrid` with a readable and a restricted reference in a lookup column (authored `type: 'lookup'`) and a master_detail column (no authored type, typed by the object): no `title` in any of those cells carries either id, the table's wrapper has no `title`, and neither id is anywhere in the grid's DOM. Controls: the plain text column of the same grid keeps its value as its tooltip; a view column that authors `type: 'text'` over the same lookup field draws the id as its text and keeps its tooltip (the flag follows the type the cell is drawn by).\n- `packages/components/src/renderers/complex/__tests__/data-table-foreign-key-tooltip-13377.test.tsx`: `foreignKey: true` drops the tooltip while an ordinary column keeps its own; Ctrl+C still copies the raw value (only the tooltip is withheld); the flag absent and `false` both keep the tooltip; the zod mirror keeps the flag and refuses a non-boolean.\n- `packages/types/src/__tests__/static-table-narrow-surface.test.ts`: `foreignKey` joins the rich key list, the retired-key fixture and the tombstone-message loop.\n- The comment in `lookupRestrictedRecord-13335.test.tsx` that said the wrapper still puts the raw value in its `title` now points to the new pin.\n\nResults, at head `3114b300d`:\n\n- `pnpm exec vitest run --maxWorkers=2 packages/types/ packages/components/src/renderers/complex/ packages/plugin-grid/` plus `lookupCell.restrictedRecord-13335`, `lookupCell.unresolvedReference-8695` (fields), `DetailSection.restrictedLookup-13335`, `RelatedList.maskedColumn-10657` (plugin-detail) and `ObjectDataTable.maskedColumn-10657` (plugin-dashboard), under the verify lock: `Test Files 670 passed (670)`, `Tests 13048 passed (13048)`, lock `VERDICT command-exit 0`.\n- `turbo run type-check --concurrency=2 --filter=@object-ui/types --filter=@object-ui/components --filter=@object-ui/plugin-grid`: `Tasks: 17 successful, 17 total`, `VERDICT command-exit 0`.\n- `check:new-line-citations` (0 new), `check:control-bytes`, `check:spec-symbols`, `check:component-surface-parity`, `check:changeset-claims`, `check:pending-changeset-literals`, `check:test-path-roots`, `check:doc-types`, `check:handler-key-reads`, `check-changeset-no-major`, `check-changeset-presence`: all exit 0.\n- ESLint on the touched files: 0 new errors. The two errors it prints (`Cannot create components during render`, one in `data-table.tsx`, one in `ObjectGrid.tsx`) are on the base commit too (same count when the base blobs are linted), not on lines this PR touches.\n\nAblation (fix committed first, each leg restored with `git checkout HEAD --` and verified by blob hash):\n\n- Drop `!col.foreignKey && ` from the `data-table` title expression: the flagged data-table test and the grid pin go red (`2 failed | 5 passed`); the controls stay green.\n- Replace the grid's stamp with `false`: the grid pin goes red (`1 failed | 1 passed`).\n\n## Acceptance notes\n\n- **Docs not updated (outside the claimed file surface).** `content/docs/components/complex/data-table.mdx` lists `TableColumn` members including `masked` and `chips` in its Schema block, and has \"Chip columns\" / \"Masked columns\" sections. It does not yet list `foreignKey`. A one-line Schema entry (plus, optionally, a sentence) is the follow-up; this PR does not touch docs because the claim did not declare them.\n- **Not measured: the other producers of `data-table` columns.** `RelatedList` (`@object-ui/plugin-detail`) and `ObjectDataTable` (`@object-ui/plugin-dashboard`) also stamp `masked` on the columns they hand `data-table`, and do not stamp `foreignKey`. If their lookup cells carry a raw id as the cell value, the same tooltip shows it there. This is read from source only, not reproduced.\n- The object-type half of the stamp (`objectFields[...]?.type` when the column has no type of its own) is not exercised by the grid pin: the master_detail column with no authored type is typed before this pass, so it is flagged by the producer type. The fallback is kept for parity with the chip flag.\n- Not checked in a real browser; the observable is the DOM `title` attribute.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj"
+}

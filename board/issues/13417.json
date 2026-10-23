@@ -1,0 +1,35 @@
+{
+  "number": 13417,
+  "kind": "pull_request",
+  "title": "fix(i18n): zh admin-override copy says 管理员代为/代办, not 越权 (objectui#13402)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T18:59:13Z",
+  "updated_at": "2026-10-23T19:37:48Z",
+  "closed_at": "2026-10-23T19:26:06Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T19:26:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13417",
+  "body": "Closes #13402\nClause-②: no\n\n## What changed\n\nIn zh-CN the authorized admin-override approval copy called the override 越权 (\"exceeding one's authority\", the word for a violation). The feature is an explicitly granted, audited administrator override, so the zh pack now says:\n\n| key | before | after |\n|---|---|---|\n| `approvalsInbox.overrideActionLabel` | `越权{{action}}` | `管理员代为{{action}}` (管理员代为通过 / 拒绝 / 转签 / 撤回) |\n| `approvalsInbox.viaOverrideChip` | 管理员越权 | 管理员代办 |\n| `approvalsInbox.viaOverrideHint` | …经管理员越权通道进入。 | …经管理员代办通道进入。 |\n| `overrideNotice`, `overrideNoticeWho`, `overrideReassignNotice`, `overrideReassignNoticeWho`, `overrideRecallNotice`, `overrideRecallNoticeWho` | 继续将使用管理员越权… / …记录为管理员越权。 | 继续将以管理员身份代为处理… / …记录为管理员代办。 |\n\n`{{action}}` is the lever's declared label, localized (`declaredLabel` in `DeclaredActionsBar`), so the label reads 管理员代为通过 and so on. The rest of each sentence, every `{{who}}` / `{{action}}` placeholder, and each line's own punctuation style (two lines use ASCII `:`/`,`, the others full-width) are unchanged. Only the zh pack changes; en and the other locales are out of scope.\n\n`viaOverrideHint` is the ninth 越权 line in `zh.ts` and describes the same override path, so it is covered too. The repo-wide grep for 越权 also hits the vendored `.objectstack-pin/spec/CHANGELOG.md`, where 越权读 means a real unauthorized read. That use is correct and it is not this repo's copy, so it is untouched.\n\n## Tests\n\n- New pin `packages/i18n/src/__tests__/approvalOverride-zh-wording-13402.test.ts`: every zh `approvalsInbox` string is free of 越权 (the enumeration is asserted non-empty first); the label is `管理员代为{{action}}` and renders 管理员代为通过 / 拒绝 / 转签 / 撤回; the chip is 管理员代办; each of the nine override keys keeps the placeholders of its en source; the matcher's own positive and negative cases.\n- Ablation: with `zh.ts` reverted to the base, 2 of the pin's 12 tests fail (the no-越权 test and the label/chip test). Restored, 12/12 pass.\n- `pnpm exec vitest run --maxWorkers=2 packages/i18n/ packages/app-shell/src/views/__tests__/DeclaredActionsBar.overrideAffordance.test.tsx`: 86 files passed, 1362 tests passed, 13 skipped. This includes `all-locales-key-parity` and `en-zh-key-parity`.\n- `turbo run type-check --filter=@object-ui/i18n`: 4/4 tasks successful.\n- `check:i18n-keys`, `check:i18n-drift`, `check:i18n-dead-keys`, `check:new-line-citations` (0 new) and `check-changeset-presence`: exit 0. ESLint on the touched files: exit 0.\n- NOT MEASURED: `check:eager-locale-catalogues`, reason: it reads a built console bundle (`apps/console/dist/eager-closure.json`), which was not built locally. CI reads it.\n\nChangeset: `.changeset/13402-zh-override-wording.md`, `@object-ui/i18n` patch.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj"
+}

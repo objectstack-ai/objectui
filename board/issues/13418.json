@@ -1,0 +1,35 @@
+{
+  "number": 13418,
+  "kind": "pull_request",
+  "title": "fix(console): Integrations → Connect an AI agent mints an API key only under a confirmed name (objectui#13383)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T19:09:42Z",
+  "updated_at": "2026-10-23T19:55:57Z",
+  "closed_at": "2026-10-23T19:55:55Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T19:55:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13418",
+  "body": "Closes #13383\nClause-②: no\n\n## What changed\n\nIntegrations → Connect an AI agent → API key: `generateKey` posted `name: keyName.trim() || 'Agent key'` straight from \"Generate key\", with no confirm, so a cleared or whitespace-only name box still minted a key that acts as the administrator, under the default name. This copies the shape PR #13378 gave the `ConnectAgentWidget` card (objectui#13355):\n\n- **\"Generate key\" is disabled** while the trimmed name is blank (whitespace-only counts as blank). `generateKey` takes the name and posts it trimmed. The `'Agent key'` fallback is gone, and a blank name returns before any request.\n- **Clicking it opens an in-app confirm** (the `AlertDialog` family from `@object-ui/components`) whose title names the key. The name is taken when the dialog opens, so the name posted is the name the dialog showed. Cancel mints nothing and keeps the name in the box. Confirming mints and then opens the existing show-once \"Your new API key\" dialog, unchanged.\n- **Strings: no new keys.** The confirm reuses the keys #13378 added or used: `connectAgent.apiKey.confirmTitle` (title, with the name), `connectAgent.apiKey.body` (description: the key acts as you, shown once), `connectAgent.apiKey.mint` (confirm button) and `common.cancel`. No locale pack is touched. The rest of this section is still hard-coded English, which was already the case and is out of scope here. The confirm is the one part that is localized.\n- **The `Agent key` prefill stays.** The card says a prefilled name the administrator confirms in the dialog is a chosen name. With the prefill, the click no longer mints: it stops at a confirm that names `Agent key` (pinned by §4 below). Removing the prefill would also change the section's first-use flow, which this card doesn't ask for.\n- **Kept unchanged:** the show-once result dialog, and the error-envelope read through `readEnvelopeFailureText`, including the keyless-success sentence.\n\nFiles: `apps/console/src/pages/developer/AgentConnectSection.tsx`, the new `AgentConnectSection.keyNameConfirm-13383.test.tsx` next to it, the two existing pins (see below), and `.changeset/13383-agent-section-key-confirm.md` (patch: `@object-ui/console`, which is in the fixed release group).\n\n## Tests (head `eebf2deea`)\n\n- **New pins, `AgentConnectSection.keyNameConfirm-13383.test.tsx`:**\n  - §1: a blank or whitespace-only name cannot mint. The button is disabled, no `POST /api/v1/keys` is sent, and no dialog opens.\n  - §2: a click opens the confirm naming the key, and Cancel mints nothing and keeps the name.\n  - §3: confirming posts exactly `{ name: 'Claude desktop' }` from a typed `'  Claude desktop  '`, and the show-once dialog shows the key.\n  - §4: the prefilled `Agent key` stops at the confirm and is posted only after confirming.\n- **Existing pins `AgentConnectSection.envelopeUserMessage` and `keylessSuccess-8782`:** each helper got one added step and nothing else. After clicking \"Generate key\", it clicks the confirm's `connectAgent.apiKey.mint` button inside the `alertdialog`. That button's label reads as its key because those suites run with no i18n provider. Every assertion is unchanged.\n- **Test runs:**\n  - `pnpm exec vitest run --maxWorkers=2 apps/console/src/pages/developer/AgentConnectSection`: Test Files 3 passed (3), Tests 13 passed (13).\n  - The whole `apps/console/src/pages/developer/` directory: Test Files 18 passed (18), Tests 143 passed (143).\n- **Ablation:** with `AgentConnectSection.tsx` reverted to base `01b85d8f8` (confirmed on disk: the `|| 'Agent key'` fallback is back and `confirmTitle` is gone), all 4 new pins go red. §1 fails on `toBeDisabled`, and §2 to §4 fail with no `alertdialog`. The file was restored from `HEAD`: the blob hash matched and `git diff HEAD` was empty. The re-run was 13/13 green.\n- **Type-check:** `turbo run type-check --concurrency=2 --filter=@object-ui/console...`: 71 successful, 71 total. The console's `tsc --listFiles` includes the three test files.\n- **Other checks:**\n  - ESLint on the four touched `.tsx` files: exit 0.\n  - `pnpm check:i18n-keys`, `check:i18n-dead-keys` and `check:i18n-drift`: exit 0.\n  - `check:new-line-citations`: 0 new.\n  - `check:pending-changeset-literals`: pass.\n  - `check-changeset-presence` and `check-changeset-no-major`: pass.\n\n## Acceptance notes\n\n- Not reproduced in a running console. The behaviour is shown by the pins above.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 13378,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Connect an Agent mints an API key only under a typed, confirmed name (objectui#13355)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T14:40:27Z",
+  "updated_at": "2026-10-23T15:22:52Z",
+  "closed_at": "2026-10-23T15:22:50Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T15:22:50Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13378",
+  "body": "Closes #13355\nClause-②: no\n\n## What changed\n\nSetup → Connect an Agent → API keys: \"Create key\" posted `name: keyName.trim() || 'agent-key'`, so one click with an empty name box minted a key called `agent-key`, with no confirm. Setup → API Keys → Create Key (the `sys_api_key` `create_api_key` action) requires the name. Now:\n\n- **Create key stays disabled** until a non-blank name is typed (whitespace-only counts as blank). `mintKey` takes the name and posts it as typed (trimmed); the `agent-key` fallback is gone.\n- **Clicking it opens an in-app confirm** (the `AlertDialog` family from `@object-ui/components`, in the idiom `MarketplaceRowActions` uses) whose title names the key. Cancel mints nothing and keeps the typed name; confirming mints, then reveals the key once with copy buttons, exactly as before (`connectAgent.apiKey.showOnce` + \"Done — hide it\"). The name the confirm showed is captured when it opens, so the name posted is the name the dialog named.\n- **Strings:** one new key, `connectAgent.apiKey.confirmTitle` (\"Create the API key \"NAME\"?\"), in all ten locale packs, each in that pack's own quote marks. The dialog otherwise reuses existing keys: `connectAgent.apiKey.body` as its description, `connectAgent.apiKey.mint` as the confirm button, `common.cancel`. The API Keys page's strings live in the platform's object translations, not in this repo's packs, so none were reusable here.\n- No product-named widget, dialog, hook or namespace: the change stays inside the existing `ConnectAgentWidget.tsx`.\n\nFiles: `packages/app-shell/src/console/connect/ConnectAgentWidget.tsx`, new `packages/app-shell/src/console/connect/ConnectAgentWidget.keyName-13355.test.tsx`, the ten `packages/i18n/src/locales/*.ts`, `packages/i18n/src/__tests__/de-quote-pairing-3876.test.ts` (its two narrated count pins advance by the one new interpolated German span, 92 to 93), `.changeset/13355-agent-key-name-confirm.md` (patch: app-shell, i18n).\n\n## Tests (head `b67426eb4`)\n\n- New pins, `ConnectAgentWidget.keyName-13355.test.tsx`: §1 a blank or whitespace-only name cannot mint (button disabled, no `POST /api/v1/keys`, no dialog); §2 a typed name opens the confirm naming the key, and Cancel mints nothing; §3 confirming posts exactly `{ name: 'ci-agent' }` from a typed `'  ci-agent  '` and reveals the key once.\n- `pnpm exec vitest run --maxWorkers=2` over `packages/app-shell/src/console/connect/`, both `AgentConnectSection.*` tests (`envelopeUserMessage`, `keylessSuccess-8782`), `registry-inputs-spec-parity`, `check-sdui-registration-pins`, `check-side-effects-array`, `side-effects-declaration-consistency`, `product-neutral-renderer.ratchet` and all of `packages/i18n/`: **Test Files 92 passed (92), Tests 1716 passed, 13 skipped**.\n- Ablation: with the fix reverted to the base version of `ConnectAgentWidget.tsx` (confirmed on disk: `'agent-key'` back, `confirmTitle` gone), the three new pins go red (§1 `toBeDisabled`, §2 and §3 no `alertdialog`); restored from `HEAD`, blob hash matched and `git diff HEAD` was empty.\n- Type-check: `turbo run type-check --filter=@object-ui/app-shell` (includes its `tsconfig.test.json`): 30/30 tasks successful.\n- `pnpm check:i18n-keys`, `check:i18n-drift`, `check:i18n-dead-keys`: exit 0 (the new key is used; drift reports 1 key added, 0 en values changed). `check:new-line-citations`: 0 new. `check-changeset-presence` / `check-changeset-no-major`: pass. ESLint on the touched files: 0 errors (3 pre-existing `no-explicit-any` warnings in the widget's untouched catch clauses).\n\n## Acceptance notes\n\n- The reveal stays inline in the card (the existing show-once panel), not a modal result dialog like the API Keys page: the card asks for the key to be shown once, copy-once, which the panel already does.\n- The console's other key generator, `AgentConnectSection` (Integrations page), still posts `keyName.trim() || 'Agent key'` with no confirm. It is outside this card's file surface and untouched here.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 13413,
+  "kind": "issue",
+  "title": "Console file field silently drops a picked file whose name is non-ASCII (e.g. 示例营业执照.pdf)",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "marchtian",
+    "id": 7553007,
+    "type": "User"
+  },
+  "labels": [
+    "area:files",
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T15:36:03Z",
+  "updated_at": "2026-10-23T18:48:06Z",
+  "closed_at": "2026-10-23T18:47:40Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13413",
+  "body": "## What happens\n\nIn a create form with a required `Field.file`, picking a file with a Chinese name does nothing:\n\n- No upload request is sent (none shows in the network log).\n- No error toast appears.\n- The field stays empty.\n\nSubmitting then fails with 「扫描件不能为空」.\n\nPicking the **same bytes** renamed to `license.pdf` works. The file appears under the drop zone, uploads, and the record saves with the attachment.\n\n## Repro\n\n- `@objectstack/*` 18.0.0, `objectstack dev`, locale zh-CN.\n- App: objectstack-ai/hotsrm `main`, object `srm_supplier_certificate`, field `attachment: Field.file({ label: '扫描件', required: true })`.\n- Open 资质证书, click 新建, then click the 扫描件 drop zone and choose `示例营业执照.pdf`.\n- Nothing is attached. Repeat with the file renamed to `license.pdf` and it attaches.\n\nObserved in headless Chromium (Playwright 1.56). It reproduced both through the file chooser and through `setInputFiles` on the hidden input. I haven't checked desktop browsers by hand.\n\n## Expected\n\nNon-ASCII filenames upload normally and keep their original display name. Chinese filenames are the norm for this app's users, such as scanned licenses and certificates. If an upload is rejected for any reason, the user sees an error instead of a silent no-op."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 13416,
+  "kind": "pull_request",
+  "title": "fix(app-shell): a record page's onSuccess.navigate opens in its own app (objectui#13396)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T18:54:21Z",
+  "updated_at": "2026-10-23T19:22:27Z",
+  "closed_at": "2026-10-23T19:22:25Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T19:22:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13416",
+  "body": "Closes #13396\nClause-②: no\n\n## What changed\n\nThe record page mounts its own `ActionProvider` (in `RecordDetailView`), which shadows the console action runtime for every action on the page. Its `onNavigate` handed the path to the router unchanged, so an action run from the record page's action bar with `onSuccess: { navigate: '/crm_opportunity/${result.id}' }` matched no route under the `/_console` basename and the user landed on Home. This is the record-page twin of objectui#13379 (merged as PR #13394), which made the same change to `useConsoleActionRuntime`'s navigator.\n\n- **Lift, no copy.** `hostInConsolePath` and `CONSOLE_ROOT_SEGMENTS` move unchanged from `hooks/useConsoleActionRuntime.tsx` into a new module, `packages/app-shell/src/utils/hostInConsolePath.ts`. Both navigators import it from there. The set and the function body are byte-identical; only the doc comment now names both readers. The module is not re-exported from the package barrel, so the published surface does not change.\n- **Record page navigator.** `RecordDetailView`'s `navigateHandler` now calls `navigate(hostInConsolePath(url, hostAppSegment))`. The host app is the `:appName` of the record page's own route. When the view is mounted outside an app route, it falls back to the console runtime's answer, `resolveHostAppSegment(metadata.apps, currentAppName)`.\n- **Behaviour that does not change.** `/apps/APP/...` paths, external URLs (sent to `window.open` when `external` / `newTab` is set; otherwise passed to the router verbatim, as today), `mailto:`, `./` paths and every console root route (`/forms/NAME`, `/home`, `/studio`, ...) are passed through exactly as before.\n\n### Why not delegate to the console runtime's navigator\n\nChecked first, as the card asked. Delegating would change other behaviour, so the lift was used instead:\n1. Nothing exposes that navigator to descendants. `ActionRunner.navigationHandler` is private, and the console runtime publishes no context, so delegating would mean adding a new seam outside this card's surface.\n2. `RecordDetailView` is also mounted with no console runtime above it: it is exported from `@object-ui/app-shell`, and the console's dev harnesses mount it directly. Delegating would leave those hosts with no navigator.\n3. The console runtime picks the host app from the shell's published `currentAppName`, re-checked against the active app list. On a record page the route's `:appName` is the authoritative answer, and the new pin checks that it wins.\n\n## Tests\n\nNew pin: `packages/app-shell/src/views/RecordDetailView.onSuccessNavigateHost-13396.test.tsx`. It runs against the real view mounted under a real router route, and captures the handler the view actually hands its `ActionProvider`, plus that provider's real runner. It has 30 tests:\n- app-relative `/object/record/id`, plus the `/object/id` shorthand with its query and hash, are hosted under the route's app;\n- the route's app wins over a different, active app published by the shell;\n- outside an app route, the path is hosted under the console runtime's answer;\n- `/apps/...` is unchanged; an external URL goes to `window.open` and never reaches the router; `mailto:` is never hosted;\n- every entry of `CONSOLE_ROOT_SEGMENTS` is left as written;\n- through the page's real runner, `onSuccess.navigate: '/crm_opportunity/${result.id}'` lands on `/apps/com.acme.crm/crm_opportunity/opp_42`.\n\nResults on head `b421295935`:\n- New pin and the objectui#13379 pin `useConsoleActionRuntime.onSuccessNavigateHost-13379.test.tsx`, which is **unchanged** (it reaches the helper through the hook, so the lift needed no edit to it, not even an import path): `Test Files 2 passed (2)`, `Tests 65 passed (65)`.\n- Every `RecordDetailView.*` suite plus every app-shell suite that imports `useConsoleActionRuntime` (run on `99cf7a28f0`; the later commit only removes an always-true guard from the new test): `Test Files 90 passed (90)`, `Tests 712 passed (712)`.\n- `turbo run type-check --filter=@object-ui/app-shell`: `Tasks: 30 successful, 30 total`.\n- eslint on the four touched source/test files: 0 errors. Warning counts in `RecordDetailView.tsx` and `useConsoleActionRuntime.tsx` are equal to `origin/main` (102 / 37). The new module has none. The new test has 7 `no-explicit-any` warnings in the same mock-harness idiom its sibling suites use.\n- `check-changeset-presence`: one patch changeset declared. `check:new-line-citations`: `0 new citation(s)`.\n\n### Ablation (fix committed first, restored from `HEAD`, restore proven by `git diff HEAD` empty and the HEAD blob hash matching disk)\n1. `navigate(hostInConsolePath(url, hostAppSegment))` changed back to `navigate(url)`. Anchor count went 1 to 0 and the mutated text count went 0 to 1. Result: `Tests 5 failed | 25 passed (30)`. The five hosting tests and the real-runner test went red. The 25 that stayed green are the \"unchanged\" shapes, which are correct under the old handler by design.\n2. `appName ?? resolveHostAppSegment(...)` changed to `resolveHostAppSegment(...)` alone. Result: `Tests 1 failed | 29 passed (30)`. The red test is \"reads the app off the route, not the shell's published app\". The first version of that test was green under this mutation, so the fixture now lists a second active app, and the result above is from the fixed test.\n\n## Checklist\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nSession: `https://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

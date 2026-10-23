@@ -1,0 +1,35 @@
+{
+  "number": 13399,
+  "kind": "pull_request",
+  "title": "chore(deps): lock vite 8.3.5 and pin next 16.3.8, with no manifest range moved (takes over #13288, #11845)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T16:16:50Z",
+  "updated_at": "2026-10-23T16:49:12Z",
+  "closed_at": "2026-10-23T16:49:10Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T16:49:10Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13399",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-tesla\"} -->\n_Requested by **Tesla** · [project thread](https://claude.ai/code/project/chan_01AXsQkLFKRdQCqQ3RTr6Jao?thread=cmsg_01AXsQkLFKRdQCqQ3RTr6JaoXwWYXAV1PgNnE5ggAa8iRf)_\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nTakes over two Dependabot PRs that have been red since 2026-10-20 with nobody on them: #13288 (vite 8.2.2 → 8.3.4) and #11845 (next 16.3.6 → 16.3.8). #11844 is the older copy of #11845's bump. Dependabot closes all three by itself once `main` carries these versions.\n\n## What changes\n\n- `apps/site/package.json`: `next` 16.3.6 → 16.3.8, as #11845 did.\n- `pnpm-lock.yaml`: vite 8.2.2 → 8.3.5 everywhere, next 16.3.8. **No manifest's vite range moves**: all 31 keep `\"vite\": \"^8.2.1\"`, which already admits 8.3.x.\n\n## Why the vite range stays\n\n#13288 raised every `\"vite\": \"^8.2.1\"` to `\"^8.3.4\"`. Measured on that shape, re-applied on current `main` `3a73c07b3`:\n\n- `scripts/__tests__/doc-version-claims.test.ts` › \"pins the skeleton toolchain to the range the in-repo plugin packages declare\" goes red: `content/docs/guide/plugins.md:425` and `skills/objectui/guides/project-setup.md:48` both teach `^8.2.1`.\n- `packages/create-plugin/src/__tests__/templates.test.ts` › \"sources every devDependency range from this repo instead of inventing them\" goes red: `templates.ts:109` (and `packages/cli/src/utils/scaffold-dependencies.ts:146`) hard-code `^8.2.1`.\n- Fixing those pages means editing `skills/**`, which `check-governed-queue-guard.mjs --test` reads as GOVERNED, so the whole PR would wait on an authorized approver.\n\nSo the floor stays where the repo states it, and the upgrade happens in the lockfile. Raising the published floor (`@object-ui/cli` and `@object-ui/create-plugin` hand `^8.2.1` to scaffolded apps) is a separate change with its own governed page edit, if anyone wants it.\n\n## Lockfile\n\n- `pnpm update -r vite@8.3.4 --no-save`, then `pnpm dedupe`. Dedupe lands the tree on vite 8.3.5 (the newest in range) with one postcss, autoprefixer and nanoid.\n- `node scripts/check-lockfile-integrity.mjs --base-ref origin/main`: `VERDICT clean — no package gained a copy` (1774 resolutions, base and head). #13288's lock added a second autoprefixer and nanoid, which is the red it carried.\n- `node scripts/check-lockfile-dedupe.mjs --report-only`: `VERDICT deduped`.\n\n## Local verification (head `097db08c0`, pin `830a63a6` built by `pnpm run setup`)\n\n- `pnpm turbo run type-check --concurrency=2`: 81 of 81 tasks successful.\n- `vitest run --project unit --maxWorkers=2`: Test Files 1656 passed, 3 skipped (1659); Tests 31722 passed, 65 skipped. The `dom` and `dom-heavy` projects were not run here; CI's 16 shards run them.\n- `doc-version-claims.test.ts`: 29 of 29 passed.\n\nNo changeset: only `apps/site` (private) and the lockfile change, and `check-changeset-presence` does not read dependency fields.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01UBfoEFdVTZ9yyEX5HxsHe4\n"
+}

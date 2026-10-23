@@ -2,7 +2,7 @@
   "number": 13374,
   "kind": "pull_request",
   "title": "feat(app-shell): Packaged automation Clone opens with a proposed name and label (objectui#13344)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -21,10 +21,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-23T13:59:18Z",
-  "updated_at": "2026-10-23T14:16:00Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-23T14:32:55Z",
+  "closed_at": "2026-10-23T14:32:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T14:32:53Z",
   "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/13374",

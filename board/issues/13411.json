@@ -1,0 +1,35 @@
+{
+  "number": 13411,
+  "kind": "pull_request",
+  "title": "fix(app-shell): changing the ⌘K query no longer unmounts the console (objectui#13387)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "marchtian"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T17:34:24Z",
+  "updated_at": "2026-10-23T18:00:28Z",
+  "closed_at": "2026-10-23T18:00:26Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T18:00:26Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13411",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"marchtian\"} -->\n_Requested by **田騏** · [project thread](https://claude.ai/code/project/chan_01VmuUhXU9SSUzqJYyXSmYSi?thread=cmsg_01VmuUhXU9SSUzqJYyXSmYSiVgHjH2Sbt7wBMtxFNRYENR)_\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nFixes #13387\nClause-②: no\nMetadata-protocol: none\n\n## Why\n\nChanging the ⌘K query from one set of record hits to another unmounted the whole console (#13387), with cmdk's `Cannot read properties of undefined (reading 'forEach')`. It reproduces on the released 18.0.0 console too, so it is not a regression; the maintainer ruled it does not hold 18.1.0 and should be fixed now.\n\nThe palette draws record hits as one `CommandGroup` per object (`key={`records:${objectName}`}`). With cmdk's own filter on, cmdk re-sorts whenever an item's value changes, and that sort walks the group ids its last filter saw. When a new query stopped finding an object, that object's group unmounted (deleting its entry from cmdk's group map) while the sort scheduled by the new items' values still named it, so the lookup returned `undefined` and threw inside a layout effect. Nothing between the palette and the root caught it.\n\n## What changes\n\nAll in `packages/app-shell/src/chrome/CommandPalette.tsx`:\n\n- **cmdk's filter and sort are off** (`shouldFilter={false}`). The palette already matches every navigation entry and command it renders itself (`matchesPaletteQuery`, #11812), and record hits arrive ranked from `/api/v1/search`, so cmdk's filter only re-checked what was already decided, and its sort was the crash. `CommandDialog` passes no props to its cmdk root and lives in the no-touch `ui/` zone, so the palette composes the same frame from `Dialog`, `DialogContent`, `DialogTitle`, `DialogDescription` and `Command` (`PaletteDialog`, same classes, same `overlay:command-palette` locator and visually hidden title and description).\n- **A record hit's value no longer embeds the query.** The query was there only to get async hits past cmdk's filter; the value is now stable across queries.\n- **The palette has its own error boundary.** `CommandPalette` wraps the palette in the shell's `ErrorBoundary`. An error inside it closes the palette (clears `?palette=1`) and is reported as every boundary reports; the console stays. The next open remounts a fresh palette. A failed palette is not re-rendered while closed, so a palette that throws even when closed cannot loop. This covers all three mount points (the app frame, Home, and the Studio landing), since they all render `CommandPalette`.\n\nOrder change, said plainly: with a non-empty query cmdk no longer reorders groups and items by its own score, so the palette shows them in render order (record hits first, in the server's order, then objects, dashboards, pages, reports, Studio entries, apps, theme, full search). Selection still starts on the first item.\n\n## Tests\n\n- New `CommandPalette.queryChangeGroups-13387.test.tsx`, through the real `CommandPaletteProvider` and real cmdk, with a `searchAll` stub:\n  - `Website`, then `Contoso` typed key by key over the selected query; and `Website` deleted key by key, then `Contoso`. These are the card's two sequences. Both keep the palette open on the new hit with no error reported.\n  - An error thrown inside the palette closes it, clears `?palette=1`, leaves the console mounted and is reported by the boundary; the next ⌘K opens a palette that works.\n  - Reverse check: against the unfixed `CommandPalette.tsx` all three fail, the first two with the card's `TypeError: Cannot read properties of undefined (reading 'forEach')`. A single `fireEvent.change` from one whole query to the other did NOT reproduce it in happy-dom; key-by-key typing does.\n- `CommandPalette.navMatch-11812.test.tsx`: the record-hit control pin reads the query-free value, and the header line about cmdk's scorer is corrected.\n- Local runs: `pnpm exec vitest run packages/app-shell/src/chrome/` (20 files, 134 tests passed), and the 47 other test files that mention the palette or cmdk items under `packages/app-shell` (406 tests passed). `eslint` on the changed files: 0 errors. `node scripts/check-changeset-presence.mjs`: passes with one changeset.\n- NOT MEASURED locally: `tsc` for `@object-ui/app-shell`. It needs the workspace packages built, which this container did not do; CI runs it.\n\n## Changeset\n\n`@object-ui/app-shell` patch.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01Qfcwdm3pMxUcQjYXXJxRNt\n"
+}

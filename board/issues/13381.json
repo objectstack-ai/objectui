@@ -1,0 +1,35 @@
+{
+  "number": 13381,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Setup → Installed Apps is titled Installed Apps and says no marketplace app is installed yet (objectui#13356)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T14:51:04Z",
+  "updated_at": "2026-10-23T15:27:55Z",
+  "closed_at": "2026-10-23T15:27:53Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T15:27:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13381",
+  "body": "Closes #13356\nClause-②: no\n\n## What changed\n\nSetup → Installed Apps is objectstack's nav item `{ type: 'component', componentRef: 'developer:packages', params: { source: 'marketplace' } }`. The sidebar's `resolveHref` sends a component item's `params` as the query string, so the entry opens `/apps/setup/component/developer/packages?source=marketplace` and `PackagesPage` already reads `source` through `readSourceFilter` (`packageSource.ts`). Nothing new is needed from objectstack: the new test resolves the real nav item through `resolveHref` and pins that URL.\n\n`PackagesPage.tsx`:\n- **Header title.** When the Source filter is `marketplace`, the title is `engine.packages.installedApps.title` (\"Installed Apps\"). Otherwise it is `engine.packages.title` (\"Packages\") as before.\n- **Empty state.** When the Source filter is `marketplace` and no row is a marketplace install, the body shows \"No apps installed from the marketplace yet\" with the hint \"Apps you install from the marketplace are listed here.\" (`data-testid=\"packages-installed-apps-empty\"`). This holds whether other packages are installed or nothing is. \"No packages match your filters.\" stays for a filter the viewer set: a search that hides marketplace installs that exist, or another Source (`?source=code` / `authored`) that matches nothing.\n- Setup → Packages (no `source`) keeps its title and both empty states (\"Create your first package…\" / \"No packages match your filters.\").\n\n`i18n.ts`: three new keys (`engine.packages.installedApps.title` / `.empty` / `.emptyHint`), with rows in both shipped packs, en and zh. No existing value changed.\n\n`.changeset/13356-installed-apps-title.md`: `@object-ui/app-shell` patch.\n\n## Tests (head `5c672c8ee`)\n\n- New `PackagesPage.installedApps-13356.test.tsx`, 9 tests: the nav item's resolved URL; the Installed Apps title; the no-marketplace-install empty state with other packages installed and with nothing installed; a search over existing marketplace installs still says \"No packages match your filters.\"; zh-CN title and empty state, read from real catalogue rows (not the echoed key, not the en row); three Setup → Packages controls (title, the create-first empty state, another Source that matches nothing).\n- `pnpm exec vitest run --maxWorkers=2 packages/app-shell/src/views/metadata-admin/PackagesPage`: `Test Files 13 passed (13)`, `Tests 105 passed (105)`. These are all 12 existing `PackagesPage*` files plus the new one.\n- `zh-base-term.i18n-13131`, `metadata-form-i18n`, `product-neutral-renderer.ratchet`, `packageSource*`: `Test Files 4 passed (4)`, `Tests 63 passed (63)`.\n- `turbo run type-check --filter=@object-ui/app-shell` (`tsc --noEmit && tsc -p tsconfig.test.json`): `Tasks: 30 successful, 30 total`.\n- `pnpm check:i18n-keys`, `check:i18n-drift` (\"0 en value(s) changed (3 key(s) added, 0 removed)\"), `check:i18n-dead-keys` (no new key listed), `check:i18n-designer-parity` (\"Every en row has a zh row\"): all exit 0.\n- `node scripts/check-changeset-presence.mjs`: passes with the one changeset. `pnpm check:new-line-citations`: \"0 new citation(s)\".\n- ESLint on the touched files: 0 errors. The 15 warnings are all on lines this PR does not touch.\n- **Ablation.** With the fix committed, `PackagesPage.tsx` was reverted to the base commit (no `installedApps` reference left in the file), and the i18n rows stayed. The new file then read `4 failed | 5 passed (9)`. Red: the title, both no-marketplace-install empty states, and zh. Green: the URL pin, the search case, and the three Packages controls. The file was then restored from `HEAD`: same blob hash, `git diff HEAD` empty.\n\n## Acceptance notes\n\n- The subtitle (\"Author, publish, and manage the packages installed in this system.\") and the \"Source: Marketplace · Show all\" chip are unchanged under the Installed Apps title. Show all drops `?source=` and the page reads \"Packages\" again, which is consistent with the entry no longer being the one in view.\n- Setup → Packages with only platform-scope packages and the \"Show platform packages\" switch off still says \"No packages match your filters.\" although no filter is set. That case is outside this card, which says Packages is unchanged. Noted here only; nobody has taken it on.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

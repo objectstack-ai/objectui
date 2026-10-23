@@ -2,7 +2,7 @@
   "number": 13364,
   "kind": "pull_request",
   "title": "fix(app-shell): SchemaForm rows show the label only, machine key on demand (#13352)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -20,10 +20,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-23T13:05:36Z",
-  "updated_at": "2026-10-23T13:18:13Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-23T15:26:52Z",
+  "closed_at": "2026-10-23T15:26:49Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T15:26:49Z",
   "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/13364",

@@ -28,10 +28,33 @@
  * serves is assignable, a registry-only one included, and a name the catalog
  * does not resolve is refused. A refusal is shown in the server's own words,
  * which this page must not paper over.
+ *
+ * objectui#13337 — Remove asks first and names the person; nothing is sent
+ * until the admin confirms. The picker offers the members of the active
+ * organization only: the users its `sys_member` rows name, read from the
+ * server when the picker opens and handed to the picker as its hard filter.
+ * The server already refuses an assignment whose user holds no `sys_member`
+ * row in the row's organization (objectstack's
+ * `grant-holder-membership-refusal`), so a non-member offered here could only
+ * be refused. Where that refusal judges nothing — no active organization (the
+ * row is stored with none) or a composition that registers no `sys_member` —
+ * the picker keeps its whole list, as the server does.
  */
 
 import * as React from 'react';
-import { Button } from '@object-ui/components';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+  buttonVariants,
+} from '@object-ui/components';
+import { useAuth } from '@object-ui/auth';
 import { resolveAffordance, type SchemaLike } from '@object-ui/core';
 import { RecordPickerDialog } from '@object-ui/fields';
 import { usePermissions } from '@object-ui/permissions';
@@ -55,6 +78,13 @@ interface HolderRow {
 /** The assignment object, and the column that names the position. */
 const USER_POSITION_OBJECT = 'sys_user_position';
 const USER_POSITION_NAME_FIELD = 'position';
+
+/** The membership object, and its two columns the picker's candidates are read from. */
+const MEMBERSHIP_OBJECT = 'sys_member';
+const MEMBERSHIP_ORGANIZATION_FIELD = 'organization_id';
+const MEMBERSHIP_USER_FIELD = 'user_id';
+/** Page size of the membership read; it pages until a short page. */
+const MEMBERSHIP_PAGE = 500;
 
 /** Rows of a `find()` answer, read as `QueryResult` declares them (`data`). */
 const asArray = (res: any): any[] => (Array.isArray(res) ? res : res?.data ?? []);
@@ -82,7 +112,13 @@ function useCopy() {
             remove: '移除',
             empty: '还没有人持有此岗位。',
             loading: '加载中…',
-            pickTitle: '选择要分配此岗位的用户',
+            pickTitle: '选择要分配此岗位的组织成员',
+            noMembers: '本组织还没有可分配的成员。',
+            membersFailed: '无法读取本组织的成员。',
+            removeTitle: (who: string) => `将 ${who} 从此岗位移除？`,
+            removeBody: (who: string) =>
+              `${who} 将不再持有此岗位，也不再获得它分配的权限集。之后可以重新添加。`,
+            cancel: '取消',
             addFailed: '分配失败，请重试。',
             removeFailed: '移除失败，请重试。',
             loadFailed: '无法读取岗位持有人。',
@@ -93,7 +129,13 @@ function useCopy() {
             remove: 'Remove',
             empty: 'Nobody holds this position yet.',
             loading: 'Loading…',
-            pickTitle: 'Select users to assign this position to',
+            pickTitle: 'Select organization members to assign this position to',
+            noMembers: 'This organization has no members to assign yet.',
+            membersFailed: 'Could not read the members of this organization.',
+            removeTitle: (who: string) => `Remove ${who} from this position?`,
+            removeBody: (who: string) =>
+              `${who} will no longer hold this position or the permission sets it distributes. You can add them again later.`,
+            cancel: 'Cancel',
             addFailed: 'Failed to assign. Please try again.',
             removeFailed: 'Failed to remove. Please try again.',
             loadFailed: 'Could not read the holders of this position.',
@@ -118,6 +160,16 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
    * sentence, `''` when it gave none.
    */
   const [readFailure, setReadFailure] = React.useState<{ said: string } | null>(null);
+  /** The holder whose Remove is being confirmed, or `null` while no confirm is open. */
+  const [pendingRemove, setPendingRemove] = React.useState<HolderRow | null>(null);
+  /**
+   * The picker's hard filter: the active organization's members, by user id,
+   * or `undefined` where the server judges no membership (see the module note).
+   * Read when the picker opens, so a member added or removed since is counted.
+   */
+  const [memberFilter, setMemberFilter] = React.useState<{ id: { $in: string[] } } | undefined>(undefined);
+  const [openingPicker, setOpeningPicker] = React.useState(false);
+  const activeOrganizationId = useAuth().activeOrganization?.id ?? null;
 
   /**
    * May the caller add or remove a holder? Each is a write of a
@@ -150,6 +202,9 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
   };
   const canAdd = resolveAffordance('relatedNew', holdingSource).allowed;
   const canRemove = resolveAffordance('relatedRowDelete', holdingSource).allowed;
+  const membershipRegistered = (objects ?? []).some(
+    (o) => (o as { name?: unknown } | null)?.name === MEMBERSHIP_OBJECT,
+  );
 
   const load = React.useCallback(async () => {
     if (!adapter) return;
@@ -216,6 +271,49 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
     [adapter, name, held, load, c],
   );
 
+  /**
+   * Open the picker over the active organization's members. The user ids are
+   * the server's `sys_member` rows of that organization, every page of them;
+   * a refused read is said in the server's words and the picker stays shut,
+   * since its list would otherwise offer people the server will refuse.
+   */
+  const openPicker = React.useCallback(async () => {
+    setError(null);
+    if (!activeOrganizationId || !membershipRegistered) {
+      setMemberFilter(undefined);
+      setPickerOpen(true);
+      return;
+    }
+    setOpeningPicker(true);
+    try {
+      const ids = new Set<string>();
+      for (let skip = 0; ; skip += MEMBERSHIP_PAGE) {
+        const page = asArray(
+          await adapter.find(MEMBERSHIP_OBJECT, {
+            $filter: { [MEMBERSHIP_ORGANIZATION_FIELD]: activeOrganizationId },
+            $top: MEMBERSHIP_PAGE,
+            $skip: skip,
+          }),
+        );
+        for (const m of page) {
+          const uid = m?.[MEMBERSHIP_USER_FIELD];
+          if (uid != null && uid !== '') ids.add(String(uid));
+        }
+        if (page.length < MEMBERSHIP_PAGE) break;
+      }
+      if (ids.size === 0) {
+        setError(c.noMembers);
+        return;
+      }
+      setMemberFilter({ id: { $in: [...ids] } });
+      setPickerOpen(true);
+    } catch (err) {
+      setError(refusalSentence(err) || c.membersFailed);
+    } finally {
+      setOpeningPicker(false);
+    }
+  }, [adapter, activeOrganizationId, membershipRegistered, c]);
+
   const removeHolder = React.useCallback(
     async (assignmentId: string) => {
       setError(null);
@@ -243,14 +341,11 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
           <Button
             variant="outline"
             size="sm"
-            disabled={busy || !adapter}
-            onClick={() => {
-              setError(null);
-              setPickerOpen(true);
-            }}
+            disabled={busy || openingPicker || !adapter}
+            onClick={() => void openPicker()}
             className="gap-1 h-8 text-xs"
           >
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            {busy || openingPicker ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
             {c.add}
           </Button>
         )}
@@ -295,7 +390,10 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => void removeHolder(r.assignmentId)}
+                    onClick={() => {
+                      setError(null);
+                      setPendingRemove(r);
+                    }}
                     aria-label={c.remove}
                     title={c.remove}
                     className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
@@ -316,10 +414,38 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
           dataSource={adapter}
           objectName="sys_user"
           title={c.pickTitle}
+          baseFilter={memberFilter}
           onSelect={() => {}}
           onSelectRecords={(records: any[]) => void addHolders(records)}
         />
       )}
+      <AlertDialog
+        open={pendingRemove !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRemove(null);
+        }}
+      >
+        <AlertDialogContent data-testid="position-holder-remove-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{c.removeTitle(pendingRemove?.label ?? '')}</AlertDialogTitle>
+            <AlertDialogDescription>{c.removeBody(pendingRemove?.label ?? '')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="position-holder-remove-cancel">{c.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: 'destructive' })}
+              data-testid="position-holder-remove-confirm"
+              onClick={() => {
+                const target = pendingRemove;
+                setPendingRemove(null);
+                if (target) void removeHolder(target.assignmentId);
+              }}
+            >
+              {c.remove}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

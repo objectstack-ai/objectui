@@ -347,4 +347,15 @@ export function registerDefaultMetadataSchemas(): void {
     createDerive: [{ from: 'label', to: 'name', transform: 'slugify' }],
     createDefaults: { content: '' },
   });
+
+  // objectui#13337 — a position is created together with the permission sets
+  // it distributes (ADR-0131 D4). With no list declared, the create form falls
+  // back to the required fields plus the header keys, so the `permissionSets`
+  // row appeared only after the first save, and binding a set took a save, an
+  // edit and a second save. The row is the served form's `ref-multi:permission`
+  // picker, whose catalog loads in create mode as well.
+  registerMetadataResource({
+    type: 'position',
+    createFields: ['label', 'name', 'description', 'permissionSets'],
+  });
 }

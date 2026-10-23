@@ -201,7 +201,7 @@ function renderDetail({ inApp = true }: { inApp?: boolean } = {}) {
 
 /** The record page's OWN provider capture, built against the LOADED record. */
 function recordPageCapture() {
-  return [...captured].reverse().find((c) => c.onNavigate && c.context?.record?.id === RECORD_ID);
+  return [...captured].reverse().find((c) => c.context?.record?.id === RECORD_ID);
 }
 
 async function mount(opts?: { inApp?: boolean }) {

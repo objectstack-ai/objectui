@@ -1885,9 +1885,12 @@ function FieldRow({
   // `<form>` would otherwise gain the browser's own submit-blocking verdict
   // beside this form's own validation.
 
-  // Only show the machine name when it materially differs from the
-  // prettified label (e.g. `is_active` → "Is Active" matches, hide it;
-  // `rls` → "Rls" doesn't, show it). Cuts ~50% of the visual noise.
+  // The row shows the LABEL only (objectui#13352). The machine name is a
+  // developer identifier: drawn inline beside the label it put `name` next to
+  // "Display name" on every Setup form. It is offered on demand instead, as
+  // the label's hover tooltip, and only when it materially differs from the
+  // prettified label (e.g. `is_active` → "Is Active" matches, nothing to add;
+  // `rls` → "Rls" doesn't, offer it).
   //
   // Judged against the UNTRANSLATED source label — the label this row would
   // show in English — never against `label` above (objectui#8231). The visible
@@ -1897,12 +1900,15 @@ function FieldRow({
   // label is the one a locale overlay replaced (`untranslatedFieldLabel`, in
   // `./field-source-label.ts`), else the schema's own title, else the
   // prettified name — the same chain as `label`, minus every translation
-  // step, so the chip answers alike in every locale.
+  // step, so the tooltip answers alike in every locale.
   const sourceLabel =
     untranslatedFieldLabel(fieldSpec) ||
     (schema?.title as string | undefined) ||
     prettify(name);
   const labelMatchesName = prettify(name).toLowerCase() === sourceLabel.toLowerCase();
+  const machineNameHint = labelMatchesName
+    ? undefined
+    : `${t('engine.form.machineName', locale)}: ${name}`;
 
   // Booleans render inline (label · description · switch) on one row to
   // save vertical space and feel like a real settings panel.
@@ -1945,18 +1951,15 @@ function FieldRow({
   return (
     <div className="space-y-1.5" onBlur={markTouched}>
       <div className="flex items-center justify-between gap-2">
-        <Label {...labelAssociation} className="text-sm font-medium">
+        <Label
+          {...labelAssociation}
+          className="text-sm font-medium"
+          title={machineNameHint}
+          data-machine-name={machineNameHint ? name : undefined}
+        >
           {label}
           {showRequiredStar && (
             <span className="text-destructive ml-0.5" aria-hidden="true" data-required-marker="true">*</span>
-          )}
-          {!labelMatchesName && (
-            <code
-              className="ml-2 text-[10px] font-mono text-muted-foreground/70"
-              title={t('engine.form.machineName', locale)}
-            >
-              {name}
-            </code>
           )}
         </Label>
       </div>

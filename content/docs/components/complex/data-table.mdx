@@ -23,6 +23,7 @@ interface TableColumn {
   sortable?: boolean;                    // Enable sorting for this column
   masked?: boolean;                      // Withhold the raw value (see Masked columns)
   chips?: boolean;                       // Cells draw chips: never narrower than the widest one (see Chip columns)
+  foreignKey?: boolean;                  // Raw value is a referenced record's id: the cell draws no title tooltip
 }
 
 interface DataTableSchema {

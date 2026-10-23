@@ -37,8 +37,10 @@ import { resolveActionParams } from '@object-ui/fields';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
 import { actionContextOrg } from '../utils/actionContextOrg.js';
+import { resolveHostAppSegment } from '../utils/appRoute.js';
+import { hostInConsolePath } from '../utils/hostInConsolePath.js';
 import { launchConsoleFlow } from '../utils/flowLaunch.js';
-import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
+import { useNavigationContext, useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // Audit provenance renders as the one-line <RecordMetaFooter>; the other
 // framework-injected bookkeeping columns are hidden from the body outright.
 // Both sets are derived, not restated — see record-detail-system-fields.ts.
@@ -1140,13 +1142,26 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     toast.success(message, { duration: options?.duration });
   }, [undoCtl]);
 
+  // The app an in-place hop from this page is hosted under (objectui#13396).
+  // This view's `ActionProvider` shadows the console runtime's for every
+  // action on the record page, so its navigator sorts a path the same way
+  // that runtime's does (`hostInConsolePath`, objectui#13379): an app-relative
+  // `onSuccess.navigate` such as `/crm_opportunity/${result.id}` opens in an
+  // app instead of matching no route and landing on Home. The app is the
+  // record page's own — the `:appName` of its route. Mounted outside an app
+  // route, it falls back to the console runtime's answer
+  // (`resolveHostAppSegment` over the shell's published app).
+  const { currentAppName } = useNavigationContext();
+  const metadataApps = useMetadata().apps;
+  const hostAppSegment = appName ?? resolveHostAppSegment(metadataApps, currentAppName);
+
   const navigateHandler = useCallback((url: string, options?: { external?: boolean; newTab?: boolean }) => {
     if (options?.external || options?.newTab) {
       window.open(url, '_blank', 'noopener,noreferrer');
     } else {
-      navigate(url);
+      navigate(hostInConsolePath(url, hostAppSegment));
     }
-  }, [navigate]);
+  }, [navigate, hostAppSegment]);
 
   // Authenticated fetch for direct backend calls (absolute `type:'api'`
   // targets below + the flow trigger). Declared before apiHandler.

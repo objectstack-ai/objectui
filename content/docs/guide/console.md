@@ -94,6 +94,10 @@ that everyone will see the button there.
 An unheld capability is not the same problem as a *misspelled* one: a
 capability string registered nowhere is caught separately, by the advisory
 capability-reference lint that runs over pending drafts during **Publish**.
+It resolves a reference against the platform's built-in capabilities, the
+capabilities the registry serves (a package's `defineCapability` declarations)
+and every permission set's `systemPermissions`, so a declared capability that
+no set grants yet is not reported.
 
 ## Configuration
 

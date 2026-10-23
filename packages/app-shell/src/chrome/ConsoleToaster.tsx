@@ -15,16 +15,34 @@ import { useObjectTranslation } from '@object-ui/i18n';
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
 /**
+ * objectui#13340 — with no drawer open, the toaster sits top-centre, just
+ * below the console's top bar.
+ *
+ * The top-right corner was not free: every page header puts its actions there
+ * (a list's New and Import, a record's Edit and its header actions, a
+ * dashboard's controls). At 1440×900 a toast at sonner's default top-right
+ * offset covered New and Import for its whole 4s life, so the button the user
+ * needed next could not be clicked. Bottom-right stays out (objectui#7482: the
+ * assistant's FAB and composer). Top-centre is the strip nothing interactive
+ * uses: page headers put their title on the left and their actions on the
+ * right. The offset clears the top bar (`AppShell`'s `h-12` header), whose
+ * centre holds the global search. One anchor for every page, so no page needs
+ * to know where the toaster is.
+ */
+const APP_HEADER_HEIGHT = 48; // `AppShell`'s sticky `<header>`, `h-12`
+const APP_HEADER_GAP = 8;
+const DEFAULT_OFFSET: ToasterProps['offset'] = { top: APP_HEADER_HEIGHT + APP_HEADER_GAP };
+
+/**
  * objectui#11685 — the toaster steps clear of an open right-edge drawer.
  *
- * `top-right` (objectui#7482, below) is also the corner every right-side
- * drawer puts its chrome in: the record drawer's expand and close buttons and
- * its title, the record's own header with its Approve-style actions under it.
- * A success toast raised while one is open, which is exactly what creating a
- * record or running a record action does, landed on top of all of them.
- *
- * The corner stays. While such a drawer is open the toaster is offset, never
- * re-anchored:
+ * While a right-side drawer is open the toaster goes back to the `top-right`
+ * corner and is offset from there, because that corner is also where every
+ * right-side drawer puts its chrome: the record drawer's expand and close
+ * buttons and its title, the record's own header with its Approve-style
+ * actions under it. A success toast raised while one is open, which is exactly
+ * what creating a record or running a record action does, would otherwise land
+ * on top of all of them. The offset:
  *
  * - When the strip of page left of the drawer is wide enough for a toast, the
  *   toaster moves into that strip, to the drawer's left edge. The strip is
@@ -180,7 +198,7 @@ export function ConsoleToaster(props: ToasterProps) {
         // Notion pattern users expect. Callers can still override any of
         // these via the spread `{...props}` below.
         //
-        // objectui#7482 — `top-right` is load-bearing, not cosmetic. The
+        // objectui#7482 — a TOP anchor is load-bearing, not cosmetic. The
         // bottom-right corner belongs to the ChatDock's composer and the FAB
         // that launches it (ADR-0057 P3a/P3b), and a toaster anchored there does
         // more than overlap them: sonner pauses a toast's dismiss timer while
@@ -188,11 +206,15 @@ export function ConsoleToaster(props: ToasterProps) {
         // isDocumentHidden` in its Toast effect), so a pointer resting on the
         // composer underneath keeps the toast on screen until the user clicks ×.
         // Override the position only onto a corner nothing interactive occupies.
-        position="top-right"
-        // objectui#11685 — while a right-edge drawer is open, the same corner
-        // shifted clear of the drawer's chrome (see `useDrawerClearance`).
-        // `undefined` when none is open, which is sonner's own default.
-        offset={clearance?.offset}
+        //
+        // objectui#13340 — top-centre below the top bar, not top-right: the
+        // page header's actions live in the top-right corner (see
+        // `DEFAULT_OFFSET`). objectui#11685 — while a right-edge drawer is
+        // open, top-right shifted clear of the drawer's chrome (see
+        // `useDrawerClearance`). The phone offset stays sonner's own until a
+        // drawer needs clearing.
+        position={clearance ? 'top-right' : 'top-center'}
+        offset={clearance?.offset ?? DEFAULT_OFFSET}
         mobileOffset={clearance?.mobileOffset}
         closeButton
         richColors

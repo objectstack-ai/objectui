@@ -27,8 +27,10 @@
  * one defect, not two.
  *
  * So this file pins the two properties the fix rests on: the default anchor is
- * the top-right corner (nothing interactive lives there), and a success toast
- * really does dismiss itself inside the 3–5s band the card asked for.
+ * at the top, away from the assistant's corner, and a success toast really
+ * does dismiss itself inside the 3–5s band the card asked for. The top anchor
+ * is top-centre since objectui#13340: the top-right corner, chosen here
+ * first, turned out to hold every page header's actions.
  */
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
@@ -64,8 +66,9 @@ async function anchorOf(props: Record<string, unknown> = {}): Promise<[string | 
 }
 
 describe('ConsoleToaster anchor (objectui#7482)', () => {
-  it('defaults to the top-right corner, away from the assistant composer', async () => {
-    expect(await anchorOf()).toEqual(['top', 'right']);
+  it('defaults to the top edge, away from the assistant composer', async () => {
+    // Top-centre (objectui#13340), not top-right: see `DEFAULT_OFFSET` in `ConsoleToaster`.
+    expect(await anchorOf()).toEqual(['top', 'center']);
   });
 
   it('is still overridable — the default is a default, not a lock', async () => {

@@ -478,6 +478,33 @@ function declaredOptionPosition(value: unknown, rank: ReadonlyMap<string, number
 }
 
 /**
+ * The name the dataset DECLARES for a chart's null bucket, or `undefined` when
+ * it declares none (objectstack#25330). A dimension column whose dataset
+ * dimension carries `nullLabel` (System Overview names its null user "System")
+ * says so on its descriptor, `fields[].nullLabel`, already resolved to the
+ * request's locale by the server, as its `label` is.
+ *
+ * `buildChartSeries` draws every null bucket of one chart under ONE label: the
+ * x-axis dimension's, and on a pivot (two dimensions, one measure) the series
+ * dimension's too. So a pivot takes a declared name only when both of its
+ * dimensions declare the same one; any other pivot keeps the default rather
+ * than naming one dimension's null group with the other's label.
+ */
+function declaredNullCategoryLabel(
+  fields: readonly DatasetResultField[] | undefined,
+  dimensions: readonly string[],
+  measures: readonly string[],
+): string | undefined {
+  const nullLabelOf = (dimension: string | undefined) =>
+    dimension === undefined ? undefined : fields?.find((f) => f.name === dimension)?.nullLabel;
+  const xLabel = nullLabelOf(dimensions[0]);
+  if (dimensions.length >= 2 && measures.length === 1) {
+    return xLabel !== undefined && xLabel === nullLabelOf(dimensions[1]) ? xLabel : undefined;
+  }
+  return xLabel;
+}
+
+/**
  * Map a dashboard widget `type` to the advanced chart renderer's `chartType`.
  * Families the renderer doesn't draw distinctly fall back to their closest
  * relative (e.g. `spline`/`step-line` → line, `stacked-area` → area,
@@ -1848,7 +1875,10 @@ export function DatasetWidget({ widget, dataSource, heading }: { widget: any; da
   // into the rendered rows and `findChartSeriesRow` matches a clicked category
   // against it, so the two drifting apart costs the bucket bar its drill —
   // a visible bar that silently no-ops (#4498's dead-click rule).
-  const nullCategoryLabel = tt('chart.nullCategory', '(None)');
+  // A name the dataset declares for the bucket (`fields[].nullLabel`,
+  // objectstack#25330) wins over that global default.
+  const nullCategoryLabel =
+    declaredNullCategoryLabel(state.fields, dimensions, values) ?? tt('chart.nullCategory', '(None)');
   // ADR-0021 (#1759): shared helper — pivots a second dimension into grouped
   // series so multi-dimension dataset widgets match the chart-view renderer.
   //

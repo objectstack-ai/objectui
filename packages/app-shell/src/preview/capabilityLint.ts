@@ -63,10 +63,11 @@ async function loadRule(): Promise<CapabilityRule | null> {
  * human-readable warning strings (empty = clean or lint unavailable).
  *
  * The author-time "known capability" set the rule resolves against is the
- * union of built-in platform capabilities and every `systemPermissions` grant on
- * the environment's permission sets (published ∪ pending permission drafts) —
- * so the assembled pseudo-stack includes the PUBLISHED permission sets, not
- * just drafts.
+ * union of built-in platform capabilities, every capability the environment's
+ * registry serves (`defineCapability` declarations, the `stack.capabilities`
+ * source the rule reads), and every `systemPermissions` grant on the
+ * environment's permission sets (published ∪ pending permission drafts) — so
+ * the assembled pseudo-stack includes the PUBLISHED catalog, not just drafts.
  *
  * @param ruleOverride test seam — inject the rule instead of feature-detecting.
  */
@@ -126,12 +127,21 @@ export async function lintDraftCapabilityReferences(
             .catch(() => null) ?? Promise.resolve(null),
         ),
     );
+    // Declaration side: the capabilities the registry serves
+    // (`GET /api/v1/meta/capability`, objectui#7611). A capability declared
+    // with `defineCapability` and granted by no permission set is still
+    // declared; leaving this source out of the pseudo-stack told the author it
+    // "resolves nowhere" when the rule itself would have resolved it.
+    const capabilities = await (client.list?.('capability', {}) as Promise<unknown[]>)
+      ?.then((rows) => (Array.isArray(rows) ? rows.map(unwrap).filter(Boolean) : []))
+      .catch(() => []) ?? [];
 
     const stack: Record<string, unknown> = {
       objects: bodies.filter((b, i) => b && linted[i].type === 'object'),
       apps: bodies.filter((b, i) => b && linted[i].type === 'app'),
       actions: bodies.filter((b, i) => b && linted[i].type === 'action'),
       permissions: [...publishedPerms, ...permDrafts.filter(Boolean)],
+      capabilities,
     };
 
     return rule(stack)

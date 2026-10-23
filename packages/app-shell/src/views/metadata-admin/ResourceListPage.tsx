@@ -29,6 +29,18 @@ import { Input } from '@object-ui/components';
 import { Badge } from '@object-ui/components';
 import { Switch } from '@object-ui/components';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  buttonVariants,
+} from '@object-ui/components';
+import { toast } from 'sonner';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -63,10 +75,11 @@ import {
   writeCatalogActivation,
   type CatalogActivation,
 } from './catalog-activation.js';
+import { countsCatalogHolders, readCatalogHolderCount, type CatalogHolderCount } from './catalog-holders.js';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
 import { declarationOnlyAuthoredObject } from './sharing-rule-catalog.js';
 import { resolveAffordance, type SchemaLike } from '@object-ui/core';
-import { useMetadata } from '@object-ui/react';
+import { useAdapter, useMetadata } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { SharingRuleCloneDialog, type SharingRuleCloneDialogProps } from './SharingRuleCloneDialog.js';
 import { postureHasOrgWall, useTenancyPosture } from '../../hooks/useTenancyPosture.js';
@@ -187,6 +200,17 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   const [ledgerRefusal, setLedgerRefusal] = React.useState<string | null>(null);
   const [switching, setSwitching] = React.useState<string | null>(null);
   const [switchError, setSwitchError] = React.useState<string | null>(null);
+  // objectui#13338 — switching a permission set or a position OFF asks first,
+  // naming how many users lose the access: the holder count, read from the
+  // server when the confirm opens (`catalog-holders.ts`). Switching on asks
+  // nothing. `holders` is `null` while the count is read.
+  const [pendingOff, setPendingOff] = React.useState<{
+    name: string;
+    label: string;
+    holders: CatalogHolderCount | { error: string } | null;
+  } | null>(null);
+  const adapter = useAdapter();
+  const locale = useMetadataLocale();
   // objectui#12982 — a declaration-only catalog (declared sharing rules): the
   // environment scope lists declarations read-only, and the items an
   // environment authors are records of this object, edited on its own page.
@@ -199,6 +223,12 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   // grant is offered no Clone; the server decides the write either way.
   const perms = usePermissions();
   const metadataStore = useMetadata();
+  // Read through a ref when the confirm opens: the store's context value is
+  // rebuilt whenever any cached type settles (AGENTS.md #10).
+  const metadataStoreRef = React.useRef(metadataStore);
+  React.useEffect(() => {
+    metadataStoreRef.current = metadataStore;
+  });
   const authoredScope =
     authoredObject && metadataStore.readObjectScope
       ? metadataStore.readObjectScope({ names: [authoredObject] })
@@ -374,21 +404,67 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
     });
   }, []);
 
-  const toggleActive = React.useCallback(
+  // The item's label for the confirm and the toast, read through a ref so the
+  // callbacks below do not re-key on every list load.
+  const itemsRef = React.useRef<ItemRow[]>([]);
+  const labelOf = React.useCallback((itemName: string): string => {
+    const row = itemsRef.current.find((r) => String(r.item.name ?? '') === itemName);
+    const label = row?.item.label;
+    return typeof label === 'string' && label ? label : itemName;
+  }, []);
+
+  const writeActive = React.useCallback(
     async (itemName: string, enabled: boolean) => {
       setSwitching(itemName);
       setSwitchError(null);
       try {
         const now = await writeCatalogActivation(type, itemName, !enabled);
         recordSwitched(itemName, now);
+        // objectui#13338 — a toast confirms the change either way.
+        if (countsCatalogHolders(type)) {
+          toast.success(
+            tFormat(now ? 'engine.catalog.active.switchedOn' : 'engine.catalog.active.switchedOff', locale, {
+              name: labelOf(itemName),
+            }),
+          );
+        }
       } catch (err: any) {
         setSwitchError(err?.message ?? String(err));
       } finally {
         setSwitching(null);
       }
     },
-    [type, recordSwitched],
+    [type, recordSwitched, locale, labelOf],
   );
+
+  // The holder-count read of the confirm now open; a newer open (or a close)
+  // makes an older answer stale.
+  const holderReadRef = React.useRef(0);
+  const toggleActive = React.useCallback(
+    (itemName: string, enabled: boolean) => {
+      if (!enabled || !countsCatalogHolders(type)) {
+        void writeActive(itemName, enabled);
+        return;
+      }
+      const read = ++holderReadRef.current;
+      setPendingOff({ name: itemName, label: labelOf(itemName), holders: null });
+      readCatalogHolderCount(adapter, metadataStoreRef.current, type, itemName)
+        .then((holders) => {
+          if (holderReadRef.current !== read) return;
+          setPendingOff((prev) => (prev && prev.name === itemName ? { ...prev, holders } : prev));
+        })
+        .catch((err: unknown) => {
+          if (holderReadRef.current !== read) return;
+          const error = err instanceof Error ? err.message : String(err);
+          setPendingOff((prev) => (prev && prev.name === itemName ? { ...prev, holders: { error } } : prev));
+        });
+    },
+    [type, adapter, writeActive, labelOf],
+  );
+  const closeConfirm = React.useCallback(() => {
+    holderReadRef.current++;
+    setPendingOff(null);
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -411,6 +487,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
             diagnostics,
           };
         });
+        itemsRef.current = rows;
         setItems(rows);
         setLoading(false);
       } catch (err: any) {
@@ -494,7 +571,6 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   );
 
   const columns = config.listColumns ?? defaultColumns(config.primaryKey ?? 'name');
-  const locale = useMetadataLocale();
   const typeLabel = translateMetadataType(type, locale, entry?.label ?? type);
   // The type offers SOME runtime write channel (the editors' type tier), and —
   // in the environment scope — the caller holds the capability the metadata
@@ -669,6 +745,15 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
             {tFormat('engine.catalog.active.failed', locale, { message: switchError })}
           </div>
         )}
+        <DeactivateConfirmDialog
+          pending={pendingOff}
+          locale={locale}
+          onCancel={closeConfirm}
+          onConfirm={(name) => {
+            closeConfirm();
+            void writeActive(name, true);
+          }}
+        />
 
         {/* Body */}
         {(loading || packagesPending) && (
@@ -1045,6 +1130,65 @@ const HEAD_ROW_TINT = '[--os-row-tint:color-mix(in_oklab,var(--color-muted)_30%,
 const INVALID_ROW_TINT = '[--os-row-tint:color-mix(in_oklab,var(--color-destructive)_4%,transparent)]';
 const WARN_ROW_TINT = '[--os-row-tint:color-mix(in_oklab,var(--color-amber-500)_5%,transparent)]';
 const HOVER_ROW_TINT = 'hover:[--os-row-tint:color-mix(in_oklab,var(--color-accent)_50%,transparent)]';
+
+/**
+ * objectui#13338 — the confirm a permission set's or a position's switch asks
+ * before it switches the item OFF, naming how many users lose the access. The
+ * count is the server's, read when the confirm opens; while it is read the
+ * confirm says so and its Deactivate waits. A count that could not be read is
+ * said as such (never as "0 users"), and the admin may still go ahead: the
+ * confirm informs, it does not gate. Cancel leaves the item on.
+ */
+function DeactivateConfirmDialog({
+  pending,
+  locale,
+  onCancel,
+  onConfirm,
+}: {
+  pending: { name: string; label: string; holders: CatalogHolderCount | { error: string } | null } | null;
+  locale: string;
+  onCancel: () => void;
+  onConfirm: (name: string) => void;
+}) {
+  const holders = pending?.holders ?? null;
+  let impact: string;
+  if (holders === null) impact = t('engine.catalog.deactivate.counting', locale);
+  else if ('error' in holders) impact = tFormat('engine.catalog.deactivate.countFailed', locale, { message: holders.error });
+  else if (holders.everyone) impact = t('engine.catalog.deactivate.everyone', locale);
+  else if (holders.truncated) impact = tFormat('engine.catalog.deactivate.holdersAtLeast', locale, { count: holders.count });
+  else if (holders.count === 1) impact = t('engine.catalog.deactivate.holdersOne', locale);
+  else impact = tFormat('engine.catalog.deactivate.holders', locale, { count: holders.count });
+  return (
+    <AlertDialog
+      open={pending !== null}
+      onOpenChange={(open) => {
+        if (!open) onCancel();
+      }}
+    >
+      <AlertDialogContent data-testid="catalog-deactivate-dialog">
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {tFormat('engine.catalog.deactivate.title', locale, { name: pending?.label ?? '' })}
+          </AlertDialogTitle>
+          <AlertDialogDescription data-testid="catalog-deactivate-impact">{impact}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel data-testid="catalog-deactivate-cancel">{t('engine.cancel', locale)}</AlertDialogCancel>
+          <AlertDialogAction
+            className={buttonVariants({ variant: 'destructive' })}
+            disabled={holders === null}
+            data-testid="catalog-deactivate-confirm"
+            onClick={() => {
+              if (pending) onConfirm(pending.name);
+            }}
+          >
+            {t('engine.catalog.deactivate.confirm', locale)}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
 
 /** The activation ledger's states for a type, and the names its door refuses. */
 interface CatalogLedger {

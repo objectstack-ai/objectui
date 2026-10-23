@@ -1506,27 +1506,23 @@ function NavigationItemRenderer({
   const isMobile = useIsMobile();
   const mobileBtnClass = isMobile ? 'min-h-[44px] text-[15px] gap-3 rounded-xl' : undefined;
   const navIconClass = cn('shrink-0', isMobile ? 'h-5 w-5' : 'h-4 w-4');
-  // Resolve the initial open state with platform-aware defaults:
+  // Resolve the initial open state (objectui#13336):
   //
-  // 1. `expanded` is the spec field name; `defaultOpen` is the legacy
-  //    objectui field name. Honor either when set explicitly so app
-  //    authors don't get silently-ignored config.
-  // 2. When the author has set neither, default-collapse groups that
-  //    have many leaf children. A sidebar group with 10+ items doubles
-  //    the rail height and pushes everything below the fold — Slack /
-  //    Linear / Notion all default-collapse long sections for the same
-  //    reason. Threshold is intentionally conservative (8) so short
-  //    sections (typical 3-6 items) still open by default.
-  // 3. Always override to open when the current route lives inside the
-  //    group — otherwise an auto-collapsed group hides the active item
-  //    and the user loses orientation.
+  // 1. A group that holds the current route opens, whatever it declares —
+  //    a closed group would hide the active item and the user would lose
+  //    orientation.
+  // 2. Otherwise the author's declaration decides. `expanded` is the spec
+  //    field name; `defaultOpen` is the legacy objectui field name. Either
+  //    one, when set, is honoured as written.
+  // 3. A group that declares neither opens. Its length does not decide:
+  //    collapsing an undeclared group because it is long hid entries the
+  //    navigation never asked to hide, so a group is closed on first view
+  //    only when it says `expanded: false` (or `defaultOpen: false`).
   const explicitOpen = (() => {
     if (typeof item.expanded === 'boolean') return item.expanded;
     if (typeof item.defaultOpen === 'boolean') return item.defaultOpen;
     return undefined;
   })();
-  const AUTO_COLLAPSE_THRESHOLD = 8;
-  const childCount = item.type === 'group' ? (item.children?.length ?? 0) : 0;
   const activeNavId = React.useContext(ActiveNavIdContext);
   const hasActiveDescendant = React.useMemo(() => {
     if (item.type !== 'group' || !activeNavId) return false;
@@ -1536,10 +1532,7 @@ function NavigationItemRenderer({
       );
     return visit(item.children);
   }, [item, activeNavId]);
-  const initialOpen =
-    hasActiveDescendant
-      ? true
-      : (explicitOpen ?? (childCount >= AUTO_COLLAPSE_THRESHOLD ? false : true));
+  const initialOpen = hasActiveDescendant ? true : (explicitOpen ?? true);
   const [isOpen, setIsOpen] = useState(initialOpen);
 
   // --- Per-item guards: `visible`, `requiredPermissions`, and the

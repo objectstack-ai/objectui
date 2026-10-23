@@ -1608,6 +1608,13 @@ const en = {
     // eagerly loaded and the `framework` chunk's gzip ceiling has ~0.2 KB of
     // headroom; the series keys are rendered by the chart as data, after it.
     scatterOneMeasure: 'A scatter plots one measure. Keep exactly one series:',
+    // The note under a sankey that drew only some of its rows (objectui#7148,
+    // translated by objectui#13404): a flow has no negative width, so rows whose
+    // measure is not above zero are left out. A count family on the OMITTED
+    // rows; `{{field}}` is where the chart draws the measure key as a code chip.
+    sankeyOmittedRows: 'Showing {{shown}} of {{total}} rows — {{count}} rows have no {{field}} above zero, which a flow cannot draw.',
+    sankeyOmittedRows_one: 'Showing {{shown}} of {{total}} rows — {{count}} row has no {{field}} above zero, which a flow cannot draw.',
+    sankeyOmittedRows_other: 'Showing {{shown}} of {{total}} rows — {{count}} rows have no {{field}} above zero, which a flow cannot draw.',
     // The refusal an object-bound chart renders when it declares no category
     // axis (objectui#8168) — `aggregate.groupBy` / `xAxisKey` / `xAxis.field`
     // all absent, so `runAggregate` would have grouped on a name nobody wrote.

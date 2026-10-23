@@ -1384,6 +1384,11 @@ const ru = {
     refreshing: "Обновление…",
     nullCategory: "(Не указано)",
     scatterOneMeasure: "Точечная диаграмма строит только одну меру. Оставьте один ряд:",
+    sankeyOmittedRows: "Показано строк: {{shown}} из {{total}} — строк, где {{field}} не больше нуля: {{count}}. Поток не может их нарисовать.",
+    sankeyOmittedRows_one: "Показано строк: {{shown}} из {{total}} — у {{count}} строки {{field}} не больше нуля, и поток не может её нарисовать.",
+    sankeyOmittedRows_few: "Показано строк: {{shown}} из {{total}} — у {{count}} строк {{field}} не больше нуля, и поток не может их нарисовать.",
+    sankeyOmittedRows_many: "Показано строк: {{shown}} из {{total}} — у {{count}} строк {{field}} не больше нуля, и поток не может их нарисовать.",
+    sankeyOmittedRows_other: "Показано строк: {{shown}} из {{total}} — у {{count}} строки {{field}} не больше нуля, и поток не может их нарисовать.",
     unconfigured: {
       noCategoryAxis: "Требуется ось категорий диаграммы — диаграмма, привязанная к объекту, не придумывает её. Объявите одно из:",
     },

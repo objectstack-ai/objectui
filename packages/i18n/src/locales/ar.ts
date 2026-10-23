@@ -1459,6 +1459,13 @@ const ar = {
     refreshing: "جارٍ التحديث…",
     nullCategory: "(غير محدد)",
     scatterOneMeasure: "المخطط المبعثر يرسم مقياسًا واحدًا فقط. أبقِ سلسلة واحدة:",
+    sankeyOmittedRows: "الصفوف المعروضة: {{shown}} من {{total}} — صفوف بلا {{field}} أكبر من الصفر: {{count}}، ولا يمكن للتدفق رسمها.",
+    sankeyOmittedRows_zero: "الصفوف المعروضة: {{shown}} من {{total}} — {{count}} صف لا يحتوي على {{field}} أكبر من الصفر، ولا يمكن للتدفق رسمه.",
+    sankeyOmittedRows_one: "الصفوف المعروضة: {{shown}} من {{total}} — {{count}} صف لا يحتوي على {{field}} أكبر من الصفر، ولا يمكن للتدفق رسمه.",
+    sankeyOmittedRows_two: "الصفوف المعروضة: {{shown}} من {{total}} — صفّان ({{count}}) لا يحتويان على {{field}} أكبر من الصفر، ولا يمكن للتدفق رسمهما.",
+    sankeyOmittedRows_few: "الصفوف المعروضة: {{shown}} من {{total}} — {{count}} صفوف لا تحتوي على {{field}} أكبر من الصفر، ولا يمكن للتدفق رسمها.",
+    sankeyOmittedRows_many: "الصفوف المعروضة: {{shown}} من {{total}} — {{count}} صفًا لا تحتوي على {{field}} أكبر من الصفر، ولا يمكن للتدفق رسمها.",
+    sankeyOmittedRows_other: "الصفوف المعروضة: {{shown}} من {{total}} — {{count}} صف لا يحتوي على {{field}} أكبر من الصفر، ولا يمكن للتدفق رسمها.",
     unconfigured: {
       noCategoryAxis: "محور فئات الرسم البياني مطلوب — الرسم البياني المرتبط بكائن لا يخترع محورًا. أعلن أحد التالي:",
     },

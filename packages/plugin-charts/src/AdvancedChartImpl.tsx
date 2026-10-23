@@ -37,6 +37,9 @@ import {
   ReferenceLine,
   ReferenceArea,
   Brush,
+  type SankeyLinkProps,
+  type SankeyNode,
+  type SankeyNodeProps,
 } from 'recharts';
 import {
   ChartContainer,
@@ -49,7 +52,7 @@ import {
 import { mapScatterClick, mapTreemapClick, mapSankeyClick } from './chartDrillEvents';
 import { formatterFor, domainFor, ticksFor, plotsWholeNumbers, RENDERABLE, SINGLE_VALUE_CHART_TYPES, TABULAR_CHART_TYPES, effectiveChartFamily, comboBaseFamily, placeYAxes, type DeclaredChartFamily, type NormalizedAxis, type NormalizedSeries, type ValueAxisSlot, type YAxisPlacement } from './normalizeChartSchema';
 import { buildCategoryRank, chartRowBucketId, isRealCalendarDate, toDateInputValue, toDisplayDate, type ChartSegmentClickEvent } from '@object-ui/core';
-import { useDisplayLocale, useSafeTranslate } from '@object-ui/i18n';
+import { createSafeTranslation, useDisplayLocale, useSafeTranslate } from '@object-ui/i18n';
 
 // Default color fallback for chart series
 const DEFAULT_CHART_COLOR = 'hsl(var(--primary))';
@@ -976,6 +979,147 @@ function TreemapCell(props: any) {
         <text x={x + 6} y={y + 18} fill="#fff" fontSize={12} className="pointer-events-none">{name}</text>
       ) : null}
     </g>
+  );
+}
+
+/**
+ * Text that stays legible on a coloured mark AND on the bare chart background
+ * (objectui#13404): foreground ink inside a background-coloured halo. The halo
+ * is painted first (`paintOrder: stroke`), so the glyphs sit on top of it.
+ *
+ * A single contrasting fill cannot do this. A white label reads on a segment
+ * and vanishes the moment it is wider than the segment, which the narrowest
+ * funnel stage always is for a long stage name; a dark label vanishes on a
+ * dark-theme segment. Both colours are theme tokens, so dark mode flips the
+ * pair instead of keeping a light-mode colour.
+ */
+const HALO_LABEL_PROPS = {
+  fill: 'hsl(var(--foreground))',
+  stroke: 'hsl(var(--background))',
+  strokeWidth: 3,
+  strokeLinejoin: 'round' as const,
+  paintOrder: 'stroke',
+  fontSize: 12,
+};
+
+/** A sankey node's colour when it carries none: the root, which is the total, not a category. */
+const SANKEY_ROOT_FILL = 'hsl(var(--muted-foreground))';
+/** How far a sankey node's name sits from the node's edge. */
+const SANKEY_LABEL_GAP = 6;
+/** Links overlap where they leave the root, so each is translucent enough to show the one beneath. */
+const SANKEY_LINK_OPACITY = 0.4;
+
+/** A node of the sankey arm's data: its name, plus the palette colour the arm chose for it. */
+type SankeyArmNode = SankeyNode & { fill?: string };
+
+/**
+ * Sankey node — the node's rect plus its NAME (objectui#13404).
+ *
+ * Recharts draws a node from a plain-object `node` prop as a bare rectangle
+ * with no text, so a sankey could not be read without hovering every bar.
+ * This draws the name beside the node: to its right, or to its LEFT for a node
+ * with no outgoing link. With `align: 'justify'` (the default this arm keeps)
+ * those are exactly the nodes in the last column, flush with the chart's right
+ * edge, where a name drawn to the right would run off the surface.
+ *
+ * Module scope, like `TreemapCell`, for the same reason, and for one more:
+ * Recharts lists `node` and `link` in the dependency array of the memo that
+ * lays the whole chart out, so a function re-created on every render would
+ * redo the layout on every render.
+ */
+function SankeyNodeShape(props: SankeyNodeProps) {
+  const { x, y, width, height } = props;
+  const node = props.payload as SankeyArmNode;
+  const isLastColumn = !(node?.targetNodes?.length > 0);
+  return (
+    <g>
+      <rect className="recharts-sankey-node" x={x} y={y} width={width} height={height} fill={node?.fill ?? SANKEY_ROOT_FILL} />
+      <text
+        className="recharts-sankey-node-label pointer-events-none"
+        x={isLastColumn ? x - SANKEY_LABEL_GAP : x + width + SANKEY_LABEL_GAP}
+        y={y + height / 2}
+        textAnchor={isLastColumn ? 'end' : 'start'}
+        dominantBaseline="central"
+        {...HALO_LABEL_PROPS}
+      >
+        {node?.name}
+      </text>
+    </g>
+  );
+}
+
+/**
+ * Sankey link — the curve Recharts' default draws, stroked in the colour of the
+ * node it flows INTO (objectui#13404).
+ *
+ * Every link used to be one `muted-foreground` grey, so a reader could not
+ * follow a flow from the root to its category. The colour is the TARGET's
+ * rather than the source's because of this arm's shape: every link leaves the
+ * same root node, so a source colour would paint them all one colour again,
+ * which is the defect. The target is the category the link carries, so a link
+ * and the node it ends in share one palette colour.
+ */
+function SankeyLinkShape(props: SankeyLinkProps) {
+  const { sourceX, sourceY, sourceControlX, targetX, targetY, targetControlX, linkWidth } = props;
+  const target = props.payload?.target as SankeyArmNode | undefined;
+  return (
+    <path
+      className="recharts-sankey-link"
+      d={`M${sourceX},${sourceY}C${sourceControlX},${sourceY} ${targetControlX},${targetY} ${targetX},${targetY}`}
+      fill="none"
+      stroke={target?.fill ?? SANKEY_ROOT_FILL}
+      strokeWidth={linkWidth}
+      strokeOpacity={SANKEY_LINK_OPACITY}
+    />
+  );
+}
+
+/**
+ * The sankey's omitted-rows sentence, from the locale packs
+ * (`chart.sankeyOmittedRows`, objectui#13404). It was JSX text, so a zh-CN
+ * session read it in English.
+ *
+ * `createSafeTranslation` rather than the file's `useSafeTranslate`: the
+ * sentence agrees with a COUNT ("1 row has" / "2 rows have"), so it is an
+ * i18next count family and the call has to pass `count`, which
+ * `useSafeTranslate` cannot. This defaults map is also what a host without an
+ * `I18nProvider` renders, and it picks the `_one` / `_other` row the same way
+ * i18next does, so that English agrees with itself too. Each row must stay
+ * byte-identical to the `en` pack; `AdvancedChartImpl.sankeyFunnelLabels-13404.test.tsx`
+ * holds them together.
+ */
+const useSankeyNoteTranslation = createSafeTranslation(
+  {
+    'chart.sankeyOmittedRows': 'Showing {{shown}} of {{total}} rows — {{count}} rows have no {{field}} above zero, which a flow cannot draw.',
+    'chart.sankeyOmittedRows_one': 'Showing {{shown}} of {{total}} rows — {{count}} row has no {{field}} above zero, which a flow cannot draw.',
+    'chart.sankeyOmittedRows_other': 'Showing {{shown}} of {{total}} rows — {{count}} rows have no {{field}} above zero, which a flow cannot draw.',
+  },
+  'chart.sankeyOmittedRows',
+);
+
+/**
+ * The private-use mark interpolated into `{{field}}`. The measure key is drawn
+ * as a `<code>` chip, which cannot be interpolated as text, and cutting the
+ * sentence in two around it would fix every language to English word order.
+ * So the translated sentence is split on this mark and the chip goes where the
+ * language put it — the `withChips` construction `metadata-viewer` uses.
+ */
+const FIELD_CHIP_MARK = '';
+
+function SankeyOmittedRowsNote({ shown, total, dataKey }: { shown: number; total: number; dataKey: string }) {
+  const { t } = useSankeyNoteTranslation();
+  const sentence = String(
+    t('chart.sankeyOmittedRows', { count: total - shown, shown, total, field: FIELD_CHIP_MARK }),
+  );
+  return (
+    <p role="note" data-chart-note="omitted-rows" className="px-1 text-xs text-muted-foreground">
+      {sentence.split(FIELD_CHIP_MARK).map((part, i) => (
+        <React.Fragment key={i}>
+          {i > 0 ? <code className="font-mono">{dataKey}</code> : null}
+          {part}
+        </React.Fragment>
+      ))}
+    </p>
   );
 }
 
@@ -2461,7 +2605,17 @@ function AdvancedChartImplInner({
             {...animProps}
             {...funnelClickProps}
           >
-            <LabelList position="right" fill="hsl(var(--foreground))" stroke="none" dataKey={xAxisKey} />
+            {/* objectui#13404 — the stage name sits INSIDE its segment. At
+                `position="right"` every label started past its trapezoid's right
+                edge, and the widest segment's edge IS the plot's, so all but the
+                narrowest stage drew outside the surface and were clipped.
+                Centred, a label is anchored on the funnel's axis, which runs
+                down the middle of the chart, so no stage name can be pushed off
+                it; and the halo keeps a name legible where it is wider than the
+                narrowest segment and spills onto the background. Reserving a
+                right margin instead would shrink every funnel by its longest
+                stage name and still clip a name longer than the reserve. */}
+            <LabelList position="center" dataKey={xAxisKey} {...HALO_LABEL_PROPS} />
             {funnelData.map((_entry, idx) => (
               <Cell key={`funnel-cell-${idx}`} fill={resolveColor(palette[idx % palette.length])} />
             ))}
@@ -2518,7 +2672,20 @@ function AdvancedChartImplInner({
     const dataKey = series[0]?.dataKey || 'value';
     const rootName = series[0]?.label || dataKey;
     const rows = data.filter((r) => (Number(r?.[dataKey]) || 0) > 0);
-    const nodes = [{ name: rootName }, ...rows.map((r) => ({ name: String(r?.[xAxisKey] ?? '') }))];
+    // objectui#13404 — each category node carries its positional palette
+    // colour, the same `palette[idx % palette.length]` the funnel and treemap
+    // arms use. Recharts copies a node's own keys onto the laid-out node, so
+    // `SankeyNodeShape` fills from it and `SankeyLinkShape` strokes the link
+    // into it with the same colour. The root carries none: it is the total,
+    // not a category, and draws in `SANKEY_ROOT_FILL`.
+    const palette = getPalette();
+    const nodes = [
+      { name: rootName },
+      ...rows.map((r, idx) => ({
+        name: String(r?.[xAxisKey] ?? ''),
+        fill: resolveColor(palette[idx % palette.length]),
+      })),
+    ];
     const links = rows.map((r, i) => ({ source: 0, target: i + 1, value: Number(r?.[dataKey]) || 0 }));
     if (links.length === 0) {
       // Rows ARRIVED and the filter above kept none of them, so there is no
@@ -2614,16 +2781,7 @@ function AdvancedChartImplInner({
       <ChartFootnote
         note={
           omittedRowCount > 0 ? (
-            <p
-              role="note"
-              data-chart-note="omitted-rows"
-              className="px-1 text-xs text-muted-foreground"
-            >
-              Showing {rows.length} of {data.length} rows &mdash; {omittedRowCount}{' '}
-              {omittedRowCount === 1 ? 'row has' : 'rows have'} no{' '}
-              <code className="font-mono">{dataKey}</code> above zero, which a flow cannot
-              draw.
-            </p>
+            <SankeyOmittedRowsNote shown={rows.length} total={data.length} dataKey={dataKey} />
           ) : null
         }
       >
@@ -2631,8 +2789,8 @@ function AdvancedChartImplInner({
           <Sankey
             data={{ nodes, links }}
             nodePadding={24}
-            link={{ stroke: 'hsl(var(--muted-foreground))', strokeOpacity: 0.25 }}
-            node={{ fill: 'hsl(var(--chart-1))' } as any}
+            link={SankeyLinkShape}
+            node={SankeyNodeShape}
             {...sankeyClickProps}
           >
             <Tooltip />

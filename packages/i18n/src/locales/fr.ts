@@ -1338,6 +1338,10 @@ const fr = {
     refreshing: "Actualisation…",
     nullCategory: "(Non défini)",
     scatterOneMeasure: "Un nuage de points trace une seule mesure. Ne conservez qu’une série :",
+    sankeyOmittedRows: "Lignes affichées : {{shown}} sur {{total}} — {{count}} lignes n’ont pas de {{field}} supérieur à zéro, ce qu’un flux ne peut pas représenter.",
+    sankeyOmittedRows_one: "Lignes affichées : {{shown}} sur {{total}} — {{count}} ligne n’a pas de {{field}} supérieur à zéro, ce qu’un flux ne peut pas représenter.",
+    sankeyOmittedRows_many: "Lignes affichées : {{shown}} sur {{total}} — {{count}} de lignes n’ont pas de {{field}} supérieur à zéro, ce qu’un flux ne peut pas représenter.",
+    sankeyOmittedRows_other: "Lignes affichées : {{shown}} sur {{total}} — {{count}} lignes n’ont pas de {{field}} supérieur à zéro, ce qu’un flux ne peut pas représenter.",
     unconfigured: {
       noCategoryAxis: "Axe de catégories requis — un graphique lié à un objet n’en invente pas. Déclarez l’un des suivants :",
     },

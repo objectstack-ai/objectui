@@ -1338,6 +1338,9 @@ const zh = {
     refreshing: '刷新中…',
     nullCategory: '(未指定)',
     scatterOneMeasure: '散点图只绘制一个度量。请只保留一个系列：',
+    sankeyOmittedRows: '已显示 {{total}} 行中的 {{shown}} 行 —— 有 {{count}} 行的 {{field}} 不大于零，流向图无法绘制这些行。',
+    sankeyOmittedRows_one: '已显示 {{total}} 行中的 {{shown}} 行 —— 有 {{count}} 行的 {{field}} 不大于零，流向图无法绘制这些行。',
+    sankeyOmittedRows_other: '已显示 {{total}} 行中的 {{shown}} 行 —— 有 {{count}} 行的 {{field}} 不大于零，流向图无法绘制这些行。',
     unconfigured: {
       noCategoryAxis: '图表需要分类轴 —— 对象绑定的图表不会虚构一个。请声明以下之一：',
     },

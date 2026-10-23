@@ -1337,6 +1337,10 @@ const pt = {
     refreshing: "Atualizando…",
     nullCategory: "(Não especificado)",
     scatterOneMeasure: "Um gráfico de dispersão traça uma única medida. Mantenha apenas uma série:",
+    sankeyOmittedRows: "Exibindo {{shown}} de {{total}} linhas — {{count}} linhas não têm {{field}} acima de zero, o que um fluxo não consegue desenhar.",
+    sankeyOmittedRows_one: "Exibindo {{shown}} de {{total}} linhas — {{count}} linha não tem {{field}} acima de zero, o que um fluxo não consegue desenhar.",
+    sankeyOmittedRows_many: "Exibindo {{shown}} de {{total}} linhas — {{count}} de linhas não têm {{field}} acima de zero, o que um fluxo não consegue desenhar.",
+    sankeyOmittedRows_other: "Exibindo {{shown}} de {{total}} linhas — {{count}} linhas não têm {{field}} acima de zero, o que um fluxo não consegue desenhar.",
     unconfigured: {
       noCategoryAxis: "Eixo de categorias do gráfico obrigatório — um gráfico vinculado a um objeto não o inventa. Declare um destes:",
     },

@@ -1300,6 +1300,9 @@ const ja = {
     refreshing: "更新中…",
     nullCategory: "（未設定）",
     scatterOneMeasure: "散布図は1つの指標だけを描画します。系列は1つだけ残してください：",
+    sankeyOmittedRows: "{{total}} 行中 {{shown}} 行を表示 — {{count}} 行は {{field}} が 0 より大きくないため、フローとして描画できません。",
+    sankeyOmittedRows_one: "{{total}} 行中 {{shown}} 行を表示 — {{count}} 行は {{field}} が 0 より大きくないため、フローとして描画できません。",
+    sankeyOmittedRows_other: "{{total}} 行中 {{shown}} 行を表示 — {{count}} 行は {{field}} が 0 より大きくないため、フローとして描画できません。",
     unconfigured: {
       noCategoryAxis: "チャートのカテゴリ軸が必要です — オブジェクト連携チャートは軸を推測しません。次のいずれかを宣言してください：",
     },

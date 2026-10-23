@@ -1342,6 +1342,10 @@ const es = {
     refreshing: "Actualizando…",
     nullCategory: "(Sin especificar)",
     scatterOneMeasure: "Un gráfico de dispersión traza una sola medida. Conserve una sola serie:",
+    sankeyOmittedRows: "Filas mostradas: {{shown}} de {{total}} — {{count}} filas no tienen {{field}} mayor que cero, algo que un flujo no puede dibujar.",
+    sankeyOmittedRows_one: "Filas mostradas: {{shown}} de {{total}} — {{count}} fila no tiene {{field}} mayor que cero, algo que un flujo no puede dibujar.",
+    sankeyOmittedRows_many: "Filas mostradas: {{shown}} de {{total}} — {{count}} de filas no tienen {{field}} mayor que cero, algo que un flujo no puede dibujar.",
+    sankeyOmittedRows_other: "Filas mostradas: {{shown}} de {{total}} — {{count}} filas no tienen {{field}} mayor que cero, algo que un flujo no puede dibujar.",
     unconfigured: {
       noCategoryAxis: "Se requiere el eje de categorías del gráfico — un gráfico vinculado a un objeto no lo inventa. Declare uno de:",
     },

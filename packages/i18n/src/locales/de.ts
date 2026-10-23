@@ -1300,6 +1300,9 @@ const de = {
     refreshing: "Wird aktualisiert…",
     nullCategory: "(Ohne Angabe)",
     scatterOneMeasure: "Ein Streudiagramm zeichnet genau eine Kennzahl. Behalten Sie nur eine Datenreihe:",
+    sankeyOmittedRows: "{{shown}} von {{total}} Zeilen angezeigt — bei {{count}} Zeilen ist {{field}} nicht größer als null, und ein Fluss kann sie nicht darstellen.",
+    sankeyOmittedRows_one: "{{shown}} von {{total}} Zeilen angezeigt — bei {{count}} Zeile ist {{field}} nicht größer als null, und ein Fluss kann sie nicht darstellen.",
+    sankeyOmittedRows_other: "{{shown}} von {{total}} Zeilen angezeigt — bei {{count}} Zeilen ist {{field}} nicht größer als null, und ein Fluss kann sie nicht darstellen.",
     unconfigured: {
       noCategoryAxis: "Kategorieachse des Diagramms erforderlich — ein objektgebundenes Diagramm erfindet keine. Deklarieren Sie eine davon:",
     },

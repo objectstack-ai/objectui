@@ -41,7 +41,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, cleanup, waitFor, within } from '@testing-library/react';
+import { render, cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { AgentConnectSection } from './AgentConnectSection';
@@ -87,6 +87,10 @@ async function errorTextFor(keys: KeysAnswer): Promise<string> {
   await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
   await userEvent.click(within(container).getByRole('button', { name: /Generate key/i }));
+  // objectui#13383: the click opens a confirm naming the key; confirming it is
+  // what sends the POST. No provider here, so the label reads as its key.
+  const confirm = await screen.findByRole('alertdialog');
+  await userEvent.click(within(confirm).getByRole('button', { name: 'connectAgent.apiKey.mint' }));
 
   await waitFor(() => {
     expect(container.querySelector('p.text-destructive')).not.toBeNull();

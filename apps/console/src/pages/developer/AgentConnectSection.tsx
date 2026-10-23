@@ -6,12 +6,27 @@
  * OS_MCP_SERVER_ENABLED), mints a show-once API key (POST /api/v1/keys), offers
  * a one-click portable Skill download, and gives copy-paste connect steps.
  *
+ * The key is minted only under a name the administrator chose, and only after
+ * an in-app confirm naming it (objectui#13383, the sibling of the Connect an
+ * Agent card's objectui#13355): "Generate key" stays disabled on a blank name,
+ * the name is posted trimmed with no default, and the confirm stands between
+ * the click and the mint. The `Agent key` prefill stays: a prefilled name the
+ * administrator confirms in that dialog is a chosen name.
+ *
  * One connection per ENVIRONMENT (not per app) — the agent discovers apps/
  * objects live via the MCP tools, so a new app needs no reinstall.
  */
 
 import { useEffect, useState, type ChangeEvent } from 'react';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Card,
   CardContent,
   CardHeader,
@@ -31,6 +46,7 @@ import {
 } from '@object-ui/components';
 import { Bot, KeyRound, Copy, Check, Download, ShieldAlert } from 'lucide-react';
 import { readEnvelopeFailureText } from '@object-ui/app-shell';
+import { useObjectTranslation } from '@object-ui/i18n';
 
 import { renderObjectStackSkill } from './objectstack-skill';
 
@@ -69,6 +85,7 @@ function InlineCopy({ value, label }: { value: string; label?: string }) {
 }
 
 export function AgentConnectSection() {
+  const { t } = useObjectTranslation();
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const [mcpUrl, setMcpUrl] = useState<string | null>(null);
   const [mcpEnabled, setMcpEnabled] = useState<boolean | null>(null);
@@ -79,6 +96,10 @@ export function AgentConnectSection() {
   const [generated, setGenerated] = useState<GeneratedKey | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [keyCopied, copyKey] = useCopy();
+  // The name the open confirm asks about; `null` = no confirm open. Captured
+  // when the confirm opens so the name posted is the name the dialog showed.
+  const [confirmName, setConfirmName] = useState<string | null>(null);
+  const trimmedKeyName = keyName.trim();
 
   // Discover whether MCP is enabled + its URL.
   useEffect(() => {
@@ -104,7 +125,10 @@ export function AgentConnectSection() {
     };
   }, [origin]);
 
-  const generateKey = async () => {
+  const generateKey = async (name: string) => {
+    // A key is always minted under the name the administrator confirmed —
+    // never a default one.
+    if (!name) return;
     setGenerating(true);
     setError(null);
     try {
@@ -112,7 +136,7 @@ export function AgentConnectSection() {
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: keyName.trim() || 'Agent key' }),
+        body: JSON.stringify({ name }),
       });
       const json = await res.json().catch(() => ({}));
       const data = json?.data;
@@ -223,10 +247,42 @@ export function AgentConnectSection() {
               placeholder="Key name (e.g. Claude desktop)"
               className="h-8 max-w-xs text-sm"
             />
-            <Button type="button" size="sm" onClick={generateKey} disabled={generating}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setConfirmName(trimmedKeyName)}
+              disabled={generating || !trimmedKeyName}
+            >
               {generating ? 'Generating…' : 'Generate key'}
             </Button>
           </div>
+          <AlertDialog
+            open={confirmName !== null}
+            onOpenChange={(open) => {
+              if (!open) setConfirmName(null);
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {t('connectAgent.apiKey.confirmTitle', { name: confirmName ?? '' })}
+                </AlertDialogTitle>
+                <AlertDialogDescription>{t('connectAgent.apiKey.body')}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    const name = confirmName ?? '';
+                    setConfirmName(null);
+                    void generateKey(name);
+                  }}
+                >
+                  {t('connectAgent.apiKey.mint')}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <p className="mt-1 text-xs text-muted-foreground">
             The key acts as you (your permissions + row-level security). Shown once — copy it
             immediately. Revoke anytime from the API Keys list.

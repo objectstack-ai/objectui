@@ -32,7 +32,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { AgentConnectSection } from './AgentConnectSection';
@@ -78,6 +78,10 @@ async function shownErrorFor(status: number, body: unknown): Promise<string> {
   stubKeysFailure(status, body);
   render(<AgentConnectSection />);
   await userEvent.click(await screen.findByRole('button', { name: 'Generate key' }));
+  // objectui#13383: the click opens a confirm naming the key; confirming it is
+  // what sends the POST. No provider here, so the label reads as its key.
+  const confirm = await screen.findByRole('alertdialog');
+  await userEvent.click(within(confirm).getByRole('button', { name: 'connectAgent.apiKey.mint' }));
   const shown = await screen.findByText(/./, { selector: 'p.text-destructive' });
   await waitFor(() => expect(shown.textContent).toBeTruthy());
   return shown.textContent ?? '';

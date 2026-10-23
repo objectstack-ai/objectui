@@ -25,7 +25,12 @@
  * - a `sys_user_permission_set` row of theirs names a set the anchor does not
  *   list;
  * - a `sys_user_position` row of theirs names a position, other than an anchor,
- *   whose registry definition lists such a set.
+ *   whose registry definition lists such a set;
+ * - or names a position that shares its name with such a set. The server still
+ *   grants a position's holders the permission set of the same name though the
+ *   definition does not list it (the deprecated name fold,
+ *   objectstack-ai/objectstack#24757, removed in the next major), so the
+ *   permission-set catalogue is read beside the positions.
  *
  * These are the reads the permission set's Assigned Users section makes
  * (`AssignedUsersSection`), asked by user instead of by set, batched: every
@@ -33,8 +38,9 @@
  * whole page of them.
  *
  * ⛔ Unknown is never said as "not authorized". A refused read, a page of grant
- * rows the server reports as longer than one read, or a position the registry
- * does not define all leave the user unmarked.
+ * rows the server reports as longer than one read, a position the registry
+ * does not define, or a position held while the permission-set catalogue could
+ * not be read (the name fold cannot be judged) all leave the user unmarked.
  *
  * @module
  */
@@ -78,9 +84,14 @@ export interface UserGrantReadSource {
   find(resource: string, params?: Record<string, unknown>): Promise<unknown>;
 }
 
-/** The slice of the metadata store the read uses. */
+/**
+ * The slice of the metadata store the read uses. `ensureType` answers `[]` on a
+ * failed read, so `getTypeStatus` is what tells a refused catalogue from an
+ * empty one; a store without it is taken at its answer.
+ */
 export interface PositionRegistrySource {
   ensureType(type: string): Promise<unknown[]>;
+  getTypeStatus?(type: string): string;
 }
 
 /** The audience anchors: implicit memberships every user holds. */
@@ -142,8 +153,18 @@ export async function readUserGrantStates(
   const out = new Map<string, UserGrantState>();
   if (userIds.length === 0) return out;
 
-  // The registry: which sets the anchor lists, and which sets each position lists.
-  const positions = await registry.ensureType('position');
+  // The registry: which sets the anchor lists, which sets each position lists,
+  // and which sets exist at all (for the name fold).
+  const [positions, permissionSets] = await Promise.all([
+    registry.ensureType('position'),
+    registry.ensureType('permission'),
+  ]);
+  const catalogueRead = registry.getTypeStatus?.('permission') !== 'error';
+  const setNames = new Set<string>();
+  for (const raw of permissionSets) {
+    const name = (raw as { name?: unknown } | null)?.name;
+    if (typeof name === 'string' && name) setNames.add(name);
+  }
   const setsByPosition = new Map<string, readonly unknown[]>();
   for (const raw of positions) {
     const p = raw as { name?: unknown; permissionSets?: unknown } | null;
@@ -174,8 +195,9 @@ export async function readUserGrantStates(
     if (uid === undefined || uid === null || uid === '' || typeof position !== 'string') continue;
     if (ANCHOR_POSITIONS.has(position) || !isGrantActive(a, now)) continue;
     const sets = setsByPosition.get(position);
-    if (sets === undefined) uncertain.add(String(uid));
-    else if (sets.some(beyondBaseline)) beyond.add(String(uid));
+    const folded = catalogueRead && setNames.has(position) && beyondBaseline(position);
+    if (folded || sets?.some(beyondBaseline)) beyond.add(String(uid));
+    else if (sets === undefined || !catalogueRead) uncertain.add(String(uid));
   }
 
   // A page longer than one read may hold a row of any user it did not return.

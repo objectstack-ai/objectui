@@ -66,7 +66,10 @@ const POSITIONS = [
   { name: 'everyone', permissionSets: ['member_default'] },
   { name: 'guest', permissionSets: [] },
   { name: 'sales_rep', permissionSets: ['sales'] },
+  // Lists only the baseline; its holders get the `closer` set by name.
+  { name: 'closer', permissionSets: ['member_default'] },
 ];
+const PERMISSION_SETS = [{ name: 'member_default' }, { name: 'sales' }, { name: 'closer' }];
 vi.mock('@object-ui/react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@object-ui/react')>();
   const none: never[] = [];
@@ -80,7 +83,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
     error: null,
     refresh: async () => {},
     invalidate: () => {},
-    ensureType: async (type: string) => (type === 'position' ? POSITIONS : []),
+    ensureType: async (type: string) => (type === 'position' ? POSITIONS : type === 'permission' ? PERMISSION_SETS : []),
     getItem: async () => null,
     getItemsByType: () => [],
     getTypeStatus: () => 'ready' as const,
@@ -123,6 +126,7 @@ const USERS = [
   { id: 'u_bob', name: 'Bob Direct', email: 'bob@example.com' },
   { id: 'u_cy', name: 'Cy Position', email: 'cy@example.com' },
   { id: 'u_dee', name: 'Dee Expired', email: 'dee@example.com' },
+  { id: 'u_eve', name: 'Eve Folded', email: 'eve@example.com' },
 ];
 
 const GRANTS = [
@@ -134,6 +138,8 @@ const GRANTS = [
 ];
 const ASSIGNMENTS = [
   { id: 'a1', user_id: 'u_cy', position: 'sales_rep' },
+  // Granted the `closer` set by the position's name alone.
+  { id: 'a3', user_id: 'u_eve', position: 'closer' },
   // The anchor: every user holds it, and it lists only the baseline.
   { id: 'a2', user_id: 'u_ada', position: 'everyone' },
 ];
@@ -208,14 +214,14 @@ describe('objectui#13330 — Setup → Users on a managed environment', () => {
         timeout: 5000,
       });
     }
-    for (const name of ['Bob Direct', 'Cy Position']) {
+    for (const name of ['Bob Direct', 'Cy Position', 'Eve Folded']) {
       expect(within(await rowOf(name)).queryByTestId('managed-users-unauthorized')).toBeNull();
     }
     // One read per object answers the whole page, asked by user.
     const reads = grantReads();
     expect(reads.map(([resource]) => resource).sort()).toEqual(['sys_user_permission_set', 'sys_user_position']);
     expect((reads[0][1] as { $filter: { user_id: { $in: string[] } } }).$filter.user_id.$in.sort()).toEqual(
-      ['u_ada', 'u_bob', 'u_cy', 'u_dee'],
+      ['u_ada', 'u_bob', 'u_cy', 'u_dee', 'u_eve'],
     );
   });
 

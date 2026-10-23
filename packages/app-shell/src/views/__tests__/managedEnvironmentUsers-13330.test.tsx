@@ -24,7 +24,10 @@ const POSITIONS = [
   { name: 'guest', permissionSets: ['guest_read'] },
   { name: 'sales_rep', permissionSets: ['sales'] },
   { name: 'greeter', permissionSets: ['member_default'] },
+  // Lists only a baseline set, and shares its name with a set that exists.
+  { name: 'closer', permissionSets: ['member_default'] },
 ];
+const PERMISSION_SETS = ['member_default', 'accepted_default', 'guest_read', 'sales', 'closer'].map((name) => ({ name }));
 
 function sourceOf(grants: unknown, assignments: unknown) {
   return {
@@ -33,7 +36,10 @@ function sourceOf(grants: unknown, assignments: unknown) {
     ),
   };
 }
-const registry = { ensureType: vi.fn(async () => POSITIONS) };
+const registry = {
+  ensureType: vi.fn(async (type: string) => (type === 'position' ? POSITIONS : type === 'permission' ? PERMISSION_SETS : [])),
+  getTypeStatus: () => 'ready',
+};
 
 afterEach(() => cleanup());
 
@@ -116,6 +122,42 @@ describe('readUserGrantStates', () => {
     // `guest` lists a set the `everyone` anchor does not, and still says nothing of the user.
     expect(states.get('u3')).toBe('baseline-only');
     expect(states.get('u4')).toBe('baseline-only');
+  });
+
+  it('a position counts the set of its own name, though its definition does not list it (the name fold)', async () => {
+    const states = await readUserGrantStates(
+      sourceOf(
+        { data: [] },
+        { data: [{ user_id: 'u1', position: 'closer' }, { user_id: 'u2', position: 'greeter' }] },
+      ),
+      registry,
+      ['u1', 'u2'],
+      NOW,
+    );
+    // The server grants holders of `closer` the `closer` set (objectstack-ai/objectstack#24757).
+    expect(states.get('u1')).toBe('beyond-baseline');
+    // No set is named `greeter`: nothing folds.
+    expect(states.get('u2')).toBe('baseline-only');
+  });
+
+  it('a position held while the permission-set catalogue cannot be read leaves its user unknown', async () => {
+    const refused = {
+      ensureType: vi.fn(async (type: string) => (type === 'position' ? POSITIONS : [])),
+      getTypeStatus: (type: string) => (type === 'permission' ? 'error' : 'ready'),
+    };
+    const states = await readUserGrantStates(
+      sourceOf(
+        { data: [{ user_id: 'u3', permission_set: 'sales' }] },
+        { data: [{ user_id: 'u1', position: 'greeter' }] },
+      ),
+      refused,
+      ['u1', 'u2', 'u3'],
+      NOW,
+    );
+    expect(states.get('u1')).toBe('unknown');
+    // A user who holds no position and no grant row holds the baseline, catalogue or not.
+    expect(states.get('u2')).toBe('baseline-only');
+    expect(states.get('u3')).toBe('beyond-baseline');
   });
 
   it('a position the registry does not define leaves its user unknown', async () => {

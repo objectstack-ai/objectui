@@ -1963,6 +1963,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             source: dataSource,
             loader: new UserGrantLoader(dataSource as any, {
                 ensureType: (type: string) => metadataStoreRef.current.ensureType(type),
+                getTypeStatus: (type: string) => metadataStoreRef.current.getTypeStatus?.(type) ?? 'ready',
             }),
         };
     }

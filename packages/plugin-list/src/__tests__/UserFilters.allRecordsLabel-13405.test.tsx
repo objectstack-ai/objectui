@@ -27,10 +27,25 @@
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
-import { I18nProvider } from '@object-ui/i18n';
+import { I18nProvider, useObjectTranslation } from '@object-ui/i18n';
 import { UserFilters } from '../UserFilters';
 
 afterEach(cleanup);
+
+/**
+ * A readiness signal independent of the fix: an existing key read beside the
+ * bar. The controls wait on it rather than on the tab label, so they stay
+ * green with the fix reverted and fail only if what they guard moves.
+ */
+function CatalogueProbe() {
+  const { t } = useObjectTranslation();
+  return <span data-testid="catalogue-probe">{t('common.more')}</span>;
+}
+const PROBE = { zh: '更多', en: 'More' } as const;
+
+async function catalogueReady(language: 'zh' | 'en') {
+  expect((await screen.findByText(PROBE[language])).getAttribute('data-testid')).toBe('catalogue-probe');
+}
 
 const objectDef = {
   name: 'task',
@@ -66,7 +81,10 @@ function renderBar(
     language === null ? (
       bar
     ) : (
-      <I18nProvider config={{ defaultLanguage: language, detectBrowserLanguage: false }}>{bar}</I18nProvider>
+      <I18nProvider config={{ defaultLanguage: language, detectBrowserLanguage: false }}>
+        <CatalogueProbe />
+        {bar}
+      </I18nProvider>
     ),
   );
 }
@@ -74,16 +92,16 @@ function renderBar(
 describe('the synthetic "All records" user-filter tab is translated (objectui#13405)', () => {
   it('zh: the tab reads 全部记录', async () => {
     renderBar('zh');
-    const tab = screen.getByTestId('filter-tab-__all__');
-    // The zh catalogue may arrive after the first paint; wait for the label.
-    await screen.findByText('全部记录');
-    expect(tab.textContent).toBe('全部记录');
+    // The zh catalogue may arrive after the first paint; wait for it first.
+    await catalogueReady('zh');
+    expect(screen.getByTestId('filter-tab-__all__').textContent).toBe('全部记录');
     expect(screen.queryByText('All records')).toBeNull();
   });
 
   it('en: the tab reads "All records"', async () => {
     renderBar('en');
-    expect((await screen.findByTestId('filter-tab-__all__')).textContent).toBe('All records');
+    await catalogueReady('en');
+    expect(screen.getByTestId('filter-tab-__all__').textContent).toBe('All records');
   });
 
   it('no provider: the inline fallback reads "All records"', () => {
@@ -94,7 +112,7 @@ describe('the synthetic "All records" user-filter tab is translated (objectui#13
   it('CONTROL: the authored tabs keep their authored labels in zh and en', async () => {
     for (const language of ['zh', 'en'] as const) {
       renderBar(language);
-      await screen.findByText(language === 'zh' ? '全部记录' : 'All records');
+      await catalogueReady(language);
       expect(screen.getByTestId('filter-tab-mine').textContent).toBe('My tasks');
       expect(screen.getByTestId('filter-tab-urgent').textContent).toBe('Urgent');
       cleanup();
@@ -105,7 +123,7 @@ describe('the synthetic "All records" user-filter tab is translated (objectui#13
     const onFilterChange = vi.fn();
     const onSelectionsChange = vi.fn();
     renderBar('zh', { onFilterChange, onSelectionsChange });
-    await screen.findByText('全部记录');
+    await catalogueReady('zh');
     fireEvent.click(screen.getByTestId('filter-tab-__all__'));
     expect(onFilterChange).toHaveBeenLastCalledWith([]);
     expect(onSelectionsChange).toHaveBeenLastCalledWith({ _tab: ['__all__'] });

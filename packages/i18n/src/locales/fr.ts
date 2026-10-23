@@ -4411,6 +4411,7 @@ const fr = {
     cloneBody: "La copie reprend toute la définition et exige un nouveau nom machine et un nouveau libellé. Modifiez la copie dans Studio.",
     cloneName: "Nouveau nom machine",
     cloneLabel: "Nouveau libellé",
+    cloneCopyLabel: "{{label}} (copie)",
     cancel: "Annuler",
     cloneConfirm: "Créer le clone",
     cloneCreated: "Flux « {{name}} » créé.",

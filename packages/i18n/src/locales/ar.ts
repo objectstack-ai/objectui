@@ -4753,6 +4753,7 @@ const ar = {
     cloneBody: "تحتفظ النسخة بالتعريف كاملاً وتتطلب اسم آلة وتسمية جديدين. حرّر النسخة في Studio.",
     cloneName: "اسم آلة جديد",
     cloneLabel: "تسمية جديدة",
+    cloneCopyLabel: "{{label}} (نسخة)",
     cancel: "إلغاء",
     cloneConfirm: "إنشاء نسخة",
     cloneCreated: "تم إنشاء التدفق «{{name}}».",

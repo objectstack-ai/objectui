@@ -3,7 +3,7 @@
 /**
  * Setup › Packaged automation (ADR-0126 §7.4) — behaviour.
  *
- * Seven properties, in the order the page exercises them:
+ * The properties, in the order the page exercises them:
  *
  *   1. **scope** — the list is packaged flows only. The rule itself lives in
  *      `packagedFlows.ts` and is measured directly in `packagedFlows.test.ts`;
@@ -43,6 +43,10 @@
  *      through the SAME toggle as its row, and links the clone's Studio scope.
  *      An off source is offered nothing to switch; a refusal is the server's
  *      sentence and the offer stays.
+ *   9. **the clone prefill** (objectui#13344) — the dialog opens on
+ *      `<source>_copy` and "<source label> (copy)", submittable as it stands
+ *      and editable; a flow with no label falls back to its machine name, and
+ *      a taken default still answers the server's 409 verbatim.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -386,6 +390,9 @@ describe('clone', () => {
 
     fireEvent.click(cloneButtonFor('pkg_notify'));
     const confirm = await screen.findByRole('button', { name: 'Create clone' });
+    // The dialog opens prefilled (objectui#13344), so empty both first.
+    fireEvent.change(screen.getByLabelText('New machine name'), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText('New label'), { target: { value: ' ' } });
     expect(confirm).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText('New machine name'), { target: { value: 'crm_notify' } });
@@ -826,5 +833,82 @@ describe('the clone result offers the next steps', () => {
       'The packaged flow "Escalate case" is switched off.',
     );
     expect(toggleCalls()).toHaveLength(0);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* 9) The clone prefill (objectui#13344)                                       */
+/* -------------------------------------------------------------------------- */
+
+describe('the clone dialog opens on a usable default name', () => {
+  /**
+   * The rule `FlowSchema.name` holds a flow's machine name to. Transcribed as
+   * fixture text (`@object-ui/app-shell` does not read the spec's zod faces):
+   * the default this page proposes must be one the server can accept.
+   */
+  const FLOW_NAME_SHAPE = /^[a-z_][a-z0-9_]*$/;
+
+  it('prefills <source>_copy and "<label> (copy)", and submits them as they stand', async () => {
+    await renderPage();
+
+    fireEvent.click(cloneButtonFor('pkg_notify'));
+    const name = await screen.findByLabelText('New machine name');
+    expect(name).toHaveValue('pkg_notify_copy');
+    expect((name as HTMLInputElement).value).toMatch(FLOW_NAME_SHAPE);
+    expect(screen.getByLabelText('New label')).toHaveValue('Notify owner (copy)');
+
+    const confirm = screen.getByRole('button', { name: 'Create clone' });
+    expect(confirm).toBeEnabled();
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(cloneCalls()).toHaveLength(1));
+    expect(cloneCalls()[0].url).toContain('/automation/pkg_notify/clone');
+    expect(cloneCalls()[0].body).toEqual({ name: 'pkg_notify_copy', label: 'Notify owner (copy)' });
+    expect(await screen.findByText('Created flow "pkg_notify_copy".')).toBeInTheDocument();
+  });
+
+  it('prefills from the row that was clicked, not from the first row', async () => {
+    await renderPage();
+
+    fireEvent.click(cloneButtonFor('pkg_escalate'));
+    expect(await screen.findByLabelText('New machine name')).toHaveValue('pkg_escalate_copy');
+    expect(screen.getByLabelText('New label')).toHaveValue('Escalate case (copy)');
+  });
+
+  it('falls back to the machine name when the source flow declares no label', async () => {
+    fixture.runtime.push({ name: 'pkg_unlabelled', enabled: true, bound: true });
+    fixture.meta.push({ name: 'pkg_unlabelled', _packageId: 'com.objectstack.crm', _provenance: 'package' });
+    await renderPage();
+
+    fireEvent.click(cloneButtonFor('pkg_unlabelled'));
+    expect(await screen.findByLabelText('New machine name')).toHaveValue('pkg_unlabelled_copy');
+    expect(screen.getByLabelText('New label')).toHaveValue('pkg_unlabelled (copy)');
+  });
+
+  it('keeps both prefilled fields editable, and sends what was typed', async () => {
+    await renderPage();
+
+    fireEvent.click(cloneButtonFor('pkg_notify'));
+    fireEvent.change(await screen.findByLabelText('New machine name'), {
+      target: { value: 'pkg_notify_copy_2' },
+    });
+    fireEvent.change(screen.getByLabelText('New label'), { target: { value: 'Notify owner (second copy)' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create clone' }));
+
+    await waitFor(() => expect(cloneCalls()).toHaveLength(1));
+    expect(cloneCalls()[0].body).toEqual({ name: 'pkg_notify_copy_2', label: 'Notify owner (second copy)' });
+  });
+
+  it('answers a taken default with the server\'s 409 verbatim, keeping the default in place', async () => {
+    fixture.clone = [{ status: 409, body: errorEnvelope('RESOURCE_CONFLICT', CLONE_CONFLICT_REFUSAL) }];
+    await renderPage();
+
+    fireEvent.click(cloneButtonFor('pkg_notify'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Create clone' }));
+
+    expect(await screen.findByText(CLONE_CONFLICT_REFUSAL)).toBeInTheDocument();
+    expect(cloneCalls()[0].body).toEqual({ name: 'pkg_notify_copy', label: 'Notify owner (copy)' });
+    expect(screen.getByLabelText('New machine name')).toHaveValue('pkg_notify_copy');
+    expect(screen.getByLabelText('New label')).toHaveValue('Notify owner (copy)');
   });
 });

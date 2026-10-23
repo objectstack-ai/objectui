@@ -5043,6 +5043,9 @@ const en = {
       'The copy carries the whole definition and takes a new machine name and label. Edit the copy in Studio.',
     cloneName: 'New machine name',
     cloneLabel: 'New label',
+    // The Clone dialog's prefilled label (objectui#13344): the source flow's
+    // label, or its machine name when it has none, marked as the copy.
+    cloneCopyLabel: '{{label}} (copy)',
     cancel: 'Cancel',
     cloneConfirm: 'Create clone',
     cloneCreated: 'Created flow "{{name}}".',

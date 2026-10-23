@@ -4303,6 +4303,7 @@ const de = {
     cloneBody: "Die Kopie übernimmt die gesamte Definition und benötigt einen neuen Maschinennamen und ein neues Label. Bearbeiten Sie die Kopie im Studio.",
     cloneName: "Neuer Maschinenname",
     cloneLabel: "Neues Label",
+    cloneCopyLabel: "{{label}} (Kopie)",
     cancel: "Abbrechen",
     cloneConfirm: "Klon erstellen",
     cloneCreated: "Flow „{{name}}“ erstellt.",

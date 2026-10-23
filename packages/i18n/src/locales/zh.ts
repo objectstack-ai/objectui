@@ -4359,6 +4359,7 @@ const zh = {
     cloneBody: '副本会带上完整定义,并需要新的机器名和标签。请在 Studio 中编辑副本。',
     cloneName: '新机器名',
     cloneLabel: '新标签',
+    cloneCopyLabel: '{{label}}（副本）',
     cancel: '取消',
     cloneConfirm: '创建克隆',
     cloneCreated: '已创建流程「{{name}}」。',

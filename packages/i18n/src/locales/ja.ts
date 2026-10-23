@@ -4304,6 +4304,7 @@ const ja = {
     cloneBody: "コピーは定義全体を引き継ぎ、新しいマシン名とラベルが必要です。コピーの編集は Studio で行ってください。",
     cloneName: "新しいマシン名",
     cloneLabel: "新しいラベル",
+    cloneCopyLabel: "{{label}}（コピー）",
     cancel: "キャンセル",
     cloneConfirm: "クローンを作成",
     cloneCreated: "フロー「{{name}}」を作成しました。",

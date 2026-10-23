@@ -4301,6 +4301,7 @@ const ko = {
     cloneBody: "사본은 정의 전체를 그대로 가져가며 새 머신 이름과 레이블이 필요합니다. 사본은 Studio에서 편집하세요.",
     cloneName: "새 머신 이름",
     cloneLabel: "새 레이블",
+    cloneCopyLabel: "{{label}} (사본)",
     cancel: "취소",
     cloneConfirm: "복제본 만들기",
     cloneCreated: "플로우 「{{name}}」을(를) 만들었습니다.",

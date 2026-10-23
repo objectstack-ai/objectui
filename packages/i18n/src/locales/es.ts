@@ -4415,6 +4415,7 @@ const es = {
     cloneBody: "La copia conserva toda la definición y necesita un nombre de máquina y una etiqueta nuevos. Edita la copia en Studio.",
     cloneName: "Nuevo nombre de máquina",
     cloneLabel: "Nueva etiqueta",
+    cloneCopyLabel: "{{label}} (copia)",
     cancel: "Cancelar",
     cloneConfirm: "Crear clon",
     cloneCreated: "Flujo «{{name}}» creado.",

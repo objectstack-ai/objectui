@@ -4410,6 +4410,7 @@ const pt = {
     cloneBody: "A cópia mantém toda a definição e exige um novo nome de máquina e um novo rótulo. Edite a cópia no Studio.",
     cloneName: "Novo nome de máquina",
     cloneLabel: "Novo rótulo",
+    cloneCopyLabel: "{{label}} (cópia)",
     cancel: "Cancelar",
     cloneConfirm: "Criar clone",
     cloneCreated: 'Fluxo "{{name}}" criado.',

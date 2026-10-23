@@ -4536,6 +4536,7 @@ const ru = {
     cloneBody: "Копия сохраняет определение целиком и требует нового машинного имени и метки. Редактируйте копию в Studio.",
     cloneName: "Новое машинное имя",
     cloneLabel: "Новая метка",
+    cloneCopyLabel: "{{label}} (копия)",
     cancel: "Отмена",
     cloneConfirm: "Создать клон",
     cloneCreated: "Поток «{{name}}» создан.",

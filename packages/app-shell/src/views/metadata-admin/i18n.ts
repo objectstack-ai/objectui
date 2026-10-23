@@ -272,6 +272,19 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.catalog.active.unknown': 'Activation state could not be read.',
   'engine.catalog.active.notVisible': 'Not visible to you',
   'engine.catalog.active.failed': 'The switch was not saved: {message}',
+  // objectui#13338 — the confirm a permission set's or a position's switch
+  // asks before it switches the item off, and the toast either way.
+  'engine.catalog.active.switchedOn': '{name} activated.',
+  'engine.catalog.active.switchedOff': '{name} deactivated.',
+  'engine.catalog.deactivate.title': 'Deactivate {name}?',
+  'engine.catalog.deactivate.counting': 'Counting the users who hold this access…',
+  'engine.catalog.deactivate.holders': '{count} users will lose this access.',
+  'engine.catalog.deactivate.holdersOne': '1 user will lose this access.',
+  'engine.catalog.deactivate.holdersAtLeast': 'At least {count} users will lose this access.',
+  'engine.catalog.deactivate.everyone':
+    'Every signed-in member will lose this access: it is bound to the everyone position.',
+  'engine.catalog.deactivate.countFailed': 'How many users hold this access could not be read: {message}',
+  'engine.catalog.deactivate.confirm': 'Deactivate',
   'engine.catalog.readOnly.single':
     'Read-only for your account. {type} items are defined by the platform administrator (the `manage_metadata` capability); your organization assigns them.',
   'engine.catalog.readOnly.walled':
@@ -3947,6 +3960,16 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.catalog.active.unknown': '无法读取启用状态。',
   'engine.catalog.active.notVisible': '对你不可见',
   'engine.catalog.active.failed': '开关未保存：{message}',
+  'engine.catalog.active.switchedOn': '已启用「{name}」。',
+  'engine.catalog.active.switchedOff': '已停用「{name}」。',
+  'engine.catalog.deactivate.title': '停用「{name}」？',
+  'engine.catalog.deactivate.counting': '正在统计持有此权限的用户…',
+  'engine.catalog.deactivate.holders': '{count} 个用户将失去此权限。',
+  'engine.catalog.deactivate.holdersOne': '1 个用户将失去此权限。',
+  'engine.catalog.deactivate.holdersAtLeast': '至少 {count} 个用户将失去此权限。',
+  'engine.catalog.deactivate.everyone': '所有登录成员都将失去此权限：它绑定在 everyone 岗位上。',
+  'engine.catalog.deactivate.countFailed': '无法读取持有此权限的用户数：{message}',
+  'engine.catalog.deactivate.confirm': '停用',
   'engine.catalog.readOnly.single':
     '您的账号只能查看。{type}由平台管理员定义（需要 `manage_metadata` 能力）；您的组织负责分配。',
   'engine.catalog.readOnly.walled':

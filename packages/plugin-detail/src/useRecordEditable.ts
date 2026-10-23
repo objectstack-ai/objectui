@@ -93,9 +93,23 @@ interface InFlightProbe {
   readonly object: string;
   readonly recordIds: readonly string[];
   readonly staled: Set<string>;
+  /**
+   * True when this probe is the RE-CHECK a data change asked for: it was sent
+   * for a key {@link recheckDue} held, so it left after that change was
+   * announced (objectui#13341). See {@link forgetChangedRecords}.
+   */
+  readonly recheck: boolean;
 }
 
 const inFlight = new Set<InFlightProbe>();
+
+/**
+ * Keys whose answer a data change dropped — a finished verdict forgotten, or a
+ * question staled on the wire — and that nobody has asked since
+ * (objectui#13341). The next ask of such a key is a RE-CHECK, and a re-check
+ * is what a further announcement of the change joins instead of staling.
+ */
+const recheckDue = new Set<string>();
 
 /**
  * A question still on its way to the explain engine, by the same key as
@@ -148,8 +162,23 @@ const pendingVerdicts = new Map<string, PendingVerdict>();
  * (see {@link retainForPrincipal}), so this clears the affected record for
  * that principal and for no one else.
  *
- * ⚠️ What this does NOT make fresh. Both are limits of the channel, not
- * oversights, and neither is papered over with a lifetime constant:
+ * **One re-check per change, however often it is announced (objectui#13341).**
+ * One write commonly reaches the bus more than once: the console's
+ * `useMutationInvalidationBridge` announces every `DataSource` write, and the
+ * host that made it announces it again (an action's `refreshAfter`, an
+ * undoable update, a list's own-write notice). When the second announcement
+ * landed after the re-check had gone out, it staled that re-check and a second
+ * one went out — two requests per question for one save, and one more for
+ * every further announcement. Every announcement is made AFTER its write
+ * completed (the bridge on the write's response, a host after awaiting it), so
+ * a re-check sent after the first one already answers about the record after
+ * that write. An announcement that arrives while the re-check is on the wire
+ * therefore joins it ({@link InFlightProbe.recheck}); a question that was
+ * already on the wire BEFORE the first announcement is still staled and asked
+ * again, so a save is followed by exactly one fresh request per question.
+ *
+ * ⚠️ What this does NOT make fresh. Each is a limit of the channel, not an
+ * oversight, and none is papered over with a lifetime constant:
  *
  *  - The bus carries writes THIS tab announces: every write through the
  *    host's `DataSource` (via `useMutationInvalidationBridge`), plus the
@@ -162,6 +191,12 @@ const pendingVerdicts = new Map<string, PendingVerdict>();
  *    assignment — is announced, when it is announced at all, against THAT
  *    object and not against the record it grants, so it does not match this
  *    record's entries either, and it too lands on the next page load.
+ *  - An announcement names no write, so a SECOND, distinct write to the record
+ *    that this tab completes while the re-check is on the wire cannot be told
+ *    from the first write announced again, and joins the re-check too. Its
+ *    effect on the verdict lands on the record's next change or the next page
+ *    load. An announcement that arrives after the re-check has answered drops
+ *    that answer and asks again, as before.
  *
  * Module scope on purpose, like the map it guards: an entry must be dropped
  * even while no hook is mounted to hear the change, or the next mount would
@@ -170,17 +205,28 @@ const pendingVerdicts = new Map<string, PendingVerdict>();
 function forgetChangedRecords(change: DataChange): void {
   for (const key of Array.from(verdictCache.keys())) {
     const [, object, recordId] = JSON.parse(key) as VerdictKey;
-    if (dataChangeMatches(change, object, recordId)) verdictCache.delete(key);
+    if (dataChangeMatches(change, object, recordId)) {
+      verdictCache.delete(key);
+      recheckDue.add(key);
+    }
   }
   for (const probe of inFlight) {
+    // [objectui#13341] A re-check already on the wire left AFTER the change
+    // that asked for it was announced, so it already answers about the record
+    // after that write; a further announcement joins it rather than staling it.
+    if (probe.recheck) continue;
     for (const id of probe.recordIds) {
       if (dataChangeMatches(change, probe.object, id)) probe.staled.add(id);
     }
   }
   // A staled probe answers nobody, so nobody may join it (objectui#11699):
-  // the asker re-running on this change must send a fresh question.
+  // the asker re-running on this change must send a fresh question — and that
+  // question is the key's re-check (objectui#13341).
   for (const [key, pending] of Array.from(pendingVerdicts)) {
-    if (pending.probe.staled.size > 0) pendingVerdicts.delete(key);
+    if (pending.probe.staled.size > 0) {
+      pendingVerdicts.delete(key);
+      recheckDue.add(key);
+    }
   }
 }
 
@@ -209,6 +255,7 @@ function retainForPrincipal(principal: string | null): void {
     verdictCache.clear();
     // Nor may an unanswered question span the change (objectui#11699).
     pendingVerdicts.clear();
+    recheckDue.clear();
   }
   cachedPrincipal = principal;
 }
@@ -228,7 +275,13 @@ function askVerdict(
   const pending = pendingVerdicts.get(key);
   if (pending) return pending.answer;
 
-  const probe: InFlightProbe = { object: objectName, recordIds: [recordId], staled: new Set() };
+  const probe: InFlightProbe = {
+    object: objectName,
+    recordIds: [recordId],
+    staled: new Set(),
+    // `delete` answers whether the key was due, and clears it either way.
+    recheck: recheckDue.delete(key),
+  };
   inFlight.add(probe);
   const answer = (async (): Promise<boolean | undefined> => {
     try {
@@ -330,5 +383,6 @@ export function useRecordEditable(
 export function __clearRecordEditableCache(): void {
   verdictCache.clear();
   pendingVerdicts.clear();
+  recheckDue.clear();
   cachedPrincipal = undefined;
 }

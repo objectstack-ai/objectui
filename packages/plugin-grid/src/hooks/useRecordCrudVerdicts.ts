@@ -204,7 +204,12 @@ let cachedPrincipal: string | null | undefined;
 
 /** Drop everything if the acting principal is not the one the map was built for. */
 function retainForPrincipal(principal: string | null): void {
-  if (cachedPrincipal !== undefined && cachedPrincipal !== principal) verdictCache.clear();
+  if (cachedPrincipal !== undefined && cachedPrincipal !== principal) {
+    verdictCache.clear();
+    // Nor may an unanswered question span the change (objectui#13341).
+    pendingVerdicts.clear();
+    recheckDue.clear();
+  }
   cachedPrincipal = principal;
 }
 
@@ -216,12 +221,44 @@ function retainForPrincipal(principal: string | null): void {
  * back into the map right after the change cleared it.
  */
 interface InFlightProbe {
+  readonly principal: string | null;
   readonly object: string;
+  readonly operation: RecordCrudOperation;
   readonly recordIds: readonly string[];
   readonly staled: Set<string>;
+  /**
+   * The rows this probe RE-CHECKS: each was asked for a key {@link recheckDue}
+   * held, so it left after the change that dropped its answer was announced
+   * (objectui#13341). See {@link forgetChangedRecords}.
+   */
+  readonly recheck: ReadonlySet<string>;
 }
 
 const inFlight = new Set<InFlightProbe>();
+
+/**
+ * A row's question still on its way to the explain engine, by the same key as
+ * {@link verdictCache}, and the batch request carrying it (objectui#13341).
+ *
+ * The cache only holds FINISHED answers, so an effect run while a batch was on
+ * the wire — the list's own re-read landing after a write changes the id list
+ * — asked again about every row with no finished answer, the rows already on
+ * the wire among them. Now a row on the wire is joined, not asked again, and
+ * only the rows nobody has asked about go out. The entry is dropped when its
+ * batch settles, when a data change stales the row, and when the principal
+ * changes (see {@link retainForPrincipal}), so a row asked after either is
+ * asked again rather than joined to an answer about the world before it — the
+ * rule `useRecordEditable` keeps for the detail header (objectui#11699).
+ */
+const pendingVerdicts = new Map<string, Promise<void>>();
+
+/**
+ * Keys whose answer a data change dropped — a finished verdict forgotten, or a
+ * row staled on the wire — and that nobody has asked since (objectui#13341).
+ * The next ask of such a key is that row's RE-CHECK, and a re-check is what a
+ * further announcement of the change joins instead of staling.
+ */
+const recheckDue = new Set<string>();
 
 /**
  * Drop every verdict a data change has made stale (objectui#10184).
@@ -241,8 +278,22 @@ const inFlight = new Set<InFlightProbe>();
  * current principal's entries (see {@link retainForPrincipal}), so this clears
  * the affected row for that principal and for no one else.
  *
- * ⚠️ What this does NOT make fresh. Both are limits of the channel, not
- * oversights, and neither is papered over with a lifetime constant:
+ * **One re-check per change, however often it is announced (objectui#13341).**
+ * One write commonly reaches the bus more than once: the console's
+ * `useMutationInvalidationBridge` announces every `DataSource` write, and the
+ * list host announces its own write again. When the second announcement landed
+ * after the re-check had gone out, it staled that re-check and every row went
+ * out a second time. Every announcement is made AFTER its write completed (the
+ * bridge on the write's response, a host after awaiting it), so a re-check
+ * sent after the first one already answers about the row after that write. An
+ * announcement that arrives while a row's re-check is on the wire therefore
+ * joins it ({@link InFlightProbe.recheck}); a row that was already on the wire
+ * BEFORE the first announcement is still staled and asked again, so a write
+ * is followed by exactly one fresh question per row and operation. The same
+ * rule, kept by hand, is `useRecordEditable`'s.
+ *
+ * ⚠️ What this does NOT make fresh. Each is a limit of the channel, not an
+ * oversight, and none is papered over with a lifetime constant:
  *
  *  - The bus carries writes THIS tab announces: every write through the
  *    host's `DataSource` (via `useMutationInvalidationBridge`), plus the
@@ -255,6 +306,12 @@ const inFlight = new Set<InFlightProbe>();
  *    assignment — is announced, when it is announced at all, against THAT
  *    object and not against the row it grants, so it does not match this
  *    row's entries either, and it too lands on the next page load.
+ *  - An announcement names no write, so a SECOND, distinct write to a row that
+ *    this tab completes while the row's re-check is on the wire cannot be told
+ *    from the first write announced again, and joins the re-check too. Its
+ *    effect on the verdict lands on the row's next change or the next page
+ *    load. An announcement that arrives after the re-check has answered drops
+ *    that answer and asks again, as before.
  *
  * Module scope on purpose, like the map it guards: an entry must be dropped
  * even while no list is mounted to hear the change, or the next page visit
@@ -263,21 +320,118 @@ const inFlight = new Set<InFlightProbe>();
 function forgetChangedRecords(change: DataChange): void {
   for (const key of Array.from(verdictCache.keys())) {
     const [, object, recordId] = JSON.parse(key) as VerdictKey;
-    if (dataChangeMatches(change, object, recordId)) verdictCache.delete(key);
+    if (dataChangeMatches(change, object, recordId)) {
+      verdictCache.delete(key);
+      recheckDue.add(key);
+    }
   }
   for (const probe of inFlight) {
     for (const id of probe.recordIds) {
-      if (dataChangeMatches(change, probe.object, id)) probe.staled.add(id);
+      // [objectui#13341] A row's re-check on the wire left AFTER the change
+      // that asked for it was announced; a further announcement joins it.
+      if (probe.recheck.has(id) || !dataChangeMatches(change, probe.object, id)) continue;
+      probe.staled.add(id);
+      // A staled row answers nobody, so nobody may join it: the list re-running
+      // on this change sends a fresh question, the row's re-check.
+      const key = cacheKey(probe.principal, probe.object, id, probe.operation);
+      pendingVerdicts.delete(key);
+      recheckDue.add(key);
     }
   }
 }
 
 subscribeDataChanges(forgetChangedRecords);
 
-/** Test seam — drops the memoised verdicts AND the principal they were for. */
+/**
+ * Test seam — drops the memoised verdicts, the rows waiting on the wire, AND
+ * the principal they were for.
+ */
 export function __clearRecordCrudVerdictCache(): void {
   verdictCache.clear();
+  pendingVerdicts.clear();
+  recheckDue.clear();
   cachedPrincipal = undefined;
+}
+
+/**
+ * Ask the explain engine about one batch of rows, and register each row as on
+ * the wire until the batch settles (objectui#13341), so an effect run in the
+ * meantime joins it. A boolean verdict is written to {@link verdictCache} once,
+ * by the ask itself, for every list sharing it.
+ */
+function askBatch(
+  principal: string | null,
+  objectName: string,
+  operation: RecordCrudOperation,
+  chunk: readonly string[],
+  doFetch: typeof fetch,
+): Promise<void> {
+  // The body IS the spec's request contract, not a lookalike shaped to
+  // match it (objectui#6332). `satisfies` keeps the literal's own type
+  // while making every key and the verb answer to `ExplainRequestSchema`
+  // — a renamed or mis-cased key (`recordIDs`, `objectName`) is a
+  // compile error here instead of a request the server rejects, or
+  // worse, silently reads as "no ids".
+  //
+  // Type-only: erased at runtime, so nothing about the request that
+  // goes out over the wire changes. This deliberately stops at the
+  // REQUEST — the response below stays `unknown` on purpose (see the
+  // fail-open note in the file header and `WireRecordVerdict`).
+  const body = {
+    object: objectName,
+    operation,
+    recordIds: [...chunk],
+  } satisfies ExplainRequest;
+  const keys = chunk.map((id) => cacheKey(principal, objectName, id, operation));
+  const probe: InFlightProbe = {
+    principal,
+    object: objectName,
+    operation,
+    recordIds: chunk,
+    staled: new Set(),
+    // `delete` answers whether the key was due, and clears it either way.
+    recheck: new Set(chunk.filter((_, index) => recheckDue.delete(keys[index]))),
+  };
+  inFlight.add(probe);
+  const answer = (async (): Promise<void> => {
+    try {
+      const res = await doFetch('/api/v1/security/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) return; // 401 / 403 / 501 → fail open
+      const decision: unknown = await res.json();
+      const records = (decision as { records?: unknown } | null)?.records;
+      if (!Array.isArray(records)) return; // no batch verdict → fail open
+      // Ordering IS the contract: `records[i]` answers `recordIds[i]`.
+      // The echoed `recordId` is checked, not trusted as the key — a
+      // response that disagrees with its own ordering contract is not a
+      // response this hook can safely re-key, so the entry is dropped and
+      // that row falls back to the object-level answer.
+      chunk.forEach((id, index) => {
+        const entry = records[index] as WireRecordVerdict | undefined;
+        if (!entry || typeof entry.visible !== 'boolean') return;
+        if (typeof entry.recordId === 'string' && entry.recordId !== id) return;
+        // Asked before this row changed → not an answer. A mounted list
+        // re-asks it; an unmounted one asks on its next visit (see
+        // `forgetChangedRecords`).
+        if (probe.staled.has(id)) return;
+        verdictCache.set(keys[index], entry.visible);
+      });
+    } catch {
+      /* network / parse failure → fail open */
+    } finally {
+      inFlight.delete(probe);
+    }
+  })();
+  for (const key of keys) pendingVerdicts.set(key, answer);
+  const settle = () => {
+    for (const key of keys) if (pendingVerdicts.get(key) === answer) pendingVerdicts.delete(key);
+  };
+  answer.then(settle, settle);
+  return answer;
 }
 
 const NO_VERDICTS: RecordCrudVerdictLookup = () => undefined;
@@ -345,61 +499,25 @@ export function useRecordCrudVerdicts(opts: {
     };
 
     void (async () => {
-      await Promise.all(operations.map(async (operation) => {
-        const missing = ids.filter((id) => !verdictCache.has(cacheKey(principal, objectName, id, operation)));
+      const settled: Promise<void>[] = [];
+      for (const operation of operations) {
+        // A row on the wire is joined, not asked again (objectui#13341); only
+        // the rows nobody has asked about go out, still batched under the cap.
+        const toAsk = new Set<string>();
+        for (const id of ids) {
+          const key = cacheKey(principal, objectName, id, operation);
+          if (verdictCache.has(key)) continue;
+          const pending = pendingVerdicts.get(key);
+          if (pending) settled.push(pending);
+          else toAsk.add(id);
+        }
+        const missing = Array.from(toAsk);
         for (let i = 0; i < missing.length; i += EXPLAIN_BATCH_MAX_RECORD_IDS) {
           const chunk = missing.slice(i, i + EXPLAIN_BATCH_MAX_RECORD_IDS);
-          // The body IS the spec's request contract, not a lookalike shaped to
-          // match it (objectui#6332). `satisfies` keeps the literal's own type
-          // while making every key and the verb answer to `ExplainRequestSchema`
-          // — a renamed or mis-cased key (`recordIDs`, `objectName`) is a
-          // compile error here instead of a request the server rejects, or
-          // worse, silently reads as "no ids".
-          //
-          // Type-only: erased at runtime, so nothing about the request that
-          // goes out over the wire changes. This deliberately stops at the
-          // REQUEST — the response below stays `unknown` on purpose (see the
-          // fail-open note in the file header and `WireRecordVerdict`).
-          const body = {
-            object: objectName,
-            operation,
-            recordIds: chunk,
-          } satisfies ExplainRequest;
-          const probe: InFlightProbe = { object: objectName, recordIds: chunk, staled: new Set() };
-          inFlight.add(probe);
-          try {
-            const res = await doFetch('/api/v1/security/explain', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify(body),
-            });
-            if (!res.ok) continue; // 401 / 403 / 501 → fail open
-            const decision: unknown = await res.json();
-            const records = (decision as { records?: unknown } | null)?.records;
-            if (!Array.isArray(records)) continue; // no batch verdict → fail open
-            // Ordering IS the contract: `records[i]` answers `recordIds[i]`.
-            // The echoed `recordId` is checked, not trusted as the key — a
-            // response that disagrees with its own ordering contract is not a
-            // response this hook can safely re-key, so the entry is dropped and
-            // that row falls back to the object-level answer.
-            chunk.forEach((id, index) => {
-              const entry = records[index] as WireRecordVerdict | undefined;
-              if (!entry || typeof entry.visible !== 'boolean') return;
-              if (typeof entry.recordId === 'string' && entry.recordId !== id) return;
-              // Asked before this row changed → not an answer. A mounted list
-              // re-asks it; an unmounted one asks on its next visit (see
-              // `forgetChangedRecords`).
-              if (probe.staled.has(id)) return;
-              verdictCache.set(cacheKey(principal, objectName, id, operation), entry.visible);
-            });
-          } catch {
-            /* network / parse failure → fail open */
-          } finally {
-            inFlight.delete(probe);
-          }
+          settled.push(askBatch(principal, objectName, operation, chunk, doFetch));
         }
-      }));
+      }
+      await Promise.all(settled);
       if (!cancelled) publish();
     })();
 

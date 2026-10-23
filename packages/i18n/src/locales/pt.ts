@@ -3074,6 +3074,7 @@ const pt = {
       admin: 'Administrador',
       delegatedAdmin: 'Administrador delegado',
       member: 'Membro',
+      external: 'Membro externo',
     },
     errors: {
       notAllowedToInvite: 'Você não tem permissão para convidar usuários para esta organização.',

@@ -8,7 +8,8 @@
  *
  *  - `invitableOrgRoles` ↔ the framework's `beforeCreateInvitation` role cap
  *    (framework#3697): never above your own grade, and a below-admin issuer may
- *    invite as `member` only.
+ *    invite as `member` or `external` only — the rows of the spec's grant table
+ *    that any issuer may confer (pinned to that table below).
  *  - `assignableOrgRoles` ↔ better-auth's `update-member-role` route: needs
  *    `member:["update"]` (owner/admin only), and only an owner may set `owner`
  *    or re-role an existing owner.
@@ -19,14 +20,30 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import * as spec from '@objectstack/spec';
+import { INVITATION_ROLE_ANY_ISSUER, INVITATION_ROLE_GRANTORS } from '@objectstack/spec/identity';
 import {
   ORG_ROLES,
   ORG_ROLE_LABELS,
   ORG_ROLE_DELEGATED_ADMIN,
+  ORG_ROLE_EXTERNAL,
   orgRoleGrade,
   invitableOrgRoles,
   assignableOrgRoles,
 } from '../org-roles';
+
+/**
+ * What the framework's invitation cap admits for one issuer role, read off the
+ * spec's grant table: a below-admin issuer gets the `'any'` rows only, an
+ * administrative issuer every row that is `'any'` or names its role.
+ */
+function grantTableOffer(issuer: 'owner' | 'admin' | 'below-admin'): string[] {
+  return ORG_ROLES.filter((role) => {
+    const grantors = (INVITATION_ROLE_GRANTORS as Record<string, unknown>)[role];
+    if (grantors === INVITATION_ROLE_ANY_ISSUER) return true;
+    return issuer !== 'below-admin' && (grantors as readonly string[]).includes(issuer);
+  });
+}
 
 describe('vocabulary', () => {
   it('offers the spec vocabulary WHOLE — including the delegated issuer grade', () => {
@@ -45,6 +62,29 @@ describe('vocabulary', () => {
       expect(ORG_ROLE_LABELS[role]?.defaultValue).toBeTruthy();
     }
   });
+
+  it('labels the external grade (objectui#13427)', () => {
+    // objectstack#25515 added `external` to BUILTIN_MEMBERSHIP_ROLES; the
+    // exhaustive label table is what stopped the console compiling there.
+    expect(ORG_ROLE_EXTERNAL).toBe('external');
+    expect(ORG_ROLE_LABELS[ORG_ROLE_EXTERNAL]).toEqual({
+      key: 'organization.roles.external',
+      defaultValue: 'External',
+    });
+  });
+
+  it('spells external itself only while the pin predates objectstack#25515', () => {
+    // [tripwire] `org-roles.ts` spells the role because `.objectstack-sha`
+    // names a spec without it. The pin move that brings #25515 turns this red,
+    // which is the reminder to swap the literal for the spec's constant.
+    expect(
+      (spec as Record<string, unknown>).MEMBERSHIP_ROLE_EXTERNAL,
+      'the pin now carries objectstack#25515: in org-roles.ts import MEMBERSHIP_ROLE_EXTERNAL as ' +
+        'ORG_ROLE_EXTERNAL instead of the literal and drop `| typeof ORG_ROLE_EXTERNAL` from ' +
+        'ORG_ROLE_LABELS; then add external to the role lists InviteMemberDialog.roleCap.test.tsx ' +
+        'and org-i18n-holdouts-4474.test.tsx expect, and delete this test',
+    ).toBeUndefined();
+  });
 });
 
 describe('orgRoleGrade', () => {
@@ -56,6 +96,13 @@ describe('orgRoleGrade', () => {
   it('the delegate grade and app roles are ordinary members', () => {
     expect(orgRoleGrade(ORG_ROLE_DELEGATED_ADMIN)).toBe(orgRoleGrade('member'));
     expect(orgRoleGrade('sales_manager')).toBe(orgRoleGrade('member'));
+  });
+
+  it('external grades no higher than a member — never an administrative grade', () => {
+    // The framework cap's ladder grades it as `member`; what it reaches below a
+    // member is enforced server-side, not on this ladder.
+    expect(orgRoleGrade(ORG_ROLE_EXTERNAL)).toBe(orgRoleGrade('member'));
+    expect(orgRoleGrade(ORG_ROLE_EXTERNAL)).toBeLessThan(orgRoleGrade('admin'));
   });
 
   it('a comma list takes the HIGHEST grade', () => {
@@ -82,15 +129,31 @@ describe('invitableOrgRoles — mirrors the invitation role cap', () => {
     expect(roles).not.toContain('owner');
   });
 
-  it('a DELEGATE may invite as member only — the escalation chain, closed in the UI too', () => {
-    expect(invitableOrgRoles(ORG_ROLE_DELEGATED_ADMIN)).toEqual(['member']);
+  it('a DELEGATE may invite as member, and as nothing that carries authority — the escalation chain, closed in the UI too', () => {
+    const roles = invitableOrgRoles(ORG_ROLE_DELEGATED_ADMIN);
+    expect(roles).toContain('member');
+    for (const r of ['owner', 'admin', ORG_ROLE_DELEGATED_ADMIN]) expect(roles).not.toContain(r);
   });
 
-  it('an unresolvable caller is offered member alone, never nothing', () => {
+  it('an unresolvable caller is offered the any-issuer roles alone, never nothing', () => {
     // Offering nothing would break the ordinary invite for a caller whose
-    // membership simply has not loaded yet; the server still allows `member`.
+    // membership simply has not loaded yet; the cap still admits a single
+    // `member` (or, once the spec lists it, `external`) invitation from an
+    // unverified issuer.
     for (const v of [null, undefined, '']) {
-      expect(invitableOrgRoles(v)).toEqual(['member']);
+      expect(invitableOrgRoles(v)).toContain('member');
+      expect(invitableOrgRoles(v)).toEqual(invitableOrgRoles(ORG_ROLE_DELEGATED_ADMIN));
+    }
+  });
+
+  it('offers exactly what the spec grant table admits, for every issuer grade', () => {
+    // The table the framework cap reads (`@objectstack/spec/identity`). A row
+    // the spec adds or moves turns this red before the console offers a role
+    // the server refuses, or hides one it admits.
+    expect(invitableOrgRoles('owner')).toEqual(grantTableOffer('owner'));
+    expect(invitableOrgRoles('admin')).toEqual(grantTableOffer('admin'));
+    for (const issuer of [ORG_ROLE_DELEGATED_ADMIN, 'member', ORG_ROLE_EXTERNAL, null]) {
+      expect(invitableOrgRoles(issuer)).toEqual(grantTableOffer('below-admin'));
     }
   });
 });
@@ -108,6 +171,17 @@ describe('assignableOrgRoles — mirrors update-member-role', () => {
 
   it('an admin may not re-role an existing owner at all', () => {
     expect(assignableOrgRoles('admin', 'owner')).toEqual([]);
+  });
+
+  it('an admin may re-role an existing external to anything but owner', () => {
+    expect(assignableOrgRoles('admin', ORG_ROLE_EXTERNAL)).toEqual(
+      ORG_ROLES.filter((r) => r !== 'owner'),
+    );
+  });
+
+  it('an external may re-role NOBODY — it holds no organization permission at all', () => {
+    expect(assignableOrgRoles(ORG_ROLE_EXTERNAL, 'member')).toEqual([]);
+    expect(assignableOrgRoles(ORG_ROLE_EXTERNAL, ORG_ROLE_EXTERNAL)).toEqual([]);
   });
 
   it('a delegate may re-role NOBODY — they hold no member:update permission', () => {

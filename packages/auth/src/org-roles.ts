@@ -17,8 +17,8 @@
  *
  * ## The vocabulary is CLOSED — and derived, not mirrored
  *
- * [framework ADR-0108 / objectstack#3723] These four names are the WHOLE list,
- * and the framework owns them. An application cannot add a fifth: the server
+ * [framework ADR-0108 / objectstack#3723] The spec's names are the WHOLE list,
+ * and the framework owns them. An application cannot add one: the server
  * used to register every declared `position` / `permission` name as an
  * organization role, and that was retired, because every value stored in
  * `sys_member.role` is projected into `current_user.positions` — so a business
@@ -58,13 +58,36 @@ import {
 // console by `describeDelegableScope()`.
 export { ORG_ROLE_OWNER, ORG_ROLE_ADMIN, ORG_ROLE_DELEGATED_ADMIN, ORG_ROLE_MEMBER };
 
+/**
+ * The external population's grade (objectstack#25233, ruling of record
+ * 6355206139, letter B): portal users admitted through the organization
+ * invite, who reach less than a `member` — no organization endpoint, no member
+ * directory, data only through explicit grants. It is exclusive (the server
+ * refuses it beside any other role) and never placed in a business unit.
+ *
+ * ⚠️ SPELLED HERE, not imported, for now. `@objectstack/spec` exports it as
+ * `MEMBERSHIP_ROLE_EXTERNAL` since objectstack#25515, and this console must
+ * compile against that spec (objectstack builds it at its own `main`). But
+ * this repo's pin, `.objectstack-sha`, still names a commit from before
+ * #25515, held there until objectstack#25251's spec PR lands (its two PRs ship
+ * in one objectstack release). So the console has to compile against both
+ * vocabularies: the literal here, and `OrgRole | typeof ORG_ROLE_EXTERNAL`
+ * below, which is `OrgRole` itself once the pin carries #25515. When the pin
+ * moves past #25515, import the constant like the four above and drop the
+ * union: `org-roles.test.ts` goes red on that move and says so.
+ */
+export const ORG_ROLE_EXTERNAL = 'external';
+
 export type OrgRole = BuiltinMembershipRole;
 
 /** Display order: most privileged first, as the spec ships it and the screens list it. */
 export const ORG_ROLES: readonly OrgRole[] = [...BUILTIN_MEMBERSHIP_ROLES];
 
 /** i18n key + English fallback for a role, so every screen labels it identically. */
-export const ORG_ROLE_LABELS: Record<OrgRole, { key: string; defaultValue: string }> = {
+export const ORG_ROLE_LABELS: Record<
+  OrgRole | typeof ORG_ROLE_EXTERNAL,
+  { key: string; defaultValue: string }
+> = {
   [ORG_ROLE_OWNER]: { key: 'organization.roles.owner', defaultValue: 'Owner' },
   [ORG_ROLE_ADMIN]: { key: 'organization.roles.admin', defaultValue: 'Admin' },
   [ORG_ROLE_DELEGATED_ADMIN]: {
@@ -72,6 +95,7 @@ export const ORG_ROLE_LABELS: Record<OrgRole, { key: string; defaultValue: strin
     defaultValue: 'Delegated Admin',
   },
   [ORG_ROLE_MEMBER]: { key: 'organization.roles.member', defaultValue: 'Member' },
+  [ORG_ROLE_EXTERNAL]: { key: 'organization.roles.external', defaultValue: 'External' },
 };
 
 const GRADE_UNRESOLVED = 0;
@@ -81,9 +105,19 @@ const GRADE_OWNER = 3;
 
 /**
  * Grade ladder, mirroring the framework's invitation role cap. Anything
- * unrecognized — `member`, `delegated_admin`, an app-registered role — grades
- * as an ordinary member; only better-auth's two administrative roles outrank
- * it, because only they are auto-elevated to `organization_admin` server-side.
+ * unrecognized — `member`, `delegated_admin`, `external`, an app-registered
+ * role — grades as an ordinary member; only better-auth's two administrative
+ * roles outrank it, because only they are auto-elevated to
+ * `organization_admin` server-side.
+ *
+ * `external` gets no rung of its own, on purpose. The ladder answers one
+ * question — does this role carry administrative authority — and the cap's
+ * ladder (plugin-auth `invitation-role-cap.ts`) grades `external` exactly as
+ * it grades `member`. That it reaches LESS than a member is enforced where it
+ * is decided, server-side (no endpoint statement, the external baseline set);
+ * a rung below `member` here would have no reader, and every reader that
+ * exists compares against the admin and owner grades, which `external` never
+ * reaches.
  *
  * An absent/unreadable role grades BELOW a plain member: the fail-closed floor,
  * so an unverified caller is offered nothing privileged.
@@ -104,23 +138,35 @@ export function orgRoleGrade(raw: unknown): number {
 }
 
 /**
+ * The roles every issuer may confer — the rows of the spec's invitation grant
+ * table (`INVITATION_ROLE_GRANTORS`, `@objectstack/spec/identity`) that read
+ * `'any'`. `member` confers nothing to cap; `external` confers less than
+ * `member` (ruling 6355206139, E3). The test pins the offer this set produces
+ * to that table for every issuer grade, so the copy here cannot drift from the
+ * cap without going red.
+ */
+const ANY_ISSUER_ROLES: ReadonlySet<string> = new Set([ORG_ROLE_MEMBER, ORG_ROLE_EXTERNAL]);
+
+/**
  * The roles `issuerRole` may confer through an INVITATION — mirroring the
  * framework's `beforeCreateInvitation` role cap:
  *
  *  - an invited role may never outrank the issuer's own;
- *  - an issuer below admin grade may invite as `member` only (an app-registered
- *    role projects into `current_user.positions` and may be bound to permission
- *    sets, so it is a capability channel too — a delegate's channel for
- *    capability is the invitation's *placement*, which the D12 gate allowlists).
+ *  - an issuer below admin grade may invite as `member` or `external` only, the
+ *    two roles any issuer may confer (an app-registered role projects into
+ *    `current_user.positions` and may be bound to permission sets, so it is a
+ *    capability channel too — a delegate's channel for capability is the
+ *    invitation's *placement*, which the D12 gate allowlists).
  *
  * Same property as the placement picker: this NARROWS, it does not decide. The
  * server re-checks and rejects out-of-cap invitations, so the console is free to
  * be helpful without being load-bearing — and it fails toward *less*: an
- * unresolvable issuer role offers `member` alone.
+ * unresolvable issuer role offers the any-issuer roles alone, which the cap
+ * admits for an unverified issuer too.
  */
 export function invitableOrgRoles(issuerRole: unknown): OrgRole[] {
   const grade = orgRoleGrade(issuerRole);
-  if (grade < GRADE_ADMIN) return [ORG_ROLE_MEMBER];
+  if (grade < GRADE_ADMIN) return ORG_ROLES.filter((r) => ANY_ISSUER_ROLES.has(r));
   return ORG_ROLES.filter((r) => orgRoleGrade(r) <= grade);
 }
 
@@ -134,6 +180,13 @@ export function invitableOrgRoles(issuerRole: unknown): OrgRole[] {
  *    `member: []` and may not re-role anyone);
  *  - only an owner may SET `owner`, and only an owner may modify a member who
  *    already IS one (better-auth's `creatorRole` protection).
+ *
+ * `external` is offered like any other role. Two framework refusals are not
+ * pre-empted here, because this screen cannot see what they read: a role list
+ * that carries `external` beside another role (the picker sets one role, so it
+ * never builds one), and re-roling to `external` a member who is placed in a
+ * business unit (ruling 6355206139, E5 and E6). The server's refusal reaches
+ * the screen through the same error path as any other.
  *
  * Returns an empty list when the actor may not re-role at all, so the screen can
  * omit the affordance instead of offering items that would 403.

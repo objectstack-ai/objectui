@@ -3021,6 +3021,7 @@ const de = {
       admin: 'Administrator',
       delegatedAdmin: 'Delegierter Administrator',
       member: 'Mitglied',
+      external: 'Externes Mitglied',
     },
     errors: {
       notAllowedToInvite: 'Sie dürfen keine Benutzer in diese Organisation einladen.',

@@ -3075,6 +3075,7 @@ const fr = {
       admin: 'Administrateur',
       delegatedAdmin: 'Administrateur délégué',
       member: 'Membre',
+      external: 'Membre externe',
     },
     errors: {
       notAllowedToInvite: "Vous n'êtes pas autorisé à inviter des utilisateurs dans cette organisation.",

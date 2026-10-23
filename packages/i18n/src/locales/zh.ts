@@ -3201,6 +3201,7 @@ const zh = {
       admin: '管理员',
       delegatedAdmin: '受托管理员',
       member: '成员',
+      external: '外部成员',
     },
     errors: {
       notAllowedToInvite: '您无权邀请用户加入该组织。',

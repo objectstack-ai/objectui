@@ -3023,6 +3023,7 @@ const ja = {
       admin: '管理者',
       delegatedAdmin: '委任管理者',
       member: 'メンバー',
+      external: '外部メンバー',
     },
     errors: {
       notAllowedToInvite: 'この組織にユーザーを招待する権限がありません。',

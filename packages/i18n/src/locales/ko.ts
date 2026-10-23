@@ -3020,6 +3020,7 @@ const ko = {
       admin: '관리자',
       delegatedAdmin: '위임 관리자',
       member: '멤버',
+      external: '외부 멤버',
     },
     errors: {
       notAllowedToInvite: '이 조직에 사용자를 초대할 권한이 없습니다.',

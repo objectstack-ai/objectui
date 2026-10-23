@@ -3250,6 +3250,7 @@ const ar = {
       admin: 'المسؤول',
       delegatedAdmin: 'مسؤول مفوَّض',
       member: 'عضو',
+      external: 'عضو خارجي',
     },
     errors: {
       notAllowedToInvite: 'لا يُسمح لك بدعوة مستخدمين إلى هذه المؤسسة.',

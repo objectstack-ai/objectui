@@ -399,6 +399,17 @@ export interface CellRendererProps {
    * phrase a non-deadline reads. Absent or `false` changes nothing.
    */
   deadlineSettled?: boolean;
+  /**
+   * Write the year on a current-year date too (objectui#13331), read by the
+   * `date` and `datetime` cells and handed to `formatDate` /
+   * `formatRelativeDate` as `DateDisplayOptions.alwaysShowYear`.
+   *
+   * The record header's highlights strip passes it: its chips sit side by
+   * side, and "End Date Sep 15" beside "Start Date Sep 15, 2025" read as a
+   * date next month. Absent or `false` changes nothing, so a grid cell keeps
+   * the default face that drops the current year.
+   */
+  alwaysShowYear?: boolean;
 }
 
 // `coerceToSafeValue` lives in `./coerceToSafeValue.ts` (objectui#8580) so
@@ -1127,7 +1138,7 @@ function isOverdueInstant(date: Date, dueLike: boolean): boolean {
 /**
  * Date field cell renderer
  */
-export function DateCellRenderer({ value, field, deadlineSettled }: CellRendererProps): React.ReactElement {
+export function DateCellRenderer({ value, field, deadlineSettled, alwaysShowYear }: CellRendererProps): React.ReactElement {
   // `useDisplayLocale()`, NOT `useLocalization().locale` (objectui#4468). The
   // raw tenant locale is `undefined` on any workspace that never configured
   // one, and `Intl` reads the MACHINE's locale from `undefined` — so a `zh`
@@ -1194,7 +1205,7 @@ export function DateCellRenderer({ value, field, deadlineSettled }: CellRenderer
   // `datetime` sibling one function down answers this question identically
   // instead of carrying a second copy (objectui#8958).
   const dueLike = resolveDueLike(field, deadlineSettled);
-  const formatted = formatDate(safe as string | Date, style, { dueLike, locale, t });
+  const formatted = formatDate(safe as string | Date, style, { dueLike, locale, t, alwaysShowYear });
   const isOverdue = isOverdueInstant(displayDate, dueLike);
 
   return (
@@ -1210,7 +1221,7 @@ export function DateCellRenderer({ value, field, deadlineSettled }: CellRenderer
 /**
  * DateTime field cell renderer (Airtable-style with date and time visually separated)
  */
-export function DateTimeCellRenderer({ value, field, deadlineSettled }: CellRendererProps): React.ReactElement {
+export function DateTimeCellRenderer({ value, field, deadlineSettled, alwaysShowYear }: CellRendererProps): React.ReactElement {
   // Hook before every early return — a value flipping between null and set
   // must not change the hook count between renders (same rule as the number /
   // currency renderers above). This is the site objectui#4468 caught rendering
@@ -1323,7 +1334,7 @@ export function DateTimeCellRenderer({ value, field, deadlineSettled }: CellRend
   if (style === 'relative') {
     return (
       <span className={cellClass}>
-        {formatRelativeDate(date, { dueLike, locale, t })}
+        {formatRelativeDate(date, { dueLike, locale, t, alwaysShowYear })}
       </span>
     );
   }

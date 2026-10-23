@@ -5048,12 +5048,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // objectui#13377 — THE FOREIGN-KEY FLAG, for the same reason again: the
       // fold drops `lookup` / `master_detail` / `tree` / `user`, so `data-table`
       // could not tell that the raw value its cell `title` shows is the
-      // referenced record's id. Read as a union of the authored and the
-      // object-declared type, like the masked flag, since it only withholds.
-      // A masked column already carries no tooltip. Written only when true.
-      const foreignKey = !masked && (
-        isExpandableFieldType({ type: producerType }) || isExpandableFieldType(objectFields?.[col.accessorKey])
-      );
+      // referenced record's id. Read from the same type as the chip flag (the
+      // authored one first), the one the cell is drawn by: a view that authors
+      // `type: 'text'` over a lookup draws the id as text, and keeps the
+      // tooltip. A masked column already carries none. Written only when true.
+      const foreignKey = !masked && isExpandableFieldType({ type: producerType ?? objectFields?.[col.accessorKey]?.type });
       const rest = masked
         ? { ...draft, masked: true }
         : { ...draft, ...(chips ? { chips: true } : {}), ...(foreignKey ? { foreignKey: true } : {}) };

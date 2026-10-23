@@ -17,7 +17,10 @@
  *
  * Driven through the real `ObjectGrid` with a readable and a restricted
  * reference in both a lookup and a master_detail column. The control is the
- * plain text column of the same grid, which keeps its value as its tooltip.
+ * plain text column of the same grid, which keeps its value as its tooltip,
+ * and a view column that authors `type: 'text'` over the lookup field: it draws
+ * the id as its text, so the flag (read from the authored type first, like
+ * `chips`) is not set and its tooltip stays.
  */
 
 import React from 'react';
@@ -59,7 +62,7 @@ function cellsUnder(container: HTMLElement, label: string): HTMLElement[] {
 const titlesIn = (cell: HTMLElement) =>
   Array.from(cell.querySelectorAll('[title]')).map((el) => el.getAttribute('title') ?? '');
 
-async function renderGrid() {
+async function renderGrid(extraColumns: Array<Record<string, unknown>> = []) {
   const ds = {
     find: vi.fn(async () => ({ data: ROWS, total: ROWS.length, hasMore: false, pageSize: 50 })),
     findOne: vi.fn(async (objectName: string, id: string) =>
@@ -88,6 +91,7 @@ async function renderGrid() {
       { field: 'source_case', label: 'Source Case', type: 'lookup' },
       // No authored type: the flag comes from the object's declared type.
       { field: 'parent_case', label: 'Parent Case' },
+      ...extraColumns,
     ],
   };
   const utils = render(
@@ -126,5 +130,17 @@ describe('objectui#13377 — ObjectGrid: a reference cell draws no tooltip carry
     const [first, second] = cellsUnder(container, 'Title');
     expect(first!.querySelector('[data-auto-width-key]')?.getAttribute('title')).toBe('KA-0025');
     expect(second!.querySelector('[data-auto-width-key]')?.getAttribute('title')).toBe('KA-0026');
+  });
+
+  it('CONTROL — a view column authoring `type: \'text\'` over the lookup draws the id as text and keeps its tooltip', async () => {
+    const { container } = await renderGrid([{ field: 'source_case', label: 'As Text', type: 'text' }]);
+    const [first, second] = cellsUnder(container, 'As Text');
+    expect(first!.textContent, 'CONTROL: the authored type draws the raw id').toBe(RESTRICTED_ID);
+    expect(first!.querySelector('[data-auto-width-key]')?.getAttribute('title')).toBe(RESTRICTED_ID);
+    expect(second!.querySelector('[data-auto-width-key]')?.getAttribute('title')).toBe(READABLE.id);
+    // The lookup-typed column over the same field still carries none.
+    for (const cell of cellsUnder(container, 'Source Case')) {
+      expect(cell.querySelector('[data-auto-width-key]')!.hasAttribute('title')).toBe(false);
+    }
   });
 });

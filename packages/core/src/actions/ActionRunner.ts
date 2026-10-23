@@ -24,6 +24,7 @@
 import type { ActionContext, ActionResult, RunnableActionType, UIActionSchema } from '@object-ui/types';
 import type { Action as SpecActionInput } from '@objectstack/spec/ui';
 import { ExpressionEvaluator } from '../evaluator/ExpressionEvaluator.js';
+import { actionCopySource, fillTemplateHoles, hasTemplateHoles, type ActionCopyTemplate } from './actionCopyTemplate.js';
 import { hasDeclaredPredicate } from '../evaluator/declaredPredicate.js';
 import { globalUndoManager } from './UndoManager.js';
 import { warnOnDeprecatedObjectParams, warnOnUnknownActionKeys } from './actionKeys.js';
@@ -154,8 +155,13 @@ export interface ActionDef {
    * confirm spelling: `@objectstack/spec`'s action surface and the
    * TranslationBundle key (`{ns}.objects.{obj}._actions.{name}.confirmText`)
    * both stand on it.
+   *
+   * A string or the `template` envelope (objectui#13367, the renderer half of
+   * objectstack#24814): its `{{ }}` holes are filled over `record` and
+   * `params`, and a sentence with none keeps the transitional `${…}` reading.
+   * See `confirmMessage`.
    */
-  confirmText?: string;
+  confirmText?: ActionCopyTemplate;
   /**
    * RETIRED (objectui#4314): the structured confirm object used to sit here
    * and its `message` OUTRANKED `confirmText` — untranslated, since no bundle
@@ -269,10 +275,14 @@ export interface ActionDef {
   /** Toast configuration */
   toast?: { showOnSuccess?: boolean; showOnError?: boolean; duration?: number };
   /** Success message (from UIActionSchema). The success toast's second rung,
-   *  after {@link outcomeMessages}; may interpolate `${result.*}`. */
-  successMessage?: string;
-  /** Error message (from UIActionSchema) */
-  errorMessage?: string;
+   *  after {@link outcomeMessages}. A string or the `template` envelope
+   *  (objectui#13367): `{{ }}` holes over `result` and `record`, or, in a
+   *  sentence with none, the transitional `${result.*}` tokens. */
+  successMessage?: ActionCopyTemplate;
+  /** Error message (from UIActionSchema). A string or the `template`
+   *  envelope (objectui#13367); shown as written — no scope is declared for
+   *  its holes yet. */
+  errorMessage?: ActionCopyTemplate;
   /** Whether to refresh data after execution (from UIActionSchema) */
   refreshAfter?: boolean;
   /** Single-record update actions: offer an Undo affordance on success. */
@@ -597,7 +607,8 @@ export type ToastHandler = (message: string, options?: {
  *
  * An author's `outcomeMessages` / `successMessage` / `errorMessage` and an
  * action's own error are never in this table: the host localizes authored copy
- * before dispatch, and the runner only fills in its `${result.*}` tokens.
+ * before dispatch, and the runner only fills in their holes (`{{ }}` or the
+ * transitional `${result.*}`).
  */
 const RUNNER_TEXT = {
   completedSuccessfully: {
@@ -1069,12 +1080,27 @@ function isUpdateOperationAction(action: ActionDef): boolean {
 }
 
 /**
+ * The row a dispatch carries — the clicked row a row surface stashes under
+ * `params._rowRecord` — or `undefined` when it carries none. The record its
+ * copy templates bind as `record` (see `ActionRunner.templateEvaluatorFor`).
+ */
+function dispatchRow(action: ActionDef): Record<string, unknown> | undefined {
+  const params = action.params;
+  const row = params && typeof params === 'object' && !Array.isArray(params)
+    ? (params as Record<string, unknown>)._rowRecord
+    : undefined;
+  return row && typeof row === 'object' && !Array.isArray(row) ? row as Record<string, unknown> : undefined;
+}
+
+/**
  * Whether the action declares its own success copy, read the way
- * `composeSuccessMessage` reads its `successMessage` rung: a non-empty string.
- * A navigation toasts only then (objectui#12755).
+ * `composeSuccessMessage` reads its `successMessage` rung: a non-empty string,
+ * or a `template` envelope whose `source` is one (objectui#13367). A
+ * navigation toasts only then (objectui#12755).
  */
 function declaresSuccessMessage(action: ActionDef): boolean {
-  return typeof action.successMessage === 'string' && action.successMessage.trim() !== '';
+  const text = actionCopySource(action.successMessage);
+  return text !== undefined && text.trim() !== '';
 }
 
 /**
@@ -1466,10 +1492,9 @@ export class ActionRunner {
       // `${record.*}` hole the record header fills was shown raw from a list
       // row (objectui#12967).
       const templates = this.templateEvaluatorFor(action);
-      if (action.confirmText) {
-        const confirmed = await this.confirmHandler(
-          templates.evaluate(action.confirmText) as string,
-        );
+      const confirmMessage = this.confirmMessage(action, templates);
+      if (confirmMessage !== undefined) {
+        const confirmed = await this.confirmHandler(confirmMessage);
         if (!confirmed) {
           return { success: false, error: 'Action cancelled by user' };
         }
@@ -1693,13 +1718,22 @@ export class ActionRunner {
    * sink differs: a toast is text, so a value is inserted as-is, where a URL
    * position percent-encodes it.
    *
+   * Rung 2 is also a `template` slot (objectui#13367, the renderer half of
+   * objectstack#24814): a string or the `{ dialect: 'template', source }`
+   * envelope. A sentence with a `{{ }}` hole is filled by the template engine
+   * over `result` (the same payload) and `record` (the record the action ran
+   * against), and is then not read for `${…}` tokens; one without keeps the
+   * `${result.*}` reading above until the spec card converts the platform's
+   * own `${result.email}`-style sentences.
+   *
    * ⛔ `result.data.message` is not a rung. It used to outrank both rungs of
    * author copy, which put whatever language the server happened to write in
    * front of the user's locale; the contract names no server-message rung, and
    * an author who wants the server's sentence can still write
    * `${result.message}` as the copy.
    *
-   * A rung counts only when it is a non-empty string. An `I18nLabel` map that
+   * A rung counts only when it is a non-empty string (for rung 2, or an
+   * envelope whose `source` is one). An `I18nLabel` map that
    * reached the runner without passing through a localizer has no language to
    * resolve against here, so it is skipped rather than handed to the toast as
    * an object — the React #31 crash the error branch below guards against.
@@ -1715,12 +1749,60 @@ export class ActionRunner {
       && Object.prototype.hasOwnProperty.call(outcomeMessages, outcome)
       ? (outcomeMessages as Record<string, unknown>)[outcome]
       : undefined;
-    for (const copy of [outcomeCopy, action.successMessage]) {
-      if (typeof copy === 'string' && copy.trim() !== '') {
-        return substituteScopeTokens(copy, { result: payload }, (value) => value);
-      }
+    if (typeof outcomeCopy === 'string' && outcomeCopy.trim() !== '') {
+      return substituteScopeTokens(outcomeCopy, { result: payload }, (value) => value);
+    }
+    const successCopy = actionCopySource(action.successMessage);
+    if (successCopy !== undefined && successCopy.trim() !== '') {
+      return hasTemplateHoles(successCopy)
+        ? fillTemplateHoles(successCopy, { result: payload, record: this.dispatchRecord(action) })
+        : substituteScopeTokens(successCopy, { result: payload }, (value) => value);
     }
     return this.runnerText(RUNNER_TEXT.completedSuccessfully);
+  }
+
+  /**
+   * The confirm dialog's body, or `undefined` when the action asks for no
+   * confirmation (objectui#13367).
+   *
+   * `confirmText` is a string or the `template` envelope. A sentence with a
+   * `{{ }}` hole is filled by the template engine over two roots: `record` —
+   * the record the action runs against, the same one `templateEvaluatorFor`
+   * binds — and `params`, the action's static params object when it has one
+   * (the dialog's collected values do not exist yet: the confirmation comes
+   * first). A sentence with no `{{ }}` hole keeps the transitional `${…}`
+   * reading through `templates`, so the platform's own `${…}` copy works
+   * until the spec card converts it.
+   *
+   * A declared value that carries no text — an envelope with no string
+   * `source` — still gates the run: the author declared a confirmation, and
+   * dropping it would let a destructive action run unasked. The dialog then
+   * shows no body text, never the object, which as a React child crashes the
+   * page. Every answer is a string for the same reason.
+   */
+  private confirmMessage(action: ActionDef, templates: ExpressionEvaluator): string | undefined {
+    const declared: unknown = action.confirmText;
+    if (!declared) return undefined;
+    const text = actionCopySource(declared);
+    if (text === undefined) return '';
+    if (!hasTemplateHoles(text)) {
+      const evaluated: unknown = templates.evaluate(text);
+      return typeof evaluated === 'string' ? evaluated : evaluated == null ? '' : String(evaluated);
+    }
+    const params = action.params;
+    const staticParams = params && typeof params === 'object' && !Array.isArray(params)
+      ? Object.fromEntries(Object.entries(params).filter(([key]) => key !== '_rowRecord'))
+      : undefined;
+    return fillTemplateHoles(text, { record: this.dispatchRecord(action), params: staticParams });
+  }
+
+  /**
+   * The record a dispatch runs against, for its copy templates: the row the
+   * dispatch carries (`params._rowRecord`), else the context's record — the
+   * one rule `templateEvaluatorFor` applies (objectui#12967).
+   */
+  private dispatchRecord(action: ActionDef): unknown {
+    return dispatchRow(action) ?? this.context.record;
   }
 
   /**
@@ -1764,7 +1846,11 @@ export class ActionRunner {
         // through here — and a non-string toast payload is rendered as a React
         // child, crashing the page (React #31). Coerce defensively at this
         // single sink so no handler can take the whole page down.
-        const raw: unknown = action.errorMessage || result.error;
+        // An authored `errorMessage` is shown as written — a string, or the
+        // `template` envelope's `source` (objectui#13367); no scope is declared
+        // for its holes yet. An envelope with no text falls to the error.
+        const authored = actionCopySource(action.errorMessage);
+        const raw: unknown = authored || result.error;
         const message = typeof raw === 'string'
           ? raw
           : (raw && typeof (raw as { message?: unknown }).message === 'string')
@@ -2750,11 +2836,8 @@ export class ActionRunner {
    * empty.
    */
   private templateEvaluatorFor(action: ActionDef): ExpressionEvaluator {
-    const params = action.params;
-    const row = params && typeof params === 'object' && !Array.isArray(params)
-      ? (params as Record<string, unknown>)._rowRecord
-      : undefined;
-    if (!row || typeof row !== 'object' || Array.isArray(row)) return this.evaluator;
+    const row = dispatchRow(action);
+    if (!row) return this.evaluator;
     return new ExpressionEvaluator({ ...this.context, record: row });
   }
 

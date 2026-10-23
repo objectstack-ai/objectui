@@ -150,6 +150,8 @@ const ar = {
     completedSuccessfully: 'اكتمل الإجراء بنجاح',
     failed: 'فشل الإجراء',
     parallelFailed: 'فشل إجراء متوازٍ واحد أو أكثر',
+    selectExactlyOneRow: 'يُنفَّذ هذا الإجراء على سجل واحد — حدّد صفًا واحدًا فقط.',
+    selectRowFirst: 'يُنفَّذ هذا الإجراء على سجل واحد — حدّد صفًا أولًا.',
     undo: 'تراجع',
     undone: 'تم التراجع عن التغيير',
     undoneOperation: 'تراجع: {{description}}',

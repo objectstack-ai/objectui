@@ -520,11 +520,26 @@ export interface ActionDef {
  * handler — a different calling convention entirely (`(ctx) => unknown`, with
  * validated params and a trusted engine facade on `ctx`) and a different
  * execution site.
+ *
+ * `refuseBeforeInput` is optional. When the handler the runner will dispatch
+ * to carries it, the runner asks it BEFORE the confirmation and the param
+ * dialog (objectui#13384), with the same context the dispatch will get. An
+ * answer refuses the run there: its `error` is toasted, translated through
+ * {@link ActionRunner.setTranslator}'s translator when it names an `errorKey`,
+ * and nothing is dispatched. `undefined` lets the run go on as before. The
+ * server-action handler uses it for its row-count refusal, so a single-record
+ * action launched with 0 or several rows selected never opens a dialog only
+ * to refuse after Confirm.
  */
-export type ActionRunnerHandler = (
+export type ActionRunnerHandler = ((
   action: ActionDef,
   context: ActionContext
-) => Promise<ActionResult> | ActionResult;
+) => Promise<ActionResult> | ActionResult) & {
+  refuseBeforeInput?: (
+    action: ActionDef,
+    context: ActionContext,
+  ) => { error: string; errorKey?: string } | undefined;
+};
 
 /**
  * Confirmation handler — replaces window.confirm.
@@ -595,6 +610,10 @@ export type ToastHandler = (message: string, options?: {
  * - `undo` — the label the runner hands the toast handler for an undoable
  *   success toast's Undo affordance (objectui#10969).
  *
+ * The translator is also asked for one text this table does not hold: a
+ * handler's early refusal that names an `errorKey` (`ActionRunnerHandler`'s
+ * `refuseBeforeInput`, objectui#13384). Its `error` is the English source.
+ *
  * An author's `outcomeMessages` / `successMessage` / `errorMessage` and an
  * action's own error are never in this table: the host localizes authored copy
  * before dispatch, and the runner only fills in its `${result.*}` tokens.
@@ -618,7 +637,7 @@ const RUNNER_TEXT = {
   },
 } as const;
 
-type RunnerText = (typeof RUNNER_TEXT)[keyof typeof RUNNER_TEXT];
+type RunnerText = { readonly key: string; readonly defaultValue: string };
 
 /**
  * Modal handler — consumers provide to render modal dialogs.
@@ -1288,7 +1307,9 @@ export class ActionRunner {
    * reached the runner, and the Undo label of an undoable success toast. An
    * author's `outcomeMessages` / `successMessage` / `errorMessage` and an
    * action's own error never go through this translator: the host localizes
-   * authored copy before dispatch. With no translator the text stays English.
+   * authored copy before dispatch. The one handler text it does translate is
+   * an early refusal that names its key (`ActionRunnerHandler`'s
+   * `refuseBeforeInput`). With no translator the text stays English.
    */
   setTranslator(translate: (key: string, options: { defaultValue: string }) => string): void {
     this.translate = translate;
@@ -1453,6 +1474,19 @@ export class ActionRunner {
         if (isDisabled) {
           return { success: false, error: 'Action is disabled' };
         }
+      }
+
+      // The handler's early refusal (objectui#13384), asked before the
+      // confirmation and the param dialog below. A run the handler would
+      // refuse for its context — a single-record action launched with 0 or
+      // several rows selected — is refused here, with the toast and the
+      // post-execution the dispatch-time refusal gets, and before the user
+      // has typed anything or anything is sent.
+      const refusal = this.refusalBeforeInput(action, actionType);
+      if (refusal !== undefined) {
+        const refused: ActionResult = { success: false, error: refusal };
+        await this.handlePostExecution(action, refused);
+        return refused;
       }
 
       // Confirmation. One spelling: `confirmText` — the only one the
@@ -1667,7 +1701,24 @@ export class ActionRunner {
   }
 
   /**
-   * One entry of `RUNNER_TEXT`, in the installed translator's language. An
+   * The early refusal of the handler {@link dispatchCollected} would route
+   * this action to, in the translator's language when it names a key —
+   * `undefined` when there is none. An update-operation action never reaches
+   * a registered handler, so it is never asked.
+   */
+  private refusalBeforeInput(action: ActionDef, actionType: string): string | undefined {
+    if (isUpdateOperationAction(action)) return undefined;
+    const handler = actionType ? this.handlers.get(actionType) : undefined;
+    const refusal = handler?.refuseBeforeInput?.(action, this.context);
+    if (!refusal?.error) return undefined;
+    return refusal.errorKey
+      ? this.runnerText({ key: refusal.errorKey, defaultValue: refusal.error })
+      : refusal.error;
+  }
+
+  /**
+   * One entry of `RUNNER_TEXT` (or a handler's keyed early refusal), in the
+   * installed translator's language. An
    * empty answer from the translator falls back to the English source rather
    * than raising an empty toast or an empty label.
    */

@@ -138,6 +138,8 @@ const es = {
     completedSuccessfully: 'La acción se completó correctamente',
     failed: 'La acción falló',
     parallelFailed: 'Una o más acciones paralelas fallaron',
+    selectExactlyOneRow: 'Esta acción se ejecuta sobre un solo registro: seleccione exactamente una fila.',
+    selectRowFirst: 'Esta acción se ejecuta sobre un solo registro: seleccione primero una fila.',
     undo: 'Deshacer',
     undone: 'Cambio deshecho',
     undoneOperation: 'Deshacer: {{description}}',

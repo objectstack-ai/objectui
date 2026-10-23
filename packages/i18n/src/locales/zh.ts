@@ -141,6 +141,8 @@ const zh = {
     completedSuccessfully: '操作已成功完成',
     failed: '操作失败',
     parallelFailed: '一个或多个并行操作失败',
+    selectExactlyOneRow: '此操作针对单条记录，请只选择一行。',
+    selectRowFirst: '此操作针对单条记录，请先选择一行。',
     undo: '撤销',
     undone: '已撤销更改',
     undoneOperation: '撤销：{{description}}',

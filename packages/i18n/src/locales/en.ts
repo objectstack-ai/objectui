@@ -168,6 +168,12 @@ const en = {
     // handler for an undoable success toast.
     failed: 'Action failed',
     parallelFailed: 'One or more parallel actions failed',
+    // The two row-count refusals of a single-record action launched from a
+    // list toolbar (`resolveServerActionRecordId` in `@object-ui/core`); the
+    // runner asks for them before any confirmation or param dialog opens
+    // (objectui#13384).
+    selectExactlyOneRow: 'This action runs on a single record — select exactly one row.',
+    selectRowFirst: 'This action runs on a single record — select a row first.',
     undo: 'Undo',
     // The confirmation toast after that Undo has run — written by the console's
     // two undo handlers (`useConsoleActionRuntime` and `RecordDetailView`), not

@@ -138,6 +138,8 @@ const fr = {
     completedSuccessfully: 'Action effectuée avec succès',
     failed: "Échec de l'action",
     parallelFailed: 'Une ou plusieurs actions parallèles ont échoué',
+    selectExactlyOneRow: 'Cette action porte sur un seul enregistrement — sélectionnez exactement une ligne.',
+    selectRowFirst: 'Cette action porte sur un seul enregistrement — sélectionnez d’abord une ligne.',
     undo: 'Annuler',
     undone: 'Modification annulée',
     undoneOperation: 'Annuler : {{description}}',

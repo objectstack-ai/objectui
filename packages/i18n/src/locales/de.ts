@@ -136,6 +136,8 @@ const de = {
     completedSuccessfully: 'Aktion erfolgreich abgeschlossen',
     failed: 'Aktion fehlgeschlagen',
     parallelFailed: 'Eine oder mehrere parallele Aktionen sind fehlgeschlagen',
+    selectExactlyOneRow: 'Diese Aktion gilt für einen einzelnen Datensatz – wählen Sie genau eine Zeile aus.',
+    selectRowFirst: 'Diese Aktion gilt für einen einzelnen Datensatz – wählen Sie zuerst eine Zeile aus.',
     undo: 'Rückgängig',
     undone: 'Änderung rückgängig gemacht',
     undoneOperation: 'Rückgängig: {{description}}',

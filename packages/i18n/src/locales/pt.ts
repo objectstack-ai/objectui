@@ -138,6 +138,8 @@ const pt = {
     completedSuccessfully: 'A ação foi concluída com sucesso',
     failed: 'A ação falhou',
     parallelFailed: 'Uma ou mais ações paralelas falharam',
+    selectExactlyOneRow: 'Esta ação é executada em um único registro — selecione exatamente uma linha.',
+    selectRowFirst: 'Esta ação é executada em um único registro — selecione uma linha primeiro.',
     undo: 'Desfazer',
     undone: 'Alteração desfeita',
     undoneOperation: 'Desfazer: {{description}}',

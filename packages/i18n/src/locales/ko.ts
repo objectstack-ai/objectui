@@ -136,6 +136,8 @@ const ko = {
     completedSuccessfully: '작업이 완료되었습니다',
     failed: '작업 실패',
     parallelFailed: '하나 이상의 병렬 작업이 실패했습니다',
+    selectExactlyOneRow: '이 작업은 단일 레코드에서 실행됩니다. 행을 하나만 선택하세요.',
+    selectRowFirst: '이 작업은 단일 레코드에서 실행됩니다. 먼저 행을 선택하세요.',
     undo: '실행 취소',
     undone: '변경 실행 취소됨',
     undoneOperation: '실행 취소: {{description}}',

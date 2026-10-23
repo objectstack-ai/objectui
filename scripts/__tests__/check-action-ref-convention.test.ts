@@ -268,8 +268,12 @@ describe('prose cannot be mistaken for a reference', () => {
     expect(parseRefs(source, 'repo-gates.yml').map((r: { ref: string }) => r.ref)).toEqual([
       'actions/checkout@v7',
       'actions/setup-node@v7',
-      // The pinned @objectstack build's restore and save (objectui#12957).
+      // In file order: the pinned @objectstack build's restore (objectui#12957),
+      // the build's turbo cache restore and save (objectui#13348), then the
+      // pinned build's save.
       'actions/cache/restore@v6',
+      'actions/cache/restore@v6',
+      'actions/cache/save@v6',
       'actions/cache/save@v6',
     ]);
   });

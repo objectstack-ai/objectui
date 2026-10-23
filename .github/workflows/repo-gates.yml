@@ -399,12 +399,43 @@ jobs:
       # word-split, so they stay unquoted. A derive step that failed contributes
       # nothing here and is red on its own; its gate then reports `unbuilt`
       # rather than judging a tree it cannot see.
+      #
+      # ── The build's turbo cache: this job's own, and only `main` writes it ──
+      # (objectui#13348) Until this step the build above ran cold on every
+      # pull request, push and queue build. The shape is `performance-budget.yml`'s
+      # `bundle-analysis` cache (objectui#12276), which `report-turbo-cache.test.ts`
+      # holds every `.turbo/cache` in `.github/workflows/` to: ONE restore key,
+      # this job's own `repo-gates` prefix, so no other job's entry is ever
+      # restored here; split restore/save (objectui#6577, objectui#7048), the
+      # restore UNBOUNDED for the reason written there; pull-request and queue
+      # runs restore and never save, so on a pull request's ref this key finds
+      # nothing and falls through to `main`. The report, the prune and the save
+      # are this job's last steps.
+      #
+      # It changes what the build REPLAYS, never what it builds: the filter set
+      # on the build step is untouched, and the header's "never an unfiltered
+      # `turbo run build`" holds as before. Gated on the install like the build
+      # it serves, so a run that will not build does not spend a restore.
+      - name: Restore Turbo Cache
+        id: turbo-cache
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        uses: actions/cache/restore@v6
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-repo-gates-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-repo-gates-
+
+      # `TURBO_RUN_SUMMARY` makes turbo write its run summary to `.turbo/runs/`;
+      # it changes nothing turbo runs or caches, and `Report what the turbo
+      # cache replayed` below reads it (objectui#12276).
       - name: Build every package the gates below read
         id: build
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         env:
           SKILL_FILTER: ${{ steps.skill-filter.outputs.args }}
           SNIPPET_FILTER: ${{ steps.snippet-filter.outputs.args }}
+          TURBO_RUN_SUMMARY: 'true'
         run: pnpm exec turbo run build --filter='./packages/*' $SKILL_FILTER $SNIPPET_FILTER
 
       # The self-test runs BEFORE the corpus, and after the build because its
@@ -480,6 +511,66 @@ jobs:
       - name: README Export Check — Check every README self-import against the real export surface
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm check:readme-exports
+
+      # ── What the cache replayed, and only `main` writes it (objectui#13348) ──
+      # `performance-budget.yml`'s two bookkeeping steps (objectui#12276), for
+      # this job's cache. The report reads the summary the build step asked turbo
+      # for and puts what the restored cache replayed, what re-ran and the
+      # restored key on ONE `::notice` annotation, readable through the
+      # check-runs API by anyone who cannot open this log. The prune deletes
+      # every entry this run did not use, on `push` only -- the runs that save --
+      # so `main`'s entry is exactly the current build outputs; pull-request and
+      # queue runs restore and never save, because what they would save is
+      # scoped to a ref no other pull request can read, and every build-sized
+      # entry saved is one more a size-limited cache store can evict `main`'s for.
+      #
+      # `push` alone: this workflow has no `schedule`. Read before relying on it
+      # (objectui#13348): the push concurrency group here is the ref with
+      # `cancel-in-progress`, so a merge can cancel the previous merge's run, and
+      # 18 of the 20 newest `main` push runs succeeded (2 cancelled) -- the save
+      # lands on most merges.
+      #
+      # Bookkeeping after the last checking step, bounded and
+      # `continue-on-error`. `timeout-minutes: 1` each: the script reads one run
+      # summary and lists one directory (87 ms measured on objectui#12276); a
+      # minute is several hundred times that.
+      - name: Report what the turbo cache replayed
+        if: ${{ !cancelled() }}
+        timeout-minutes: 1
+        continue-on-error: true
+        env:
+          RESTORED_CACHE_KEY: ${{ steps.turbo-cache.outputs.cache-matched-key }}
+        run: node scripts/report-turbo-cache.mjs
+
+      - name: Prune the turbo cache to what this run used
+        if: github.event_name == 'push'
+        timeout-minutes: 1
+        continue-on-error: true
+        run: node scripts/report-turbo-cache.mjs --prune
+
+      # The bookkeeping half of the split documented at the restore step above,
+      # placed after every checking step. `cache-hit != 'true'` skips an exact
+      # primary-key hit; a `restore-keys` prefix match leaves it false and the
+      # save runs; the implicit `success()` applies; same `path` and `key` as the
+      # restore. Only `push` saves, after the prune above.
+      #
+      # `timeout-minutes: 5` is NOT yet derived from this site's own save: no run
+      # of this job has saved this cache. What it rests on is the nearest
+      # measured save of the same entry -- `bundle-analysis` builds the same
+      # task set (`--filter='./packages/*'`; the two derived filters here add no
+      # task on objectui#13348's base) and its save measured 1s (objectui#7048
+      # arithmetic, `performance-budget.yml`). Re-derive it from this step's own
+      # runs. With the pinned build's 2 below, this job's saves stay at 7 of 30.
+      - name: Save Turbo Cache
+        if: >-
+          steps.turbo-cache.outputs.cache-hit != 'true'
+          && github.event_name == 'push'
+        uses: actions/cache/save@v6
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-repo-gates-${{ github.sha }}
 
       # The pinned @objectstack build, saved only when this job built it (a cache
       # miss) and whatever the verdict above was -- it does not depend on it.

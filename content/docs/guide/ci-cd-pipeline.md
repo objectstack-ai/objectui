@@ -636,7 +636,11 @@ import graph free of `node_modules`. The three gates that judge the *published* 
 one build: `turbo run build` over every package under `packages/` (the README export check reads
 each package's declared type entry), in union with the closures the two snippet gates derive with
 `--build-filter`. ⛔ It is never an unfiltered workspace build, and a derived filter that names no
-package is refused at the step that derives it.
+package is refused at the step that derives it. That build restores this job's own turbo cache
+(key prefix `turbo-<os>-repo-gates-`, [#13348](https://github.com/objectstack-ai/objectui/issues/13348)):
+pull-request and queue runs restore and never save; a push saves it after pruning it to what the
+run used, and every run reports what it replayed — bookkeeping only, after the verdict —
+with `scripts/report-turbo-cache.mjs`.
 
 The sections below are the fifteen gates, each under the name its step carries.
 

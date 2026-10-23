@@ -22,7 +22,8 @@
  * Controls, each against the hole a fix could leave:
  *   - the re-check is still sent, and its answer is what the hook shows;
  *   - a question on the wire BEFORE the first announcement is still refused
- *     and asked again (objectui#10184, objectui#11699);
+ *     and asked again (objectui#10184, objectui#11699) — once, since the
+ *     question it sets off is that re-check;
  *   - an announcement after the re-check has answered asks again.
  */
 import * as React from 'react';
@@ -111,7 +112,7 @@ describe('useRecordEditable — one re-check per change (objectui#13341)', () =>
     expect(asks).toHaveLength(2);
   });
 
-  it('control — a question on the wire BEFORE the change is refused, and the re-check answers', async () => {
+  it('a question on the wire BEFORE the change is refused once, and the re-check it set off absorbs the next announcement', async () => {
     const { asks } = held;
     const header = renderHook(() => useRecordEditable('note', 'r1'), { wrapper: asA });
     await waitFor(() => expect(asks).toHaveLength(1));

@@ -1292,7 +1292,7 @@ const pt = {
     historyEmpty: "Nenhum histórico ainda",
     editRow: "Editar",
     deleteRow: "Excluir",
-    deleteRowConfirmation: "Excluir este registro?",
+    deleteRowConfirmation: "Excluir “{{name}}”?",
     deleteRowTitle: "Excluir registro",
     actions: "Ações",
     previousPage: "Anterior",

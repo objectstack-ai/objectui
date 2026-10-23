@@ -1292,7 +1292,7 @@ const fr = {
     historyEmpty: "Aucun historique pour le moment",
     editRow: "Modifier",
     deleteRow: "Supprimer",
-    deleteRowConfirmation: "Supprimer cet enregistrement ?",
+    deleteRowConfirmation: "Supprimer « {{name}} » ?",
     deleteRowTitle: "Supprimer l'enregistrement",
     actions: "Actions",
     previousPage: "Précédent",

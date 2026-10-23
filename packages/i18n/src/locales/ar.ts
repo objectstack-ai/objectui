@@ -1400,7 +1400,7 @@ const ar = {
     historyEmpty: "لا يوجد سجل بعد",
     editRow: "تعديل",
     deleteRow: "حذف",
-    deleteRowConfirmation: "حذف هذا السجل؟",
+    deleteRowConfirmation: "حذف “{{name}}”؟",
     deleteRowTitle: "حذف السجل",
     actions: "الإجراءات",
     previousPage: "السابق",

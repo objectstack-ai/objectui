@@ -33,7 +33,7 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { z } from 'zod';
 import { ComponentRegistry } from '@object-ui/core';
@@ -181,6 +181,12 @@ const source = () => screen.findByRole('textbox', { name: 'Markdown source' }, {
 const saveButton = () => screen.getByRole('button', { name: /Save \(⌘S\)/ });
 const discardButton = () => screen.getAllByRole('button', { name: 'Discard draft' })[0]!;
 
+/** Accept the page's in-app confirm (objectui#13333) once it opens. */
+async function acceptInAppConfirm() {
+  const dialog = await screen.findByRole('alertdialog');
+  fireEvent.click(within(dialog).getByTestId('resource-edit-confirm-action'));
+}
+
 describe('MetadataResourceEditPage — no /layers re-read for an item known to have no layer (objectui#11799)', () => {
   it('SAVE of an item whose load found no layer: the refresh asks no /layers, and the editor shows the saved draft as before', async () => {
     server.drafts.set('doc/fresh_guide', doc('fresh_guide', '# Draft'));
@@ -259,6 +265,8 @@ describe('MetadataResourceEditPage — no /layers re-read for an item known to h
     expect(layersAsked('fresh_guide')).toBe(1);
 
     fireEvent.click(discardButton());
+
+    await acceptInAppConfirm();
     await waitFor(() => expect(server.drafts.has('doc/fresh_guide')).toBe(false));
     await settle();
 
@@ -276,6 +284,8 @@ describe('MetadataResourceEditPage — no /layers re-read for an item known to h
     expect(layersAsked('live_guide')).toBe(1);
 
     fireEvent.click(discardButton());
+
+    await acceptInAppConfirm();
     await waitFor(() => expect(server.drafts.has('doc/live_guide')).toBe(false));
     await settle();
 

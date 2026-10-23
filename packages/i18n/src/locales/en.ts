@@ -1439,7 +1439,7 @@ const en = {
     historyEmpty: 'No history yet',
     editRow: 'Edit',
     deleteRow: 'Delete',
-    deleteRowConfirmation: 'Are you sure you want to delete this record?',
+    deleteRowConfirmation: 'Are you sure you want to delete "{{name}}"?',
     deleteRowTitle: 'Delete record',
     actions: 'Actions',
     previousPage: 'Previous',

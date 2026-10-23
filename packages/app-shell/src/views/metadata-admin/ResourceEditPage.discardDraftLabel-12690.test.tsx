@@ -13,15 +13,16 @@
  *
  * The REAL page over a REAL `MetadataClient`, whose transport is an in-memory
  * server answering as the framework does (the double
- * `ResourceEditPage.discardFeedback-12303.test.tsx` uses). Only `sonner`,
- * `window.confirm` and the editor's locale hook are replaced, so the two
- * strings the page hands them are what is read.
+ * `ResourceEditPage.discardFeedback-12303.test.tsx` uses). Only `sonner` and
+ * the editor's locale hook are replaced. The confirm is the page's in-app
+ * AlertDialog (objectui#13333), so its title is read off the rendered dialog;
+ * `window.confirm` is stubbed only as a tripwire that must never be called.
  */
 
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { z } from 'zod';
 import { ComponentRegistry } from '@object-ui/core';
@@ -129,6 +130,7 @@ beforeEach(() => {
   for (const fn of Object.values(toasts)) fn.mockClear();
   confirmSpy.mockReset();
   confirmSpy.mockReturnValue(true);
+  asked.length = 0;
   window.localStorage.setItem('metadata-admin:autosave', '0');
   Object.defineProperty(window, 'confirm', { configurable: true, writable: true, value: confirmSpy });
 });
@@ -161,9 +163,15 @@ async function openDrafted(name: string, label: string | undefined) {
   await settle();
 }
 
+/** What the in-app confirm asked, captured before it is accepted. */
+const asked: string[] = [];
+
 async function discard(name: string) {
   const label = locale.current === 'zh-CN' ? '丢弃草稿' : 'Discard draft';
   fireEvent.click(screen.getAllByRole('button', { name: label })[0]!);
+  const dialog = await screen.findByRole('alertdialog');
+  asked.push(within(dialog).getByRole('heading').textContent ?? '');
+  fireEvent.click(within(dialog).getByTestId('resource-edit-confirm-action'));
   await waitFor(() => expect(server.drafts.has(`doc/${name}`)).toBe(false));
   await settle();
 }
@@ -173,11 +181,11 @@ describe('MetadataResourceEditPage — "Discard draft" names the item by its lab
     await openDrafted('qa_widget', 'QA Widget');
     await discard('qa_widget');
 
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
-    const asked = confirmSpy.mock.calls[0]![0]!;
-    expect(asked).toBe(tFormat('engine.edit.discardDraftConfirm', 'en-US', { item: 'QA Widget' }));
-    expect(asked).toContain('QA Widget');
-    expect(asked).not.toContain('doc/qa_widget');
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toBe(tFormat('engine.edit.discardDraftConfirm', 'en-US', { item: 'QA Widget' }));
+    expect(asked[0]).toContain('QA Widget');
+    expect(asked[0]).not.toContain('doc/qa_widget');
 
     expect(toasts.success).toHaveBeenCalledTimes(1);
     const said = toasts.success.mock.calls[0]![0] as string;
@@ -191,10 +199,9 @@ describe('MetadataResourceEditPage — "Discard draft" names the item by its lab
     await openDrafted('qa_widget', 'QA Widget');
     await discard('qa_widget');
 
-    const asked = confirmSpy.mock.calls[0]![0]!;
-    expect(asked).toBe(tFormat('engine.edit.discardDraftConfirm', 'zh-CN', { item: 'QA Widget' }));
-    expect(asked).toContain('QA Widget');
-    expect(asked).not.toContain('doc/qa_widget');
+    expect(asked[0]).toBe(tFormat('engine.edit.discardDraftConfirm', 'zh-CN', { item: 'QA Widget' }));
+    expect(asked[0]).toContain('QA Widget');
+    expect(asked[0]).not.toContain('doc/qa_widget');
 
     const said = toasts.success.mock.calls[0]![0] as string;
     expect(said).toBe(tFormat('engine.edit.draftDiscarded', 'zh-CN', { item: 'QA Widget' }));
@@ -206,7 +213,7 @@ describe('MetadataResourceEditPage — "Discard draft" names the item by its lab
     await openDrafted('plain_note', undefined);
     await discard('plain_note');
 
-    expect(confirmSpy.mock.calls[0]![0]).toBe('Discard the pending draft for doc/plain_note?');
+    expect(asked).toEqual(['Discard the pending draft for doc/plain_note?']);
     expect(toasts.success).toHaveBeenCalledWith('Draft discarded: doc/plain_note');
     // The same one DELETE of the draft row, at the same package-less address.
     expect(server.deletes).toEqual(['/api/v1/meta/doc/plain_note?state=draft']);

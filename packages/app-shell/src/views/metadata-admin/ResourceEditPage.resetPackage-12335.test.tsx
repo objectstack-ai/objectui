@@ -29,7 +29,7 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { z } from 'zod';
 import { ComponentRegistry } from '@object-ui/core';
@@ -207,6 +207,12 @@ async function openAt(search: string, expectedDraft: string) {
 
 const discardButton = () => screen.getAllByRole('button', { name: 'Discard draft' })[0]!;
 const resetButton = () => screen.getByTestId('reset-or-delete-button');
+
+/** Accept the page's in-app confirm (objectui#13333) once it opens. */
+async function acceptInAppConfirm() {
+  const dialog = await screen.findByRole('alertdialog');
+  fireEvent.click(within(dialog).getByTestId('resource-edit-confirm-action'));
+}
 const lastDelete = () => server.deletes[server.deletes.length - 1]!;
 const packagesHeld = (store: Map<string, Rows>) => [...(store.get(KEY)?.keys() ?? [])];
 
@@ -215,6 +221,8 @@ describe('ResourceEditPage — a bound editor names its package on reset and dis
     await openAt(`?package=${PKG_A}`, '# Alpha drafted');
 
     fireEvent.click(discardButton());
+
+    await acceptInAppConfirm();
     await waitFor(() => expect(server.deletes).toHaveLength(1));
     await settle();
 
@@ -229,6 +237,8 @@ describe('ResourceEditPage — a bound editor names its package on reset and dis
     await openAt(`?package=${PKG_A}`, '# Alpha drafted');
 
     fireEvent.click(resetButton());
+
+    await acceptInAppConfirm();
     await waitFor(() => expect(server.deletes).toHaveLength(1));
     await settle();
 
@@ -244,6 +254,8 @@ describe('ResourceEditPage — an unbound editor sends no package, and the 409 r
     await openAt('', '# Alpha drafted');
 
     fireEvent.click(discardButton());
+
+    await acceptInAppConfirm();
     await waitFor(() => expect(server.deletes).toHaveLength(1));
     await settle();
 
@@ -259,6 +271,8 @@ describe('ResourceEditPage — an unbound editor sends no package, and the 409 r
     await openAt('', '# Alpha drafted');
 
     fireEvent.click(resetButton());
+
+    await acceptInAppConfirm();
     await waitFor(() => expect(server.deletes).toHaveLength(1));
     await settle();
 
@@ -272,6 +286,8 @@ describe('ResourceEditPage — an unbound editor sends no package, and the 409 r
     await openAt('?package=all', '# Alpha drafted');
 
     fireEvent.click(discardButton());
+
+    await acceptInAppConfirm();
     await waitFor(() => expect(server.deletes).toHaveLength(1));
     await settle();
 

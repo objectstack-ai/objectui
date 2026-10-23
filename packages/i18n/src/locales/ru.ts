@@ -1178,7 +1178,7 @@ const ru = {
     activity: "Активность",
     editRow: "Редактировать",
     deleteRow: "Удалить",
-    deleteRowConfirmation: "Удалить эту запись?",
+    deleteRowConfirmation: "Удалить «{{name}}»?",
     actions: "Действия",
     previousPage: "Назад",
     nextPage: "Далее",

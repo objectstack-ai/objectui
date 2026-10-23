@@ -1258,7 +1258,7 @@ const de = {
     historyEmpty: "Noch kein Verlauf",
     editRow: "Bearbeiten",
     deleteRow: "Löschen",
-    deleteRowConfirmation: "Möchten Sie diesen Datensatz wirklich löschen?",
+    deleteRowConfirmation: "Möchten Sie „{{name}}“ wirklich löschen?",
     deleteRowTitle: "Datensatz löschen",
     actions: "Aktionen",
     previousPage: "Zurück",

@@ -74,6 +74,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@object-ui/components';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@object-ui/components';
 import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
 import type {
   MetadataLayered,
@@ -1877,7 +1887,43 @@ function MetadataResourceEditPageImpl({
     }
   }
 
-  async function doReset() {
+  // objectui#13333 — the reset / delete and the discard-draft confirmations
+  // are asked in the console's in-app AlertDialog (the idiom `PackagesPage`
+  // uses), never the browser's native `confirm()`. One slot holds whichever
+  // is open; its copy is computed when it opens, from the body loaded then.
+  const [pendingConfirm, setPendingConfirm] = React.useState<{
+    kind: 'reset' | 'delete' | 'discard';
+    title: string;
+    description: string;
+    actionLabel: string;
+    item: string;
+  } | null>(null);
+
+  /** The item's own label from its loaded body, trimmed; empty when it carries none. */
+  function ownItemLabel(): string {
+    return typeof draft.label === 'string' ? draft.label.trim() : '';
+  }
+
+  function doReset() {
+    const confirmKey = isResetSemantic
+      ? 'engine.edit.resetConfirm'
+      : 'engine.edit.deleteConfirm';
+    const vars = {
+      type,
+      name: name ?? '',
+      typeLabel: translateMetadataType(type, locale, entry?.label ?? type),
+      item: ownItemLabel() || (name ?? ''),
+    };
+    setPendingConfirm({
+      kind: isResetSemantic ? 'reset' : 'delete',
+      title: tFormat(confirmKey, locale, vars),
+      description: tFormat(`${confirmKey}Body`, locale, vars),
+      actionLabel: t(isResetSemantic ? 'engine.edit.reset' : 'engine.edit.delete', locale),
+      item: vars.item,
+    });
+  }
+
+  async function runReset(resetSemantic: boolean) {
     // Two semantics, ONE verdict — see `isResetSemantic` above. Both this
     // handler and the button that triggers it read that single value, so the
     // icon, the `title`, the confirm text and the branch taken here can no
@@ -1889,12 +1935,8 @@ function MetadataResourceEditPageImpl({
     //   - no baseline: the overlay row IS the entry, so the same DELETE
     //     destroys it → "Delete", and the current URL no longer refers to
     //     anything, so navigate back to the list.
-    const confirmKey = isResetSemantic
-      ? 'engine.edit.resetConfirm'
-      : 'engine.edit.deleteConfirm';
-    if (!confirm(tFormat(confirmKey, locale, { type, name: name ?? '' }))) {
-      return;
-    }
+    // `resetSemantic` is the verdict the confirm was opened with, so the
+    // branch taken is the one the dialog asked about.
     setSaving(true);
     setError(null);
     try {
@@ -1912,7 +1954,7 @@ function MetadataResourceEditPageImpl({
       // objectui#11773 — the buffer below is re-read from the layers, with no
       // draft read behind it, so nothing pins its next save.
       forgetDraftVersion();
-      if (isResetSemantic) {
+      if (resetSemantic) {
         const lay = await client.layered<any>(type, name);
         setLayered(lay);
         const fresh = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
@@ -1986,16 +2028,22 @@ function MetadataResourceEditPageImpl({
 
   // Discard the pending draft (`DELETE ?state=draft`). The published
   // overlay is untouched; the editor reverts to showing the live body.
-  async function doDiscardDraft() {
+  function doDiscardDraft() {
     // objectui#12690 — the confirm and the toast name the item by the label
     // its loaded body carries (the one the assistant context above reads),
     // and by the machine `type/name` only when it carries none. Read once,
-    // before the discard swaps the body.
-    const ownLabel = typeof draft.label === 'string' ? draft.label.trim() : '';
-    const item = ownLabel || `${type}/${name ?? ''}`;
-    if (!confirm(tFormat('engine.edit.discardDraftConfirm', locale, { item }))) {
-      return;
-    }
+    // when the confirm opens, before the discard swaps the body.
+    const item = ownItemLabel() || `${type}/${name ?? ''}`;
+    setPendingConfirm({
+      kind: 'discard',
+      title: tFormat('engine.edit.discardDraftConfirm', locale, { item }),
+      description: t('engine.edit.discardDraftConfirmBody', locale),
+      actionLabel: t('engine.edit.discardDraft', locale),
+      item,
+    });
+  }
+
+  async function runDiscardDraft(item: string) {
     setSaving(true);
     setError(null);
     try {
@@ -3417,6 +3465,40 @@ function MetadataResourceEditPageImpl({
       {/* objectui#11773 — the draft-version conflict, apart from the
           destructive-change confirmation above: two different 409s. */}
       {draftConflictDialog}
+      {/* objectui#13333 — reset / delete / discard-draft, asked in-app. */}
+      <AlertDialog
+        open={pendingConfirm !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingConfirm(null);
+        }}
+      >
+        <AlertDialogContent data-testid="resource-edit-confirm-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingConfirm?.title}</AlertDialogTitle>
+            <AlertDialogDescription data-testid="resource-edit-confirm-body">
+              {pendingConfirm?.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="resource-edit-confirm-cancel">
+              {t('engine.cancel', locale)}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="resource-edit-confirm-action"
+              onClick={() => {
+                const pending = pendingConfirm;
+                setPendingConfirm(null);
+                if (!pending) return;
+                if (pending.kind === 'discard') void runDiscardDraft(pending.item);
+                else void runReset(pending.kind === 'reset');
+              }}
+            >
+              {pendingConfirm?.actionLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageShell>
   );
 }

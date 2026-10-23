@@ -1113,7 +1113,7 @@ const ja = {
     activity: "アクティビティ",
     editRow: "編集",
     deleteRow: "削除",
-    deleteRowConfirmation: "このレコードを削除してもよろしいですか？",
+    deleteRowConfirmation: "「{{name}}」を削除してもよろしいですか？",
     actions: "操作",
     previousPage: "前へ",
     nextPage: "次へ",

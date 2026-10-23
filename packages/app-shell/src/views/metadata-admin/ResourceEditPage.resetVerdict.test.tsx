@@ -49,7 +49,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -135,16 +135,29 @@ function editorUnderRoute() {
   );
 }
 
-/** Captures what the confirm dialog actually asked, and answers yes. */
+/**
+ * What the confirm dialog actually asked — its title, then its body. The
+ * confirm is the page's in-app AlertDialog (objectui#13333); the browser's
+ * native `confirm` is stubbed only as a tripwire that must never be called.
+ */
 const confirmMessages: string[] = [];
+const nativeConfirm = vi.fn(() => true);
 
 beforeEach(() => {
   confirmMessages.length = 0;
-  vi.stubGlobal('confirm', (msg?: string) => {
-    confirmMessages.push(String(msg ?? ''));
-    return true;
-  });
+  nativeConfirm.mockClear();
+  vi.stubGlobal('confirm', nativeConfirm);
 });
+
+/** Click the control, read the in-app confirm it opens, and answer yes. */
+async function clickAndConfirm(btn: HTMLElement) {
+  await userEvent.click(btn);
+  const dialog = await screen.findByRole('alertdialog');
+  confirmMessages.push(within(dialog).getByRole('heading').textContent ?? '');
+  confirmMessages.push(within(dialog).getByTestId('resource-edit-confirm-body').textContent ?? '');
+  await userEvent.click(within(dialog).getByTestId('resource-edit-confirm-action'));
+  expect(nativeConfirm).not.toHaveBeenCalled();
+}
 
 afterEach(() => {
   cleanup();
@@ -212,13 +225,14 @@ describe('ResourceEditPage — one server verdict drives icon, confirm and branc
     expect(screen.getByTestId('delete-icon')).toBeInTheDocument();
     expect(screen.queryByTestId('reset-icon')).toBeNull();
 
-    await userEvent.click(btn);
+    await clickAndConfirm(btn);
 
     // No `?package=` on this editor's URL, so the options carry no package
     // key at all (objectui#12335): absent, never empty.
     await waitFor(() => expect(mockClient.reset).toHaveBeenCalledWith('object', 'showcase_account', {}));
     expect(confirmMessages).toEqual([
-      'Delete object/showcase_account? This cannot be undone.',
+      'Delete Object "Account (customized)"?',
+      'object/showcase_account is deleted. This cannot be undone.',
     ]);
     await waitFor(() => expect(pathname()).toBe(LIST_PATH));
   });
@@ -232,10 +246,13 @@ describe('ResourceEditPage — one server verdict drives icon, confirm and branc
     expect(screen.getByTestId('reset-icon')).toBeInTheDocument();
     expect(screen.queryByTestId('delete-icon')).toBeNull();
 
-    await userEvent.click(btn);
+    await clickAndConfirm(btn);
 
     await waitFor(() => expect(mockClient.reset).toHaveBeenCalledWith('object', 'showcase_account', {}));
-    expect(confirmMessages).toEqual(['Reset overlay for object/showcase_account?']);
+    expect(confirmMessages).toEqual([
+      'Reset the overlay on Object "Account (customized)"?',
+      'Your customization of object/showcase_account is removed and its code-defined version applies again.',
+    ]);
     // The reset branch re-reads the layered envelope in place …
     await waitFor(() => expect(mockClient.layered.mock.calls.length).toBeGreaterThan(1));
     // … and does NOT navigate away.
@@ -251,10 +268,13 @@ describe('ResourceEditPage — one server verdict drives icon, confirm and branc
 
     expect(btn).toHaveAttribute('title', 'Reset overlay');
 
-    await userEvent.click(btn);
+    await clickAndConfirm(btn);
 
     await waitFor(() => expect(mockClient.reset).toHaveBeenCalled());
-    expect(confirmMessages).toEqual(['Reset overlay for object/showcase_account?']);
+    expect(confirmMessages).toEqual([
+      'Reset the overlay on Object "Account (customized)"?',
+      'Your customization of object/showcase_account is removed and its code-defined version applies again.',
+    ]);
     expect(pathname()).toBe(START_PATH);
   });
 
@@ -270,11 +290,12 @@ describe('ResourceEditPage — one server verdict drives icon, confirm and branc
     expect(btn).toHaveAttribute('title', 'Delete');
     expect(screen.getByTestId('delete-icon')).toBeInTheDocument();
 
-    await userEvent.click(btn);
+    await clickAndConfirm(btn);
 
     await waitFor(() => expect(mockClient.reset).toHaveBeenCalled());
     expect(confirmMessages).toEqual([
-      'Delete object/showcase_account? This cannot be undone.',
+      'Delete Object "Account (customized)"?',
+      'object/showcase_account is deleted. This cannot be undone.',
     ]);
     await waitFor(() => expect(pathname()).toBe(LIST_PATH));
   });
@@ -294,10 +315,13 @@ describe('ResourceEditPage — one server verdict drives icon, confirm and branc
 
     expect(btn).toHaveAttribute('title', 'Reset overlay');
 
-    await userEvent.click(btn);
+    await clickAndConfirm(btn);
 
     await waitFor(() => expect(mockClient.reset).toHaveBeenCalled());
-    expect(confirmMessages).toEqual(['Reset overlay for object/showcase_account?']);
+    expect(confirmMessages).toEqual([
+      'Reset the overlay on Object "Account (customized)"?',
+      'Your customization of object/showcase_account is removed and its code-defined version applies again.',
+    ]);
     expect(pathname()).toBe(START_PATH);
   });
 

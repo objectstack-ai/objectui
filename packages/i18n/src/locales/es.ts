@@ -1295,7 +1295,7 @@ const es = {
     historyEmpty: "Aún no hay historial",
     editRow: "Editar",
     deleteRow: "Eliminar",
-    deleteRowConfirmation: "¿Eliminar este registro?",
+    deleteRowConfirmation: "¿Eliminar “{{name}}”?",
     deleteRowTitle: "Eliminar registro",
     actions: "Acciones",
     previousPage: "Anterior",

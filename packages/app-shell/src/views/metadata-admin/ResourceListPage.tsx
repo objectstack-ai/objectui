@@ -151,6 +151,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   const { entries: typesEntries } = useMetadataTypes(client);
   const entry: RichMetadataTypeEntry | undefined = typesEntries.find((t) => t.type === type);
   const config = resolveResourceConfig(type, entry);
+  const listInclude = config.listInclude;
 
   const [items, setItems] = React.useState<ItemRow[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -395,7 +396,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
     setError(null);
     (async () => {
       try {
-        const list = await client.list<any>(type);
+        const list = await client.list<any>(type, listInclude ? { include: listInclude } : undefined);
         if (cancelled) return;
         const rows: ItemRow[] = (list ?? []).map((raw) => {
           const item = (raw && typeof raw === 'object' && 'item' in raw ? raw.item : raw) ?? {};
@@ -422,7 +423,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
     return () => {
       cancelled = true;
     };
-  }, [client, type, refreshKey]);
+  }, [client, type, refreshKey, listInclude]);
 
   const searchableFields = config.searchableFields ?? ['name', 'label', 'description'];
   // Structural scope — every row this package could ever show for this
@@ -797,11 +798,14 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                     row.source === 'artifact'
                       ? `${t('engine.list.source.artifactDesc', locale)}${row.item._packageId ? ` (${row.item._packageId})` : ''}`
                       : t('engine.list.source.runtimeDesc', locale);
+                  const rowHref = `./${encodeURIComponent(name)}${rowEditSuffix}`;
                   return (
                     <tr
                       key={name + i}
+                      data-testid={`metadata-row-${name}`}
+                      onClick={(e) => openRowFromClick(e, () => navigate(rowHref))}
                       className={cn(
-                        'hover:bg-accent/50',
+                        'cursor-pointer hover:bg-accent/50',
                         invalid ? 'bg-destructive/[0.04]' : warnOnly ? 'bg-amber-500/[0.05]' : '',
                         // The same fills, for the pinned cells to layer over
                         // their opaque background.
@@ -835,7 +839,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                                   </span>
                                 )}
                                 <Link
-                                  to={`./${encodeURIComponent(name)}${rowEditSuffix}`}
+                                  to={rowHref}
                                   className="text-primary hover:underline font-mono"
                                 >
                                   {cell}
@@ -1109,6 +1113,34 @@ function CatalogActiveCell({
     </span>
   );
 }
+
+/**
+ * The whole row opens its item (objectstack#25333), the way a record list's
+ * row does. The first cell keeps its link, which is what a keyboard, a screen
+ * reader and a modified click (new tab) use; this handler is the pointer's
+ * larger target and stands aside for everything the row already does:
+ *
+ *  - a click on a control in the row (the link itself, the Active switch,
+ *    Clone, a tooltip trigger) is that control's;
+ *  - a click that reached the row through a React portal (a dialog a row
+ *    control opened) did not happen on the row;
+ *  - a modified or non-primary click, and a click that ends a text selection,
+ *    are the browser's.
+ */
+export function openRowFromClick(e: React.MouseEvent<HTMLElement>, open: () => void): void {
+  if (e.defaultPrevented || e.button !== 0) return;
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const target = e.target as Node | null;
+  if (!target || !e.currentTarget.contains(target)) return;
+  const el = target instanceof Element ? target : target.parentElement;
+  if (el?.closest(ROW_OWN_CONTROLS)) return;
+  const selection = typeof window !== 'undefined' ? window.getSelection?.() : null;
+  if (selection && !selection.isCollapsed && selection.toString().trim() !== '') return;
+  open();
+}
+
+const ROW_OWN_CONTROLS =
+  'a,button,input,select,textarea,label,summary,[role="button"],[role="switch"],[role="checkbox"],[role="menuitem"],[role="link"],[contenteditable="true"]';
 
 function defaultColumns(primaryKey: string): NonNullable<import('./registry.js').MetadataResourceConfig['listColumns']> {
   return [

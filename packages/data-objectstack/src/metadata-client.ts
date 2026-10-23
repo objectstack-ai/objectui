@@ -259,6 +259,14 @@ export interface MetadataClientConfig {
 export interface MetadataListOptions {
   /** Filter by source package id (matches the `package` query param). */
   packageId?: string;
+  /**
+   * Ask the server for what it serves on a list only on request (the
+   * `include` query param). `'grants'` on the `position` list adds each
+   * position's `_holderCount` and `_grantedPermissionSets`, read where the
+   * authorization resolver enforces them (objectstack#25333). A server that
+   * predates it, or a type it does not apply to, serves the list unchanged.
+   */
+  include?: 'grants';
 }
 
 /**
@@ -1129,6 +1137,7 @@ export class MetadataClient {
   async listResponse<T = unknown>(type: string, options: MetadataListOptions = {}): Promise<MetadataListAnswer<T>> {
     const params: string[] = [];
     if (options.packageId) params.push(`package=${encodeURIComponent(options.packageId)}`);
+    if (options.include) params.push(`include=${encodeURIComponent(options.include)}`);
     if (this.previewDrafts) params.push('preview=draft');
     const qs = params.length ? `?${params.join('&')}` : '';
     const url = `${this.base}/${encodeURIComponent(type)}${qs}`;

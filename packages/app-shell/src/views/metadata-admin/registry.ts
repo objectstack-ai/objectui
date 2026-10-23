@@ -99,6 +99,13 @@ export interface MetadataResourceConfig {
    * individually as expanded ViewItems). Pure function; keep it cheap.
    */
   listFilter?: (item: Record<string, unknown>) => boolean;
+  /**
+   * What the list page asks the server to serve beside each item (the list
+   * read's `include`). `'grants'` is the `position` list's holder count and
+   * permission sets in force (objectstack#25333); the columns that read them
+   * are this type's own `listColumns`. Omit for the plain list.
+   */
+  listInclude?: 'grants';
 
   /** Columns rendered in the list page. */
   listColumns?: Array<{

@@ -20,6 +20,7 @@ import { registerAppComponent } from './componentRegistry.js';
 import { registerMetadataResource } from '../views/metadata-admin/registry.js';
 import { PermissionMatrixEditPage } from '../views/metadata-admin/PermissionMatrixEditor.js';
 import { PackagesPage } from '../views/metadata-admin/PackagesPage.js';
+import { PositionGrantedSetsCell, PositionHolderCountCell } from '../views/metadata-admin/PositionGrantCells.js';
 import { PackagedAutomationPage } from '../views/setup/PackagedAutomationPage.js';
 import {
   isAggregatedViewContainer,
@@ -205,6 +206,30 @@ registerMetadataResource({
     { key: 'name', label: 'Name', width: '30%' },
     { key: 'label', label: 'Label', width: '30%' },
     { key: 'description', label: 'Description' },
+  ],
+});
+
+// objectstack#25333 — the position list says who holds each position and which
+// permission sets it grants, both served by the server (`?include=grants`) from
+// the reader the authorization resolver enforces with.
+registerMetadataResource({
+  type: 'position',
+  domain: 'security',
+  listInclude: 'grants',
+  listColumns: [
+    { key: 'name', label: 'Name', width: '20%' },
+    { key: 'label', label: 'Label', width: '20%' },
+    {
+      key: '_holderCount',
+      label: 'Holders',
+      width: '10%',
+      render: (v) => <PositionHolderCountCell value={v} />,
+    },
+    {
+      key: '_grantedPermissionSets',
+      label: 'Permission sets',
+      render: (v) => <PositionGrantedSetsCell value={v} />,
+    },
   ],
 });
 

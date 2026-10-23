@@ -2335,14 +2335,12 @@ function navTreeHoldsActive(
   });
 }
 
-/** The sidebar's threshold: a group with this many children starts collapsed unless it says otherwise. */
-const NAV_GROUP_AUTO_COLLAPSE = 8;
-
 /**
  * One group header and its children (objectui#12455). Open or closed as the
  * running app's sidebar opens it (`NavigationRenderer` in `@object-ui/layout`):
- * the spec's `expanded` when the author set it, else open unless the group is
- * long, and always open when the open leaf is inside it. Collapsible by its
+ * always open when the open leaf is inside it, else the spec's `expanded` when
+ * the author set it, else open — however many children it holds
+ * (objectui#13336). Collapsible by its
  * header, as the sidebar's is. A group with nothing in it says so in its place
  * instead of drawing a bare header.
  */
@@ -2368,7 +2366,7 @@ function NavTreeGroup({
   const [open, setOpen] = React.useState(() => {
     if (holdsActive) return true;
     if (typeof node.expanded === 'boolean') return node.expanded;
-    return children.length < NAV_GROUP_AUTO_COLLAPSE;
+    return true;
   });
   // A leaf opened from elsewhere (a deep link, a create) inside a closed
   // group opens the group, as the sidebar does for the route it is on.

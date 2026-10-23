@@ -54,9 +54,9 @@
  *    no slot.
  *  - `type: 'group'` — a disclosure, not a destination: its label is no tab,
  *    its children are.
- *  - `expanded` / `defaultOpen` (and the auto-collapse of long groups) — the
- *    sidebar's open state for a disclosure the bar does not have; a collapsed
- *    group's children stay reachable in the sidebar, so they stay on the bar.
+ *  - `expanded` / `defaultOpen` — the sidebar's open state for a disclosure
+ *    the bar does not have; a collapsed group's children stay reachable in the
+ *    sidebar, so they stay on the bar.
  *  - `pinned` with `enablePinning` — the Favorites section is a second path to
  *    entries already in the tree; on the bar it would spend two of five slots
  *    on one destination, so the bar draws each entry once, at its tree place.

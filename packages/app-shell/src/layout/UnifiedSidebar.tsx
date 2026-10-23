@@ -371,14 +371,13 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
         label: t('layout.systemNav.administration', { defaultValue: 'Administration' }),
         type: 'group' as const,
         icon: 'shield',
-        // Opened by default (objectui#3609). `NavigationRenderer`'s unauthored
-        // default auto-collapses groups with >= 8 children, a heuristic meant
-        // for one long section among many inside an app's navigation. Here the
-        // group is not one section among many — on `/home` it IS the admin's
-        // navigation, and this cluster exists for the zero-app deployment whose
-        // whole complaint was "no way through". Nine entries behind a closed
-        // disclosure would re-create that, so the spec's `expanded` is stated
-        // explicitly rather than left to the count heuristic.
+        // Opened by default (objectui#3609). On `/home` this group IS the
+        // admin's navigation, and this cluster exists for the zero-app
+        // deployment whose whole complaint was "no way through" — its entries
+        // behind a closed disclosure would re-create that. `NavigationRenderer`
+        // opens a group that declares nothing (objectui#13336), so this line
+        // restates that default; it is kept so the intent is written on the
+        // group itself rather than left to whatever the renderer defaults to.
         expanded: true,
         children: adminItems,
       });

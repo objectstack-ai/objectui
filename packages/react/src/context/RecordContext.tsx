@@ -178,6 +178,15 @@ export interface RecordContextValue<TData = any, TObjectSchema = any> {
    */
   onToggleFavorite?: () => void;
   /**
+   * Host-injected, optional (objectui#13385): a one-line note about how the
+   * object is managed, shown on hover and focus of the record header's
+   * object-label chip (`RecordTitleChip` via `PageHeaderRenderer`), e.g.
+   * "Organization · Managed by the identity provider". The host decides when
+   * there is one and passes it already translated; absent, the chip draws the
+   * plain label exactly as before. Never authored in a page schema.
+   */
+  objectLabelNote?: string;
+  /**
    * When true, the record is rendered inside a host overlay (drawer,
    * modal, split-pane preview) rather than as a standalone route. Header
    * affordances such as the auto "back to list" button should suppress
@@ -230,6 +239,7 @@ export const RecordContextProvider: React.FC<RecordContextProviderProps> = ({
     value.headerSystemActions,
     value.isFavorite,
     value.onToggleFavorite,
+    value.objectLabelNote,
   ]);
   return <RecordContext.Provider value={memo}>{children}</RecordContext.Provider>;
 };

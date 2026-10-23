@@ -59,6 +59,16 @@ import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
  * set (a backend whose `/me/permissions` omits `systemPermissions`, or no
  * permission provider at all) fails open, and the badge draws as before.
  *
+ * ## Setup record pages carry it on the header chip instead (objectui#13385)
+ *
+ * A record page inside the Setup app draws no badge: the header already names
+ * the object (「组织」 / "Organization"), and a second chip floating outside the
+ * page tree repeated it. That page hands `useManagedByNote()` — the badge's
+ * tooltip title, under the same gate — to the header's object-label chip,
+ * which shows it on hover and focus. The list header and every record page
+ * outside Setup keep the badge unchanged (maintainer ruling on objectui#13385,
+ * option B; it amends objectui#12194 option a for Setup record pages only).
+ *
  * What an end user needs is said elsewhere, and none of it reads this badge:
  * the toolbar hides the affordances the bucket closes, a locked form names
  * the missing permission above its fields (plugin-form's
@@ -156,17 +166,41 @@ const VARIANTS: Record<VariantKey, Variant> = {
   },
 };
 
+/**
+ * The variant a `managedBy` value draws, or `null` for none: no value,
+ * `platform` (user-owned business data), or a value outside the union.
+ * ADR-0103 / objectstack#3355 — the bucket IS the variant; nothing to derive.
+ */
+function variantOf(managedBy: string | undefined): Variant | null {
+  if (!managedBy || managedBy === 'platform') return null;
+  return VARIANTS[managedBy as VariantKey] ?? null;
+}
+
+/**
+ * The badge's one-line note for a `managedBy` bucket — its tooltip TITLE,
+ * from the same `managedByBadge.<key>.title` locale key — for a host that
+ * carries the note somewhere other than the badge (objectui#13385: a Setup
+ * record page puts it on the header's object-label chip and draws no badge).
+ *
+ * Same answer as the badge, under the same gate: `null` for a caller who
+ * cannot author metadata (objectui#12194) and for every bucket the badge
+ * draws nothing for (`platform`, no value, an unknown value).
+ */
+export function useManagedByNote(managedBy: string | undefined): string | null {
+  const { t } = useObjectTranslation();
+  const canAuthor = useCanAuthorMetadata();
+  if (!canAuthor) return null;
+  const variant = variantOf(managedBy);
+  if (!variant) return null;
+  return t(`managedByBadge.${variant.i18nKey}.title`, { defaultValue: variant.title });
+}
+
 export function ManagedByBadge({ managedBy, label, className }: ManagedByBadgeProps) {
   const { t } = useObjectTranslation();
   // objectui#12194 — an authoring aid: nothing for a caller who cannot author.
   const canAuthor = useCanAuthorMetadata();
   if (!canAuthor) return null;
-  if (!managedBy || managedBy === 'platform') return null;
-  // ADR-0103 — a `system` object that opened any write is admin/user-writable
-  // data, not an engine-owned monitoring surface: pick the writable variant/copy.
-  // objectstack#3355 — the bucket IS the variant now; nothing to derive.
-  const variantKey = managedBy as VariantKey;
-  const variant = VARIANTS[variantKey];
+  const variant = variantOf(managedBy);
   if (!variant) return null;
   const Icon = variant.icon;
   const display = label ?? 'better-auth';

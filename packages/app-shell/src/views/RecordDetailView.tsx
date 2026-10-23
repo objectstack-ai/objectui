@@ -22,7 +22,8 @@ import { useRecordPresence, PresenceAvatars, isCommentAuthor } from '@object-ui/
 import { Database, ChevronLeft, Lock, AlertTriangle, RotateCw, Printer, FileText } from 'lucide-react';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { SkeletonDetail } from '../skeletons/index.js';
-import { ManagedByBadge } from '../components/ManagedByBadge.js';
+import { ManagedByBadge, useManagedByNote } from '../components/ManagedByBadge.js';
+import { isSetupAppSegment } from '../console/setupApp.js';
 import { deriveRelatedLists } from '../utils/deriveRelatedLists.js';
 import { stripDiscussionNodes, hasExplicitAttachments, hasExplicitApprovals } from '../utils/pageSchemaIntrospect.js';
 import { ActionConfirmDialog, type ConfirmDialogState } from './ActionConfirmDialog.js';
@@ -660,6 +661,15 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   const [historyLoading, setHistoryLoading] = useState(false);
   const [recordTitle, setRecordTitle] = useState<string | undefined>();
   const objectDef = objects.find((o: any) => o.name === objectName);
+  // objectui#13385 (maintainer ruling, option B) — a record page inside the
+  // Setup app draws no floating `ManagedByBadge`; the header's object-label
+  // chip carries the badge's note instead. Read off the route's `:appName`, so
+  // a `sys_*` object opened in any other app keeps the badge, and every page
+  // outside Setup is unchanged. The note keeps the badge's own gate
+  // (`useCanAuthorMetadata`, objectui#12194), so it is `null` for a caller who
+  // could not see the badge either.
+  const inSetupApp = isSetupAppSegment(appName);
+  const managedByNote = useManagedByNote((objectDef as any)?.managedBy);
 
   // Publish record title to the navigation context so the top-bar breadcrumb
   // can display "Acme Platform Upgrade" instead of "#9U1_MmmxjiGR…". Skip
@@ -3584,13 +3594,15 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // rendered above the page tree so custom Page-assigned record pages
   // don't lose these affordances. The badge is an authoring aid and
   // draws for an authoring caller only (objectui#12194); the gate
-  // lives in `ManagedByBadge`, so an end user sees none here.
+  // lives in `ManagedByBadge`, so an end user sees none here. Inside
+  // Setup it is not drawn at all: its note rides the header's
+  // object-label chip (`objectLabelNote` below, objectui#13385).
   const sharedChrome = (
     <>
       {recordPresence.length > 0 && (
         <PresenceAvatars users={recordPresence} size="sm" maxVisible={3} showStatus />
       )}
-      <ManagedByBadge managedBy={(objectDef as any)?.managedBy} />
+      {!inSetupApp && <ManagedByBadge managedBy={(objectDef as any)?.managedBy} />}
     </>
   );
 
@@ -3613,6 +3625,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         embedded={embedded}
         refresh={headerRefresh}
         headerSystemActions={synthSystemActions}
+        objectLabelNote={inSetupApp ? managedByNote ?? undefined : undefined}
       >
         {/* No `isFavorite` / `onToggleFavorite` here (objectui#12427): the
             record's favorites entry is the `sys_favorite` item in the header's

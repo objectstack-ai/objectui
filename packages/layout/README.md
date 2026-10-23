@@ -256,8 +256,8 @@ route type-checks either way, which is why the two are named apart here.
 
 ## Customization
 
-`AppShell` takes a single `className`, and it lands on the `<main>` content
-element (`src/AppShell.tsx:256`) rather than on the outer container. There is no
+`AppShell` takes a single `className`, and it lands on the content element (a
+`<div>` inside the shell's one `<main>` landmark) rather than on the outer container. There is no
 per-slot `headerClassName` / `sidebarClassName` — the navbar and the sidebar are
 nodes **you** build, so style them where you build them:
 

@@ -400,7 +400,8 @@ test.describe('record header below the sm breakpoint (objectui#9119)', () => {
  * The card's readings were taken with the header in an UNCONSTRAINED
  * container, which isolates the header's own behaviour but does not say what a
  * user sees. In the real console the header renders inside `AppShell`'s
- * content `<main>`, and `ConsoleLayout` styles that element with
+ * content element (the `<div>` inside `SidebarInset`, the shell's one `main`
+ * landmark since objectui#13334), and `ConsoleLayout` styles that element with
  * `overflow-x-hidden` — so the page does NOT scroll sideways; the overflow is
  * CLIPPED, and because the h1's own `truncate` never fires, it is clipped with
  * no ellipsis.
@@ -431,7 +432,8 @@ const shellSrc = read(SHELL_FILE);
 const consoleLayoutSrc = read(CONSOLE_LAYOUT_FILE);
 
 /**
- * `AppShell`'s content `<main>` as the console actually renders it: the base
+ * `AppShell`'s content element (the `<div>` inside `SidebarInset`) as the
+ * console actually renders it: the base
  * string the component writes, then the override `ConsoleLayout` passes in —
  * in the order the real `cn()` receives them.
  *
@@ -444,7 +446,7 @@ const consoleLayoutSrc = read(CONSOLE_LAYOUT_FILE);
  * `overflow-x: hidden`, `overflow-y: auto`, padding 0.
  */
 const CONSOLE_MAIN = [
-  classByPattern(shellSrc, SHELL_FILE, /<main className=\{cn\("([^"]+)"/, [
+  classByPattern(shellSrc, SHELL_FILE, /<SidebarInset[\s\S]*?<div className=\{cn\("([^"]+)"/, [
     'flex-1',
     'min-w-0',
     'overflow-auto',
@@ -459,7 +461,7 @@ test.describe("the console's own content pane (objectui#9119, the open half)", (
     await page.setViewportSize({ width: 375, height: 812 });
     await page.setContent(
       `<style>html,body{margin:0}${css}</style>` +
-        `<main id="pane" class="${CONSOLE_MAIN}">${LONG_TITLE_FIXTURE}</main>`,
+        `<main><div id="pane" class="${CONSOLE_MAIN}">${LONG_TITLE_FIXTURE}</div></main>`,
       { waitUntil: 'load' },
     );
     await page.waitForFunction(

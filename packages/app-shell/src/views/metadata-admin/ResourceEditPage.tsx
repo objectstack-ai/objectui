@@ -144,6 +144,7 @@ import { environmentScopeSuffix, isEnvironmentScope, useWalledCatalogReadOnly } 
 import { PositionHoldersSection } from './PositionHoldersSection.js';
 import { declarationOnlyAuthoredObject } from './sharing-rule-catalog.js';
 import { useRegisterUnsavedEdits } from '../../chrome/unsavedEdits.js';
+import { RefusalMessage } from '../../components/RefusalMessage.js';
 
 /**
  * objectui#7611 — the Setup half of an item, rendered under its definition in
@@ -2579,7 +2580,7 @@ function MetadataResourceEditPageImpl({
           >
             {error && (
               <div className="text-sm text-destructive border border-destructive/30 rounded p-3 bg-destructive/5">
-                {error}
+                <RefusalMessage text={error} />
               </div>
             )}
             {isLocked && (

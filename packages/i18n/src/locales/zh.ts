@@ -2669,6 +2669,12 @@ const zh = {
     timeout: '请求超时，请重试。',
     unknown: '发生未知错误。',
   },
+  refusalDetails: {
+    more: '更多',
+    less: '收起',
+    copy: '复制详情',
+    copied: '已复制',
+  },
   workspace: {
     label: '组织',
     default: '我的组织',

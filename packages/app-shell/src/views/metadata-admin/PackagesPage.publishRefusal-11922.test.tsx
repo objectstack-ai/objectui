@@ -103,9 +103,19 @@ async function publishAndRead(matches: (text: string) => boolean): Promise<strin
   );
   await waitFor(() => expect(posts).toHaveLength(1));
   // The message line is a leaf: its whole text is the sheet's `msg.text`.
-  const line = await screen.findByText(
-    (_, node) => !!node && node.childElementCount === 0 && matches(node.textContent ?? ''),
+  const leaf = (_: string, node: Element | null) =>
+    !!node && node.childElementCount === 0 && matches(node.textContent ?? '');
+  // A refusal of more than one sentence leads with its first and keeps the
+  // whole line behind "More" (objectui#13332): open it, then read the line.
+  await waitFor(() =>
+    expect(!!screen.queryByTestId('refusal-more') || screen.queryAllByText(leaf).length > 0).toBe(true),
   );
+  const more = screen.queryByTestId('refusal-more');
+  if (more) {
+    fireEvent.click(more);
+    return screen.getByTestId('refusal-detail').textContent ?? '';
+  }
+  const line = await screen.findByText(leaf);
   return line.textContent ?? '';
 }
 

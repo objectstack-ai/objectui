@@ -2639,6 +2639,12 @@ const fr = {
     timeout: "Délai d'attente dépassé. Veuillez réessayer.",
     unknown: "Une erreur inattendue s'est produite.",
   },
+  refusalDetails: {
+    more: "Plus",
+    less: "Moins",
+    copy: "Copier les détails",
+    copied: "Copié",
+  },
   workspace: {
     label: "Organisations",
     default: "Mon organisation",

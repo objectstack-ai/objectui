@@ -81,6 +81,7 @@ import { PageHeader } from '../../layout/PageHeader.js';
 import { errorCodeIs } from '@object-ui/types';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { refusedItemsText } from '../../preview/publishRefusal.js';
+import { RefusalMessage } from '../../components/RefusalMessage.js';
 import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
 import { duplicatePackage, isSpecPackageId } from '../studio-design/packages-io.js';
 import { PackageIdInput } from '../studio-design/PackageIdInput.js';
@@ -1082,7 +1083,9 @@ export function PackageDetailSheet({
                 : 'border-destructive/40 bg-destructive/10 text-destructive'
             }`}
           >
-            {msg.text}
+            {/* A refusal leads with its first sentence; the rest of the
+                server's text is behind "More" (objectui#13332). */}
+            {msg.kind === 'err' ? <RefusalMessage text={msg.text} /> : msg.text}
             {msg.details && msg.details.length > 0 && (
               // Not capped: the sheet scrolls (`overflow-y-auto`), as it does
               // for the pending-drafts list above. `break-words` keeps a long

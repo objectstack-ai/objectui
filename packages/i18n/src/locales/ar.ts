@@ -2790,6 +2790,12 @@ const ar = {
     timeout: "انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.",
     unknown: "حدث خطأ غير متوقع.",
   },
+  refusalDetails: {
+    more: "المزيد",
+    less: "أقل",
+    copy: "نسخ التفاصيل",
+    copied: "تم النسخ",
+  },
   workspace: {
     label: "المؤسسات",
     default: "مؤسستي",

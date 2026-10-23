@@ -129,6 +129,9 @@ describe.each<Posture>(['group', 'isolated'])(
       fireEvent.click(within(dialog).getByTestId('pkg-detail-delete-confirm'));
 
       await waitFor(() => expect(writes).toEqual([{ method: 'DELETE', url: `/api/v1/packages/${PKG_ID}` }]));
+      // The sheet leads with the first sentence; the whole refusal and its
+      // code are behind "More" (objectui#13332).
+      fireEvent.click(await screen.findByTestId('refusal-more'));
       await expectReasonShown(`${deleteRefusal(posture)} (PERMISSION_DENIED)`, posture);
     });
 

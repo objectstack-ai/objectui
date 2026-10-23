@@ -2594,6 +2594,12 @@ const ja = {
     timeout: "リクエストがタイムアウトしました。もう一度お試しください。",
     unknown: "予期しないエラーが発生しました。",
   },
+  refusalDetails: {
+    more: "詳細",
+    less: "閉じる",
+    copy: "詳細をコピー",
+    copied: "コピーしました",
+  },
   workspace: {
     label: "組織",
     default: "マイ組織",

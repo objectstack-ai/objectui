@@ -2643,6 +2643,12 @@ const es = {
     timeout: "Tiempo de espera agotado. Por favor, inténtelo de nuevo.",
     unknown: "Ha ocurrido un error inesperado.",
   },
+  refusalDetails: {
+    more: "Más",
+    less: "Menos",
+    copy: "Copiar detalles",
+    copied: "Copiado",
+  },
   workspace: {
     label: "Organizaciones",
     default: "Mi organización",

@@ -3127,6 +3127,15 @@ const en = {
     timeout: 'Request timed out. Please try again.',
     unknown: 'An unexpected error occurred.',
   },
+  // A refused write's message (objectui#13332): its first sentence is shown,
+  // and the whole server text sits behind the More / Less toggle with a copy
+  // button. Read by app-shell's `RefusalMessage`.
+  refusalDetails: {
+    more: 'More',
+    less: 'Less',
+    copy: 'Copy details',
+    copied: 'Copied',
+  },
   workspace: {
     label: 'Organizations',
     default: 'My Organization',

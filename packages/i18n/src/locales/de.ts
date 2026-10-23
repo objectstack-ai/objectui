@@ -2592,6 +2592,12 @@ const de = {
     timeout: "Zeitüberschreitung. Bitte versuchen Sie es erneut.",
     unknown: "Ein unerwarteter Fehler ist aufgetreten.",
   },
+  refusalDetails: {
+    more: "Mehr",
+    less: "Weniger",
+    copy: "Details kopieren",
+    copied: "Kopiert",
+  },
   workspace: {
     label: "Organisationen",
     default: "Meine Organisation",

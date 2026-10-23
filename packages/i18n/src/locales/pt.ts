@@ -2638,6 +2638,12 @@ const pt = {
     timeout: "Tempo limite excedido. Por favor, tente novamente.",
     unknown: "Ocorreu um erro inesperado.",
   },
+  refusalDetails: {
+    more: "Mais",
+    less: "Menos",
+    copy: "Copiar detalhes",
+    copied: "Copiado",
+  },
   workspace: {
     label: "Organizações",
     default: "Minha organização",

@@ -2592,6 +2592,12 @@ const ko = {
     timeout: "요청 시간이 초과되었습니다. 다시 시도해주세요.",
     unknown: "예기치 않은 오류가 발생했습니다.",
   },
+  refusalDetails: {
+    more: "더보기",
+    less: "접기",
+    copy: "세부 정보 복사",
+    copied: "복사됨",
+  },
   workspace: {
     label: "조직",
     default: "내 조직",

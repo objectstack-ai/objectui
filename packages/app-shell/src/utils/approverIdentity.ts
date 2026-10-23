@@ -104,7 +104,6 @@ export interface ApproverDirectoryBinding {
  * columns without a second edit here.
  */
 const DISPLAY_FIELDS_BY_OBJECT: Record<string, string[]> = {
-  sys_position: ['label', 'name'],
   sys_team: ['label', 'name'],
   sys_business_unit: ['label', 'name'],
   sys_user: ['full_name', 'name', 'display_name', 'email'],
@@ -149,9 +148,10 @@ const KNOWN_APPROVER_KINDS = new Set(Object.keys(APPROVER_VALUE_SOURCES));
  *
  * Read off the published binding, never off a list of kinds: a registry-bound
  * kind (objectui#7611 Q3b) names a declared item and has no id at all, and a
- * `data` kind commits a name exactly when its `valueField` is `name`. Under the
- * installed spec `position` answers through the second arm, under a spec
- * carrying objectstack#22710 through the first — the same answer either way.
+ * `data` kind commits a name exactly when its `valueField` is `name`. The
+ * installed spec binds `position` to the registry (objectstack#22710), so it
+ * answers through the first arm; the second arm reads a `data` binding the same
+ * way, so a kind the spec moves is followed with no edit here.
  */
 export function approverValueIsName(kind: string): boolean {
   return !!APPROVER_REGISTRY_TYPES[kind] || APPROVER_DIRECTORY_BINDINGS[kind]?.valueField === 'name';

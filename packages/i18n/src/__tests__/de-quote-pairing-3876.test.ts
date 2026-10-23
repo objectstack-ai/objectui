@@ -346,10 +346,12 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // („{{objectName}}“) — one interpolated span, runtime data.
     // 92 once objectui#13333 named the row in `detail.deleteRowConfirmation`
     // („{{name}}“) — one interpolated span, runtime data.
-    // 93 once objectui#13355 added `connectAgent.apiKey.confirmTitle`, the
+    // 93 once objectui#13330 added `console.objectView.managedUsers.inviteLine`,
+    // which names the „Nicht berechtigt“ marker it explains.
+    // 94 once objectui#13355 added `connectAgent.apiKey.confirmTitle`, the
     // API-key confirm that names the key („{{name}}“) — one interpolated span,
     // runtime data.
-    expect(okSpans, 'correctly paired spans').toBe(93);
+    expect(okSpans, 'correctly paired spans').toBe(94);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -409,9 +411,10 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // `console.objectView.objectPackageDisabled`, one more matched pair.
     // 92 / 92 / 0 after objectui#13333 named the row in
     // `detail.deleteRowConfirmation`, one more matched pair. 93 / 93 / 0 after
-    // objectui#13355 added `connectAgent.apiKey.confirmTitle`, one more matched
-    // pair.
-    expect({ open, close, rdq }).toEqual({ open: 93, close: 93, rdq: 0 });
+    // objectui#13330 added `console.objectView.managedUsers.inviteLine`, one
+    // more matched pair. 94 / 94 / 0 after objectui#13355 added
+    // `connectAgent.apiKey.confirmTitle`, one more matched pair.
+    expect({ open, close, rdq }).toEqual({ open: 94, close: 94, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

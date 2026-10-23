@@ -248,7 +248,11 @@ describe('PackageDetailSheet — Delete app is one in-app dialog (objectui#11784
     });
     fireEvent.click(within(dialog).getByTestId('pkg-detail-delete-confirm'));
     await waitFor(() => expect(deletes()).toHaveLength(1));
-    expect(await screen.findByText(`${REFUSAL} (FORBIDDEN)`)).toBeTruthy();
+    // The sheet leads with the sentence; the declared code is behind "More"
+    // (objectui#13332).
+    expect(await screen.findByText(REFUSAL)).toBeTruthy();
+    fireEvent.click(screen.getByTestId('refusal-more'));
+    expect(screen.getByTestId('refusal-detail').textContent).toBe(`${REFUSAL} (FORBIDDEN)`);
     await waitFor(() => expect(screen.queryByTestId('pkg-detail-delete-dialog')).toBeNull());
     expect(onChanged).not.toHaveBeenCalled();
     expect(onOpenChange).not.toHaveBeenCalledWith(false);

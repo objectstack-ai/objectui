@@ -813,6 +813,23 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
    */
   rowOperations?: (record: any) => ObjectGridRowOperations | null | undefined;
   /**
+   * [objectui#13330] A host-drawn node beside ONE row's title: the cell of the
+   * object's declared name field when a column shows it, else the first shown
+   * column (the row actions are never it), and the title of the row's card in
+   * the card view. Called with the row record; `null` / `undefined` draws
+   * nothing, and so does an absent prop, so a caller that passes nothing
+   * renders exactly what it rendered before this prop existed.
+   *
+   * The console's Users list on a managed environment passes a marker for a
+   * user who holds nothing beyond the baseline. What the node says is the
+   * host's; the grid only places it, after the cell's own content and never in
+   * place of it, so the value, its link and its mask all stay as drawn.
+   *
+   * A RUNTIME prop, never authored metadata: it is a React node a host
+   * composes, nothing an author writes, and no node key reaches it.
+   */
+  rowAdornment?: (record: any) => React.ReactNode;
+  /**
    * TWO parameters since objectui#9357, and the second is not decoration: this
    * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
    * invokes it as `onRowClick(record, event)` — the modifier payload a host
@@ -1744,6 +1761,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   onEdit,
   onDelete,
   rowOperations,
+  rowAdornment,
   onBulkDelete,
   onRowSelect,
   onRowClick,
@@ -6160,6 +6178,36 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     ? hostOnSearchChange
     : setSearchTerm;
 
+  // objectui#13330 — the host's node beside each row's title (`rowAdornment`):
+  // in the declared name field's column when one is shown, else the first
+  // shown column. After the cell's own content, never in place of it.
+  const tableColumns = (() => {
+    if (!rowAdornment) return orderedColumns;
+    const declaredTitle = declaredNameField(objectSchema);
+    const shown = (orderedColumns as any[]).filter((c) => c?.accessorKey !== '_actions');
+    const titleColumn =
+      (typeof declaredTitle === 'string' && declaredTitle !== ''
+        ? shown.find((c) => c.accessorKey === declaredTitle)
+        : undefined) ?? shown[0];
+    if (!titleColumn) return orderedColumns;
+    const cell = titleColumn.cell;
+    const adorned = {
+      ...titleColumn,
+      cell: (value: any, row: any) => {
+        const own = typeof cell === 'function' ? cell(value, row) : String(coerceToSafeValue(value) ?? '');
+        const extra = rowAdornment(row);
+        if (extra === null || extra === undefined || extra === false) return own;
+        return (
+          <span className="flex min-w-0 items-center gap-1.5" data-testid="grid-row-adornment">
+            <span className="min-w-0 truncate">{own}</span>
+            {extra}
+          </span>
+        );
+      },
+    };
+    return (orderedColumns as any[]).map((c) => (c === titleColumn ? adorned : c));
+  })();
+
   const dataTableSchema: ObjectGridDataTableSchema = {
     type: 'data-table',
     // The deprecated `title` fallback resolves like `label` (objectui#10993):
@@ -6167,7 +6215,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // and the whole block failed to render.
     caption: resolveInlineI18nLabel(schema.label, displayLocale)
       || resolveInlineI18nLabel(schema.title, displayLocale),
-    columns: orderedColumns,
+    columns: tableColumns,
     data,
     pagination: paginationEnabled,
     pageSize: manualPaginationOn ? manualPageSize : pageSize,
@@ -6879,6 +6927,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                           // to draw its mask, so the mask is drawn here.
                           : <MaskedCellRenderer value={row[titleKey]} />)
                       : (coerceToSafeValue(row[titleKey]) ?? '—')}
+                    {/* objectui#13330 — the host's node beside the title. */}
+                    {rowAdornment ? <span className="ml-1.5 inline-flex align-middle">{rowAdornment(row)}</span> : null}
                   </div>
                 )}
 

@@ -264,6 +264,10 @@ describe('MetadataResourceEditPage — `doc` is authored through the one edit fl
     fireEvent.click(saveButton());
 
     await waitFor(() => expect(mockClient.save).toHaveBeenCalledTimes(1));
+    // The banner leads with the first sentence; the server's whole message is
+    // behind "More" (objectui#13332).
+    expect(await screen.findByTestId('refusal-lead')).toHaveTextContent('Unrecognized key(s) on this doc: `title`.');
+    fireEvent.click(screen.getByTestId('refusal-more'));
     expect((await screen.findAllByText(message)).length).toBeGreaterThan(0);
     // Still on the create page: a refused create does not navigate away.
     expect(screen.getByTestId('where')).toHaveTextContent('/metadata/doc/new');

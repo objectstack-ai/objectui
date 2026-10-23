@@ -849,6 +849,39 @@ Prefer this over refusing inside the callback. A refusal that runs after the
 click ships a button that is drawn as available and then does nothing, which is
 indistinguishable from a broken build (objectui#8674).
 
+### A node beside a row's title
+
+A host that has something to say about one record, next to its name, passes
+`rowAdornment`: a component prop called with a row record that returns a React
+node, or `null` for none. The grid draws it in the cell of the object's
+declared `nameField` when a column shows that field, else in the first shown
+column (never in the row actions), and beside the card's title in the card
+view. It is drawn after the cell's own content and never in place of it, so
+the value, its link and its mask stay as they were. A grid that passes no
+`rowAdornment` renders exactly as it did before the prop existed. It is a host
+prop, not a schema key: list metadata cannot set it.
+
+```tsx
+import { ObjectGrid } from '@object-ui/plugin-grid';
+import type { ObjectGridSchema } from '@object-ui/types';
+
+const schema: ObjectGridSchema = {
+  type: 'object-grid',
+  objectName: 'sys_user',
+  columns: ['name', 'email'],
+};
+
+export const UserList = ({ needsAccess }: { needsAccess: (id: string) => boolean }) => (
+  <ObjectGrid
+    schema={schema}
+    rowAdornment={(record) => (needsAccess(String(record.id)) ? <span>Not authorized</span> : null)}
+  />
+);
+```
+
+The console's Setup → Users list on a cloud-managed environment uses it to mark
+a user who holds no permission set beyond the baseline (objectui#13330).
+
 ### Inline Editing
 
 Enable inline cell editing for quick updates:

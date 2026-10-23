@@ -262,6 +262,21 @@ export interface AuthPublicConfig {
      */
     ssoEnforced?: boolean;
     /**
+     * The managed (cloud-hosted) mode: `true` when the cloud's control plane
+     * runs this environment (`isCloudManaged()` server-side; declared as
+     * `AuthFeaturesConfigSchema.cloudManaged` in `@objectstack/spec`). People
+     * arrive from the hosting organisation through its identity provider, so
+     * the server refuses the doors that add people here (invitation creation,
+     * `admin/create-user`, `admin/import-users`) and the console does not offer
+     * them: Setup → Users says where to invite instead and marks a user no
+     * grant reaches beyond the baseline, the organization members page offers
+     * no Invite member, the identity import wizard is not offered, and the
+     * recovery-password reminder does not show (objectui#13330, the console
+     * half of the objectstack-ai/objectstack#25083 ruling). Absent or `false`
+     * ⇒ not managed, and none of those surfaces change.
+     */
+    cloudManaged?: boolean;
+    /**
      * When `false`, the server's `beforeCreateOrganization` hook blocks
      * creation of new organizations. The org plugin endpoints (list, update,
      * invite-accept) still work — only fresh creation is forbidden.

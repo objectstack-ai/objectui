@@ -420,6 +420,13 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
                             value={value}
                             field={enrichedField as any}
                             deadlineSettled={isDeadlineSettled(enrichedField, stagedRecord, { scope: predicateScope, fields: objectSchema?.fields })}
+                            // Every date in the strip writes its year
+                            // (objectui#13331). The chips are read side by
+                            // side, so a current-year date without its year
+                            // ("End Date Sep 15") beside a past-year one
+                            // ("Start Date Sep 15, 2025") read as next month.
+                            // Grid cells keep the shared face that drops it.
+                            alwaysShowYear
                           />
                         </span>
                       )}

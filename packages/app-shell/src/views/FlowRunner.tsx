@@ -79,6 +79,23 @@
  * suppresses the action's `successMessage` at the ActionRunner's toast sink.
  * ⛔ That last part is a thing that WORKS — it is pinned, not touched.
  *
+ * ## A refused end shows the message alone (objectui#13342)
+ *
+ * The notice used to sit above the screen the run had paused on, and that
+ * screen stayed mounted under it: its inputs visible and editable, the values
+ * going nowhere, since a refused run is never resumed. So on `refused` the
+ * screen body is no longer rendered — the dialog keeps its header (the flow's
+ * label and the step's heading, which still say what was being done), the
+ * notice, and the Close. An `object-form` step's Close came from the form's
+ * own button bar, which went with the body, so a refused run draws the
+ * runner's footer on that step too; the dialog takes the narrow width, since
+ * nothing wide is left in it.
+ *
+ * Only `refused` takes this. A terminal FAILURE keeps the screen and its
+ * values under the reason on purpose (the resume-RESULT section above): there
+ * the user is reading why what they typed was not accepted. And a screen still
+ * waiting for input renders exactly as before.
+ *
  * ## The invoking action's `successMessage` closes the run (objectui#12234)
  *
  * The `silent` above holds the action's message back AT THE PAUSE, because
@@ -592,8 +609,13 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
   // withdrawing the submit affordance is one behaviour with two causes, and
   // splitting it is how the `object-form` arm of it gets forgotten.
   const terminal = refused !== null || (resumeError !== null && !resumeError.retryable);
+  // A refused end shows its message alone (objectui#13342 — see the header):
+  // the screen it paused on is not drawn under it. Narrower than `terminal` on
+  // purpose — a terminal failure keeps the screen and the values it explains.
+  const showScreenBody = refused === null;
   // A long flat screen widens to two columns (objectui#12080 — see the header).
   const isLongScreen = !isObjectForm && screenFields(screen).length > NARROW_SCREEN_MAX_FIELDS;
+  const isWide = showScreenBody && (isObjectForm || isLongScreen);
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o && !submitting) onClose(); }}>
@@ -601,7 +623,7 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
           tall, in which only the body below can give up height (`min-h-0`)
           and scroll, so the header and the footer always stay on screen. */}
       <DialogContent
-        className={cn('flex max-h-[90vh] flex-col', isObjectForm || isLongScreen ? `sm:max-w-3xl ${DIALOG_VIEWPORT_GUTTER}` : 'sm:max-w-md')}
+        className={cn('flex max-h-[90vh] flex-col', isWide ? `sm:max-w-3xl ${DIALOG_VIEWPORT_GUTTER}` : 'sm:max-w-md')}
       >
         <DialogHeader>
           {/* The flow being run (objectui#11092), above the step's own heading,
@@ -637,41 +659,45 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
         {/* The ONE scrolling region (objectui#12080). `-mx-6 px-6` runs it to
             the dialog's edges, so the scrollbar sits on the border and a
             control's focus ring is not clipped at the sides. */}
-        <div className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6" data-testid="flow-screen-body">
-          {/* The screen body pulls in lazily-loaded chunks (an `object-form` step
-              mounts ObjectForm, whose field widgets are lazy). Without a boundary
-              HERE, that suspension unwinds to the host's nearest <Suspense> — a
-              route-level one on some surfaces — which swaps the whole page for a
-              fallback and destroys the host's state, taking this dialog (and the
-              run it is driving) with it. */}
-          <Suspense fallback={<div className="py-6 text-sm text-muted-foreground">{t('common.loading', { defaultValue: 'Loading…' })}</div>}>
-            <ScreenView
-              screen={shown}
-              values={values}
-              onValueChange={setVal}
-              dataSource={dataSource}
-              objects={objects}
-              // Two columns from `sm` up; `space-y-0` replaces the body's own
-              // stack spacing, which would offset every grid cell but the last.
-              className={isLongScreen ? 'grid gap-4 space-y-0 sm:grid-cols-2' : undefined}
-              objectForm={{
-                onSuccess: onObjectFormSaved,
-                onCancel: onClose,
-                // Withdrawn once the run is gone: the record this step created was
-                // already persisted, so a second Save would duplicate it AND still
-                // have no suspension to resume.
-                showSubmit: !terminal,
-                showCancel: true,
-                submitText: t('flowRunner.saveAndContinue', { defaultValue: 'Save & Continue' }),
-                cancelText: terminal
-                  ? t('common.close', { defaultValue: 'Close' })
-                  : t('common.cancel', { defaultValue: 'Cancel' }),
-              }}
-            />
-          </Suspense>
-        </div>
+        {showScreenBody && (
+          <div className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6" data-testid="flow-screen-body">
+            {/* The screen body pulls in lazily-loaded chunks (an `object-form` step
+                mounts ObjectForm, whose field widgets are lazy). Without a boundary
+                HERE, that suspension unwinds to the host's nearest <Suspense> — a
+                route-level one on some surfaces — which swaps the whole page for a
+                fallback and destroys the host's state, taking this dialog (and the
+                run it is driving) with it. */}
+            <Suspense fallback={<div className="py-6 text-sm text-muted-foreground">{t('common.loading', { defaultValue: 'Loading…' })}</div>}>
+              <ScreenView
+                screen={shown}
+                values={values}
+                onValueChange={setVal}
+                dataSource={dataSource}
+                objects={objects}
+                // Two columns from `sm` up; `space-y-0` replaces the body's own
+                // stack spacing, which would offset every grid cell but the last.
+                className={isLongScreen ? 'grid gap-4 space-y-0 sm:grid-cols-2' : undefined}
+                objectForm={{
+                  onSuccess: onObjectFormSaved,
+                  onCancel: onClose,
+                  // Withdrawn once the run is gone: the record this step created was
+                  // already persisted, so a second Save would duplicate it AND still
+                  // have no suspension to resume.
+                  showSubmit: !terminal,
+                  showCancel: true,
+                  submitText: t('flowRunner.saveAndContinue', { defaultValue: 'Save & Continue' }),
+                  cancelText: terminal
+                    ? t('common.close', { defaultValue: 'Close' })
+                    : t('common.cancel', { defaultValue: 'Cancel' }),
+                }}
+              />
+            </Suspense>
+          </div>
+        )}
 
-        {!isObjectForm && (
+        {/* An `object-form` step brings its own button bar inside the body, so
+            the runner's footer is drawn there only once that body is gone. */}
+        {(!isObjectForm || !showScreenBody) && (
           <DialogFooter>
             {terminal ? (
               <Button variant="outline" onClick={onClose}>{t('common.close', { defaultValue: 'Close' })}</Button>

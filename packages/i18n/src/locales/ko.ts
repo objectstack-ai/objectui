@@ -2128,6 +2128,12 @@ const ko = {
       system: "시스템",
     },
     objectView: {
+      // objectui#13330 — Setup → Users on a managed environment.
+      managedUsers: {
+        inviteLine: "이 환경은 클라우드에서 관리됩니다. 클라우드의 조직에서 사용자를 초대하세요. 초대된 사용자는 처음 로그인할 때 여기에 표시됩니다. '권한 없음'으로 표시된 사용자는 모든 구성원이 가진 액세스 외에는 아무것도 없습니다. 권한 세트나 직위를 부여하세요.",
+        unauthorized: "권한 없음",
+        unauthorizedHint: "로그인한 모든 구성원이 가진 기본 권한 외에 권한 세트가 없습니다. 권한 세트나 직위를 부여하세요.",
+      },
       viewTypeTree: "트리",
       viewTypeTreeDesc: "상위 필드를 기준으로 자기 참조 레코드를 계층 구조로 중첩합니다.",
       parentField: "상위 필드",
@@ -2592,6 +2598,12 @@ const ko = {
     timeout: "요청 시간이 초과되었습니다. 다시 시도해주세요.",
     unknown: "예기치 않은 오류가 발생했습니다.",
   },
+  refusalDetails: {
+    more: "더보기",
+    less: "접기",
+    copy: "세부 정보 복사",
+    copied: "복사됨",
+  },
   workspace: {
     label: "조직",
     default: "내 조직",
@@ -3023,6 +3035,7 @@ const ko = {
       title: "구성원",
       inviteMember: "구성원 초대",
       inviteRestrictedNote: "조직 관리자만 구성원을 초대할 수 있습니다.",
+      inviteManagedNote: "구성원은 클라우드의 조직을 통해 참여합니다. 초대는 클라우드에서 하세요.",
       removeMember: "구성원 제거",
       removeConfirmTitle: "구성원을 제거할까요?",
       removeConfirmDescription: "{{name}}을(를) 조직에서 제거합니다. 접근 권한이 즉시 사라집니다.",
@@ -4302,6 +4315,7 @@ const ko = {
     cloneBody: "사본은 정의 전체를 그대로 가져가며 새 머신 이름과 레이블이 필요합니다. 사본은 Studio에서 편집하세요.",
     cloneName: "새 머신 이름",
     cloneLabel: "새 레이블",
+    cloneCopyLabel: "{{label}} (사본)",
     cancel: "취소",
     cloneConfirm: "복제본 만들기",
     cloneCreated: "플로우 「{{name}}」을(를) 만들었습니다.",

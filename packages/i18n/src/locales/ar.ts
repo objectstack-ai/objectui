@@ -2311,6 +2311,12 @@ const ar = {
       system: "النظام",
     },
     objectView: {
+      // objectui#13330 — Setup → Users on a managed environment.
+      managedUsers: {
+        inviteLine: "تُدار هذه البيئة من السحابة. ادعُ الأشخاص إلى مؤسستك هناك؛ وسيظهرون هنا عند تسجيل دخولهم لأول مرة. المستخدم الموسوم بـ «غير مخوّل» لا يملك سوى الوصول المتاح لكل عضو: امنحه مجموعة أذونات أو منصباً.",
+        unauthorized: "غير مخوّل",
+        unauthorizedHint: "لا يملك أي مجموعة أذونات تتجاوز الأساس الذي يملكه كل عضو مسجّل الدخول. امنحه مجموعة أذونات أو منصباً.",
+      },
       viewTypeTree: "شجرة",
       viewTypeTreeDesc: "يرتّب السجلات ذاتية المرجعية في تسلسل هرمي عبر حقل أب.",
       parentField: "الحقل الأب",
@@ -2790,6 +2796,12 @@ const ar = {
     timeout: "انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.",
     unknown: "حدث خطأ غير متوقع.",
   },
+  refusalDetails: {
+    more: "المزيد",
+    less: "أقل",
+    copy: "نسخ التفاصيل",
+    copied: "تم النسخ",
+  },
   workspace: {
     label: "المؤسسات",
     default: "مؤسستي",
@@ -3249,6 +3261,7 @@ const ar = {
       title: "الأعضاء",
       inviteMember: "دعوة عضو",
       inviteRestrictedNote: "لا يمكن دعوة الأعضاء إلا لمسؤولي المؤسسة.",
+      inviteManagedNote: "ينضم الأشخاص عبر مؤسستك في السحابة. ادعُهم من هناك.",
       removeMember: "إزالة العضو",
       removeConfirmTitle: "إزالة العضو؟",
       removeConfirmDescription: "سيؤدي ذلك إلى إزالة {{name}} من المؤسسة، وسيفقد صلاحية الوصول فورًا.",
@@ -4754,6 +4767,7 @@ const ar = {
     cloneBody: "تحتفظ النسخة بالتعريف كاملاً وتتطلب اسم آلة وتسمية جديدين. حرّر النسخة في Studio.",
     cloneName: "اسم آلة جديد",
     cloneLabel: "تسمية جديدة",
+    cloneCopyLabel: "{{label}} (نسخة)",
     cancel: "إلغاء",
     cloneConfirm: "إنشاء نسخة",
     cloneCreated: "تم إنشاء التدفق «{{name}}».",

@@ -84,6 +84,7 @@ import { documentHref } from './documentHref.js';
 import type { RowCrudPredicates } from '../utils/crudAffordances.js';
 import { createIdentityImportDataSource, IDENTITY_IMPORT_OBJECT, IDENTITY_IMPORT_WRITE_MODES, type IdentityPasswordPolicy } from './identityImport.js';
 import { IdentityImportOptions, IdentityImportResultExtra, identityImportFields } from './IdentityImportPanels.js';
+import { ManagedUsersInviteLine, MANAGED_USERS_OBJECT, UnauthorizedUserMarker, UserGrantLoader, isManagedEnvironment } from './managedEnvironmentUsers.js';
 import { importTargetFields } from './importTargetFields.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
 import { listToolbarDrawsAction, resolveManagedByEmptyState } from '../utils/managedByEmptyState.js';
@@ -96,7 +97,7 @@ import { useObjectTranslation, useObjectLabel, useDisplayLocale, pickLocalized }
 import { usePermissions } from '@object-ui/permissions';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useRealtimeSubscription, useConflictResolution } from '@object-ui/collaboration';
-import { ActionProvider, useNavigationOverlay, SchemaRenderer, useActionTextLocalizer, useRowPredicate, RelatedRecordActionsProvider, notifyDataChanged, useCapabilityGate, usePredicateScope } from '@object-ui/react';
+import { ActionProvider, useNavigationOverlay, SchemaRenderer, useActionTextLocalizer, useRowPredicate, RelatedRecordActionsProvider, notifyDataChanged, useCapabilityGate, usePredicateScope, useMetadata } from '@object-ui/react';
 import type { RelatedRecordActionsValue, RelatedRecordHandlers } from '@object-ui/react';
 import { toast } from 'sonner';
 import { useConsoleActionRuntime } from '../hooks/useConsoleActionRuntime.js';
@@ -1931,9 +1932,50 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // /api/v1/auth/admin/import-users pipeline. Gated on the deployment's
     // admin surface (features.admin from /api/v1/auth/config) plus the
     // caller being a workspace admin (the server re-checks, ADR-0068).
+    // objectui#13330 — and never on a managed environment
+    // (`features.cloudManaged`): there the server answers `admin/import-users`
+    // with 409 `RESOURCE_CONFLICT`, because people arrive from the hosting
+    // organisation through its identity provider.
     const { features } = useExpressionContext();
     const isIdentityImport = objectDef.name === IDENTITY_IMPORT_OBJECT;
-    const identityImportEnabled = isIdentityImport && features?.admin === true && isAdmin;
+    const identityImportEnabled =
+        isIdentityImport && features?.admin === true && isAdmin && !isManagedEnvironment(features);
+
+    // ─── Setup → Users on a managed environment (objectui#13330) ─────────
+    // The line that says where people are invited, and the marker on a user
+    // who holds no permission set beyond the baseline. The marker reads the
+    // grant rows through one loader per list (`managedEnvironmentUsers.tsx`),
+    // rebuilt when the list refreshes, so a grant made elsewhere shows on the
+    // next load. The metadata store is read through a ref: its context value is
+    // rebuilt whenever any cached type settles (AGENTS.md #10).
+    const managedUsers = objectDef.name === MANAGED_USERS_OBJECT && isManagedEnvironment(features);
+    const metadataStore = useMetadata();
+    const metadataStoreRef = useRef(metadataStore);
+    metadataStoreRef.current = metadataStore;
+    const grantLoaderRef = useRef<{ refreshKey: number; source: unknown; loader: UserGrantLoader } | null>(null);
+    if (
+        managedUsers &&
+        dataSource &&
+        (grantLoaderRef.current?.refreshKey !== refreshKey || grantLoaderRef.current?.source !== dataSource)
+    ) {
+        grantLoaderRef.current = {
+            refreshKey,
+            source: dataSource,
+            loader: new UserGrantLoader(dataSource as any, {
+                ensureType: (type: string) => metadataStoreRef.current.ensureType(type),
+                getTypeStatus: (type: string) => metadataStoreRef.current.getTypeStatus?.(type) ?? 'ready',
+            }),
+        };
+    }
+    const grantLoader = managedUsers ? grantLoaderRef.current?.loader : undefined;
+    const managedUserMarker = useCallback(
+        (row: Record<string, unknown>) => {
+            const id = row?.id ?? row?._id;
+            if (!grantLoader || id === undefined || id === null || id === '') return null;
+            return <UnauthorizedUserMarker loader={grantLoader} userId={String(id)} t={t} />;
+        },
+        [grantLoader, t],
+    );
     const [identityPasswordPolicy, setIdentityPasswordPolicy] = useState<IdentityPasswordPolicy>('auto');
     const identityPolicyRef = useRef<IdentityPasswordPolicy>('auto');
     identityPolicyRef.current = identityPasswordPolicy;
@@ -3778,10 +3820,14 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 // the leading cell. A host prop, not a view key: a console
                 // posture, never metadata.
                 defaultRowNumbers={!inSetup}
+                // objectui#13330 — on a managed environment, the Users list
+                // marks a user who holds nothing beyond the baseline. A host
+                // prop the grid draws beside the row's title.
+                rowAdornment={managedUsers ? managedUserMarker : undefined}
                 dataSource={ds}
             />
         );
-    }, [inSetup, activeView, activeViewDeclaresColumns, activeViewIsSaved, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listAddRecordOpensCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar, viewTabRow]);
+    }, [inSetup, activeView, activeViewDeclaresColumns, activeViewIsSaved, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listAddRecordOpensCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar, viewTabRow, managedUsers, managedUserMarker]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).
@@ -4205,6 +4251,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                  onConfigView={handleConfigView}
                />
              )}
+
+             {/* objectui#13330 — where people are invited on a managed environment. */}
+             {managedUsers && <ManagedUsersInviteLine t={t} />}
 
              {/* 2. Content — Plugin ObjectView with ViewSwitcher + Filter + Sort */}
              <div className="flex-1 overflow-hidden relative flex flex-row">

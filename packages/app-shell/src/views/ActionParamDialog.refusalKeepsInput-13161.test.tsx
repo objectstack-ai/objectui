@@ -25,7 +25,7 @@
  * named inside the message text is not read (the redirect-URL case below).
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import type { ActionParamDef, ActionResult } from '@object-ui/core';
 import { ActionParamDialog, type ParamDialogState } from './ActionParamDialog';
 
@@ -34,6 +34,17 @@ const USER_PARAMS: ActionParamDef[] = [
   { name: 'name', label: 'Name', type: 'text' },
 ];
 const TAKEN = 'User already exists. Use another email.';
+
+/**
+ * The refusal box leads with the message's first sentence and keeps the whole
+ * message behind "More" (objectui#13332): assert the lead, open it, and read
+ * the server's text whole.
+ */
+function expectRefusal(alert: HTMLElement, lead: string, full: string) {
+  expect(within(alert).getByTestId('refusal-lead')).toHaveTextContent(lead);
+  fireEvent.click(within(alert).getByTestId('refusal-more'));
+  expect(within(alert).getByTestId('refusal-detail').textContent).toBe(full);
+}
 
 function deferred<T>() {
   let resolve!: (v: T) => void;
@@ -71,7 +82,7 @@ describe('ActionParamDialog — a refused run keeps the typed input (objectui#13
 
     const alert = await screen.findByTestId('action-param-refusal');
     expect(alert).toHaveAttribute('role', 'alert');
-    expect(alert).toHaveTextContent(TAKEN);
+    expectRefusal(alert, 'User already exists.', TAKEN);
     expect(run).toHaveBeenCalledTimes(1);
     expect(run).toHaveBeenCalledWith({ email: 'ada@example.com', name: 'Ada' });
     // Not settled and not closed: the session is the dialog's to end.
@@ -157,7 +168,10 @@ describe('ActionParamDialog — a refused run keeps the typed input (objectui#13
     await type('Redirect URL', 'not-a-url');
     fireEvent.click(confirmButton());
 
-    expect(await screen.findByTestId('action-param-refusal')).toHaveTextContent(urlRefusal);
+    // The OAuth page's measured refusal (objectui#13332): the plain sentence
+    // first, the field path and the joined second issue behind "More".
+    expectRefusal(await screen.findByTestId('action-param-refusal'), 'Invalid URL', urlRefusal);
+    expect(screen.getByTestId('refusal-lead').textContent).toBe('Invalid URL');
     expect(screen.getByLabelText('Redirect URL')).toHaveValue('not-a-url');
     expect(screen.getByLabelText('Redirect URL').className).not.toContain('border-destructive');
     expect(screen.queryByText(/actionDialog\.requiredError/)).toBeNull();
@@ -190,7 +204,7 @@ describe('ActionParamDialog — a refused run keeps the typed input (objectui#13
     await type('Email', 'ada@example.com');
     fireEvent.click(confirmButton());
 
-    expect(await screen.findByTestId('action-param-refusal')).toHaveTextContent(TAKEN);
+    expectRefusal(await screen.findByTestId('action-param-refusal'), 'User already exists.', TAKEN);
   });
 
   it('control — without `run`, Confirm resolves and closes at once, as it always did', async () => {

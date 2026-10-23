@@ -2635,6 +2635,12 @@ const en = {
       passwordsDownload: 'Download CSV',
     },
     objectView: {
+      // objectui#13330 — Setup → Users on a managed environment.
+      managedUsers: {
+        inviteLine: 'This environment is managed from the cloud. Invite people to your organization there; they appear here when they first sign in. A user marked Not authorized holds nothing beyond the access every member has: give them a permission set or a position.',
+        unauthorized: 'Not authorized',
+        unauthorizedHint: 'Holds no permission set beyond the baseline every signed-in member has. Give them a permission set or a position.',
+      },
       objectNotFound: 'Object Not Found',
       objectNotFoundDescription: 'The object "{{objectName}}" does not exist in the current configuration.',
       objectNotFoundHint: 'Check your app navigation settings or select a different object from the sidebar.',
@@ -3126,6 +3132,15 @@ const en = {
     forbidden: 'Access denied.',
     timeout: 'Request timed out. Please try again.',
     unknown: 'An unexpected error occurred.',
+  },
+  // A refused write's message (objectui#13332): its first sentence is shown,
+  // and the whole server text sits behind the More / Less toggle with a copy
+  // button. Read by app-shell's `RefusalMessage`.
+  refusalDetails: {
+    more: 'More',
+    less: 'Less',
+    copy: 'Copy details',
+    copied: 'Copied',
   },
   workspace: {
     label: 'Organizations',
@@ -3708,6 +3723,7 @@ const en = {
       title: 'Members',
       inviteMember: 'Invite member',
       inviteRestrictedNote: 'Only organization admins can invite members.',
+      inviteManagedNote: 'People join through your organization in the cloud. Invite them there.',
       removeMember: 'Remove member',
       removeConfirmTitle: 'Remove member?',
       removeConfirmDescription: 'This will remove {{name}} from the organization. They will lose access immediately.',
@@ -5044,6 +5060,9 @@ const en = {
       'The copy carries the whole definition and takes a new machine name and label. Edit the copy in Studio.',
     cloneName: 'New machine name',
     cloneLabel: 'New label',
+    // The Clone dialog's prefilled label (objectui#13344): the source flow's
+    // label, or its machine name when it has none, marked as the copy.
+    cloneCopyLabel: '{{label}} (copy)',
     cancel: 'Cancel',
     cloneConfirm: 'Create clone',
     cloneCreated: 'Created flow "{{name}}".',

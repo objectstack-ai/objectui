@@ -104,7 +104,12 @@ describe('console runtime — a refused param run keeps the dialog and its input
     fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'taken@example.com' } });
     fireEvent.click(screen.getByText('actionDialog.confirm'));
 
-    expect(await screen.findByTestId('action-param-refusal')).toHaveTextContent(TAKEN);
+    // The box leads with the first sentence; the whole refusal is behind
+    // "More" (objectui#13332).
+    const alert = await screen.findByTestId('action-param-refusal');
+    expect(alert).toHaveTextContent('User already exists.');
+    fireEvent.click(screen.getByTestId('refusal-more'));
+    expect(screen.getByTestId('refusal-detail').textContent).toBe(TAKEN);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByLabelText('Email')).toHaveValue('taken@example.com');
     expect(sent).toEqual([{ email: 'taken@example.com' }]);

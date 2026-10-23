@@ -2130,6 +2130,12 @@ const ja = {
       system: "システム",
     },
     objectView: {
+      // objectui#13330 — Setup → Users on a managed environment.
+      managedUsers: {
+        inviteLine: "この環境はクラウドで管理されています。メンバーの招待はクラウドの組織で行ってください。招待されたユーザーは初回サインイン時にここに表示されます。「未認可」と表示されたユーザーは、全メンバー共通のアクセス以外に何も持っていません。権限セットまたは役職を割り当ててください。",
+        unauthorized: "未認可",
+        unauthorizedHint: "サインイン済みの全メンバーが持つ基本権限以外の権限セットを持っていません。権限セットまたは役職を割り当ててください。",
+      },
       viewTypeTree: "ツリー",
       viewTypeTreeDesc: "親項目によって自己参照レコードを階層に入れ子にします。",
       parentField: "親項目",
@@ -2594,6 +2600,12 @@ const ja = {
     timeout: "リクエストがタイムアウトしました。もう一度お試しください。",
     unknown: "予期しないエラーが発生しました。",
   },
+  refusalDetails: {
+    more: "詳細",
+    less: "閉じる",
+    copy: "詳細をコピー",
+    copied: "コピーしました",
+  },
   workspace: {
     label: "組織",
     default: "マイ組織",
@@ -3026,6 +3038,7 @@ const ja = {
       title: "メンバー",
       inviteMember: "メンバーを招待",
       inviteRestrictedNote: "組織の管理者のみがメンバーを招待できます。",
+      inviteManagedNote: "メンバーはクラウドの組織を通じて参加します。招待はクラウドで行ってください。",
       removeMember: "メンバーを削除",
       removeConfirmTitle: "メンバーを削除しますか？",
       removeConfirmDescription: "{{name}} を組織から削除します。アクセス権は直ちに失われます。",
@@ -4305,6 +4318,7 @@ const ja = {
     cloneBody: "コピーは定義全体を引き継ぎ、新しいマシン名とラベルが必要です。コピーの編集は Studio で行ってください。",
     cloneName: "新しいマシン名",
     cloneLabel: "新しいラベル",
+    cloneCopyLabel: "{{label}}（コピー）",
     cancel: "キャンセル",
     cloneConfirm: "クローンを作成",
     cloneCreated: "フロー「{{name}}」を作成しました。",

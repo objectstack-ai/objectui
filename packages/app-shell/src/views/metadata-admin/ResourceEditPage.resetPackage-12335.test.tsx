@@ -62,6 +62,15 @@ const AMBIGUOUS =
   `in process pass packageId. Nothing was deleted. doc '${NAME}' belongs to 2 packages ('${PKG_A}', '${PKG_B}'), ` +
   'and a delete that names none has no single row to remove.';
 
+/**
+ * The page's error line leads with the refusal's first sentence and keeps the
+ * whole server text behind "More" (objectui#13332): open it and read it whole.
+ */
+async function expectRefusalShown() {
+  fireEvent.click(await screen.findByTestId('refusal-more'));
+  expect(screen.getByTestId('refusal-detail').textContent).toBe(AMBIGUOUS);
+}
+
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
@@ -262,7 +271,7 @@ describe('ResourceEditPage — an unbound editor sends no package, and the 409 r
     expect(lastDelete().get('state')).toBe('draft');
     // Absent, never empty.
     expect(lastDelete().has('package')).toBe(false);
-    expect(await screen.findByText(AMBIGUOUS)).toBeInTheDocument();
+    await expectRefusalShown();
     expect(packagesHeld(server.drafts)).toEqual([PKG_A, PKG_B]);
     expect(toasts.success).not.toHaveBeenCalled();
   });
@@ -277,7 +286,7 @@ describe('ResourceEditPage — an unbound editor sends no package, and the 409 r
     await settle();
 
     expect([...lastDelete().keys()]).toEqual([]);
-    expect(await screen.findByText(AMBIGUOUS)).toBeInTheDocument();
+    await expectRefusalShown();
     expect(screen.queryByTestId('list-view')).toBeNull();
     expect(packagesHeld(server.active)).toEqual([PKG_A, PKG_B]);
   });
@@ -292,6 +301,6 @@ describe('ResourceEditPage — an unbound editor sends no package, and the 409 r
     await settle();
 
     expect(lastDelete().has('package')).toBe(false);
-    expect(await screen.findByText(AMBIGUOUS)).toBeInTheDocument();
+    await expectRefusalShown();
   });
 });

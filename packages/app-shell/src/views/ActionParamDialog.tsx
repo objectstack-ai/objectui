@@ -66,6 +66,7 @@ import {
 } from '@object-ui/components';
 import { ChevronDown, Loader2, Lock } from 'lucide-react';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { RefusalMessage } from '../components/RefusalMessage.js';
 import type { ActionParamDef, ActionResult, ParamCollectionHandler } from '@object-ui/core';
 import {
   evalRowPredicate,
@@ -857,7 +858,7 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
             data-testid="action-param-refusal"
             className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive whitespace-pre-line"
           >
-            {refusal}
+            <RefusalMessage text={refusal} />
           </div>
         )}
 

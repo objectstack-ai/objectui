@@ -2171,6 +2171,12 @@ const pt = {
       system: "Sistema",
     },
     objectView: {
+      // objectui#13330 — Setup → Users on a managed environment.
+      managedUsers: {
+        inviteLine: "Este ambiente é gerenciado pela nuvem. Convide pessoas para sua organização lá; elas aparecem aqui quando entram pela primeira vez. Um usuário marcado como “Não autorizado” tem apenas o acesso que todo membro tem: atribua a ele um conjunto de permissões ou um cargo.",
+        unauthorized: "Não autorizado",
+        unauthorizedHint: "Não tem nenhum conjunto de permissões além do básico que todo membro conectado tem. Atribua um conjunto de permissões ou um cargo.",
+      },
       viewTypeTree: "Árvore",
       viewTypeTreeDesc: "Aninha registros autorreferenciados em uma hierarquia por um campo pai.",
       parentField: "Campo pai",
@@ -2638,6 +2644,12 @@ const pt = {
     timeout: "Tempo limite excedido. Por favor, tente novamente.",
     unknown: "Ocorreu um erro inesperado.",
   },
+  refusalDetails: {
+    more: "Mais",
+    less: "Menos",
+    copy: "Copiar detalhes",
+    copied: "Copiado",
+  },
   workspace: {
     label: "Organizações",
     default: "Minha organização",
@@ -3076,6 +3088,7 @@ const pt = {
       title: "Membros",
       inviteMember: "Convidar membro",
       inviteRestrictedNote: "Apenas administradores da organização podem convidar membros.",
+      inviteManagedNote: "As pessoas entram pela sua organização na nuvem. Convide-as lá.",
       removeMember: "Remover membro",
       removeConfirmTitle: "Remover membro?",
       removeConfirmDescription: "Isso removerá {{name}} da organização. O acesso será perdido imediatamente.",
@@ -4411,6 +4424,7 @@ const pt = {
     cloneBody: "A cópia mantém toda a definição e exige um novo nome de máquina e um novo rótulo. Edite a cópia no Studio.",
     cloneName: "Novo nome de máquina",
     cloneLabel: "Novo rótulo",
+    cloneCopyLabel: "{{label}} (cópia)",
     cancel: "Cancelar",
     cloneConfirm: "Criar clone",
     cloneCreated: 'Fluxo "{{name}}" criado.',

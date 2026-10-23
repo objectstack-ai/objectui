@@ -224,6 +224,20 @@ function MyViewTabs() {
 />
 ```
 
+### Host prop: `rowAdornment`
+
+A host can draw a node beside each row's title in the grid with the
+`rowAdornment` prop: a function called with the row record that returns a React
+node, or `null` for none. The list hands it to the grid as the grid's own
+`rowAdornment` (see `@object-ui/plugin-grid`), which places it in the cell of
+the object's declared name field when a column shows it, else in the first
+shown column. Only the grid is handed it: the board, calendar and the other
+visualizations, and the compact posture, draw no title cell for it. This is a
+React prop for the host app, not a schema key: list metadata cannot set it.
+Without it every row is unchanged. The console uses it on Setup → Users on a
+cloud-managed environment, to mark a user who holds no permission set beyond
+the baseline.
+
 ### Host prop: `viewDefaults`
 
 A host that stores the user's own hidden fields or density and lays that

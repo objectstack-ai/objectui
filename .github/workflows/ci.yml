@@ -1288,6 +1288,13 @@ jobs:
       # positionals -- paths relative to the repository root, no `--`, which is
       # the only spelling `scripts/vitest-invocation-guard.mjs` admits.
       #
+      # `$MODE` is the VALUE of the step output `mode`: the selector step's
+      # `mode=affected` line is GitHub's `key=value` form, so what arrives here
+      # is `affected` or `full`, never the line itself. Comparing against the
+      # whole line kept this speed from ever running (objectui#13350);
+      # `scripts/__tests__/select-affected-tests-wiring.test.ts` runs both
+      # steps as written, so neither end can be renamed alone.
+      #
       # ⭐ Which files a leg runs is decided by measured per-file duration, not
       # by path hash (objectui#12208, ruling 6121816480, letter B): the root
       # config's `sequence.sequencer` is `scripts/test-shard-sequencer.mjs`,
@@ -1307,7 +1314,7 @@ jobs:
           MODE: ${{ steps.select.outputs.mode }}
           OBJECTUI_TEST_TIMINGS_OUT: ${{ runner.temp }}/test-file-timings/shard-${{ matrix.shard }}.json
         run: |
-          if [ "$MODE" = 'mode=affected' ]; then
+          if [ "$MODE" = 'affected' ]; then
             mapfile -t filters < "$RUNNER_TEMP/affected-tests.txt"
             echo "Affected speed: ${#filters[@]} vitest filter(s), shard ${{ matrix.shard }} of 16."
             pnpm exec vitest run --shard=${{ matrix.shard }}/16 "${filters[@]}"

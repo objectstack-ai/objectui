@@ -148,10 +148,10 @@ describe('objectui#13404 — a funnel labels every stage inside the plot', () =>
 
     const xs = labels.map((t) => num(t, 'x'));
     for (const [i, t] of labels.entries()) {
-      expect(t.getAttribute('text-anchor'), `${t.textContent} is centred`).toBe('middle');
       // In bounds, with room on both sides — not hanging off the right edge.
-      expect(xs[i]).toBeGreaterThan(WIDTH * 0.25);
-      expect(xs[i]).toBeLessThan(WIDTH * 0.75);
+      expect(xs[i], `${t.textContent} is anchored inside the plot`).toBeGreaterThan(WIDTH * 0.25);
+      expect(xs[i], `${t.textContent} is anchored inside the plot`).toBeLessThan(WIDTH * 0.75);
+      expect(t.getAttribute('text-anchor'), `${t.textContent} is centred`).toBe('middle');
     }
     // One axis: the narrowest stage is centred exactly where the widest is.
     for (const x of xs) expect(x).toBeCloseTo(xs[0], 5);

@@ -21,6 +21,7 @@ vi.mock('sonner', () => {
 });
 
 import { toast } from 'sonner';
+import { ActionRunner } from '@object-ui/core';
 import { createConsoleServerActionHandler } from '../consoleServerAction';
 
 /** A pre-openable tab stub with the surface the wrapper drives. */
@@ -417,5 +418,77 @@ describe('a declared onSuccess block defers to the runner (objectui#5221)', () =
     } as any);
 
     expect(openSpy).toHaveBeenCalledWith('/app/crm/contacts/rec_42', '_blank');
+  });
+});
+
+describe('the early record-id refusal is forwarded to the runner (objectui#13384)', () => {
+  const ADD_TO_CAMPAIGN = {
+    type: 'script',
+    name: 'add_to_campaign',
+    objectName: 'crm_lead',
+    locations: ['list_toolbar', 'list_item'],
+    actionParams: [{ name: 'campaign', label: 'Campaign', type: 'text', required: true }],
+  };
+  const launch = () => JSON.parse(JSON.stringify(ADD_TO_CAMPAIGN));
+
+  it("the wrapper answers core's refusal, with its pack key, and nothing for one row", () => {
+    const { handler } = makeHandler();
+
+    expect(handler.refuseBeforeInput?.(launch(), { selectedRecords: [] })).toEqual({
+      error: 'This action runs on a single record — select a row first.',
+      errorKey: 'actions.selectRowFirst',
+    });
+    expect(handler.refuseBeforeInput?.(launch(), { selectedRecords: [{ id: 'a' }, { id: 'b' }] })).toEqual({
+      error: 'This action runs on a single record — select exactly one row.',
+      errorKey: 'actions.selectExactlyOneRow',
+    });
+    expect(handler.refuseBeforeInput?.(launch(), { selectedRecords: [{ id: 'a' }] })).toBeUndefined();
+  });
+
+  it('an injected resolveRecordId (record-page policy) decides the early refusal too', () => {
+    const { handler } = makeHandler({ resolveRecordId: () => ({ recordId: 'page_rec_1' }) });
+
+    expect(handler.refuseBeforeInput?.(launch(), { selectedRecords: [] })).toBeUndefined();
+  });
+
+  it.each([
+    ['0 rows', [] as Record<string, unknown>[], 'This action runs on a single record — select a row first.'],
+    ['2 rows', [{ id: 'a' }, { id: 'b' }], 'This action runs on a single record — select exactly one row.'],
+  ])('through a real runner, %s: refused before the param dialog, with no tab and no request', async (_label, rows, refusal) => {
+    const openSpy = vi.spyOn(window, 'open');
+    const { handler, fetch } = makeHandler();
+    const runner = new ActionRunner({ selectedRecords: rows });
+    const toastSpy = vi.fn();
+    const dialog = vi.fn(async () => ({ campaign: 'cmp_webinar' }));
+    runner.setToastHandler(toastSpy);
+    runner.setParamCollectionHandler(dialog);
+    runner.registerHandler('script', handler);
+
+    const result = await runner.execute({ ...launch(), opensInNewTab: true });
+
+    expect(result).toEqual({ success: false, error: refusal });
+    expect(dialog).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith(refusal, expect.objectContaining({ type: 'error' }));
+  });
+
+  it('through a real runner, 1 row: the param dialog opens and the request carries that row', async () => {
+    const { handler, fetch } = makeHandler();
+    const runner = new ActionRunner({ selectedRecords: [{ id: 'lead_1' }] });
+    const dialog = vi.fn(async () => ({ campaign: 'cmp_webinar' }));
+    runner.setToastHandler(vi.fn());
+    runner.setParamCollectionHandler(dialog);
+    runner.registerHandler('script', handler);
+
+    const result = await runner.execute(launch());
+
+    expect(result.success).toBe(true);
+    expect(dialog).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(JSON.parse((fetch.mock.calls[0] as unknown as [string, { body: string }])[1].body)).toEqual({
+      recordId: 'lead_1',
+      params: { campaign: 'cmp_webinar' },
+    });
   });
 });

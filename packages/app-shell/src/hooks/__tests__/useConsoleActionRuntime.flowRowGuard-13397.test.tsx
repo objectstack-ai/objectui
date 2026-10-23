@@ -46,11 +46,11 @@ vi.mock('@object-ui/i18n', async (importOriginal) => {
   return {
     ...(await importOriginal<Record<string, unknown>>()),
     useObjectLabel: () => ({
-      fieldLabel: (_o: any, _n: any, l: any) => l,
-      fieldOptionLabel: (_o: any, _f: any, _v: any, l: any) => l,
-      actionParamText: (_o: any, _a: any, _p: any, _attr: any, fallback: any) => fallback,
-      actionParamOptionLabel: (_o: any, _a: any, _p: any, _v: any, fallback: any) => fallback,
-      actionDescription: (_o: any, _a: any, fallback: any) => fallback,
+      fieldLabel: (_o: unknown, _n: unknown, l: string) => l,
+      fieldOptionLabel: (_o: unknown, _f: unknown, _v: unknown, l: string) => l,
+      actionParamText: (_o: unknown, _a: unknown, _p: unknown, _attr: unknown, fallback: string) => fallback,
+      actionParamOptionLabel: (_o: unknown, _a: unknown, _p: unknown, _v: unknown, fallback: string) => fallback,
+      actionDescription: (_o: unknown, _a: unknown, fallback: string) => fallback,
     }),
     useObjectTranslation: () => ({ t: zhT, language: 'zh' }),
   };
@@ -75,17 +75,12 @@ vi.mock('../../views/ActionConfirmDialog', () => ({ ActionConfirmDialog: () => n
 vi.mock('../../views/ActionResultDialog', () => ({ ActionResultDialog: () => null }));
 vi.mock('../../views/FlowRunner', () => ({ FlowRunner: () => null }));
 
-vi.mock('sonner', () => {
-  const fn: any = vi.fn();
-  fn.error = vi.fn();
-  fn.success = vi.fn();
-  return { toast: fn };
-});
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }));
 
 import { toast } from 'sonner';
 import { useConsoleActionRuntime, ConsoleActionRuntimeProvider } from '../useConsoleActionRuntime';
 import { useAction } from '@object-ui/react';
-import { resolveServerActionRecordId } from '@object-ui/core';
+import { resolveServerActionRecordId, type ActionContext, type ActionDef } from '@object-ui/core';
 
 const ZH_SELECT_ROW_FIRST = '此操作针对单条记录，请先选择一行。';
 const ZH_SELECT_EXACTLY_ONE_ROW = '此操作针对单条记录，请只选择一行。';
@@ -98,12 +93,14 @@ const REASSIGN = {
   locations: ['list_item', 'list_toolbar'],
   params: [{ name: 'owner', label: 'Owner', type: 'text', required: true }],
 };
-const launch = (extra: Record<string, unknown> = {}) => ({ ...JSON.parse(JSON.stringify(REASSIGN)), ...extra });
+const launch = (extra: Record<string, unknown> = {}): ActionDef => ({ ...JSON.parse(JSON.stringify(REASSIGN)), ...extra });
+const rowsContext = (rows: Record<string, unknown>[]): ActionContext => ({ selectedRecords: rows });
+const toastError = vi.mocked(toast.error);
 
 beforeEach(() => {
   authFetchSpy.mockReset();
-  (toast as any).error.mockClear();
-  (toast as any).success.mockClear();
+  toastError.mockClear();
+  vi.mocked(toast.success).mockClear();
 });
 
 describe('flowHandler.refuseBeforeInput — the resolver its dispatch runs (objectui#13397)', () => {
@@ -113,47 +110,47 @@ describe('flowHandler.refuseBeforeInput — the resolver its dispatch runs (obje
     ['0 rows', [] as Record<string, unknown>[], 'actions.selectRowFirst'],
     ['2 rows', [{ id: 'a' }, { id: 'b' }], 'actions.selectExactlyOneRow'],
   ])('%s: answers the resolver\'s refusal with its pack key', (_label, rows, errorKey) => {
-    const context = { selectedRecords: rows } as any;
-    const rule = resolveServerActionRecordId(launch() as any, context);
+    const context = rowsContext(rows);
+    const rule = resolveServerActionRecordId(launch(), context);
 
-    expect(runtime().flowHandler.refuseBeforeInput?.(launch() as any, context)).toEqual({ error: rule.error, errorKey });
+    expect(runtime().flowHandler.refuseBeforeInput?.(launch(), context)).toEqual({ error: rule.error, errorKey });
   });
 
   it('1 row: no refusal', () => {
-    expect(runtime().flowHandler.refuseBeforeInput?.(launch() as any, { selectedRecords: [{ id: 'a' }] } as any))
+    expect(runtime().flowHandler.refuseBeforeInput?.(launch(), rowsContext([{ id: 'a' }])))
       .toBeUndefined();
   });
 
   it('control: an object-level toolbar flow with 0 rows is not refused', () => {
     expect(runtime().flowHandler.refuseBeforeInput?.(
-      launch({ locations: ['list_toolbar'] }) as any,
-      { selectedRecords: [] } as any,
+      launch({ locations: ['list_toolbar'] }),
+      rowsContext([]),
     )).toBeUndefined();
   });
 
   it('control: a dialog that itself collects `recordId` is not judged before it runs', () => {
     const collectsRecordId = launch({ params: [{ name: 'recordId', label: 'Record', type: 'text' }] });
 
-    expect(runtime().flowHandler.refuseBeforeInput?.(collectsRecordId as any, { selectedRecords: [] } as any))
+    expect(runtime().flowHandler.refuseBeforeInput?.(collectsRecordId, rowsContext([])))
       .toBeUndefined();
   });
 });
 
 describe('a toolbar flow launch through the console runtime (objectui#13397)', () => {
-  function Probe({ rows, action }: { rows: Record<string, unknown>[]; action: Record<string, unknown> }) {
+  function Probe({ rows, action }: { rows: Record<string, unknown>[]; action: ActionDef }) {
     const { execute, updateContext } = useAction();
     return (
       <button
         onClick={() => {
           updateContext({ selectedRecords: rows });
-          void execute(action as any);
+          void execute(action);
         }}
       >
         run-flow
       </button>
     );
   }
-  const mount = (rows: Record<string, unknown>[], action: Record<string, unknown> = launch()) => {
+  const mount = (rows: Record<string, unknown>[], action: ActionDef = launch()) => {
     render(
       <ConsoleActionRuntimeProvider dataSource={{}} objects={[]} objectName="inv">
         <Probe rows={rows} action={action} />
@@ -168,7 +165,7 @@ describe('a toolbar flow launch through the console runtime (objectui#13397)', (
   ])('%s: refused before the param dialog, with a zh-CN toast and no request', async (_label, rows, zh) => {
     mount(rows);
 
-    await waitFor(() => expect((toast as any).error).toHaveBeenCalledWith(zh));
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith(zh));
     expect(screen.queryByTestId('param-dialog')).toBeNull();
     expect(authFetchSpy).not.toHaveBeenCalled();
   });
@@ -177,7 +174,7 @@ describe('a toolbar flow launch through the console runtime (objectui#13397)', (
     mount([{ id: 'rec_1' }]);
 
     await screen.findByTestId('param-dialog');
-    expect((toast as any).error).not.toHaveBeenCalled();
+    expect(toastError).not.toHaveBeenCalled();
     expect(authFetchSpy).not.toHaveBeenCalled();
   });
 
@@ -185,7 +182,7 @@ describe('a toolbar flow launch through the console runtime (objectui#13397)', (
     mount([], launch({ locations: ['list_toolbar'] }));
 
     await screen.findByTestId('param-dialog');
-    expect((toast as any).error).not.toHaveBeenCalled();
+    expect(toastError).not.toHaveBeenCalled();
   });
 });
 
@@ -196,9 +193,9 @@ describe('flowHandler called directly: the dispatch-time refusal is translated (
   ])('%s: refuses in zh-CN through the pack key, with no request', async (_label, rows, zh) => {
     const { result } = renderHook(() => useConsoleActionRuntime({ dataSource: {}, objects: [], objectName: 'inv' }));
 
-    let res: any;
+    let res: unknown;
     await act(async () => {
-      res = await result.current.flowHandler(launch({ params: {} }) as any, { selectedRecords: rows } as any);
+      res = await result.current.flowHandler(launch({ params: {} }), rowsContext(rows));
     });
 
     expect(res).toEqual({ success: false, error: zh });

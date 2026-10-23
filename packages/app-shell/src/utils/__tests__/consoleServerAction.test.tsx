@@ -21,7 +21,7 @@ vi.mock('sonner', () => {
 });
 
 import { toast } from 'sonner';
-import { ActionRunner } from '@object-ui/core';
+import { ActionRunner, type ActionDef } from '@object-ui/core';
 import { builtInLocales } from '@object-ui/i18n/locales';
 import { createConsoleServerActionHandler } from '../consoleServerAction';
 
@@ -504,13 +504,13 @@ describe('the newTabUrl fast path refuses in the session language (objectui#1339
     );
     return typeof hit === 'string' ? hit : englishDefault;
   };
-  const SSO = { type: 'script', name: 'sso_as_owner', opensInNewTab: true, newTabUrl: '/sso-open/{recordId}' };
+  const SSO: ActionDef = { type: 'script', name: 'sso_as_owner', opensInNewTab: true, newTabUrl: '/sso-open/{recordId}' };
 
   it('no resolvable record id: the refusal reads zh-CN, with no tab', async () => {
     const openSpy = vi.spyOn(window, 'open');
     const { handler, fetch } = makeHandler({ t: zhT });
 
-    const res = await handler({ ...SSO } as any);
+    const res = await handler({ ...SSO });
 
     expect(res).toEqual({ success: false, error: '此操作针对单条记录，但没有可用的记录 ID。' });
     expect(openSpy).not.toHaveBeenCalled();
@@ -520,7 +520,7 @@ describe('the newTabUrl fast path refuses in the session language (objectui#1339
   it('control: with no `t` the same refusal stays English', async () => {
     const { handler } = makeHandler();
 
-    expect(await handler({ ...SSO } as any)).toEqual({
+    expect(await handler({ ...SSO })).toEqual({
       success: false,
       error: 'This action runs on a single record — no record id available.',
     });
@@ -530,7 +530,7 @@ describe('the newTabUrl fast path refuses in the session language (objectui#1339
     const openSpy = vi.spyOn(window, 'open');
     const { handler } = makeHandler({ t: zhT });
 
-    const res = await handler({ ...SSO } as any, { selectedRecords: [{ id: 'a' }, { id: 'b' }] } as any);
+    const res = await handler({ ...SSO }, { selectedRecords: [{ id: 'a' }, { id: 'b' }] });
 
     expect(res).toEqual({ success: false, error: '此操作针对单条记录，请只选择一行。' });
     expect(openSpy).not.toHaveBeenCalled();
@@ -538,10 +538,10 @@ describe('the newTabUrl fast path refuses in the session language (objectui#1339
 
   it('control: with one row the fast path still opens the tab', async () => {
     const tab = makeTab();
-    vi.spyOn(window, 'open').mockReturnValue(tab as any);
+    vi.spyOn(window, 'open').mockReturnValue(tab);
     const { handler } = makeHandler({ t: zhT });
 
-    expect(await handler({ ...SSO } as any, { selectedRecords: [{ id: 'e1' }] } as any)).toEqual({ success: true });
+    expect(await handler({ ...SSO }, { selectedRecords: [{ id: 'e1' }] })).toEqual({ success: true });
     expect(tab.location.href).toBe('https://api.test/sso-open/e1');
   });
 });

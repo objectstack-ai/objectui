@@ -105,7 +105,6 @@ function renderRecordHeader(objectLabelNote?: string) {
         objectSchema={{ name: 'sys_organization', label: 'Organization', fields: { name: { type: 'text' } } }}
         objectLabelNote={objectLabelNote}
       >
-        {/* eslint-disable-next-line react-hooks/static-components -- ComponentRegistry.get returns a registered component (stable), not one created during render */}
         <Header schema={{ type: 'page:header' }} />
       </RecordContextProvider>
     </ActionProvider>,

@@ -12,8 +12,8 @@
  * corner (objectui#7482) is also where every right-side drawer keeps its
  * chrome.
  *
- * The fix keeps the corner and offsets the toaster while a right-edge drawer is
- * open: into the strip of page left of the drawer when a toast fits there,
+ * The fix anchors the toaster top-right and offsets it while a right-edge
+ * drawer is open (with none open it sits top-centre since objectui#13340): into the strip of page left of the drawer when a toast fits there,
  * otherwise below the drawer's header. This file pins that MECHANISM — which
  * dialogs count as a right-edge drawer, and which sonner offset each case
  * produces, appearing on open and gone on close.
@@ -93,14 +93,29 @@ async function renderWithToast(props: Record<string, unknown> = {}): Promise<HTM
   });
 }
 
-const offsets = (toaster: HTMLElement) => ({
-  top: toaster.style.getPropertyValue('--offset-top'),
-  right: toaster.style.getPropertyValue('--offset-right'),
-  mobileTop: toaster.style.getPropertyValue('--mobile-offset-top'),
+/**
+ * The toaster region as it is NOW. Sonner keys its `<ol>` by position, so the
+ * move between top-centre (no drawer, objectui#13340) and top-right (a drawer
+ * to clear) mounts a new element: a handle taken before the move goes stale.
+ */
+const region = (): HTMLElement => {
+  const el = document.querySelector<HTMLElement>('[data-sonner-toaster]');
+  expect(el, 'sonner did not mount its toaster region').toBeTruthy();
+  return el as HTMLElement;
+};
+
+const offsets = (_toaster?: HTMLElement) => ({
+  top: region().style.getPropertyValue('--offset-top'),
+  right: region().style.getPropertyValue('--offset-right'),
+  mobileTop: region().style.getPropertyValue('--mobile-offset-top'),
 });
 
-/** sonner's defaults, i.e. the toaster with no drawer to clear. */
-const DEFAULTS = { top: '24px', right: '24px', mobileTop: '16px' };
+/**
+ * The toaster with no drawer to clear: top-centre, below the console's 48px
+ * top bar (objectui#13340); sonner's own offsets on the other sides and on
+ * phones.
+ */
+const DEFAULTS = { top: '56px', right: '24px', mobileTop: '16px' };
 
 afterEach(() => {
   act(() => {
@@ -112,23 +127,23 @@ afterEach(() => {
 });
 
 describe('ConsoleToaster clears an open right-edge drawer (objectui#11685)', () => {
-  it('the control: with no drawer open it keeps sonner`s own offsets', async () => {
+  it('the control: with no drawer open it sits top-centre, below the top bar', async () => {
     setViewportWidth(1440);
     const toaster = await renderWithToast();
-    expect(toaster.getAttribute('data-x-position')).toBe('right');
+    expect(toaster.getAttribute('data-x-position')).toBe('center');
     expect(toaster.getAttribute('data-y-position')).toBe('top');
     expect(offsets(toaster)).toEqual(DEFAULTS);
   });
 
-  it('moves into the strip left of the drawer when a toast fits there, corner unchanged', async () => {
+  it('moves into the strip left of the drawer when a toast fits there, from the top-right corner', async () => {
     // 1440px window, 864px drawer: 576px of page left of it, room for a 356px toast.
     setViewportWidth(1440);
     const toaster = await renderWithToast();
     mountDialog({ layout: RIGHT_SHEET, width: 864 });
     await waitFor(() => expect(offsets(toaster).right).toBe('888px'));
     expect(offsets(toaster).top).toBe('24px');
-    expect(toaster.getAttribute('data-x-position')).toBe('right');
-    expect(toaster.getAttribute('data-y-position')).toBe('top');
+    expect(region().getAttribute('data-x-position')).toBe('right');
+    expect(region().getAttribute('data-y-position')).toBe('top');
   });
 
   it('drops below the drawer header when the strip beside it is too narrow', async () => {
@@ -142,7 +157,7 @@ describe('ConsoleToaster clears an open right-edge drawer (objectui#11685)', () 
     expect(offsets(toaster).mobileTop).toBe(`${HEADER_HEIGHT + 16}px`);
   });
 
-  it('goes back to the corner when the drawer closes, and when it unmounts', async () => {
+  it('goes back to top-centre when the drawer closes, and when it unmounts', async () => {
     setViewportWidth(1440);
     const toaster = await renderWithToast();
     const drawer = mountDialog({ layout: RIGHT_SHEET, width: 864 });
@@ -150,6 +165,7 @@ describe('ConsoleToaster clears an open right-edge drawer (objectui#11685)', () 
 
     drawer.setAttribute('data-state', 'closed');
     await waitFor(() => expect(offsets(toaster)).toEqual(DEFAULTS));
+    expect(region().getAttribute('data-x-position')).toBe('center');
 
     drawer.setAttribute('data-state', 'open');
     await waitFor(() => expect(offsets(toaster).right).toBe('888px'));

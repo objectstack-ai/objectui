@@ -166,7 +166,10 @@ describe('ObjectTree cells draw the list cell faces (objectui#11686)', () => {
     const cell = await cellOf('Retired Office', 'active');
 
     expect(cell.textContent).not.toContain('false');
-    expect(within(cell).getByTestId('boolean-warning-badge')).toBeInTheDocument();
+    // An unchecked, read-only box named by its column, the face every boolean
+    // draws for `false` whatever its name (objectui#13412 retired the badge).
+    expect(within(cell).getByRole('checkbox', { name: 'Active' })).toHaveAttribute('aria-checked', 'false');
+    expect(within(cell).queryByTestId('boolean-warning-badge')).toBeNull();
     expect(cell.innerHTML).toBe(listFaceHtml('active', false));
   });
 
@@ -196,10 +199,10 @@ describe('ObjectTree cells draw the list cell faces (objectui#11686)', () => {
   });
 
   it('renders the Active column through the boolean face under a non-en locale, labelled in that locale', async () => {
-    // The card's pin. The face for `true` carries no words; the face for a
-    // `false` on a status-named column names its column, and it names it with
-    // the label this tree's header prints — the session language's, not the
-    // authored English.
+    // The card's pin. The boolean face names its column by the checkbox's
+    // accessible name, and it names it with the label this tree's header
+    // prints — the session language's, not the authored English. Since
+    // objectui#13412 a `false` is the same unchecked box, with no badge.
     render(
       <I18nProvider
         config={{
@@ -225,12 +228,10 @@ describe('ObjectTree cells draw the list cell faces (objectui#11686)', () => {
 
     const off = await cellOf('Retired Office', 'active');
     expect(off.textContent).not.toContain('false');
-    const badge = within(off).getByTestId('boolean-warning-badge');
-    expect(badge.textContent).toContain('启用');
-    expect(badge.textContent).not.toContain('Active');
-    // The badge's own word is the pack's too (objectui#11689), so the whole
-    // badge reads in the session language.
-    expect(badge.textContent).toBe('启用 — 已关闭');
+    const box = within(off).getByRole('checkbox', { name: '启用' });
+    expect(box).toHaveAttribute('aria-checked', 'false');
+    expect(box.getAttribute('aria-label')).not.toContain('Active');
+    expect(within(off).queryByTestId('boolean-warning-badge')).toBeNull();
 
     // …and it is the header's word, not a second translation of it.
     const header = screen.getAllByRole('columnheader')[1 + COLUMNS.indexOf('active')];

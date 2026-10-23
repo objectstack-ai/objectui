@@ -11,11 +11,15 @@
  * (objectui#11689, the family site seat 1 recorded from objectui#11721).
  *
  * A face that names its own column — `BooleanCellRenderer`'s badge for a
- * `false` on a status-named column — reads `field.label`. The grid handed it
- * the AUTHORED label while its header printed the translated one, so under a
- * non-en pack the badge sat under a translated header and named the column in
- * the authored language. The face is now handed the header's own resolved
- * label, and the badge's word itself comes from the pack.
+ * `false` on a status-named column, when this was written — reads
+ * `field.label`. The grid handed it the AUTHORED label while its header
+ * printed the translated one, so under a non-en pack the badge sat under a
+ * translated header and named the column in the authored language. The face
+ * is now handed the header's own resolved label.
+ *
+ * objectui#13412 retired that badge: a `false` on any boolean is the plain
+ * unchecked box, and the box names its column by its accessible name, read
+ * from the same `field.label`. So the pin now reads the label off the box.
  *
  * Driven through each grid path that builds a face from the object schema:
  * object-shaped columns, string columns, and no columns at all (the columns
@@ -38,8 +42,8 @@ afterEach(() => cleanup());
 
 const OBJECT = 'sys_business_unit';
 // Each def carries its `name`: the generated-columns path hands the face the
-// def itself, so a def without one never reaches the badge's status-name test
-// (a separate, pre-existing property of that path, not judged here).
+// def itself, as the other two paths do (a separate, pre-existing property of
+// that path, not judged here).
 const OBJECT_FIELDS = {
   name: { name: 'name', type: 'text', label: 'Name' },
   active: { name: 'active', type: 'boolean', label: 'Active' },
@@ -84,9 +88,9 @@ function mount(language: string, shape: Record<string, unknown>) {
   );
 }
 
-/** The badge, once the schema-typed face is on screen. */
-async function badge(): Promise<HTMLElement> {
-  return waitFor(() => screen.getByTestId('boolean-warning-badge'));
+/** The `active` cell's checkbox, once the schema-typed face is on screen. */
+async function box(name: string): Promise<HTMLElement> {
+  return waitFor(() => screen.getByRole('checkbox', { name }));
 }
 
 const headerNamed = (text: string) =>
@@ -95,16 +99,18 @@ const headerNamed = (text: string) =>
 describe('the grid cell face names its column as the header does (objectui#11689)', () => {
   for (const [name, shape] of Object.entries(SHAPES)) {
     describe(name, () => {
-      it('zh: the badge reads the translated label and the translated word', async () => {
+      it('zh: the box is named by the translated label', async () => {
         mount('zh', shape);
-        expect((await badge()).textContent).toBe('启用 — 已关闭');
+        expect(await box('启用')).toHaveAttribute('aria-checked', 'false');
+        expect(screen.queryByTestId('boolean-warning-badge')).toBeNull();
         // …and the label is the header's, not a second translation of it.
         expect(headerNamed('启用'), 'the header prints the translated label').toBeDefined();
       });
 
-      it('en is unchanged: Active — Off', async () => {
+      it('en: the box is named Active', async () => {
         mount('en', shape);
-        expect((await badge()).textContent).toBe('Active — Off');
+        expect(await box('Active')).toHaveAttribute('aria-checked', 'false');
+        expect(screen.queryByTestId('boolean-warning-badge')).toBeNull();
         expect(headerNamed('Active')).toBeDefined();
       });
     });

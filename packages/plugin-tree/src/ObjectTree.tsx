@@ -539,8 +539,9 @@ interface CellFormatContext {
    * The column's label exactly as this tree's header prints it (the
    * `{ns}.fields.{object}.{field}` key, then the authored label, then the
    * humanized key). A face that names its own column — `BooleanCellRenderer`'s
-   * "LABEL — Off" badge — reads it from `field.label`, so the cell and the
-   * header it sits under say the same word in the session's language.
+   * checkbox, by its accessible name — reads it from `field.label`, so the
+   * cell and the header it sits under say the same word in the session's
+   * language.
    */
   columnLabel: string;
   /** The object the tree is rendering; absent for a schema-less inline mount. */

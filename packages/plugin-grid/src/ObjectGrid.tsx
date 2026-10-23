@@ -4035,7 +4035,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             if (objectDefField) {
               // The label the header above prints — `header`, resolved once
               // (objectui#11689). A face that names its own column (the
-              // boolean face's "LABEL — Off" badge) reads `field.label`, so
+              // boolean face's checkbox, by its accessible name) reads
+              // `field.label`, so
               // handing it the authored label made a translated header sit
               // over a cell naming the column in the authored language. Handed
               // where the authored label used to be, so an unlabelled field

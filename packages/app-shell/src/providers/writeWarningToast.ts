@@ -124,25 +124,18 @@ type StrippedLine = (t: TranslateFn, fields: string) => string;
  * widening was a no-op and was deleted at that bump (objectui#11438), as its
  * tripwire asked.
  *
- * ⭐ The key type is widened AHEAD again, by `| 'stored_expression'`, for the same
- * reason and in the same spelling (objectui#13178). objectstack-ai/objectstack#24778
- * adds a fifth arm, `stored_expression`: a stored field whose declared expression
- * the engine computes on every write, so the value the caller sent was replaced
- * by the computed one (the field IS written, unlike `computed`). The objectstack
- * Console Pin Gate builds this package against objectstack's own spec at the
- * objectui commit objectstack pins, so the row has to exist here before that
- * change can land there, while the published pin this repository builds against
- * does not declare the arm yet. The union with the literal makes the required
- * key set the same on both sides (the pin's four plus `stored_expression`, or
- * the five the wider spec declares), and an excess-key error cannot arise on
- * either; the NEXT arm upstream adds is still a missing key here.
- *
- * Tripwire: when the pin reaches a release that declares `stored_expression`,
- * the `| 'stored_expression'` is a silent no-op and is deleted at that bump,
- * which makes the key type the spec union again, exact in both directions.
- * `writeWarningToast.test.ts` fails on that bump to say so.
+ * The `stored_expression` row was added the same way and in the same spelling
+ * (objectui#13178): objectstack-ai/objectstack#24778 declared a fifth arm, a
+ * stored field whose declared expression the engine computes on every write, so
+ * the value the caller sent was replaced by the computed one (the field IS
+ * written, unlike `computed`). The row had to exist here before that change could
+ * land in objectstack's Console Pin Gate, while the pin of the day predated it,
+ * so the key type was widened by `| 'stored_expression'`. The pin move to
+ * objectstack 830a63a6 (objectstack-ai/objectstack#25330) carries the arm, so the
+ * widening was a no-op and was deleted at that bump, as its tripwire asked: the
+ * key type is the spec union again, exact in both directions.
  */
-const STRIPPED_LINE: Record<DroppedFieldsEvent['reason'] | 'stored_expression', StrippedLine> = {
+const STRIPPED_LINE: Record<DroppedFieldsEvent['reason'], StrippedLine> = {
   readonly: (t: TranslateFn, fields: string) =>
     t('detail.writeStrippedReadonly', {
       fields,

@@ -10,12 +10,18 @@
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-23T01:46:16Z",
-  "updated_at": "2026-10-23T01:46:16Z",
+  "updated_at": "2026-10-23T02:59:25Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,

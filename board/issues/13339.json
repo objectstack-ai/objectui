@@ -10,12 +10,18 @@
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
+  "labels": [
+    "area:studio",
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p3"
+  ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-23T01:45:54Z",
-  "updated_at": "2026-10-23T01:45:54Z",
+  "updated_at": "2026-10-23T02:58:47Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,

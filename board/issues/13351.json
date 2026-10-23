@@ -1,0 +1,37 @@
+{
+  "number": 13351,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Setup positions list shows holders and granted permission sets; whole row opens the item",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "documentation",
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T04:52:52Z",
+  "updated_at": "2026-10-23T05:47:11Z",
+  "closed_at": "2026-10-23T05:47:10Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T05:47:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13351",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-tesla\"} -->\n_Requested by **Tesla** · [project thread](https://claude.ai/code/project/chan_01AXsQkLFKRdQCqQ3RTr6Jao?thread=cmsg_01AXsQkLFKRdQCqQ3RTr6JaoWnNJDmFSk7m68Yejj9bevh)_\n\nPart of objectstack-ai/objectstack#25333. This is the console half. The server half is objectstack-ai/objectstack#25369.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n## What\n\nSetup → Positions now says who holds each position and which permission sets it grants, and the whole row opens the position.\n\n- **Two columns, both the server's.** The list reads `GET /meta/position?include=grants` through a new `listInclude` registry option. **Holders** renders the served `_holderCount`, and **Permission sets** renders the served `_grantedPermissionSets` in served order. The server computes both where the authorization resolver enforces them (objectstack#25369), and the console computes neither.\n- **The same-named set is shown, marked \"(by name)\".** The position-name fold grants it although the definition does not list it (objectstack#24757). A tooltip says why it is there. Declared sets carry no mark.\n- **A count nobody measured is \"—\", never 0.** That covers a served `null` and a server that predates `include=grants`.\n- **The whole row opens the item** on every Setup metadata list (`openRowFromClick`). The first cell keeps its link for the keyboard, screen readers and opening in a new tab. These clicks do not open the row:\n  - a click on a control in the row (the Active switch, Clone, a link);\n  - a modified click;\n  - a click that ends a text selection;\n  - a click that reached the row through a portal (a dialog a row control opened).\n- **`@object-ui/data-objectstack`.** `MetadataClient.list` and `listResponse` accept `include: 'grants'`.\n\n## Tests\n\n- `ResourceListPage.positionGrants-25333.test.tsx` (5 tests):\n  - the position list asks `include: 'grants'`, and the permission-set list (control) does not;\n  - counts as served, with \"—\" for `null` and for an absent key;\n  - sets in served order, with `via: 'name'` marked and declared sets unmarked;\n  - a row click opens the position with its scope kept, and (control) the Active switch and a modified click do not navigate.\n- `metadata-client.listInclude-25333.test.ts` (3 tests): the URL with and without `include`, alongside `package`.\n- **Ablations**, each turning exactly its test red:\n  - with no control guard, the switch click navigates;\n  - with no row handler, the row click does nothing;\n  - with no `include`, the list asks the plain list.\n- **Locally green:**\n  - type-check for app-shell and data-objectstack;\n  - eslint on the touched files;\n  - `check:i18n-keys`, `check:i18n-drift`, `check:i18n-dead-keys`, `check:new-line-citations`, `check:vi-mock-specifiers` and `check:test-path-roots`;\n  - vitest on `packages/data-objectstack/`, `packages/app-shell/src/views/metadata-admin/` and `packages/app-shell/src/__tests__/`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01K9LFkQaGHiensHNgGGgKvD\n"
+}

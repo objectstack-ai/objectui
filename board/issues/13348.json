@@ -1,0 +1,32 @@
+{
+  "number": 13348,
+  "kind": "issue",
+  "title": "ci(repo-gates): Repo Gates cold-builds `./packages/*` for 261 s on every PR, push and queue build — the one CI job with no Turbo cache restore; once the affected fast path runs it becomes the small-PR critical path",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T04:38:36Z",
+  "updated_at": "2026-10-23T04:45:15Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13348",
+  "body": "Filing gate: ③ maintainer-directed task (CI performance programme, 2026-10-23). Reader: the `domain:ui` execution seat, dispatch step — one os-dev, one PR. Dedup: `search_issues` on objectstack-ai/objectui, closed included, \"Repo Gates turbo cache restore cold build packages\" → 10 hits, all closed; nearest #12276 (closed — turbo cache never replays for Lint, four jobs restoring the bare key). None open on Repo Gates. Session: `session_01GVTBi44LAWbPWg4evKfE1T`.\n\n## One-sentence problem\n\nobjectui's Repo Gates job builds every package from scratch on every pull request, push and merge-queue build because it is the only build-carrying job without a Turbo cache restore step — 261 s of a 7.4 min job — and once the affected-tests fast path works (sibling card) this job, not the test shards, sets the wall clock for the majority of PRs.\n\n## Evidence (objectui commit 5fef032)\n\n- `.github/workflows/repo-gates.yml:402-408` — `pnpm exec turbo run build --filter='./packages/*' $SKILL_FILTER $SNIPPET_FILTER`; the only cache steps in the job are the pinned `@objectstack` build restore/save at `:315-321` and `:492` — no `.turbo/cache` restore. `:30-40` states the job deliberately has no path filter, so docs-only PRs pay it as well.\n- `.github/workflows/performance-budget.yml:254-262` — the in-repo pattern to copy: `actions/cache/restore@v6` on `.turbo/cache` with key `turbo-` + os + `-perf-` + sha and a prefix restore-key, PR runs save nothing, push runs save and prune.\n- Measured on PR 13327's head (run set of 2026-10-22): Repo Gates 7.4 min with the build step 261 s; Bundle Analysis, which runs the same build with the perf restore, reported `build 12/39 replayed` and 209 s including console. Type Check with its own restore: 2.2 min on a hit.\n- With the affected fast path fixed, the Test lane for ≈ 60% of PRs falls to 2–5.5 min (sibling card's replay over 40 commits), leaving Repo Gates at 7.4 min as the longest job.\n\n## Governing text\n\n- `repo-gates.yml:55`: \"⛔ It is never an unfiltered `turbo run build` — the 2026-08-16 …\" — the filter set stays; this card changes caching only.\n- Repo Gates is not in the required set (objectui required: `Lint`, `Type Check`, `Test`, `Build & E2E`, `Build Docs`, `Changeset Declaration`; `scripts/check-required-check-set.mjs:161,203-207`), but `dependabot-auto-merge` waits on it and every PR shows it.\n\n## Change\n\n1. Add a Turbo cache restore before the build in `repo-gates.yml` with its own prefix (e.g. `turbo-` + os + `-repo-gates-`), restore-only on `pull_request`/`merge_group`, save + prune on push to main — mirroring `performance-budget.yml:254-262` and its prune step, so the 10 GB pool is not flooded.\n2. Note in the PR whether `$SKILL_FILTER`/`$SNIPPET_FILTER` change the task set per run (they would reduce hits, not break them).\n\n## Acceptance\n\n- On a PR whose package closure matches main, the Repo Gates build step ≤ 90 s (today 261) and the job ≤ 4.5 min; on a push to main the save step runs and the prune keeps the entry under the perf job's size.\n- The job's gate steps are unchanged and green.\n\n## Work estimate\n\nLane `domain:ui` · 1 PR (.github/workflows/repo-gates.yml) · precedent: `performance-budget.yml:254-262` in-tree (its landing PR is beyond this depth-50 clone). `Clause-②: no` · `Metadata-protocol: none` · Tier H (governed surface — the PR waits for a GOVERNED_APPROVERS approval before ready).\n\nPrior rulings read: turbo, cache → objectstack docs/adr 30 / AGENTS.md 17 hits (local worktree cache, none on this job); objectui #12276 closed; ADR none.\n\nRelated: objectui#12276 (closed), objectui#12222 (closed — Type Check miss cost), the affected-fast-path card filed alongside this one.\n\n## Maintainer directive (verbatim, untranslated)\n\n> 同意，立卡\n\n— the maintainer, 2026-10-23, in reply to the director seat's offer 「(a) 我按 PM 流程把 A1–A5、B1–B3 立成卡进队列(英文卡面、带 Governing text: 与工作量列),由 os-dev 派发」. The CI performance analysis those letters index is the seat's 2026-10-23 five-line audit (objectstack ci.yml + lint.yml; the other 39 workflows; the repo-side turbo/vitest/gate configuration; objectui's 28 workflows; GitHub Actions run data for the preceding 5–55 hours). The maintainer's stated goal, verbatim: 「我希望优化的是性能和效率速度」."
+}

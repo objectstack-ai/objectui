@@ -664,14 +664,17 @@ describe("the source facts the guide's Responsive Behavior section rests on (obj
   });
 
   it('the content padding still steps the three ways the page quotes', () => {
-    const main = /<main[\s\S]*?>/.exec(APP_SHELL_SRC);
-    if (!main) throw new Error('`AppShell` no longer renders a `main` element');
+    // The content element is the first element inside `SidebarInset` (the
+    // shell's one `main` landmark; the content element is a `<div>` since
+    // objectui#13334).
+    const content = /<SidebarInset[\s\S]*?>\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)?(<div[\s\S]*?>)/.exec(APP_SHELL_SRC);
+    if (!content) throw new Error('`AppShell` no longer renders a content element inside `SidebarInset`');
 
     for (const cls of ['p-3', 'sm:p-4', 'md:p-6', 'pb-20']) {
       expect(
-        main[0],
+        content[1],
         [
-          `The \`main\` element in packages/layout/src/AppShell.tsx no longer has \`${cls}\`.`,
+          `The content element in packages/layout/src/AppShell.tsx no longer has \`${cls}\`.`,
           'content/docs/guide/layout.md quotes these padding steps literally (objectui#4842);',
           'update the page to match the new classes.',
         ].join('\n'),

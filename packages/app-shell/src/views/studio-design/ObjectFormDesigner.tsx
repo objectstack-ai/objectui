@@ -246,7 +246,7 @@ export interface ObjectFormDesignerProps {
    * for (objectui#12516; reuses the pillar's add-field). Omit to hide the
    * button — e.g. a read-only package.
    */
-  onAddField?: (label: string, type: FieldTypeId) => void;
+  onAddField?: (label: string, type: FieldTypeId, name?: string) => void;
   /** Currently selected group key (its section is highlighted). */
   selectedGroup?: string | null;
   /** Select a group (section) → opens the group property inspector. Omit to hide the affordance. */
@@ -830,7 +830,7 @@ export function ObjectFormDesigner({
               <PanelTop className="h-3.5 w-3.5 text-muted-foreground" /> {t('engine.studio.designer.addGroup', locale)}
             </button>
             {onAddField && (
-              <AddFieldPopover onCreate={onAddField}>
+              <AddFieldPopover onCreate={onAddField} takenNames={view.entries.map((e) => e.name)}>
                 <button
                   type="button"
                   className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary/10 px-2.5 text-xs font-medium text-primary hover:bg-primary/15"

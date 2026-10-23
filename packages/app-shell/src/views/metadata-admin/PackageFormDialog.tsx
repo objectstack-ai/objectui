@@ -505,6 +505,11 @@ export function PackageFormDialog({
   // clearing the field.
   const idStr = String(draft.id ?? '').trim();
   const idMissing = createMode && !idStr && (touched.id || nameOk);
+  // objectui#13389 — the display name is there but holds no Latin letter to
+  // make an id from (a Chinese name, say): say that, rather than the "filled
+  // in from the display name" line over an empty box.
+  const idNotDerived =
+    createMode && !touched.id && !idStr && nameOk && !toIdSegment(String(draft.name ?? ''));
   const nsMissing =
     createMode && !String(draft.namespace ?? '').trim() && (touched.namespace || !!idStr);
 
@@ -692,7 +697,7 @@ export function PackageFormDialog({
                   <SchemaForm {...formProps} form={createForms.name} />
                 </div>
                 <DerivedField
-                  derived={!touched.id}
+                  derived={!touched.id && !idNotDerived}
                   hint={t('engine.packages.idRule.derived', locale)}
                   testId="package-form-id"
                 >
@@ -713,7 +718,11 @@ export function PackageFormDialog({
                   />
                   {idMissing && (
                     <p className="text-xs text-destructive" data-testid="package-form-id-missing">
-                      {tFormat('engine.packages.idRule.formatHint', locale, { example: 'com.acme.crm' })}
+                      {tFormat(
+                        idNotDerived ? 'engine.packages.idRule.notDerived' : 'engine.packages.idRule.formatHint',
+                        locale,
+                        { example: 'com.acme.crm' },
+                      )}
                     </p>
                   )}
                   {idHelp && <p className="text-xs text-muted-foreground">{idHelp}</p>}

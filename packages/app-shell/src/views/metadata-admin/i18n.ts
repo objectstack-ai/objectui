@@ -2387,6 +2387,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.packages.idRule.formatHint': 'Use a reverse-domain id like {example}: two or more parts separated by dots, each made of lowercase letters, digits and inner hyphens. Underscores are not allowed.',
   'engine.packages.idRule.strippedNotice': 'Unsupported characters were removed — allowed: lowercase letters, digits, dots and hyphens',
   'engine.packages.idRule.derived': 'Filled in from the display name until you edit it.',
+  'engine.packages.idRule.notDerived': 'The display name has no Latin letters to make an ID from. Type one, like {example}.',
   'engine.packages.nsRule.derived': 'Filled in from the package ID until you edit it.',
   'engine.packages.nsRule.required': 'Required: every object name in this package starts with it.',
   'engine.packages.versionRule.default': 'A starting version, kept until you edit it.',
@@ -2909,6 +2910,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // objectui#11792 — CreateItemDialog's preview of the name the item is saved
   // under, shown when the caller supplies that rule (an object's namespace prefix).
   'engine.studio.createItem.savedAs': 'Saved as',
+  'engine.studio.createItem.notDerived': 'The display name has no Latin letters to make an identifier from. Type one: lowercase letters, digits and underscores.',
   // `383502b23` — this is the CONFIRM control of the shared create dialog.
   // Never give it a name that shares a leading run with the affordance that
   // OPENS that dialog (`engine.studio.app.create`, `Create app` — and the
@@ -3628,6 +3630,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.hooks.newLabel': 'New hook',
   'engine.studio.data.addField': 'Add field',
   'engine.studio.data.addFieldCreate': 'Create',
+  'engine.studio.data.addFieldApiNameNotDerived': 'The label has no Latin letters to make an API name from. Type one: lowercase letters, digits and underscores.',
+  'engine.studio.data.addFieldApiNameTaken': 'Another field is already named {name}. Type a different API name.',
   'engine.studio.data.editFieldProps': 'Edit field properties',
   'engine.studio.data.draftObjectTitle': 'Unpublished new object',
   'engine.studio.data.draftObjectHint':
@@ -5905,6 +5909,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.packages.idRule.formatHint': '请使用反向域名格式的 ID，例如 {example}：由点分隔的两段或更多段，每段只含小写字母、数字和段内连字符，不能使用下划线。',
   'engine.packages.idRule.strippedNotice': '已移除不支持的字符——仅允许小写字母、数字、点和连字符',
   'engine.packages.idRule.derived': '编辑前会根据显示名称自动填写。',
+  'engine.packages.idRule.notDerived': '显示名称里没有可用来生成 ID 的英文字母，请手动填写，例如 {example}。',
   'engine.packages.nsRule.derived': '编辑前会根据软件包 ID 自动填写。',
   'engine.packages.nsRule.required': '必填：本软件包内每个对象名称都以它开头。',
   'engine.packages.versionRule.default': '初始版本号，编辑前保持不变。',
@@ -6395,6 +6400,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.cancel': '取消',
   'engine.studio.creating': '创建中…',
   'engine.studio.createItem.savedAs': '保存为',
+  'engine.studio.createItem.notDerived': '显示名称里没有可用来生成标识的英文字母，请手动填写英文标识（小写字母、数字和下划线）。',
   // `383502b23` — see the English entry. This value must share no leading
   // run with `engine.studio.app.create`, which opens the same dialog.
   'engine.studio.createDraft': '存为草稿',
@@ -7000,6 +7006,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.hooks.newLabel': '新钩子',
   'engine.studio.data.addField': '添加字段',
   'engine.studio.data.addFieldCreate': '创建',
+  'engine.studio.data.addFieldApiNameNotDerived': '标签里没有可用来生成 API 名称的英文字母，请手动填写（小写字母、数字和下划线）。',
+  'engine.studio.data.addFieldApiNameTaken': '已有字段名为 {name}，请填写其他 API 名称。',
   'engine.studio.data.editFieldProps': '编辑字段属性',
   'engine.studio.data.draftObjectTitle': '未发布的新对象',
   'engine.studio.data.draftObjectHint':

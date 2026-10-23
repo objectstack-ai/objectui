@@ -92,6 +92,7 @@ export function CreateItemDialog({
   // per mount, so a screen reader and `getByLabelText` reach both fields.
   const labelInputId = React.useId();
   const nameInputId = React.useId();
+  const notDerivedId = React.useId();
 
   // Reset the transient inputs each time the dialog opens.
   React.useEffect(() => {
@@ -107,6 +108,9 @@ export function CreateItemDialog({
   // CJK-only input (the user must then type an explicit identifier).
   const finalName = toFieldName((name.trim() || label).trim());
   const valid = !!label.trim() && !!finalName && finalName !== 'field';
+  // objectui#13389 — a display name with no Latin letters (a Chinese one, say)
+  // derives no identifier; the empty box says why instead of staying silent.
+  const notDerived = !!label.trim() && !name.trim() && !toFieldNameLoose(label);
 
   const submit = () => {
     if (!valid || busy) return;
@@ -151,7 +155,13 @@ export function CreateItemDialog({
                 if (e.key === 'Enter') submit();
               }}
               placeholder={idPlaceholder}
+              aria-describedby={notDerived ? notDerivedId : undefined}
             />
+            {notDerived && (
+              <p id={notDerivedId} className="text-xs text-destructive" data-testid="create-item-id-not-derived">
+                {t('engine.studio.createItem.notDerived', locale)}
+              </p>
+            )}
           </div>
           {storedName && valid && (
             <p className="text-xs text-muted-foreground" data-testid="create-item-stored-name">

@@ -5242,7 +5242,9 @@ function nextFieldName(existing: string[]): string {
  * The api name of a field added with `label` (objectui#12516): the name the
  * field inspector's Label derives from it (`toFieldNameLoose`), or, as the
  * inspector keeps the default when that derivation is empty (a label with no
- * Latin letters) or names another field, the next free `field_<N>`.
+ * Latin letters) or names another field, the next free `field_<N>`. The Add
+ * field popover asks for the name in those two cases (objectui#13389), so the
+ * `field_<N>` fallback is left for a caller that hands no name.
  */
 function addedFieldName(label: string, existing: string[]): string {
   const derived = toFieldNameLoose(label);
@@ -6030,16 +6032,23 @@ export function DataPillar({
   // popover asked for (objectui#12516) and select it for editing in the panel.
   // Guarded in addition to being hidden — it's also reachable through
   // GridFieldAuthoringProvider/ObjectFormDesigner.
-  const addField = React.useCallback((label: string, type: FieldTypeId) => {
+  // objectui#13389 — `typedName` is the api name the popover asked for when
+  // the label derived none (or a taken one); otherwise it is derived here.
+  const addField = React.useCallback((label: string, type: FieldTypeId, typedName?: string) => {
     // objectui#11272 — never onto another object's buffer (not offered then).
     if (readOnly || !objLoaded) return;
     const view = readFields(objDraft.fields);
-    const name = addedFieldName(label, view.entries.map((e) => e.name));
+    const existing = view.entries.map((e) => e.name);
+    const name = typedName && !existing.includes(typedName) ? typedName : addedFieldName(label, existing);
     view.entries.push(newField(name, type, label));
     setObjDraft((d) => ({ ...d, fields: writeFields(view) }));
     setDirty(true);
     setFieldSel({ kind: 'field', id: name });
   }, [objDraft, readOnly, objLoaded]);
+  const addFieldTakenNames = React.useMemo(
+    () => readFields(objDraft.fields).entries.map((e) => e.name),
+    [objDraft.fields],
+  );
 
   // objectui#12516 — the Records grid's "+" column opens the same popover. The
   // grid draws that button from its authoring context and hands no element
@@ -6500,6 +6509,7 @@ export function DataPillar({
                     open={gridAddFieldOpen}
                     onOpenChange={setGridAddFieldOpen}
                     onCreate={addField}
+                    takenNames={addFieldTakenNames}
                     returnFocusTo={() => gridAddFieldButton.current}
                   >
                     <span aria-hidden="true" className="pointer-events-none absolute right-4 top-2 h-0 w-0" />

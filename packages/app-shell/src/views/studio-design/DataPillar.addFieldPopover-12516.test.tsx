@@ -186,21 +186,56 @@ describe('Data pillar — Add field asks for the label and type first (objectui#
     expect(mockClient.save).not.toHaveBeenCalled();
   });
 
-  it('a label whose name is taken, or that derives none, gets the next field_N, as the inspector keeps it', async () => {
+  // objectui#13389 — these two used to get a silent `field_<N>`, permanent
+  // once published; the popover now asks for the api name instead.
+  it('a label whose name is taken, or that derives none, is named by the api name the popover asks for', async () => {
     await openForm();
     // `name` is the served field's api name.
-    await addFieldFromFormToolbar(undefined, { label: 'Name' });
+    await addFieldFromFormToolbar(undefined, { label: 'Name', apiName: 'full_name' });
     const inspector = await screen.findByTestId('data-field-inspector');
-    expect(within(inspector).getByText('field_2')).toBeInTheDocument();
-    await addFieldFromFormToolbar(undefined, { label: '健康分' });
-    await waitFor(() => expect(within(screen.getByTestId('data-field-inspector')).getByText('field_3')).toBeInTheDocument());
+    expect(within(inspector).getByText('full_name')).toBeInTheDocument();
+    await addFieldFromFormToolbar(undefined, { label: '健康分', apiName: 'health_score' });
+    await waitFor(() => expect(within(screen.getByTestId('data-field-inspector')).getByText('health_score')).toBeInTheDocument());
     const fields = await waitFor(async () => {
       const f = await savedFields();
-      expect(Object.keys(f)).toEqual(['name', 'field_2', 'field_3']);
+      expect(Object.keys(f)).toEqual(['name', 'full_name', 'health_score']);
       return f;
     }, { timeout: 8000 });
-    expect(fields.field_2).toMatchObject({ type: 'text', label: 'Name' });
-    expect(fields.field_3).toMatchObject({ type: 'text', label: '健康分' });
+    expect(fields.full_name).toMatchObject({ type: 'text', label: 'Name' });
+    expect(fields.health_score).toMatchObject({ type: 'text', label: '健康分' });
+  });
+
+  it('a label that derives no name keeps Create off until an api name is typed, and says why', async () => {
+    await openForm();
+    await userEvent.click(toolbarAddField());
+    const popover = await screen.findByTestId('add-field-popover');
+    await userEvent.type(within(popover).getByTestId('add-field-label-input'), '满意度');
+    const create = within(popover).getByTestId('add-field-create');
+    expect(create).toBeDisabled();
+    expect(within(popover).getByTestId('add-field-api-name-hint')).toHaveTextContent(
+      t('engine.studio.data.addFieldApiNameNotDerived', 'en'),
+    );
+    await userEvent.type(within(popover).getByTestId('add-field-api-name-input'), 'Satisfaction');
+    // Typed through the same normaliser as the inspector's API name box.
+    expect(within(popover).getByTestId('add-field-api-name-input')).toHaveValue('satisfaction');
+    expect(within(popover).queryByTestId('add-field-api-name-hint')).toBeNull();
+    expect(create).toBeEnabled();
+    // A typed name another field holds is refused here too.
+    await userEvent.clear(within(popover).getByTestId('add-field-api-name-input'));
+    await userEvent.type(within(popover).getByTestId('add-field-api-name-input'), 'name');
+    expect(create).toBeDisabled();
+    expect(within(popover).getByTestId('add-field-api-name-hint')).toHaveTextContent('name');
+    expect(mockClient.save).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL — a Latin label shows the api name it derives and asks for none', async () => {
+    await openForm();
+    await userEvent.click(toolbarAddField());
+    const popover = await screen.findByTestId('add-field-popover');
+    await userEvent.type(within(popover).getByTestId('add-field-label-input'), 'Health Score');
+    expect(within(popover).getByTestId('add-field-api-name-preview')).toHaveTextContent('health_score');
+    expect(within(popover).queryByTestId('add-field-api-name-input')).toBeNull();
+    expect(within(popover).getByTestId('add-field-create')).toBeEnabled();
   });
 
   it('the Records grid "+" opens the same popover, and focus goes back to it on Cancel', async () => {

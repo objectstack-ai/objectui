@@ -17,7 +17,7 @@ import { ComponentRegistry, percentDisplayValue, type PercentScale, getRecordDis
 import { valueSchemaFor, resolveFieldScale } from '@objectstack/spec/data';
 import { useLocalization, useDisplayLocale, formatDisplayNumber } from '@object-ui/i18n';
 import { Badge, Avatar, AvatarImage, AvatarFallback, Button, Checkbox, EmptyValue, cn, setFieldReadFaceResolver } from '@object-ui/components';
-import { Check, Copy, Phone as PhoneIcon, MapPin, CircleQuestionMark, Star } from 'lucide-react';
+import { Check, Copy, Phone as PhoneIcon, MapPin, CircleQuestionMark, Lock, Star } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/react';
 import { SchemaRendererContext as _SchemaRendererContext } from '@object-ui/react';
 import { useRelatedRecordActions } from '@object-ui/react';
@@ -234,10 +234,24 @@ export function isLikelyOpaqueId(v: unknown): boolean {
 }
 
 /**
+ * What {@link useLookupName} learned about one referenced record.
+ *
+ * - `named` — the reader's read returned the record and a display field named it.
+ * - `absent` — the reader's own read SETTLED with no record (objectui#13335):
+ *   `findOne` answered `null`, the `DataSource` contract's "not found", which
+ *   is what a 404 becomes for a record the viewer may not read. The platform
+ *   answers a record hidden from this reader and a record that does not exist
+ *   identically on purpose (existence non-disclosure, objectui#8631), so this
+ *   state is that fused answer and nothing finer.
+ * - `undefined` — anything else: not asked, still in flight, the read threw,
+ *   or a record came back that no display field could name.
+ */
+type LookupNameAnswer = { state: 'named'; name: string } | { state: 'absent' } | undefined;
+
+/**
  * Fetch-on-demand resolver for foreign-key IDs that weren't expanded by the
  * server. Reads `dataSource` from SchemaRendererContext; safely no-ops if
- * the context isn't installed. Returns the resolved display name or
- * `undefined` while pending or unresolvable.
+ * the context isn't installed. Returns a {@link LookupNameAnswer}.
  *
  * The effect only FETCHES: the record and the referenced object's schema are
  * cached, and the name is resolved from them on every render with the
@@ -252,7 +266,7 @@ function useLookupName(
   value: unknown,
   displayField: string | undefined,
   policy: FieldReadPolicy,
-): string | undefined {
+): LookupNameAnswer {
   const ctx = React.useContext(_SchemaRendererContext);
   const dataSource = ctx?.dataSource;
   const [, force] = React.useState(0);
@@ -320,9 +334,10 @@ function useLookupName(
 
   if (!isResolvable) return undefined;
   const entry = lookupNameCache.get(cacheKey);
-  return entry?.state === 'ok'
-    ? resolveLookupRecordName(entry.record, entry.schema, displayField, policy, referenceTo)
-    : undefined;
+  if (entry?.state !== 'ok') return undefined;
+  if (entry.record == null) return { state: 'absent' };
+  const name = resolveLookupRecordName(entry.record, entry.schema, displayField, policy, referenceTo);
+  return name ? { state: 'named', name } : undefined;
 }
 
 /**
@@ -2531,7 +2546,9 @@ const MAX_LOOKUP_CELL_CHIPS = 3;
  * 2. Static `field.options[]` (e.g. when the lookup is a closed enum) → look up label
  * 3. Fetch-on-demand: when the value is a primitive ID and `field.reference`
  *    is known, resolve via dataSource and show the related record's display name.
- * 4. Nothing named it → the unresolved-reference affordance (objectui#8695):
+ * 4. The reader's own read answered "no record" (a 404 for a record they may
+ *    not read) → "Restricted record", with no id and no link (objectui#13335).
+ * 5. Nothing named it → the unresolved-reference affordance (objectui#8695):
  *    the raw value, kept visible, beside a stated epistemic marker. This arm
  *    used to be two — a muted `—` for opaque-LOOKING strings and confident
  *    bare text for everything else — which answered one state two ways.
@@ -2590,7 +2607,14 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   })();
 
   // Always call the hook (rules of hooks). It safely no-ops when inputs are missing.
-  const resolvedName = useLookupName(referenceTo, primaryPrimitiveId, displayField, perms);
+  const lookupAnswer = useLookupName(referenceTo, primaryPrimitiveId, displayField, perms);
+  const resolvedName = lookupAnswer?.state === 'named' ? lookupAnswer.name : undefined;
+  // The reader's own read of the first primitive answered "no record"
+  // (objectui#13335). Only that id gets the restricted face: in flight, a
+  // failed read, an unnamed record and the entries never asked keep the
+  // unresolved one below.
+  const restrictedId = lookupAnswer?.state === 'absent' ? primaryPrimitiveId : undefined;
+  const restrictedLabel = useRestrictedLookupLabel();
 
   // THE FLOOR by name and nothing more (objectui#8496). Same childless-container
   // defect as `SelectCellRenderer` above: the array branch further down opens a
@@ -2672,29 +2696,35 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   // screen did not resolve it, never "not found"), raw value kept visible.
   // See `UnresolvedLookupReference` for why this renderer is entitled to say
   // nothing stronger.
-  const resolveLabel = (val: unknown): { text: string; unresolved: boolean } => {
+  const resolveLabel = (val: unknown): { text: string; unresolved: boolean; restricted: boolean } => {
     if (options.length > 0) {
       const found = options.find((opt) => String(opt.value) === String(val));
-      if (found) return { text: found.label, unresolved: false };
+      if (found) return { text: found.label, unresolved: false, restricted: false };
     }
     if (val === primaryPrimitiveId && resolvedName) {
-      return { text: resolvedName, unresolved: false };
+      return { text: resolvedName, unresolved: false, restricted: false };
     }
-    return { text: String(val), unresolved: true };
+    if (restrictedId !== undefined && val === restrictedId) {
+      return { text: String(val), unresolved: false, restricted: true };
+    }
+    return { text: String(val), unresolved: true, restricted: false };
   };
 
   if (Array.isArray(value)) {
-    const itemDisplay = (item: unknown): { label: string; unresolved: boolean } => {
+    const itemDisplay = (item: unknown): { label: string; unresolved: boolean; restricted: boolean } => {
       if (item != null && typeof item === 'object') {
         return {
           label:
             resolveLookupRecordName(item as Record<string, unknown>, refSchema, displayField, perms, referenceTo) ||
             String((item as any).id || (item as any)._id || '[Object]'),
           unresolved: false,
+          restricted: false,
         };
       }
       const r = resolveLabel(item);
-      return { label: r.text, unresolved: r.unresolved };
+      // A restricted entry's label is the restricted sentence, never its id —
+      // the overflow chip's `title` lists labels too.
+      return { label: r.restricted ? restrictedLabel : r.text, unresolved: r.unresolved, restricted: r.restricted };
     };
 
     // Cap the chips the same way UserCellRenderer caps its avatars: a
@@ -2708,7 +2738,18 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
     return (
       <div className="flex flex-wrap gap-1">
         {visible.map((item, idx) => {
-          const { label, unresolved } = itemDisplay(item);
+          const { label, unresolved, restricted } = itemDisplay(item);
+          if (restricted) {
+            // No link: the reader's read of this record answered "not found".
+            return (
+              <span
+                key={idx}
+                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted/40 text-muted-foreground"
+              >
+                <RestrictedLookupReference label={label} />
+              </span>
+            );
+          }
           // Each chip is one referenced record, so each links on its own —
           // there is no single destination a multi-value cell could point at.
           return (
@@ -2765,7 +2806,10 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   // display name could be resolved — a reference that is present but unnamed
   // is still worth being able to open, which is why the affordance stays
   // INSIDE the link rather than replacing it.
-  const { text, unresolved } = resolveLabel(value);
+  const { text, unresolved, restricted } = resolveLabel(value);
+  // ...except a reference the reader's own read answered "not found" for
+  // (objectui#13335): the label, no id, and no link to a page that would 404.
+  if (restricted) return <RestrictedLookupReference label={restrictedLabel} />;
   return (
     <ReferencedRecordLink objectName={referenceTo} recordId={referencedRecordId(value)}>
       {unresolved ? (
@@ -2953,28 +2997,25 @@ function UnresolvedUserReference({
  * ## The state this names, and how many causes hide behind it
  *
  * `LookupCellRenderer` reaches here when neither the author's `options` nor
- * `useLookupName` produced a name. Measured on this base, that ONE seam is fed
- * by at least six distinct causes, and the renderer can tell apart NONE of
- * them — `useLookupName` returns `string | undefined`, so the
- * `pending` / `err` / `ok` discriminator its own cache stores is dropped
- * before any caller sees it:
+ * `useLookupName` produced a name, and the reader's read did not answer "no
+ * record". The causes left, which the renderer does not tell apart:
  *
  *   1. never fetched — no `dataSource`, or no `reference` on the field;
  *   2. IN FLIGHT — the first paint of every successful resolve passes through
  *      here (measured: the settled paint replaces it);
  *   3. the resolver threw (`state: 'err'`);
- *   4. the resolver answered with no record — "fetched and absent";
- *   5. it answered with a record no display field could name;
- *   6. not attempted BY POLICY — only the FIRST primitive of an array is
+ *   4. it answered with a record no display field could name;
+ *   5. not attempted BY POLICY — only the FIRST primitive of an array is
  *      auto-resolved (`primaryPrimitiveId`), so entries 2..n never ask.
  *
- * ⇒ the card's premise that this renderer "can genuinely distinguish 'fetched
- * and absent' from 'never fetched'" is FALSE as the code stands. And even a
- * hook that surfaced the discriminator could not upgrade the sentence: (3) and
- * (4) also cover a record the VIEWER may not read, and "cannot read" versus
- * "does not exist" is an existence-oracle boundary this lane does not cross
- * (objectui#8631). What is true of all six is epistemic, and it is all this
- * affordance says: this screen did not resolve it.
+ * A sixth cause used to land here too: the resolver answered with NO record.
+ * `useLookupName` now surfaces that one (objectui#13335) and it draws
+ * `RestrictedLookupReference` instead — it is the reader's own read saying
+ * "not found", which a 404 for a record they may not read becomes. That face
+ * still does not tell "cannot read" from "does not exist": the platform fuses
+ * them on purpose (objectui#8631), and so does the label. What is true of the
+ * five above is epistemic, and it is all this affordance says: this screen
+ * did not resolve it.
  *
  * ## Why the raw value stays, and the `—` does not
  *
@@ -3009,6 +3050,39 @@ function UnresolvedLookupReference({
       ? `Unresolved reference: ${raw} was not resolved to a record on this screen`
       : translated;
   return <UnresolvedReferenceMark raw={raw} hint={hint} className={className} />;
+}
+
+/** The translated "Restricted record" label (objectui#13335); literal key for `check:i18n-keys`. */
+function useRestrictedLookupLabel(): string {
+  const t = useFieldTranslate();
+  const translated = t?.('detail.restrictedLookupReference', { defaultValue: 'Restricted record' });
+  return !translated || translated === 'detail.restrictedLookupReference' ? 'Restricted record' : translated;
+}
+
+/**
+ * A `lookup` / `master_detail` / `tree` reference whose record the reader's
+ * own read answered "not found" for (objectui#13335) — on the ObjectStack
+ * adapter, a 404 the server gives a record this viewer may not read.
+ *
+ * ⛔ No id and no link. The id was the only thing the old face showed, and it
+ * means nothing to a person; a link would open a page that answers 404. ⛔ No
+ * second read to name the record: the label says only what the reader's own
+ * read already said, so it reveals nothing the id did not. The platform
+ * answers "hidden from you" and "does not exist" with the same 404 on purpose
+ * (objectui#8631), so this face is drawn for both: from where the reader
+ * stands, either way the record is not one they can open.
+ */
+function RestrictedLookupReference({ label }: { label: string }): React.ReactElement {
+  return (
+    <span
+      data-slot="restricted-reference"
+      className="inline-flex min-w-0 max-w-full items-center gap-1 text-muted-foreground"
+      title={label}
+    >
+      <Lock className="size-3.5 shrink-0" aria-hidden="true" />
+      <span className="truncate">{label}</span>
+    </span>
+  );
 }
 
 /**

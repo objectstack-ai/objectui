@@ -1367,6 +1367,7 @@ const ru = {
     noValue: "Нет значения",
     unresolvedReference: "Неразрешённая ссылка: {{value}} не удалось сопоставить с пользователем",
     unresolvedLookupReference: "Неразрешённая ссылка: {{value}} не удалось сопоставить с записью на этом экране",
+    restrictedLookupReference: "Запись с ограниченным доступом",
     repeaterItemCount: "Элементов: {{count}}",
     repeaterItemCount_one: "{{count}} элемент",
     repeaterItemCount_few: "{{count}} элемента",

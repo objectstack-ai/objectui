@@ -1287,6 +1287,7 @@ const de = {
     noValue: "Kein Wert",
     unresolvedReference: "Nicht aufgelöste Referenz: {{value}} wurde keinem Benutzer zugeordnet",
     unresolvedLookupReference: "Nicht aufgelöste Referenz: {{value}} wurde auf dieser Ansicht keinem Datensatz zugeordnet",
+    restrictedLookupReference: "Eingeschränkter Datensatz",
     repeaterItemCount: "{{count}} Einträge",
     repeaterItemCount_one: "{{count}} Eintrag",
     repeaterItemCount_other: "{{count}} Einträge",

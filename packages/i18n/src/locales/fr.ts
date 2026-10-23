@@ -1323,6 +1323,7 @@ const fr = {
     noValue: "Aucune valeur",
     unresolvedReference: "Référence non résolue : {{value}} n'a pas été résolue en utilisateur",
     unresolvedLookupReference: "Référence non résolue : {{value}} n'a pas été résolue en enregistrement sur cet écran",
+    restrictedLookupReference: "Enregistrement restreint",
     repeaterItemCount: "{{count}} éléments",
     repeaterItemCount_one: "{{count}} élément",
     repeaterItemCount_many: "{{count}} d'éléments",

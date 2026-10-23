@@ -52,6 +52,12 @@
  * does not cross (objectui#8631). ⇒ the sentence must stay EPISTEMIC, exactly
  * as objectui#8434 ruled, and `THE SENTENCE` below pins that.
  *
+ * ⚠️ Since objectui#13335 one of the six no longer reaches this arm: a read
+ * that SETTLED with no record (`findOne` → `null`, a 404 for this reader) now
+ * draws "Restricted record" instead — still fused, deliberately, over "cannot
+ * read" and "does not exist". The other five keep this affordance, and
+ * `lookupCell.restrictedRecord-13335.test.tsx` pins the boundary between them.
+ *
  * ── ⛔ What this file must not let pass ───────────────────────────────────
  * The controls are the other half: a genuinely RESOLVED reference must render
  * exactly as it does today, unmarked (three ways of resolving: an expanded

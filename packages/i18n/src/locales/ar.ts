@@ -1438,6 +1438,7 @@ const ar = {
     noValue: "لا قيمة",
     unresolvedReference: "مرجع غير مُحلّل: لم يتم تحويل {{value}} إلى مستخدم",
     unresolvedLookupReference: "مرجع غير مُحلّل: لم يتم تحويل {{value}} إلى سجل في هذه الشاشة",
+    restrictedLookupReference: "سجل مقيد",
     repeaterItemCount: "{{count}} عنصر (عناصر)",
     repeaterItemCount_zero: "{{count}} عنصر",
     repeaterItemCount_one: "{{count}} عنصر",

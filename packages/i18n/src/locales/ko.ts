@@ -1287,6 +1287,7 @@ const ko = {
     noValue: "값 없음",
     unresolvedReference: "확인되지 않은 참조: {{value}}을(를) 사용자로 확인하지 못했습니다",
     unresolvedLookupReference: "확인되지 않은 참조: {{value}}을(를) 이 화면에서 레코드로 확인하지 못했습니다",
+    restrictedLookupReference: "제한된 레코드",
     repeaterItemCount: "항목 {{count}}개",
     repeaterItemCount_one: "항목 {{count}}개",
     repeaterItemCount_other: "항목 {{count}}개",

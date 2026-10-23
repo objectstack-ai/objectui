@@ -1287,6 +1287,7 @@ const ja = {
     noValue: "値なし",
     unresolvedReference: "未解決の参照: {{value}} はユーザーとして解決されませんでした",
     unresolvedLookupReference: "未解決の参照: {{value}} はこの画面でレコードとして解決されませんでした",
+    restrictedLookupReference: "制限付きレコード",
     repeaterItemCount: "{{count}} 件",
     repeaterItemCount_one: "{{count}} 件",
     repeaterItemCount_other: "{{count}} 件",

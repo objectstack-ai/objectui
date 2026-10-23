@@ -687,8 +687,14 @@ export interface BulkActionDef {
    * the renderer during the move. Read it through plugin-grid's
    * `bulkConfirmTextSource`, never as a React child: the envelope arm is an
    * object.
+   *
+   * The envelope's `source` is optional, as on the protocol's `Expression`:
+   * a parsed slot may carry its `ast` instead, and the reader then falls back
+   * to the default sentence. Typed `source: string`, the slot refused the
+   * spec's own envelope type wherever a named view's `bulkActionDefs` reach
+   * `ObjectGridSchema` (objectstack#25438).
    */
-  confirmText?: string | { dialect?: 'template'; source: string };
+  confirmText?: string | { dialect?: 'template'; source?: string };
   /** Custom Confirm button label (default: "Run"). */
   confirmLabel?: string;
   /**

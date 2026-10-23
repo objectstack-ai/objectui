@@ -240,12 +240,12 @@ describe('objectui#8490 — an empty array is not a cell value, and these render
       expect(indicator?.getAttribute('aria-label'), 'completed: a real true reads "Completed"').toBe('Completed');
     });
 
-    it('POPULATED — an active field holding a real `false` still draws its "Off" badge', () => {
+    it('POPULATED — an active field holding a real `false` is still an UNCHECKED checkbox (objectui#13412 retired its "Off" badge)', () => {
       const { container } = renderCell('boolean', false, { name: 'active' });
-      expect(
-        container.querySelector('[data-testid="boolean-warning-badge"]'),
-        'active: a real false must still draw the Off badge',
-      ).not.toBeNull();
+      const box = container.querySelector('[role="checkbox"]');
+      expect(box, 'active: a real false must still draw its checkbox').not.toBeNull();
+      expect(box?.getAttribute('aria-checked'), 'active: a real false must still be unchecked').toBe('false');
+      expect(affordance(container), 'active: a real false must NOT render the affordance').toBeNull();
     });
 
     it('POPULATED — a real stored `0` still prints as 0 in number, currency and percent', () => {

@@ -112,22 +112,33 @@ describe('read-only boolean words come from the locale (objectui#11689)', () => 
 
 /**
  * The list face's own words (objectui#11689, the family site seat 1 recorded
- * from objectui#11721): the status column's "LABEL — Off" badge and the
- * completion indicator's two accessible names. Every list surface draws this
- * face, so these were English on every list under every pack.
+ * from objectui#11721): the completion indicator's two accessible names, and
+ * until objectui#13412 the status column's "LABEL — Off" badge. Every list
+ * surface draws this face, so these were English on every list under every
+ * pack.
+ *
+ * objectui#13412 retired the badge: a `false` on a status-like name draws the
+ * plain unchecked box, named by the column label it is handed and by nothing
+ * else. Its locale leg is therefore that the box carries the label as given
+ * and no pack word at all, under every pack.
  */
 describe('BooleanCellRenderer words come from the locale (objectui#11689)', () => {
   const badgeOf = (root: HTMLElement) =>
-    root.querySelector<HTMLElement>('[data-testid="boolean-warning-badge"]')?.textContent;
+    root.querySelector<HTMLElement>('[data-testid="boolean-warning-badge"]');
+  const boxName = (root: HTMLElement) =>
+    root.querySelector<HTMLElement>('[role="checkbox"]')?.getAttribute('aria-label');
   const indicatorName = (root: HTMLElement) =>
     root.querySelector<HTMLElement>('[data-testid="completion-indicator"]')?.getAttribute('aria-label');
 
-  it('zh: the status badge reads the column label and the pack word', () => {
+  it('zh: a status column holding false is an unchecked box named by the column label, with no pack word', () => {
     const { container } = inLocale(
       'zh',
       <BooleanCellRenderer value={false} field={{ name: 'active', type: 'boolean', label: '启用' } as never} />,
     );
-    expect(badgeOf(container)).toBe('启用 — 已关闭');
+    expect(badgeOf(container)).toBeNull();
+    expect(boxName(container)).toBe('启用');
+    // The badge's zh word, by its text: the face no longer reads that key.
+    expect(container.textContent).not.toContain('已关闭');
   });
 
   it('zh: the completion indicator is named in the pack', () => {
@@ -137,13 +148,13 @@ describe('BooleanCellRenderer words come from the locale (objectui#11689)', () =
     expect(indicatorName(inLocale('zh', <BooleanCellRenderer value={false} field={field} />).container)).toBe('未完成');
   });
 
-  it('en is unchanged: Active — Off, Completed, Not completed', () => {
+  it('en: an Active box, Completed, Not completed', () => {
     expect(
-      badgeOf(
+      boxName(
         inLocale('en', <BooleanCellRenderer value={false} field={{ name: 'active', type: 'boolean', label: 'Active' } as never} />)
           .container,
       ),
-    ).toBe('Active — Off');
+    ).toBe('Active');
     cleanup();
     const field = { name: 'completed', type: 'boolean' } as never;
     expect(indicatorName(inLocale('en', <BooleanCellRenderer value={true} field={field} />).container)).toBe('Completed');
@@ -154,13 +165,11 @@ describe('BooleanCellRenderer words come from the locale (objectui#11689)', () =
   it("every pack's own words are the ones drawn", () => {
     for (const lang of LANGS) {
       const words = builtInLocales[lang].fields.boolean;
-      expect(
-        badgeOf(
-          inLocale(lang, <BooleanCellRenderer value={false} field={{ name: 'active', type: 'boolean', label: 'L' } as never} />)
-            .container,
-        ),
-        `${lang}: badge`,
-      ).toBe(words.offBadge.replace('{{label}}', 'L'));
+      const off = inLocale(lang, <BooleanCellRenderer value={false} field={{ name: 'active', type: 'boolean', label: 'L' } as never} />)
+        .container;
+      expect(badgeOf(off), `${lang}: no badge`).toBeNull();
+      expect(boxName(off), `${lang}: the box is named by the label alone`).toBe('L');
+      expect(off.textContent, `${lang}: the box carries no pack word`).toBe('');
       cleanup();
       expect(
         indicatorName(inLocale(lang, <BooleanCellRenderer value={true} field={{ name: 'done', type: 'boolean' } as never} />).container),
@@ -177,8 +186,8 @@ describe('BooleanCellRenderer words come from the locale (objectui#11689)', () =
 
   it('with no I18nProvider it still says the English words (the defaults table)', () => {
     expect(
-      badgeOf(inLocale(null, <BooleanCellRenderer value={false} field={{ name: 'active', type: 'boolean', label: 'Active' } as never} />).container),
-    ).toBe('Active — Off');
+      boxName(inLocale(null, <BooleanCellRenderer value={false} field={{ name: 'active', type: 'boolean', label: 'Active' } as never} />).container),
+    ).toBe('Active');
     cleanup();
     expect(indicatorName(inLocale(null, <BooleanCellRenderer value={true} field={{ name: 'done', type: 'boolean' } as never} />).container)).toBe(
       'Completed',

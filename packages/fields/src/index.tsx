@@ -978,20 +978,22 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   );
 }
 
-/** Field names that trigger warning badge when boolean value is false */
-const STATUS_FIELD_NAMES = new Set([
-  'active', 'is_active', 'enabled', 'is_enabled', 'verified', 'is_verified',
-]);
-
 /**
  * Boolean field cell renderer (Airtable-style checkbox)
- * Supports semantic rendering for completion fields (green indicator)
- * and warning badge for active/enabled fields when false.
+ * Supports semantic rendering for completion fields (green indicator).
+ *
+ * A `false` is a neutral state whatever the field is named (objectui#13412).
+ * This face once drew a destructive "LABEL — Off" badge for `false` on six
+ * status-like names (`active`, `enabled`, `verified` and their `is_` forms).
+ * A plain `Field.boolean` named `verified` therefore read as an error on
+ * every new record, while the same value under any other name drew an
+ * unchecked box. Nothing in the metadata asked for it and nothing could turn
+ * it off, so the name heuristic is gone: those names draw the checkbox too.
  */
 export function BooleanCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
-  // The face's own words — the status badge's "Off" and the completion
-  // indicator's two accessible names — come from the locale (objectui#11689),
-  // through the same hook and defaults table as the read-only Yes / No words
+  // The face's own words — the completion indicator's two accessible names —
+  // come from the locale (objectui#11689), through the same hook and defaults
+  // table as the read-only Yes / No words
   // (`useBooleanValueLabel`). Called before the early return below so the hook
   // count does not change with the value.
   const { t } = useFieldTranslation();
@@ -1010,10 +1012,9 @@ export function BooleanCellRenderer({ value, field }: CellRendererProps): React.
   //
   // Before this guard every branch below read the value by TRUTHINESS. The
   // string `'false'`, the string `'0'` and `{}` drew a CHECKED box — a
-  // completion field its green "Completed" indicator, an `active`-style field
-  // skipped its "Off" badge — an affirmative answer the record never gave;
-  // `0` and `''` drew an UNCHECKED box (an `active` field its "Off" badge), a
-  // `false` the record never stored either. Both directions are the same
+  // completion field its green "Completed" indicator — an affirmative answer
+  // the record never gave; `0` and `''` drew an UNCHECKED box, a `false` the
+  // record never stored either. Both directions are the same
   // fabrication and both now land on the shared affordance, whose accessible
   // name ("No value") is a statement about the field's TYPE: the record holds
   // no boolean here. `null` / `undefined` and `[]` (objectui#8490: an empty
@@ -1034,9 +1035,8 @@ export function BooleanCellRenderer({ value, field }: CellRendererProps): React.
   const fieldName = field?.name?.toLowerCase() || '';
   const isCompletionField = fieldName === 'completed' || fieldName === 'is_completed'
     || fieldName === 'done' || fieldName === 'is_done';
-  // The field's words, ONE value read by both faces below that name the field
-  // (objectui#12584): the off badge's text and the plain checkbox's accessible
-  // name. Its label, else its humanized name. The fallback reads the name as
+  // The field's words (objectui#12584): the plain checkbox's accessible name.
+  // Its label, else its humanized name. The fallback reads the name as
   // authored, not the lower-cased matching key above: `humanizeLabel` only
   // capitalises, so the key turned an unlabelled `IsPreferred` into
   // `Ispreferred`. A spec-legal name is lowercase snake_case already, so for
@@ -1054,15 +1054,6 @@ export function BooleanCellRenderer({ value, field }: CellRendererProps): React.
           <div className="size-5 rounded-full border-2 border-muted-foreground/30" role="img" aria-label={t('fields.boolean.notCompleted')} data-testid="completion-indicator" />
         )}
       </div>
-    );
-  }
-
-  // Warning badge for active/enabled fields when false
-  if (STATUS_FIELD_NAMES.has(fieldName) && value === false) {
-    return (
-      <Badge variant="destructive" className="text-xs" data-testid="boolean-warning-badge">
-        {t('fields.boolean.offBadge', { label: fieldLabel })}
-      </Badge>
     );
   }
 
@@ -3630,7 +3621,7 @@ function structuredEntriesNodes(entries: readonly StructuredEntry[]): React.Reac
  * ## Labels
  *
  * The humanized key (`humanizeLabel`, the key fallback this package's boolean
- * cell already uses for its "Off" badge). There is no declared sub-field label
+ * cell already uses for its checkbox's accessible name). There is no declared sub-field label
  * to prefer: the spec's `FieldSchema` has no sub-field member for either type
  * and refuses `fields` / `subFields` as unrecognized keys, so no metadata a
  * producer can publish carries one, and a label read from the field here would

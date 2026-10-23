@@ -2128,6 +2128,12 @@ const ko = {
       system: "시스템",
     },
     objectView: {
+      // objectui#13330 — Setup → Users on a managed environment.
+      managedUsers: {
+        inviteLine: "이 환경은 클라우드에서 관리됩니다. 클라우드의 조직에서 사용자를 초대하세요. 초대된 사용자는 처음 로그인할 때 여기에 표시됩니다. '권한 없음'으로 표시된 사용자는 모든 구성원이 가진 액세스 외에는 아무것도 없습니다. 권한 세트나 직위를 부여하세요.",
+        unauthorized: "권한 없음",
+        unauthorizedHint: "로그인한 모든 구성원이 가진 기본 권한 외에 권한 세트가 없습니다. 권한 세트나 직위를 부여하세요.",
+      },
       viewTypeTree: "트리",
       viewTypeTreeDesc: "상위 필드를 기준으로 자기 참조 레코드를 계층 구조로 중첩합니다.",
       parentField: "상위 필드",
@@ -3023,6 +3029,7 @@ const ko = {
       title: "구성원",
       inviteMember: "구성원 초대",
       inviteRestrictedNote: "조직 관리자만 구성원을 초대할 수 있습니다.",
+      inviteManagedNote: "구성원은 클라우드의 조직을 통해 참여합니다. 초대는 클라우드에서 하세요.",
       removeMember: "구성원 제거",
       removeConfirmTitle: "구성원을 제거할까요?",
       removeConfirmDescription: "{{name}}을(를) 조직에서 제거합니다. 접근 권한이 즉시 사라집니다.",

@@ -2176,6 +2176,12 @@ const es = {
       system: "Sistema",
     },
     objectView: {
+      // objectui#13330 — Setup → Users on a managed environment.
+      managedUsers: {
+        inviteLine: "Este entorno se gestiona desde la nube. Invite a las personas a su organización allí; aparecerán aquí cuando inicien sesión por primera vez. Un usuario marcado como «No autorizado» solo tiene el acceso que tiene todo miembro: asígnele un conjunto de permisos o un puesto.",
+        unauthorized: "No autorizado",
+        unauthorizedHint: "No tiene ningún conjunto de permisos más allá del básico que tiene todo miembro con sesión iniciada. Asígnele un conjunto de permisos o un puesto.",
+      },
       viewTypeTree: "Árbol",
       viewTypeTreeDesc: "Anida los registros autorreferenciados en una jerarquía mediante un campo principal.",
       parentField: "Campo principal",
@@ -3081,6 +3087,7 @@ const es = {
       title: "Miembros",
       inviteMember: "Invitar miembro",
       inviteRestrictedNote: "Solo los administradores de la organización pueden invitar a miembros.",
+      inviteManagedNote: "Las personas se unen a través de su organización en la nube. Invítelas allí.",
       removeMember: "Eliminar miembro",
       removeConfirmTitle: "¿Eliminar miembro?",
       removeConfirmDescription: "Se eliminará a {{name}} de la organización y perderá el acceso de inmediato.",

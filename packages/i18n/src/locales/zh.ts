@@ -2221,6 +2221,12 @@ const zh = {
       passwordsDownload: '下载 CSV',
     },
     objectView: {
+      // objectui#13330 — Setup → Users on a managed environment.
+      managedUsers: {
+        inviteLine: '此环境由云端托管。请在云端的组织中邀请成员，他们首次登录后会出现在这里。标记为「未授权」的用户只拥有每位成员都有的访问权限：请为其分配权限集或岗位。',
+        unauthorized: '未授权',
+        unauthorizedHint: '除每位已登录成员都有的基础权限外，未持有任何权限集。请为其分配权限集或岗位。',
+      },
       systemViewReadonly: '系统视图由代码定义，只读。',
       cannotEditMetaView: '该视图为内置视图，由代码定义，无法修改。',
       resetView: '重置视图',
@@ -3204,6 +3210,7 @@ const zh = {
       title: '成员',
       inviteMember: '邀请成员',
       inviteRestrictedNote: '只有组织管理员可以邀请成员。',
+      inviteManagedNote: '成员通过你在云端的组织加入，请在那里邀请。',
       removeMember: '移除成员',
       removeConfirmTitle: '移除成员？',
       removeConfirmDescription: '将把 {{name}} 从该组织中移除，其访问权限会立即失效。',

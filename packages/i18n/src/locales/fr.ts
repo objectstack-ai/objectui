@@ -2172,6 +2172,12 @@ const fr = {
       system: "Système",
     },
     objectView: {
+      // objectui#13330 — Setup → Users on a managed environment.
+      managedUsers: {
+        inviteLine: "Cet environnement est géré depuis le cloud. Invitez les personnes dans votre organisation depuis le cloud ; elles apparaissent ici lors de leur première connexion. Un utilisateur marqué « Non autorisé » ne dispose que de l'accès commun à tous les membres : attribuez-lui un ensemble d'autorisations ou un poste.",
+        unauthorized: "Non autorisé",
+        unauthorizedHint: "Ne détient aucun ensemble d'autorisations au-delà de la base commune à tous les membres connectés. Attribuez-lui un ensemble d'autorisations ou un poste.",
+      },
       viewTypeTree: "Arborescence",
       viewTypeTreeDesc: "Imbriquer les enregistrements auto-référencés en hiérarchie via un champ parent.",
       parentField: "Champ parent",
@@ -3077,6 +3083,7 @@ const fr = {
       title: "Membres",
       inviteMember: "Inviter un membre",
       inviteRestrictedNote: "Seuls les administrateurs de l'organisation peuvent inviter des membres.",
+      inviteManagedNote: "Les personnes rejoignent l'environnement via votre organisation dans le cloud. Invitez-les depuis le cloud.",
       removeMember: "Retirer le membre",
       removeConfirmTitle: "Retirer ce membre ?",
       removeConfirmDescription: "{{name}} sera retiré de l'organisation et perdra immédiatement son accès.",

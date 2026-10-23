@@ -2311,6 +2311,12 @@ const ar = {
       system: "النظام",
     },
     objectView: {
+      // objectui#13330 — Setup → Users on a managed environment.
+      managedUsers: {
+        inviteLine: "تُدار هذه البيئة من السحابة. ادعُ الأشخاص إلى مؤسستك هناك؛ وسيظهرون هنا عند تسجيل دخولهم لأول مرة. المستخدم الموسوم بـ «غير مخوّل» لا يملك سوى الوصول المتاح لكل عضو: امنحه مجموعة أذونات أو منصباً.",
+        unauthorized: "غير مخوّل",
+        unauthorizedHint: "لا يملك أي مجموعة أذونات تتجاوز الأساس الذي يملكه كل عضو مسجّل الدخول. امنحه مجموعة أذونات أو منصباً.",
+      },
       viewTypeTree: "شجرة",
       viewTypeTreeDesc: "يرتّب السجلات ذاتية المرجعية في تسلسل هرمي عبر حقل أب.",
       parentField: "الحقل الأب",
@@ -3249,6 +3255,7 @@ const ar = {
       title: "الأعضاء",
       inviteMember: "دعوة عضو",
       inviteRestrictedNote: "لا يمكن دعوة الأعضاء إلا لمسؤولي المؤسسة.",
+      inviteManagedNote: "ينضم الأشخاص عبر مؤسستك في السحابة. ادعُهم من هناك.",
       removeMember: "إزالة العضو",
       removeConfirmTitle: "إزالة العضو؟",
       removeConfirmDescription: "سيؤدي ذلك إلى إزالة {{name}} من المؤسسة، وسيفقد صلاحية الوصول فورًا.",

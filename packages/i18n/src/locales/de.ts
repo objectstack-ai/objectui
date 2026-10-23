@@ -2128,6 +2128,12 @@ const de = {
       system: "System",
     },
     objectView: {
+      // objectui#13330 — Setup → Users on a managed environment.
+      managedUsers: {
+        inviteLine: "Diese Umgebung wird aus der Cloud verwaltet. Laden Sie Personen dort in Ihre Organisation ein; sie erscheinen hier, sobald sie sich zum ersten Mal anmelden. Ein als „Nicht berechtigt“ markierter Benutzer hat nur den Zugriff, den jedes Mitglied hat: Weisen Sie ihm einen Berechtigungssatz oder eine Position zu.",
+        unauthorized: "Nicht berechtigt",
+        unauthorizedHint: "Hat keinen Berechtigungssatz über die Basis hinaus, die jedes angemeldete Mitglied hat. Weisen Sie einen Berechtigungssatz oder eine Position zu.",
+      },
       viewTypeTree: "Baum",
       viewTypeTreeDesc: "Selbstreferenzierende Datensätze über ein übergeordnetes Feld zu einer Hierarchie verschachteln.",
       parentField: "Übergeordnetes Feld",
@@ -3024,6 +3030,7 @@ const de = {
       title: "Mitglieder",
       inviteMember: "Mitglied einladen",
       inviteRestrictedNote: "Nur Organisationsadministratoren können Mitglieder einladen.",
+      inviteManagedNote: "Personen treten über Ihre Organisation in der Cloud bei. Laden Sie sie dort ein.",
       removeMember: "Mitglied entfernen",
       removeConfirmTitle: "Mitglied entfernen?",
       removeConfirmDescription: "{{name}} wird aus der Organisation entfernt und verliert sofort den Zugriff.",

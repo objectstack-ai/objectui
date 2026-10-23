@@ -447,6 +447,20 @@ export interface ListViewProps {
    */
   defaultRowNumbers?: boolean;
   /**
+   * A host-drawn node beside each row's title in the grid (objectui#13330),
+   * handed to `ObjectGrid`'s `rowAdornment`: the cell of the object's declared
+   * name field when a column shows it, else the first shown column, and the
+   * card's title in the card view. Called with the row record; `null` draws
+   * nothing. The console's Users list on a managed environment marks a user
+   * who holds nothing beyond the baseline with it.
+   *
+   * A HOST prop, never a schema key: a React node a host composes, nothing an
+   * author writes. Only the grid is handed it; the other visualizations and
+   * the compact posture draw no title cell to put it beside, and draw none.
+   * Absent ⇒ every row is exactly what it was.
+   */
+  rowAdornment?: (record: Record<string, unknown>) => React.ReactNode;
+  /**
    * The VIEW'S OWN hidden fields and row height, for a host that lays the
    * user's own preference over them in `schema` (objectui#12949). The Display
    * control's trigger count and its "Reset to view default" compare these two
@@ -1512,6 +1526,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   initialSearchTerm,
   toolbarLeading,
   defaultRowNumbers = true,
+  rowAdornment,
   compact = false,
   viewDefaults,
   ...props
@@ -6332,6 +6347,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               // objectui#12528 — and the column summaries, drawn in the
               // record-count row below rather than in a row of the grid's own.
               ? { showRowNumbers: rowNumbers, onColumnSummaryChange: setGridSummaries }
+              : {})}
+            {...(viewComponentSchema.type === 'object-grid' && rowAdornment
+              // objectui#13330 — the host's node beside each row's title, on
+              // the grid's host channel (a React prop, never a node key).
+              ? { rowAdornment }
               : {})}
             // [objectui#12081] A windowed calendar keeps drawing while the
             // next window loads (the refresh bar above says so), and shows its

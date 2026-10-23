@@ -972,6 +972,10 @@ const en = {
     viewAll: 'View all',
     tabs: 'Tabs',
     allRecords: 'All Records',
+    // objectui#13405 — the synthetic trailing tab a `showAllRecords` user-filter bar adds.
+    userFilters: {
+      allRecords: 'All records',
+    },
     search: 'Search',
     filter: 'Filter',
     filterRecords: 'Filter Records',

@@ -792,6 +792,9 @@ const pt = {
     viewAll: "Ver tudo",
     tabs: "Abas",
     allRecords: "Todos os registros",
+    userFilters: {
+      allRecords: "Todos os registros",
+    },
     search: "Pesquisar",
     filter: "Filtrar",
     filterRecords: "Filtrar registros",

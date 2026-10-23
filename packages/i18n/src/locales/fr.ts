@@ -792,6 +792,9 @@ const fr = {
     viewAll: "Tout afficher",
     tabs: "Onglets",
     allRecords: "Tous les enregistrements",
+    userFilters: {
+      allRecords: "Tous les enregistrements",
+    },
     search: "Rechercher",
     filter: "Filtrer",
     filterRecords: "Filtrer les enregistrements",

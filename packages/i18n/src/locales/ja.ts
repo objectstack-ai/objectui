@@ -770,6 +770,9 @@ const ja = {
     viewAll: "すべて表示",
     tabs: "タブ",
     allRecords: "すべてのレコード",
+    userFilters: {
+      allRecords: "すべてのレコード",
+    },
     search: "検索",
     filter: "フィルター",
     filterRecords: "レコードをフィルター",

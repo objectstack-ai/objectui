@@ -770,6 +770,9 @@ const de = {
     viewAll: "Alle anzeigen",
     tabs: "Tabs",
     allRecords: "Alle Datensätze",
+    userFilters: {
+      allRecords: "Alle Datensätze",
+    },
     search: "Suche",
     filter: "Filtern",
     filterRecords: "Datensätze filtern",

@@ -770,6 +770,9 @@ const ko = {
     viewAll: "모두 보기",
     tabs: "탭",
     allRecords: "전체 레코드",
+    userFilters: {
+      allRecords: "전체 레코드",
+    },
     search: "검색",
     filter: "필터",
     filterRecords: "레코드 필터",

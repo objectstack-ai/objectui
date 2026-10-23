@@ -797,6 +797,9 @@ const es = {
     viewAll: "Ver todo",
     tabs: "Pestañas",
     allRecords: "Todos los registros",
+    userFilters: {
+      allRecords: "Todos los registros",
+    },
     search: "Buscar",
     filter: "Filtrar",
     filterRecords: "Filtrar registros",

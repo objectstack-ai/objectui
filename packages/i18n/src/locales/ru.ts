@@ -820,6 +820,9 @@ const ru = {
     viewAll: "Показать все",
     tabs: "Вкладки",
     allRecords: "Все записи",
+    userFilters: {
+      allRecords: "Все записи",
+    },
     search: "Поиск",
     filter: "Фильтр",
     filterRecords: "Фильтр записей",

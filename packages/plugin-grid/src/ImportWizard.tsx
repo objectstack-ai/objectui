@@ -1520,6 +1520,13 @@ const TemplateBar: React.FC<{
   );
 };
 
+/** A saved mapping the target accepts: its write mode (insert when it names
+ *  none) is one the host offers. Any other is listed disabled and never
+ *  applied (objectui#12697). */
+function savedMappingAccepted(m: SavedMapping, writeModes: readonly ImportWriteMode[]): boolean {
+  return writeModes.includes(m.mode ?? 'insert');
+}
+
 /** Selector for a registered server-side import mapping (objectstack-ai/objectstack#2611).
  *  Picking one hands rename + transforms to the server; the manual column
  *  table is replaced by a read-only summary of the artifact. */
@@ -1549,7 +1556,7 @@ const SavedMappingBar: React.FC<{
           <SelectItem value="__none__">{t('grid.import.manualMapping')}</SelectItem>
           {mappings.map((m) => {
             const mode = m.mode ?? 'insert';
-            const refused = !writeModes.includes(mode);
+            const refused = !savedMappingAccepted(m, writeModes);
             return (
               <SelectItem
                 key={m.name}
@@ -2374,7 +2381,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     // A mapping writing in a mode the target refuses is never applied: the
     // selector lists it disabled with its mode named (objectui#12697), and no
     // path swaps its mode for another one behind the user's back.
-    if (!writeModes.includes(m.mode ?? 'insert')) return;
+    if (!savedMappingAccepted(m, writeModes)) return;
     setMappingName(name);
     setSelectedTemplateId(null);
     setMapping(savedMappingToDisplayIndexMap(m, headers));
@@ -2382,6 +2389,26 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     if (Array.isArray(m.upsertKey)) setMatchFields(m.upsertKey.filter((f) => typeof f === 'string'));
     setDryRunResult(null);
   }, [availableMappings, headers, writeModes]);
+
+  // objectui#13343 — when the object ships exactly ONE saved mapping the target
+  // accepts, the mapping step opens with it applied, exactly as picking it from
+  // the selector applies it; a user who never opens the menu would otherwise
+  // import without its rename and transforms. With none or several there is
+  // nothing to choose for the user, so nothing changes; a mapping listed
+  // disabled (its mode refused, objectui#12697) does not count.
+  // Decided ONCE per opening, the first time the mapping step has a non-empty
+  // list: the ref, not any callback identity, holds that, so a re-fetched list
+  // or a re-render never re-applies it over a user's switch to manual mapping.
+  // `reset` re-arms it for the next opening.
+  const preselectDecidedRef = React.useRef(false);
+  useEffect(() => {
+    if (preselectDecidedRef.current) return;
+    if (step !== 'mapping' || headers.length === 0 || availableMappings.length === 0) return;
+    preselectDecidedRef.current = true;
+    if (mappingName !== null) return;
+    const applicable = availableMappings.filter((m) => savedMappingAccepted(m, writeModes));
+    if (applicable.length === 1) handleSelectSavedMapping(applicable[0].name);
+  }, [step, headers, availableMappings, mappingName, writeModes, handleSelectSavedMapping]);
 
   // Return to hand-mapping: clear the named mapping and re-run auto-mapping.
   const handleClearSavedMapping = useCallback(() => {
@@ -2937,6 +2964,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
 
   const reset = useCallback(() => {
     cancelPollRef.current = false;
+    preselectDecidedRef.current = false;
     setFinishedJob(null); setUndoOutcome(null);
     setStep('upload'); setHeaders([]); setRows([]); setCsvFile(false); setMapping({}); setProgress(0); setResult(null);
     setCorrections({}); setSelectedTemplateId(null); setMappingName(null);

@@ -33,7 +33,8 @@
  *    and create it through the normal metadata channel (`MetadataClient.save('object', …)`).
  *    Offered only on a federation source (`offersSync`, objectui#13318).
  *  - **Delete** a runtime datasource (`DELETE …/:name`; blocked by the backend
- *    while objects are still bound).
+ *    while objects are still bound), confirmed in an in-app AlertDialog that
+ *    names the datasource by its label and name (objectui#13333).
  *
  * Code-defined (`origin: 'code'`) datasources are read-only: edit/delete are
  * hidden for them.
@@ -54,6 +55,14 @@ import {
   XCircle,
 } from 'lucide-react';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Dialog,
   DialogContent,
@@ -72,7 +81,7 @@ import {
 } from '@object-ui/components';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { useMetadataClient } from '../useMetadata.js';
-import { t, useMetadataLocale } from '../i18n.js';
+import { t, tFormat, useMetadataLocale } from '../i18n.js';
 // objectui#7265 — this page used to re-describe the introspection row as a
 // module-local `interface RemoteTable { name; schema?; columnCount? }`. It is
 // the SAME wire shape `GET /datasources/:name/remote-tables` returns, and the
@@ -230,6 +239,8 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
   const [rows, setRows] = React.useState<DatasourceRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState<string | null>(null);
+  // objectui#13333 — the row whose delete is being confirmed (in-app dialog).
+  const [confirmDelete, setConfirmDelete] = React.useState<DatasourceRow | null>(null);
 
   /**
    * Fetch + unwrap the declared response envelope.
@@ -301,7 +312,6 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
   };
 
   const remove = async (name: string) => {
-    if (!window.confirm(`Delete datasource “${name}”? This cannot be undone.`)) return;
     setBusy(`del:${name}`);
     try {
       await api(`/api/v1/datasources/${encodeURIComponent(name)}`, { method: 'DELETE' });
@@ -652,7 +662,7 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
                     <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit" disabled={busy === `edit:${ds.name}`} onClick={() => void openEdit(ds)}>
                       {busy === `edit:${ds.name}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Delete" disabled={busy === `del:${ds.name}`} onClick={() => void remove(ds.name)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Delete" disabled={busy === `del:${ds.name}`} onClick={() => setConfirmDelete(ds)}>
                       {busy === `del:${ds.name}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                     </Button>
                   </>
@@ -778,6 +788,34 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete a datasource — names it by label and name (objectui#13333). */}
+      <AlertDialog open={confirmDelete !== null} onOpenChange={(o) => { if (!o) setConfirmDelete(null); }}>
+        <AlertDialogContent data-testid="datasource-delete-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmDelete && tFormat('engine.datasource.deleteTitle', locale, { item: confirmDelete.label || confirmDelete.name })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDelete && tFormat('engine.datasource.deleteBody', locale, { name: confirmDelete.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="datasource-delete-cancel">{t('engine.cancel', locale)}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="datasource-delete-confirm"
+              onClick={() => {
+                const row = confirmDelete;
+                setConfirmDelete(null);
+                if (row) void remove(row.name);
+              }}
+            >
+              {t('engine.datasource.delete', locale)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

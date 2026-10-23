@@ -22,7 +22,17 @@ import { ArrowLeft, RefreshCw, Loader2, RotateCcw } from 'lucide-react';
 import { Button } from '@object-ui/components';
 import { Badge } from '@object-ui/components';
 import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
-import { t, translateConsoleValue, useMetadataLocale } from './i18n.js';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@object-ui/components';
+import { t, tFormat, translateConsoleValue, useMetadataLocale } from './i18n.js';
 import { PageShell } from './PageShell.js';
 import {
   useMetadataClient,
@@ -151,6 +161,9 @@ export function HistoryPanel({
   const [error, setError] = React.useState<string | null>(null);
   const [expanded, setExpanded] = React.useState<number | null>(null);
   const [rollingBack, setRollingBack] = React.useState<number | null>(null);
+  // objectui#13333 — the version a rollback is being confirmed for, asked in
+  // the in-app AlertDialog below rather than the browser's native `confirm()`.
+  const [confirmVersion, setConfirmVersion] = React.useState<number | null>(null);
   const [localRefresh, setLocalRefresh] = React.useState(0);
 
   React.useEffect(() => {
@@ -183,11 +196,13 @@ export function HistoryPanel({
     };
   }, [client, type, name, refreshKey, localRefresh]);
 
-  async function doRollback(version: number) {
-    const message = rollbackConfirm
+  function rollbackMessage(version: number): string {
+    return rollbackConfirm
       ? rollbackConfirm(version)
       : `Restore version ${version}? This writes the historical body back as the current overlay.`;
-    if (!confirm(message)) return;
+  }
+
+  async function doRollback(version: number) {
     setRollingBack(version);
     setError(null);
     try {
@@ -293,7 +308,7 @@ export function HistoryPanel({
                         disabled={rollingBack !== null}
                         onClick={(e) => {
                           e.stopPropagation();
-                          doRollback(ev.version!);
+                          setConfirmVersion(ev.version!);
                         }}
                       >
                         {rollingBack === ev.version ? (
@@ -315,6 +330,42 @@ export function HistoryPanel({
           })}
         </ol>
       )}
+      <AlertDialog
+        open={confirmVersion !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmVersion(null);
+        }}
+      >
+        <AlertDialogContent data-testid="history-rollback-confirm-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmVersion !== null &&
+                tFormat('engine.edit.rollbackConfirmTitle', locale, {
+                  item: `${type}/${name}`,
+                  version: confirmVersion,
+                })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmVersion !== null && rollbackMessage(confirmVersion)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="history-rollback-confirm-cancel">
+              {t('engine.cancel', locale)}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="history-rollback-confirm-action"
+              onClick={() => {
+                const version = confirmVersion;
+                setConfirmVersion(null);
+                if (version !== null) void doRollback(version);
+              }}
+            >
+              {rollbackLabel ?? 'Rollback to this version'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

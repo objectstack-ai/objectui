@@ -2543,7 +2543,13 @@ export const RelatedList: React.FC<RelatedListProps> = ({
               {t('detail.deleteRowTitle', { defaultValue: 'Delete record' })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('detail.deleteRowConfirmation')}
+              {/* objectui#13333 — the sentence names the row by its title, the
+                  ONE ADR-0079 resolver over this list's object schema (a
+                  grant's `nameField` formula names the grant and its user). */}
+              {deleteTarget !== null &&
+                t('detail.deleteRowConfirmation', {
+                  name: getRecordDisplayName(objectSchema, deleteTarget),
+                })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

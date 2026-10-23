@@ -1258,7 +1258,7 @@ const ko = {
     historyEmpty: "아직 기록이 없습니다",
     editRow: "편집",
     deleteRow: "삭제",
-    deleteRowConfirmation: "이 레코드를 삭제하시겠습니까?",
+    deleteRowConfirmation: "“{{name}}”을(를) 삭제하시겠습니까?",
     deleteRowTitle: "레코드 삭제",
     actions: "작업",
     previousPage: "이전",

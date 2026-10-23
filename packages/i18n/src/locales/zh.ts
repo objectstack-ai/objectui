@@ -1190,7 +1190,7 @@ const zh = {
     historyEmpty: '暂无历史记录',
     editRow: '编辑',
     deleteRow: '删除',
-    deleteRowConfirmation: '确定要删除此记录吗？',
+    deleteRowConfirmation: '确定要删除“{{name}}”吗？',
     deleteRowTitle: '删除记录',
     actions: '操作',
     previousPage: '上一页',

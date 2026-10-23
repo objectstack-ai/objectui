@@ -25,7 +25,9 @@
  * Dialogs: actions that declare an array of `params` collect them from the
  * user in the shared {@link ActionParamDialog} before running (same UX as
  * business-object actions); actions that declare a `resultDialog` render the
- * API response in {@link ActionResultDialog}. `confirmText` still gates the run.
+ * API response in {@link ActionResultDialog}. `confirmText` still gates the run,
+ * asked in an in-app AlertDialog that names the action and the item it runs on
+ * (objectui#13333), never the browser's native `confirm()`.
  *
  * Only `type:'api'` is wired today; other types surface a toast so a
  * misconfigured action fails loud instead of silent.
@@ -34,7 +36,17 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import { Button } from '@object-ui/components';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+} from '@object-ui/components';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import type { ActionParamDef } from '@object-ui/core';
 import { actionRendersAt, type ActionLocation } from '@object-ui/types';
@@ -42,6 +54,15 @@ import { getIcon } from '../../utils/getIcon.js';
 import { ActionParamDialog, type ParamDialogState } from '../ActionParamDialog.js';
 import { ActionResultDialog, type ResultDialogState } from '../ActionResultDialog.js';
 import type { MetadataTypeAction, RichMetadataTypeEntry } from './useMetadata.js';
+import { t, tFormat, useMetadataLocale } from './i18n.js';
+
+/** An open `confirmText` question: its copy, and the settle of the run awaiting it. */
+interface ConfirmState {
+  title: string;
+  message: string;
+  actionLabel: string;
+  resolve: (ok: boolean) => void;
+}
 
 /** Map the spec's action variants onto the Shadcn Button variants. */
 const VARIANT_MAP: Record<NonNullable<MetadataTypeAction['variant']>, React.ComponentProps<typeof Button>['variant']> = {
@@ -96,6 +117,8 @@ export function MetadataTypeActions({ entry, location, recordId, onAfter }: Meta
   const [busy, setBusy] = React.useState<string | null>(null);
   const [paramState, setParamState] = React.useState<ParamDialogState>({ open: false, params: [] });
   const [resultState, setResultState] = React.useState<ResultDialogState>({ open: false });
+  const [confirmState, setConfirmState] = React.useState<ConfirmState | null>(null);
+  const locale = useMetadataLocale();
   const authFetch = React.useMemo(() => createAuthenticatedFetch(), []);
 
   // Placement is `actionRendersAt`'s call (objectui#3142). These actions come
@@ -115,6 +138,33 @@ export function MetadataTypeActions({ entry, location, recordId, onAfter }: Meta
       setParamState({ open: true, params, title, resolve });
     });
 
+  /**
+   * Ask an action's `confirmText` in the dialog below and resolve with the
+   * answer. The title names the action and, in the record header, the item it
+   * runs on (objectui#13333).
+   */
+  const askConfirm = (title: string, confirmText: string) =>
+    new Promise<boolean>((resolve) => {
+      setConfirmState({
+        title: recordId
+          ? tFormat('engine.typeAction.confirmTitle', locale, { action: title, item: recordId })
+          : tFormat('engine.typeAction.confirmTitleNoItem', locale, { action: title }),
+        message: confirmText,
+        actionLabel: title,
+        resolve,
+      });
+    });
+
+  /**
+   * Settle the open confirm and close it. The confirm button's click settles
+   * `true` first; the close that follows settles `false` on a promise that has
+   * already settled, which does nothing.
+   */
+  const settleConfirm = (ok: boolean) => {
+    confirmState?.resolve(ok);
+    setConfirmState(null);
+  };
+
   const run = async (action: MetadataTypeAction) => {
     const title = action.label ?? action.name;
 
@@ -125,7 +175,7 @@ export function MetadataTypeActions({ entry, location, recordId, onAfter }: Meta
       return;
     }
 
-    if (action.confirmText && !window.confirm(action.confirmText)) return;
+    if (action.confirmText && !(await askConfirm(title, action.confirmText))) return;
 
     // Inputs: an array of param descriptors → collect in a dialog; a static
     // object → forward as-is.
@@ -285,6 +335,31 @@ export function MetadataTypeActions({ entry, location, recordId, onAfter }: Meta
         state={resultState}
         onAcknowledge={() => setResultState({ open: false })}
       />
+      <AlertDialog
+        open={confirmState !== null}
+        onOpenChange={(open) => {
+          // Escape, an outside click and Cancel all close: the run is declined.
+          if (!open) settleConfirm(false);
+        }}
+      >
+        <AlertDialogContent data-testid="type-action-confirm-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmState?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmState?.message}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="type-action-confirm-cancel">
+              {t('engine.cancel', locale)}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="type-action-confirm-action"
+              onClick={() => settleConfirm(true)}
+            >
+              {confirmState?.actionLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

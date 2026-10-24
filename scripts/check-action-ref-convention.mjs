@@ -150,7 +150,7 @@ export const DECLARED_EXCEPTIONS = [
   {
     workflow: 'changeset-release.yml',
     action: 'changesets/action',
-    issue: 'objectui#SUPPLY_CHAIN_PR',
+    issue: 'objectui#13430',
     reason:
       'runs with NPM_TOKEN and GITHUB_TOKEN in the publish and version-PR steps; pinned to the ' +
       'v1.9.0 commit, the one the workflow comment and the ref-pin test say both v1 properties ' +
@@ -159,7 +159,7 @@ export const DECLARED_EXCEPTIONS = [
   {
     workflow: 'check-links.yml',
     action: 'lycheeverse/lychee-action',
-    issue: 'objectui#SUPPLY_CHAIN_PR',
+    issue: 'objectui#13430',
     reason:
       'receives GITHUB_TOKEN through its env and its token input default; pinned to the v2.9.0 ' +
       'commit so the link checker cannot change under that token between reviews.',
@@ -167,7 +167,7 @@ export const DECLARED_EXCEPTIONS = [
   {
     workflow: 'dependabot-auto-merge.yml',
     action: 'dependabot/fetch-metadata',
-    issue: 'objectui#SUPPLY_CHAIN_PR',
+    issue: 'objectui#13430',
     reason:
       'receives GITHUB_TOKEN as its github-token input in a job that approves and enqueues ' +
       'Dependabot pull requests; pinned to the v3.1.0 commit.',
@@ -175,7 +175,7 @@ export const DECLARED_EXCEPTIONS = [
   {
     workflow: 'changelog.yml',
     action: 'orhun/git-cliff-action',
-    issue: 'objectui#SUPPLY_CHAIN_PR',
+    issue: 'objectui#13430',
     reason:
       'defaults its github_token input to the job token, which holds contents: write in this ' +
       'job; pinned to the v4.9.1 commit.',

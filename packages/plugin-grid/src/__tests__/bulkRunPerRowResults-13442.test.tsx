@@ -24,6 +24,14 @@
  * subscriber of `onMutation` (ListView, ObjectView, kanban, calendar, this
  * bridge) refetches once per event it receives, so the count below is the
  * count each of them pays.
+ *
+ * ⚠️ The refetch count is only measurable the way a browser runs it. Inside
+ * `act()` React holds every update of the callback and renders once at the
+ * end, and a stub `fetch` that answers in microtasks finishes the whole run
+ * before any render — either one alone collapses N refetches into one and
+ * the pin passes with the defect present (measured: removing the executor's
+ * scope left it green). So that run goes OUTSIDE `act`, with React on its
+ * real scheduler, and each PATCH answers after a timer, as a network does.
  */
 import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
 import { render, renderHook, screen, waitFor, act, cleanup } from '@testing-library/react';
@@ -86,6 +94,9 @@ function makeServer(count: number, rejections: Record<string, string> = {}) {
     }
     const one = url.match(new RegExp(`/api/v1/data/${OBJECT}/([^/?]+)$`));
     if (method === 'PATCH' && one) {
+      // A network round-trip: the answer lands in a later macrotask, so React
+      // gets to render (and a subscribed list to refetch) between rows.
+      await new Promise((resolve) => setTimeout(resolve, 2));
       const id = decodeURIComponent(one[1]);
       patches.push(id);
       if (rejections[id]) return json(400, { success: false, error: rejections[id], code: 'VALIDATION_FAILED' });
@@ -173,11 +184,17 @@ describe('a bulk run keeps each failed row and refreshes the list once (objectui
     const before = server.dataSource.find.mock.calls.length;
 
     const { result } = renderHook(() => useBulkExecutor({ resource: OBJECT, dataSource: server.dataSource }));
-    // `batchSize: 1` — the per-row path apps were pushed onto.
-    await act(async () => {
+    // `batchSize: 1` — the per-row path apps were pushed onto. Run the way a
+    // browser runs it: outside `act`, on React's own scheduler (see header).
+    const env = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const actEnvironment = env.IS_REACT_ACT_ENVIRONMENT;
+    env.IS_REACT_ACT_ENVIRONMENT = false;
+    try {
       await result.current.run(pushNow({ batchSize: 1 }), server.rows, {});
-    });
-    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 150)));
+      await new Promise<void>((resolve) => setTimeout(resolve, 200));
+    } finally {
+      env.IS_REACT_ACT_ENVIRONMENT = actEnvironment;
+    }
 
     expect(server.patches, 'every row went through its own PATCH').toHaveLength(N);
     expect(result.current.result?.errors).toEqual([

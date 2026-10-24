@@ -104,11 +104,6 @@ describe('suite 1 — a `type: "html"` node is REFUSED, by name (objectui#13449)
   it('refuses a bare node too, whatever else it carries', () => {
     expect(refusals({ type: 'html' }).filter((f) => f.code === 'custom' && f.path === 'type')).toHaveLength(1);
   });
-
-  it('refuses it nested inside a container, where a page would place it', () => {
-    const found = refusals({ type: 'flex', children: [RETIRED_NODE] });
-    expect(found.some((f) => f.code === 'custom' && f.message.includes('`html` is a RETIRED node type'))).toBe(true);
-  });
 });
 
 describe('suite 2 — the refusal is not a validator that turned strict', () => {

@@ -55,7 +55,7 @@ type _DataDisplayHasNoHtmlArm = Assert<Equal<IsNever<Extract<DataDisplaySchema, 
 type _ComponentTypeHasNoHtml = Assert<Equal<'html' extends ComponentType ? true : false, false>>;
 // Non-vacuity on the same instruments: a surviving sibling IS selectable.
 type _DataDisplayKeepsKbd = Assert<Equal<IsNever<Extract<DataDisplaySchema, { type: 'kbd' }>>, false>>;
-type _ComponentTypeKeepsKbd = Assert<Equal<'kbd' extends ComponentType ? true : false, true>>;
+type _ComponentTypeKeepsStatistic = Assert<Equal<'statistic' extends ComponentType ? true : false, true>>;
 // The FIELD layer is a different declaration and stays.
 type _HtmlFieldStays = Assert<Equal<HtmlFieldMetadata['type'], 'html'>>;
 

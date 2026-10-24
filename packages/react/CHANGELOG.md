@@ -1,5 +1,64 @@
 # @object-ui/react
 
+## 18.1.0
+
+### Minor Changes
+
+- b911ebb: A navigation entry's API `dataSource` and a page element bound to the same read now make one request per console open (objectui#13323). Before, `readElementApi` shared a request only while it was in flight, so when the sidebar's read for an entry's `visible` had settled before the page element mounted, the element sent a second `GET` for an answer the console already held.
+  
+  `@object-ui/react` exports `ElementApiOpenScope` (with `useElementApiOpen` and the `ElementApiOpen` type): inside it, a read that has already answered under the same `open` name is answered again with no request. A failed read is not kept, a read under another `open` asks again, and any `notifyDataChanged` drops what the open kept. `readElementApi` takes the open as an optional third argument; without one it behaves as before.
+  
+  `@object-ui/app-shell`'s `ConnectedShell` mounts the scope and names one open per visit of a history entry: following a link or a navigation entry, and Back or Forward, start a new open and read again, even on an entry visited before; a redirect that replaces the address (the app root's landing on its first entry) stays in the open. A language switch starts over. No read happens at a different time than before; only whether a second read in one open reaches the network changes.
+- d9aff15: A record page inside the Setup app no longer draws the floating managed-by badge (the amber "Identity" chip at the top-right of an organization, team, business unit or user record) (objectui#13385). The header's object label ("Organization") carries the badge's note instead: hovering or focusing it shows "Organization · Managed by the identity provider", and the note is the label's accessible description. The note is the badge's own tooltip title, under the same gate: only a caller who can author metadata sees it, and a `platform` object shows none. Every record page outside Setup, a `sys_*` object opened in another app included, and every list header keep the badge unchanged.
+  
+  `RecordContextValue` (`@object-ui/react`) gains an optional, host-injected `objectLabelNote`, which `page:header` forwards to `RecordTitleChip`. `RecordTitleChip` (`@object-ui/components`) gains an optional `objectLabelNote` prop: with it the object label becomes a focusable tooltip trigger described by the note; without it the label draws exactly as before.
+
+### Patch Changes
+
+- 3aafc0d: A page node whose declared `visibleWhen` / `visible` / `visibleOn` predicate cannot be evaluated (over the CEL bounds, a type error, an unbound root, a missing function) is no longer rendered: page visibility gates now fail closed, as a `page:tabs` item already did. The fault is still reported once, and the console line says the node was withheld. A blank gate still means "no gate", and a predicate that evaluates decides as before. A `page:tabs` badge no longer counts a related list withheld this way. Form field rules keep their fail-open (objectui#13299).
+- 601c406: The console line for a visibility predicate that cannot be evaluated, on a gate that withholds what it gates, no longer says "a navigation entry" was withheld. The same line is printed for a navigation entry, a `page:tabs` item and a page node, so it now says "an element whose visibility predicate cannot be evaluated is WITHHELD". The verdict, the line's opening, and when it is printed are unchanged (objectui#13303).
+- 8e90779: An action's `confirmText`, `successMessage` and `errorMessage` read the `template` envelope and fill `{{ }}` holes (objectui#13367).
+  
+  `@objectstack/spec` is making these three keys `template` slots (objectstack#24814), so a parsed action serves `{ dialect: 'template', source }` where it served a string. Before this change the success toast skipped the envelope and showed the default text, and the error toast showed the generic failure. `ActionRunner` now reads a string or the envelope for all three, and fills `{{ path }}` / `{{ path | formatter }}` holes with `@objectstack/formula`'s `templateEngine`, the engine the flow notifications render with:
+  
+  - `confirmText`: `record` (the record the action runs against, the clicked row on a list) and `params` (the action's static params);
+  - `successMessage`: `result` (the payload `${result.*}` reads) and `record`;
+  - `errorMessage`: no hole is filled; the text shows as written.
+  
+  A sentence with no `{{ }}` hole keeps today's `${…}` reading, so the platform's own `${result.email}`-style success sentences still work until the spec converts them. A sentence is read in one dialect only: a value filled into a `{{ }}` hole is never read again as `${…}`. An envelope with no text never reaches the dialog or a toast as an object; a `confirmText` envelope with no text still asks for confirmation.
+  
+  `useActionTextLocalizer` keeps the envelope: it used to read it as a per-locale map and hand the runner the word `template`. A bundle entry replaces the envelope's `source`. On a flow action the console reads the envelope too, so the action's own success copy still outranks the flow's (`flowSuccessCopy`). `@object-ui/core` exports the reader it uses: `ActionCopyTemplate`, `isActionCopyEnvelope`, `actionCopySource`, `hasTemplateHoles` and `fillTemplateHoles`.
+  
+  Clause-②: yes
+  Metadata-protocol: none
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [5235d6d]
+- Updated dependencies [0093b2c]
+- Updated dependencies [ff77cfc]
+- Updated dependencies [49a536d]
+- Updated dependencies [241cb78]
+- Updated dependencies [404ccae]
+- Updated dependencies [ec627ab]
+- Updated dependencies [0f4adc3]
+- Updated dependencies [fa31856]
+- Updated dependencies [8e90779]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [7f60e9d]
+- Updated dependencies [4eeb174]
+- Updated dependencies [afcf654]
+- Updated dependencies [2c3dc72]
+- Updated dependencies [2958f17]
+- Updated dependencies [1d178e0]
+- Updated dependencies [a14737b]
+- Updated dependencies [2c4e5f5]
+- Updated dependencies [6fb31dc]
+- Updated dependencies [ad74e98]
+  - @object-ui/types@18.1.0
+  - @object-ui/i18n@18.1.0
+  - @object-ui/core@18.1.0
+  - @object-ui/data-objectstack@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

@@ -1,5 +1,16 @@
 # @object-ui/providers — Changelog
 
+## 18.1.0
+
+### Patch Changes
+
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [1d178e0]
+- Updated dependencies [6fb31dc]
+  - @object-ui/types@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

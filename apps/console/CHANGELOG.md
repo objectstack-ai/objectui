@@ -1,5 +1,44 @@
 # @object-ui/console
 
+## 18.1.0
+
+### Patch Changes
+
+- a91f6bb: The Approvals Inbox opens a request on the page the platform serves for it, and its side sheet is gone (objectui#12484).
+  
+  A row, a mobile card, Enter on the focused row, and a notification's `?request=` deep link now open the request's record page: the `sys_approval_request_detail` page `@objectstack/plugin-approvals` serves, on the console's standard record route. That page shows the request's title (the flow's label), its decision panel (the declared amount and snapshot summary, the approvers, the step line and the decisions), its highlights, its target record, and its timeline. The deep link takes its own place in the browser history, so Back returns to where the reader came from; from a row, Back returns to the inbox.
+  
+  The inbox's own request sheet is deleted. Its quick paths stay: inline approve and reject, bulk decisions, filters, sorting and keyboard navigation.
+- 0093b2c: Settings pages: a `url`, `email`, `phone` or `color` value that misses the format its type declares now blocks Save (objectui#13287). No request goes out, the row is marked inline with a message naming what the format expects, and focus moves to the first such row, on the same path as the `required` check. The grammars are the settings service's own (objectstack#24882), judged on the trimmed value; an empty value is left to `required`, and a hidden or env-locked row is not judged. Adds `console.settingsView.invalidPhone` and `console.settingsView.invalidColor` to every locale pack; `email` and `url` reuse `validation.email` and `validation.url`.
+- 0d12e95: An approver who is not an administrator sees the whole approval request page again: its fields, its decision panel with the decisions they may take, and its Timeline (objectui#13324).
+  
+  The console reads a request, and its timeline, through the approvals routes, which serve a request to each party to it. The record page then gated what it drew on the permissions answer for the data API, which names neither approval object for a member, because the platform keeps that door closed to them. So the page folded the request down to its id, drew no decision, and dropped the Timeline. Opening a request from the Approvals inbox showed a blank page.
+  
+  `@object-ui/permissions` adds `ServerReadScope`. Below it, the read verdicts for the objects it names (`check(object, 'read')` and `checkField(object, field, 'read')`) answer "allowed": whatever the server serves is what the viewer may read. Every other action, the field write and create verdicts, and every other object keep the enclosing provider's answer. The console mounts it for the two approval objects over every app. No read grant on either object is added: the data API stays closed to members.
+- 4824ad7: A form field entry whose `label`, `placeholder` or `helpText` is an inline locale map (`{ en, 'zh-CN' }`) now renders in the visitor's language, on the public form `/f/:slug` and on the signed-in `/forms/:name` route (objectui#13380).
+  
+  `@objectstack/spec` types all three keys as `I18nLabel`, so the map is valid metadata, but the form page passed it straight into text slots: a map on a label or help line blanked the page for every visitor (React error #31), and one on a placeholder read `[object Object]`. The map is now collapsed to the visitor's language when the form's rows are built, with the same resolver the console uses for an action's inline-map copy. A plain-string entry renders exactly as before.
+- d17f670: A Setup settings page reads its namespace again after a successful save or action, and takes the whole answer, manifest included (objectui#13382). The server computes parts of a namespace's manifest on every read: objectstack#25448 puts a live-status banner first on the page, so Setup → Email says whether mail leaves the machine. The page used to merge only the saved values and keep the manifest from its first load, so after an administrator configured SMTP the banner still said no mail leaves the machine until the page was reloaded.
+  
+  The re-read does not show the loading placeholder. An action leaves the unsaved edits as they are. If the re-read fails, the page keeps the saved values and the success message, and does not turn into an error.
+- 3a8a117: Integrations → Connect an AI agent no longer mints an API key in one click (objectui#13383). "Generate key" stays disabled while the name box is blank or whitespace-only, and the name is sent trimmed: a cleared box no longer mints a key under the default name `Agent key`. Clicking "Generate key" now opens an in-app confirm naming the key; Cancel creates nothing, and confirming creates the key and shows it once, as before. The name box still opens prefilled with `Agent key`, which is minted only once the administrator confirms it. This matches the Connect an Agent card (objectui#13355).
+- 47138b7: The Console's first page load no longer downloads the chat UI (objectui#13410). The `plugin-chatbot` chunk (169.6 KB gzipped, the third-largest eager chunk) and most of `vendor-markdown` used to load on every page, including for users who never open a chat, because the console shell imported a handful of small helpers from the `@object-ui/plugin-chatbot` package root, and the root re-exports the renderer that registers the chat components when it is evaluated. Measured on the Console's production build, the eager closure drops by 254,055 gzipped bytes (3,326,111 to 3,072,056). The chat now loads when it is first shown: opening the dock, visiting `/ai…` or `/s/:token`, or rendering a `chatbot`, `chatbot-enhanced` or `chatbot-floating` node.
+  
+  `@object-ui/plugin-chatbot` adds a side-effect-free `@object-ui/plugin-chatbot/core` subpath: `useAgents`, `resolveDefaultAgentName`, `PLATFORM_DEFAULT_AGENT`, `agentHasCapability`, the agent alias helpers (`AGENT_ALIAS_GROUPS`, `agentAliasGroup`, `agentRouteName`, `resolveAgentParam`, `isBuiltinAgentName`, `isBuildAgent`, `isAskAgent`), `AI_USAGE_REFRESH_EVENT`, `emitAiUsageRefresh`, `publishHealthFromResponse` and `detectPendingApproval`, with their types. Importing it registers nothing and reaches no chat UI module. The package root still exports every one of these names, unchanged.
+  
+  `@object-ui/app-shell` takes those names from `/core`, and the ChatDock loads its default chat body on first render instead of importing it. `resolveApiBase` is still exported from the same places.
+- 576fd25: A `type: 'form'` action fired inside an app opens its form inside that app, headed by a label, with a Cancel (objectui#13433).
+  
+  The form opened on the app-less `/forms/:name`, so the app's sidebar, switcher and branding disappeared. The page was headed by the raw view name (`showcase_task.form`) and had only Submit, so the browser's Back button was the only way out without saving.
+  
+  - The console now also serves the form at `/apps/:appName/forms/:name`, inside the app's own shell. The record page, object list and page action navigators open a form hop there when their own route is an app route. The console-wide runtime has no route of its own, so its form hops keep the app-less route. `/forms/:name` is unchanged and still serves every other link.
+  - A form view with no label and no form `title` is headed by its object's label in the session's language. An authored view label or `title` still wins.
+  - The internal form has a Cancel. It goes back to the page the form was opened from. With no such page (a cold link) it goes to the record being edited, else to the app's home, or to Home on the app-less route. The public `/f/:slug` form has no Cancel.
+- 06ce712: Settings: a setting's `visible` predicate is evaluated with the renderer's expression interpreter, and a predicate that does not evaluate hides the setting.
+  
+  The settings page used to compile a manifest's `visible` string into a JavaScript function and show the setting whenever that failed. It now evaluates the string with `ExpressionEvaluator` from `@object-ui/core`, the CSP-safe interpreter every other `visible` predicate in the renderer uses, with the namespace's values bound as `data` (`${data.provider === 'cloudflare'}`). A predicate it cannot evaluate hides the setting, the same way the server refuses a save whose `visible` it cannot parse. Every predicate the shipped manifests declare (comparisons, `&&`, `||`, `!` over `data.<key>`) reads as before.
+- @object-ui/sdui-parser@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

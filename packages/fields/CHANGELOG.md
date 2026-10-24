@@ -1,5 +1,70 @@
 # @object-ui/fields
 
+## 18.1.0
+
+### Patch Changes
+
+- 8701f1e: The record page heading draws a `nameField` that declares a widget with a read face of its own through that face, the one the field's list column draws (objectui#13216). A record share (`nameField: 'recipient_id'`, which declares `widget: 'recipient-picker'` and `dependsOn: ['recipient_type']`) now heads its page with the recipient's name instead of the user id it stores. Every other heading is unchanged: a plain text or select `nameField`, a `titleFormat`, an explicit `title`, an object with no `nameField`, a widget with no read face of its own, a widget whose key has no face registered under it (it draws the stored text), and a host that does not load `@object-ui/fields`.
+  
+  `@object-ui/components` adds a field-face seam on its entry: `setFieldReadFaceResolver(resolver)` installs the resolver, `resolveFieldReadFace(field)` asks it, and the types `FieldReadFace`, `FieldReadFaceProps` and `FieldReadFaceResolver` describe them. `@object-ui/fields` fills it when it loads, with the same `getCellRenderer(resolveCellRendererType(field))` lookup the grid's cells make, so a host has nothing to wire. `RecordTitleChip` gains an optional `titleNode` prop, drawn inside its heading in place of the `title` text; `title` stays a required string.
+- 8e649da: A row action's `defaultFromRow` param backed by a relation is seeded with the related record's id again, not the whole record (objectui#13271).
+  
+  Related lists read their rows with the relations they show expanded, so a `lookup`, `master_detail`, `user` or `tree` value arrives as the related record. The param seed copied that record verbatim, and the action sent it where the endpoint expects the id. Setup → Teams → Remove from Team answered 400 "User is not a member of the organization" for every member.
+  
+  The seed now uses the row's stored form, by the same field-type rule the predicate and Undo paths use: a field the row's object declares relational becomes its id, and a `multiple` one becomes the array of ids. Every other field, including a `json` value that has an `id` key, is seeded exactly as before. The dialog still shows the related record's name. Nothing is added to the package entry.
+- 813c3d9: A password or secret input now tells the browser what it is for (objectui#13295).
+  
+  The password widget's editable input carries an `autocomplete` token. A field or action parameter whose name reads as the user's existing password (a word `current`, `old` or `existing` in the name, as in `current_password` or `oldPassword`) gets `current-password`; every other password or secret gets `new-password`. Before, the input had no token, so a browser treated each one as a sign-in field: it offered the saved site password for an API key or a new password, and its password manager could not tell the old password from the new one in a change-password dialog. The masked input and its show/hide toggle are unchanged.
+- 49a536d: The record header's highlights write the year on every date (objectui#13331).
+  
+  A current-year date dropped its year in the strip, so a contract record read "Start Date Sep 15, 2025 | End Date Sep 15" and a contract that ended this September looked like it ended next month. The strip now asks for the year, and both dates read alike. Dates inside the ±7-day window keep their relative phrase ("In 2 days").
+  
+  `formatDate` takes a new opt-in option, `alwaysShowYear`, which keeps the year on its default face; the `date` and `datetime` cell renderers take an `alwaysShowYear` prop that hands it on. Neither is on by default: grid cells and cards still drop the current year.
+- ec627ab: A lookup / master-detail / tree value whose referenced record the viewer's own read answers "not found" for (a 404, which is what the server answers for a record this viewer may not read) now reads "Restricted record", translated, with a lock icon, no record id and no link, in grids and on the record page (objectui#13335). It used to print the raw id beside a question mark. No additional read is made: the label comes from the same lookup read the cell already performed, so it reveals nothing the id did not. A reference that is still loading, whose read failed, or that is empty renders as before, and a readable reference still shows its name as a link. New key: `detail.restrictedLookupReference` in all ten locale packs.
+- cee3bc5: A boolean renders the same whatever its name (objectui#13412). `BooleanCellRenderer` drew a red destructive "LABEL — Off" badge for `false` when the field was named `active`, `is_active`, `enabled`, `is_enabled`, `verified` or `is_verified`, so a plain `Field.boolean` named `verified` read as an error on every new record, in lists and on the record page. Those names now draw the same unchecked checkbox as any other boolean, named by the field's label, and `true` still draws the checked box. The completion indicator for `completed`, `is_completed`, `done` and `is_done` is unchanged.
+- f3044f7: `html` and `richtext` values are now sanitized with `rehype-sanitize`, the sanitizer the `markdown` pipeline already used, instead of a hand-written pattern filter.
+  
+  A stored value is parsed with the browser's HTML parser, filtered against one allow-list of elements, attributes and URL protocols, and rendered as React elements. Both display pipelines share that allow-list. Headings, paragraphs, emphasis, lists, quotes, code, tables, links and images keep their formatting. Event-handler attributes, `style`, script-bearing URLs, embedded frames and objects, and SVG and MathML content are dropped. A link whose URL is refused now renders without an `href`, where it used to point at `#`. Stored `id` and `name` values are prefixed with `user-content-`.
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [8701f1e]
+- Updated dependencies [5235d6d]
+- Updated dependencies [7c405b7]
+- Updated dependencies [0093b2c]
+- Updated dependencies [3aafc0d]
+- Updated dependencies [601c406]
+- Updated dependencies [b911ebb]
+- Updated dependencies [0d12e95]
+- Updated dependencies [ff77cfc]
+- Updated dependencies [49a536d]
+- Updated dependencies [241cb78]
+- Updated dependencies [404ccae]
+- Updated dependencies [ec627ab]
+- Updated dependencies [0f4adc3]
+- Updated dependencies [fa31856]
+- Updated dependencies [8e90779]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [7f60e9d]
+- Updated dependencies [d9aff15]
+- Updated dependencies [4eeb174]
+- Updated dependencies [afcf654]
+- Updated dependencies [2c3dc72]
+- Updated dependencies [2958f17]
+- Updated dependencies [a78608f]
+- Updated dependencies [1d178e0]
+- Updated dependencies [2c4e5f5]
+- Updated dependencies [6fb31dc]
+- Updated dependencies [fbb4b23]
+- Updated dependencies [c8f8b10]
+- Updated dependencies [ad74e98]
+  - @object-ui/types@18.1.0
+  - @object-ui/components@18.1.0
+  - @object-ui/i18n@18.1.0
+  - @object-ui/react@18.1.0
+  - @object-ui/permissions@18.1.0
+  - @object-ui/core@18.1.0
+  - @object-ui/providers@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

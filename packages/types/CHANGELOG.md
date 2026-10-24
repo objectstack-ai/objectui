@@ -1,5 +1,30 @@
 # @object-ui/types
 
+## 18.1.0
+
+### Minor Changes
+
+- 8556295: `NavigationItemSchema` now refuses a navigation entry whose `visible` reads `data` but which declares no `dataSource`, as `@objectstack/spec`'s `NavigationItemSchema` already does (objectui#13076). The rule is the spec's own exported `navItemVisibleDataNeedsDataSource`, chained on every navigation arm (the flat arm and the `doc` arm), not restated, so `objectui validate` and the platform's save door refuse the same entry with the same issue at `visible`.
+  
+  This narrows the published validator toward the spec: an entry such as `{ id: 'nav_envs', type: 'object', objectName: 'sys_environment', visible: 'data.total == 1' }` validated clean here and failed at publish; it is now refused here too. Declare the `dataSource` whose bound value `visible` reads, or gate on `current_user` or `features` instead. An entry with a `dataSource`, or whose `visible` is a boolean, absent, or reads no `data`, is unaffected.
+- f1a4b08: Grids: hovering a `lookup` or `master_detail` cell no longer shows the referenced record's raw id (objectui#13377).
+  
+  The table's cell wrapper set its `title` tooltip to the cell's raw value, and for a reference column that value is the related record's id. So hovering beside the drawn name, or beside "Restricted record" for a record the viewer cannot read, still showed the id.
+  
+  - **`@object-ui/types`:** `TableColumn` gains an optional `foreignKey` boolean: the column's raw value is the id of a referenced record. The zod mirror (`TableColumnSchema`) keeps it, and the static `table` column refuses it by name, like `masked` and `chips`.
+  - **`@object-ui/components`:** a `data-table` column with `foreignKey: true` draws no `title` tooltip. Nothing else changes for it: copy, CSV export, inline edit, search and sort behave as before.
+  - **`@object-ui/plugin-grid`:** `ObjectGrid` sets `foreignKey` on every `lookup`, `master_detail`, `tree` and `user` column, read from the column's own type or the object's field type. Every other column keeps its tooltip.
+
+### Patch Changes
+
+- cd14d8e: The bulk action confirm step reads `confirmText` as a string or as a `{ dialect: 'template', source }` envelope (objectui#13183).
+  
+  `@objectstack/spec` is making a bulk action's `confirmText` a `template` slot (objectstack#24947), so a parsed bulk definition serves the envelope where it served a string. The confirm step rendered `confirmText` as it came, so an envelope would have broken it. It now shows the string, or the envelope's `source` as written; a blank or absent value still shows the default sentence ("This will apply to N record(s)."). `{{ }}` holes are not filled yet: `{{ count }}` still shows as written. `BulkActionDef.confirmText` in `@object-ui/types` is typed `string | { dialect?: 'template'; source: string }`, and `@object-ui/plugin-grid` reads it through one helper, `bulkConfirmTextSource`.
+- 1d178e0: types: a node derived from an `@objectstack/spec` schema keeps the spec's `credential` registry key (`'value' | 'map'`, objectstack#25036, which marks the webhook's `secret` and `headers` as credential fields). `credential` joins `CARRIED_REGISTRY_META_KEYS`, so the derivation no longer drops it. The pin move to objectstack 830a63a6 put the key on the published surface, and the registry census (objectui#9102) reported it as unclassified.
+- 6fb31dc: `BulkActionDef.confirmText`'s template envelope types `source` as optional, as `@objectstack/spec`'s `Expression` does, and so does its zod twin (objectstack#25438).
+  
+  `@objectstack/spec` made a bulk action's `confirmText` a `template` slot (objectstack#24947), and its envelope carries `source` or `ast`. With `source` typed as required, `@object-ui/plugin-view` refused the spec's own bulk action type when it handed a named view's `bulkActionDefs` to the grid, so the console no longer built against the current spec. The confirm step is unchanged: an envelope with no `source` shows the default sentence ("This will apply to N record(s).").
+
 ## 18.0.0
 
 ### Major Changes

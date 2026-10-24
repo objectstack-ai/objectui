@@ -1,5 +1,37 @@
 # @object-ui/runner
 
+## 18.1.0
+
+### Patch Changes
+
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [8701f1e]
+- Updated dependencies [7c405b7]
+- Updated dependencies [3aafc0d]
+- Updated dependencies [601c406]
+- Updated dependencies [b911ebb]
+- Updated dependencies [49a536d]
+- Updated dependencies [8e90779]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [7f60e9d]
+- Updated dependencies [d9aff15]
+- Updated dependencies [eadceab]
+- Updated dependencies [b317942]
+- Updated dependencies [2c3dc72]
+- Updated dependencies [a78608f]
+- Updated dependencies [56b65c0]
+- Updated dependencies [1d178e0]
+- Updated dependencies [6fb31dc]
+- Updated dependencies [fbb4b23]
+- Updated dependencies [c8f8b10]
+  - @object-ui/types@18.1.0
+  - @object-ui/components@18.1.0
+  - @object-ui/react@18.1.0
+  - @object-ui/core@18.1.0
+  - @object-ui/plugin-charts@18.1.0
+  - @object-ui/plugin-kanban@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

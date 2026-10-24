@@ -1,5 +1,52 @@
 # @object-ui/plugin-charts
 
+## 18.1.0
+
+### Patch Changes
+
+- eadceab: charts: a line or area chart no longer cuts its first or last x-axis label at the chart's edge. recharts draws their categorical x axis as a point scale, which puts the edge categories on the plot edges, so a monthly trend chart drew its newest bucket "2026-10" as "2026". The axis is now inset at both ends by half a `YYYY-MM` label at the tick font. Bar charts, whose band axis already centres every category, and combo charts, which draw a value axis on each side, are unchanged (objectui#13390).
+- b317942: A page-level `object-chart` bound to a `dataset` now draws a select dimension in the order its field declares its options, the order the dashboard's dataset widget already uses for the same dataset (objectui#11809). Before, the page block drew the dataset's GROUP BY order (the stored values, alphabetically), so a priority axis read High, Low, Medium, Urgent instead of Low, Medium, High, Urgent (objectui#13403). The rows are charted in declared order, values the options do not declare follow, and the empty bucket comes last; the schema handed to the renderer also carries the `categoryOrder` from `@object-ui/core`'s `buildCategoryOrder`, which a funnel orders its stages by. A dimension whose field declares no options keeps the dataset's order.
+- 2c3dc72: charts: a sankey now names every node and colours its flows, and a funnel labels every stage. Sankey nodes were bare bars with no text and every link was one grey, so the chart could not be read without hovering. Each node now carries its name (to its right, or to its left in the last column so it stays on the chart), and each link is stroked in the palette colour of the category it flows into. Every link leaves the same root node, so colouring by source would paint them all one colour again. A funnel labelled each stage to the right of its segment, past the plot's edge, so only the narrowest stage's label showed. Labels now sit centred inside their segments, in foreground text with a background halo so a name wider than the narrowest segment stays legible. The sankey's "Showing N of M rows" footnote now comes from the locale packs under the new count family `chart.sankeyOmittedRows`, translated in all ten packs. The English text is unchanged (objectui#13404).
+- 56b65c0: A single-series bar chart draws every bar in its series colour (objectstack#25330).
+  
+  A bar or horizontal-bar chart with one measure used to paint each bar a different palette colour, so the colour named nothing: the System Overview "Events by User" board drew each user in its own hue. A bar's colour now names its series. A dimension's semantic option colour (a select field's `options[].color`, such as health green/red/yellow) still paints its own bar; a category without one takes the series colour instead of a palette slot. Pie and donut slices keep one colour per category, and a chart with two or more series keeps one colour per series.
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [8701f1e]
+- Updated dependencies [5235d6d]
+- Updated dependencies [7c405b7]
+- Updated dependencies [0093b2c]
+- Updated dependencies [3aafc0d]
+- Updated dependencies [601c406]
+- Updated dependencies [b911ebb]
+- Updated dependencies [ff77cfc]
+- Updated dependencies [49a536d]
+- Updated dependencies [241cb78]
+- Updated dependencies [404ccae]
+- Updated dependencies [ec627ab]
+- Updated dependencies [0f4adc3]
+- Updated dependencies [fa31856]
+- Updated dependencies [8e90779]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [7f60e9d]
+- Updated dependencies [d9aff15]
+- Updated dependencies [4eeb174]
+- Updated dependencies [afcf654]
+- Updated dependencies [2c3dc72]
+- Updated dependencies [2958f17]
+- Updated dependencies [a78608f]
+- Updated dependencies [1d178e0]
+- Updated dependencies [2c4e5f5]
+- Updated dependencies [6fb31dc]
+- Updated dependencies [fbb4b23]
+- Updated dependencies [c8f8b10]
+- Updated dependencies [ad74e98]
+  - @object-ui/types@18.1.0
+  - @object-ui/components@18.1.0
+  - @object-ui/i18n@18.1.0
+  - @object-ui/react@18.1.0
+  - @object-ui/core@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

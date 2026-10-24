@@ -376,7 +376,7 @@ const NAMED_VIEW_ABSENT_CONTROL = 'stickyHeader';
 
 /**
  * The protocol's own member set for a named list view — `ObjectListViewSchema`'s
- * shape, off `@objectstack/spec` as installed (18.0.0). ⛔ Not a copy of the
+ * shape, off `@objectstack/spec` as installed (18.1.0). ⛔ Not a copy of the
  * objectui face and ⛔ not a hand list: it is read off the schema object, so a
  * spec bump that moves a key moves this.
  */

@@ -1699,6 +1699,17 @@ ComponentRegistry.register('form',
     // answer the mode differently.
     const isCreateForm = previousRecord === undefined;
 
+    // The same signal decides whether `readonlyWhen` binds (objectui#13436):
+    // UPDATE only. objectql exempts INSERT from it entirely, so a create form
+    // evaluating it against the seeded defaults (a `defaultValue` the
+    // predicate names, an unset column under `!=`) locked fields the server
+    // accepts on insert, and the user could not fill a form the API takes.
+    // Every `resolveFieldRuleState` call below therefore passes
+    // `readonlyWhen: isCreateForm ? undefined : RULE` — the render verdict and
+    // the memos that re-evaluate the same rules alike, so none of them warns a
+    // fault for a rule the create form never applies. Static `readonly: true`
+    // still locks on create; `visibleWhen` / `requiredWhen` are untouched.
+
     // A two-state control has no third state, so a boolean field that nobody
     // supplied a value for starts at `false` — not `undefined`. Without this
     // the switch renders OFF while the form holds NOTHING: the create payload
@@ -1863,7 +1874,7 @@ ComponentRegistry.register('form',
             // never by the triad (objectui#13055) — and this memo reads only
             // `readonly`, so it has nothing to evaluate it for.
             visibleWhen: isFailClosedSectionGate(f) ? undefined : (f as any).visibleWhen,
-            readonlyWhen: (f as any).readonlyWhen,
+            readonlyWhen: isCreateForm ? undefined : (f as any).readonlyWhen,
             requiredWhen: (f as any).requiredWhen,
           },
           ruleRecord,
@@ -1938,7 +1949,7 @@ ComponentRegistry.register('form',
           const st = resolveFieldRuleState(
             {
               visibleWhen: gate ? undefined : visibleWhen,
-              readonlyWhen: (f as any).readonlyWhen,
+              readonlyWhen: isCreateForm ? undefined : (f as any).readonlyWhen,
               requiredWhen: (f as any).requiredWhen,
             },
             ruleRecord,
@@ -2034,7 +2045,7 @@ ComponentRegistry.register('form',
           const st = resolveFieldRuleState(
             {
               visibleWhen: gate ? undefined : (divider as any).visibleWhen,
-              readonlyWhen: (divider as any).readonlyWhen,
+              readonlyWhen: isCreateForm ? undefined : (divider as any).readonlyWhen,
               requiredWhen: (divider as any).requiredWhen,
             },
             ruleRecord,
@@ -2174,7 +2185,7 @@ ComponentRegistry.register('form',
         const st = resolveFieldRuleState(
           {
             visibleWhen: (f as any).visibleWhen,
-            readonlyWhen: (f as any).readonlyWhen,
+            readonlyWhen: isCreateForm ? undefined : (f as any).readonlyWhen,
             requiredWhen: (f as any).requiredWhen,
           },
           ruleRecord,
@@ -3219,7 +3230,7 @@ ComponentRegistry.register('form',
       // see `isFailClosedSectionGate`.
       const failClosedGate = isFailClosedSectionGate(field);
       const ruleState = resolveFieldRuleState(
-        { visibleWhen: failClosedGate ? undefined : visibleWhen, readonlyWhen, requiredWhen },
+        { visibleWhen: failClosedGate ? undefined : visibleWhen, readonlyWhen: isCreateForm ? undefined : readonlyWhen, requiredWhen },
         ruleRecord,
         {
           required: staticRequired,

@@ -180,7 +180,7 @@ vi.mock('../pages/settings/WorkspaceTimezonePrompt', () => ({ WorkspaceTimezoneP
 vi.mock('../components/RootLandingRedirect', () => ({ RootLandingRedirect: () => null }));
 vi.mock('../components/SetupRoute', () => ({ SetupRoute: () => null }));
 vi.mock('../components/FormPage', () => ({ FormPage: () => null }));
-vi.mock('../components/InternalFormRoute', () => ({ InternalFormRoute: () => null }));
+vi.mock('../components/InternalFormRoute', () => ({ InternalFormRoute: () => null, InAppFormRoute: () => null }));
 vi.mock('../components/MetadataHmrReloader', () => ({ MetadataHmrReloader: () => null }));
 vi.mock('../components/FaviconSync', () => ({ FaviconSync: () => null }));
 vi.mock('../pages/SharedRecordPage', () => ({ default: () => null }));

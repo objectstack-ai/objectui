@@ -117,7 +117,7 @@
  */
 
 import { Suspense, useEffect, useId, useMemo, useState, type FormEvent } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   CASCADE_OPTION_WIDGET_TYPES,
@@ -1464,7 +1464,13 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
  * modes so the renderer downstream is mode-agnostic.
  */
 interface LoadedForm {
-  label: string;
+  /**
+   * The heading the form names itself by. Undefined only on the internal
+   * route, for a form view that names itself nowhere (objectui#13433): the
+   * page then heads it with its object's label, resolved through the
+   * session's language at render — see the `<h1>` below.
+   */
+  label: string | undefined;
   object: string;
   form: FormViewBody;
   objectSchema: ObjectSchemaPayload | null;
@@ -1551,7 +1557,7 @@ async function loadPublicForm(slug: string): Promise<LoadedForm> {
 export function resolveInternalForm(
   name: string,
   viewBody: unknown,
-): { label: string; object?: string; form: FormViewBody } {
+): { label: string | undefined; object?: string; form: FormViewBody } {
   const body = viewBody as Record<string, any> | null;
   const item = body?.item ?? body;
   const spec = item?.spec ?? item;
@@ -1580,7 +1586,17 @@ export function resolveInternalForm(
     );
   }
   return {
-    label: (isEnvelope ? spec.label : undefined) ?? form?.label ?? name,
+    // The view's identity label, then the form config's `title` — the same
+    // order `loadPublicForm` reads the public payload in (objectui#8408), and
+    // for the same reason: `title` is the spec-legal key naming a form, and
+    // `form.label` (a flattened overlay's identity label) must not outrank it.
+    //
+    // No fallback to `name` (objectui#13433). A container's default form —
+    // `showcase_task.form`, what the showcase's Log Time opens — carries
+    // neither key, and the page was headed by that raw qualified view name.
+    // Undefined here means "names itself nowhere"; `FormPage` heads it with
+    // the object's label instead, as the public route does.
+    label: (isEnvelope ? spec.label : undefined) ?? form?.title ?? form?.label,
     // `data.object` is a declared FormView key since objectui#5596, so this no
     // longer needs `as any` — only a narrowing to the one arm that carries an
     // object name (`ViewDataSchema`'s `provider: 'object'`), read defensively
@@ -2021,6 +2037,19 @@ export interface FormPageProps {
    * "no record page to land on", and the submit falls back to confirming.
    */
   recordPath?: (objectName: string, recordId: string) => string | null;
+  /**
+   * Where the internal form's Cancel lands when there is no earlier entry in
+   * this session's history to go back to — a cold deep link, or a reload
+   * that opened the console on this page (objectui#13433). With an entry,
+   * Cancel goes back to it: that is "where the user was". The route that
+   * mounts the form supplies it (the app's home inside an app, Home outside
+   * one); omitted, the fallback is the console root.
+   *
+   * An EDIT's fallback is the record it edits when `recordPath` can name it,
+   * ahead of this one. The public mount renders no Cancel at all: an anonymous
+   * visitor has no console to return to.
+   */
+  cancelPath?: string;
 }
 
 /**
@@ -2031,10 +2060,11 @@ export interface FormPageProps {
  * *submit target* differ. Forking the component would duplicate the
  * field-rendering branch which is the bulk of the code.
  */
-export function FormPage({ mode, recordPath }: FormPageProps) {
+export function FormPage({ mode, recordPath, cancelPath }: FormPageProps) {
   const params = useParams();
   const [search] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const identifier = (mode === 'public' ? params.slug : params.name) ?? '';
   /**
    * Create, edit, or refuse — decided from the URL alone (objectui#4278), so
@@ -2107,7 +2137,7 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
    * in `FormPage`'s exact route position under the real `main.tsx` wrapper,
    * and NO in the same position with the wrapper removed.
    */
-  const { sectionLabel, fieldLabel } = useSafeFieldLabel();
+  const { sectionLabel, fieldLabel, objectLabel } = useSafeFieldLabel();
   // The page's own chrome — the loading line, the success toast, the
   // thank-you panel's defaults, and (objectui#11071) the submit button, the
   // pending-redirect line and the required refusal's frame — through the same
@@ -2237,6 +2267,28 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
     const timer = setTimeout(() => navigate(pendingRedirect), redirectDelayMs);
     return () => clearTimeout(timer);
   }, [pendingRedirect, redirectDelayMs, navigate]);
+
+  /**
+   * The internal form's way out without saving (objectui#13433) — before it,
+   * the page offered Submit alone and the browser's Back button was the only
+   * exit. Nothing is written, so there is nothing to confirm.
+   *
+   * Back when this session has an earlier entry: react-router gives the entry
+   * it started on the key `'default'` and every entry it navigated to a
+   * generated one, so any other key means a page of this console is behind
+   * this one — the record page a header action was fired from, typically —
+   * and returning to it keeps that page's own URL state (tab, `?form=`,
+   * scroll). Without one, a push to the record an edit is editing, else to
+   * the route's `cancelPath`.
+   */
+  const handleCancel = () => {
+    if (location.key !== 'default') {
+      navigate(-1);
+      return;
+    }
+    const recordTo = editingId && loaded ? recordPath?.(loaded.object, editingId) : null;
+    navigate(recordTo ?? cancelPath ?? '/');
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -2454,7 +2506,22 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
   return (
     <div className="mx-auto max-w-2xl p-4 sm:p-6">
       <header className="mb-6">
-        <h1 className="text-xl font-semibold">{loaded.label}</h1>
+        <h1 className="text-xl font-semibold">
+          {/*
+            * objectui#13433 — a form view that names itself nowhere is headed
+            * by its object's label, through the session's language, rather
+            * than by its raw qualified name (`showcase_task.form`). The same
+            * rule the public route applies in `loadPublicForm`; resolved here
+            * because the session's bundle lives in render, not in the loader.
+            * The object's API name stays the last resort, `||` so an empty
+            * label cannot blank the heading.
+            */}
+          {loaded.label
+            ?? objectLabel({
+              name: loaded.object,
+              label: loaded.objectSchema?.label || loaded.object,
+            })}
+        </h1>
         {/*
           * objectui#8408 — the subtitle slot renders the form's `description`.
           *
@@ -2600,6 +2667,16 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
           </div>
         )}
         <div className="flex justify-end gap-2">
+          {mode === 'internal' && (
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={submitting}
+              className="rounded-md border bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+            >
+              {t('common.cancel')}
+            </button>
+          )}
           {/* Blocked while an upload is in flight (objectui#10167): a file's
               value only becomes a `sys_file` id once the adapter settles, so a
               submit that beats it writes an empty field and still reports

@@ -443,6 +443,9 @@ export function PageView() {
       dataSource={dataSource}
       objects={objects}
       onRefresh={declarePageDataChanged}
+      // A `type: 'form'` action on the page opens its form in this app's shell
+      // (objectui#13433).
+      routeAppSegment={appName}
     >
       <div className="flex flex-row h-full w-full overflow-hidden relative">
         <div className="flex-1 overflow-auto h-full relative">

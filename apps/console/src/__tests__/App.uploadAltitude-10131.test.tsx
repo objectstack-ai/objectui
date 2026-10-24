@@ -168,7 +168,10 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 vi.mock('../components/RootLandingRedirect', () => ({ RootLandingRedirect: stub('root-landing') }));
 vi.mock('../components/SetupRoute', () => ({ SetupRoute: stub('setup-route') }));
 vi.mock('../components/FormPage', () => ({ FormPage: stub('form-page') }));
-vi.mock('../components/InternalFormRoute', () => ({ InternalFormRoute: stub('internal-form-route') }));
+vi.mock('../components/InternalFormRoute', () => ({
+  InternalFormRoute: stub('internal-form-route'),
+  InAppFormRoute: stub('in-app-form-route'),
+}));
 vi.mock('../components/MetadataHmrReloader', () => ({ MetadataHmrReloader: () => null }));
 vi.mock('../components/FaviconSync', () => ({ FaviconSync: () => null }));
 vi.mock('../components/StudioRoute', () => ({ studioRoutes: null }));

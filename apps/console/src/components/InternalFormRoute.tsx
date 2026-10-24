@@ -41,9 +41,23 @@
  * writes that guess into shared navigation state on the way past. The sidebar
  * half of the defect is therefore left open on #4109 rather than faked; see
  * that card's report for the follow-up.
+ *
+ * ## The in-app twin: `/apps/:appName/forms/:name` (objectui#13433)
+ *
+ * That follow-up was ruled on objectui#4280 (2026-08-15): no guessed sidebar
+ * here, reopened only by a real report of the missing navigation together with
+ * a design that "carries app context on the route (an explicit app segment or
+ * equivalent) rather than guessing it". objectui#13433 is that report — a form
+ * action fired from inside an app dropped the user out of the app — and
+ * {@link InAppFormRoute} is that design: the same `FormPage`, mounted on an
+ * app route, so `ConsoleLayout` renders the app's own sidebar and branding
+ * from the app the URL names. The action navigators take a form hop there
+ * only when their own route is an app route (`hostInConsolePath`), so nothing
+ * is guessed, and this app-less route keeps serving every other link.
  */
 
 import { useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   buildExpressionUser,
   DefaultHomeLayout,
@@ -80,9 +94,39 @@ export function InternalFormRoute() {
   return (
     <ExpressionProvider user={expressionUser}>
       <DefaultHomeLayout userId={user?.id}>
-        <FormPage mode="internal" recordPath={recordPath} />
+        <FormPage mode="internal" recordPath={recordPath} cancelPath="/home" />
       </DefaultHomeLayout>
     </ExpressionProvider>
+  );
+}
+
+/**
+ * The element of `/apps/:appName/forms/:name` (objectui#13433) — the internal
+ * form inside the app the URL names.
+ *
+ * Mounted from the app route table (`appFormRoutes` in `AppContent.tsx`), so
+ * the shell around it — `ConsoleLayout` with the app's sidebar, and the
+ * `ExpressionProvider` binding the session principal — is already the app's;
+ * this element adds neither. A submit lands on the written record in this
+ * same app: the URL's `:appName` is the preferred app, re-checked by the
+ * shared resolver like every other caller of `buildCreatedRecordPath`.
+ */
+export function InAppFormRoute() {
+  const { apps } = useMetadata();
+  const { appName } = useParams();
+
+  const recordPath = useMemo(
+    () => (objectName: string, recordId: string) =>
+      buildCreatedRecordPath(apps as HostAppLike[] | undefined, appName, objectName, recordId),
+    [apps, appName],
+  );
+
+  return (
+    <FormPage
+      mode="internal"
+      recordPath={recordPath}
+      cancelPath={appName ? `/apps/${appName}` : '/home'}
+    />
   );
 }
 

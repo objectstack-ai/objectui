@@ -79,6 +79,16 @@ export interface ConsoleActionRuntimeOptions {
   /** Invoked after a successful action that requests a refresh (`refreshAfter`
    *  !== false) — bump a refresh key to re-fetch embedded data. */
   onRefresh?: () => void;
+  /**
+   * The `:appName` of the app route the caller renders under, when it renders
+   * under one. A `type: 'form'` action then opens its form inside that app's
+   * shell (`/apps/<app>/forms/<name>`) rather than on the app-less
+   * `/forms/<name>` (objectui#13433). Omitted — the console-wide runtime, which
+   * sits above the route tree — the form keeps the app-less route: this hook
+   * does not read the URL itself, and the shell's published app is the last
+   * app the user had open, not necessarily one they are in now.
+   */
+  routeAppSegment?: string;
 }
 
 export interface ConsoleActionRuntime {
@@ -139,7 +149,7 @@ export interface ConsoleActionRuntime {
 }
 
 export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): ConsoleActionRuntime {
-  const { dataSource, objects, objectName, onRefresh } = opts;
+  const { dataSource, objects, objectName, onRefresh, routeAppSegment } = opts;
   const navigate = useNavigate();
   const { user, activeOrganization } = useAuth();
   // [ADR-0066 D4] System capabilities for the action capability gate. Forwarded
@@ -377,9 +387,9 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
     if (options?.external || options?.newTab) {
       window.open(url, '_blank', 'noopener,noreferrer');
     } else {
-      navigate(hostInConsolePath(url, hostAppSegment));
+      navigate(hostInConsolePath(url, hostAppSegment, routeAppSegment));
     }
-  }, [navigate, hostAppSegment]);
+  }, [navigate, hostAppSegment, routeAppSegment]);
 
   // Authenticated fetch for direct backend calls. Declared before apiHandler.
   //

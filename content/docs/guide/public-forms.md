@@ -262,12 +262,20 @@ spec-merging code path:
   for the FormView spec plus `GET /api/v1/meta/object/:object` for field
   metadata, then submits to `POST /api/v1/data/:object` with the
   authenticated session cookie.
+- **`/apps/:appName/forms/:name`** (internal, authed) — the same form inside
+  the app the URL names, with that app's sidebar and branding. A
+  `type: 'form'` action opens here when it is fired from an app route (a
+  record page, an object list or a page). The app-less `/forms/:name` serves
+  every other link, cold deep links included.
 
 URL parameters of the form `?prefill_<field>=<value>` populate the matching
 fields on mount; the rest of the chrome (label, section columns, post-submit
-behaviour) comes from the `FormView` spec itself. The public page's heading is
-the form's `title`; a form with no title is headed by its object's label, and
-the object's API name is used only when the payload carries no label at all.
+behaviour) comes from the `FormView` spec itself. The heading is the view's
+label or the form's `title`; a form with neither is headed by its object's
+label, and the object's API name is used only when no label is available at
+all. The internal form also has a Cancel, which goes back to the page the form
+was opened from, or, on a cold link, to the record being edited, else to the
+app's home (Home on the app-less route).
 
 For richer public forms with anti-spam, GDPR consent, prefill whitelisting
 and open-redirect protection, host `EmbeddableForm` directly inside your own

@@ -25,9 +25,15 @@
  *   - already `/apps/…` → unchanged;
  *   - external (`https://…`) → a new tab, never the router;
  *   - `mailto:` → never hosted;
- *   - a console route outside an app (`/forms/:name`, `/home`, …) → unchanged;
+ *   - a console route outside an app (`/home`, …) → unchanged;
  *   - mounted outside an app route → the console runtime's answer;
  *   - and, through the page's real runner, an `onSuccess.navigate`.
+ *
+ * objectui#13433 — `/forms/:name` is the one console route with an in-app
+ * twin: a form hop from this page opens at `/apps/<route app>/forms/<name>`,
+ * inside the app's shell, and keeps the app-less route when the page is not
+ * on an app route. Pinned in the last describe, through the real runner too
+ * (the showcase's Log Time, a `type: 'form'` record-header action).
  */
 
 import * as React from 'react';
@@ -135,7 +141,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 
 import { MetadataCtx } from '@object-ui/react';
 import { RecordDetailView } from './RecordDetailView';
-import { CONSOLE_ROOT_SEGMENTS } from '../utils/hostInConsolePath';
+import { CONSOLE_ROOT_SEGMENTS, FORM_ROUTE_SEGMENT } from '../utils/hostInConsolePath';
 
 const OBJECT_NAME = 'crm_account';
 const RECORD_ID = 'acc-1';
@@ -302,7 +308,9 @@ describe('record page navigator — the shapes that already worked stay as they 
     expect(navigateSpy.mock.calls[0][0]).toBe('mailto:ops@example.com');
   });
 
-  it.each([...CONSOLE_ROOT_SEGMENTS])('leaves the console route `/%s/…` exactly as written', async (segment) => {
+  // `/forms/…` is left out here: from an app route it opens in the app
+  // (objectui#13433, the describe below), and outside one it is unchanged.
+  it.each([...CONSOLE_ROOT_SEGMENTS].filter((s) => s !== FORM_ROUTE_SEGMENT))('leaves the console route `/%s/…` exactly as written', async (segment) => {
     const { onNavigate } = await mount();
     const to = segment === '' ? '/' : `/${segment}/probe?x=1`;
 
@@ -334,5 +342,58 @@ describe('through the record page’s real runner (objectui#13396)', () => {
 
     await waitFor(() => expect(navigateSpy).toHaveBeenCalledTimes(1));
     expect(navigateSpy.mock.calls[0][0]).toBe('/apps/com.acme.crm/crm_opportunity/opp_42');
+  });
+});
+
+describe('record page navigator — a form opens inside the page’s app (objectui#13433)', () => {
+  it('hosts `/forms/:name` under the route’s app, query string and hash kept', async () => {
+    const { onNavigate } = await mount();
+
+    onNavigate('/forms/crm_account.edit?recordId=acc-1&recordObject=crm_account#top', { external: false });
+
+    expect(navigateSpy.mock.calls[0][0]).toBe(
+      '/apps/com.acme.crm/forms/crm_account.edit?recordId=acc-1&recordObject=crm_account#top',
+    );
+  });
+
+  it('reads the app off the route, not the shell’s published app', async () => {
+    currentAppName = 'com.acme.hr';
+    const { onNavigate } = await mount();
+
+    onNavigate('/forms/crm_account.edit', { external: false });
+
+    expect(navigateSpy.mock.calls[0][0]).toBe('/apps/com.acme.crm/forms/crm_account.edit');
+  });
+
+  it('mounted outside an app route, keeps the app-less `/forms/:name` — no app is guessed', async () => {
+    // The shell still publishes an app: the one the console runtime would host
+    // an app-relative path under. A form is not hosted under that answer.
+    currentAppName = 'com.acme.crm';
+    const { onNavigate } = await mount({ inApp: false });
+
+    onNavigate('/forms/crm_account.edit', { external: false });
+
+    expect(navigateSpy.mock.calls[0][0]).toBe('/forms/crm_account.edit');
+  });
+
+  it('only the `forms` segment itself: `/formsx/…` is an app-relative path like any other', async () => {
+    const { onNavigate } = await mount();
+
+    onNavigate('/formsx/acc-1', { external: false });
+
+    expect(navigateSpy.mock.calls[0][0]).toBe('/apps/com.acme.crm/formsx/acc-1');
+  });
+
+  it('a `type: \'form\'` action run on the page opens its form in the page’s app', async () => {
+    const { execute } = await mount();
+
+    await act(async () => {
+      await execute!({ type: 'form', name: 'edit_account', target: 'crm_account.edit' });
+    });
+
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalledTimes(1));
+    expect(navigateSpy.mock.calls[0][0]).toBe(
+      '/apps/com.acme.crm/forms/crm_account.edit?recordId=acc-1&recordObject=crm_account',
+    );
   });
 });

@@ -1161,6 +1161,12 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // record page's own — the `:appName` of its route. Mounted outside an app
   // route, it falls back to the console runtime's answer
   // (`resolveHostAppSegment` over the shell's published app).
+  //
+  // The route's own `appName` also goes in as the third argument, so a
+  // `type: 'form'` action on this page opens its form inside this app's shell
+  // (`/apps/<app>/forms/<name>`) instead of on the app-less `/forms/<name>`
+  // (objectui#13433). Only the route's app: outside an app route it is
+  // undefined and the form keeps the app-less route.
   const { currentAppName } = useNavigationContext();
   const metadataApps = useMetadata().apps;
   const hostAppSegment = appName ?? resolveHostAppSegment(metadataApps, currentAppName);
@@ -1169,9 +1175,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     if (options?.external || options?.newTab) {
       window.open(url, '_blank', 'noopener,noreferrer');
     } else {
-      navigate(hostInConsolePath(url, hostAppSegment));
+      navigate(hostInConsolePath(url, hostAppSegment, appName));
     }
-  }, [navigate, hostAppSegment]);
+  }, [navigate, hostAppSegment, appName]);
 
   // Authenticated fetch for direct backend calls (absolute `type:'api'`
   // targets below + the flow trigger). Declared before apiHandler.

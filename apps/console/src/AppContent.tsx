@@ -17,6 +17,7 @@ import { MePermissionsProvider, ServerReadScope } from '@object-ui/permissions';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import type { DataSource } from '@object-ui/types';
 import { LocalizationFetchProvider } from './LocalizationFetchProvider';
+import { InAppFormRoute } from './components/InternalFormRoute';
 import { WorkspaceTimezonePrompt } from './pages/settings/WorkspaceTimezonePrompt';
 import { APPROVAL_ACTION_OBJECT, APPROVAL_REQUEST_OBJECT, routeApprovalRecordReads } from './services/approvalRequestsDataSource';
 
@@ -411,6 +412,28 @@ export function ConsolePermissionsScope({ children }: { children: ReactNode }) {
 }
 
 /**
+ * The internal form inside an app, `/apps/:appName/forms/:name`
+ * (objectui#13433) — the twin of the app-less `/forms/:name` in `App.tsx`,
+ * rendering the same `FormPage` inside the app's own shell. A `type: 'form'`
+ * action fired from an app route opens here (`hostInConsolePath` in
+ * app-shell); `InternalFormRoute.tsx` says why the app-less route stays.
+ *
+ * Only in the app route table: the no-app table serves a deployment with no
+ * app to be inside, and a form there keeps the app-less route.
+ */
+const appFormRoutes = (
+  <Route path="forms/:name" element={<InAppFormRoute />} />
+);
+
+/** The host routes of the app route table: the system routes plus the in-app form. */
+export const appRoutes = (
+  <>
+    {systemRoutes}
+    {appFormRoutes}
+  </>
+);
+
+/**
  * The element of `/apps/:appName/*`. It renders under `ConsolePermissionsScope`
  * (mounted by `App.tsx` above this route), never without it.
  */
@@ -434,7 +457,7 @@ export function AppContent() {
       <LocalizationFetchProvider endpoint={localizationEndpoint}>
         <ApprovalRecordReads>
           <DefaultAppContent
-            extraRoutes={systemRoutes}
+            extraRoutes={appRoutes}
             extraRoutesNoApp={systemRoutes}
           />
         </ApprovalRecordReads>

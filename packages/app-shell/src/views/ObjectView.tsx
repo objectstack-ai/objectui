@@ -1738,6 +1738,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         objects,
         objectName: objectDef.name,
         onRefresh: refreshData,
+        // A `type: 'form'` action on the list opens its form in this app's
+        // shell (objectui#13433).
+        routeAppSegment: appName,
     });
     const { confirmHandler, toastHandler } = actionRuntime;
 

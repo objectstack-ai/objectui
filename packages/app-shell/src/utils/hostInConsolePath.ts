@@ -60,6 +60,13 @@ export const CONSOLE_ROOT_SEGMENTS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * The first segment of the form route, `/forms/:name` outside an app and
+ * `/apps/:appName/forms/:name` inside one (objectui#13433). The console mounts
+ * both; see {@link hostInConsolePath} for which one a hop takes.
+ */
+export const FORM_ROUTE_SEGMENT = 'forms';
+
+/**
  * Where an in-place hop handed to an action navigator lands (objectui#13379).
  *
  * A rooted path that names no console route outside an app — the
@@ -74,10 +81,30 @@ export const CONSOLE_ROOT_SEGMENTS: ReadonlySet<string> = new Set([
  * {@link CONSOLE_ROOT_SEGMENTS}), and a `./` path, which react-router resolves
  * against the current route. Anything not rooted at `/` — a scheme such as
  * `mailto:` or `https:` included — is returned unchanged too.
+ *
+ * One console route has an in-app twin: `/forms/:name`, the page a
+ * `type: 'form'` action opens (objectui#13433). Fired from inside an app, the
+ * app-less route dropped the user out of the app's shell — no sidebar, no app
+ * branding — onto a page that has no app to show (objectui#4109 kept it in
+ * `DefaultHomeLayout` for exactly that reason). So when the caller names the
+ * app its own ROUTE is under (`routeAppSegment`, the URL's `:appName`), the
+ * form opens at `/apps/<app>/forms/<name>` instead, query string and hash
+ * kept. The app is never inferred: `hostAppSegment` is a resolver's answer
+ * (the last app the shell published, else the first active one) and is NOT
+ * used for this, because a form fired from Home would then open in whichever
+ * app that answer guessed. Without `routeAppSegment` the form keeps the
+ * app-less route, which still serves every cold deep link.
  */
-export function hostInConsolePath(url: string, hostAppSegment: string): string {
+export function hostInConsolePath(
+  url: string,
+  hostAppSegment: string,
+  routeAppSegment?: string,
+): string {
   if (!url.startsWith('/')) return url;
   const firstSegment = url.slice(1).split(/[/?#]/, 1)[0];
+  if (firstSegment === FORM_ROUTE_SEGMENT && routeAppSegment) {
+    return `/apps/${routeAppSegment}${url}`;
+  }
   if (CONSOLE_ROOT_SEGMENTS.has(firstSegment)) return url;
   const target = resolveNotificationTarget(url, hostAppSegment);
   return target?.kind === 'route' ? target.path : url;

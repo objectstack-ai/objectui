@@ -31,6 +31,11 @@
  *     unnoticed;
  *   - no app current (Home, or before the shell publishes one) → the first
  *     active app, the same answer the inbox gives.
+ *
+ * objectui#13433 — a caller rendering under an app route passes that route's
+ * app (`routeAppSegment`), and only then does a `/forms/:name` hop open in the
+ * app, at `/apps/<app>/forms/<name>`. Without it — the console-wide runtime —
+ * the form keeps the app-less route above, whatever app the shell published.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -121,8 +126,8 @@ function Metadata({ children }: { children: React.ReactNode }) {
 }
 
 /** The handler the runtime hands `<ActionProvider onNavigate>`. */
-function navigatorFor() {
-  const { result } = renderHook(() => useConsoleActionRuntime({ dataSource: {}, objects: [] }), {
+function navigatorFor(routeAppSegment?: string) {
+  const { result } = renderHook(() => useConsoleActionRuntime({ dataSource: {}, objects: [], routeAppSegment }), {
     wrapper: Metadata,
   });
   return result.current.navigateHandler;
@@ -277,5 +282,45 @@ describe('through the real runner (objectui#13379)', () => {
 
     await waitFor(() => expect(navigateSpy).toHaveBeenCalledTimes(1));
     expect(navigateSpy.mock.calls[0][0]).toBe('/forms/time_entry_form');
+  });
+});
+
+describe('navigateHandler — a form opens in the caller’s app route (objectui#13433)', () => {
+  it('with `routeAppSegment`, hosts `/forms/:name` under that app, query string kept', () => {
+    navigatorFor('com.acme.crm')('/forms/time_entry_form?recordId=t1&recordObject=task', { external: false });
+
+    expect(navigateSpy.mock.calls[0][0]).toBe('/apps/com.acme.crm/forms/time_entry_form?recordId=t1&recordObject=task');
+  });
+
+  it('hosts under the route’s app, not the shell’s published one', () => {
+    currentAppName = 'com.objectstack.setup';
+
+    navigatorFor('com.acme.crm')('/forms/time_entry_form', { external: false });
+
+    expect(navigateSpy.mock.calls[0][0]).toBe('/apps/com.acme.crm/forms/time_entry_form');
+  });
+
+  it('`routeAppSegment` moves no other console route', () => {
+    navigatorFor('com.acme.crm')('/home', { external: false });
+
+    expect(navigateSpy.mock.calls[0][0]).toBe('/home');
+  });
+
+  it('through the real runner, a `type: \'form\'` action under an app route opens in that app', async () => {
+    function Probe() {
+      const { execute } = useAction();
+      return <button onClick={() => void execute({ type: 'form', name: 'log_time', target: 'time_entry_form' } as any)}>run</button>;
+    }
+    render(
+      <Metadata>
+        <ConsoleActionRuntimeProvider dataSource={{}} objects={[]} routeAppSegment="com.acme.crm">
+          <Probe />
+        </ConsoleActionRuntimeProvider>
+      </Metadata>,
+    );
+    fireEvent.click(screen.getByText('run'));
+
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalledTimes(1));
+    expect(navigateSpy.mock.calls[0][0]).toBe('/apps/com.acme.crm/forms/time_entry_form');
   });
 });

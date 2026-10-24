@@ -707,10 +707,23 @@ describe('resolveInternalForm', () => {
     expect(out.object).toBe('showcase_task');
   });
 
-  it('falls back to the envelope name when neither envelope nor config carry a label', () => {
+  // objectui#13433 — no fallback to the view NAME: a form that names itself
+  // nowhere is headed by its object's label, resolved by `FormPage` at render
+  // (`FormPage.inAppShell-13433.test.tsx`). The raw qualified name was what
+  // the showcase's Log Time page was headed by.
+  it('answers no label when neither envelope nor config carry one, rather than the view name', () => {
     const { label: _l, ...noLabel } = envelope;
     const out = resolveInternalForm('showcase_task.tabbed', noLabel);
-    expect(out.label).toBe('showcase_task.tabbed');
+    expect(out.label).toBeUndefined();
+  });
+
+  it('reads the form config’s `title` when the envelope carries no label', () => {
+    const { label: _l, ...noLabel } = envelope;
+    const out = resolveInternalForm('showcase_task.tabbed', {
+      ...noLabel,
+      config: { ...noLabel.config, title: 'Tabbed edit' },
+    });
+    expect(out.label).toBe('Tabbed edit');
   });
 
   it('throws an actionable error for a non-form view instead of rendering an empty form', () => {

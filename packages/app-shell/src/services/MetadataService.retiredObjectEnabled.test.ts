@@ -153,8 +153,12 @@ describe('objectui#6238 · the schema oracle — both tombstone keys are refused
     // `defaultRowScope` (objectstack#24398; measured against the next.3 pin: the
     // one top-level key `ObjectSchema` gains between the two commits, none lost;
     // objectui#12971). Re-pointed the same way.
+    // 47 at `@objectstack/spec` 18.1.0, which adopted `membershipKeys`
+    // (objectstack#25513; measured against the 915e9404 pin: the spec's own
+    // `authorable-surface/data.json` gains exactly `data/Object:membershipKeys`
+    // between the two commits, none lost; objectui#13440). Re-pointed the same way.
     const accept = new Set(Object.keys(ObjectSchema.shape as Record<string, unknown>));
-    expect(accept.size).toBe(46);
+    expect(accept.size).toBe(47);
     expect(accept.has('enable')).toBe(true);
     expect(accept.has('enabled')).toBe(false);
     expect(accept.has('_deleted')).toBe(false);

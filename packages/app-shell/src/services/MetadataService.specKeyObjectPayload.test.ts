@@ -167,8 +167,12 @@ describe('the instrument', () => {
     // `defaultRowScope` (objectstack#24398; measured against the next.3 pin: the
     // one top-level key `ObjectSchema` gains between the two commits, none lost;
     // objectui#12971). Re-pointed the same way.
+    // 47 at `@objectstack/spec` 18.1.0, which adopted `membershipKeys`
+    // (objectstack#25513; measured against the 915e9404 pin: the spec's own
+    // `authorable-surface/data.json` gains exactly `data/Object:membershipKeys`
+    // between the two commits, none lost; objectui#13440). Re-pointed the same way.
     const accept = new Set(Object.keys(ObjectSchema.shape as Record<string, unknown>));
-    expect(accept.size).toBe(46);
+    expect(accept.size).toBe(47);
     // `fieldGroups` is the only grouping key on the object, and it groups the
     // FIELDS INSIDE one object — it is not a category for objects themselves,
     // so `group` has no mapping target here.

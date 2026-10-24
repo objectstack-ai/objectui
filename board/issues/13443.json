@@ -1,0 +1,37 @@
+{
+  "number": 13443,
+  "kind": "pull_request",
+  "title": "fix(console): open a form action inside the app it was fired from",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-24T10:19:59Z",
+  "updated_at": "2026-10-24T11:01:32Z",
+  "closed_at": "2026-10-24T11:01:30Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-24T11:01:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13443",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-sales\"} -->\n_Requested by **Sales** · [project thread](https://claude.ai/code/project/chan_01D5bWFY3rFzgJcytD5gD4Uu?thread=cmsg_01D5bWFY3rFzgJcytD5gD4UuWWgDeTcfrMpniKurLbGeyX)_\n\nFixes #13433\n\nA `type: 'form'` action fired inside an app now opens its form inside that app's shell, headed by a real label, with a Cancel.\n\n## What was wrong\n\nClicking the showcase's **Log Time** on a task record (`type: 'form'`, `target: 'showcase_task.form'`) navigated to the app-less `/forms/showcase_task.form?recordId=…&recordObject=showcase_task`:\n\n- the app's sidebar, switcher and branding disappeared, because `/forms/:name` is mounted outside every app and renders in `DefaultHomeLayout` (objectui#4109);\n- the page was headed by the raw qualified view name, because `resolveInternalForm` fell back to the view name when the view carried no label (a container's default form never does);\n- the only button was Submit, so the browser's Back button was the only way out without saving.\n\n## What changed\n\n**An in-app twin of the form route.** The console's app route table now also serves `/apps/:appName/forms/:name` (`InAppFormRoute`, in `InternalFormRoute.tsx`, mounted through a new `appRoutes` fragment in `AppContent.tsx`). It renders the same internal `FormPage`; `ConsoleLayout` and the app's `ExpressionProvider` are already around it, so the form gets the app's own sidebar and branding. A submit lands on the written record in the app the URL names.\n\n**Which hops go there.** `hostInConsolePath` takes an optional third argument, `routeAppSegment`: the `:appName` of the caller's own app route. When it is given, a `/forms/...` hop becomes `/apps/APP/forms/...` with the query string and hash kept. Every other path is sorted exactly as before.\n\n- `RecordDetailView` passes its route's `appName` (the card's path: record header, related and section actions).\n- `useConsoleActionRuntime` takes a new optional `routeAppSegment` option. `ObjectView` (list toolbars) and `PageView` (page buttons) pass their route's app.\n- The console-wide runtime in `ConsoleShell` sits above the route tree and passes nothing, so its form hops keep `/forms/:name`.\n\nThe app is never inferred. The navigators' existing `hostAppSegment` (the last app the shell published, else the first active one) is deliberately NOT used for forms, so a form fired from Home does not open in a guessed app. This is the design objectui#4280's ruling named as its reopen condition (comment 5299952645, 2026-08-15): a report of the missing navigation, together with a design that \"carries app context on the route (an explicit app segment or equivalent) rather than guessing it\". `/forms/:name` itself is unchanged and keeps serving cold deep links.\n\n**The heading.** `resolveInternalForm` now reads the view label, then the form config's `title` (the order the public route already uses, objectui#8408), and no longer falls back to the view name. A form that names itself nowhere is headed by its object's label, resolved through the session's language at render (`objectLabel`). The public route's heading is unchanged.\n\n**Cancel.** The internal form (both routes) has a Cancel next to Submit. It goes back when react-router has an entry behind this one (`location.key !== 'default'`), which keeps the record page's own URL state (tab, `?form=`). On a cold link it goes to the record being edited when `recordPath` names it, else to the route's `cancelPath`: the app's home in-app, `/home` on the app-less route. Cancel writes nothing. The public `/f/:slug` form has no Cancel.\n\nDocs: `content/docs/guide/public-forms.md` (the console route section). Changeset: `@object-ui/app-shell` and `@object-ui/console`, patch.\n\n## Tests\n\n- `FormPage.inAppShell-13433.test.tsx` (new): the heading (object label, authored `title`, and the view label still winning as a control), Cancel (back, cold edit, cold create, writes nothing, none on the public form as a control), and the in-app route (renders inside the URL's app; a submit from the second app lands in that app; Cancel on a cold create lands on the app's home).\n- `RecordDetailView.onSuccessNavigateHost-13396.test.tsx`: a new describe for the form hop (hosted under the route's app with query and hash, the route's app beats the shell's published one, outside an app route it stays `/forms/...`, `/formsx/...` is not matched, and a real `type: 'form'` run through the page's runner). The `CONSOLE_ROOT_SEGMENTS` table test now leaves `forms` to that describe.\n- `useConsoleActionRuntime.onSuccessNavigateHost-13379.test.tsx`: `routeAppSegment` hosts a form hop, beats the published app, moves no other console route, and drives a real `type: 'form'` run. Its existing \"a `type: 'form'` action still opens `/forms/:name`\" case (no `routeAppSegment`) stays as the control for the console-wide runtime.\n- `FormPage.test.ts`: the name fallback case now expects no label, plus a `title` case.\n- Two `App.*` tests whose `InternalFormRoute` mock lacked the new export.\n\nReverse verification, each fix part reverted alone on the committed head: the `hostInConsolePath` branch (6 red, the outside-app and `formsx` controls stay green), the heading chain (4 red), the Cancel button (5 red), the in-app route (3 red). Local runs and gate readings are in the os-dev report on the card.\n\n## Acceptance notes\n\n- `/apps/APP/forms/NAME` shadows the shorthand record redirect for an object literally named `forms` (`forms/ID`), the same way `page/NAME` and `dashboard/NAME` already do.\n- Not in scope: the showcase's Log Time targets the task's general edit form (the card's own note, a showcase metadata choice).\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nSession: `session_019hoGDf9HuKKDDmcRGCfAHu`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019hoGDf9HuKKDDmcRGCfAHu)_\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 13441,
+  "kind": "pull_request",
+  "title": "fix(components): create form no longer locks fields through readonlyWhen (objectui#13436)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-24T10:00:53Z",
+  "updated_at": "2026-10-24T10:30:57Z",
+  "closed_at": "2026-10-24T10:30:55Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-24T10:30:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13441",
+  "body": "Closes #13436\nClause-②: no\n\n## What changed\n\nobjectql does not apply `readonlyWhen` on INSERT, but the form renderer evaluated it on a create form against the seeded defaults. So a predicate over a defaulted column (`record.status == 'pending_verify'` with `status` defaulting to `'pending_verify'`) or a `!=` over an unset column (`record.approval_status != 'returned'`) locked fields the API accepts on insert.\n\n`packages/components/src/renderers/form/form.tsx`: every `resolveFieldRuleState` call now passes `readonlyWhen: isCreateForm ? undefined : RULE`. That is the existing `isCreateForm` signal (no `previousValues`), and no second mode test is added. Each call site:\n\n- **Render path (`renderFormField`)**: the fix itself. On create the field is locked only by static `readonly: true`.\n- **`conditionallyHiddenFieldNames` / `faultedVisibleWhenFieldNames` memo** (the fault-reporting path): reads only `visible` and `faults.visibleWhen`. It would still evaluate `readonlyWhen` and `console.warn` a fault for a rule the create form no longer applies, so it is gated the same way.\n- **Section-divider memo (`hiddenSectionFieldNames`)** and **stale-error effect**: read only `visible` / `required`. Gated for the same no-stray-warning reason, so all sites read one answer.\n- **`readonlyFieldNames` (submit strip)**: already returns early on create (`if (!previousRecord)`). Gated anyway so all five sites read the same; this is a no-op there.\n\n`visibleWhen` / `requiredWhen` are unchanged, and `packages/core` (`resolveFieldRuleState`) is not touched.\n\nDocs: the `readonlyWhen` row in `content/docs/plugins/plugin-form.mdx` and `packages/plugin-form/README.md` now says it applies to an edit form only. Changeset: `@object-ui/components` patch.\n\n## Tests\n\nNew `form-readonly-when-create-13436.test.tsx` covers:\n- create form: both reproductions from the card stay editable\n- create form: static `readonly: true` still locks\n- edit form (`previousValues`): the same two predicates still lock\n- create form: no readonlyWhen fault is warned; an edit form still warns it\n\n`form-fullscreen-textarea-readonly-disabled.test.tsx`: the case \"holds when `readonly` is resolved at runtime by a readonlyWhen rule\" now renders an edit form.\n\n`packages/plugin-form/src/flatFieldRules.test.tsx`:\n- The case \"locks a `readonlyWhen`-TRUE field\" now renders ModalForm and DrawerForm in edit mode (`mode: 'edit'` with a `recordId`, so the container passes `previousValues`). The create mode it used before was incidental to the original fix.\n- A create-mode case was added: the same predicate leaves the field editable.\n\n`e2e/live/field-conditional-rules.spec.ts`: on the New dialog, the Paid step now asserts that `tax_rate` stays editable, because the server exempts INSERT from `readonlyWhen`. **This spec was not run here.** It is a live spec and is not in the `test:e2e:live:ci` allowlist.\n\nResults at 5a57d8eb52 (`vitest run --maxWorkers=2`):\n- The three form rule test files: 26/26 passed.\n- The whole form renderer directory with the downstream readonlyWhen suites (app-shell, fields, kanban, console): green except the 2 `flatFieldRules` cases that pinned create-mode locking. Those are now amended as above.\n- `packages/plugin-form/`: 199/199 files, 2379 passed, 1 skipped.\n- `type-check` of `@object-ui/components...`: 17/17 passed.\n- eslint on the five touched source and test files: 0 errors.\n- `check-changeset-presence` and `check:new-line-citations` both exit 0, with 0 new citations.\n\nAblation (fix committed, then reverted in the working tree, and the restore proved by the HEAD blob hash):\n- Reverting all five gates in form.tsx turns the 3 create-form cases in the new file red, and the edit and static cases stay green.\n- The same revert turns the new `flatFieldRules` create case red for ModalForm and DrawerForm.\n- Reverting only the visibility-memo gate turns only the fault case red.\n- The edit-mode lock case is not vacuous: with a FALSE predicate it goes red.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n## Not in this PR\n\n- **A `mode: 'view'` ObjectForm.** It also gets no `previousValues`, so form.tsx reads it as create (the existing comment on the server-default hint already says so). A `readonlyWhen`-TRUE field there now renders as a disabled input instead of a read-only display. Every field in view mode is disabled already, so nothing becomes editable.\n- **`WizardForm`'s final-submit gate** (`gateFinalSubmit`, plugin-form). It still passes `readonlyWhen` on a create wizard. It reads only `required` and `faults.visibleWhen`, so it locks nothing, but it can still warn a `readonlyWhen` fault on create.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

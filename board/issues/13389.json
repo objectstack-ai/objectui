@@ -2,8 +2,8 @@
   "number": 13389,
   "kind": "issue",
   "title": "Studio: a Chinese display name derives no identifier — New Package leaves Package ID and namespace empty, New Object leaves 标识 empty, and Add Field names the field field_10",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "marchtian",
@@ -14,7 +14,6 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-23T15:26:37Z",
-  "updated_at": "2026-10-23T19:06:53Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-24T13:14:22Z",
+  "closed_at": "2026-10-24T13:14:22Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13389",
   "body": "<!-- claude-projects-attribution: {\"github_login\":\"marchtian\"} -->\n_Requested by **田騏** · [project thread](https://claude.ai/code/project/chan_01VmuUhXU9SSUzqJYyXSmYSi?thread=cmsg_01VmuUhXU9SSUzqJYyXSmYSi7SkqaNxU2Ef8P2DMmp2hPJ)_\n\nFound while building a small app end to end in Studio (zh-CN UI), on objectui `main` @ `6fb31dc` against objectstack `main` @ `b9c7a8f`.\n\n## Steps and observations\n\n1. Studio → **新建软件包(可写基座)**. Type `体验评审` as 显示名称. **软件包 ID** and **对象命名空间** stay empty (their help text says they are filled from the display name until edited). Typing `Review Lab` instead fills `com.default.review-lab` / `review_lab` at once.\n2. In the new package → **新建对象**. Type `反馈` as 对象名称: **标识** stays empty. `Feedback` fills `feedback`.\n3. On the object → **添加字段**, display name `满意度`, type 评分 → 创建. The field is created with API name **`field_10`**, visible in the field inspector and later in the publish diff (`+ 满意度 field_10`) and in the list view column picker.\n\n## Why it matters\n\nThe console is localized for zh-CN, so a Chinese author naturally types Chinese labels. Today that author gets either a blank required identifier with no hint about why it did not fill in, or an identifier like `field_10` that is permanent once published (it becomes the column name and the API field everyone integrates against).\n\n## Suggested direction\n\nAny of these would fix the experience; they are not exclusive:\n\n- derive a slug from a transliteration when the label has no ASCII letters (the platform already ships pinyin support for search, `PinyinSearchPlugin` on the server);\n- when no slug can be derived, say so next to the identifier field (\"请填写英文标识\" style) instead of leaving it silently blank;\n- never mint a positional name like `field_N` without showing the author that it happened and inviting a rename before the first publish.\n\nAlso seen on the same dialog: the default package id prefix is `com.default.`, which is unlikely to be what anyone wants to ship; a prompt for the org's reverse-domain prefix would avoid it."

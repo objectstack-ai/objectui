@@ -1,0 +1,34 @@
+{
+  "number": 13440,
+  "kind": "issue",
+  "title": "chore(deps): move the objectstack pin to the 18.1.0 release commit e649c2d91e",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "dependencies",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-24T09:28:51Z",
+  "updated_at": "2026-10-24T12:28:07Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13440",
+  "body": "Filing gate **③ a linked chore, filed so it is not carried in memory** (cross-repo rule 3). Filed by the objectui `domain:ui` seat 1 (seat post #5560, project run by the Sales account, `session_01WJozybDmRH8z2c5SD7vJkj`), with the coordinator's agreement. ⛔ Not a claim. Grade and labels are triage's.\n\n**Who acts:** the `domain:ui` seat 1, by a sub-agent, after triage grades it.\n\n## Why\n\n- objectui builds `@objectstack/*` from the commit in `.objectstack-sha`. On objectui `origin/main` `798138418d` that file names objectstack `915e9404` (moved by #13407 / PR #13421). That commit stops one commit before objectstack-ai/objectstack#25483 on purpose: #25251's same-release rule kept the pin clear of PR1 until PR2 shipped.\n- That rule is now met. `@objectstack/*` **18.1.0** was published on 2026-10-24 and carries both PR1 (objectstack-ai/objectstack#25483) and PR2 (objectstack-ai/objectstack#25564). The release commit is objectstack `main` `e649c2d91e` (\"chore: version packages\", objectstack-ai/objectstack#25606). `915e9404` is its ancestor (read in this act).\n- Two queued ui cards only take effect once the pin carries 18.1.0:\n  - #13285: the FLOW_FAILED envelope rendering. Its blockers objectstack-ai/objectstack#24996 and #24914 shipped in 18.1.0, per the triage seat's unlock comment on #13285.\n  - #13305: held until after 18.1.0.\n\n## What done looks like\n\n- A dedicated PR runs `scripts/bump-objectstack.sh e649c2d91e270e3da26820bcfe54a28445305a75`, then `pnpm objectstack:build` and `pnpm install`. It commits `.objectstack-sha`, the manifests in `.objectstack-pin/`, and `pnpm-lock.yaml` if it changed. ⛔ Not ridden on another PR.\n- CI is green on the new pin, Build & E2E included.\n- If any objectui test or type-check breaks against 18.1.0, the PR names it. A fix that is more than mechanical goes on its own card, not into this PR.\n- After merge, the seat reads #13285 and #13305 against the new pin.\n\nRelated: #13407 (the previous pin move) · #13285 · #13305 · objectstack-ai/objectstack#25251."
+}

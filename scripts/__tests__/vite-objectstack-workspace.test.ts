@@ -4,26 +4,35 @@
  * one more alternative (objectstack ruling D1: objectui becomes `ui/`).
  *
  * Two directions are pinned. STANDALONE, the directory the alternative names
- * does not exist beside this checkout and the three tests read exactly as the
- * baseline spellings did -- so this change moves no chunk membership here.
+ * does not exist beside this checkout and the three tests ARE the baseline
+ * literals, byte for byte -- `vite-objectstack-spec-dist.test.ts` pins the
+ * vendor literal as a flagged surface (objectui#4854), so "matches nothing"
+ * is not enough; the alternative must not be there at all.
  * MERGED, an id under `<monorepo>/packages/<name>/dist/` is the vendor group
  * (spec in, lint out) and the two probes find their subjects; measured on the
  * spike, the baseline missed all three and the console build failed on its own
  * lazy-linter guard.
  */
 import { describe, expect, it } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { escapeRegExp, frameworkPackagesDir, workspaceChunkTests } from '../vite-objectstack-workspace.ts';
+import {
+  BASELINE_CHUNK_TESTS,
+  candidateFrameworkPackagesDir,
+  escapeRegExp,
+  frameworkPackagesDir,
+  workspaceChunkTests,
+} from '../vite-objectstack-workspace.ts';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const consoleDir = path.join(repoRoot, 'apps/console');
 
 /** A monorepo laid out as the spike wired it: `<root>/ui/apps/console`, `<root>/packages/<name>`. */
 const MONOREPO = '/srv/objectstack';
-const merged = workspaceChunkTests(frameworkPackagesDir(path.join(MONOREPO, 'ui/apps/console')));
+const merged = workspaceChunkTests(candidateFrameworkPackagesDir(path.join(MONOREPO, 'ui/apps/console')));
 const standalone = workspaceChunkTests(frameworkPackagesDir(consoleDir));
 
 const PLAIN_SPEC = '/w/node_modules/@objectstack/spec/dist/index.mjs';
@@ -33,11 +42,41 @@ const STORE_LINT = '/w/node_modules/.pnpm/@objectstack+lint@18.1.0/node_modules/
 const PLAIN_CLIENT = '/w/node_modules/@objectstack/client/dist/index.js';
 
 describe('workspaceChunkTests (objectstack ruling D1)', () => {
-  it('locates the monorepo packages dir three levels above the console, and standalone it does not exist', () => {
-    expect(frameworkPackagesDir(path.join(MONOREPO, 'ui/apps/console'))).toBe(path.join(MONOREPO, 'packages'));
-    expect(frameworkPackagesDir(consoleDir)).toBe(path.resolve(repoRoot, '../packages'));
-    // The standing fact the "unchanged standalone" pin rests on, checked rather than assumed.
-    expect(existsSync(frameworkPackagesDir(consoleDir))).toBe(false);
+  it('locates the monorepo packages dir three levels above the console, and names it only when it exists', () => {
+    expect(candidateFrameworkPackagesDir(path.join(MONOREPO, 'ui/apps/console'))).toBe(path.join(MONOREPO, 'packages'));
+    expect(candidateFrameworkPackagesDir(consoleDir)).toBe(path.resolve(repoRoot, '../packages'));
+    // The standing fact the standalone pin rests on, checked rather than assumed.
+    expect(existsSync(candidateFrameworkPackagesDir(consoleDir))).toBe(false);
+    expect(frameworkPackagesDir(consoleDir)).toBeNull();
+    expect(frameworkPackagesDir(path.join(MONOREPO, 'ui/apps/console'))).toBeNull();
+    // A real monorepo-shaped tree: the directory exists, so it is named.
+    const root = mkdtempSync(path.join(os.tmpdir(), 'objectstack-workspace-'));
+    try {
+      const console = path.join(root, 'ui/apps/console');
+      mkdirSync(console, { recursive: true });
+      expect(frameworkPackagesDir(console)).toBeNull();
+      mkdirSync(path.join(root, 'packages'));
+      expect(frameworkPackagesDir(console)).toBe(path.join(root, 'packages'));
+      // A FILE of that name is not the directory.
+      rmSync(path.join(root, 'packages'), { recursive: true });
+      writeFileSync(path.join(root, 'packages'), '');
+      expect(frameworkPackagesDir(console)).toBeNull();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('standalone: the three tests are the baseline literals, byte for byte', () => {
+    expect(standalone).toBe(BASELINE_CHUNK_TESTS);
+    expect(standalone.vendor.source).toBe(
+      '([\\\\/]node_modules[\\\\/]@objectstack[\\\\/](?!lint[\\\\/])|[\\\\/]@objectstack\\+(?!lint@))',
+    );
+    expect(standalone.spec.source).toBe('@objectstack[\\\\/+]spec');
+    expect(standalone.lint.source).toBe('@objectstack[\\\\/+]lint');
+    // And merged is a widening of them: every baseline arm is still there.
+    for (const key of ['vendor', 'spec', 'lint'] as const) {
+      expect(merged[key].source).toContain(BASELINE_CHUNK_TESTS[key].source.replace(/^\(|\)$/g, ''));
+    }
   });
 
   it('keeps every baseline spelling: plain install and pnpm store, spec in, lint out', () => {

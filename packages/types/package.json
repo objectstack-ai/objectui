@@ -94,7 +94,7 @@
   },
   "dependencies": {
     "@objectstack/spec": "^18.0.0-next.5",
-    "zod": "^4.6.1"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@object-ui/test-support": "workspace:*",

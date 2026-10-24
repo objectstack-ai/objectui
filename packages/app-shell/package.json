@@ -95,7 +95,7 @@
     "lucide-react": "^1.43.0",
     "qrcode": "^1.5.4",
     "sonner": "^2.0.8",
-    "zod": "^4.6.1"
+    "zod": "^4.6.5"
   },
   "peerDependencies": {
     "@object-ui/plugin-calendar": "workspace:^",

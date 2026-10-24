@@ -114,6 +114,16 @@ on:
 #                 which on a queue build is the queue's own generation ref
 #                 (`gh-readonly-queue/main/pr-<n>-<sha>`) — colliding with
 #                 neither a PR group nor a push group, exactly as before.
+# Least privilege for the job token. Every job without its own `permissions:`
+# block (changeset-check, type-check, test, test-dist-pins, test-coverage,
+# e2e, docs) only checks out, builds, tests, and saves caches and artifacts;
+# none of those calls the API with this token (actions/cache and
+# actions/upload-artifact use the runner's own token), so `contents: read` is
+# all they get. The two jobs that read the Actions API (test-aggregate,
+# coverage-report) declare their own block, which replaces this one.
+permissions:
+  contents: read
+
 concurrency:
   group: >-
     ci-${{ github.workflow }}-${{ github.event.pull_request.number

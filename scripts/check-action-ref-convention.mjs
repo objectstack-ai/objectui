@@ -141,6 +141,45 @@ export const DECLARED_EXCEPTIONS = [
       'reviewed moment; a floating ref would re-adopt every upstream change on the next scheduled ' +
       'run, with nothing in this repository to roll back to.',
   },
+  // The four below share one reason, said once: each is a third-party action
+  // that runs holding a credential, so the code a floating tag resolves to
+  // would receive that credential on the next run after the tag moved, with
+  // nothing here reviewing it. A commit sha cannot move; the trailing
+  // `# vX.Y.Z` comment names the release it is. First-party `actions/*` refs
+  // stay on the floating-tag default.
+  {
+    workflow: 'changeset-release.yml',
+    action: 'changesets/action',
+    issue: 'objectui#SUPPLY_CHAIN_PR',
+    reason:
+      'runs with NPM_TOKEN and GITHUB_TOKEN in the publish and version-PR steps; pinned to the ' +
+      'v1.9.0 commit, the one the workflow comment and the ref-pin test say both v1 properties ' +
+      'were read at (scripts/__tests__/changeset-release-action-ref-pin.test.ts holds the sha).',
+  },
+  {
+    workflow: 'check-links.yml',
+    action: 'lycheeverse/lychee-action',
+    issue: 'objectui#SUPPLY_CHAIN_PR',
+    reason:
+      'receives GITHUB_TOKEN through its env and its token input default; pinned to the v2.9.0 ' +
+      'commit so the link checker cannot change under that token between reviews.',
+  },
+  {
+    workflow: 'dependabot-auto-merge.yml',
+    action: 'dependabot/fetch-metadata',
+    issue: 'objectui#SUPPLY_CHAIN_PR',
+    reason:
+      'receives GITHUB_TOKEN as its github-token input in a job that approves and enqueues ' +
+      'Dependabot pull requests; pinned to the v3.1.0 commit.',
+  },
+  {
+    workflow: 'changelog.yml',
+    action: 'orhun/git-cliff-action',
+    issue: 'objectui#SUPPLY_CHAIN_PR',
+    reason:
+      'defaults its github_token input to the job token, which holds contents: write in this ' +
+      'job; pinned to the v4.9.1 commit.',
+  },
 ];
 
 /**

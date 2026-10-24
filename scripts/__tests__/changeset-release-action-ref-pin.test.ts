@@ -48,20 +48,30 @@ import { parse as parseYaml } from 'yaml';
  * on that ref. Move the assertion somewhere that survives first — do not just
  * drop it.
  *
- * ## What this pin does NOT do
+ * ## The ref is a commit sha, so a retag cannot reach it
  *
- * It cannot catch a **retag of `v1` in place**. `changesets/action@v1` is a
- * moving tag whose bundled `@changesets/read` is a minified chunk nothing here
- * installs, so no test can execute it and no lockfile records it — that gap is
- * objectui#6081's subject, and it is the reason the mirror was deleted rather
- * than given a better referent. This pin catches the DELIBERATE bump, which is
- * the only moment anyone can act on anyway.
+ * `changesets/action@v1` names a moving branch whose bundled `@changesets/read`
+ * is a minified chunk nothing here installs, so no test can execute it and no
+ * lockfile records it — that gap is objectui#6081's subject, and it is the
+ * reason the mirror was deleted rather than given a better referent. Both
+ * `uses:` lines now name the v1.9.0 commit instead, so a retag of `v1` in place
+ * no longer changes what runs; this pin catches the DELIBERATE bump, which is
+ * the only moment anyone can act on anyway, and a step that drifts back onto
+ * the moving `v1`.
  */
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const workflowPath = path.join(repoRoot, '.github/workflows/changeset-release.yml');
 const workflowSource = fs.readFileSync(workflowPath, 'utf8');
 
-const PINNED_REF = 'changesets/action@v1';
+/**
+ * The v1 commit, not the moving `v1` branch: `v1` and the `v1.9.0` tag both
+ * resolved to this sha when the pin moved off the branch, and it is the commit
+ * the workflow's git-surface reading was taken at. The publish step runs with
+ * the npm token, so the ref it executes must not be able to move under it.
+ */
+const PINNED_SHA = 'a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d';
+const PINNED_REF = `changesets/action@${PINNED_SHA}`;
+const PINNED_LINE = `        uses: ${PINNED_REF} # v1.9.0`;
 
 interface Step {
   name?: string;
@@ -93,7 +103,7 @@ function changesetsActionSteps(source: string): Array<{ job: string; step: strin
   return found;
 }
 
-describe('changeset-release.yml pins changesets/action to @v1', () => {
+describe('changeset-release.yml pins changesets/action to the v1.9.0 commit', () => {
   it('still uses the action at all — the pin is not vacuous', () => {
     // Without this, every assertion below passes over a workflow that dropped
     // the action entirely, which is the one way a "toContain" pin lies.
@@ -145,7 +155,7 @@ describe('the pin can fail (non-vacuity)', () => {
   }
 
   it('goes red when the publish step is bumped to @v2', () => {
-    const bumped = mutate('        uses: changesets/action@v1\n        with:\n          publish:', '        uses: changesets/action@v2\n        with:\n          publish:');
+    const bumped = mutate(`${PINNED_LINE}\n        with:\n          publish:`, '        uses: changesets/action@v2\n        with:\n          publish:');
     const offenders = changesetsActionSteps(bumped).filter((s) => s.uses !== PINNED_REF);
     expect(offenders).toEqual([
       { job: 'release', step: 'Publish to npm', uses: 'changesets/action@v2' },
@@ -153,7 +163,7 @@ describe('the pin can fail (non-vacuity)', () => {
   });
 
   it('goes red when the refresh step is bumped to @v2', () => {
-    const bumped = mutate('        uses: changesets/action@v1\n        with:\n          version:', '        uses: changesets/action@v2\n        with:\n          version:');
+    const bumped = mutate(`${PINNED_LINE}\n        with:\n          version:`, '        uses: changesets/action@v2\n        with:\n          version:');
     const offenders = changesetsActionSteps(bumped).filter((s) => s.uses !== PINNED_REF);
     expect(offenders).toEqual([
       { job: 'release', step: 'Refresh the version PR', uses: 'changesets/action@v2' },
@@ -164,15 +174,23 @@ describe('the pin can fail (non-vacuity)', () => {
     // The shape a real v2 migration takes: `changesets/action/publish@v2`. A
     // pin that matched only the exact old string would find nothing here and
     // pass.
-    const bumped = mutate('        uses: changesets/action@v1\n        with:\n          publish:', '        uses: changesets/action/publish@v2\n        with:\n          publish:');
+    const bumped = mutate(`${PINNED_LINE}\n        with:\n          publish:`, '        uses: changesets/action/publish@v2\n        with:\n          publish:');
     const offenders = changesetsActionSteps(bumped).filter((s) => s.uses !== PINNED_REF);
     expect(offenders).toEqual([
       { job: 'release', step: 'Publish to npm', uses: 'changesets/action/publish@v2' },
     ]);
   });
 
+  it('goes red when the publish step goes back to the moving v1 branch', () => {
+    const floating = mutate(`${PINNED_LINE}\n        with:\n          publish:`, '        uses: changesets/action@v1\n        with:\n          publish:');
+    const offenders = changesetsActionSteps(floating).filter((s) => s.uses !== PINNED_REF);
+    expect(offenders).toEqual([
+      { job: 'release', step: 'Publish to npm', uses: 'changesets/action@v1' },
+    ]);
+  });
+
   it('goes red when the action is dropped from the workflow entirely', () => {
-    const stripped = mutate('        uses: changesets/action@v1', '        uses: actions/checkout@v7');
+    const stripped = mutate(PINNED_LINE, '        uses: actions/checkout@v7');
     expect(changesetsActionSteps(stripped).length).toBeLessThan(2);
   });
 });

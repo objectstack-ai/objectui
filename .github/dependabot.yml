@@ -43,11 +43,22 @@ updates:
           - "minor"
           - "patch"
 
-  # Enable version updates for GitHub Actions
+  # Enable version updates for GitHub Actions. Weekly and grouped into one
+  # pull request: the third-party actions that hold a credential are pinned
+  # by commit sha, so a release reaches them only through this update.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
+    groups:
+      # Majors stay separate pull requests: one declined major (the
+      # changesets/action v1 pin is deliberate) must not hold the group.
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
     labels:
       - "dependencies"
       - "github-actions"

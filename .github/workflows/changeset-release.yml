@@ -880,9 +880,9 @@ jobs:
       # plausibly the shape that makes the clear step unnecessary — which is an
       # argument for revisiting the pin eventually, not for bumping it blind.
       #
-      # ⛔ WHAT NOTICES A BUMP. This `@v1` ref is pinned by exactly one thing:
+      # ⛔ WHAT NOTICES A BUMP. This v1 ref is pinned by exactly one thing:
       # `scripts/__tests__/changeset-release-action-ref-pin.test.ts`. It fails on
-      # a bump of EITHER `uses: changesets/action@v1` line in this file and names
+      # a bump of EITHER `uses: changesets/action@...` line in this file and names
       # the two properties above as what a bump must re-establish. There is no
       # second guard — the type checker and the linters do not read this file at
       # all — so ⛔ do not delete that test as collateral of some other cleanup.
@@ -895,9 +895,19 @@ jobs:
       # `CLAUDE.md` / `GEMINI.md` and on `.changeset/pre/`). objectui#6081
       # deleted that mirror, because the bundled copy is a minified chunk behind
       # a MOVING tag and cannot be pinned from here at any effort — a retag of
-      # `v1` in place changed it and nothing here failed. A ref pin cannot catch
-      # a retag either, but it does not pretend to: it catches the DELIBERATE
-      # bump, which is the only moment anyone can act on.
+      # `v1` in place changed it and nothing here failed. A ref pin catches the
+      # DELIBERATE bump, which is the only moment anyone can act on.
+      #
+      # ⭐ THE REF IS A COMMIT SHA, NOT THE MOVING `v1`. Both `uses:` lines name
+      # `a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d`, the commit the `v1` branch
+      # and the `v1.9.0` tag both resolved to when this was written, and the
+      # same commit the git-surface reading above was taken at. This step runs
+      # with `NPM_TOKEN`, so a retag of `v1` would otherwise hand the publish
+      # credential to code nobody here has read; a sha cannot move. A bump is
+      # still a deliberate edit of both lines to another sha (the trailing
+      # `# vX.Y.Z` comment names the release it is), and it still has to
+      # re-establish the two properties above. The sha is a declared exception
+      # to `scripts/check-action-ref-convention.mjs`'s floating-tag default.
 
       # ⚠️ THE STEP THAT LETS THE PREDICATE REACH THE ACTION (objectui#5442).
       #
@@ -1019,7 +1029,7 @@ jobs:
       - name: Publish to npm
         id: changesets-publish
         if: github.event_name == 'push'
-        uses: changesets/action@v1
+        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         with:
           publish: pnpm changeset:publish
         env:
@@ -1437,7 +1447,7 @@ jobs:
       - name: Refresh the version PR
         id: changesets-version
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        uses: changesets/action@v1
+        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         with:
           version: pnpm changeset:version
           title: 'chore: release packages'

@@ -32,10 +32,11 @@
  * Two, because "the page never loaded" is exactly what a flag that can never
  * be set looks like.
  *
- *   1. `SharedRecordPage` is a LIVE positive control: `App.tsx` still imports
- *      it statically, so its flag must already be set before the first render.
+ *   1. `LoginPage` is a LIVE positive control: `App.tsx` still imports it
+ *      statically, so its flag must already be set before the first render.
  *      If the observer stopped seeing static imports, that assertion fails
- *      instead of the lazy ones passing vacuously.
+ *      instead of the lazy ones passing vacuously. (`SharedRecordPage` was the
+ *      control until objectui#13410 made `/s/:token` lazy too.)
  *   2. Visiting `/docs` must FLIP the layout's flag and render it. A flag that
  *      is merely stuck at unset cannot satisfy both halves.
  *
@@ -64,7 +65,7 @@ const { loaded, passthrough, stub, tracked } = vi.hoisted(() => {
   return { loaded, passthrough, stub, tracked };
 });
 
-// ── The four docs pages, plus the statically imported positive control ────
+// ── The four docs pages ───────────────────────────────────────────────────
 // The layout renders its `Outlet` so the index child actually mounts —
 // otherwise `DocsIndex` would read as "still lazy" for the wrong reason
 // (nothing ever asked for it) and the assertion on it would be vacuous.
@@ -81,7 +82,6 @@ vi.mock('../pages/DocsLayout', () => {
 vi.mock('../pages/DocsIndex', tracked('DocsIndex', 'docs-index'));
 vi.mock('../pages/DocsSlug', tracked('DocsSlug', 'docs-slug'));
 vi.mock('../pages/DocPage', tracked('DocPage', 'doc-page'));
-vi.mock('../pages/SharedRecordPage', tracked('SharedRecordPage', 'shared-record-page'));
 
 // ── Everything else App.tsx imports but this card does not touch ──────────
 vi.mock('@object-ui/app-shell', async (importOriginal) => ({
@@ -128,7 +128,11 @@ vi.mock('../components/SetupRoute', () => ({ SetupRoute: stub('setup-route') }))
 vi.mock('../components/FormPage', () => ({ FormPage: stub('form-page') }));
 vi.mock('../components/InternalFormRoute', () => ({ InternalFormRoute: stub('internal-form-route') }));
 vi.mock('../components/MetadataHmrReloader', () => ({ MetadataHmrReloader: () => null }));
-vi.mock('../pages/auth/LoginPage', () => ({ LoginPage: stub('login-page') }));
+// The statically imported positive control (counter-probe 1).
+vi.mock('../pages/auth/LoginPage', () => {
+  loaded.LoginPage = true;
+  return { LoginPage: stub('login-page') };
+});
 vi.mock('../pages/auth/RegisterPage', () => ({ RegisterPage: stub('register-page') }));
 vi.mock('../pages/auth/ForgotPasswordPage', () => ({ ForgotPasswordPage: stub('forgot-page') }));
 vi.mock('../pages/auth/ResetPasswordPage', () => ({ ResetPasswordPage: stub('reset-page') }));
@@ -156,7 +160,7 @@ describe('the /docs portal is genuinely lazy (objectui#5467)', () => {
     // Counter-probe 1 — a page App.tsx still imports statically. Importing
     // `../App` above was enough to load it, which is what "eager" means and
     // what the four assertions below deny for the docs portal.
-    expect(loaded.SharedRecordPage).toBe(true);
+    expect(loaded.LoginPage).toBe(true);
 
     expect(loaded.DocsLayout).toBeUndefined();
     expect(loaded.DocsIndex).toBeUndefined();

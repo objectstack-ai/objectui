@@ -254,7 +254,7 @@ describe('#4474 family 1 — role names come from ONE map and resolve in zh', ()
       .filter((o) => o.getAttribute('value'))
       .map((o) => o.textContent);
     // Pre-fix this array was ['Owner', 'Admin', 'Delegated Admin', 'Member'].
-    expect(labels).toEqual(['所有者', '管理员', '受托管理员', '成员']);
+    expect(labels).toEqual(['所有者', '管理员', '受托管理员', '成员', '外部成员']);
   });
 
   it('zh: the members page role badges render Chinese — site 2', async () => {
@@ -301,7 +301,7 @@ describe('#4474 family 1 — role names come from ONE map and resolve in zh', ()
     const labels = Array.from(screen.getByTestId('select').querySelectorAll('option'))
       .filter((o) => o.getAttribute('value'))
       .map((o) => o.textContent);
-    expect(labels).toEqual(['Owner', 'Admin', 'Delegated Admin', 'Member']);
+    expect(labels).toEqual(['Owner', 'Admin', 'Delegated Admin', 'Member', 'External']);
   });
 
   it('an external member\'s badge reads 外部成员 in zh and External in en (objectui#13427)', async () => {

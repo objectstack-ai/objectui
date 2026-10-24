@@ -102,7 +102,7 @@ beforeEach(() => {
 describe('InviteMemberDialog — role cap (framework#3697)', () => {
   it('an owner is offered every role, delegated_admin included', async () => {
     await renderAs('owner');
-    expect(offered()).toEqual(['owner', 'admin', 'delegated_admin', 'member']);
+    expect(offered()).toEqual(['owner', 'admin', 'delegated_admin', 'member', 'external']);
   });
 
   it('an admin may provision a delegate but may not invite an owner', async () => {
@@ -112,18 +112,18 @@ describe('InviteMemberDialog — role cap (framework#3697)', () => {
     expect(roles).not.toContain('owner');
   });
 
-  it('a DELEGATE is offered member only — the escalation chain has no UI entry', async () => {
+  it('a DELEGATE is offered member and external only — the escalation chain has no UI entry', async () => {
     // Picking "Admin" here would 403 on the server's role cap; the console must
     // not propose it. This is the whole reason the select stopped being a
     // hardcoded three-item list.
     await renderAs('delegated_admin');
-    expect(offered()).toEqual(['member']);
+    expect(offered()).toEqual(['member', 'external']);
     expect(screen.queryByTestId('invite-role-admin')).not.toBeInTheDocument();
   });
 
   it('an unloaded membership still allows the ordinary member invite', async () => {
     await renderAs(null);
-    expect(offered()).toEqual(['member']);
+    expect(offered()).toEqual(['member', 'external']);
   });
 
   it('the narrowed default still submits a plain, unchanged invitation', async () => {

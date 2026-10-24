@@ -47,6 +47,7 @@ import {
   MEMBERSHIP_ROLE_ADMIN as ORG_ROLE_ADMIN,
   MEMBERSHIP_ROLE_DELEGATED_ADMIN as ORG_ROLE_DELEGATED_ADMIN,
   MEMBERSHIP_ROLE_MEMBER as ORG_ROLE_MEMBER,
+  MEMBERSHIP_ROLE_EXTERNAL as ORG_ROLE_EXTERNAL,
   type BuiltinMembershipRole,
 } from '@objectstack/spec';
 
@@ -56,27 +57,20 @@ import {
 // admin, and carries no authority of its own — what a delegate may actually
 // *place* comes from a separately-granted `adminScope`, surfaced to this
 // console by `describeDelegableScope()`.
-export { ORG_ROLE_OWNER, ORG_ROLE_ADMIN, ORG_ROLE_DELEGATED_ADMIN, ORG_ROLE_MEMBER };
-
-/**
- * The external population's grade (objectstack#25233, ruling of record
- * 6355206139, letter B): portal users admitted through the organization
- * invite, who reach less than a `member` — no organization endpoint, no member
- * directory, data only through explicit grants. It is exclusive (the server
- * refuses it beside any other role) and never placed in a business unit.
- *
- * ⚠️ SPELLED HERE, not imported, for now. `@objectstack/spec` exports it as
- * `MEMBERSHIP_ROLE_EXTERNAL` since objectstack#25515, and this console must
- * compile against that spec (objectstack builds it at its own `main`). But
- * this repo's pin, `.objectstack-sha`, still names a commit from before
- * #25515, held there until objectstack#25251's spec PR lands (its two PRs ship
- * in one objectstack release). So the console has to compile against both
- * vocabularies: the literal here, and `OrgRole | typeof ORG_ROLE_EXTERNAL`
- * below, which is `OrgRole` itself once the pin carries #25515. When the pin
- * moves past #25515, import the constant like the four above and drop the
- * union: `org-roles.test.ts` goes red on that move and says so.
- */
-export const ORG_ROLE_EXTERNAL = 'external';
+//
+// `ORG_ROLE_EXTERNAL` is the external population's grade (objectstack#25233,
+// ruling of record 6355206139, letter B): portal users admitted through the
+// organization invite, who reach less than a `member` — no organization
+// endpoint, no member directory, data only through explicit grants. It is
+// exclusive (the server refuses it beside any other role) and never placed in
+// a business unit.
+export {
+  ORG_ROLE_OWNER,
+  ORG_ROLE_ADMIN,
+  ORG_ROLE_DELEGATED_ADMIN,
+  ORG_ROLE_MEMBER,
+  ORG_ROLE_EXTERNAL,
+};
 
 export type OrgRole = BuiltinMembershipRole;
 
@@ -84,10 +78,7 @@ export type OrgRole = BuiltinMembershipRole;
 export const ORG_ROLES: readonly OrgRole[] = [...BUILTIN_MEMBERSHIP_ROLES];
 
 /** i18n key + English fallback for a role, so every screen labels it identically. */
-export const ORG_ROLE_LABELS: Record<
-  OrgRole | typeof ORG_ROLE_EXTERNAL,
-  { key: string; defaultValue: string }
-> = {
+export const ORG_ROLE_LABELS: Record<OrgRole, { key: string; defaultValue: string }> = {
   [ORG_ROLE_OWNER]: { key: 'organization.roles.owner', defaultValue: 'Owner' },
   [ORG_ROLE_ADMIN]: { key: 'organization.roles.admin', defaultValue: 'Admin' },
   [ORG_ROLE_DELEGATED_ADMIN]: {

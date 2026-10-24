@@ -20,7 +20,6 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import * as spec from '@objectstack/spec';
 import { INVITATION_ROLE_ANY_ISSUER, INVITATION_ROLE_GRANTORS } from '@objectstack/spec/identity';
 import {
   ORG_ROLES,
@@ -71,19 +70,6 @@ describe('vocabulary', () => {
       key: 'organization.roles.external',
       defaultValue: 'External',
     });
-  });
-
-  it('spells external itself only while the pin predates objectstack#25515', () => {
-    // [tripwire] `org-roles.ts` spells the role because `.objectstack-sha`
-    // names a spec without it. The pin move that brings #25515 turns this red,
-    // which is the reminder to swap the literal for the spec's constant.
-    expect(
-      (spec as Record<string, unknown>).MEMBERSHIP_ROLE_EXTERNAL,
-      'the pin now carries objectstack#25515: in org-roles.ts import MEMBERSHIP_ROLE_EXTERNAL as ' +
-        'ORG_ROLE_EXTERNAL instead of the literal and drop `| typeof ORG_ROLE_EXTERNAL` from ' +
-        'ORG_ROLE_LABELS; then add external to the role lists InviteMemberDialog.roleCap.test.tsx ' +
-        'and org-i18n-holdouts-4474.test.tsx expect, and delete this test',
-    ).toBeUndefined();
   });
 });
 

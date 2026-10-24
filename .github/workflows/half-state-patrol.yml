@@ -142,7 +142,7 @@ jobs:
           node-version: '22'
 
       - name: Sweep the board
-        uses: objectstack-ai/objectstack/.github/actions/half-state-patrol@0c5a71b0942d54e56ad365f0b2a173fd84c1c5e1
+        uses: objectstack-ai/objectstack/.github/actions/half-state-patrol@ba9e0c37492cd65abb19651829910959219d5e01
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           # Empty on purpose, with the opt-in beside it: see "No anchor issue,

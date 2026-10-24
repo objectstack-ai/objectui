@@ -117,23 +117,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { convertFiltersToAST, convertOperatorToAST } from '@object-ui/core';
 import { FILTER_OPERATORS } from '@objectstack/spec/data';
+import { uiRoot } from '../../../scripts/ui-root.mjs';
 
-/** Walk up to the workspace root, so both files are found by repo layout. */
-function repoRoot(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  for (let i = 0; i < 10; i += 1) {
-    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
-    dir = resolve(dir, '..');
-  }
-  throw new Error('repo root (pnpm-workspace.yaml) not found from this test file');
-}
-
-const ROOT = repoRoot();
+const ROOT = uiRoot();
 const README_PATH = 'packages/data-objectstack/README.md';
 const CONVERTER_PATH = 'packages/core/src/utils/filter-converter.ts';
 const README = readFileSync(join(ROOT, README_PATH), 'utf8');

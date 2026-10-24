@@ -103,6 +103,7 @@
     "check:pre-install-import-graph": "node scripts/check-pre-install-import-graph.mjs",
     "check:test-path-roots": "node scripts/check-test-path-roots.mjs",
     "check:vi-mock-specifiers": "node scripts/check-vi-mock-specifiers.mjs",
+    "check:ui-root-lookups": "node scripts/check-ui-root-lookups.mjs",
     "check:vi-mock-inherit": "node scripts/check-vi-mock-inherit.mjs",
     "check:vi-mock-override-shape": "node scripts/check-vi-mock-override-shape.mjs",
     "check:shell-escape-residue": "node scripts/check-shell-escape-residue.mjs",

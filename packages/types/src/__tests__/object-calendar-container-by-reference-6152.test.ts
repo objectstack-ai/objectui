@@ -32,8 +32,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, relative } from 'node:path';
 
 import ts from 'typescript';
 
@@ -45,6 +44,7 @@ import type { ObjectCalendarProps as SpecObjectCalendarProps } from '@objectstac
 import type { ObjectCalendarBlockConfig, ObjectCalendarSchema as TsObjectCalendarSchema } from '../objectql';
 import { ObjectCalendarSchema } from '../zod/objectql.zod.js';
 import { AnyComponentSchema, StrictAnyComponentSchema, safeValidateSchema } from '../zod/index.zod.js';
+import { uiRoot } from '../../../../scripts/ui-root.mjs';
 
 /* ── Instruments ─────────────────────────────────────────────────────────────── */
 
@@ -277,17 +277,7 @@ describe('objectui#6152 round 9 — the TypeScript face is closed the same way',
 
 /* ── 6. The corpus census ───────────────────────────────────────────────────── */
 
-/** Walk up to the workspace root, so the corpus is found by repo layout, never by `process.cwd()`. */
-function repoRoot(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  for (let i = 0; i < 10; i += 1) {
-    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
-    dir = resolve(dir, '..');
-  }
-  throw new Error('repo root (pnpm-workspace.yaml) not found from this test file');
-}
-
-const ROOT = repoRoot();
+const ROOT = uiRoot();
 /**
  * The AUTHORED corpus: the examples and the schema catalog, the docs site, the published
  * skills, the docs tree, the apps (the console's fixtures among them), and every package

@@ -341,10 +341,11 @@ function fsSinkName(node, src, fsBindings) {
  */
 export function rootOf(node, ctx) {
   const { src, binds } = ctx;
+  const uiRootNames = ctx.uiRootNames ?? new Set();
   const depth = ctx.depth ?? 0;
   const appended = ctx.appended ?? false;
   const done = (root) => ({ ...root, appended });
-  const recur = (n, extra = {}) => rootOf(n, { src, binds, depth: depth + 1, appended, ...extra });
+  const recur = (n, extra = {}) => rootOf(n, { src, binds, uiRootNames, depth: depth + 1, appended, ...extra });
 
   if (!node) return done(UNKNOWN('no path argument'));
   // 12 hops is far past anything this tree writes; the bound exists so a
@@ -360,6 +361,8 @@ export function rootOf(node, ctx) {
     // `(globalThis as unknown as {…}).process.cwd()` and any alias of them are
     // one node shape here, which is the point.
     if (name === 'cwd') return done(AMBIENT(`\`${node.expression.getText(src).replace(/\s+/g, ' ')}()\``));
+    // `uiRoot()` from scripts/ui-root.mjs: rooted on that helper's own file.
+    if (name !== null && uiRootNames.has(name) && ts.isIdentifier(node.expression)) return done(SELF(`\`${name}()\` (scripts/ui-root.mjs, rooted on its own file)`));
     if (isModuleResolve(node, src, binds)) return done(MODULE(`${node.expression.getText(src)}(…)`));
     if (ABSOLUTE_PRODUCERS.has(name)) return done(ABSOLUTE(`${name}()`));
     if (PATH_COMBINERS.has(name)) {
@@ -376,7 +379,7 @@ export function rootOf(node, ctx) {
     if (node.expression.getText(src) === 'URL') {
       const args = node.arguments ?? [];
       // `new URL(rel, base)` is rooted at `base` with `rel` appended.
-      if (args.length >= 2) return rootOf(args[1], { src, binds, depth: depth + 1, appended: true });
+      if (args.length >= 2) return rootOf(args[1], { src, binds, uiRootNames, depth: depth + 1, appended: true });
       return recur(args[0]);
     }
     return done(UNKNOWN(`\`new ${node.expression.getText(src).slice(0, 40)}\``));
@@ -393,6 +396,7 @@ export function rootOf(node, ctx) {
 
   if (ts.isIdentifier(node)) {
     if (node.text === '__dirname' || node.text === '__filename') return done(SELF(`\`${node.text}\``));
+    if (uiRootNames.has(node.text)) return done(SELF(`\`${node.text}\` (scripts/ui-root.mjs, rooted on its own file)`));
     const bound = binds.get(node.text);
     if (bound) {
       const r = recur(bound);
@@ -439,6 +443,25 @@ export function rootOf(node, ctx) {
 }
 
 /**
+ * The local names a file imports from `scripts/ui-root.mjs` (objectstack
+ * ruling D1). `uiRoot()` is resolved from THAT module's own location, so a
+ * read rooted on it is self-rooted in the sense this gate means -- anchored on
+ * a file, never on the cwd -- and is classified `self` rather than left blind.
+ * Matched on the specifier's basename, so the relative prefix a test spells
+ * from its own depth does not matter.
+ */
+export function uiRootBindingsOf(src) {
+  const names = new Set();
+  for (const statement of src.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    if (!/(^|\/)ui-root(\.mjs|\.d\.mts|\.mts)?$/.test(statement.moduleSpecifier.text)) continue;
+    const named = statement.importClause?.namedBindings;
+    if (named && ts.isNamedImports(named)) for (const el of named.elements) names.add(el.name.text);
+  }
+  return names;
+}
+
+/**
  * Every `const`/`let` binding in the file, name → initializer. First
  * declaration wins, and a later assignment to a `let` is deliberately NOT
  * followed: two initializers is two roots, and this gate answers `unknown`
@@ -472,6 +495,7 @@ export function sitesIn(file, text) {
   );
   const binds = bindingsOf(src);
   const fsBindings = fsBindingsOf(src);
+  const uiRootNames = uiRootBindingsOf(src);
   /** @type {Array<{ file: string, line: number, sink: string, kind: string, appended: boolean, why: string, text: string }>} */
   const sites = [];
 
@@ -480,7 +504,7 @@ export function sitesIn(file, text) {
       const name = fsSinkName(node, src, fsBindings);
       if (name) {
         const arg = node.arguments[0];
-        const root = rootOf(arg, { src, binds });
+        const root = rootOf(arg, { src, binds, uiRootNames });
         sites.push({
           file,
           line: src.getLineAndCharacterOfPosition(node.getStart(src)).line + 1,
@@ -633,6 +657,16 @@ export function selfTest() {
   run('a promise-API sink', `${head}import { readFile } from 'node:fs/promises';\nawait readFile(join(process.cwd(), 'a/b.ts'));`, 'fires');
 
   // ── SILENT ───────────────────────────────────────────────────────────────
+  run(
+    'a read rooted on `uiRoot()` from scripts/ui-root.mjs (objectstack ruling D1)',
+    `${head}import { uiRoot } from '../../../../scripts/ui-root.mjs';\nreadFileSync(join(uiRoot(), 'packages/x/y.ts'), 'utf8');`,
+    'silent',
+  );
+  run(
+    'a read rooted on the imported `UI_ROOT` constant',
+    `${head}import { UI_ROOT } from '../../scripts/ui-root.mjs';\nconst DOC = join(UI_ROOT, 'content/docs/x.mdx');\nreadFileSync(DOC, 'utf8');`,
+    'silent',
+  );
   run(
     'the landed repair: bare `import.meta.url` taken apart by hand',
     `${head}const REPO_ROOT = decodeURIComponent(new URL(import.meta.url).pathname).split('/').slice(0, -5).join('/');\nreadFileSync(join(REPO_ROOT, 'packages/x/y.ts'));`,

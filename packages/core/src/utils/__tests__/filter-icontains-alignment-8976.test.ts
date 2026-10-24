@@ -58,24 +58,15 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { FILTER_OPERATORS, VALID_AST_OPERATORS } from '@objectstack/spec/data';
 import { convertFiltersToAST, convertOperatorToAST } from '../filter-converter';
 import { ValueDataSource } from '../../adapters/ValueDataSource';
-
-function repoRoot(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  for (let i = 0; i < 10; i += 1) {
-    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
-    dir = resolve(dir, '..');
-  }
-  throw new Error('repo root (pnpm-workspace.yaml) not found from this test file');
-}
+import { uiRoot } from '../../../../../scripts/ui-root.mjs';
 
 const ADAPTERS_README_PATH = 'packages/core/src/adapters/README.md';
-const ADAPTERS_README = readFileSync(join(repoRoot(), ADAPTERS_README_PATH), 'utf8');
+const ADAPTERS_README = readFileSync(join(uiRoot(), ADAPTERS_README_PATH), 'utf8');
 
 /**
  * The `$`-spellings `packages/core/src/adapters/README.md` tells an author to

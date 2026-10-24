@@ -54,32 +54,15 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { stripComments } from 'jsonc-parser';
 
 import { FlowSchema } from '@objectstack/spec/automation';
+import { uiRoot } from '../../../../../../scripts/ui-root.mjs';
 
-/**
- * Walk up to the workspace root, so the README is found by repo layout.
- *
- * Anchored on this file's own naked `import.meta.url`, never on
- * `process.cwd()`: the cwd differs between a repo-root vitest invocation and a
- * package-level one, and an assertion that reads the filesystem would otherwise
- * grade a different tree depending on how it was started.
- */
-function repoRoot(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  for (let i = 0; i < 12; i += 1) {
-    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
-    dir = resolve(dir, '..');
-  }
-  throw new Error('repo root (pnpm-workspace.yaml) not found from this test file');
-}
-
-const README = join(repoRoot(), 'packages/app-shell/README.md');
+const README = join(uiRoot(), 'packages/app-shell/README.md');
 
 const SECTION_HEADING = '\n### Visual flow canvas\n';
 const ANCHOR = '**JSON shape** (a `flow` draft):';

@@ -49,8 +49,7 @@
  * files.
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DashboardWidgetOptionsSchema, DashboardWidgetSchema } from '@objectstack/spec/ui';
 // @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
@@ -59,6 +58,7 @@ import {
   CONSUMED_WIDGET_OPTION_KEYS,
   UNCONSUMED_WIDGET_OPTION,
 } from '../dashboard-widget-options.js';
+import { uiRoot } from '../../../../scripts/ui-root.mjs';
 
 /**
  * The RETIRED metric sub-caption key (objectui#4032 item 4, objectui#7293;
@@ -69,16 +69,8 @@ import {
  */
 const SUBCAPTION_KEY = 'description';
 
-/** Repo root, located by marker file — never by counting `..` segments. */
-const repoRoot = (() => {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  while (!existsSync(join(dir, 'pnpm-workspace.yaml'))) {
-    const parent = dirname(dir);
-    if (parent === dir) throw new Error('pnpm-workspace.yaml not found above test file');
-    dir = parent;
-  }
-  return dir;
-})();
+/** Repo root, resolved by the shared helper so the same file reads the same tree standalone and under `ui/`. */
+const repoRoot = uiRoot();
 
 const DATASET_WIDGET = join(repoRoot, 'packages/plugin-dashboard/src/DatasetWidget.tsx');
 const DASHBOARD_RENDERER = join(repoRoot, 'packages/plugin-dashboard/src/DashboardRenderer.tsx');

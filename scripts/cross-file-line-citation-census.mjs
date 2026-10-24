@@ -274,6 +274,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
 import { isEntrypoint } from './invoked-as.mjs';
+import { uiRoot } from './ui-root.mjs';
 
 /**
  * Extensions that make `NAME.ext:NNN` a source address. Kept in step with
@@ -1095,7 +1096,7 @@ export function finalVerdict({ controls, classifier, declaration = [], populatio
 }
 
 function main(argv) {
-  const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  const root = uiRoot();
   const head = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
   const asJson = argv.includes('--json');
   const listAll = argv.includes('--list-all');

@@ -147,6 +147,7 @@ import {
   scanFile,
 } from './cross-file-line-citation-census.mjs';
 import { isEntrypoint } from './invoked-as.mjs';
+import { uiRoot } from './ui-root.mjs';
 
 /**
  * `report-only` | `blocking`. THE flip, and the only one.
@@ -410,11 +411,17 @@ export function resolveBase(root, argv, env) {
  * useful before a commit exists, and a reading that ignored uncommitted edits
  * would tell an author their new citation is fine right up until CI disagrees.
  * Untracked files are collected separately for the same reason.
+ *
+ * `--relative`: paths come back relative to `root` (the objectui tree, from
+ * `scripts/ui-root.mjs`), not to the git toplevel. Standalone the two are the
+ * same directory and the flag changes nothing; inside the objectstack monorepo
+ * (objectui as `ui/`) it confines the reading to this tree and keeps every
+ * path joinable with `root`, which is also why `blobAt` spells `rev:./path`.
  */
 export function changedPaths(root, mergeBase) {
   const status = execFileSync(
     'git',
-    ['diff', '--name-status', '-M', '--diff-filter=ACMRT', mergeBase, '--'],
+    ['diff', '--name-status', '-M', '--relative', '--diff-filter=ACMRT', mergeBase, '--'],
     { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
   );
   const map = new Map();
@@ -437,11 +444,11 @@ export function changedPaths(root, mergeBase) {
   return map;
 }
 
-/** The blob at `rev:path`, or `null` when the path did not exist there. */
+/** The blob at `rev:./path` (`path` relative to `root`, the cwd), or `null` when the path did not exist there. */
 function blobAt(root, rev, path) {
   if (path === null) return null;
   try {
-    return execFileSync('git', ['show', `${rev}:${path}`], {
+    return execFileSync('git', ['show', `${rev}:./${path}`], {
       cwd: root,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
@@ -461,7 +468,7 @@ function scannable(relPath) {
 }
 
 function main(argv, env = process.env) {
-  const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  const root = uiRoot();
   const head = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
     cwd: root,
     encoding: 'utf8',

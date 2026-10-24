@@ -67,6 +67,7 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
+import { uiRoot } from '../../../../scripts/ui-root.mjs';
 
 /**
  * The repo root, derived from THIS FILE's own location — never from
@@ -124,7 +125,7 @@ describe('browser `process` shim scope (objectui#6809)', () => {
     // still made and still checked.
     expect(isAbsolute(cwd)).toBe(true);
     expect(existsSync(cwd)).toBe(true);
-    expect(existsSync(join(REPO_ROOT, 'pnpm-workspace.yaml'))).toBe(true);
+    expect(REPO_ROOT).toBe(uiRoot());
   });
 
   it('sees node\'s process surface, not the two-property browser shim', () => {

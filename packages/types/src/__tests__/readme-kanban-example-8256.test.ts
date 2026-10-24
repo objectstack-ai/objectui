@@ -44,23 +44,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { safeValidateSchema } from '../zod/index.zod';
+import { uiRoot } from '../../../../scripts/ui-root.mjs';
 
-/** Walk up to the workspace root, so the README is found by repo layout. */
-function repoRoot(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  for (let i = 0; i < 10; i += 1) {
-    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
-    dir = resolve(dir, '..');
-  }
-  throw new Error('repo root (pnpm-workspace.yaml) not found from this test file');
-}
-
-const README = join(repoRoot(), 'README.md');
+const README = join(uiRoot(), 'README.md');
 const HEADING = 'Kanban Board';
 
 /** The README section this example lives in, bounded to its own heading. */

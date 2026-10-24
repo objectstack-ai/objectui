@@ -54,15 +54,15 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { z } from 'zod';
 import { ChartTypeSchema as SpecChartTypeSchema, type ChartType as SpecChartType } from '@objectstack/spec/ui';
 import { enumOptions, shapeEnumOptions } from '@object-ui/test-support';
 import { ChartSchema } from '../zod/data-display.zod.js';
 import { safeValidateSchema, StrictAnyComponentSchema } from '../zod/index.zod.js';
 import type { ChartSchema as ChartSchemaType, ChartType } from '../data-display.js';
+import { uiRoot } from '../../../../scripts/ui-root.mjs';
 
 interface Issue {
   code: string;
@@ -73,23 +73,13 @@ interface Issue {
 const issuesOf = (r: { success: boolean; error?: { issues: unknown[] } }): Issue[] =>
   r.success ? [] : (r.error!.issues as Issue[]);
 
-/** Walk up to the workspace root from this file, so the page is found by repo layout. */
-function repoRoot(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  for (let i = 0; i < 10; i += 1) {
-    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
-    dir = resolve(dir, '..');
-  }
-  throw new Error('repo root (pnpm-workspace.yaml) not found from this test file');
-}
-
 const DOC = 'content/docs/api/schema-reference.md';
 const HEADING = '\n### ChartSchema\n';
 const ROW_PREFIX = '| `chartType` |';
 
 /** The `chartType` row of the `ChartSchema` table, split into its cells. */
 function chartTypeRow(): string[] {
-  const src = readFileSync(join(repoRoot(), DOC), 'utf8');
+  const src = readFileSync(join(uiRoot(), DOC), 'utf8');
   const start = src.indexOf(HEADING);
   if (start < 0) throw new Error(`"${HEADING.trim()}" heading not found in ${DOC}: the section moved`);
   const end = src.indexOf('\n### ', start + HEADING.length);

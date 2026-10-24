@@ -75,11 +75,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { BLOCK_CONFIG, type BlockPropField, type PlaceholderSpec } from '../block-config';
 import { t } from '../../i18n';
+import { uiRoot } from '../../../../../../../scripts/ui-root.mjs';
 
 const PREFIX = 'engine.inspector.pageBlock';
 
@@ -535,18 +535,7 @@ describe('placeholders that must NOT be translated (#3979)', () => {
  *  doc line) must not resurrect one. */
 const POSITIONAL_FAMILIES = new Set(['field', 'add', 'option', 'placeholder']);
 
-/** Repo root, found by walking UP to the workspace manifest rather than by
- *  counting `..` segments, so moving this file retargets nothing silently. */
-function repoRoot(): string {
-  let dir = path.dirname(fileURLToPath(import.meta.url));
-  for (let i = 0; i < 12; i += 1) {
-    if (existsSync(path.join(dir, 'pnpm-workspace.yaml'))) return dir;
-    dir = path.dirname(dir);
-  }
-  throw new Error('could not locate the repo root (no pnpm-workspace.yaml above this file)');
-}
-
-const ROOT = repoRoot();
+const ROOT = uiRoot();
 const I18N_SOURCE_PATH = path.join(
   ROOT,
   'packages/app-shell/src/views/metadata-admin/i18n.ts',

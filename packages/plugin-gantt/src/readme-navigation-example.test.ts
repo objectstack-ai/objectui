@@ -92,23 +92,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { NavigationConfigSchema } from '@objectstack/spec/ui';
+import { uiRoot } from '../../../scripts/ui-root.mjs';
 
-/** Walk up to the workspace root, so the README is found by repo layout. */
-function repoRoot(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  for (let i = 0; i < 10; i += 1) {
-    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
-    dir = resolve(dir, '..');
-  }
-  throw new Error('repo root (pnpm-workspace.yaml) not found from this test file');
-}
-
-const README = join(repoRoot(), 'packages/plugin-gantt/README.md');
+const README = join(uiRoot(), 'packages/plugin-gantt/README.md');
 
 /** The bullet that documents the override, and the sentence that introduces it. */
 const SECTION_HEADING = '\n### Create / Edit / Delete / View\n';

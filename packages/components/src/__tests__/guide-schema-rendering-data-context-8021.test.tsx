@@ -73,29 +73,14 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import '../renderers';
 import { SchemaRenderer, SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
 import type { DataSource, TextSchema } from '@object-ui/types';
+import { uiRoot } from '../../../../scripts/ui-root.mjs';
 
-/**
- * Anchored on this file's own naked `import.meta.url`, never on
- * `process.cwd()`: the cwd differs between a repo-root vitest invocation and a
- * package-level one, and an assertion that reads the filesystem would otherwise
- * grade a different tree depending on how it was started (AGENTS.md).
- */
-function repoRoot(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  for (let i = 0; i < 12; i += 1) {
-    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
-    dir = resolve(dir, '..');
-  }
-  throw new Error('repo root (pnpm-workspace.yaml) not found from this test file');
-}
-
-const ROOT = repoRoot();
+const ROOT = uiRoot();
 const GUIDE = 'content/docs/guide/schema-rendering.md';
 const readDoc = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8');
 

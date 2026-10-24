@@ -67,6 +67,7 @@ import type {
   NavigationOverlayState,
   UseNavigationOverlayOptions,
 } from '../useNavigationOverlay';
+import { uiRoot } from '../../../../../scripts/ui-root.mjs';
 
 /* ------------------------------------------------------------------ *
  * COMPILE-TIME half — erased at runtime. `tsc -p tsconfig.test.json`
@@ -260,7 +261,7 @@ const DIRECT_TWO_ARGUMENT_CALL = /\bonRowClick\(\s*record\s*,\s*event\s*\)/;
 
 describe('the instrument can fire (controls)', () => {
   it('anchors on this file, not on the cwd', () => {
-    expect(existsSync(path.join(repoRoot, 'pnpm-workspace.yaml'))).toBe(true);
+    expect(repoRoot).toBe(uiRoot());
     expect(existsSync(HOOK_ABS)).toBe(true);
   });
 

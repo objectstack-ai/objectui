@@ -50,6 +50,7 @@ import {
 } from '../recordActivityFeed';
 // @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
 import { maskComments } from '../../../../../scripts/js-comment-mask.mjs';
+import { uiRoot } from '../../../../../scripts/ui-root.mjs';
 
 /** Local annotation, since the import above is untyped — the call site stays checked. */
 const mask: (source: string) => string = maskComments;
@@ -130,7 +131,7 @@ describe('the producer census the unproduced-kind diagnostic reads (objectui#587
     // Every assertion below is of the form "the scan found no producer the
     // census missed", which a broken walk satisfies trivially. These are the
     // guards that make a silent narrowing loud instead.
-    expect(existsSync(path.join(repoRoot, 'pnpm-workspace.yaml'))).toBe(true);
+    expect(repoRoot).toBe(uiRoot());
     expect(sourceFiles.length).toBeGreaterThan(1000);
     for (const top of ['packages', 'apps', 'examples', 'scripts']) {
       expect(

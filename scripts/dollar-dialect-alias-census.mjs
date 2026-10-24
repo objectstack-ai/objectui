@@ -132,6 +132,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { isEntrypoint } from './invoked-as.mjs';
+import { uiRoot } from './ui-root.mjs';
 
 /** The file whose `operatorMap` defines the accepted `$`-dialect. */
 export const CONVERTER_PATH = 'packages/core/src/utils/filter-converter.ts';
@@ -546,7 +547,7 @@ export async function runCensus(root) {
 }
 
 async function main(argv) {
-  const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  const root = uiRoot();
   const head = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
   const asJson = argv.includes('--json');
   const listAll = argv.includes('--list-all');

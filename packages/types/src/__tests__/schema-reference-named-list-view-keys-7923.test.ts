@@ -60,26 +60,16 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 // @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
 import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+import { uiRoot } from '../../../../scripts/ui-root.mjs';
 
 /** Local annotation, since the import above is untyped — the call site stays checked. */
 const mask: (source: string) => string = maskComments;
 
-/** Walk up to the workspace root, so both sources are found by repo layout. */
-function repoRoot(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  for (let i = 0; i < 10; i += 1) {
-    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
-    dir = resolve(dir, '..');
-  }
-  throw new Error('repo root (pnpm-workspace.yaml) not found from this test file');
-}
-
-const ROOT = repoRoot();
+const ROOT = uiRoot();
 const DOC = 'content/docs/api/schema-reference.md';
 const DECLARATION = 'packages/types/src/objectql.ts';
 const HEADING = '\n### ObjectViewSchema\n';

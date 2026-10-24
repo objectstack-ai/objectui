@@ -74,6 +74,7 @@ import type { CalendarEvent as AuthoringCalendarEvent } from '@object-ui/types';
 // the old name still compiles" leg: if the alias stopped being a working
 // export, this file would not compile.
 import type { CalendarViewEvent, CalendarEvent as DeprecatedRuntimeAlias } from '../index';
+import { uiRoot } from '../../../../scripts/ui-root.mjs';
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;
@@ -167,23 +168,9 @@ describe('the CalendarEvent name collision stays resolved', () => {
     // `CalendarEvent` and this would fail — the compile-time pins above would
     // not, because they read whatever that name resolves to.
     const typesSrc = readFileSync(
-      join(repoRoot(), 'packages/types/src/complex.ts'),
+      join(uiRoot(), 'packages/types/src/complex.ts'),
       'utf8',
     );
     expect(typesSrc).toContain('export interface CalendarEvent {');
   });
 });
-
-/** Walk up to the workspace root, so the type source is found by repo layout. */
-function repoRoot(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  for (let i = 0; i < 10; i += 1) {
-    try {
-      readFileSync(join(dir, 'pnpm-workspace.yaml'));
-      return dir;
-    } catch {
-      dir = resolve(dir, '..');
-    }
-  }
-  throw new Error('repo root (pnpm-workspace.yaml) not found from this test file');
-}

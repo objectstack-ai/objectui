@@ -57,6 +57,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { DataSource } from '@object-ui/types';
 import type { useRecordContext, RecordContextValue } from '../RecordContext';
+import { uiRoot } from '../../../../../scripts/ui-root.mjs';
 
 /* ------------------------------------------------------------------ *
  * Compile-time half — erased at runtime; `tsc -p tsconfig.test.json`
@@ -254,7 +255,7 @@ const KNOWN_CONSUMERS = [
 
 describe('the instrument can fire (controls)', () => {
   it('anchors on this file, not on the cwd', () => {
-    expect(existsSync(path.join(repoRoot, 'pnpm-workspace.yaml'))).toBe(true);
+    expect(repoRoot).toBe(uiRoot());
     expect(existsSync(path.join(repoRoot, 'packages/react/src/context/RecordContext.tsx'))).toBe(
       true,
     );

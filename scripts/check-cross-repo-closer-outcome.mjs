@@ -131,6 +131,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isMap, isSeq, parseDocument } from 'yaml';
 import { isEntrypoint } from './invoked-as.mjs';
+import { uiRoot } from './ui-root.mjs';
 
 const WORKFLOW = '.github/workflows/cross-repo-issue-closer.yml';
 const JOB = 'close-foreign-issues';
@@ -140,7 +141,7 @@ const THIS_REPO = { owner: 'objectstack-ai', repo: 'objectui' };
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
 function repoRoot() {
-  return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  return uiRoot();
 }
 
 // ── Extraction ──────────────────────────────────────────────────────────────

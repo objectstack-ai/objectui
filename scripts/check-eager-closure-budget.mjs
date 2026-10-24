@@ -1283,8 +1283,92 @@ import { isEntrypoint } from './invoked-as.mjs';
  * are measurements, not ceilings; the 350 KB entry-chunk budget in
  * `.github/workflows/performance-budget.yml`; and every other gate. No import
  * was made lazy and no exemption was added.
+ *
+ * ## ⭐ LOWERED WHEN THE CHAT UI LEFT THE FIRST LOAD (objectui#13410)
+ *
+ * From 3,834,000 to 3,579,945: down by 254,055 bytes, exactly what
+ * objectui#13410 took out of the closure. Lowered by the amount recovered, as
+ * the objectui#11854 entry above was: ⛔ not re-derived as the new reading plus
+ * half a regression and ⛔ not rounded. Left where it was, the ceiling sat
+ * 744.1 KB over the new reading, past {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES},
+ * and {@link evaluateHeadroomSensitivity} called it blind (exit 2) on the
+ * branch build: that is the re-pin the gate asked for.
+ *
+ * WHAT LEFT — two console builds, one container, one instrument:
+ * `CI=true pnpm exec vite build` in `apps/console`, reading the
+ * `eager-closure.json` the build writes. `7981384` is `main`, in a worktree of
+ * its own; `b6f11d3` is that tree plus objectui#13410's source change and
+ * nothing else. Gzipped bytes:
+ *
+ *   | chunk                          | `7981384` | `b6f11d3` |    delta |
+ *   |--------------------------------|----------:|----------:|---------:|
+ *   | `plugin-chatbot`               |   173,666 |         — | -173,666 |
+ *   | `vendor-markdown`              |   102,901 |    13,351 |  -89,550 |
+ *   | `vendor-react-markdown`        |     1,146 |    23,928 |  +22,782 |
+ *   | `ui-components`                |   296,133 |   308,400 |  +12,267 |
+ *   | `plugin-chatbot-core`, new     |         — |     5,735 |   +5,735 |
+ *   | everything else                | 1,006,784 |   975,161 |  -31,623 |
+ *   | ⇒ aggregate                    | 3,326,111 | 3,072,056 | -254,055 |
+ *
+ * The builds weigh 78 of 2262 chunks (`7981384`) and 85 of 2291 (`b6f11d3`).
+ * `vendor-objectstack`, `framework` and `i18n-locale-en` read the same to the
+ * byte in both.
+ *
+ *   - THE MECHANISM. `@object-ui/app-shell` imported `useAgents` and a few
+ *     pure helpers from the `@object-ui/plugin-chatbot` package root in eager
+ *     modules, `ConsoleLayout` imported the dock that mounts `ChatPane`
+ *     statically, and `App.tsx` imported the `/ai` page and the `/s/:token`
+ *     share page statically. Any one of those kept the whole `plugin-chatbot`
+ *     group eager. The helpers now come from the side-effect-free
+ *     `@object-ui/plugin-chatbot/core`, whose modules the `plugin-chatbot-core`
+ *     group in `apps/console/vite.config.ts` keeps out of the chat chunk; the
+ *     dock body and both pages load through `lazy()`.
+ *   - `vendor-markdown` is the objectui#11854 entry's "what it did NOT
+ *     recover": the 243 modules `streamdown` reaches, eager only because
+ *     `plugin-chatbot` was. Most of them follow it out. What stays is reached
+ *     by `MarkdownContent` in `packages/fields`, the objectui#5325 co-tenant of
+ *     the eager `ui-components` chunk that only `React.lazy` reaches: those
+ *     modules no longer carry the `$initial` reach `vendor-markdown`'s tag
+ *     claims by, so `react-markdown`'s own group and `ui-components` capture
+ *     them instead. That is the +22,782 and the +12,267 (60 modules in
+ *     `ui-components`, the `remark-gfm` family and `mdast-util-to-markdown`).
+ *     They were eager before this change and are eager after it, on other
+ *     lines: ⛔ not new first-load bytes.
+ *   - EVERYTHING ELSE, net -31,623, is spread over the shared application
+ *     chunks rolldown regroups: the branch build has seven eager chunks the
+ *     control does not (`useMetadata`'s bytes come back under the name `i18n`,
+ *     ⛔ not new). By module, what left is the `/ai` page and what only it and
+ *     the dock body reach: `AiChatPage`, `useChatConversation`,
+ *     `ConversationsSidebar`, `BuildDebugDrawer`, `ExcelImportBar`,
+ *     `PendingDraftsBar`, `LiveCanvas`, the Studio publish-error helpers
+ *     `metadataError` and `flow-node-config` that page imports, and the
+ *     console's `SharedRecordPage`. What joined is the console's
+ *     `registerChatbotComponents.ts` and the small modules the change
+ *     split out, 1,299 bytes gzipped as modules. Read from the visualizer
+ *     report (`dist/stats.html`) of a build of each tree without `CI=true`,
+ *     which wrote the same `eager-closure.json` figures to the byte.
+ *
+ * Headroom 507,889 bytes = 0.71x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}
+ * over {@link BASELINE}: exactly the headroom `main` had on `7981384` before
+ * this change (3,834,000 − 3,326,111), because the ceiling came down by the
+ * aggregate's own delta. No build that passed before this edit and measures
+ * under 3,579,945 fails after it.
+ *
+ * ⚠️ The `7981384` build, which is this change reverted, still PASSES under the
+ * new line, with 253,834 bytes of headroom: 254,055 is well inside the
+ * 695 KiB band the objectui#12653 ruling accepted, so this line is ⛔ not what
+ * would catch the chat UI coming back into the first load. `plugin-chatbot`
+ * has no per-chunk row and gets none (a new gate is not this change's to
+ * add); a regression shows as `plugin-chatbot` in the largest-chunks list
+ * `pnpm check:eager-closure` prints and the `Bundle Analysis` comment carries.
+ *
+ * ⛔ What moved with it, and what did not. None of the four per-chunk rows.
+ * `ui-components` grew by the 12,267 bytes above and still sits under its
+ * 347,000 ceiling; the other three budgeted chunks did not move, so
+ * {@link PER_CHUNK_GZIP_CEILINGS} and {@link PER_CHUNK_BASELINE} stand. Not
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added.
  */
-export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_834_000;
+export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_579_945;
 
 /**
  * The measurement the ceiling above was derived from. Exported so the two
@@ -1296,6 +1380,22 @@ export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_834_000;
 export const BASELINE = Object.freeze({
   /**
    * `emitEagerClosureReport`'s `eagerGzipBytes` on this commit.
+   *
+   * `b6f11d3` is objectui#13410's branch commit: `main` at `7981384` plus the
+   * change that takes the chat UI out of the first load, re-pinned with the
+   * ceiling it was lowered with (the objectui#13410 entry on
+   * {@link MAX_EAGER_CLOSURE_GZIP_BYTES} carries its table and its `7981384`
+   * control, ⛔ not restated here). It is a branch commit for the reason the
+   * paragraphs below give for `c1d378ec`: the pull request's own diff is what
+   * moved the figure. Measured by `CI=true pnpm exec vite build` in
+   * `apps/console` (exit 0), reading `apps/console/dist/eager-closure.json`,
+   * in the same container as the `7981384` control build. The commit after
+   * `b6f11d3` on the branch (this re-pin, the changeset) reaches no bundler
+   * input, so it cannot move the figure it pins.
+   *
+   * ⚠️ The paragraph below describes the reading this one superseded, the
+   * previous baseline `5488ae7` (3,122,463 across 72 of 2255 chunks), kept as
+   * its provenance.
    *
    * `5488ae7` is objectui#12030's branch commit: `main` at `cea429b` with
    * `@objectstack/*` 18.0.0-next.0 resolved and the bump's own edits, re-pinned
@@ -1447,10 +1547,10 @@ export const BASELINE = Object.freeze({
    * and not from `main` once it is squash-merged — the dead end objectui#9355
    * added `squashMerge` below to route around.
    */
-  gzipBytes: 3_122_463,
-  chunks: 72,
-  totalChunks: 2255,
-  commit: '5488ae7',
+  gzipBytes: 3_072_056,
+  chunks: 85,
+  totalChunks: 2291,
+  commit: 'b6f11d3',
 
   /**
    * The squash merge that carried the reading above onto `main`, recorded when
@@ -1460,7 +1560,7 @@ export const BASELINE = Object.freeze({
    *
    * `null` since objectui#10996, and `null` again after objectui#11101,
    * objectui#11438, objectui#11717, objectui#11798, objectui#11854,
-   * objectui#11939 and objectui#12030, deliberately. This field can only ever be BACK-FILLED: a squash sha does
+   * objectui#11939, objectui#12030 and objectui#13410, deliberately. This field can only ever be BACK-FILLED: a squash sha does
    * not exist until the pull request merges, so the change that re-pins the
    * field above ⛔ cannot write its own here. ⛔ Do not guess one: a wrong sha in
    * this position is worse than an absent one, because it RESOLVES, and a
@@ -2214,10 +2314,16 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * `@objectstack/spec` entry left the first load with the designers),
  * `ui-components` by −19, `framework` by +10 and `i18n-locale-en` by 0, every
  * ceiling stayed in range, and no ceiling moved. objectui#12030 re-pinned the
- * aggregate onto BASELINE's `5488ae7` and `vendor-objectstack` with it, from
+ * aggregate onto `5488ae7` and `vendor-objectstack` with it, from
  * the same build, when the objectstack#22044 payback lowered both lines; the
  * other three keys moved by at most 846 bytes across its two builds and stayed
- * where they were. The aggregate is the later reading for every other key:
+ * where they were. objectui#13410 re-pinned the aggregate onto
+ * BASELINE's `b6f11d3` and left every key where it was: across its two builds
+ * `vendor-objectstack`, `framework` and `i18n-locale-en` moved by 0 bytes and
+ * `ui-components` by +12,267 (the markdown modules its entry on
+ * {@link MAX_EAGER_CLOSURE_GZIP_BYTES} attributes), every ceiling stayed in
+ * range, and no ceiling moved. `vendor-objectstack` is therefore still the
+ * `5488ae7` reading moved by objectui#12626's measured delta. The aggregate is the later reading for every other key:
  * `bbf6b02d9` (2026-09-13, objectui#9251) for `ui-components`, and `3f775eeb8`
  * for `framework`. ⚠️ `i18n-locale-en`'s commit was `755d34a5f` when it
  * was taken and the aggregate has moved on since, which is exactly why the two

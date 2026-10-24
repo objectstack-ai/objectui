@@ -51,7 +51,7 @@
  * case in this file. What refuses it is the POPULATED block: real markdown
  * still renders its elements, real HTML still renders SANITISED — pinned to
  * the sanitiser's exact output bytes, so a repair that shortcut the populated
- * branch past `sanitizeHtml` fails on bytes, not on a count — and real
+ * branch past the sanitizer fails on bytes, not on a count — and real
  * richtext still renders. Each was RUN against the caricature; the observed
  * failure sentences are recorded in the PR.
  *
@@ -127,8 +127,8 @@ const HOSTILE_HTML =
   '<img src="x" onerror="alert(2)">' +
   '<a href="javascript:alert(3)">go</a>';
 
-/** What `sanitizeHtml` makes of {@link HOSTILE_HTML} — the bytes, not a count. */
-const HOSTILE_HTML_SANITISED = '<p>ok</p><img src="x"><a href="#">go</a>';
+/** What the sanitizer makes of {@link HOSTILE_HTML} — the bytes, not a count. */
+const HOSTILE_HTML_SANITISED = '<p>ok</p><img src="x"><a>go</a>';
 
 /** What a WYSIWYG editor actually emits, beyond the seed's two tags. */
 const WYSIWYG_DOCUMENT = [
@@ -241,10 +241,10 @@ describe('objectui#8580 — a rich-content cell holding [] or {} says what it ho
 
       const prose = container.querySelector('div.prose');
       expect(prose, 'html: a populated value must still open its prose container').not.toBeNull();
-      // The bytes, not a count: this is what `sanitizeHtml` produces for the
+      // The bytes, not a count: this is what the sanitizer produces for the
       // hostile document, so a populated branch that stopped running through
       // it — or a sanitiser that changed — fails here on content.
-      expect(prose?.innerHTML, 'html: the populated branch must still run through sanitizeHtml').toBe(HOSTILE_HTML_SANITISED);
+      expect(prose?.innerHTML, 'html: the populated branch must still run through the sanitizer').toBe(HOSTILE_HTML_SANITISED);
       expect(prose?.querySelector('script'), 'html: script blocks must still be stripped').toBeNull();
       expect(affordance(container), 'html: a populated value must NOT render the affordance').toBeNull();
     });
@@ -254,7 +254,7 @@ describe('objectui#8580 — a rich-content cell holding [] or {} says what it ho
 
       const prose = container.querySelector('div.prose');
       expect(prose, 'richtext: a populated value must still open its prose container').not.toBeNull();
-      expect(prose?.innerHTML, 'richtext: the populated branch must still run through sanitizeHtml').toBe(HOSTILE_HTML_SANITISED);
+      expect(prose?.innerHTML, 'richtext: the populated branch must still run through the sanitizer').toBe(HOSTILE_HTML_SANITISED);
       expect(affordance(container), 'richtext: a populated value must NOT render the affordance').toBeNull();
     });
 

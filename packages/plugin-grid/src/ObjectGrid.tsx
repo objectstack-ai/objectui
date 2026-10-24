@@ -813,6 +813,23 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
    */
   rowOperations?: (record: any) => ObjectGridRowOperations | null | undefined;
   /**
+   * [objectui#13330] A host-drawn node beside ONE row's title: the cell of the
+   * object's declared name field when a column shows it, else the first shown
+   * column (the row actions are never it), and the title of the row's card in
+   * the card view. Called with the row record; `null` / `undefined` draws
+   * nothing, and so does an absent prop, so a caller that passes nothing
+   * renders exactly what it rendered before this prop existed.
+   *
+   * The console's Users list on a managed environment passes a marker for a
+   * user who holds nothing beyond the baseline. What the node says is the
+   * host's; the grid only places it, after the cell's own content and never in
+   * place of it, so the value, its link and its mask all stay as drawn.
+   *
+   * A RUNTIME prop, never authored metadata: it is a React node a host
+   * composes, nothing an author writes, and no node key reaches it.
+   */
+  rowAdornment?: (record: any) => React.ReactNode;
+  /**
    * TWO parameters since objectui#9357, and the second is not decoration: this
    * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
    * invokes it as `onRowClick(record, event)` — the modifier payload a host
@@ -1744,6 +1761,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   onEdit,
   onDelete,
   rowOperations,
+  rowAdornment,
   onBulkDelete,
   onRowSelect,
   onRowClick,
@@ -4017,7 +4035,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             if (objectDefField) {
               // The label the header above prints — `header`, resolved once
               // (objectui#11689). A face that names its own column (the
-              // boolean face's "LABEL — Off" badge) reads `field.label`, so
+              // boolean face's checkbox, by its accessible name) reads
+              // `field.label`, so
               // handing it the authored label made a translated header sit
               // over a cell naming the column in the authored language. Handed
               // where the authored label used to be, so an unlabelled field
@@ -5027,9 +5046,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // column from a text one. It floors a chip column at its widest drawn
       // chip. Written only when true, so every other column is unchanged.
       const chips = !masked && isChipFieldType(producerType ?? objectFields?.[col.accessorKey]?.type);
+      // objectui#13377 — THE FOREIGN-KEY FLAG, for the same reason again: the
+      // fold drops `lookup` / `master_detail` / `tree` / `user`, so `data-table`
+      // could not tell that the raw value its cell `title` shows is the
+      // referenced record's id. Read from the same type as the chip flag (the
+      // authored one first), the one the cell is drawn by: a view that authors
+      // `type: 'text'` over a lookup draws the id as text, and keeps the
+      // tooltip. A masked column already carries none. Written only when true.
+      const foreignKey = !masked && isExpandableFieldType({ type: producerType ?? objectFields?.[col.accessorKey]?.type });
       const rest = masked
         ? { ...draft, masked: true }
-        : chips ? { ...draft, chips: true } : draft;
+        : { ...draft, ...(chips ? { chips: true } : {}), ...(foreignKey ? { foreignKey: true } : {}) };
       if (producerType == null) return rest;
       const normalized = normalizeTableColumnType(producerType);
       if (normalized === undefined) return rest;
@@ -6160,6 +6187,36 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     ? hostOnSearchChange
     : setSearchTerm;
 
+  // objectui#13330 — the host's node beside each row's title (`rowAdornment`):
+  // in the declared name field's column when one is shown, else the first
+  // shown column. After the cell's own content, never in place of it.
+  const tableColumns = (() => {
+    if (!rowAdornment) return orderedColumns;
+    const declaredTitle = declaredNameField(objectSchema);
+    const shown = (orderedColumns as any[]).filter((c) => c?.accessorKey !== '_actions');
+    const titleColumn =
+      (typeof declaredTitle === 'string' && declaredTitle !== ''
+        ? shown.find((c) => c.accessorKey === declaredTitle)
+        : undefined) ?? shown[0];
+    if (!titleColumn) return orderedColumns;
+    const cell = titleColumn.cell;
+    const adorned = {
+      ...titleColumn,
+      cell: (value: any, row: any) => {
+        const own = typeof cell === 'function' ? cell(value, row) : String(coerceToSafeValue(value) ?? '');
+        const extra = rowAdornment(row);
+        if (extra === null || extra === undefined || extra === false) return own;
+        return (
+          <span className="flex min-w-0 items-center gap-1.5" data-testid="grid-row-adornment">
+            <span className="min-w-0 truncate">{own}</span>
+            {extra}
+          </span>
+        );
+      },
+    };
+    return (orderedColumns as any[]).map((c) => (c === titleColumn ? adorned : c));
+  })();
+
   const dataTableSchema: ObjectGridDataTableSchema = {
     type: 'data-table',
     // The deprecated `title` fallback resolves like `label` (objectui#10993):
@@ -6167,7 +6224,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // and the whole block failed to render.
     caption: resolveInlineI18nLabel(schema.label, displayLocale)
       || resolveInlineI18nLabel(schema.title, displayLocale),
-    columns: orderedColumns,
+    columns: tableColumns,
     data,
     pagination: paginationEnabled,
     pageSize: manualPaginationOn ? manualPageSize : pageSize,
@@ -6879,6 +6936,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                           // to draw its mask, so the mask is drawn here.
                           : <MaskedCellRenderer value={row[titleKey]} />)
                       : (coerceToSafeValue(row[titleKey]) ?? '—')}
+                    {/* objectui#13330 — the host's node beside the title. */}
+                    {rowAdornment ? <span className="ml-1.5 inline-flex align-middle">{rowAdornment(row)}</span> : null}
                   </div>
                 )}
 

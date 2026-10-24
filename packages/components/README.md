@@ -197,6 +197,21 @@ const face: FieldReadFace | undefined = resolveFieldReadFace({ name: 'subject', 
 - The resolver is read when the heading renders. Installing one later does not
   re-render a heading already drawn.
 
+#### The object label's host note
+
+A record page host can attach a one-line note to the header's object label (for
+example, how the object is managed) by passing `objectLabelNote` to
+`RecordContextProvider` (`@object-ui/react`). `page:header` forwards it to
+`RecordTitleChip.objectLabelNote`:
+
+- With a note, the label is a focusable tooltip trigger. Hover or focus shows
+  the label, a middle dot and the note, and the note is the label's accessible description
+  (`aria-describedby`).
+- Without one, the label draws exactly as before. The note is host-injected and
+  never authored in a page schema.
+- The console sets it on record pages inside the Setup app, where the floating
+  managed-by badge is not drawn.
+
 ### Data Display
 - `table` - Data table
 - `list` - List view

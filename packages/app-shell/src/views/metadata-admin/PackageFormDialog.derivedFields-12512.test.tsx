@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PackageFormDialog } from './PackageFormDialog';
-import { t } from './i18n';
+import { t, tFormat } from './i18n';
 
 vi.mock('./i18n', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -151,6 +151,31 @@ describe('Create stays disabled until the id, name, namespace and version valida
     expect(f.id().value).toBe('');
     expect(f.submit()).toBeDisabled();
     expect(screen.getByTestId('package-form-id-missing')).toBeInTheDocument();
+  });
+
+  // objectui#13389 — the line names the cause, and the "filled in from the
+  // display name" mark does not sit over an empty box.
+  it('a name with no Latin letters says the id could not be made from it, with no filled-in mark', () => {
+    const f = openCreate();
+    fireEvent.change(f.name(), { target: { value: '体验评审' } });
+    expect(screen.getByTestId('package-form-id-missing')).toHaveTextContent(
+      tFormat('engine.packages.idRule.notDerived', 'en-US', { example: 'com.acme.crm' }),
+    );
+    expect(f.mark('id')).toBeNull();
+    // Typing an id clears the cause and the namespace follows it.
+    fireEvent.change(f.id(), { target: { value: 'com.acme.review-lab' } });
+    expect(screen.queryByTestId('package-form-id-missing')).toBeNull();
+    expect(f.ns().value).toBe('review_lab');
+    expect(f.submit()).toBeEnabled();
+  });
+
+  it('CONTROL — an id the author cleared keeps the format line, not the no-letters one', () => {
+    const f = openCreate();
+    fireEvent.change(f.name(), { target: { value: 'Studio Test' } });
+    fireEvent.change(f.id(), { target: { value: '' } });
+    expect(screen.getByTestId('package-form-id-missing')).toHaveTextContent(
+      tFormat('engine.packages.idRule.formatHint', 'en-US', { example: 'com.acme.crm' }),
+    );
   });
 
   it('an invalid version disables Create and the version says why', async () => {

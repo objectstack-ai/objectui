@@ -175,6 +175,9 @@ export const CARRIED_REGISTRY_META_KEYS: readonly string[] = Object.freeze([
   'xRef',
   'xExpression',
   'xEnumDeprecated',
+  // objectstack#25036: `'value' | 'map'` marks a credential field (the webhook's
+  // `secret` / `headers`). A fact about the field, so a derived node keeps it.
+  'credential',
 ]);
 
 /**

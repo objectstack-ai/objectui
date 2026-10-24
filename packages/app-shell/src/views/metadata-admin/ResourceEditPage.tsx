@@ -74,6 +74,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@object-ui/components';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@object-ui/components';
 import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
 import type {
   MetadataLayered,
@@ -144,6 +154,7 @@ import { environmentScopeSuffix, isEnvironmentScope, useWalledCatalogReadOnly } 
 import { PositionHoldersSection } from './PositionHoldersSection.js';
 import { declarationOnlyAuthoredObject } from './sharing-rule-catalog.js';
 import { useRegisterUnsavedEdits } from '../../chrome/unsavedEdits.js';
+import { RefusalMessage } from '../../components/RefusalMessage.js';
 
 /**
  * objectui#7611 — the Setup half of an item, rendered under its definition in
@@ -1877,7 +1888,43 @@ function MetadataResourceEditPageImpl({
     }
   }
 
-  async function doReset() {
+  // objectui#13333 — the reset / delete and the discard-draft confirmations
+  // are asked in the console's in-app AlertDialog (the idiom `PackagesPage`
+  // uses), never the browser's native `confirm()`. One slot holds whichever
+  // is open; its copy is computed when it opens, from the body loaded then.
+  const [pendingConfirm, setPendingConfirm] = React.useState<{
+    kind: 'reset' | 'delete' | 'discard';
+    title: string;
+    description: string;
+    actionLabel: string;
+    item: string;
+  } | null>(null);
+
+  /** The item's own label from its loaded body, trimmed; empty when it carries none. */
+  function ownItemLabel(): string {
+    return typeof draft.label === 'string' ? draft.label.trim() : '';
+  }
+
+  function doReset() {
+    const confirmKey = isResetSemantic
+      ? 'engine.edit.resetConfirm'
+      : 'engine.edit.deleteConfirm';
+    const vars = {
+      type,
+      name: name ?? '',
+      typeLabel: translateMetadataType(type, locale, entry?.label ?? type),
+      item: ownItemLabel() || (name ?? ''),
+    };
+    setPendingConfirm({
+      kind: isResetSemantic ? 'reset' : 'delete',
+      title: tFormat(confirmKey, locale, vars),
+      description: tFormat(`${confirmKey}Body`, locale, vars),
+      actionLabel: t(isResetSemantic ? 'engine.edit.reset' : 'engine.edit.delete', locale),
+      item: vars.item,
+    });
+  }
+
+  async function runReset(resetSemantic: boolean) {
     // Two semantics, ONE verdict — see `isResetSemantic` above. Both this
     // handler and the button that triggers it read that single value, so the
     // icon, the `title`, the confirm text and the branch taken here can no
@@ -1889,12 +1936,8 @@ function MetadataResourceEditPageImpl({
     //   - no baseline: the overlay row IS the entry, so the same DELETE
     //     destroys it → "Delete", and the current URL no longer refers to
     //     anything, so navigate back to the list.
-    const confirmKey = isResetSemantic
-      ? 'engine.edit.resetConfirm'
-      : 'engine.edit.deleteConfirm';
-    if (!confirm(tFormat(confirmKey, locale, { type, name: name ?? '' }))) {
-      return;
-    }
+    // `resetSemantic` is the verdict the confirm was opened with, so the
+    // branch taken is the one the dialog asked about.
     setSaving(true);
     setError(null);
     try {
@@ -1912,7 +1955,7 @@ function MetadataResourceEditPageImpl({
       // objectui#11773 — the buffer below is re-read from the layers, with no
       // draft read behind it, so nothing pins its next save.
       forgetDraftVersion();
-      if (isResetSemantic) {
+      if (resetSemantic) {
         const lay = await client.layered<any>(type, name);
         setLayered(lay);
         const fresh = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
@@ -1986,16 +2029,22 @@ function MetadataResourceEditPageImpl({
 
   // Discard the pending draft (`DELETE ?state=draft`). The published
   // overlay is untouched; the editor reverts to showing the live body.
-  async function doDiscardDraft() {
+  function doDiscardDraft() {
     // objectui#12690 — the confirm and the toast name the item by the label
     // its loaded body carries (the one the assistant context above reads),
     // and by the machine `type/name` only when it carries none. Read once,
-    // before the discard swaps the body.
-    const ownLabel = typeof draft.label === 'string' ? draft.label.trim() : '';
-    const item = ownLabel || `${type}/${name ?? ''}`;
-    if (!confirm(tFormat('engine.edit.discardDraftConfirm', locale, { item }))) {
-      return;
-    }
+    // when the confirm opens, before the discard swaps the body.
+    const item = ownItemLabel() || `${type}/${name ?? ''}`;
+    setPendingConfirm({
+      kind: 'discard',
+      title: tFormat('engine.edit.discardDraftConfirm', locale, { item }),
+      description: t('engine.edit.discardDraftConfirmBody', locale),
+      actionLabel: t('engine.edit.discardDraft', locale),
+      item,
+    });
+  }
+
+  async function runDiscardDraft(item: string) {
     setSaving(true);
     setError(null);
     try {
@@ -2265,6 +2314,23 @@ function MetadataResourceEditPageImpl({
   // sheets (Layers / References / Related). Anything else is ignored —
   // the main work area is always the form+preview.
 
+  // The Save button's name: the shortcut hint, or why Save is withheld. It is
+  // the button's accessible name and tooltip both, so the word drawn beside
+  // the icon (objectui#13337) leaves the name a reader hears unchanged.
+  const saveTitle = saving
+    ? t('engine.edit.saving', locale)
+    : inspectorBlocking > 0
+      // Neutral: the inspector channel carries CEL faults AND the
+      // objectui#6900 required-field refusal (ruling 5831744213).
+      ? t('perm.inspector.saveBlocked', locale)
+      : refusalBlocking > 0
+        ? tFormat('engine.validation.serverRefused', locale, {
+            issue: saveRefusal?.summary ?? '',
+          })
+        : !createMode && !isDirty
+          ? t('engine.edit.noChanges', locale)
+          : `${t('engine.edit.save', locale)} (⌘S)`;
+
   // Action group rendered identically in either the PageShell header
   // (form-only types) or the canvas toolbar (types with a PreviewComponent).
   // Centralising it lets us merge the two top bars into one when a
@@ -2485,28 +2551,18 @@ function MetadataResourceEditPageImpl({
           size="sm"
           onClick={() => doSave(false)}
           disabled={saving || (!createMode && !isDirty) || inspectorBlocking > 0 || refusalBlocking > 0}
-          className="h-7 w-7 p-0 relative"
-          title={
-            saving
-              ? t('engine.edit.saving', locale)
-              : inspectorBlocking > 0
-                // Neutral: the inspector channel carries CEL faults AND the
-                // objectui#6900 required-field refusal (ruling 5831744213).
-                ? t('perm.inspector.saveBlocked', locale)
-                : refusalBlocking > 0
-                  ? tFormat('engine.validation.serverRefused', locale, {
-                      issue: saveRefusal?.summary ?? '',
-                    })
-                : !createMode && !isDirty
-                  ? t('engine.edit.noChanges', locale)
-                  : `${t('engine.edit.save', locale)} (⌘S)`
-          }
+          className="h-7 gap-1 px-2.5 text-xs relative"
+          aria-label={saveTitle}
+          title={saveTitle}
+          data-testid="resource-save"
         >
           {saving ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <Save className="h-3.5 w-3.5" />
           )}
+          {/* objectui#13337 — labelled, not an icon alone. */}
+          <span>{t('engine.edit.save', locale)}</span>
           {isDirty && !saving && (
             <span
               aria-hidden
@@ -2579,7 +2635,7 @@ function MetadataResourceEditPageImpl({
           >
             {error && (
               <div className="text-sm text-destructive border border-destructive/30 rounded p-3 bg-destructive/5">
-                {error}
+                <RefusalMessage text={error} />
               </div>
             )}
             {isLocked && (
@@ -3417,6 +3473,40 @@ function MetadataResourceEditPageImpl({
       {/* objectui#11773 — the draft-version conflict, apart from the
           destructive-change confirmation above: two different 409s. */}
       {draftConflictDialog}
+      {/* objectui#13333 — reset / delete / discard-draft, asked in-app. */}
+      <AlertDialog
+        open={pendingConfirm !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingConfirm(null);
+        }}
+      >
+        <AlertDialogContent data-testid="resource-edit-confirm-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingConfirm?.title}</AlertDialogTitle>
+            <AlertDialogDescription data-testid="resource-edit-confirm-body">
+              {pendingConfirm?.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="resource-edit-confirm-cancel">
+              {t('engine.cancel', locale)}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="resource-edit-confirm-action"
+              onClick={() => {
+                const pending = pendingConfirm;
+                setPendingConfirm(null);
+                if (!pending) return;
+                if (pending.kind === 'discard') void runDiscardDraft(pending.item);
+                else void runReset(pending.kind === 'reset');
+              }}
+            >
+              {pendingConfirm?.actionLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageShell>
   );
 }

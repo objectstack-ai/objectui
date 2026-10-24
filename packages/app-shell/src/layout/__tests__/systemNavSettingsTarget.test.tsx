@@ -252,10 +252,9 @@ describe('sidebar system-settings target (objectui#3590)', () => {
     // reach the `|| '/home'` fallback and re-create the dead link.
     expect(screen.queryByRole('link', { name: 'Administration' })).not.toBeInTheDocument();
     const trigger = screen.getByRole('button', { name: 'Administration' });
-    // Opened by default. `NavigationRenderer` auto-collapses groups with >= 8
-    // children unless the item states `expanded`; this cluster has nine and IS
-    // the admin's `/home` navigation, so `expanded: true` is stated on it. Left
-    // to the heuristic, Radix would unmount `CollapsibleContent` and the nine
+    // Opened by default. This cluster IS the admin's `/home` navigation, so
+    // `expanded: true` is stated on it (an undeclared group opens too since
+    // objectui#13336). Closed, Radix would unmount `CollapsibleContent` and the
     // entries would be back out of the DOM — a different spelling of the bug.
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
 

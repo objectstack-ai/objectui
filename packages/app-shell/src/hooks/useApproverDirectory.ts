@@ -22,9 +22,9 @@
  *
  * ## What it reads, and why the staffing leg is separate
  *
- *   - one `find` per distinct directory OBJECT (`sys_position`, `sys_team`,
- *     `sys_business_unit`, `sys_user`), batched with `$in` over that object's
- *     values — the label leg for a kind the spec binds to a DATA row;
+ *   - one `find` per distinct directory OBJECT a `data` binding names (a team,
+ *     department or user row), batched with `$in` over that object's values —
+ *     the label leg for a kind the spec binds to a DATA row;
  *   - one registry read per metadata TYPE, for a kind the spec binds to the
  *     registry instead (`{ source: 'registry', type }`, objectui#7611 Q3b):
  *     the console's metadata store, `ensureType(<type>)` — the
@@ -38,9 +38,9 @@
  *     the position's machine NAME under either binding, so this leg does not
  *     depend on which one the spec declares.
  *
- * The two legs fail INDEPENDENTLY. A business-app reader may hold list access to
- * `sys_position` and none to `sys_user_position`; `find` rejects that with
- * `OBJECT_API_DISABLED` rather than an empty page. Folding the legs together
+ * The two legs fail INDEPENDENTLY. A business-app reader may read the position
+ * registry and hold no list access to `sys_user_position`; `find` rejects that
+ * with `OBJECT_API_DISABLED` rather than an empty page. Folding the legs together
  * would let a permission error render as `销售经理(暂无在岗人员)` — a fabricated
  * fact on a governance surface. A failed staffing leg therefore leaves `holders`
  * `undefined` (unknown), which `approverDisplay` renders as silence, while the

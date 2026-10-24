@@ -76,10 +76,11 @@ describe('PositionHoldersSection (objectui#7611)', () => {
     expect(adapter.create).toHaveBeenCalledWith('sys_user_position', { user_id: 'u_3', position: 'auditor' });
   });
 
-  it('removes the assignment row', async () => {
+  it('removes the assignment row once the confirm is accepted (objectui#13337)', async () => {
     render(<PositionHoldersSection name="auditor" />);
     await waitFor(() => expect(screen.getByText('Ada Auditor')).toBeTruthy());
     fireEvent.click(screen.getAllByLabelText('Remove')[0]);
+    fireEvent.click(await screen.findByTestId('position-holder-remove-confirm'));
     await waitFor(() => expect(adapter.delete).toHaveBeenCalledWith('sys_user_position', 'up_1'));
   });
 

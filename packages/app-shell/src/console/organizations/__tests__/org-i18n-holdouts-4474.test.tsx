@@ -241,7 +241,7 @@ describe('#4474 family 1 — role names come from ONE map and resolve in zh', ()
     for (const lang of Object.keys(builtInLocales) as Array<keyof typeof builtInLocales>) {
       const roles = (builtInLocales[lang] as any).organization?.roles;
       expect(roles, `${lang} has no organization.roles`).toBeDefined();
-      for (const k of ['owner', 'admin', 'delegatedAdmin', 'member']) {
+      for (const k of ['owner', 'admin', 'delegatedAdmin', 'member', 'external']) {
         expect(typeof roles?.[k], `${lang}.organization.roles.${k}`).toBe('string');
       }
     }
@@ -302,6 +302,19 @@ describe('#4474 family 1 — role names come from ONE map and resolve in zh', ()
       .filter((o) => o.getAttribute('value'))
       .map((o) => o.textContent);
     expect(labels).toEqual(['Owner', 'Admin', 'Delegated Admin', 'Member']);
+  });
+
+  it('an external member\'s badge reads 外部成员 in zh and External in en (objectui#13427)', async () => {
+    getMembers.mockResolvedValue([
+      { id: 'm-7', role: 'external', userId: 'u-7', user: { name: 'Pat', email: 'pat@supplier.test' } },
+    ]);
+    const { unmount } = renderIn('zh', <MembersPage />);
+    await waitFor(() => expect(screen.getByTestId('members-page')).toBeInTheDocument());
+    expect(screen.getByTestId('member-role-badge-m-7')).toHaveTextContent('外部成员');
+    unmount();
+    renderIn('en', <MembersPage />);
+    await waitFor(() => expect(screen.getByTestId('members-page')).toBeInTheDocument());
+    expect(screen.getByTestId('member-role-badge-m-7')).toHaveTextContent('External');
   });
 
   it('MUST NOT CHANGE — en members badges read Owner / Member', async () => {

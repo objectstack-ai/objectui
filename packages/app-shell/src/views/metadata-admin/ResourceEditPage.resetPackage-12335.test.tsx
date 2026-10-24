@@ -29,7 +29,7 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { z } from 'zod';
 import { ComponentRegistry } from '@object-ui/core';
@@ -61,6 +61,15 @@ const AMBIGUOUS =
   "Name the package this delete is for, then send it again: on the REST door add ?package= with the package id, " +
   `in process pass packageId. Nothing was deleted. doc '${NAME}' belongs to 2 packages ('${PKG_A}', '${PKG_B}'), ` +
   'and a delete that names none has no single row to remove.';
+
+/**
+ * The page's error line leads with the refusal's first sentence and keeps the
+ * whole server text behind "More" (objectui#13332): open it and read it whole.
+ */
+async function expectRefusalShown() {
+  fireEvent.click(await screen.findByTestId('refusal-more'));
+  expect(screen.getByTestId('refusal-detail').textContent).toBe(AMBIGUOUS);
+}
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -207,6 +216,12 @@ async function openAt(search: string, expectedDraft: string) {
 
 const discardButton = () => screen.getAllByRole('button', { name: 'Discard draft' })[0]!;
 const resetButton = () => screen.getByTestId('reset-or-delete-button');
+
+/** Accept the page's in-app confirm (objectui#13333) once it opens. */
+async function acceptInAppConfirm() {
+  const dialog = await screen.findByRole('alertdialog');
+  fireEvent.click(within(dialog).getByTestId('resource-edit-confirm-action'));
+}
 const lastDelete = () => server.deletes[server.deletes.length - 1]!;
 const packagesHeld = (store: Map<string, Rows>) => [...(store.get(KEY)?.keys() ?? [])];
 
@@ -215,6 +230,8 @@ describe('ResourceEditPage — a bound editor names its package on reset and dis
     await openAt(`?package=${PKG_A}`, '# Alpha drafted');
 
     fireEvent.click(discardButton());
+
+    await acceptInAppConfirm();
     await waitFor(() => expect(server.deletes).toHaveLength(1));
     await settle();
 
@@ -229,6 +246,8 @@ describe('ResourceEditPage — a bound editor names its package on reset and dis
     await openAt(`?package=${PKG_A}`, '# Alpha drafted');
 
     fireEvent.click(resetButton());
+
+    await acceptInAppConfirm();
     await waitFor(() => expect(server.deletes).toHaveLength(1));
     await settle();
 
@@ -244,13 +263,15 @@ describe('ResourceEditPage — an unbound editor sends no package, and the 409 r
     await openAt('', '# Alpha drafted');
 
     fireEvent.click(discardButton());
+
+    await acceptInAppConfirm();
     await waitFor(() => expect(server.deletes).toHaveLength(1));
     await settle();
 
     expect(lastDelete().get('state')).toBe('draft');
     // Absent, never empty.
     expect(lastDelete().has('package')).toBe(false);
-    expect(await screen.findByText(AMBIGUOUS)).toBeInTheDocument();
+    await expectRefusalShown();
     expect(packagesHeld(server.drafts)).toEqual([PKG_A, PKG_B]);
     expect(toasts.success).not.toHaveBeenCalled();
   });
@@ -259,11 +280,13 @@ describe('ResourceEditPage — an unbound editor sends no package, and the 409 r
     await openAt('', '# Alpha drafted');
 
     fireEvent.click(resetButton());
+
+    await acceptInAppConfirm();
     await waitFor(() => expect(server.deletes).toHaveLength(1));
     await settle();
 
     expect([...lastDelete().keys()]).toEqual([]);
-    expect(await screen.findByText(AMBIGUOUS)).toBeInTheDocument();
+    await expectRefusalShown();
     expect(screen.queryByTestId('list-view')).toBeNull();
     expect(packagesHeld(server.active)).toEqual([PKG_A, PKG_B]);
   });
@@ -272,10 +295,12 @@ describe('ResourceEditPage — an unbound editor sends no package, and the 409 r
     await openAt('?package=all', '# Alpha drafted');
 
     fireEvent.click(discardButton());
+
+    await acceptInAppConfirm();
     await waitFor(() => expect(server.deletes).toHaveLength(1));
     await settle();
 
     expect(lastDelete().has('package')).toBe(false);
-    expect(await screen.findByText(AMBIGUOUS)).toBeInTheDocument();
+    await expectRefusalShown();
   });
 });

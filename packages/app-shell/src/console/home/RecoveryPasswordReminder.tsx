@@ -48,7 +48,13 @@ export function RecoveryPasswordReminder({ t }: { t: (key: string, opts?: any) =
         // gives a false sense of security. Same signal LoginForm uses.
         const passwordUnavailable =
           config?.features?.ssoEnforced === true || config?.emailPassword?.enabled === false;
-        if (has === false && !passwordUnavailable) setShow(true);
+        // objectui#13330 — and never on a cloud-managed environment: there the
+        // server admits `set-initial-password` only from a caller with
+        // platform-admin standing (the objectstack-ai/objectstack#25083 ruling,
+        // Q4 A), so the reminder would send everyone else to a page that
+        // refuses them.
+        const managed = config?.features?.cloudManaged === true;
+        if (has === false && !passwordUnavailable && !managed) setShow(true);
       })
       .catch(() => { /* unknown → don't nag */ });
     return () => { cancelled = true; };

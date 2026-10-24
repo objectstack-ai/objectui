@@ -171,7 +171,7 @@ vi.mock('@object-ui/plugin-view', async (importOriginal) => {
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), dismiss: vi.fn() } }));
 
 import { DataPillar } from './StudioDesignSurface';
-import { addFieldFromFormToolbar, addFieldFromGrid } from './__tests__/dataPillarAddField';
+import { addFieldFromFormToolbar, addFieldFromGrid, type AddFieldInput } from './__tests__/dataPillarAddField';
 import { createEmptyDataSource } from './__tests__/emptyDataSource';
 import { readFields } from '../metadata-admin/previews/object-fields-io';
 
@@ -209,14 +209,23 @@ async function loaded(editor: HTMLElement, count: string): Promise<void> {
   await waitFor(() => expect(fieldCount(editor)).toBe(count), { timeout: 8000 });
 }
 
+/** The label of a second added field: it derives `second_field`. */
+const SECOND: AddFieldInput = { label: 'Second field' };
+
 /**
  * Add a field and wait until the autosave carrying it has landed. From the
  * Records grid's "+" column by default; a draft-only object has no grid, so
- * its case adds from the Form toolbar (objectui#12511).
+ * its case adds from the Form toolbar (objectui#12511). A second field on the
+ * same object takes another label (`input`): a repeated label derives a taken
+ * name, and the popover asks for its api name (objectui#13389).
  */
-async function addFieldAndSave(editor: HTMLElement, add = addFieldFromGrid): Promise<void> {
+async function addFieldAndSave(
+  editor: HTMLElement,
+  add = addFieldFromGrid,
+  input?: AddFieldInput,
+): Promise<void> {
   const before = server.saves.length;
-  await add(editor);
+  await add(editor, input);
   await waitFor(() => expect(server.saves.length).toBe(before + 1), { timeout: 8000 });
   await waitFor(() => expect(within(editor).queryByTestId('data-autosaving')).toBeNull(), { timeout: 8000 });
 }
@@ -242,7 +251,7 @@ async function raceTwoEditors(): Promise<{ a: HTMLElement; b: HTMLElement }> {
   await loaded(b, '3 fields');
   await reorderAndSave(b); // B: status before title
   expect(serverDraftFields()).toEqual(['status', 'title', 'new_field']);
-  await addFieldFromGrid(a); // A's stale copy + field_4
+  await addFieldFromGrid(a, SECOND); // A's stale copy + second_field
   await screen.findByTestId('draft-conflict-dialog', undefined, { timeout: 8000 });
   return { a, b };
 }
@@ -252,7 +261,7 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
     const a = openEditor();
     await loaded(a, '2 fields');
     await addFieldAndSave(a);
-    await addFieldAndSave(a);
+    await addFieldAndSave(a, addFieldFromGrid, SECOND);
     await reorderAndSave(a);
     expect(server.saves.map((s) => [s.ifMatch, s.ifNoneMatch])).toEqual([
       [undefined, '*'],
@@ -292,7 +301,7 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
     const { a } = await raceTwoEditors();
     const refused = server.saves[server.saves.length - 1]!;
     expect(refused.ifMatch).toBe('hmac-sha256:v1');
-    expect(fieldNames(refused.body)).toEqual(['title', 'status', 'new_field', 'field_4']);
+    expect(fieldNames(refused.body)).toEqual(['title', 'status', 'new_field', 'second_field']);
     // Nothing was written over B's draft.
     expect(serverDraftFields()).toEqual(['status', 'title', 'new_field']);
     expect(screen.getByTestId('draft-conflict-dialog')).toHaveTextContent('acme_task');
@@ -313,11 +322,11 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
     await loaded(a, '3 fields');
     expect(server.saves.length).toBe(savesBefore);
 
-    await addFieldAndSave(a);
+    await addFieldAndSave(a, addFieldFromGrid, SECOND);
     const next = server.saves[server.saves.length - 1]!;
     expect(next.ifMatch).toBe('hmac-sha256:v2');
     // Built on B's draft: B's column order is kept.
-    expect(fieldNames(next.body)).toEqual(['status', 'title', 'new_field', 'field_4']);
+    expect(fieldNames(next.body)).toEqual(['status', 'title', 'new_field', 'second_field']);
   });
 
   it('"overwrite" asks again, then re-sends pinned to the refusal\'s currentVersion and wins; the next save is pinned to it', async () => {
@@ -334,10 +343,10 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
     const overwrite = server.saves[server.saves.length - 1]!;
     // B's draft is the version the refusal named.
     expect([overwrite.ifMatch, overwrite.ifNoneMatch]).toEqual(['hmac-sha256:v2', undefined]);
-    expect(serverDraftFields()).toEqual(['title', 'status', 'new_field', 'field_4']);
+    expect(serverDraftFields()).toEqual(['title', 'status', 'new_field', 'second_field']);
     await waitFor(() => expect(within(a).queryByTestId('data-autosaving')).toBeNull(), { timeout: 8000 });
 
-    await addFieldAndSave(a);
+    await addFieldAndSave(a, addFieldFromGrid, { label: 'Third field' });
     expect(server.saves[server.saves.length - 1]!.ifMatch).toBe(`hmac-sha256:v${server.seq - 1}`);
   });
 });
@@ -356,7 +365,7 @@ describe('Data pillar — a create sends If-None-Match: * (objectui#11773)', () 
     await loaded(a, '1 fields');
     fireEvent.click(within(a).getAllByRole('button', { name: 'Form' })[0]!);
     await addFieldAndSave(a, addFieldFromFormToolbar);
-    await addFieldAndSave(a, addFieldFromFormToolbar);
+    await addFieldAndSave(a, addFieldFromFormToolbar, SECOND);
     expect(server.saves.map((s) => [s.ifMatch, s.ifNoneMatch])).toEqual([
       [undefined, '*'],
       ['hmac-sha256:v1', undefined],

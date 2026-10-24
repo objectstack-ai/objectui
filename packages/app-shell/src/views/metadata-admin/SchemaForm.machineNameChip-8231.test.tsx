@@ -4,6 +4,13 @@
  * objectui#8231 — WHEN the machine-name chip shows no longer depends on the
  * locale.
  *
+ * Since objectui#13352 the machine name is no longer drawn inline beside the
+ * label: the row shows the label only, and the name is offered on demand as
+ * the label's hover tooltip (`title`, mirrored on `data-machine-name`). The
+ * #8231 predicate is unchanged — it now decides WHEN that tooltip is offered —
+ * so these pins read the `data-machine-name` set instead of `label code`.
+ * "Chip" below means that on-demand hint.
+ *
  * The chip beside a `SchemaForm` label answers "the label does not already
  * spell the machine name". It used to judge that against the VISIBLE label,
  * which in a localized panel is a translation: `prettify('columns')` can never
@@ -40,10 +47,13 @@ function renderIn(language: Language, ui: React.ReactElement) {
   );
 }
 
-/** Every machine name a chip is rendered for, sorted. */
+/** Every machine name a label offers on demand, sorted (objectui#13352). */
 function chips(): string[] {
-  return Array.from(document.querySelectorAll('label code'))
-    .map((el) => el.textContent ?? '')
+  // Guard: nothing is drawn inline any more, so an inline chip would be a
+  // regression of #13352 rather than a hint this set should count.
+  expect(document.querySelectorAll('label code')).toHaveLength(0);
+  return Array.from(document.querySelectorAll('label[data-machine-name]'))
+    .map((el) => el.getAttribute('data-machine-name') ?? '')
     .sort();
 }
 

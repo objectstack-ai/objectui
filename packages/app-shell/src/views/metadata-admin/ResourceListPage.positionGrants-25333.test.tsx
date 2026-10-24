@@ -194,6 +194,13 @@ describe('the whole row opens the position (objectstack#25333)', () => {
     const sw = await screen.findByTestId('catalog-active-sales_manager');
     await waitFor(() => expect(sw).toHaveAttribute('aria-checked', 'true'));
     fireEvent.click(sw);
+    // Switching off asks first (objectui#13338); the confirm opens on the
+    // list, not on the position.
+    expect(await screen.findByTestId('catalog-deactivate-dialog')).toBeInTheDocument();
+    expect(screen.queryByTestId('where')).toBeNull();
+    const confirm = screen.getByTestId('catalog-deactivate-confirm');
+    await waitFor(() => expect(confirm).not.toBeDisabled());
+    fireEvent.click(confirm);
     await waitFor(() => expect(requests.some((r) => r.method === 'POST')).toBe(true));
     expect(screen.queryByTestId('where')).toBeNull();
 

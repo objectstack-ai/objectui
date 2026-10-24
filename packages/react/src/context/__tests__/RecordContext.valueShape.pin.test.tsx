@@ -71,6 +71,7 @@ const MEMO_DEP_KEYS = [
   'headerSystemActions',
   'isFavorite',
   'onToggleFavorite',
+  'objectLabelNote',
 ] as const;
 
 type Equal<X, Y> =
@@ -98,6 +99,7 @@ const BASE: RecordContextValue = {
   headerSystemActions: [],
   isFavorite: false,
   onToggleFavorite: () => {},
+  objectLabelNote: 'Managed by the identity provider',
 };
 
 /** A different value for every key — the "after" of each mutation. */
@@ -112,6 +114,7 @@ const CHANGED: RecordContextValue = {
   headerSystemActions: [{ name: 'edit' }],
   isFavorite: true,
   onToggleFavorite: () => {},
+  objectLabelNote: 'Administrator configuration',
 };
 
 /** Render the provider and capture the context object handed to consumers. */

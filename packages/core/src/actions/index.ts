@@ -18,3 +18,4 @@ export * from './serverActionHandler.js';
 export * from './recordIdParam.js';
 export * from './recordDelete.js';
 export * from './navigationTarget.js';
+export * from './actionCopyTemplate.js';

@@ -82,7 +82,8 @@ export interface ConsoleServerActionOptions {
   onRefresh: () => void;
   /**
    * Localizes the user-facing copy this wrapper owns (the SSO spinner tab,
-   * the popup-blocked toast) via the `console.serverAction.*` keys in
+   * the popup-blocked toast, the `newTabUrl` fast path's "no record id"
+   * refusal) via the `console.serverAction.*` keys in
    * `@object-ui/i18n`. Optional: when omitted the English defaults apply —
    * per AGENTS.md Commandment #-1, no non-English copy lives in code
    * (objectui#3321).
@@ -175,7 +176,7 @@ export function createConsoleServerActionHandler(opts: ConsoleServerActionOption
   const resolveRecordId = opts.resolveRecordId ?? resolveServerActionRecordId;
   const t = opts.t ?? defaultTranslate;
 
-  return async (action: ActionDef, context?: ActionContext) => {
+  const handler: ServerActionHandler = async (action: ActionDef, context?: ActionContext) => {
     // ── Zero-roundtrip fast path ────────────────────────────────────────
     // `newTabUrl` names a GET endpoint that performs ALL auth/authz itself
     // (e.g. /sso-open re-runs every check the POST half would have done),
@@ -186,13 +187,20 @@ export function createConsoleServerActionHandler(opts: ConsoleServerActionOption
     // (multi-select, empty selection) never flashes a tab.
     const newTabUrl = typeof action.newTabUrl === 'string' ? action.newTabUrl : '';
     if (action.opensInNewTab && newTabUrl) {
+      // Both refusals below are shown in the session's language
+      // (objectui#13397): the resolver's through the pack key it names
+      // (objectui#13384), this wrapper's own through `console.serverAction.*`.
       const resolution = resolveRecordId(action, context);
       if (resolution.error) {
-        return { success: false, error: resolution.error };
+        const error = resolution.errorKey ? t(resolution.errorKey, resolution.error) : resolution.error;
+        return { success: false, error: error || resolution.error };
       }
       const recordId = resolution.recordId;
       if (recordId == null) {
-        return { success: false, error: 'This action runs on a single record — no record id available.' };
+        return {
+          success: false,
+          error: t('console.serverAction.noRecordId', 'This action runs on a single record — no record id available.'),
+        };
       }
       const preOpenedTab = preOpenSpinnerTab(t);
       // Absolute URL required: the pre-opened tab is an about:blank document,
@@ -272,4 +280,11 @@ export function createConsoleServerActionHandler(opts: ConsoleServerActionOption
       return { success: false, error: (error as Error).message };
     }
   };
+  // Core's early record-id refusal (objectui#13384), forwarded: the runner
+  // asks the handler it dispatches to — this wrapper, not core's handler
+  // inside it — before it shows a confirmation or a param dialog. Without the
+  // forward a single-record action launched with 0 or several rows selected
+  // ran its whole dialog and was refused only after Confirm.
+  handler.refuseBeforeInput = dispatch.refuseBeforeInput;
+  return handler;
 }

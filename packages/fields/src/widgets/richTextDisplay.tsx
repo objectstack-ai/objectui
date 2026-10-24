@@ -34,6 +34,7 @@
 import React from 'react';
 import { EmptyValue } from '@object-ui/components';
 import { coerceToSafeValue } from '../coerceToSafeValue.js';
+import { renderSanitizedHtml } from './sanitizedHtml.js';
 import type { CellRendererProps } from '../index.js';
 
 const LazyMarkdownContent = React.lazy(() => import('./MarkdownContent.js'));
@@ -101,53 +102,38 @@ export function MarkdownCellRenderer({ value }: CellRendererProps): React.ReactE
 }
 
 /**
- * Minimal HTML sanitizer for display: drops <script>/<style>/<iframe> blocks,
- * inline event handlers, and javascript: URLs. Defense-in-depth — stored HTML
- * is authored by users with write access, but is never trusted blindly.
- *
- * Deliberately NOT exported from the package barrel. It is the trust boundary
- * of {@link HtmlCellRenderer} and of nothing else: a second caller sanitizing
- * on its own and then rendering through its own `dangerouslySetInnerHTML` is
- * how one surface ends up a version behind this function. Consume the RENDERER.
- */
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<\s*(script|style|iframe|object|embed)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/(href|src)\s*=\s*("javascript:[^"]*"|'javascript:[^']*')/gi, '$1="#"');
-}
-
-/**
  * Renders an `html` value as sanitized, formatted HTML instead of raw markup.
  *
  * Also the renderer for `richtext` (objectui#5452). Both types store an HTML
  * string: the spec's `Field.richtext` is documented as "Formatted content with
  * HTML/WYSIWYG", the showcase seed's own specimen is
  * `<p>Rich <strong>text</strong></p>`, and this repo's designer bridge already
- * maps `richtext` onto its `html` type. {@link sanitizeHtml} above removes
- * script/style/iframe/object/embed blocks, inline event handlers and
- * `javascript:` URLs, and touches nothing a rich-text editor legitimately
- * emits — headings, paragraphs, emphasis, lists, links, quotes all survive, so
- * routing `richtext` here restores the content rather than trading a blank cell
- * for a mangled one.
+ * maps `richtext` onto its `html` type. The value is parsed, sanitized
+ * against an allow-list and rendered as React elements by
+ * {@link renderSanitizedHtml} (`./sanitizedHtml.tsx`, the package's one
+ * sanitizer, shared with the markdown pipeline). The allow-list keeps what a
+ * rich-text document is made of — headings, paragraphs, emphasis, lists,
+ * links, quotes, tables, images — so routing `richtext` here restores the
+ * content rather than trading a blank cell for a mangled one.
  *
  * What the cell holds is decided by {@link richTextSource} (objectui#8580):
  * `[]` is the No-value affordance, never a childless `prose` container, and
- * an object is the text the string class prints for it. The populated branch
- * stays on {@link sanitizeHtml}: a stored string comes back from
- * `richTextSource` verbatim, so the bytes that reach the sanitiser are the
- * bytes that always did — pinned byte-for-byte in
+ * an object is the text the string class prints for it. A stored string comes
+ * back from `richTextSource` verbatim, so the bytes that reach the sanitiser
+ * are the stored bytes — its output pinned byte-for-byte in
  * `__tests__/cellRenderers.childlessContainer-8580.test.tsx`.
+ *
+ * The parse is memoised on the text for cost only (a grid renders many
+ * cells); nothing depends on the identity of the memoised value.
  */
 export function HtmlCellRenderer({ value }: CellRendererProps): React.ReactElement {
   const text = richTextSource(value);
-  if (text === undefined) return <EmptyValue />;
-  return (
-    <div
-      className="prose prose-sm max-w-none dark:prose-invert break-words"
-      dangerouslySetInnerHTML={{ __html: sanitizeHtml(text) }}
-    />
+  const content = React.useMemo(
+    () => (text === undefined ? undefined : renderSanitizedHtml(text)),
+    [text],
   );
+  if (text === undefined) return <EmptyValue />;
+  return <div className="prose prose-sm max-w-none dark:prose-invert break-words">{content}</div>;
 }
 
 /**

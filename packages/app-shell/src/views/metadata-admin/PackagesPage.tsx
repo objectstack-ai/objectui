@@ -81,6 +81,7 @@ import { PageHeader } from '../../layout/PageHeader.js';
 import { errorCodeIs } from '@object-ui/types';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { refusedItemsText } from '../../preview/publishRefusal.js';
+import { RefusalMessage } from '../../components/RefusalMessage.js';
 import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
 import { duplicatePackage, isSpecPackageId } from '../studio-design/packages-io.js';
 import { PackageIdInput } from '../studio-design/PackageIdInput.js';
@@ -90,6 +91,7 @@ import { readMarketplaceInstalls, type LocalInstallEntry } from '../../console/m
 import { MarketplaceNotLoaded, MarketplaceRowActions } from '../../console/marketplace/MarketplaceRowActions.js';
 import type { InstalledPackageAtEitherStage } from '@objectstack/spec/api-assembled';
 import type { PackagePublishResult } from '@objectstack/spec/system';
+import type { ReassignOrphanedMetadataResponse } from '@objectstack/spec/api';
 import {
   PACKAGES_SOURCE_PARAM,
   PackageSourceRefusal,
@@ -503,10 +505,12 @@ export function PackageDetailSheet({
   const [drafts, setDrafts] = React.useState<Array<{ type: string; name: string }> | null>(null);
   const [editOpen, setEditOpen] = React.useState(false);
   const [viewOpen, setViewOpen] = React.useState(false);
-  // objectui#11784 — the three confirmations this sheet asks are in-app, never
+  // objectui#11784 — the confirmations this sheet asks are in-app, never
   // `window.confirm` / `window.prompt`: those are blocked or auto-answered in
   // an embedded frame, and the old delete chained two confirms where the
-  // second one's Cancel still deleted.
+  // second one's Cancel still deleted. objectui#13339 — Adopt loose items is
+  // the fourth.
+  const [adoptOpen, setAdoptOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteMode, setDeleteMode] = React.useState<DeleteMode>('');
   const [deleteTyped, setDeleteTyped] = React.useState('');
@@ -519,6 +523,7 @@ export function PackageDetailSheet({
   React.useEffect(() => {
     setMsg(null);
     setBusy(null);
+    setAdoptOpen(false);
     setDeleteOpen(false);
     setDiscardOpen(false);
     setDupOpen(false);
@@ -565,6 +570,17 @@ export function PackageDetailSheet({
   // The spec's id rule (`isSpecPackageId`), the one the landing's duplicate form
   // and the duplicate route judge by, not a second one (objectui#11855).
   const dupArmed = dupName.trim().length > 0 && isSpecPackageId(dupId.trim());
+
+  // objectui#13339 — the sheet's one message line answers the action the
+  // author started LAST. An action that runs straight away clears it as it
+  // starts (`run`, and the delete / duplicate / adopt calls); one that first
+  // opens a dialog or a form clears it here, at the press that opens it, so
+  // a previous action's answer (a Revert refusal, say) never stands under
+  // the next action's form as if it were that action's.
+  const startAction = (open: () => void) => {
+    setMsg(null);
+    open();
+  };
 
   async function run(action: string, fn: () => Promise<any>, okText: string) {
     setBusy(action);
@@ -739,11 +755,12 @@ export function PackageDetailSheet({
   // *structure only* or *structure and data* explicitly (no default), types the
   // package's name, and only then is the delete armed. Its Cancel deletes
   // nothing. Closes the sheet on success; a failure is shown on the sheet.
-  const openDelete = () => {
-    setDeleteMode('');
-    setDeleteTyped('');
-    setDeleteOpen(true);
-  };
+  const openDelete = () =>
+    startAction(() => {
+      setDeleteMode('');
+      setDeleteTyped('');
+      setDeleteOpen(true);
+    });
 
   const deleteApp = async () => {
     if (!deleteArmed) return;
@@ -775,9 +792,11 @@ export function PackageDetailSheet({
       setDupOpen(false);
       return;
     }
-    setDupName(tFormat('engine.studio.landing.dupDefaultName', locale, { name: displayName }));
-    setDupId(`${id}-copy`);
-    setDupOpen(true);
+    startAction(() => {
+      setDupName(tFormat('engine.studio.landing.dupDefaultName', locale, { name: displayName }));
+      setDupId(`${id}-copy`);
+      setDupOpen(true);
+    });
   };
 
   const duplicateApp = async () => {
@@ -801,17 +820,34 @@ export function PackageDetailSheet({
     }
   };
 
-  // ADR-0070 D5 — adopt every package-less (loose) item in this env INTO this base.
+  // ADR-0070 D5 — adopt every package-less (loose) item in this env INTO this
+  // base. The *Adopt loose items* button opens an in-app confirmation
+  // (objectui#13339); only its confirm runs this, and its Cancel sends nothing.
+  //
+  // The answer reports the server's own count, `reassignedCount`
+  // (`ReassignOrphanedMetadataResponse`), 0 included: the sheet used to say
+  // "Loose items adopted" whatever moved, so an adoption that found nothing
+  // read as one that did. The answer's own `success` is false exactly when
+  // nothing moved (`reassigned.length > 0`); on this door that is a count of
+  // 0, not a failure, so the count is what the author is told.
   const adoptOrphans = async () => {
-    const ok = window.confirm(
-      tFormat('engine.packages.detail.adoptConfirm', locale, { name: pkg?.manifest.name || id }),
-    );
-    if (!ok) return;
+    setAdoptOpen(false);
     setBusy('adopt');
     setMsg(null);
     try {
-      await apiJson(`${API}/${encodeURIComponent(id)}/adopt-orphans`, { method: 'POST' });
-      setMsg({ kind: 'ok', text: t('engine.packages.detail.adopted', locale) });
+      const r = await apiJson<ReassignOrphanedMetadataResponse>(
+        `${API}/${encodeURIComponent(id)}/adopt-orphans`,
+        { method: 'POST' },
+      );
+      const count = r.reassignedCount;
+      setMsg({
+        kind: 'ok',
+        text: tFormat(
+          count === 1 ? 'engine.packages.detail.adoptedOne' : 'engine.packages.detail.adoptedOther',
+          locale,
+          { count },
+        ),
+      });
       onChanged();
     } catch (e: any) {
       setMsg({ kind: 'err', text: e?.message ?? 'Adopt failed' });
@@ -914,7 +950,12 @@ export function PackageDetailSheet({
                       ? t('engine.packages.detail.publishing', locale)
                       : tFormat('engine.packages.detail.publishApp', locale, { count: drafts.length })}
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => setDiscardOpen(true)} disabled={!!busy}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => startAction(() => setDiscardOpen(true))}
+                    disabled={!!busy}
+                  >
                     <Undo2 className="mr-1.5 h-3.5 w-3.5" />
                     {busy === 'discard-drafts'
                       ? t('engine.packages.detail.discarding', locale)
@@ -963,12 +1004,12 @@ export function PackageDetailSheet({
             {t('engine.packages.detail.actions', locale)}
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => setViewOpen(true)} disabled={!!busy}>
+            <Button size="sm" variant="outline" onClick={() => startAction(() => setViewOpen(true))} disabled={!!busy}>
               <Eye className="mr-1.5 h-3.5 w-3.5" />
               {t('engine.packages.detail.viewInfo', locale)}
             </Button>
             {writable && (
-              <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} disabled={!!busy}>
+              <Button size="sm" variant="outline" onClick={() => startAction(() => setEditOpen(true))} disabled={!!busy}>
                 <Pencil className="mr-1.5 h-3.5 w-3.5" />
                 {t('engine.packages.detail.edit', locale)}
               </Button>
@@ -1015,7 +1056,7 @@ export function PackageDetailSheet({
               </Button>
             )}
             {writable && (
-              <Button size="sm" variant="outline" onClick={adoptOrphans} disabled={!!busy}>
+              <Button size="sm" variant="outline" onClick={() => startAction(() => setAdoptOpen(true))} disabled={!!busy}>
                 <Inbox className="mr-1.5 h-3.5 w-3.5" />
                 {busy === 'adopt' ? t('engine.packages.detail.adopting', locale) : t('engine.packages.detail.adoptOrphans', locale)}
               </Button>
@@ -1082,7 +1123,9 @@ export function PackageDetailSheet({
                 : 'border-destructive/40 bg-destructive/10 text-destructive'
             }`}
           >
-            {msg.text}
+            {/* A refusal leads with its first sentence; the rest of the
+                server's text is behind "More" (objectui#13332). */}
+            {msg.kind === 'err' ? <RefusalMessage text={msg.text} /> : msg.text}
             {msg.details && msg.details.length > 0 && (
               // Not capped: the sheet scrolls (`overflow-y-auto`), as it does
               // for the pending-drafts list above. `break-words` keeps a long
@@ -1194,6 +1237,27 @@ export function PackageDetailSheet({
                 {busy === 'delete'
                   ? t('engine.packages.detail.deleting', locale)
                   : t('engine.packages.detail.deleteApp', locale)}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={adoptOpen} onOpenChange={setAdoptOpen}>
+          <AlertDialogContent data-testid="pkg-detail-adopt-dialog">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {tFormat('engine.packages.detail.adoptTitle', locale, { name: displayName })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('engine.packages.detail.adoptDescription', locale)}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="pkg-detail-adopt-cancel">
+                {t('engine.cancel', locale)}
+              </AlertDialogCancel>
+              <AlertDialogAction data-testid="pkg-detail-adopt-confirm" onClick={() => void adoptOrphans()}>
+                {t('engine.packages.detail.adoptOrphans', locale)}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -1376,6 +1440,15 @@ export function PackagesPage() {
   // same moment its cells do.
   const showActionsColumn = showMarketplaceActions && filtered.some((r) => rowActionEntry(r) !== null);
 
+  // objectui#13356 — Setup's "Installed Apps" entry opens this page with
+  // `?source=marketplace` (its nav item's `params`, sent as the query string).
+  // That view is titled for the entry that opened it, and when no row is a
+  // marketplace install its empty state says so, instead of blaming a filter
+  // the administrator never set. "No packages match your filters." stays for
+  // the case where marketplace installs exist and the search hides them.
+  const installedAppsView = sourceFilter.value === 'marketplace';
+  const noMarketplaceInstalls = installedAppsView && !rows.some((r) => r.source === 'marketplace');
+
   const clearSourceFilter = () => {
     const next = new URLSearchParams(searchParams);
     next.delete(PACKAGES_SOURCE_PARAM);
@@ -1449,7 +1522,11 @@ export function PackagesPage() {
           description under the title inside Setup, beside it elsewhere — is
           the header's own. Refresh is its icon button; New stays rightmost. */}
       <PageHeader
-        title={t('engine.packages.title', locale)}
+        title={
+          installedAppsView
+            ? t('engine.packages.installedApps.title', locale)
+            : t('engine.packages.title', locale)
+        }
         subtitle={t('engine.packages.description', locale)}
         icon={<PackageIcon className="h-4 w-4" />}
         refresh={{ onRefresh: () => void load(), label: t('engine.packages.refresh', locale), busy: loading }}
@@ -1569,6 +1646,13 @@ export function PackagesPage() {
                 words in here are the server's, so a test that located this
                 banner BY those words could not assert what is absent from it. */}
             <span data-testid="packages-load-error">{error}</span>
+          </div>
+        ) : filtered.length === 0 && noMarketplaceInstalls ? (
+          <div className="p-8">
+            <Empty data-testid="packages-installed-apps-empty">
+              <EmptyTitle>{t('engine.packages.installedApps.empty', locale)}</EmptyTitle>
+              <EmptyDescription>{t('engine.packages.installedApps.emptyHint', locale)}</EmptyDescription>
+            </Empty>
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-8">

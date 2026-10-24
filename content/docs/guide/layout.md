@@ -77,8 +77,8 @@ These are React props, passed in JSX. None of them is authorable in JSON — the
 | --- | --- | --- | --- |
 | `sidebar` | `React.ReactNode` | no | Left sidebar node, a flex sibling of the content. Pass `SidebarNav`, or your own node. |
 | `navbar` | `React.ReactNode` | no | Top-bar content. `AppShell` supplies the sticky `<header>` around it, so pass only what goes inside. |
-| `children` | `React.ReactNode` | yes | Main content, rendered inside the `<main>` element. |
-| `className` | `string` | no | Tailwind overrides for the `<main>` content element — **not** for the outer container. |
+| `children` | `React.ReactNode` | yes | Main content, rendered inside the content element, within the shell's one `<main>` landmark. |
+| `className` | `string` | no | Tailwind overrides for the content element — **not** for the outer container. |
 | `defaultOpen` | `boolean` | no | Initial open state of the underlying Shadcn `SidebarProvider`. Defaults to `true`. |
 | `branding` | `AppShellBranding` | no | App branding, applied by `useAppShellBranding`: `primaryColor` / `accentColor` become CSS custom properties on the document root, `favicon` sets the icon link's `href`, and `title` sets `document.title`. |
 | `rightRail` | `React.ReactNode` | no | Optional right-side rail. It reflows the content beside it rather than overlaying it; absent → unchanged single-pane layout. |
@@ -755,8 +755,8 @@ Add Tailwind classes to layout components:
 </AppShell>
 ```
 
-`className` is the only class hook `AppShell` itself takes, and it lands on the `<main>`
-content element — not on the outer container. There is **no** per-slot className:
+`className` is the only class hook `AppShell` itself takes, and it lands on the content
+element (a `<div>` inside the shell's one `<main>` landmark) — not on the outer container. There is **no** per-slot className:
 `headerClassName`, `sidebarClassName` and `contentClassName` do not exist. The top bar and
 the sidebar are nodes you build, so style them where you build them, as above.
 

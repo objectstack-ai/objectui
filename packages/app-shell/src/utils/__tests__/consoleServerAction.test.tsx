@@ -21,6 +21,8 @@ vi.mock('sonner', () => {
 });
 
 import { toast } from 'sonner';
+import { ActionRunner, type ActionDef } from '@object-ui/core';
+import { builtInLocales } from '@object-ui/i18n/locales';
 import { createConsoleServerActionHandler } from '../consoleServerAction';
 
 /** A pre-openable tab stub with the surface the wrapper drives. */
@@ -417,5 +419,129 @@ describe('a declared onSuccess block defers to the runner (objectui#5221)', () =
     } as any);
 
     expect(openSpy).toHaveBeenCalledWith('/app/crm/contacts/rec_42', '_blank');
+  });
+});
+
+describe('the early record-id refusal is forwarded to the runner (objectui#13384)', () => {
+  const ADD_TO_CAMPAIGN = {
+    type: 'script',
+    name: 'add_to_campaign',
+    objectName: 'crm_lead',
+    locations: ['list_toolbar', 'list_item'],
+    actionParams: [{ name: 'campaign', label: 'Campaign', type: 'text', required: true }],
+  };
+  const launch = () => JSON.parse(JSON.stringify(ADD_TO_CAMPAIGN));
+
+  it("the wrapper answers core's refusal, with its pack key, and nothing for one row", () => {
+    const { handler } = makeHandler();
+
+    expect(handler.refuseBeforeInput?.(launch(), { selectedRecords: [] })).toEqual({
+      error: 'This action runs on a single record — select a row first.',
+      errorKey: 'actions.selectRowFirst',
+    });
+    expect(handler.refuseBeforeInput?.(launch(), { selectedRecords: [{ id: 'a' }, { id: 'b' }] })).toEqual({
+      error: 'This action runs on a single record — select exactly one row.',
+      errorKey: 'actions.selectExactlyOneRow',
+    });
+    expect(handler.refuseBeforeInput?.(launch(), { selectedRecords: [{ id: 'a' }] })).toBeUndefined();
+  });
+
+  it('an injected resolveRecordId (record-page policy) decides the early refusal too', () => {
+    const { handler } = makeHandler({ resolveRecordId: () => ({ recordId: 'page_rec_1' }) });
+
+    expect(handler.refuseBeforeInput?.(launch(), { selectedRecords: [] })).toBeUndefined();
+  });
+
+  it.each([
+    ['0 rows', [] as Record<string, unknown>[], 'This action runs on a single record — select a row first.'],
+    ['2 rows', [{ id: 'a' }, { id: 'b' }], 'This action runs on a single record — select exactly one row.'],
+  ])('through a real runner, %s: refused before the param dialog, with no tab and no request', async (_label, rows, refusal) => {
+    const openSpy = vi.spyOn(window, 'open');
+    const { handler, fetch } = makeHandler();
+    const runner = new ActionRunner({ selectedRecords: rows });
+    const toastSpy = vi.fn();
+    const dialog = vi.fn(async () => ({ campaign: 'cmp_webinar' }));
+    runner.setToastHandler(toastSpy);
+    runner.setParamCollectionHandler(dialog);
+    runner.registerHandler('script', handler);
+
+    const result = await runner.execute({ ...launch(), opensInNewTab: true });
+
+    expect(result).toEqual({ success: false, error: refusal });
+    expect(dialog).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith(refusal, expect.objectContaining({ type: 'error' }));
+  });
+
+  it('through a real runner, 1 row: the param dialog opens and the request carries that row', async () => {
+    const { handler, fetch } = makeHandler();
+    const runner = new ActionRunner({ selectedRecords: [{ id: 'lead_1' }] });
+    const dialog = vi.fn(async () => ({ campaign: 'cmp_webinar' }));
+    runner.setToastHandler(vi.fn());
+    runner.setParamCollectionHandler(dialog);
+    runner.registerHandler('script', handler);
+
+    const result = await runner.execute(launch());
+
+    expect(result.success).toBe(true);
+    expect(dialog).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(JSON.parse((fetch.mock.calls[0] as unknown as [string, { body: string }])[1].body)).toEqual({
+      recordId: 'lead_1',
+      params: { campaign: 'cmp_webinar' },
+    });
+  });
+});
+
+describe('the newTabUrl fast path refuses in the session language (objectui#13397)', () => {
+  // The zh-CN pack as the wrapper's `t`, read by dotted key; a key it lacks
+  // answers the English default, as `useObjectTranslation().t` does.
+  const zhT = (key: string, englishDefault: string) => {
+    const hit = key.split('.').reduce<unknown>(
+      (node, part) => (node && typeof node === 'object' ? (node as Record<string, unknown>)[part] : undefined),
+      builtInLocales.zh,
+    );
+    return typeof hit === 'string' ? hit : englishDefault;
+  };
+  const SSO: ActionDef = { type: 'script', name: 'sso_as_owner', opensInNewTab: true, newTabUrl: '/sso-open/{recordId}' };
+
+  it('no resolvable record id: the refusal reads zh-CN, with no tab', async () => {
+    const openSpy = vi.spyOn(window, 'open');
+    const { handler, fetch } = makeHandler({ t: zhT });
+
+    const res = await handler({ ...SSO });
+
+    expect(res).toEqual({ success: false, error: '此操作针对单条记录，但没有可用的记录 ID。' });
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('control: with no `t` the same refusal stays English', async () => {
+    const { handler } = makeHandler();
+
+    expect(await handler({ ...SSO })).toEqual({
+      success: false,
+      error: 'This action runs on a single record — no record id available.',
+    });
+  });
+
+  it("the resolver's own refusal reads zh-CN through its pack key, with no tab", async () => {
+    const openSpy = vi.spyOn(window, 'open');
+    const { handler } = makeHandler({ t: zhT });
+
+    const res = await handler({ ...SSO }, { selectedRecords: [{ id: 'a' }, { id: 'b' }] });
+
+    expect(res).toEqual({ success: false, error: '此操作针对单条记录，请只选择一行。' });
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it('control: with one row the fast path still opens the tab', async () => {
+    const tab = makeTab();
+    vi.spyOn(window, 'open').mockReturnValue(tab);
+    const { handler } = makeHandler({ t: zhT });
+
+    expect(await handler({ ...SSO }, { selectedRecords: [{ id: 'e1' }] })).toEqual({ success: true });
+    expect(tab.location.href).toBe('https://api.test/sso-open/e1');
   });
 });

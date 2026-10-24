@@ -314,13 +314,16 @@ describe('the two colour registrations (ruling point 4 — the host picks, not t
 describe('the two channels name a field identically', () => {
   // The accessible name comes from the SAME visible label either way — via `for`
   // on the control path, via `aria-labelledby` on the group path. Pinned on a
-  // field whose machine name IS shown (`prettify('colorVariant')` is "Color
-  // Variant", so a title of "Tone" makes `FieldRow` append a `<code>`
-  // inside the label), because that is the case where the two computations could
-  // plausibly diverge: both must read the label's whole subtree, not its first
-  // text node. The two names are compared to EACH OTHER rather than to a
-  // hand-spelled string — the claim is parity, and a literal would only pin
-  // whichever channel the author looked at first.
+  // field whose machine name IS offered (`prettify('colorVariant')` is "Color
+  // Variant", so a title of "Tone" makes `FieldRow` give the label a
+  // machine-name tooltip). Until objectui#13352 that was an inline `<code>`
+  // inside the label, so both computations had to read the label's whole
+  // subtree; since #13352 the row shows the label only and the name rides on
+  // the label's `title`, which neither computation may fold into the name
+  // (a label with text content is named by that content, never its title).
+  // The two names are compared to EACH OTHER rather than to a hand-spelled
+  // string — the claim is parity, and a literal would only pin whichever
+  // channel the author looked at first.
   const field = 'colorVariant';
   const renderWith = (schema: Record<string, unknown>) =>
     render(
@@ -346,25 +349,27 @@ describe('the two channels name a field identically', () => {
     const controlLabel = document.querySelector(`label[for="${native.id}"]`)!;
     expect(controlLabel).toBe(within(controlTree).getByText('Tone').closest('label'));
 
-    // Same rendered text on both paths, machine-name `<code>` and all — so the
-    // channel a field takes cannot change what it is called.
+    // Same rendered text on both paths — so the channel a field takes cannot
+    // change what it is called. The label shows the label only, and offers the
+    // machine name on demand, alike on both paths (objectui#13352).
     expect(groupLabel.textContent).toBe(controlLabel.textContent);
-    expect(groupLabel.textContent).toContain('Tone');
-    expect(groupLabel.textContent).toContain(field);
+    expect(groupLabel.textContent).toBe('Tone');
+    expect(groupLabel.getAttribute('title')).toBe(controlLabel.getAttribute('title'));
+    expect(groupLabel.getAttribute('title')).toContain(field);
   });
 
   it('and the accessibility tree agrees — each surface is findable BY that name', () => {
     // The check above says the two channels point at ONE label; this says the
     // computed accessible name follows, which is what a user actually gets.
     renderWith({ type: 'string', title: 'Tone', enum: ['default', 'blue'] });
-    expect(screen.getByRole('radiogroup', { name: /Tone/ })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Tone' })).toBeInTheDocument();
     cleanup();
 
     renderWith({ type: 'string', title: 'Tone' });
     expect(document.querySelector('input[type="color"]')).toHaveAccessibleName(
-      // The visible label verbatim: title + the machine name `FieldRow`
-      // appends when the two differ.
-      `Tone ${field}`,
+      // The visible label verbatim — the machine-name tooltip on the label
+      // is not part of it (objectui#13352).
+      'Tone',
     );
   });
 });

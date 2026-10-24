@@ -289,7 +289,8 @@ describe('Data pillar — an edit taken while an object save is in flight (objec
     await addField();
     await screen.findByTestId('data-autosaving', undefined, { timeout: 8000 });
     expect(savesOf('object').map(fieldNames)).toEqual([['title', 'status', 'new_field']]);
-    await addField();
+    // A second label: a repeated one would ask for its api name (objectui#13389).
+    await addFieldFromGrid(undefined, { label: 'Second field' });
     expect(fieldCountShown()).toBe('4 fields');
 
     await release();
@@ -297,7 +298,7 @@ describe('Data pillar — an edit taken while an object save is in flight (objec
     expect(fieldCountShown()).toBe('4 fields');
     expect(savesOf('object').map(fieldNames)).toEqual([
       ['title', 'status', 'new_field'],
-      ['title', 'status', 'new_field', 'field_4'],
+      ['title', 'status', 'new_field', 'second_field'],
     ]);
   });
 

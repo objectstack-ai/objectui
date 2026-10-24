@@ -2335,14 +2335,12 @@ function navTreeHoldsActive(
   });
 }
 
-/** The sidebar's threshold: a group with this many children starts collapsed unless it says otherwise. */
-const NAV_GROUP_AUTO_COLLAPSE = 8;
-
 /**
  * One group header and its children (objectui#12455). Open or closed as the
  * running app's sidebar opens it (`NavigationRenderer` in `@object-ui/layout`):
- * the spec's `expanded` when the author set it, else open unless the group is
- * long, and always open when the open leaf is inside it. Collapsible by its
+ * always open when the open leaf is inside it, else the spec's `expanded` when
+ * the author set it, else open — however many children it holds
+ * (objectui#13336). Collapsible by its
  * header, as the sidebar's is. A group with nothing in it says so in its place
  * instead of drawing a bare header.
  */
@@ -2368,7 +2366,7 @@ function NavTreeGroup({
   const [open, setOpen] = React.useState(() => {
     if (holdsActive) return true;
     if (typeof node.expanded === 'boolean') return node.expanded;
-    return children.length < NAV_GROUP_AUTO_COLLAPSE;
+    return true;
   });
   // A leaf opened from elsewhere (a deep link, a create) inside a closed
   // group opens the group, as the sidebar does for the route it is on.
@@ -5244,7 +5242,9 @@ function nextFieldName(existing: string[]): string {
  * The api name of a field added with `label` (objectui#12516): the name the
  * field inspector's Label derives from it (`toFieldNameLoose`), or, as the
  * inspector keeps the default when that derivation is empty (a label with no
- * Latin letters) or names another field, the next free `field_<N>`.
+ * Latin letters) or names another field, the next free `field_<N>`. The Add
+ * field popover asks for the name in those two cases (objectui#13389), so the
+ * `field_<N>` fallback is left for a caller that hands no name.
  */
 function addedFieldName(label: string, existing: string[]): string {
   const derived = toFieldNameLoose(label);
@@ -6032,16 +6032,23 @@ export function DataPillar({
   // popover asked for (objectui#12516) and select it for editing in the panel.
   // Guarded in addition to being hidden — it's also reachable through
   // GridFieldAuthoringProvider/ObjectFormDesigner.
-  const addField = React.useCallback((label: string, type: FieldTypeId) => {
+  // objectui#13389 — `typedName` is the api name the popover asked for when
+  // the label derived none (or a taken one); otherwise it is derived here.
+  const addField = React.useCallback((label: string, type: FieldTypeId, typedName?: string) => {
     // objectui#11272 — never onto another object's buffer (not offered then).
     if (readOnly || !objLoaded) return;
     const view = readFields(objDraft.fields);
-    const name = addedFieldName(label, view.entries.map((e) => e.name));
+    const existing = view.entries.map((e) => e.name);
+    const name = typedName && !existing.includes(typedName) ? typedName : addedFieldName(label, existing);
     view.entries.push(newField(name, type, label));
     setObjDraft((d) => ({ ...d, fields: writeFields(view) }));
     setDirty(true);
     setFieldSel({ kind: 'field', id: name });
   }, [objDraft, readOnly, objLoaded]);
+  const addFieldTakenNames = React.useMemo(
+    () => readFields(objDraft.fields).entries.map((e) => e.name),
+    [objDraft.fields],
+  );
 
   // objectui#12516 — the Records grid's "+" column opens the same popover. The
   // grid draws that button from its authoring context and hands no element
@@ -6502,6 +6509,7 @@ export function DataPillar({
                     open={gridAddFieldOpen}
                     onOpenChange={setGridAddFieldOpen}
                     onCreate={addField}
+                    takenNames={addFieldTakenNames}
                     returnFocusTo={() => gridAddFieldButton.current}
                   >
                     <span aria-hidden="true" className="pointer-events-none absolute right-4 top-2 h-0 w-0" />

@@ -139,10 +139,19 @@ describe('ImportWizard write modes follow the host (objectui#12697)', () => {
       expect(accepted).not.toHaveAttribute('aria-disabled');
       expect(accepted).toHaveTextContent(/^Roster insert$/);
 
-      // A disabled Radix item ignores the pick: the mapping never becomes
-      // active, so its summary (the read-only artifact view) never mounts.
+      // The accepted one is the only applicable mapping, so the wizard opened
+      // with it applied (objectui#13343); the refused one does not count.
+      const before = screen.getByTestId('import-saved-mapping-summary');
+      expect(before).toHaveTextContent('Roster insert');
+
+      // A disabled Radix item ignores the pick: the refused mapping never
+      // becomes active, so the summary (the read-only artifact view) still
+      // shows the accepted one and never the refused one.
       fireEvent.click(refused);
-      expect(screen.queryByTestId('import-saved-mapping-summary')).not.toBeInTheDocument();
+      const after = screen.getByTestId('import-saved-mapping-summary');
+      expect(after).toHaveTextContent('Roster insert');
+      expect(after).not.toHaveTextContent('Roster update');
+      expect(screen.getByTestId('import-saved-mapping-select')).toHaveTextContent(/^Roster insert$/);
     });
 
     it('stays selectable on a target that accepts its mode', async () => {

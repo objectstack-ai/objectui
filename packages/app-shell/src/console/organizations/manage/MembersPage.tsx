@@ -52,15 +52,32 @@ export function MembersPage() {
   // `toLocale*()` call used the MACHINE's locale (objectui#9909).
   const displayLocale = useDisplayLocale();
   const { org } = useOrgContext();
-  const { getMembers, removeMember, updateMemberRole, activeMember } = useAuth();
+  const { getMembers, removeMember, updateMemberRole, activeMember, getAuthConfig } = useAuth();
 
   /* objectui#4475 — what this viewer may actually do here. Both read the SAME
      `activeMember.role` the role-change narrowing below already keys on (one
      role source per screen), and both are measured against the server gate they
      mirror — see `orgCapabilities`. `canInvite` is the wider set: it includes
      `delegated_admin`, which may invite and may not remove. */
-  const canInvite = canInviteMembers(activeMember?.role);
   const canRemove = canRemoveMembers(activeMember?.role);
+
+  /* objectui#13330 — on a cloud-managed environment (`features.cloudManaged`)
+     people join through the hosting organisation in the cloud, and the server
+     refuses an invitation made here (the objectstack-ai/objectstack#25083
+     ruling, Q3 A). So the button gives its place to a note that says where to
+     invite, the #4475 convention below. Until `/auth/config` answers, and
+     whenever it cannot, the page is what it was. */
+  const [managed, setManaged] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve(getAuthConfig?.())
+      .then((config) => {
+        if (!cancelled) setManaged(config?.features?.cloudManaged === true);
+      })
+      .catch(() => { /* unknown → unchanged */ });
+    return () => { cancelled = true; };
+  }, [getAuthConfig]);
+  const canInvite = canInviteMembers(activeMember?.role) && !managed;
 
   const [members, setMembers] = useState<AuthOrganizationMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -156,7 +173,13 @@ export function MembersPage() {
             text-muted-foreground` voice, so the space says why instead of going
             blank. It is not a disabled button: a control that exists only to
             refuse is still an invitation to try. */}
-        {canInvite ? (
+        {managed ? (
+          <p className="text-sm text-muted-foreground" data-testid="invite-managed-note">
+            {t('organization.members.inviteManagedNote', {
+              defaultValue: 'People join through your organization in the cloud. Invite them there.',
+            })}
+          </p>
+        ) : canInvite ? (
           <Button onClick={() => setIsInviteOpen(true)} data-testid="invite-member-btn">
             {t('organization.members.inviteMember', { defaultValue: 'Invite member' })}
           </Button>

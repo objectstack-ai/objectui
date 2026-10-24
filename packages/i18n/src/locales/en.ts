@@ -168,6 +168,12 @@ const en = {
     // handler for an undoable success toast.
     failed: 'Action failed',
     parallelFailed: 'One or more parallel actions failed',
+    // The two row-count refusals of a single-record action launched from a
+    // list toolbar (`resolveServerActionRecordId` in `@object-ui/core`); the
+    // runner asks for them before any confirmation or param dialog opens
+    // (objectui#13384).
+    selectExactlyOneRow: 'This action runs on a single record — select exactly one row.',
+    selectRowFirst: 'This action runs on a single record — select a row first.',
     undo: 'Undo',
     // The confirmation toast after that Undo has run — written by the console's
     // two undo handlers (`useConsoleActionRuntime` and `RecordDetailView`), not
@@ -972,6 +978,10 @@ const en = {
     viewAll: 'View all',
     tabs: 'Tabs',
     allRecords: 'All Records',
+    // objectui#13405 — the synthetic trailing tab a `showAllRecords` user-filter bar adds.
+    userFilters: {
+      allRecords: 'All records',
+    },
     search: 'Search',
     filter: 'Filter',
     filterRecords: 'Filter Records',
@@ -1439,7 +1449,7 @@ const en = {
     historyEmpty: 'No history yet',
     editRow: 'Edit',
     deleteRow: 'Delete',
-    deleteRowConfirmation: 'Are you sure you want to delete this record?',
+    deleteRowConfirmation: 'Are you sure you want to delete "{{name}}"?',
     deleteRowTitle: 'Delete record',
     actions: 'Actions',
     previousPage: 'Previous',
@@ -1576,6 +1586,7 @@ const en = {
     noValue: 'No value',
     unresolvedReference: 'Unresolved reference: {{value}} was not resolved to a user',
     unresolvedLookupReference: 'Unresolved reference: {{value}} was not resolved to a record on this screen',
+    restrictedLookupReference: 'Restricted record',
     // Cell-level COUNT phrases for the `repeater` and file cells
     // (objectui#8441). Both were written straight into the renderer before this
     // — `repeater` as a number plus a hardcoded Chinese unit word, which every
@@ -1607,6 +1618,13 @@ const en = {
     // eagerly loaded and the `framework` chunk's gzip ceiling has ~0.2 KB of
     // headroom; the series keys are rendered by the chart as data, after it.
     scatterOneMeasure: 'A scatter plots one measure. Keep exactly one series:',
+    // The note under a sankey that drew only some of its rows (objectui#7148,
+    // translated by objectui#13404): a flow has no negative width, so rows whose
+    // measure is not above zero are left out. A count family on the OMITTED
+    // rows; `{{field}}` is where the chart draws the measure key as a code chip.
+    sankeyOmittedRows: 'Showing {{shown}} of {{total}} rows — {{count}} rows have no {{field}} above zero, which a flow cannot draw.',
+    sankeyOmittedRows_one: 'Showing {{shown}} of {{total}} rows — {{count}} row has no {{field}} above zero, which a flow cannot draw.',
+    sankeyOmittedRows_other: 'Showing {{shown}} of {{total}} rows — {{count}} rows have no {{field}} above zero, which a flow cannot draw.',
     // The refusal an object-bound chart renders when it declares no category
     // axis (objectui#8168) — `aggregate.groupBy` / `xAxisKey` / `xAxis.field`
     // all absent, so `runAggregate` would have grouped on a name nobody wrote.
@@ -2192,6 +2210,9 @@ const en = {
       popupBlockedTitle: 'Popup blocked',
       popupBlockedDescription: 'Your browser blocked the new tab from opening.',
       popupBlockedAction: 'Open in new tab',
+      // The `newTabUrl` fast path's refusal when no record id resolves
+      // (`createConsoleServerActionHandler`, objectui#13397).
+      noRecordId: 'This action runs on a single record — no record id available.',
     },
     shortcuts: {
       title: 'Keyboard Shortcuts',
@@ -2635,6 +2656,12 @@ const en = {
       passwordsDownload: 'Download CSV',
     },
     objectView: {
+      // objectui#13330 — Setup → Users on a managed environment.
+      managedUsers: {
+        inviteLine: 'This environment is managed from the cloud. Invite people to your organization there; they appear here when they first sign in. A user marked Not authorized holds nothing beyond the access every member has: give them a permission set or a position.',
+        unauthorized: 'Not authorized',
+        unauthorizedHint: 'Holds no permission set beyond the baseline every signed-in member has. Give them a permission set or a position.',
+      },
       objectNotFound: 'Object Not Found',
       objectNotFoundDescription: 'The object "{{objectName}}" does not exist in the current configuration.',
       objectNotFoundHint: 'Check your app navigation settings or select a different object from the sidebar.',
@@ -3126,6 +3153,15 @@ const en = {
     forbidden: 'Access denied.',
     timeout: 'Request timed out. Please try again.',
     unknown: 'An unexpected error occurred.',
+  },
+  // A refused write's message (objectui#13332): its first sentence is shown,
+  // and the whole server text sits behind the More / Less toggle with a copy
+  // button. Read by app-shell's `RefusalMessage`.
+  refusalDetails: {
+    more: 'More',
+    less: 'Less',
+    copy: 'Copy details',
+    copied: 'Copied',
   },
   workspace: {
     label: 'Organizations',
@@ -3684,6 +3720,7 @@ const en = {
       admin: 'Admin',
       delegatedAdmin: 'Delegated Admin',
       member: 'Member',
+      external: 'External',
     },
     errors: {
       notAllowedToInvite: 'You are not allowed to invite users to this organization',
@@ -3708,6 +3745,7 @@ const en = {
       title: 'Members',
       inviteMember: 'Invite member',
       inviteRestrictedNote: 'Only organization admins can invite members.',
+      inviteManagedNote: 'People join through your organization in the cloud. Invite them there.',
       removeMember: 'Remove member',
       removeConfirmTitle: 'Remove member?',
       removeConfirmDescription: 'This will remove {{name}} from the organization. They will lose access immediately.',
@@ -3930,6 +3968,7 @@ const en = {
       body: 'For CI, scripts, and agents without a browser. The key acts as you — treat it like a password. It is shown ONCE.',
       namePlaceholder: 'Key name (e.g. ci-agent)',
       mint: 'Create key',
+      confirmTitle: 'Create the API key "{{name}}"?',
       minting: 'Creating…',
       showOnce: 'Key "{{name}}" created — copy it now, it will not be shown again:',
       done: 'Done — hide it',
@@ -5043,6 +5082,9 @@ const en = {
       'The copy carries the whole definition and takes a new machine name and label. Edit the copy in Studio.',
     cloneName: 'New machine name',
     cloneLabel: 'New label',
+    // The Clone dialog's prefilled label (objectui#13344): the source flow's
+    // label, or its machine name when it has none, marked as the copy.
+    cloneCopyLabel: '{{label}} (copy)',
     cancel: 'Cancel',
     cloneConfirm: 'Create clone',
     cloneCreated: 'Created flow "{{name}}".',

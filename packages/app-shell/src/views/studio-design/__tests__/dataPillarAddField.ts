@@ -33,11 +33,13 @@ export const ADD_FIELD_OFFERED = 'grid-add-column';
  * typed into the popover's Label box; the field's api name is the one the
  * pillar derives from it (`New field` → `new_field`). `type`, when given, is
  * the visible name of the type to pick in the popover's Type control; Text is
- * preselected.
+ * preselected. `apiName`, when given, is typed into the API name box the
+ * popover shows when the label derives no free name (objectui#13389).
  */
 export interface AddFieldInput {
   label?: string;
   type?: RegExp;
+  apiName?: string;
 }
 
 /** The label a suite's added field gets when it names none. */
@@ -47,9 +49,10 @@ export const ADDED_FIELD_LABEL = 'New field';
  * Fill the open Add field popover and press Create (objectui#12516). Every
  * entry opens the same popover, so this is the step after any of them.
  */
-export async function completeAddFieldPopover({ label = ADDED_FIELD_LABEL, type }: AddFieldInput = {}): Promise<void> {
+export async function completeAddFieldPopover({ label = ADDED_FIELD_LABEL, type, apiName }: AddFieldInput = {}): Promise<void> {
   const popover = await screen.findByTestId('add-field-popover');
   await userEvent.type(within(popover).getByTestId('add-field-label-input'), label);
+  if (apiName) await userEvent.type(within(popover).getByTestId('add-field-api-name-input'), apiName);
   if (type) {
     await userEvent.click(within(popover).getByRole('combobox', { name: t('designer.field.type', 'en') }));
     await userEvent.click(await screen.findByRole('option', { name: type }));

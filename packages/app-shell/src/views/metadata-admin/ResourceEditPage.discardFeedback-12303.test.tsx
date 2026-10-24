@@ -16,13 +16,15 @@
  * The REAL page over a REAL `MetadataClient`, whose transport is an in-memory
  * server answering as the framework does (the same double
  * `ResourceEditPage.layersUnsaved-11799.test.tsx` uses). Only `sonner` is
- * replaced, so the toast call itself is what is read.
+ * replaced, so the toast call itself is what is read. The confirm is the
+ * page's in-app AlertDialog (objectui#13333), answered by clicking it;
+ * `window.confirm` is stubbed only as a tripwire that must never be called.
  */
 
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { z } from 'zod';
 import { ComponentRegistry } from '@object-ui/core';
@@ -157,6 +159,15 @@ function renderEdit(name: string) {
 const source = () => screen.findByRole('textbox', { name: 'Markdown source' }, { timeout: 8000 });
 const discardButton = () => screen.getAllByRole('button', { name: 'Discard draft' })[0]!;
 
+/** Click Discard draft and answer the in-app confirm: accept or cancel. */
+async function discardAnswering(accept: boolean) {
+  fireEvent.click(discardButton());
+  const dialog = await screen.findByRole('alertdialog');
+  fireEvent.click(
+    within(dialog).getByTestId(accept ? 'resource-edit-confirm-action' : 'resource-edit-confirm-cancel'),
+  );
+}
+
 async function openDrafted(name: string) {
   server.active.set(`doc/${name}`, doc(name, '# Live'));
   server.drafts.set(`doc/${name}`, doc(name, '# Live, drafted'));
@@ -169,7 +180,7 @@ describe('MetadataResourceEditPage — "Discard draft" says what it discarded (o
   it('a landed discard raises one success toast naming the item, and the published body is back', async () => {
     await openDrafted('live_guide');
 
-    fireEvent.click(discardButton());
+    await discardAnswering(true);
     await waitFor(() => expect(server.drafts.has('doc/live_guide')).toBe(false));
     await settle();
 
@@ -185,11 +196,11 @@ describe('MetadataResourceEditPage — "Discard draft" says what it discarded (o
 
   it('CONTROL: a declined confirm sends no DELETE and says nothing', async () => {
     await openDrafted('live_guide');
-    confirmSpy.mockReturnValue(false);
 
-    fireEvent.click(discardButton());
+    await discardAnswering(false);
     await settle();
 
+    expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(server.deletes).toBe(0);
     expect(server.drafts.has('doc/live_guide')).toBe(true);
     expect(toasts.success).not.toHaveBeenCalled();
@@ -199,12 +210,19 @@ describe('MetadataResourceEditPage — "Discard draft" says what it discarded (o
     await openDrafted('live_guide');
     server.refuseDiscard = { status: 403, message: 'doc/live_guide belongs to a read-only package and cannot be changed.' };
 
-    fireEvent.click(discardButton());
+    await discardAnswering(true);
     await waitFor(() => expect(server.deletes).toBe(1));
     await settle();
 
     expect(await screen.findByText(/belongs to a read-only package/)).toBeInTheDocument();
     expect(server.drafts.has('doc/live_guide')).toBe(true);
     expect(toasts.success).not.toHaveBeenCalled();
+  });
+
+  it('objectui#13333: the native confirm() is never asked on this path', async () => {
+    await openDrafted('live_guide');
+    await discardAnswering(true);
+    await waitFor(() => expect(server.drafts.has('doc/live_guide')).toBe(false));
+    expect(confirmSpy).not.toHaveBeenCalled();
   });
 });

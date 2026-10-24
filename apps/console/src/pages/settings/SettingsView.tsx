@@ -3,6 +3,7 @@
  *
  * Fetches manifest+values from `/api/settings/:namespace`, lays them
  * out via <SettingsField>, tracks dirty state, and saves through PUT.
+ * A successful save or action reads the namespace again, manifest included.
  * Env-locked fields are read-only and show <EnvLockBadge>.
  */
 
@@ -12,6 +13,7 @@ import { toast } from 'sonner';
 import { ConsolePageHeader } from '@object-ui/app-shell';
 import { Loader2, ArrowLeft, ChevronRight, RotateCcw, ShieldAlert } from 'lucide-react';
 import { Button, Card, CardContent, Skeleton, Badge, getLazyIcon } from '@object-ui/components';
+import { ExpressionEvaluator } from '@object-ui/core';
 import { extractFieldErrors } from '@object-ui/react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { SettingsField } from './SettingsField';
@@ -26,21 +28,23 @@ import { useSettingsLabel, type SettingsLabelHelpers } from './useSettingsLabel'
 import { useUnsavedLeaveGuard } from './useUnsavedLeaveGuard';
 
 /**
- * Evaluate the manifest's `visible: "${data.foo === 'bar'}"`
- * expression against the live value map. Intentionally minimal — a
- * full expression engine lives in `@object-ui/core` and can be wired
- * in later via plugin.
+ * Evaluate the manifest's `visible: "${data.foo === 'bar'}"` expression
+ * against the live value map, through `@object-ui/core`'s `ExpressionEvaluator`
+ * — the CSP-safe interpreter (`SafeExpressionParser`) every other `visible`
+ * predicate in the renderer is judged by, never a compiled JS function. The
+ * manifest's values are bound as `data`, the one namespace the server's
+ * settings grammar reads too.
+ *
+ * Fails CLOSED: a predicate that does not evaluate hides the setting, the way
+ * the server refuses a save whose `visible` it cannot parse. Showing a field
+ * the deployment never meant to expose is the worse of the two mistakes.
  */
 function evalVisibility(expr: string | undefined, data: Record<string, unknown>): boolean {
   if (!expr) return true;
-  const trimmed = expr.trim();
-  const m = trimmed.match(/^\$\{(.+)\}$/);
-  if (!m) return true;
   try {
-    const fn = new Function('data', `with (data) { return (${m[1]}); }`);
-    return Boolean(fn(data));
+    return new ExpressionEvaluator({ data }).evaluateCondition(expr, { throwOnError: true });
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -275,6 +279,12 @@ export function SettingsView() {
    */
   const [focusKey, setFocusKey] = useState<{ key: string } | null>(null);
   const fieldListRef = useRef<HTMLDivElement>(null);
+  /**
+   * Counts the reads this page starts (objectui#13382). A read applies its
+   * payload only while it is still the latest one, so a re-read that resolves
+   * after a namespace change, or after a newer re-read, is dropped.
+   */
+  const readSeqRef = useRef(0);
 
   useEffect(() => {
     if (!focusKey) return;
@@ -301,6 +311,8 @@ export function SettingsView() {
   // The draft resets when the namespace changes, on save and on discard.
   useEffect(() => {
     if (!namespace) return;
+    // A re-read still in flight for the namespace being left is now stale.
+    readSeqRef.current += 1;
     const loadNamespace = async () => {
       setLoading(true);
       setError(null);
@@ -382,6 +394,29 @@ export function SettingsView() {
   const title = labels.title(resolveLabel(manifest.label));
   const description = labels.description(manifest.description);
 
+  /**
+   * Read the namespace again after a successful save or action and take the
+   * whole payload, manifest included (objectui#13382). The server computes
+   * parts of the manifest on every read: objectstack#25448 puts a live-status
+   * `info_banner` (id `live_status`) first in `manifest.specifiers`, and a
+   * save can change what it says. The PUT answers values only, so without
+   * this the banner kept the first load's text until a reload.
+   *
+   * The draft, field errors and crypto refusal are left alone: the caller
+   * decides those. `loading` is not flipped, so the form does not flash its
+   * placeholder. A failed re-read keeps what is on screen: the save or action
+   * itself succeeded, so the page must not turn into an error.
+   */
+  const reread = async (ns: string) => {
+    const seq = ++readSeqRef.current;
+    try {
+      const fresh = await getSettingsNamespace(ns);
+      if (readSeqRef.current === seq) setPayload(fresh);
+    } catch {
+      // Keep the page as it is; the next load or save reads again.
+    }
+  };
+
   const onSave = async () => {
     if (dirtyKeys.length === 0) return;
     // objectui#13239 — a visible required field left empty blocks the save
@@ -425,6 +460,7 @@ export function SettingsView() {
       setDraft({});
       setFieldErrors({});
       toast.success(t('console.settingsView.saved'));
+      void reread(namespace);
     } catch (err: any) {
       const apiError = err?.payload?.error;
       if (apiError?.code === 'SETTINGS_LOCKED') {
@@ -501,8 +537,13 @@ export function SettingsView() {
     setSaving(true);
     try {
       const result = await runSettingsAction(namespace, actionId, draft);
-      if (result.ok) toast.success(result.message ?? t('console.settingsView.actionSucceeded'));
-      else toast.error(result.message ?? t('console.settingsView.actionFailed'));
+      if (result.ok) {
+        toast.success(result.message ?? t('console.settingsView.actionSucceeded'));
+        // An action does not save the draft, so the draft stays as it is.
+        void reread(namespace);
+      } else {
+        toast.error(result.message ?? t('console.settingsView.actionFailed'));
+      }
     } catch (err: any) {
       toast.error(err?.message ?? t('console.settingsView.actionFailed'));
     } finally {

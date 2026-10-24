@@ -123,6 +123,7 @@ const RETIRED_COLUMN_KEYS: Record<string, unknown> = {
   wrap: true,
   masked: true,
   chips: true,
+  foreignKey: true,
 };
 
 /** Every key the rich `TableColumn` interface declares. `satisfies` keeps the
@@ -152,6 +153,7 @@ const RICH_COLUMN_KEYS = [
   'wrap',
   'masked',
   'chips',
+  'foreignKey',
 ] as const satisfies readonly (keyof TableColumn)[];
 type _RichKeyListExhaustive = Expect<Equal<(typeof RICH_COLUMN_KEYS)[number], keyof TableColumn>>;
 
@@ -328,7 +330,7 @@ describe('the tombstone refusal reaches the author with its remediation text (ob
     expect(StaticTableColumnSchema.safeParse(LIVE_COLUMN).success).toBe(true);
     expect(TableZod.safeParse(STATIC_TABLE).success).toBe(true);
 
-    for (const key of ['headerIcon', 'fitContent', 'format', 'options', 'currency', 'wrap', 'masked', 'chips'] as const) {
+    for (const key of ['headerIcon', 'fitContent', 'format', 'options', 'currency', 'wrap', 'masked', 'chips', 'foreignKey'] as const) {
       const result = StaticTableColumnSchema.safeParse({
         header: 'Amount',
         accessorKey: 'amount',

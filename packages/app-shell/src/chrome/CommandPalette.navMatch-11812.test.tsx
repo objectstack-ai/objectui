@@ -28,8 +28,8 @@
  *  - `ingest` and `wayne` show their record hit and no unrelated entry;
  *    `ingest` shows the one entry whose machine name contains it;
  *  - a word prefix (`field`), a mid-word substring (`view`) and a Han
- *    substring (`大屏`) each show their entry, so cmdk's scorer, which still
- *    ranks the rendered entries, never hides a match;
+ *    substring (`大屏`) each show their entry, and cmdk filters nothing the
+ *    palette renders (its own filter is off, objectui#13387);
  *  - CONTROLS: the record hit's item is the one the palette always rendered,
  *    and an empty query shows every entry and command.
  */
@@ -211,11 +211,11 @@ describe('objectui#11812 — the ⌘K palette matches navigation entries on word
     expect(entries()).toEqual(['Open Full Search Page']);
   });
 
-  it('CONTROL: the record hit is the item the palette always rendered, its value carrying the query', async () => {
+  it('CONTROL: the record hit is the item the palette always rendered, its value stable across queries (objectui#13387)', async () => {
     const ds = mount('wayne');
     await settledRecordHits(ds);
     const hit = document.querySelector('[cmdk-item][data-value^="record "]');
-    expect(hit?.getAttribute('data-value')).toBe('record wayne Wayne Enterprises Account showcase_account a1');
+    expect(hit?.getAttribute('data-value')).toBe('record Wayne Enterprises Account showcase_account a1');
   });
 
   it('CONTROL: an empty query shows every entry, app and command', () => {

@@ -9,9 +9,10 @@
  * surface. These pin the three that are mechanically checkable from the
  * rendered output:
  *
- *   1. the machine-name chip's tooltip is translated, in both locales (and,
- *      since objectui#8231, WHEN the chip shows is judged on the source label,
- *      alike in both locales);
+ *   1. the machine-name tooltip is translated, in both locales (and, since
+ *      objectui#8231, WHEN it is offered is judged on the source label, alike
+ *      in both locales; since objectui#13352 it is the label's on-demand
+ *      `title`, no longer an inline chip);
  *   2. a master-detail column whose item schema carries no `title` gets a
  *      humanised header instead of the raw JSON Schema key;
  *   3. a numeric field grays its schema `default` in as a PLACEHOLDER and
@@ -71,6 +72,11 @@ function renderIn(language: 'en' | 'zh', ui: React.ReactElement) {
 // own name, and PRESENT beside `columns`, whose source label ("Grid width")
 // does not spell it, in BOTH locales. The tooltip assertions ride on the
 // chip that is present.
+//
+// objectui#13352 then moved the name off the row: the label is shown alone,
+// and the name is the label's on-demand `title` ("Machine name: columns"),
+// mirrored on `data-machine-name`. Same predicate, same translated word; the
+// pins below read the label's attributes instead of an inline `<code>`.
 const CHIP_SCHEMA = {
   type: 'object',
   properties: {
@@ -103,19 +109,24 @@ function renderChipForm(language: 'en' | 'zh') {
   );
 }
 
-describe('#8218 · machine-name chip tooltip is translated', () => {
+/** The label that offers `name` on demand, or null (objectui#13352). */
+function hintFor(name: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`label[data-machine-name="${name}"]`);
+}
+
+describe('#8218 · machine-name tooltip is translated', () => {
   it('reads Chinese under a Chinese provider', () => {
     renderChipForm('zh');
     // The overlay really translated the label — otherwise this pins nothing.
-    expect(screen.getByText('列数')).toBeTruthy();
-    const chip = screen.getByText('columns');
-    expect(chip.tagName).toBe('CODE');
-    expect(chip).toHaveAttribute('title', '机器名');
+    const label = screen.getByText('列数');
+    expect(label.tagName).toBe('LABEL');
+    expect(label).toBe(hintFor('columns'));
+    expect(label).toHaveAttribute('title', '机器名: columns');
   });
 
   it('reads English under an English provider', () => {
     renderChipForm('en');
-    expect(screen.getByText('columns')).toHaveAttribute('title', 'Machine name');
+    expect(hintFor('columns')).toHaveAttribute('title', 'Machine name: columns');
   });
 
   it('never emits the untranslated literal in the Chinese panel', () => {
@@ -128,9 +139,12 @@ describe('#8218 · machine-name chip tooltip is translated', () => {
     (language) => {
       renderChipForm(language);
       // `gap` has no source label: its English label IS the humanized name.
-      expect(screen.queryByText('gap')).toBeNull();
+      expect(hintFor('gap')).toBeNull();
       // `columns` is sourced as "Grid width", which does not spell it.
-      expect(screen.getByText('columns').tagName).toBe('CODE');
+      expect(hintFor('columns')).not.toBeNull();
+      // Neither name is drawn as text on the row (objectui#13352).
+      expect(screen.queryByText('columns')).toBeNull();
+      expect(screen.queryByText('gap')).toBeNull();
     },
   );
 });

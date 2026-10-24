@@ -47,6 +47,14 @@ export interface RecordTitleChipProps {
   icon?: React.ReactNode;
   /** Object label shown beneath the title (e.g. "Lead"). */
   objectLabel?: string;
+  /**
+   * Host-injected, optional (objectui#13385): a note about the object label,
+   * e.g. how the object is managed ("Managed by the identity provider"). When
+   * given with `objectLabel`, the label becomes a focusable tooltip trigger
+   * showing "<objectLabel> · <note>", and the note is the label's accessible
+   * description. Absent, the label draws exactly as before.
+   */
+  objectLabelNote?: string;
   /** Record identifier shown next to the object label with a copy button. */
   resourceId?: string;
   /** Hide the copy-id button (default: shown when `resourceId` is given). */
@@ -69,6 +77,7 @@ export const RecordTitleChip: React.FC<RecordTitleChipProps> = ({
   titleNode,
   icon,
   objectLabel,
+  objectLabelNote,
   resourceId,
   showCopyId = true,
   isFavorite: isFavoriteProp,
@@ -80,6 +89,7 @@ export const RecordTitleChip: React.FC<RecordTitleChipProps> = ({
   const [internalFav, setInternalFav] = React.useState(false);
   const [idCopied, setIdCopied] = React.useState(false);
   const isFavorite = isFavoriteProp ?? internalFav;
+  const objectLabelNoteId = React.useId();
 
   const handleToggleFavorite = React.useCallback(() => {
     const next = !isFavorite;
@@ -115,10 +125,36 @@ export const RecordTitleChip: React.FC<RecordTitleChipProps> = ({
             </span>
           )}
           <h1 className="text-xl sm:text-2xl font-bold truncate">{titleNode ?? title}</h1>
-          {objectLabel && (
+          {objectLabel && !objectLabelNote && (
             <span className="text-xs font-medium tracking-wide text-muted-foreground/70 shrink-0">
               {objectLabel}
             </span>
+          )}
+          {/* objectui#13385 — the label with a host note: focusable, so the
+              tooltip opens on keyboard focus as on hover, and described by
+              the note (an `sr-only` sibling, so the description is there
+              whether or not the tooltip is open). */}
+          {objectLabel && objectLabelNote && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    tabIndex={0}
+                    aria-describedby={objectLabelNoteId}
+                    data-object-label-note=""
+                    className="text-xs font-medium tracking-wide text-muted-foreground/70 shrink-0 cursor-help rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {objectLabel}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  {objectLabel} · {objectLabelNote}
+                </TooltipContent>
+              </Tooltip>
+              <span id={objectLabelNoteId} className="sr-only">
+                {objectLabelNote}
+              </span>
+            </>
           )}
           {showCopyId && resourceId && (
             <Tooltip>

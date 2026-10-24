@@ -81,6 +81,13 @@ export type ServerActionFetch = (
 export interface ServerActionRecordIdResolution {
   recordId?: unknown;
   error?: string;
+  /**
+   * The locale-pack key `error` is the English source of, when the refusal is
+   * one this module writes itself (see `RECORD_SELECTION_REFUSAL`). A host
+   * that shows `error` to the user translates it through this key; with no
+   * key, `error` is shown as it is.
+   */
+  errorKey?: string;
 }
 
 export type ServerActionRecordIdResolver = (
@@ -93,10 +100,22 @@ export type ServerActionRecordIdResolver = (
  * to `ActionRunnerHandler` — register it under `'script'` (and, where the host
  * routes them server-side, other action types).
  */
-export type ServerActionHandler = (
+export type ServerActionHandler = ((
   action: ActionDef,
   context?: ActionContext,
-) => Promise<ActionResult>;
+) => Promise<ActionResult>) & {
+  /**
+   * The record-id refusal, asked BEFORE the runner opens any dialog
+   * (objectui#13384) — see `ActionRunnerHandler`'s member of the same name.
+   * Set on every handler {@link createServerActionHandler} builds; optional so
+   * a host that wraps the handler in its own function still satisfies the
+   * type, though such a wrapper only keeps the early refusal by forwarding it.
+   */
+  refuseBeforeInput?: (
+    action: ActionDef,
+    context: ActionContext | undefined,
+  ) => { error: string; errorKey?: string } | undefined;
+};
 
 export interface ServerActionHandlerConfig {
   /** Authenticated transport — see {@link ServerActionFetch}. */
@@ -141,6 +160,40 @@ export function isRecordScopedAction(action: ActionDef): boolean {
 }
 
 /**
+ * The two refusals the record-id dance writes itself. `key` names the
+ * locale-pack entry (`@object-ui/i18n`'s packs define both), `defaultValue` is
+ * the English source: the text a resolution's `error` carries, which is what
+ * shows when nothing translates it.
+ */
+const RECORD_SELECTION_REFUSAL = {
+  multipleRows: {
+    key: 'actions.selectExactlyOneRow',
+    defaultValue: 'This action runs on a single record — select exactly one row.',
+  },
+  noRow: {
+    key: 'actions.selectRowFirst',
+    defaultValue: 'This action runs on a single record — select a row first.',
+  },
+} as const;
+
+function refuseSelection(
+  { key, defaultValue }: (typeof RECORD_SELECTION_REFUSAL)[keyof typeof RECORD_SELECTION_REFUSAL],
+): ServerActionRecordIdResolution {
+  return { error: defaultValue, errorKey: key };
+}
+
+/**
+ * Whether the action's param dialog itself collects `recordId` — the first
+ * rung of the record-id dance. Such an action cannot be judged before its
+ * dialog has run, so it gets no early refusal.
+ */
+function collectsRecordIdParam(action: ActionDef): boolean {
+  const defs = Array.isArray(action.actionParams) ? action.actionParams
+    : (Array.isArray(action.params) ? action.params : undefined);
+  return !!defs?.some((def) => (def as { name?: unknown } | null)?.name === 'recordId');
+}
+
+/**
  * The standard record-id resolution dance, shared by the dispatcher and by
  * consumers that need the id BEFORE dispatching (e.g. app-shell's zero-roundtrip
  * `newTabUrl` fast path). Pure — reads the action/context, mutates nothing.
@@ -173,9 +226,9 @@ export function resolveServerActionRecordId(
       recordId = selected[0]?.[recordIdField];
     } else if (selected.length > 1) {
       // The runner's post-execution hook surfaces `error` as a toast.
-      return { error: 'This action runs on a single record — select exactly one row.' };
+      return refuseSelection(RECORD_SELECTION_REFUSAL.multipleRows);
     } else if (isRecordScopedAction(action)) {
-      return { error: 'This action runs on a single record — select a row first.' };
+      return refuseSelection(RECORD_SELECTION_REFUSAL.noRow);
     }
   }
   return { recordId: recordId ?? undefined };
@@ -193,7 +246,7 @@ export function createServerActionHandler(config: ServerActionHandlerConfig): Se
   // span invocations.
   const inFlight = new Set<string>();
 
-  return async function serverActionDispatch(
+  const serverActionDispatch = async function serverActionDispatch(
     action: ActionDef,
     context?: ActionContext,
   ): Promise<ActionResult> {
@@ -262,4 +315,16 @@ export function createServerActionHandler(config: ServerActionHandlerConfig): Se
       inFlight.delete(inflightKey);
     }
   };
+
+  // The same resolution the dispatch runs, asked before the runner shows a
+  // confirmation or a param dialog (objectui#13384): a launch the dispatch
+  // would refuse for its row count is refused before the user types anything,
+  // not after Confirm. The dispatch keeps its own check for a caller that
+  // invokes the handler directly.
+  const refuseBeforeInput: NonNullable<ServerActionHandler['refuseBeforeInput']> = (action, context) => {
+    if (collectsRecordIdParam(action)) return undefined;
+    const resolution = resolveRecordId(action, context);
+    return resolution.error ? { error: resolution.error, errorKey: resolution.errorKey } : undefined;
+  };
+  return Object.assign(serverActionDispatch, { refuseBeforeInput });
 }

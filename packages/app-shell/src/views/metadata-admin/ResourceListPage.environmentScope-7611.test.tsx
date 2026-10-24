@@ -227,6 +227,12 @@ describe('the active switch (the activation ledger, through its door)', () => {
     doorAnswer = { status: 403, body: { success: false, error: { code: 'PERMISSION_DENIED', message: refusal, httpStatus: 403 } } };
     mount('?scope=environment');
     fireEvent.click(await screen.findByTestId('catalog-active-admin_full_access'));
+    // Switching off asks first (objectui#13338); this file mounts no data
+    // source, so the confirm says the count could not be read and still lets
+    // the admin go ahead.
+    const confirm = await screen.findByTestId('catalog-deactivate-confirm');
+    await waitFor(() => expect(confirm).not.toBeDisabled());
+    fireEvent.click(confirm);
     expect(
       await screen.findByText(tFormat('engine.catalog.active.failed', 'en-US', { message: refusal })),
     ).toBeInTheDocument();

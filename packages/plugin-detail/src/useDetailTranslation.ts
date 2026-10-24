@@ -107,7 +107,8 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.hideEmptyFields': 'Hide empty fields',
   'detail.editRow': 'Edit',
   'detail.deleteRow': 'Delete',
-  'detail.deleteRowConfirmation': 'Are you sure you want to delete this record?',
+  // objectui#13333 — the related list's row delete names the row by its title.
+  'detail.deleteRowConfirmation': 'Are you sure you want to delete "{{name}}"?',
   'detail.actions': 'Actions',
   'detail.previousPage': 'Previous',
   'detail.nextPage': 'Next',

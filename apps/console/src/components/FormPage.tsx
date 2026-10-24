@@ -149,7 +149,7 @@ import {
   resolveFormWidgetType,
 } from '@object-ui/fields';
 import { usePredicateScope } from '@object-ui/react';
-import { useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
+import { pickLocalized, useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
 import type { FormFieldSpec, FormSectionSpec, FormViewSpec } from '@object-ui/app-shell';
 import type { ObjectFormSection } from '@object-ui/types';
 import { resolveSubmitRedirect } from './submitRedirect';
@@ -281,8 +281,8 @@ const FORM_SPEC_TYPES = new Set(['simple', 'tabbed', 'wizard', 'split', 'drawer'
  * So the key is declared HERE, on the body this renderer unwraps, and not on the
  * form contract shared with `packages/app-shell`. Narrowed to `string` because
  * every read below assigns it into a `string` slot; the spec's own overlay types
- * it `I18nLabel`, whose inline locale-map arm no form renderer in this repo
- * resolves.
+ * it `I18nLabel`, whose inline locale-map arm this renderer resolves for a field
+ * entry's copy ({@link buildSections}, objectui#13380) but not for this label.
  */
 type FormViewBody = FormViewSpec & { label?: string };
 
@@ -735,12 +735,40 @@ function widgetLabelling(widgetKey: string): 'control' | 'group' | 'display' {
  * Merge a FormView's section/field overrides with the target object's
  * field definitions to produce concrete rows the renderer can draw.
  * Field-level FormField overrides take precedence over object defaults.
+ *
+ * ## A field entry's copy is collapsed to `language` here (objectui#13380)
+ *
+ * `@objectstack/spec`'s `FormFieldBaseSchema` types an entry's `label`,
+ * `placeholder` and `helpText` as `I18nLabel`: a string, or an inline
+ * per-locale map such as `{ en, 'zh-CN' }`. The public resolver serves the map
+ * unchanged, and every row slot below is a `string` that reaches JSX — the
+ * label as `fieldLabel`'s fallback, which hands an unmatched fallback back
+ * untouched. So one map on a label or help line rendered an object as a React
+ * child and blanked the page for every visitor, on both routes; on a
+ * placeholder it read `[object Object]`.
+ *
+ * The map is reduced with `pickLocalized`, the resolver
+ * `useActionTextLocalizer` collapses an action's `I18nLabel` copy with, BEFORE
+ * it becomes the row: a row then carries one string, and that string is what
+ * the bundle lookup at the render site falls back to — the same order the
+ * action hook uses. `FormFieldSpec` narrows these keys to `string`, which
+ * describes what this builder EMITS, not what the wire may carry, so the read
+ * is not gated on the declared type.
+ *
+ * `language` is the visitor's (`useObjectTranslation().language`). Left out,
+ * `pickLocalized` reads `en`, so a caller that has no language still gets a
+ * string.
  */
 export function buildSections(
   form: FormViewSpec,
   objectSchema: ObjectSchemaPayload | null,
+  language?: string,
 ): RenderableSection[] {
   const objFields = objectSchema?.fields ?? {};
+  // An absent key stays absent: `pickLocalized` spells a miss `''`, and an
+  // empty placeholder or help line is not the same row as none.
+  const localized = (value: unknown): string | undefined =>
+    value == null ? undefined : pickLocalized(value, language);
   /**
    * A section may declare its members EITHER way (objectui#8641): enumerate
    * `fields`, or point `group` at one of the object's declared `fieldGroups`
@@ -793,7 +821,9 @@ export function buildSections(
         objFields[override.field] ?? ({ type: 'text' } as ObjectFieldDef);
       fields.push({
         name: override.field,
-        label: override.label ?? def.label ?? override.field,
+        // objectui#13380 — the three `I18nLabel` keys, collapsed to the
+        // visitor's language before they reach a `string` slot.
+        label: localized(override.label ?? def.label) ?? override.field,
         type: def.type ?? 'text',
         required: override.required ?? def.required ?? false,
         readonly: override.readonly ?? false,
@@ -812,8 +842,8 @@ export function buildSections(
           readonlyWhen: def.readonlyWhen,
           requiredWhen: def.requiredWhen,
         },
-        placeholder: override.placeholder ?? def.placeholder,
-        helpText: override.helpText ?? def.helpText,
+        placeholder: localized(override.placeholder ?? def.placeholder),
+        helpText: localized(override.helpText ?? def.helpText),
         defaultValue: def.defaultValue,
         options: normalizeOptions(def.options),
         // The FORM's ceiling wins over the object's, exactly like every
@@ -2083,7 +2113,9 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
   // pending-redirect line and the required refusal's frame — through the same
   // provider, and the same pack keys plugin-form's forms read
   // (objectui#11039). An authored thank-you `title` / `message` still wins.
-  const { t } = useObjectTranslation();
+  // `language` is the visitor's, read by `buildSections` to collapse a field
+  // entry's inline locale map (objectui#13380).
+  const { t, language } = useObjectTranslation();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -2156,6 +2188,8 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
       .then((result) => {
         if (cancelled) return;
         setLoaded(result);
+        // Prefill reads names and defaults only, never the copy, so this
+        // build needs no language and the load does not re-run on a switch.
         const sections = buildSections(result.form, result.objectSchema);
         const allFields = sections.flatMap((s) => s.fields);
         setValues(readPrefill(allFields, search, result.record));
@@ -2177,8 +2211,8 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
   }, [mode, identifier, search]);
 
   const sections = useMemo<RenderableSection[]>(
-    () => (loaded ? buildSections(loaded.form, loaded.objectSchema) : []),
-    [loaded],
+    () => (loaded ? buildSections(loaded.form, loaded.objectSchema, language) : []),
+    [loaded, language],
   );
 
   const behavior: EffectiveSubmitBehavior = resolveSubmitBehavior(

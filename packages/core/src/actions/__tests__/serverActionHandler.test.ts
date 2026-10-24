@@ -233,6 +233,40 @@ describe('createServerActionHandler — resolution wiring', () => {
   });
 });
 
+describe('the row-count refusals carry their pack key, and are asked before input (objectui#13384)', () => {
+  const SCOPED = { name: 'a', locations: ['list_item', 'list_toolbar'] } as ActionDef;
+
+  it('each refusal names the locale-pack key its English text is the source of', () => {
+    expect(resolveServerActionRecordId(SCOPED, { selectedRecords: [{ id: 'x' }, { id: 'y' }] })).toEqual({
+      error: 'This action runs on a single record — select exactly one row.',
+      errorKey: 'actions.selectExactlyOneRow',
+    });
+    expect(resolveServerActionRecordId(SCOPED, { selectedRecords: [] })).toEqual({
+      error: 'This action runs on a single record — select a row first.',
+      errorKey: 'actions.selectRowFirst',
+    });
+  });
+
+  it('the built handler answers the same refusal before input, and nothing for one row', () => {
+    const handler = createServerActionHandler({ fetch: okFetch() });
+
+    expect(handler.refuseBeforeInput?.(SCOPED, { selectedRecords: [] })).toEqual({
+      error: 'This action runs on a single record — select a row first.',
+      errorKey: 'actions.selectRowFirst',
+    });
+    expect(handler.refuseBeforeInput?.(SCOPED, { selectedRecords: [{ id: 'x' }] })).toBeUndefined();
+  });
+
+  it('a custom resolveRecordId decides the early refusal too', () => {
+    const handler = createServerActionHandler({
+      fetch: okFetch(),
+      resolveRecordId: () => ({ recordId: 'page_rec_1' }),
+    });
+
+    expect(handler.refuseBeforeInput?.(SCOPED, { selectedRecords: [] })).toBeUndefined();
+  });
+});
+
 describe('createServerActionHandler — envelope rule (objectstack#3913)', () => {
   it('treats an INNER success:false under HTTP 200 as a failure (no refresh)', async () => {
     const fetch = okFetch({

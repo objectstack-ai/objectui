@@ -34,6 +34,12 @@
  * comes after a picker was used. It refuses and reports exactly as the plain
  * fixture does.
  *
+ * objectui#13384 moved the refusal in front of the dialog: a launch the
+ * dispatch would refuse for its row count is refused before the param dialog
+ * opens (the runner asks the console handler's forwarded
+ * `refuseBeforeInput`), so the 0- and 2-row cases below assert that no dialog
+ * opened, beside the toast and the absent request. One row still opens it.
+ *
  * "Record-scoped" is a declaration, not a guess: an action is single-record
  * when its `locations` include a record placement (`isRecordScopedAction`). An
  * action declared at `list_toolbar` alone is object-level, so zero rows
@@ -214,22 +220,31 @@ async function launchFromHeader(): Promise<void> {
   await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' })); });
 }
 
+/**
+ * Click the HEADER toolbar's "Add to Campaign" for a launch that is refused for
+ * its row count (objectui#13384): the refusal shows, and no dialog opened.
+ */
+async function launchRefusedFromHeader(refusal: string): Promise<void> {
+  const toolbars = await screen.findAllByRole('toolbar', undefined, { timeout: 5000 });
+  fireEvent.click(await within(toolbars[0]).findByRole('button', { name: /Add to Campaign/ }, { timeout: 5000 }));
+  expect(await screen.findByText(refusal, undefined, { timeout: 5000 })).toBeInTheDocument();
+  expect(screen.queryByRole('dialog')).toBeNull();
+}
+
 describe('objectui#12331 — a record-scoped script action at list_toolbar, with a param', () => {
-  it('0 rows: the refusal shows, and no request is sent', async () => {
+  it('0 rows: the refusal shows before any dialog, and no request is sent', async () => {
     mountLeads(RECORD_SCOPED);
     await tickRows(0);
-    await launchFromHeader();
+    await launchRefusedFromHeader(ZERO_ROW_REFUSAL);
 
-    expect(await screen.findByText(ZERO_ROW_REFUSAL, undefined, { timeout: 5000 })).toBeInTheDocument();
     expect(actionCalls()).toHaveLength(0);
   });
 
-  it('2 rows: the refusal shows, and no request is sent', async () => {
+  it('2 rows: the refusal shows before any dialog, and no request is sent', async () => {
     mountLeads(RECORD_SCOPED);
     await tickRows(2);
-    await launchFromHeader();
+    await launchRefusedFromHeader(MULTI_ROW_REFUSAL);
 
-    expect(await screen.findByText(MULTI_ROW_REFUSAL, undefined, { timeout: 5000 })).toBeInTheDocument();
     expect(actionCalls()).toHaveLength(0);
   });
 
@@ -254,12 +269,11 @@ describe('objectui#12331 — a record-scoped script action at list_toolbar, with
 });
 
 describe('objectui#12331 — the refusal follows the `locations` declaration', () => {
-  it('declared at list_toolbar alone, 2 rows: one dispatch cannot name two records, so it refuses', async () => {
+  it('declared at list_toolbar alone, 2 rows: one dispatch cannot name two records, so it refuses before any dialog', async () => {
     mountLeads(TOOLBAR_ONLY);
     await tickRows(2);
-    await launchFromHeader();
+    await launchRefusedFromHeader(MULTI_ROW_REFUSAL);
 
-    expect(await screen.findByText(MULTI_ROW_REFUSAL, undefined, { timeout: 5000 })).toBeInTheDocument();
     expect(actionCalls()).toHaveLength(0);
   });
 
@@ -387,21 +401,20 @@ async function launchHotcrmFromHeader(): Promise<void> {
 }
 
 describe('objectui#12331 — HotCRM\'s declaration: list_item placement, a field-backed record-picker param', () => {
-  it('0 rows: the refusal shows, and no request is sent', async () => {
+  it('0 rows: the refusal shows before any dialog, and no request is sent', async () => {
     mountHotcrmLeads();
     await tickRows(0);
-    await launchHotcrmFromHeader();
+    // `list_item` also draws the action on every row; the header's toolbar is the first.
+    await launchRefusedFromHeader(ZERO_ROW_REFUSAL);
 
-    expect(await screen.findByText(ZERO_ROW_REFUSAL, undefined, { timeout: 5000 })).toBeInTheDocument();
     expect(actionCalls()).toHaveLength(0);
   });
 
-  it('2 rows: the refusal shows, and no request is sent', async () => {
+  it('2 rows: the refusal shows before any dialog, and no request is sent', async () => {
     mountHotcrmLeads();
     await tickRows(2);
-    await launchHotcrmFromHeader();
+    await launchRefusedFromHeader(MULTI_ROW_REFUSAL);
 
-    expect(await screen.findByText(MULTI_ROW_REFUSAL, undefined, { timeout: 5000 })).toBeInTheDocument();
     expect(actionCalls()).toHaveLength(0);
   });
 

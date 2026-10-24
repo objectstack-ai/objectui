@@ -29,6 +29,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { toast } from 'sonner';
 import { createI18n, I18nProvider } from '@object-ui/i18n';
 import { NAV_RUN_ACTION_PARAM } from '@object-ui/layout';
 // Module scope, per AGENTS.md's test-discipline rule: the param dialog reaches
@@ -80,6 +81,7 @@ vi.mock('./metadata-admin/useMetadata', async (importOriginal) => ({
 
 import { ObjectView } from './ObjectView';
 import { ExpressionProvider } from '../providers/ExpressionProvider';
+import { ConsoleToaster } from '../chrome/ConsoleToaster';
 
 /** HotCRM's `CreateCampaignAction`, the keys this chain reads: record-scoped. */
 const CREATE_CAMPAIGN = {
@@ -138,6 +140,7 @@ const OBJECTS = [
 ];
 
 afterEach(() => {
+  act(() => { toast.dismiss(); });
   cleanup();
   vi.unstubAllGlobals();
   window.history.replaceState(null, '', '/');
@@ -157,6 +160,7 @@ function mountLeads(viewName: keyof typeof LIST_VIEWS) {
   } as never;
   return render(
     <I18nProvider instance={i18n}>
+      <ConsoleToaster />
       <ExpressionProvider user={{ id: 'u1', name: 'Sales Manager' }}>
         <MemoryRouter initialEntries={[`/apps/crm/crm_lead/view/${viewName}`]}>
           <Routes>
@@ -252,6 +256,14 @@ describe('objectui#12462 — a bulk-wired, record-scoped list_toolbar action lea
   });
 });
 
+/**
+ * What an ARMED link shows. `create_campaign` is record-scoped and the link
+ * runs it as the page mounts, with no row selected, so the run is refused for
+ * its row count before its param dialog opens (objectui#13384). This toast is
+ * the run's observable: the link armed and the action ran.
+ */
+const ZERO_ROW_REFUSAL = 'This action runs on a single record — select a row first.';
+
 describe('objectui#12462 — the deep link arms only what the header draws', () => {
   const linkTo = (viewName: string) =>
     window.history.replaceState(null, '', `/apps/crm/crm_lead/view/${viewName}?${NAV_RUN_ACTION_PARAM}=create_campaign`);
@@ -268,14 +280,18 @@ describe('objectui#12462 — the deep link arms only what the header draws', () 
     await rowBoxes();
 
     expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByText(ZERO_ROW_REFUSAL)).toBeNull();
     expect(linkStillInUrl()).toBe('create_campaign');
   });
 
-  it('CONTROL — on a view that does not wire it, the same link arms: the param dialog opens and the link is consumed', async () => {
+  it('CONTROL — on a view that does not wire it, the same link arms: the action runs and the link is consumed', async () => {
     linkTo('my_leads');
     mountLeads('my_leads');
 
-    expect(await screen.findByRole('dialog', undefined, { timeout: 5000 })).toBeInTheDocument();
+    // It ran: with no row selected, the record-scoped action is refused before
+    // its param dialog (objectui#13384), so no dialog opens.
+    expect(await screen.findByText(ZERO_ROW_REFUSAL, undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(linkStillInUrl()).toBeNull(), { timeout: 5000 });
   });
 });

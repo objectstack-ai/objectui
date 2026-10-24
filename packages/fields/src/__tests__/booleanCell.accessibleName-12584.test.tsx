@@ -9,7 +9,7 @@
 /**
  * objectui#12584 — the boolean cell's plain checkbox is named by its field.
  *
- * `BooleanCellRenderer` has three outcomes for a real boolean. Two already
+ * `BooleanCellRenderer` had three outcomes for a real boolean. Two already
  * named themselves: the completion indicator (`role="img"`, "Completed" /
  * "Not completed") and the status field's off badge ("LABEL — Off"). The
  * third, the plain read-only checkbox every other boolean column draws, had
@@ -17,9 +17,14 @@
  * reader announced each grid cell as a bare "checkbox, not checked" with no
  * field (measured on the Studio Records grid, HotCRM Account `is_active`).
  *
- * The name is the field's words, the ones the off badge already prints: its
- * label, else its humanized name. It carries no state word: the `checkbox`
- * role announces checked / not checked itself.
+ * The name is the field's words, the ones the off badge printed: its label,
+ * else its humanized name. It carries no state word: the `checkbox` role
+ * announces checked / not checked itself.
+ *
+ * objectui#13412 retired the off badge: a `false` on a status-like name
+ * (`active`, `is_active`, …) now draws the same unchecked box as any other
+ * boolean. The words the badge printed are the box's accessible name, which
+ * the status-field cases below pin for both states.
  *
  * Every naming case is found by `getByRole('checkbox', { name })`, so it reads
  * the name off the element that carries the role (Radix's button), not off a
@@ -27,8 +32,8 @@
  * resolves a read-mode cell, for both types that map to this renderer.
  *
  * The CONTROL block pins what this change must leave alone: the completion
- * indicator's two names, the off badge's text, and the non-boolean
- * `EmptyValue` outcome with no checkbox in it.
+ * indicator's two names and the non-boolean `EmptyValue` outcome with no
+ * checkbox in it.
  */
 
 import React from 'react';
@@ -78,6 +83,17 @@ describe('objectui#12584 — the boolean cell checkbox is named by its field', (
         renderCell(type, true, { name: 'is_active', label: 'Active' });
         expect(screen.getByRole('checkbox', { name: 'Active' })).toBeChecked();
       });
+
+      it('a status field that is off draws an unchecked box named by the label, not a badge (objectui#13412)', () => {
+        const { container } = renderCell(type, false, { name: 'is_active', label: 'Active' });
+        expect(screen.getByRole('checkbox', { name: 'Active' })).not.toBeChecked();
+        expect(container.querySelector('[data-testid="boolean-warning-badge"]')).toBeNull();
+      });
+
+      it('an unlabelled status field that is off falls back to the humanized name', () => {
+        renderCell(type, false, { name: 'is_active' });
+        expect(screen.getByRole('checkbox', { name: 'Is Active' })).not.toBeChecked();
+      });
     });
   }
 });
@@ -91,17 +107,6 @@ describe('objectui#12584 — CONTROL: the outcomes that already named themselves
 
     renderCell('boolean', false, { name: 'is_done' });
     expect(screen.getByRole('img', { name: 'Not completed' })).toBeInTheDocument();
-    expect(screen.queryByRole('checkbox')).toBeNull();
-  });
-
-  it('the off badge keeps its text and draws no checkbox', () => {
-    const labelled = renderCell('boolean', false, { name: 'is_active', label: 'Active' });
-    expect(labelled.getByTestId('boolean-warning-badge')).toHaveTextContent(/^Active — Off$/);
-    expect(screen.queryByRole('checkbox')).toBeNull();
-    cleanup();
-
-    const unlabelled = renderCell('boolean', false, { name: 'is_active' });
-    expect(unlabelled.getByTestId('boolean-warning-badge')).toHaveTextContent(/^Is Active — Off$/);
     expect(screen.queryByRole('checkbox')).toBeNull();
   });
 

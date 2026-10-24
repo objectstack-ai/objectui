@@ -52,8 +52,10 @@
  * The caricature is a renderer that draws a box only for a literal `true`
  * (`value !== true` in place of `typeof value !== 'boolean'`). It satisfies
  * every THE DEFECT case in this file. What refuses it is the POPULATED block:
- * a real `false` still draws an UNCHECKED box, its "Not completed" indicator
- * and its "Off" badge. Each was RUN against the caricature, not predicted.
+ * a real `false` still draws an UNCHECKED box and its "Not completed"
+ * indicator (and, until objectui#13412 retired it, its "Off" badge; an
+ * `active`-named `false` is now that same unchecked box). Each was RUN
+ * against the caricature, not predicted.
  *
  * ── Why each defect case asserts the artefact's ABSENCE first ─────────────
  * "a checked checkbox is a fabricated true" / "an unchecked checkbox is a
@@ -244,10 +246,13 @@ describe('objectui#8582 — only a real boolean is a value of a boolean column',
       expect(affordance(container), 'completed: a real false must NOT render the affordance').toBeNull();
     });
 
-    it('POPULATED — an ACTIVE-named boolean holding a real `false` still draws the "Off" badge', () => {
+    it('POPULATED — an ACTIVE-named boolean holding a real `false` is an UNCHECKED checkbox named by the field, not a badge (objectui#13412)', () => {
       const { container } = renderCell('boolean', false, { name: 'active', label: 'Active' });
-      expect(offBadge(container), 'active: a real false must still draw its Off badge').not.toBeNull();
-      expect(offBadge(container)?.textContent, 'active: the Off badge must still name the field').toContain('Active');
+      const box = checkbox(container);
+      expect(box, 'active: a real false must still draw its checkbox').not.toBeNull();
+      expect(box?.getAttribute('aria-checked'), 'active: a real false must still be unchecked').toBe('false');
+      expect(box?.getAttribute('aria-label'), 'active: the box must still name the field').toBe('Active');
+      expect(offBadge(container), 'active: a real false draws no Off badge').toBeNull();
       expect(affordance(container), 'active: a real false must NOT render the affordance').toBeNull();
     });
 

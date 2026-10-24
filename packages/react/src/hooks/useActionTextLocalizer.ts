@@ -75,9 +75,17 @@
  *   action has not run yet, so there is no result to read. The runner fills
  *   the token in after the action succeeds, through the same `${result.*}`
  *   scope `onSuccess.navigate` reads — one interpolation, in one place.
+ * - **The `template` envelope keeps its shape** (objectui#13367, the renderer
+ *   half of objectstack#24814). `confirmText`, `successMessage` and
+ *   `errorMessage` may arrive as `{ dialect: 'template', source }` instead of
+ *   a string. The envelope is not an `I18nLabel` map — read as one it would
+ *   collapse to its first string value, the word `template` — so its `source`
+ *   is what the bundle's fallback and answer replace, and the runner receives
+ *   the envelope and fills its `{{ }}` holes (`ActionRunner`'s copy reads).
  */
 
 import { useMemo } from 'react';
+import { isActionCopyEnvelope } from '@object-ui/core';
 import { useObjectLabel, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import { isConfigBag } from '../utils/configBag.js';
 
@@ -106,6 +114,32 @@ export type ActionTextLocalizer = <T extends Record<string, any>>(
 /** The declared `I18nLabel` copy, besides `label`, that reaches the runner. */
 const DECLARED_COPY_KEYS = ['confirmText', 'successMessage', 'errorMessage'] as const;
 
+/**
+ * Collapse one declared copy value to the active language: an `I18nLabel`
+ * through `pickLocalized`, a `template` envelope as itself (its `source` is
+ * already one string; see "The `template` envelope keeps its shape").
+ */
+function collapseCopy(copy: unknown, language: string): unknown {
+  return isActionCopyEnvelope(copy) ? copy : pickLocalized(copy, language);
+}
+
+/**
+ * Hand a collapsed copy value to a bundle resolver as its fallback, and put
+ * the answer back in the value's own shape: a string stays the resolver's
+ * answer, an envelope keeps every member but `source`. An envelope with no
+ * string `source` offers no fallback, so it comes back unchanged unless the
+ * bundle holds an entry for the key.
+ */
+function resolveCopy(
+  copy: unknown,
+  resolve: (fallback: string | undefined) => string | undefined,
+): unknown {
+  if (!isActionCopyEnvelope(copy)) return resolve(copy as string | undefined);
+  const source = typeof copy.source === 'string' ? copy.source : undefined;
+  const answer = resolve(source);
+  return answer === undefined || answer === source ? copy : { ...copy, source: answer };
+}
+
 export function useActionTextLocalizer(): ActionTextLocalizer {
   const { actionLabel, actionConfirm, actionSuccess, actionOutcome } = useObjectLabel();
   const { language } = useObjectTranslation();
@@ -133,7 +167,7 @@ export function useActionTextLocalizer(): ActionTextLocalizer {
       for (const key of DECLARED_COPY_KEYS) {
         const declaredCopy: unknown = action[key];
         if (declaredCopy === undefined) continue;
-        collapsed[key] = pickLocalized(declaredCopy, language);
+        collapsed[key] = collapseCopy(declaredCopy, language);
         if (collapsed[key] !== declaredCopy) changed = true;
       }
 
@@ -156,10 +190,10 @@ export function useActionTextLocalizer(): ActionTextLocalizer {
         label: actionLabel(keyObject, name, displayLabel),
       };
       if ((action as any).confirmText !== undefined) {
-        out.confirmText = actionConfirm(keyObject, name, collapsed.confirmText);
+        out.confirmText = resolveCopy(collapsed.confirmText, (fallback) => actionConfirm(keyObject, name, fallback));
       }
       if ((action as any).successMessage !== undefined) {
-        out.successMessage = actionSuccess(keyObject, name, collapsed.successMessage);
+        out.successMessage = resolveCopy(collapsed.successMessage, (fallback) => actionSuccess(keyObject, name, fallback));
       }
       // The map is an authored bag (outcome → copy), so the one "is this a
       // real bag?" predicate in this package answers whether to read it.

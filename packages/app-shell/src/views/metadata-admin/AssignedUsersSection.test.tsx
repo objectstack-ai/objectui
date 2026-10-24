@@ -176,6 +176,8 @@ describe('AssignedUsersSection — a grant by name, on a database with no catalo
     render(<AssignedUsersSection permissionSetName="showcase_contributor" />);
     await waitFor(() => expect(screen.getByText('Held Henry')).toBeTruthy());
     fireEvent.click(screen.getByLabelText('Remove'));
+    // Remove confirms first (objectui#13408); the delete follows the confirm.
+    fireEvent.click(await screen.findByTestId('assigned-user-remove-confirm'));
 
     await waitFor(() => expect(mockAdapter.delete).toHaveBeenCalledTimes(1));
     expect(mockAdapter.delete).toHaveBeenCalledWith('sys_user_permission_set', 'grant_1');

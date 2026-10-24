@@ -82,11 +82,11 @@ shell has to come from metadata, the key for that is `app-schema-renderer`.
 
 | Prop | Type | Default | Description |
 | --- | --- | --- | --- |
-| `children` | `React.ReactNode` | — (required) | Main content, rendered inside the `<main>` element. |
+| `children` | `React.ReactNode` | — (required) | Main content, rendered inside the content element, within the shell's one `<main>` landmark. |
 | `navbar` | `React.ReactNode` | — | Top bar content. `AppShell` supplies the sticky `<header>` around it, so pass only what goes inside. |
 | `sidebar` | `React.ReactNode` | — | Left sidebar node, rendered as a flex sibling of the content. Pass `SidebarNav`, or your own node. |
 | `rightRail` | `React.ReactNode` | — | Optional right-side rail. It reflows the content beside it rather than overlaying it (ADR-0057 P3a); absent → unchanged single-pane layout. |
-| `className` | `string` | — | Tailwind overrides for the `<main>` content element — **not** for the outer container. |
+| `className` | `string` | — | Tailwind overrides for the content element — **not** for the outer container. |
 | `defaultOpen` | `boolean` | `true` | Initial open state of the underlying Shadcn `SidebarProvider`. |
 | `branding` | `AppShellBranding` | — | App branding, applied by `useAppShellBranding`: `primaryColor` / `accentColor` become CSS custom properties on the document root (re-derived for dark mode), `favicon` sets the icon link's `href`, and `title` sets `document.title`. |
 
@@ -256,8 +256,8 @@ route type-checks either way, which is why the two are named apart here.
 
 ## Customization
 
-`AppShell` takes a single `className`, and it lands on the `<main>` content
-element (`src/AppShell.tsx:256`) rather than on the outer container. There is no
+`AppShell` takes a single `className`, and it lands on the content element (a
+`<div>` inside the shell's one `<main>` landmark) rather than on the outer container. There is no
 per-slot `headerClassName` / `sidebarClassName` — the navbar and the sidebar are
 nodes **you** build, so style them where you build them:
 

@@ -525,3 +525,29 @@ describe("interpretFlowResponse — the flow's own toasts in the active language
         expect(interpretFlowResponse(ok, json, 'Flow "case_escalate"')).toMatchObject({ successMessage: 'Case escalated' });
     });
 });
+
+// objectui#13367 — the invoking action's `successMessage` may arrive as the
+// `template` envelope (objectstack#24814). Read as "not a string", it fell to
+// the flow's own copy, so the author's sentence never showed on a flow action.
+describe("flowSuccessCopy — the action's copy as a template envelope (objectui#13367)", () => {
+    it("an envelope's source wins over the flow's copy, as written", () => {
+        expect(flowSuccessCopy({ dialect: 'template', source: 'Escalated {{ record.name }}' }, 'Escalation recorded'))
+            .toEqual({ text: 'Escalated {{ record.name }}', from: 'action' });
+    });
+
+    it('an envelope with no text counts as none', () => {
+        expect(flowSuccessCopy({ dialect: 'template' }, 'Escalation recorded'))
+            .toEqual({ text: 'Escalation recorded', from: 'flow' });
+    });
+
+    it('on a straight-through run the result is unchanged, so the runner speaks the envelope', () => {
+        const data = { success: true, status: 'completed', successMessage: 'Escalation recorded' };
+        const out = judgeFlowLaunch(
+            interpretFlowResponse(ok, { success: true, data }, 'Flow "case_escalate"'),
+            undefined,
+            { dialect: 'template', source: 'Escalated {{ record.name }}' },
+        );
+        expect(out.result).toEqual({ success: true, data, reload: true });
+        expect(out.successToast).toBeUndefined();
+    });
+});

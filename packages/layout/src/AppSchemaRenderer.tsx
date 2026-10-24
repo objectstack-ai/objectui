@@ -142,7 +142,7 @@ export interface AppSchemaRendererProps {
   /** Page content */
   children: React.ReactNode;
 
-  /** Extra class on the <main> content area */
+  /** Extra class on the shell's content element (inside its one `main` landmark) */
   className?: string;
 
   /** Whether the sidebar starts open @default true */

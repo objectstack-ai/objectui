@@ -394,6 +394,23 @@ invitation instead of rendering a form the server will refuse. A server that sen
 `audiencePosture` predates the key, and `disableSignUp` alone decides there. The
 console's login and register pages are that reader (objectui#11691).
 
+### `features.cloudManaged` — a cloud-managed environment
+
+`features.cloudManaged` is `true` when the cloud's control plane runs the
+environment (the objectstack-ai/objectstack#25083 ruling). People then arrive
+from the hosting organization through its identity provider, and the server
+refuses the doors that add people inside the environment: inviting a member,
+importing users, and setting an initial password without platform-admin
+standing. Absent or `false` means not managed, and nothing changes.
+
+The console reads it in four places (objectui#13330): Setup → Users shows one
+line saying where people are invited and marks a user who holds no permission
+set beyond the baseline; the identity import entry on that list is not offered;
+the organization members page shows a note instead of Invite member; and the
+recovery-password reminder does not show. The `invite_user`, `create_user` and
+`set_user_password` actions are hidden by their own served `visible`
+predicates, not by console code.
+
 ### Reserved flags — advertised by the server, consumed by nothing
 
 Two members of that map are **declared but deliberately not consumed** by this package:

@@ -19,7 +19,8 @@
  *      `sys_metadata_activation` ledger) and flips it through
  *      `POST /api/v1/automation/<name>/toggle`;
  *   2. **clone** — `POST /api/v1/automation/<name>/clone` with a mandatory NEW
- *      machine name and label (ADR-0126 §7.1).
+ *      machine name and label (ADR-0126 §7.1). The dialog opens on
+ *      `<name>_copy` and "<label> (copy)", both editable (objectui#13344).
  *
  * Everything else a "packaged flow" page could plausibly show is withdrawn by
  * ADR-0126 §9, and its absence is load-bearing rather than unfinished:
@@ -690,7 +691,24 @@ export function PackagedAutomationPage() {
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        setClone({ source: row.name, name: '', label: '', refusal: null, busy: false })
+                        // Opens on a submittable default, both fields editable
+                        // (objectui#13344). `<source>_copy` stays inside the
+                        // `^[a-z_][a-z0-9_]*$` shape `FlowSchema.name` requires,
+                        // since the source name already is, and it is the name
+                        // the server's own taken-name refusal suggests. The
+                        // server stays the judge: a taken name still answers
+                        // `onCloneSubmit`'s 409, verbatim. `row.label` is the
+                        // machine name when the flow declares no label.
+                        setClone({
+                          source: row.name,
+                          name: `${row.name}_copy`,
+                          label: t('packagedAutomation.cloneCopyLabel', {
+                            defaultValue: '{{label}} (copy)',
+                            label: row.label,
+                          }),
+                          refusal: null,
+                          busy: false,
+                        })
                       }
                     >
                       {t('packagedAutomation.clone', { defaultValue: 'Clone' })}

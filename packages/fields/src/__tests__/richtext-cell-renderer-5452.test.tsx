@@ -125,7 +125,8 @@ describe('rich-content cell renderers (objectui#5452)', () => {
 
     expect(prose.querySelector('script')).toBeNull();
     expect(prose.innerHTML).not.toContain('onerror');
-    expect(prose.querySelector('a')?.getAttribute('href')).not.toContain('javascript:');
+    // A dropped `href` reads `null`; a rewritten one must not name the scheme.
+    expect(prose.querySelector('a')?.getAttribute('href') ?? '').not.toContain('javascript:');
     expect(prose.textContent).toContain('ok');
   });
 

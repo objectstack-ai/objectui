@@ -213,6 +213,25 @@ export interface DateDisplayOptions {
    * separate, deliberate call (objectui#7745's report).
    */
   style?: string;
+  /**
+   * Keep the year on {@link formatDate}'s default face even when the date
+   * falls in the current year (objectui#13331). Opt-in, absent means `false`:
+   * the default face drops the current year on purpose (see the note in
+   * {@link formatDate}'s default branch), and that stays the rule for every
+   * caller that does not ask.
+   *
+   * The surface that asks is the record header's highlights strip. Its
+   * chips sit side by side, so a past-year date beside a current-year one
+   * read "Start Date Sep 15, 2025 | End Date Sep 15", and a contract that
+   * ended last month looked like it ended next month.
+   *
+   * It reaches the default face on every path into it, because
+   * {@link formatRelativeDate}'s out-of-window fallback strips only `style`
+   * from the bag it hands on. The `'short'` face already writes the year and
+   * the relative phrases inside the ±7-day window name no calendar date, so
+   * neither reads it.
+   */
+  alwaysShowYear?: boolean;
 }
 
 /**
@@ -595,10 +614,12 @@ export function formatDate(value: string | Date | number, style?: string, option
   // matches the current year — Salesforce / HubSpot / Linear all do this
   // because the year is rarely useful for in-progress records and the
   // verbose "2026年7月21日" form crowds cards and table cells. Past- /
-  // future-year dates keep the year so users can disambiguate.
+  // future-year dates keep the year so users can disambiguate. A caller
+  // whose dates are read side by side opts out with `alwaysShowYear`
+  // (objectui#13331).
   const isCurrentYear = dayIn(date, zone).year === dayIn(new Date(), displayTimeZone).year;
   return date.toLocaleDateString(options?.locale, {
-    year: isCurrentYear ? undefined : 'numeric',
+    year: isCurrentYear && options?.alwaysShowYear !== true ? undefined : 'numeric',
     month: 'short',
     day: 'numeric',
     ...inZone(zone),

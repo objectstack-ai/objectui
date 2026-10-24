@@ -63,10 +63,11 @@ that skipped its coercion, and the place to fix that is the data source.
 ## Cell Renderer
 
 In tables/grids, `BooleanCellRenderer` draws a real boolean as a disabled checkbox — checked
-for `true`, unchecked for `false`. Two field-name conventions change the shape: a completion
-field (`completed`, `is_completed`, `done`, `is_done`) draws a green "Completed" or an outlined
-"Not completed" indicator, and a status field (`active`, `is_active`, `enabled`, `is_enabled`,
-`verified`, `is_verified`) holding `false` draws a destructive "… — Off" badge.
+for `true`, unchecked for `false` — named by the field's label. One field-name convention
+changes the shape: a completion field (`completed`, `is_completed`, `done`, `is_done`) draws a
+green "Completed" or an outlined "Not completed" indicator. Every other name draws the
+checkbox, so `false` is a neutral unchecked box whatever the field is called: `active`,
+`enabled` and `verified` read the same as any other boolean.
 
 **Only a real boolean is a value of a boolean column.** `@objectstack/spec` declares the
 runtime value of `boolean` / `toggle` as a bare JS boolean on the wire; the SQL `0`/`1` repair

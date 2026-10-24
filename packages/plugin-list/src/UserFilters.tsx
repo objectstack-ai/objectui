@@ -1013,6 +1013,11 @@ interface SessionTab {
 }
 
 function TabFilters({ tabs, showAllRecords, allowAddTab, onFilterChange, className, initialTab, onSelectionsChange }: TabFiltersProps) {
+  const tt = useSafeTranslate();
+  // The synthetic trailing tab's label (objectui#13405). Read into a string
+  // here so the memo below keys on the translated value, never on the
+  // identity of the per-render `tt` function (AGENTS.md #10).
+  const allRecordsLabel = tt('list.userFilters.allRecords', 'All records');
   const [activeTab, setActiveTab] = React.useState<string>(() => {
     // URL-restored tab wins over the author's default.
     if (initialTab && (initialTab === '__all__' || tabs.some(t => t.id === initialTab))) {
@@ -1070,10 +1075,10 @@ function TabFilters({ tabs, showAllRecords, allowAddTab, onFilterChange, classNa
   const allTabs = React.useMemo(() => {
     const result = [...tabs];
     if (showAllRecords) {
-      result.push({ id: '__all__', label: 'All records', filters: [] });
+      result.push({ id: '__all__', label: allRecordsLabel, filters: [] });
     }
     return result;
-  }, [tabs, showAllRecords]);
+  }, [tabs, showAllRecords, allRecordsLabel]);
 
   /**
    * Confirm the naming input: snapshot the conditions currently applied under

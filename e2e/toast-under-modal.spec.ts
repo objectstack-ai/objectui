@@ -43,7 +43,8 @@ import { fileURLToPath } from 'node:url';
  * overlay host `NavigationOverlay` with the props `ObjectView` gives it, and
  * through it the Shadcn `Sheet` (drawer mode: both objectui#11685 paths, beside
  * the drawer and below its header) and `Dialog` (modal mode: the centred
- * dialog, toaster in its own corner), both on `@radix-ui/react-dialog`; sonner
+ * dialog, toaster at its no-drawer anchor, top-centre below the top bar,
+ * objectui#13340), both on `@radix-ui/react-dialog`; sonner
  * itself; React. The stylesheet is real Tailwind, compiled from the installed
  * `tailwindcss` for the class strings in those source files.
  *
@@ -276,18 +277,21 @@ interface Configuration {
   drawerWidth: string;
   /**
    * Where objectui#11685 puts the toaster for this window and overlay: beside
-   * the drawer, below its header, or (no right-edge drawer) its own corner.
+   * the drawer, below its header, or (no right-edge drawer) its no-drawer
+   * anchor, top-centre below the top bar (objectui#13340). For a centred
+   * dialog that puts the toast over the dialog's own title row, so the
+   * hit-test assertions below are what show it is still the click target.
    * Read back off the toaster in every test, so a configuration that stopped
    * exercising its path fails instead of silently testing another one.
    */
-  path: 'beside' | 'below header' | 'corner';
+  path: 'beside' | 'below header' | 'top centre';
 }
 
 const CONFIGURATIONS: Configuration[] = [
   { name: '1440 sm drawer', viewport: { width: 1440, height: 900 }, mode: 'drawer', drawerWidth: 'min(92vw, 480px)', path: 'beside' },
   { name: '1024 md drawer', viewport: { width: 1024, height: 768 }, mode: 'drawer', drawerWidth: 'min(92vw, 720px)', path: 'below header' },
   { name: '390 phone drawer', viewport: { width: 390, height: 844 }, mode: 'drawer', drawerWidth: 'min(92vw, 480px)', path: 'below header' },
-  { name: '1440 centred dialog', viewport: { width: 1440, height: 900 }, mode: 'modal', drawerWidth: 'min(92vw, 720px)', path: 'corner' },
+  { name: '1440 centred dialog', viewport: { width: 1440, height: 900 }, mode: 'modal', drawerWidth: 'min(92vw, 720px)', path: 'top centre' },
 ];
 const BELOW_HEADER = CONFIGURATIONS[1];
 
@@ -344,14 +348,24 @@ const toastShowing = (page: Page, title: string) =>
     title,
   );
 
-/** Which objectui#11685 path the toaster took, read off the offsets it was given. */
+/**
+ * Which path the toaster took, read off its anchor and the offsets it was
+ * given. No drawer to clear: top-centre at 56px, below the 48px top bar
+ * (objectui#13340). A right-edge drawer: top-right, then beside the drawer or
+ * below its header (objectui#11685). Anything else is named, not folded in.
+ */
 const pathOf = (page: Page) =>
   page.evaluate(() => {
     const toaster = document.querySelector<HTMLElement>('[data-sonner-toaster]');
     if (!toaster) return 'no toaster';
-    if (toaster.style.getPropertyValue('--offset-right') !== '24px') return 'beside';
-    if (toaster.style.getPropertyValue('--offset-top') !== '24px') return 'below header';
-    return 'corner';
+    const anchor = `${toaster.getAttribute('data-y-position')}-${toaster.getAttribute('data-x-position')}`;
+    const top = toaster.style.getPropertyValue('--offset-top');
+    const right = toaster.style.getPropertyValue('--offset-right');
+    if (anchor === 'top-center') return top === '56px' ? 'top centre' : `top centre at ${top}`;
+    if (anchor !== 'top-right') return `anchored ${anchor}`;
+    if (right !== '24px') return 'beside';
+    if (top !== '24px') return 'below header';
+    return 'top-right at the default offsets';
   });
 
 interface ToastReading {

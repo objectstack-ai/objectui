@@ -3920,8 +3920,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                 }
                                 // No tooltip on a MASKED column (objectui#10583):
                                 // the title carried the raw value, so a hover
-                                // showed what the cell's mask hides.
-                                title={!isFit && !col.masked && cellValue != null && typeof cellValue !== 'object' ? String(cellValue) : undefined}
+                                // showed what the cell's mask hides. None on a
+                                // FOREIGN-KEY column either (objectui#13377): its
+                                // raw value is the referenced record's id, which
+                                // the drawn name (or "Restricted record") withholds.
+                                title={!isFit && !col.masked && !col.foreignKey && cellValue != null && typeof cellValue !== 'object' ? String(cellValue) : undefined}
                                 // The cell half of the drawn-size read the
                                 // auto width is estimated from (objectui#11682).
                                 data-auto-width-key={autoWidthKey(col)}

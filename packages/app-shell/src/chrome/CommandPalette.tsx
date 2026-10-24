@@ -7,19 +7,28 @@
  * Uses Shadcn's Command (cmdk) component — keyboard-accessible. The palette
  * matches its navigation entries and built-in commands itself, on word
  * prefixes and contiguous substrings (`matchesPaletteQuery`, objectui#11812),
- * and renders only those that match; record hits come from the server search.
+ * and renders only those that match; record hits come from the server search,
+ * already ranked. So cmdk's own filter and sort stay off (`shouldFilter`
+ * false, objectui#13387): what is rendered is what shows, in render order.
  *
  * Two scopes (objectui#11863). Inside an app (`scope` omitted) it searches that
  * app. On `/studio` (`scope="studio"`), a frame outside every app, it has no
  * app-scoped group and no full-search command, whose links all start with
  * `/apps/APP`; it lists the Studio's packages, objects and flows instead, each
  * opening its Studio page.
+ *
+ * A failure inside the palette closes it and leaves the console mounted; the
+ * next open draws a fresh palette (objectui#13387).
  */
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  CommandDialog,
+  Command,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -52,6 +61,7 @@ import { useRecentItemLabel } from '../hooks/useRecentItemLabel.js';
 import { recentItemObject } from '../console/home/recentItemTypeLabel.js';
 import type { RecentItem } from '../context/RecentItemsProvider.js';
 import { useCommandPalette } from '../context/CommandPaletteProvider.js';
+import { ErrorBoundary } from './ErrorBoundary.js';
 import { confirmUnsavedLeave } from './unsavedEdits.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { resolveHref, resolveNavItemLabel } from '@object-ui/layout';
@@ -104,7 +114,42 @@ const NO_APP: Omit<AppCommandPaletteProps, 'scope'> = {
   dataSource: undefined,
 };
 
+/**
+ * The palette, behind its own error boundary (objectui#13387). It is mounted in
+ * the console's frame, beside the routes, so an error thrown inside it (a
+ * render, or a layout effect of the cmdk list) reached no boundary below the
+ * root and unmounted the whole console. Now the boundary catches and reports
+ * it, the palette closes and draws nothing, and the console stays. The next
+ * open remounts a fresh palette; a failed one is not re-rendered while it is
+ * closed, so a palette that throws even when closed cannot loop.
+ */
 export function CommandPalette(props: CommandPaletteProps) {
+  const { open, setOpen } = useCommandPalette();
+  const [failed, setFailed] = useState(false);
+  const [generation, setGeneration] = useState(0);
+
+  useEffect(() => {
+    if (open && failed) {
+      setFailed(false);
+      setGeneration((n) => n + 1);
+    }
+  }, [open, failed]);
+
+  return (
+    <ErrorBoundary
+      key={generation}
+      fallback={() => null}
+      onError={() => {
+        setFailed(true);
+        setOpen(false);
+      }}
+    >
+      <CommandPaletteBody {...props} />
+    </ErrorBoundary>
+  );
+}
+
+function CommandPaletteBody(props: CommandPaletteProps) {
   const inStudio = props.scope === 'studio';
   const { apps, activeApp, objects, onAppChange, dataSource } = inStudio ? NO_APP : props;
   const { open, setOpen } = useCommandPalette();
@@ -317,7 +362,7 @@ export function CommandPalette(props: CommandPaletteProps) {
   }, [recordHits, objectsByName, t]);
 
   return (
-    <CommandDialog
+    <PaletteDialog
       open={open}
       onOpenChange={setOpen}
       // Accessible name/description (rendered visually-hidden as the required
@@ -406,9 +451,9 @@ export function CommandPalette(props: CommandPaletteProps) {
               {group.hits.map((hit) => (
                 <CommandItem
                   key={`${hit.objectName}:${hit.recordId}`}
-                  // Embed the live query so cmdk's client-side filter doesn't
-                  // hide async hits that don't textually match the input.
-                  value={`record ${inputValue} ${hit.display} ${hit.objectLabel} ${hit.objectName} ${hit.recordId}`}
+                  // Stable across queries: cmdk filters nothing here
+                  // (`shouldFilter` false), it only selects by the value.
+                  value={`record ${hit.display} ${hit.objectLabel} ${hit.objectName} ${hit.recordId}`}
                   onSelect={() => leaveTo(`${baseUrl}/${hit.objectName}/record/${hit.recordId}`)}
                 >
                   <Icon className="mr-2 h-4 w-4" />
@@ -603,9 +648,52 @@ export function CommandPalette(props: CommandPaletteProps) {
           </>
         )}
       </CommandList>
-    </CommandDialog>
+    </PaletteDialog>
   );
 }
+
+/**
+ * `CommandDialog`'s frame with cmdk's own filter off (objectui#13387).
+ * `CommandDialog` passes no props to its cmdk root, so the frame is composed
+ * here from the same parts and classes.
+ *
+ * With its filter on, cmdk re-sorts whenever an item's value changes, walking
+ * the group ids its last filter saw. A new query that dropped an object's
+ * record group left that id behind: the sort read the unmounted group, threw
+ * inside a layout effect, and the throw unmounted the console. With the filter
+ * off cmdk neither filters nor sorts; the palette already decides both.
+ */
+function PaletteDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  contentProps,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: ReactNode;
+  description: ReactNode;
+  contentProps: Record<`data-${string}`, string>;
+  children: ReactNode;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="overflow-hidden p-0 shadow-lg" {...contentProps}>
+        <DialogTitle className="sr-only">{title}</DialogTitle>
+        <DialogDescription className="sr-only">{description}</DialogDescription>
+        <Command shouldFilter={false} className={PALETTE_COMMAND_CLASS}>
+          {children}
+        </Command>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** The cmdk root's classes, as `CommandDialog` draws them. */
+const PALETTE_COMMAND_CLASS =
+  '[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5';
 
 /** The theme commands, matched by their value (objectui#11812). */
 const THEME_COMMANDS = [

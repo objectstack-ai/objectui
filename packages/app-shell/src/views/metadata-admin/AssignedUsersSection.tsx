@@ -48,16 +48,45 @@
  * gate in the component. Listing the holders asks only to read, so a caller
  * who may read but not write the grants sees the list with no Add and no
  * Remove, and an empty list that does not tell them to click Add.
+ *
+ * ## Remove asks first; the picker offers members only (objectui#13408)
+ *
+ * The same shape as `PositionHoldersSection` (objectui#13337). Remove on a
+ * direct grant opens a confirm that names the person; nothing is sent until
+ * the admin confirms, and Cancel writes nothing. The picker offers the members
+ * of the active organization only: the users its `sys_member` rows name, read
+ * when the picker opens (`organization-members.ts`, shared with the positions
+ * page) and handed to the picker as its hard filter. The server already
+ * refuses a grant whose user holds no `sys_member` row in the organization the
+ * row is stored in (objectstack's `grant-holder-membership-refusal` judges
+ * `sys_user_permission_set` as it judges `sys_user_position`), so a non-member
+ * offered here could only be refused. Where that refusal judges nothing — no
+ * active organization (the grant is stored with none, a global grant) or a
+ * composition that registers no `sys_member` — the picker keeps its whole
+ * list, as the server does.
  */
 
 import * as React from 'react';
-import { Button } from '@object-ui/components';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+  buttonVariants,
+} from '@object-ui/components';
+import { useAuth } from '@object-ui/auth';
 import { resolveAffordance, type SchemaLike } from '@object-ui/core';
 import { RecordPickerDialog } from '@object-ui/fields';
 import { usePermissions } from '@object-ui/permissions';
 import { extractWriteErrorMessage, useAdapter, useMetadata } from '@object-ui/react';
 import { Plus, X, Users, Loader2, AlertCircle } from 'lucide-react';
 import { useMetadataLocale } from './i18n.js';
+import { membershipOrganization, readOrganizationMemberIds, type MemberFilter } from './organization-members.js';
 
 /** The object a permission set's direct grants are rows of: ADD creates one, REMOVE deletes one. */
 const GRANT_OBJECT = 'sys_user_permission_set';
@@ -108,7 +137,13 @@ function useCopy() {
             emptyAddHint: '点击「添加用户」来分配。',
             sentenceGap: '',
             loading: '加载中…',
-            pickTitle: '选择要分配的用户',
+            pickTitle: '选择要分配的组织成员',
+            noMembers: '本组织还没有可分配的成员。',
+            membersFailed: '无法读取本组织的成员。',
+            removeTitle: (who: string) => `将 ${who} 从此权限集移除？`,
+            removeBody: (who: string) =>
+              `${who} 将不再直接持有此权限集；分配它的岗位仍会授予它。之后可以重新添加。`,
+            cancel: '取消',
             seatFull: (n: number) =>
               'AI 席位已用完(' + n + '/' + n + ')。请先移除一个用户,或在许可证中提升席位上限,再分配新用户。',
             addFailed: '分配失败,请重试。',
@@ -128,7 +163,13 @@ function useCopy() {
             emptyAddHint: 'Click "Add user" to assign.',
             sentenceGap: ' ',
             loading: 'Loading…',
-            pickTitle: 'Select users to assign',
+            pickTitle: 'Select organization members to assign',
+            noMembers: 'This organization has no members to assign yet.',
+            membersFailed: 'Could not read the members of this organization.',
+            removeTitle: (who: string) => `Remove ${who} from this permission set?`,
+            removeBody: (who: string) =>
+              `${who} will no longer hold this permission set directly; a position that distributes it still grants it. You can add them again later.`,
+            cancel: 'Cancel',
             seatFull: (n: number) =>
               'All ' + n + ' AI seat(s) are in use. Remove a user or raise the license cap before assigning another.',
             addFailed: 'Failed to assign. Please try again.',
@@ -219,6 +260,16 @@ export function AssignedUsersSection({ permissionSetName, onHoldersRead }: Assig
    * empty copy. `said` is the server's sentence, `''` when it gave none.
    */
   const [readFailure, setReadFailure] = React.useState<{ said: string } | null>(null);
+  /** The direct grant whose Remove is being confirmed, or `null` while no confirm is open. */
+  const [pendingRemove, setPendingRemove] = React.useState<AssignedRow | null>(null);
+  /**
+   * The picker's hard filter: the active organization's members, by user id,
+   * or `undefined` where the server judges no membership (see the module note).
+   * Read when the picker opens, so a member added or removed since is counted.
+   */
+  const [memberFilter, setMemberFilter] = React.useState<MemberFilter | undefined>(undefined);
+  const [openingPicker, setOpeningPicker] = React.useState(false);
+  const activeOrganizationId = useAuth().activeOrganization?.id ?? null;
 
   /**
    * May the caller add or remove a holder? Each is a write of a
@@ -249,6 +300,7 @@ export function AssignedUsersSection({ permissionSetName, onHoldersRead }: Assig
   };
   const canAdd = resolveAffordance('relatedNew', grantSource).allowed;
   const canRemove = resolveAffordance('relatedRowDelete', grantSource).allowed;
+  const memberOrganization = membershipOrganization(activeOrganizationId, metadataStore.objects);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -364,6 +416,36 @@ export function AssignedUsersSection({ permissionSetName, onHoldersRead }: Assig
     [adapter, permissionSetName, assignedIds, load, rows.length, c],
   );
 
+  /**
+   * Open the picker over the active organization's members, as the positions
+   * page does: the user ids are that organization's `sys_member` rows, every
+   * page of them; a refused read is said in the server's words and the picker
+   * stays shut, since its list would otherwise offer people the server will
+   * refuse.
+   */
+  const openPicker = React.useCallback(async () => {
+    setError(null);
+    if (!memberOrganization) {
+      setMemberFilter(undefined);
+      setPickerOpen(true);
+      return;
+    }
+    setOpeningPicker(true);
+    try {
+      const ids = await readOrganizationMemberIds(adapter, memberOrganization);
+      if (ids.length === 0) {
+        setError(c.noMembers);
+        return;
+      }
+      setMemberFilter({ id: { $in: ids } });
+      setPickerOpen(true);
+    } catch (err) {
+      setError(refusalSentence(err) || c.membersFailed);
+    } finally {
+      setOpeningPicker(false);
+    }
+  }, [adapter, memberOrganization, c]);
+
   const removeUser = React.useCallback(
     async (grantId: string) => {
       setError(null);
@@ -393,14 +475,11 @@ export function AssignedUsersSection({ permissionSetName, onHoldersRead }: Assig
           <Button
             variant="outline"
             size="sm"
-            disabled={busy}
-            onClick={() => {
-              setError(null);
-              setPickerOpen(true);
-            }}
+            disabled={busy || openingPicker}
+            onClick={() => void openPicker()}
             className="gap-1 h-8 text-xs"
           >
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            {busy || openingPicker ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
             {c.add}
           </Button>
         )}
@@ -476,7 +555,10 @@ export function AssignedUsersSection({ permissionSetName, onHoldersRead }: Assig
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => void removeUser(r.grantId!)}
+                    onClick={() => {
+                      setError(null);
+                      setPendingRemove(r);
+                    }}
                     aria-label={c.remove}
                     title={c.remove}
                     className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
@@ -502,10 +584,38 @@ export function AssignedUsersSection({ permissionSetName, onHoldersRead }: Assig
           dataSource={adapter}
           objectName="sys_user"
           title={c.pickTitle}
+          baseFilter={memberFilter}
           onSelect={() => {}}
           onSelectRecords={(records: any[]) => void addUsers(records)}
         />
       )}
+      <AlertDialog
+        open={pendingRemove !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRemove(null);
+        }}
+      >
+        <AlertDialogContent data-testid="assigned-user-remove-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{c.removeTitle(pendingRemove?.name ?? '')}</AlertDialogTitle>
+            <AlertDialogDescription>{c.removeBody(pendingRemove?.name ?? '')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="assigned-user-remove-cancel">{c.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: 'destructive' })}
+              data-testid="assigned-user-remove-confirm"
+              onClick={() => {
+                const target = pendingRemove;
+                setPendingRemove(null);
+                if (target?.grantId) void removeUser(target.grantId);
+              }}
+            >
+              {c.remove}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -20,7 +20,7 @@
  * fences on the same page had the same defect in two more spellings: the
  * "Usage with React Router" example passed `header={…}` too, and "Customization"
  * passed `headerClassName` / `sidebarClassName`, neither of which exists either
- * (there is no per-slot className at all — `className` goes to `<main>`).
+ * (there is no per-slot className at all — `className` goes to the content element).
  *
  * This is objectui#3999's defect (SidebarNav, same README, pinned by
  * `readme-sidebar-nav-example.test.ts`) and objectui#4793's (SidebarNav on

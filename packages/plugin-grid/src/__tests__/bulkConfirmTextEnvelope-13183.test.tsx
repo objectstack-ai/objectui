@@ -55,6 +55,14 @@ describe('bulkConfirmTextSource (objectui#13183)', () => {
     expect(bulkConfirmTextSource({ dialect: 'template', source: '  ' })).toBeUndefined();
   });
 
+  it('returns undefined for an envelope that carries no source (objectstack#25438)', () => {
+    // The protocol's envelope types `source` as optional: a parsed slot may
+    // carry only its `ast`. The slot's type admits that shape, and the reader
+    // shows the default sentence for it.
+    const astOnly: BulkActionDef['confirmText'] = { dialect: 'template' };
+    expect(bulkConfirmTextSource(astOnly)).toBeUndefined();
+  });
+
   it('returns undefined when absent', () => {
     expect(bulkConfirmTextSource(undefined)).toBeUndefined();
     expect(bulkConfirmTextSource(null)).toBeUndefined();

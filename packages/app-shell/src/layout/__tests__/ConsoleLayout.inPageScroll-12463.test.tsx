@@ -81,7 +81,9 @@ describe('the console inset bounds a self-scrolling page below the banners (obje
     expect(slot).toHaveAttribute('data-testid', 'console-route');
     expect(slot).toHaveClass('h-full', 'lg:min-h-0');
     const inset = slot.parentElement as HTMLElement;
-    expect(inset.tagName).toBe('MAIN');
+    // A plain element inside the shell's one `main` landmark (objectui#13334).
+    expect(inset.tagName).toBe('DIV');
+    expect(inset.closest('main')).not.toBeNull();
     expect(inset).toHaveClass('lg:flex', 'lg:flex-col');
     expect(inset).toHaveClass('overflow-y-auto', 'overflow-x-hidden');
     // The phone keeps block layout: no unprefixed flex on the inset.
@@ -111,7 +113,9 @@ describe('the console inset bounds a self-scrolling page below the banners (obje
     const slot = page.parentElement as HTMLElement;
     expect(slot).toHaveAttribute('data-testid', 'console-route');
     const inset = slot.parentElement as HTMLElement;
-    expect(inset.tagName).toBe('MAIN');
+    // A plain element inside the shell's one `main` landmark (objectui#13334).
+    expect(inset.tagName).toBe('DIV');
+    expect(inset.closest('main')).not.toBeNull();
     expect(inset).toHaveClass('overflow-y-auto');
     // No arbitrary child variant on the inset (`[&>*]:min-h-0`, `[&>*]:shrink`,
     // …): a natural-height page root placed in the column would be squeezed.

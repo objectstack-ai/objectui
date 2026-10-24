@@ -64,9 +64,9 @@
     "./styles.css": "./src/styles.css"
   },
   "scripts": {
-    "build": "tsc && node ../../scripts/check-dist-completeness.mjs",
+    "build": "node ../../scripts/with-heap.mjs tsc && node ../../scripts/check-dist-completeness.mjs",
     "test": "vitest run --root ../.. packages/app-shell/",
-    "type-check": "tsc --noEmit && tsc -p tsconfig.test.json",
+    "type-check": "node ../../scripts/with-heap.mjs tsc --noEmit && node ../../scripts/with-heap.mjs tsc -p tsconfig.test.json",
     "lint": "eslint ."
   },
   "dependencies": {

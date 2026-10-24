@@ -310,7 +310,6 @@ export type {
   TimelineGanttItemBar,
   TimelineSchema,
   KbdSchema,
-  HtmlSchema,
   StatisticSchema,
   BarChartSchema,
   DataDisplaySchema,

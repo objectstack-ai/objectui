@@ -140,15 +140,6 @@ export const NEXT_CONFIG_FILES = [
  */
 export const FILE_VALUED_OPTIONS: ReadonlySet<string> = new Set<string>();
 
-/**
- * Repo-relative scripts that WRAP the command following them rather than being
- * the program themselves. `scripts/with-heap.mjs` re-runs its arguments under a
- * larger V8 heap, so `node ../../scripts/with-heap.mjs tsc` is a tsc run and is
- * classified as one; the wrapper itself is still part of the program because a
- * change to it changes how the inner tool runs (objectstack#25685).
- */
-export const WRAPPER_SCRIPTS: ReadonlySet<string> = new Set(['scripts/with-heap.mjs']);
-
 export interface BuildProgram {
   /** Tool config files the script drives, absolute — the walk's entry points. */
   readonly configFiles: string[];
@@ -238,9 +229,27 @@ interface Accumulator {
 }
 
 /** Classify one `&&` segment of a build script and record what it reads. */
+/**
+ * `NAME=value` words at the head of a command are the shell's environment
+ * assignments for the program that follows, not the program:
+ * `NODE_OPTIONS=--max-old-space-size=4096 tsc` is a tsc run under a larger V8
+ * heap (the spelling `packages/spec` in objectstack uses), so the classification
+ * below starts at the first word that is not an assignment. A value may itself
+ * contain `=`; only the first `=` splits the name, and a name is a shell
+ * identifier (objectstack#25685 item 4).
+ */
+export function stripEnvAssignments(tokens: readonly string[]): string[] {
+  let i = 0;
+  while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i += 1;
+  return tokens.slice(i);
+}
+
 function collectSegment(pkg: WorkspacePackage, command: string, acc: Accumulator): void {
-  const tokens = tokenize(command);
+  const tokens = stripEnvAssignments(tokenize(command));
   const tool = tokens[0];
+  if (tool === undefined) {
+    throw new Error(`${rel(pkg.dir)}: \`${command}\` sets environment variables and runs nothing.`);
+  }
 
   if (tool === 'tsc') {
     acc.tscInvocations.push(invocationForCommand(pkg.dir, command));
@@ -290,29 +299,17 @@ function collectSegment(pkg: WorkspacePackage, command: string, acc: Accumulator
   // whatever the script imports, exactly as `node SCRIPT` does, so it takes the
   // same branch rather than a copy of it (objectui#11403).
   if (tool === 'node' || tool === 'tsx') {
-    const scriptAt = tokens.findIndex((token, i) => i > 0 && !token.startsWith('-'));
-    if (scriptAt === -1) {
+    const script = tokens.slice(1).find((token) => !token.startsWith('-'));
+    if (script === undefined) {
       throw new Error(`${rel(pkg.dir)}: \`${command}\` runs ${tool} with no script to walk.`);
     }
-    const resolved = path.resolve(pkg.dir, tokens[scriptAt]);
+    const resolved = path.resolve(pkg.dir, script);
     if (!fs.existsSync(resolved)) {
       throw new Error(
         `${rel(pkg.dir)}: \`${command}\` runs ${rel(resolved)}, which does not exist.`,
       );
     }
     acc.configFiles.add(resolved);
-    // A WRAPPER script runs the command that follows it — `node
-    // ../../scripts/with-heap.mjs tsc` is a tsc run with a bigger heap, not a
-    // script that happens to take `tsc` as an argument. The wrapper is part of
-    // the program (recorded above) and so is what it wraps, so the inner
-    // command is classified exactly as if it stood alone (objectstack#25685).
-    if (WRAPPER_SCRIPTS.has(rel(resolved))) {
-      const inner = tokens.slice(scriptAt + 1).join(' ');
-      if (inner === '') {
-        throw new Error(`${rel(pkg.dir)}: \`${command}\` runs a wrapper with nothing to wrap.`);
-      }
-      collectSegment(pkg, inner, acc);
-    }
     return;
   }
 

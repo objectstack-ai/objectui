@@ -261,7 +261,7 @@ function resolveRichTextFieldType(field: unknown): string {
  * It now renders through {@link richTextCellRenderer} — literally the same
  * components `getCellRenderer` resolves, one table shared by both (see
  * `./richTextDisplay.tsx`), so the html/richtext path carries that renderer's
- * `sanitizeHtml` trust boundary rather than a second hand-rolled escape, and a
+ * sanitizing trust boundary rather than a second hand-rolled escape, and a
  * future change to either pipeline moves both surfaces at once.
  *
  * ## Host plumbing (objectui#4810)

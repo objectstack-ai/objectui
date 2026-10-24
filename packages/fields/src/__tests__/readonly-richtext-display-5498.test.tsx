@@ -230,7 +230,8 @@ describe('negative controls — nothing else became a markup renderer (objectui#
       expect(prose.querySelector('script')).toBeNull();
       expect(prose.innerHTML).not.toContain('alert(1)');
       expect(prose.innerHTML).not.toContain('onerror');
-      expect(prose.querySelector('a')?.getAttribute('href')).not.toContain('javascript:');
+      // A dropped `href` reads `null`; a rewritten one must not name the scheme.
+      expect(prose.querySelector('a')?.getAttribute('href') ?? '').not.toContain('javascript:');
       // …and the benign content around it survived, so the assertion above is
       // not passing because the whole value was dropped.
       expect(prose.textContent).toContain('ok');

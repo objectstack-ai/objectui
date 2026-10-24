@@ -1301,6 +1301,12 @@ importers:
       '@objectstack/spec':
         specifier: file:../../.objectstack-pin/spec
         version: file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))
+      hast-util-to-jsx-runtime:
+        specifier: ^2.3.6
+        version: 2.3.6
+      hastscript:
+        specifier: ^9.0.1
+        version: 9.0.1
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)

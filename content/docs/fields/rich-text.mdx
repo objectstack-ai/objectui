@@ -94,10 +94,14 @@ metadata keys — they are runtime widget props. See [Field Widget Props](/docs/
 - **Tables**: Markdown tables
 
 ### HTML
-- Full HTML editing support
-- Sanitization for security
-- Style preservation
-- Embedded media support
+- Headings, paragraphs, emphasis, lists, quotes, code, tables, links and images
+- Sanitized on display against an allow-list (`rehype-sanitize`, GitHub-style):
+  links keep `http`, `https`, `mailto` and relative URLs, and images keep `http`,
+  `https` and relative URLs
+- Inline `style`, event-handler attributes, embedded frames, objects and SVG or
+  MathML content are not rendered; an element outside the allow-list shows its text
+  without its tag
+- The `markdown` and `html` / `richtext` display pipelines share the same allow-list
 
 ## Cell Renderer
 

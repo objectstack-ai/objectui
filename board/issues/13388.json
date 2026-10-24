@@ -2,8 +2,8 @@
   "number": 13388,
   "kind": "issue",
   "title": "console: a `type: 'form'` record action leaves the app — it opens /forms/&lt;object&gt;.form outside the app shell, titled with the raw view name and with no Cancel",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "duplicate",
   "draft": null,
   "author": {
     "login": "marchtian",
@@ -14,18 +14,21 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-23T15:26:23Z",
-  "updated_at": "2026-10-23T17:06:49Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-24T01:41:34Z",
+  "closed_at": "2026-10-24T01:41:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13388",
   "body": "<!-- claude-projects-attribution: {\"github_login\":\"marchtian\"} -->\n_Requested by **田騏** · [project thread](https://claude.ai/code/project/chan_01VmuUhXU9SSUzqJYyXSmYSi?thread=cmsg_01VmuUhXU9SSUzqJYyXSmYSi7SkqaNxU2Ef8P2DMmp2hPJ)_\n\nFound during an exploratory walkthrough of the showcase.\n\n## Environment\n\n- objectui `main` @ `6fb31dc` (console dev server, :5180), objectstack `main` @ `b9c7a8f` showcase on :3000, dev admin, zh-CN\n\n## Steps\n\n1. Open any showcase task record, e.g. `/apps/com.example.showcase/showcase_task/record/<id>`.\n2. Click **Log Time** in the record header. It is the showcase's `showcase_log_time` action: `type: 'form'`, `target: 'showcase_task.form'`, `locations: ['record_header', 'record_related', 'record_section']`.\n\n## Actual\n\n- The browser navigates to `/forms/showcase_task.form?recordId=<id>&recordObject=showcase_task`.\n- That page is outside the app: the app sidebar, the app switcher and the app's purple branding are gone, and the top bar falls back to the generic ObjectOS chrome.\n- The page heading is the raw qualified view name **`showcase_task.form`**, not a label.\n- The form has only **提交 / Submit**; there is no Cancel or back control, so the only way out without saving is the browser's Back button.\n- After Submit it does return to the record page (toast 已提交), so the round trip works; it is the detour that feels broken.\n\nEvery other create/edit form in the console (the 新建 / 编辑 buttons) opens as a dialog over the current page (`?form=new`, `?form=<id>`), so the same task's edit form behaves two different ways depending on which button opened it.\n\n## Expected\n\nA form action fired from inside an app opens the form in the app's own overlay (dialog or drawer) like the built-in edit, or at least on a route inside the app shell, with the form view's label as its title and a Cancel that returns to where the user was.\n\n(Separately and showcase-side: \"Log Time\" targets the task's general edit form, so the label promises a time-logging form it does not have. That is a metadata choice in the showcase, mentioned only so the two are not confused.)"

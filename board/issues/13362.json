@@ -2,9 +2,9 @@
   "number": 13362,
   "kind": "pull_request",
   "title": "ci(test-shard-timings-refresh): push and open the refresh pull request as the fleet App so it runs CI",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
-  "draft": true,
+  "draft": false,
   "author": {
     "login": "objectstack-fleet[bot]",
     "id": 332303061,
@@ -13,8 +13,7 @@
   "labels": [
     "ci/cd",
     "configuration",
-    "documentation",
-    "needs-user-decision"
+    "documentation"
   ],
   "assignees": [
     "os-sales"
@@ -22,10 +21,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-23T12:24:04Z",
-  "updated_at": "2026-10-23T12:58:59Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-24T02:21:51Z",
+  "closed_at": "2026-10-24T02:21:50Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-24T02:21:50Z",
   "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/13362",

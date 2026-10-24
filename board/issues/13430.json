@@ -1,0 +1,36 @@
+{
+  "number": 13430,
+  "kind": "pull_request",
+  "title": "ci: pin credential-holding third-party actions by sha and default ci.yml and check-links.yml to a read-only token",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-24T00:03:34Z",
+  "updated_at": "2026-10-24T02:30:21Z",
+  "closed_at": "2026-10-24T02:30:19Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": "2026-10-24T02:30:19Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13430",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-tesla\"} -->\n_Requested by **Tesla** · [project thread](https://claude.ai/code/project/chan_01AXsQkLFKRdQCqQ3RTr6Jao?thread=cmsg_01AXsQkLFKRdQCqQ3RTr6JaoRyAStcu3CV5kiXeCX564xD)_\n\nCI supply-chain hardening: every third-party action that runs holding a credential now names a commit sha, and the two workflows that had no `permissions:` block default the job token to read-only.\n\n## What changed\n\n**Third-party actions pinned by commit sha** (each with a trailing `# vX.Y.Z` comment). Each one was the commit its floating ref resolved to when this was written, read with `git ls-remote` against the upstream repository:\n\n| workflow | action | was | now | credential it holds |\n|---|---|---|---|---|\n| `changeset-release.yml` (2 steps) | `changesets/action` | `@v1` (a branch) | `a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d` # v1.9.0 | `NPM_TOKEN`, `GITHUB_TOKEN` |\n| `check-links.yml` | `lycheeverse/lychee-action` | `@v2` | `e7477775783ea5526144ba13e8db5eec57747ce8` # v2.9.0 | `GITHUB_TOKEN` |\n| `dependabot-auto-merge.yml` | `dependabot/fetch-metadata` | `@v3` | `25dd0e34f4fe68f24cc83900b1fe3fe149efef98` # v3.1.0 | `github-token` input |\n| `changelog.yml` | `orhun/git-cliff-action` | `@v4` | `a9a95522b26fe6403f7bb24031f21fb573d0f5ff` # v4.9.1 | job token by default (`contents: write` job) |\n\n- `changesets/action` moves from the `v1` branch to the v1.9.0 commit, which is the commit the workflow's own git-surface reading was already taken at, so the two properties the release lane depends on are unchanged. `scripts/__tests__/changeset-release-action-ref-pin.test.ts` now holds the sha, and gains one non-vacuity case: a step that goes back to the moving `v1` reds.\n- The four are declared exceptions in `scripts/check-action-ref-convention.mjs` (the gate's mechanism for a deliberate off-convention ref), with one shared reason. The `issue` field names this pull request. First-party `actions/*` refs stay on the floating-tag default; the repo-wide pinning posture is not changed here.\n- `half-state-patrol.yml` was already sha-pinned and is untouched.\n\n**Least-privilege job token.**\n- `ci.yml`: top-level `permissions: contents: read`. The seven jobs without their own block (changeset-check, type-check, test, test-dist-pins, test-coverage, e2e, docs) were measured for token use: no step passes `GITHUB_TOKEN`, `github.token`, `gh`, or `github-script` in any of them; `actions/cache` and `actions/upload-artifact` use the runner's own token. `test-aggregate` and `coverage-report` keep their existing `contents: read` + `actions: read` blocks. **No job was widened.**\n- `check-links.yml`: top-level `permissions: contents: read`; lychee's token is a read for API rate limits.\n\n**Dependabot.** The `github-actions` ecosystem now runs weekly and groups minor/patch updates into one pull request, so the pinned shas get their updates. Majors stay separate, so a declined major (the deliberate `changesets/action` v1 hold) does not block the group. The `npm` entry is unchanged.\n\n## Verification\n\n- `node scripts/check-action-ref-convention.mjs` → exit 0: 141 refs in 28 workflow files, 13 distinct, 0 undeclared, 0 stale.\n- `node scripts/check-changeset-presence.mjs` → exit 0: no released package's source or contract changed, so no changeset is owed.\n- Vitest over `changeset-release-action-ref-pin.test.ts`, `check-action-ref-convention.test.ts`, `check-links-workflow.test.ts`: 33/33 passed once the exception entries name this PR. ⚠️ Run with a scratch vitest 4.1.10 + yaml 2.9.0 runner rather than the repo-root config (this container had no `pnpm run setup` build of the objectstack pin); CI's `pnpm test` is the authoritative run.\n\n## Governed surface\n\nThe diff touches `.github/workflows/**`, so this stays a draft until an authorized approval. Security change: the maintainer approves before merge.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nSession: `https://claude.ai/code/session_01W9H2WdXx3kPkf6moDnRdRE`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01W9H2WdXx3kPkf6moDnRdRE\n"
+}

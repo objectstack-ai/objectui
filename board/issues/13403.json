@@ -2,8 +2,8 @@
   "number": 13403,
   "kind": "issue",
   "title": "plugin-charts: a page-level dataset `object-chart` orders a select dimension by its stored value (高 / 低 / 中 / 紧急), while the dashboard's dataset widget uses the declared option order (#11809)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:reports",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-23T16:32:24Z",
-  "updated_at": "2026-10-23T20:10:16Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-23T21:12:55Z",
+  "closed_at": "2026-10-23T21:10:10Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13403",
   "body": "Filing-gate: ① product defect · reach: the showcase command center page (`showcase_command_center`), panels 优先级分布 and 状态分布, as admin\nReader: objectui triage seat → the lane that owns `packages/plugin-charts` (`ObjectChart.tsx`); `plugin-dashboard/src/DatasetWidget.tsx` already builds the `categoryOrder` that `ChartRenderer` / `AdvancedChartImpl` accept\nDuplicate search: semantic search \"dashboard chart select field categories sorted by raw value instead of option order\" in objectui, incl. closed → 12 hits. #11809 (closed) fixed dashboards and grid grouping, and #12243 (closed) fixed report tables. Neither covers the page block.\n\nMeasured during an exploratory showcase walkthrough on 2026-10-23: objectstack `main` b9c7a8f (`PORT=3000 pnpm dev`, stock showcase), objectui `main` 6fb31dc console (Vite dev, :5180), locale zh-CN.\n\n## What happens\n\nThe command center draws `object-chart` blocks bound to the dataset `showcase_task_metrics`. With dimension `priority`, the bars read **高, 低, 中, 紧急**, which is the alphabetical order of the stored values `high, low, medium, urgent`. With dimension `status`, they read 待规划, 已完成, 进行中, …. The Chart Gallery and the dashboards draw the same fields in declared option order (低 → 中 → 高 → 紧急).\n\n## Where\n\n`DatasetWidget.tsx` (the dashboard path) computes `categoryOrder: buildCategoryOrder(firstDimOptions)` from the dimension's field options (objectui#11809). `AdvancedChartImpl` honours it through `buildCategoryRank(categoryOrder)`. `ObjectChart.tsx`, which renders a page-level `object-chart` with a `dataset`, already resolves the dimension's field options for labels and colours, but it never passes a `categoryOrder`. So the page path falls back to the dataset's GROUP BY order.\n\n## Expected\n\nA page-level dataset chart orders a select dimension the same way the dashboard widget does.\n\nSession: https://claude.ai/code/session_01A48x1XYLTmiM2pgQxsgeKJ\n"

@@ -1,0 +1,37 @@
+{
+  "number": 13431,
+  "kind": "pull_request",
+  "title": "fix(fields): sanitize html and richtext values with rehype-sanitize",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "package: fields",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-24T00:45:03Z",
+  "updated_at": "2026-10-24T01:46:32Z",
+  "closed_at": "2026-10-24T01:46:30Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-24T01:46:30Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13431",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-tesla\"} -->\n_Requested by **Tesla** · [project thread](https://claude.ai/code/project/chan_01AXsQkLFKRdQCqQ3RTr6Jao?thread=cmsg_01AXsQkLFKRdQCqQ3RTr6JaoB32mdoaBcgWwPv4cxRdT6W)_\n\n## What\n\nThe `html` / `richtext` display pipeline (`HtmlCellRenderer`, used by the grid, kanban, detail and readonly form surfaces) now sanitizes stored values with `rehype-sanitize`, the sanitizer `@object-ui/fields` already ships for its `markdown` pipeline, instead of a hand-written pattern filter.\n\nHow a value reaches the DOM (new module `packages/fields/src/widgets/sanitizedHtml.tsx`):\n\n1. Parse with the browser's own parser (`DOMParser`, `text/html`). A parsed document has no browsing context, so nothing in it runs or loads.\n2. Convert the DOM nodes to hast. `hastscript` maps attribute names to the property names the schema is written in.\n3. Sanitize with `rehype-sanitize` and `RICH_TEXT_SANITIZE_SCHEMA`: the GitHub-style `defaultSchema`, with script, style, frame, object, embed, template, SVG and MathML elements removed together with their content.\n4. Render the sanitized tree as React elements with `hast-util-to-jsx-runtime`, the renderer `react-markdown` uses. The renderer no longer uses `dangerouslySetInnerHTML`.\n\nOne sanitizer: `MarkdownContent` now passes the same `RICH_TEXT_SANITIZE_SCHEMA` to `rehype-sanitize`, so both display pipelines read one allow-list.\n\n**Dependencies:** no new sanitizer. `hastscript` and `hast-util-to-jsx-runtime` become direct dependencies of `@object-ui/fields`. Both were already in the lockfile at the same versions (`react-markdown` and `rehype-sanitize` already pull them in), so the lockfile diff only records the two importer entries.\n\n**Behaviour changes a reader can see:**\n- A link whose URL is refused renders without an `href`. The old filter rewrote it to `#`.\n- Stored `id` and `name` values are prefixed with `user-content-`.\n- `style`, `class` outside the schema's few named values, and elements outside the allow-list (for example `u`, `font`) are dropped; the text inside an unknown element is kept.\n- With no `DOMParser` (a non-browser render) the value renders as plain text.\n\n## Tests\n\n- New `packages/fields/src/widgets/__tests__/sanitizedHtml.test.tsx` renders through `HtmlCellRenderer` and checks the DOM structurally: no `on*` attribute, no script-bearing URL in any URL attribute, no embedding or foreign-content element, no `style`. It covers each class of markup that can carry script: attributes, URLs, SVG and MathML, embedding elements, styles, and form and navigation elements. A formatted document (headings, emphasis, links, nested lists, quote, code block, table with `align` and `colspan`, image, rule, definition list, details) round-trips byte for byte.\n- Three existing pins expected the old `href=\"#\"` rewrite. `cellRenderers.childlessContainer-8580` now pins the new sanitizer's bytes, and the 5452 / 5498 pins read a dropped `href` as empty.\n\n## Gates (local, at the head of this branch)\n\n- `pnpm exec vitest run packages/fields/`: 276 files passed, 1 skipped; 4286 tests passed, 7 skipped\n- `pnpm --filter @object-ui/fields type-check` and `lint`: exit 0\n- the richtext consumers in `app-shell`, `plugin-grid`, `plugin-detail`, `plugin-form`, `components` and `apps/console`: 7 files, 59 tests passed\n- `check:phantom-deps`, `check:unused-deps`, `check:lockfile-integrity`, `check:lockfile-dedupe`, `check:new-line-citations`, `check:control-bytes`, `check-changeset-presence`, `check-changeset-no-major`, `check:changeset-claims`, `check:pending-changeset-literals`, `check:test-path-roots`, `check:unreferenced-sources`, `check:esm-specifiers`, `check:node-esm-load`, `check:side-effects-array`, `check:sdui-registration-pins`, `check:docs-route-closure`, `check:readme-exports`, `check:eager-closure`, `check:shell-escape-residue`, `check:doc-fences`, `check:doc-json`, `check:doc-snippets`: all exit 0\n- `check-governed-queue-guard --test` on the diff: not a governed surface\n\n## Bundle\n\nMeasured with `node scripts/check-eager-closure-budget.mjs` on a local console build, this branch against its base with only `packages/fields/src` swapped: the eager closure is about 1.0 KB gzipped smaller. `ui-components` grows by about 0.3 KB and `vendor-markdown` shrinks by about 1.3 KB, because the hast utilities were already in the eager `vendor-markdown` chunk. The `Bundle Analysis` check on this PR is the live reading.\n\n## Other `dangerouslySetInnerHTML` sites in `packages/`\n\nNone of the others renders a stored field value, so this PR leaves them alone. They render author metadata, translation strings, generated CSS, Mermaid SVG (`securityLevel: 'strict'`) or highlighter output, or an escaped preview of the comment input.\n\n## Checklist\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nDraft: this is a security-boundary change and waits for the maintainer's approval before it is marked ready.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01Fw91y6wN8SAu43vfrsAqHg\n"
+}

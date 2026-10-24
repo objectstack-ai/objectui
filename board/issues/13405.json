@@ -14,7 +14,6 @@
     "area:i18n",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,7 +22,7 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-23T16:33:24Z",
-  "updated_at": "2026-10-23T20:19:42Z",
+  "updated_at": "2026-10-23T20:44:53Z",
   "closed_at": "2026-10-23T20:19:42Z",
   "closed_by": {
     "login": "objectstack-fleet[bot]",
@@ -31,7 +30,7 @@
     "type": "Bot"
   },
   "merged_at": null,
-  "comments": 2,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13405",
   "body": "Filing-gate: ① product defect · reach: a list view with user-filter tabs and `showAllRecords` in a zh-CN session (showcase task lists)\nReader: objectui triage seat → the lane that owns `packages/plugin-list` (`src/UserFilters.tsx`)\nDuplicate search: semantic search \"list view All records tab label hard-coded English\" in objectui, incl. closed → 8 hits: #4024 (closed, the Grid/Gallery switcher and aggregate footer), #12774, #12805, #11733, #13116, #7696, #4645, #3333. None covers this tab.\n\nMeasured during an exploratory showcase walkthrough on 2026-10-23: objectstack `main` b9c7a8f (`PORT=3000 pnpm dev`, stock showcase), objectui `main` 6fb31dc console (Vite dev, :5180), locale zh-CN.\n\n## What happens\n\nWhen a list view sets `showAllRecords`, it gains a trailing tab labelled **All records**. In zh-CN, every other tab on the strip, and the view chrome around it, is translated.\n\n## Where\n\n`packages/plugin-list/src/UserFilters.tsx`:\n\n```ts\nif (showAllRecords) {\n  result.push({ id: '__all__', label: 'All records', filters: [] });\n}\n```\n\nThe label is a literal. The designer-side switch for the same tab, `ufShowAllRecords: 'Show \"All records\" tab'`, is already an i18n key.\n\n## Expected\n\nThe tab label comes from an i18n key, such as `list.userFilters.allRecords` → 全部记录, with every shipped locale filled in.\n\nSession: https://claude.ai/code/session_01A48x1XYLTmiM2pgQxsgeKJ\n"

@@ -1,0 +1,36 @@
+{
+  "number": 13428,
+  "kind": "pull_request",
+  "title": "fix(app-shell): refuse a toolbar flow's row count before its dialog, and translate the newTabUrl refusal (objectui#13397)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T21:30:10Z",
+  "updated_at": "2026-10-23T21:57:59Z",
+  "closed_at": "2026-10-23T21:57:57Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T21:57:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13428",
+  "body": "Closes #13397\nClause-②: no\n\n## What changed\n\nA record-scoped `type: 'flow'` action launched from a list toolbar with 0 or 2+ rows selected is now refused before its param dialog opens. The toast is in the session's language and nothing is sent. With exactly one row the flow behaves as before. This is the flow-action half that objectui#13384 (PR #13395) left out.\n\n- **`useConsoleActionRuntime` `flowHandler`**: the registered handler now carries `refuseBeforeInput`, the optional `ActionRunnerHandler` member from PR #13395. It is `serverActionHandler`'s own member: core's `createServerActionHandler` builds it and the console wrapper forwards it. That handler is built in this hook with no `resolveRecordId`, so the member runs `resolveServerActionRecordId`, the resolver the flow dispatch already runs. It also skips an action whose dialog itself collects `recordId`. No second copy of the rule is written. The dispatch itself is renamed `flowDispatch`. `flowHandler` wraps it in a `useMemo` with the member attached.\n- **Dispatch-time refusal**: a direct `flowHandler` call refused by the resolver now shows the refusal through its `errorKey` (`t(errorKey, { defaultValue: error })`), with the English as fallback for an empty answer. These are the same pack keys the runner's translator reads for the early refusal.\n- **`createConsoleServerActionHandler` `newTabUrl` fast path**:\n  - The \"no record id available\" refusal moves to a pack key, `console.serverAction.noRecordId`, through the wrapper's existing `t`.\n  - The resolver's own refusal on that path is shown through its `errorKey` too.\n  - With no `t`, both stay English, as before.\n- **`@object-ui/i18n`**: `console.serverAction.noRecordId` is added to all ten packs, each with its own translation.\n- The `ConsoleActionRuntime.flowHandler` type now also declares `refuseBeforeInput`, as `Pick` of `ServerActionHandler`.\n- One changeset: app-shell and i18n, patch.\n\n## Tests\n\nRun on head `90f61b9e7c`:\n\n- `pnpm exec vitest run --maxWorkers=2` over every test file that names `flowHandler`, `refuseBeforeInput`, `resolveServerActionRecordId`, `newTabUrl` or `consoleServerAction` (git grep: 28 files outside i18n), plus all of `packages/i18n/` (the key-parity suites included). Result: **114/114 files, 1713 passed, 13 skipped**.\n- New `useConsoleActionRuntime.flowRowGuard-13397.test.tsx`. The session reads zh-CN: the translator answers from the shipped zh pack.\n  - `flowHandler.refuseBeforeInput`, 0 and 2 rows: it returns the resolver's `error` with `actions.selectRowFirst` / `actions.selectExactlyOneRow`. With 1 row it returns nothing.\n  - Controls: an object-level toolbar flow with 0 rows is not refused. A dialog that collects `recordId` is not judged early.\n  - Through `ConsoleActionRuntimeProvider` and a real runner, 0 and 2 rows: no param dialog opens, and no request is sent. The toast reads `此操作针对单条记录，请先选择一行。` / `此操作针对单条记录，请只选择一行。`.\n  - 1 row: the dialog opens, as today. Control: an object-level toolbar flow with 0 rows still opens its dialog.\n  - A direct call with 0 and 2 rows returns the zh-CN refusal, and nothing is sent.\n- `consoleServerAction.test.tsx`, a new `newTabUrl` block:\n  - No record id: the refusal reads `此操作针对单条记录，但没有可用的记录 ID。` and no tab opens. Control: with no `t` it stays English.\n  - 2 rows: the resolver's refusal reads zh-CN. Control: 1 row still opens the tab.\n- New `consoleNoRecordId-13397.test.ts` (i18n): pins the zh-CN and en text. Every other pack defines the key with its own text.\n- Type-check, `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec turbo run type-check --concurrency=2 --filter=@object-ui/app-shell --filter=@object-ui/i18n`: 31/31 tasks. That includes `tsc -p tsconfig.test.json` for both packages. The test-file tsconfig was re-run on the final head.\n- `pnpm check:i18n-keys`, `check:i18n-drift`, `check:i18n-dead-keys`: exit 0.\n- eslint on the touched files: 0 errors. No warning is added: the counts match `origin/main` for the two edited files that had warnings, and the new test files have none.\n- `check:new-line-citations`: 0 new. `check-changeset-presence`: pass.\n\n### Ablation\n\nEach run used `ablation-replace` with on-disk proof, and was restored to `git diff HEAD` empty. Each ran the new flow suite, `consoleServerAction.test.tsx` and `useConsoleActionRuntime.test.tsx` (92 tests).\n\n| Mutation | Result |\n|---|---|\n| `flowHandler`'s `refuseBeforeInput` set to `undefined` | 4 red: both member cases (0 and 2 rows) and both end-to-end cases (0 and 2 rows). The 1-row and control cases stay green. |\n| Dispatch-time `errorKey` translation dropped in `flowDispatch` | 2 red (the direct-call cases, 0 and 2 rows) |\n| `newTabUrl` \"no record id\" back to the hard-coded English | 1 red (the zh-CN case). The English control stays green. |\n| `newTabUrl` resolver refusal shown without its `errorKey` | 1 red |\n\n## Acceptance notes\n\n- **Judgment call**: the flow member reuses `serverActionHandler.refuseBeforeInput` rather than calling core directly. Core's `collectsRecordIdParam` is not exported, and core is outside this card's surface. Reusing the member keeps one copy of the rule. The coupling holds while this hook builds `serverActionHandler` with no `resolveRecordId`. The member pins in the new suite compare the flow's answer with `resolveServerActionRecordId`'s, so a change there goes red.\n- **Out of scope, still open**: core's own dispatch-time refusal (`createServerActionHandler`, for a caller that invokes the handler directly, outside the runner) still returns the English `error`, because its result carries no `errorKey`. Through the runner it is never reached for a row-count refusal, because the early refusal comes first. Carrier: none.\n- `RecordDetailView`'s copy of the flow handler is not touched. It resolves against its own record, so a row count never applies there.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 13426,
+  "kind": "pull_request",
+  "title": "fix(plugin-charts): a dataset object-chart draws a select dimension in declared option order (objectui#13403)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-23T20:42:02Z",
+  "updated_at": "2026-10-23T21:10:10Z",
+  "closed_at": "2026-10-23T21:10:08Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-23T21:10:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13426",
+  "body": "Closes #13403\nClause-②: no\n\n## What changed\n\nA page-level `object-chart` bound to a `dataset` now draws a select dimension in its field's declared option order, as the dashboard's `DatasetWidget` already does for the same dataset (objectui#11809). The showcase command center's priority panel read 高, 低, 中, 紧急 (the GROUP BY order of `high, low, medium, urgent`) and now reads 低 → 中 → 高 → 紧急.\n\n`packages/plugin-charts/src/ObjectChart.tsx` is the only source file touched:\n\n- The memo that already derives the option colours and dimension labels from the first dimension's localized options now also derives `categoryOrder` with `@object-ui/core`'s `buildCategoryOrder`. This applies on the dataset path only, and only when the chart names a dimension. A field with no options gives `null`, so nothing changes for it.\n- The rows are sorted by that order before `buildChartSeries`: declared options first, then values the options do not declare, then the empty bucket. The sort is stable. The order is put on the rows because `AdvancedChartImpl` reads `categoryOrder` only in its funnel branch. A bar, line or pie draws its rows in the order it receives them, which is also why the dashboard sorts its `plotRows` itself.\n- The schema handed to `ChartRenderer` carries `categoryOrder`, the same key the dashboard hands it, which the funnel orders its stages by.\n\n## Judgment calls (premise check)\n\n- **No helper move.** `buildCategoryOrder` and `buildCategoryRank` already live in `@object-ui/core`, which `plugin-charts` depends on. `DatasetWidget.tsx` is untouched.\n- **Passing `categoryOrder` alone would not have fixed the card.** The card's mechanism is that \"`AdvancedChartImpl` honours it through `buildCategoryRank(categoryOrder)`\". On `main` that holds only for the funnel. The card's own panels are bars, so the rows had to be ordered as well. `AdvancedChartImpl.tsx` is untouched (another agent is editing it).\n- **One local helper, `declaredOptionPosition`.** It applies the same rule as the private function of the same name in `DatasetWidget`. `DatasetReportRenderer` has a third private copy. Moving it to `@object-ui/core` would add a core file to this card's declared surface, so this PR does not do it. It is recorded below as a possible follow-up.\n- **Gate is \"the field declares options\", not \"the field type is select\".** This matches the dashboard: `DimensionFieldMeta` carries no field type, and `buildCategoryOrder` returns `null` for a field without options.\n\n## Tests\n\nNew file `packages/plugin-charts/src/ObjectChart.categoryOrder-13403.test.tsx`, 3 tests:\n\n- The card's shape. Answered rows `high, low, medium, urgent` reach the renderer as 低, 中, 高, 紧急, with their measures `[2, 7, 5, 1]`, and `categoryOrder` equals `buildCategoryOrder(options)`, which is `['low','低','medium','中','high','高','urgent','紧急']`.\n- A value the options do not declare (`blocked`) comes after the declared ones, and the null bucket comes last.\n- Control: a dimension whose field declares no options gets no `categoryOrder` key and keeps the dataset's answered order.\n\nResults at head `2fa5702bc3`:\n\n- New file: 3/3 passed.\n- `pnpm exec vitest run --maxWorkers=2 packages/plugin-charts/`: 98 files, 1268 passed, 9 skipped.\n- Dashboard #11809 controls, unchanged: `DatasetWidget.selectOptionOrder-11809.test.tsx` and `DatasetWidget.optionLabelI18n.test.tsx`, 2 files, 15/15 passed.\n- `turbo run type-check --filter=@object-ui/plugin-charts...`: 19/19 tasks successful. `plugin-dashboard` was not touched.\n- `eslint` on the two touched files: 0 errors and 35 warnings. The same file at base also gives 35 warnings, so none are new.\n- `node scripts/check-changeset-presence.mjs`: passes (one patch changeset for `@object-ui/plugin-charts`).\n- `pnpm check:new-line-citations`: 0 new.\n\nAblation was run on the committed fix, restored with `git checkout HEAD`, and the restored blob hash matches HEAD:\n\n- Leg A, row sort disabled: 2 failed, 1 passed (the two ordering tests fail; the control passes).\n- Leg B, `categoryOrder` hand-off removed: 2 failed, 1 passed.\n\n## Acceptance notes\n\n- The second dimension's series order is not applied on this path. The dashboard also orders a pivoted second select dimension's legend (`seriesOrder`, objectui#11809). The card names the category axis only, so this PR leaves the series as they are.\n- `ChartRenderer`'s doc comment on `categoryOrder` still says it is \"Set by DatasetWidget\". `ObjectChart` now sets it too. `ChartRenderer.tsx` is outside this card's surface.\n- `declaredOptionPosition` now has three private copies: `DatasetWidget`, `DatasetReportRenderer` and `ObjectChart`. A single home in `@object-ui/core` is a possible follow-up.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nSession: `https://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj`\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WJozybDmRH8z2c5SD7vJkj\n"
+}

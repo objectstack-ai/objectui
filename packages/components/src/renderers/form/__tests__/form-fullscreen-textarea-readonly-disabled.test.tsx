@@ -152,8 +152,11 @@ describe('form renderer — a read-only long text field is read-only (objectui#3
   it('holds when `readonly` is resolved at runtime by a readonlyWhen rule', () => {
     // Reachability, not a second code path: `readonly` reaching the branch as a
     // CEL verdict rather than a static flag is how a real form gets there.
+    // An EDIT form (`previousValues` supplied): a create form does not apply
+    // `readonlyWhen` at all, as the server exempts INSERT (objectui#13436).
     renderForm({
       defaultValues: { status: 'locked' },
+      previousValues: { status: 'locked' },
       fields: [
         { name: 'status', label: 'Status', type: 'input' },
         longText({ readonlyWhen: "record.status == 'locked'" }),

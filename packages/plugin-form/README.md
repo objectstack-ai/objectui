@@ -253,7 +253,7 @@ key:
 | `options` | `SelectOption[] \| RadioOption[]` | for `select` / radio fields |
 | `validation` | `FieldValidationRules` | **an object keyed by rule name** — see below |
 | `condition` | `FieldCondition` | legacy `{ field, equals, notEquals, in }` matcher (`custom` is retired, objectui#7759: nothing ran it) |
-| `visibleWhen` / `readonlyWhen` / `requiredWhen` | `string \| { dialect?, source }` | CEL predicates over the live record, evaluated by `@objectstack/formula` — the same engine and dialect the server uses. Fail open |
+| `visibleWhen` / `readonlyWhen` / `requiredWhen` | `string \| { dialect?, source }` | CEL predicates over the live record, evaluated by `@objectstack/formula` — the same engine and dialect the server uses. Fail open. `readonlyWhen` applies to an edit form (one given `previousValues`) only, as the server does not apply it on insert; static `readonly: true` locks on both |
 | `visibleOn` | `string \| { dialect?, source }` | view-level visibility predicate: objectui's runtime slot (not a spec key) a form view field's `visibleWhen` is carried into, ANDed with the field's own `visibleWhen` above. A form **view** field writes `visibleWhen` (its old `visibleOn` spelling is retired in `@objectstack/spec` 18 and is not read), and a section entry written as a bare field name carries no view-level predicate |
 | `dependsOn` | `DependsOnInput` | cascading parent(s): a bare name, a list of names, or `{ field, param }` entries |
 | `span` | `'auto' \| 'full'` | relative width, independent of the column count (preferred) |

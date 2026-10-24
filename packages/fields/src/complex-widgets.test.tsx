@@ -716,8 +716,8 @@ describe('Complex & Relationship Widgets', () => {
             expect(screen.getByText('Northwind')).toBeInTheDocument();
         });
 
-        it('still hydrates a bare-id value via findOne (existing path preserved)', async () => {
-            mockDataSource.findOne.mockResolvedValue({ id: 'a1', name: 'Acme Corp' });
+        it('still hydrates a bare-id value, through the shared batched read', async () => {
+            mockDataSource.find.mockResolvedValue({ data: [{ id: 'a1', name: 'Acme Corp' }] });
             render(
                 <LookupField
                     value="a1"
@@ -729,7 +729,7 @@ describe('Complex & Relationship Widgets', () => {
                 />
             );
             await waitFor(() => {
-                expect(mockDataSource.findOne).toHaveBeenCalledWith('showcase_account', 'a1');
+                expect(mockDataSource.find).toHaveBeenCalledWith('showcase_account', { $filter: { id: { $in: ['a1'] } }, $top: 1 });
             });
             await waitFor(() => {
                 expect(screen.getByText('Acme Corp')).toBeInTheDocument();

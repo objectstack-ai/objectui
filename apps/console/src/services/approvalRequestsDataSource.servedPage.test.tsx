@@ -43,7 +43,7 @@ vi.mock('sonner', () => ({
   }),
 }));
 
-import { AdapterCtx, MetadataCtx, useAdapter } from '@object-ui/react';
+import { AdapterCtx, MetadataCtx, notifyDataChanged, useAdapter } from '@object-ui/react';
 import { I18nProvider, type I18nConfig } from '@object-ui/i18n';
 import { RecordDetailView } from '@object-ui/app-shell';
 import { PageSchema } from '@objectstack/spec/ui';
@@ -266,6 +266,11 @@ afterEach(() => {
   wire = [];
   host.find.mockClear();
   host.findOne.mockClear();
+  // `host` (and the routed adapter cached for it) outlives each case, and so
+  // do the referenced-record answers the shared reference store keeps for it.
+  // Declare everything stale, as an undo of an unknown write would, so each
+  // case's label reads reach the adapter rather than an earlier case's cache.
+  notifyDataChanged({ objectName: '*' });
 });
 
 describe("the served request page, opened through the console's adapter layer (objectui#12045)", () => {

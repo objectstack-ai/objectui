@@ -416,16 +416,20 @@ describe('useBulkExecutor', () => {
 
     it('runs every write of a run inside ONE batchMutationEvents scope when the adapter has it', async () => {
       let open = 0;
+      let scopes = 0;
       const writesInsideScope: string[] = [];
       const writesOutsideScope: string[] = [];
-      const batchMutationEvents = vi.fn(async <R,>(work: () => Promise<R>): Promise<R> => {
+      // A plain generic function, not a `vi.fn`: a mock's type is not generic,
+      // so it would not satisfy the `DataSource` member it stands in for.
+      async function batchMutationEvents<R>(work: () => Promise<R>): Promise<R> {
+        scopes += 1;
         open += 1;
         try {
           return await work();
         } finally {
           open -= 1;
         }
-      });
+      }
       const update = vi.fn(async (_: string, id: string) => {
         (open > 0 ? writesInsideScope : writesOutsideScope).push(id);
         return {};
@@ -439,7 +443,7 @@ describe('useBulkExecutor', () => {
         await result.current.run(upd({ batchSize: 1 }), rows, {});
       });
 
-      expect(batchMutationEvents).toHaveBeenCalledTimes(1);
+      expect(scopes).toBe(1);
       expect(writesInsideScope).toEqual(['1', '2', '3', '4', '5', '6']);
       expect(writesOutsideScope).toEqual([]);
 
@@ -448,7 +452,7 @@ describe('useBulkExecutor', () => {
       await act(async () => {
         await result.current.undo();
       });
-      expect(batchMutationEvents).toHaveBeenCalledTimes(2);
+      expect(scopes).toBe(2);
       expect(writesInsideScope.sort()).toEqual(['1', '2', '3', '4', '5', '6']);
       expect(writesOutsideScope).toEqual([]);
     });

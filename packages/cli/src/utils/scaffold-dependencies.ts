@@ -111,7 +111,7 @@ export function platformPackageRange(): string {
  * tests: the second is not even wrong about the major, which is exactly how it
  * survived unnoticed.
  */
-export const REACT_RANGE = '19.2.8';
+export const REACT_RANGE = '19.3.0';
 
 /**
  * `devDependencies` shared by every generated manifest (identical in all three).
@@ -136,8 +136,8 @@ export const REACT_RANGE = '19.2.8';
  */
 export const SCAFFOLD_DEV_DEPENDENCIES: Record<string, string> = {
   '@tailwindcss/postcss': '^4.3.3',
-  '@types/react': '19.2.18',
-  '@types/react-dom': '19.2.4',
+  '@types/react': '19.3.0',
+  '@types/react-dom': '19.3.0',
   '@vitejs/plugin-react': '^6.0.5',
   autoprefixer: '^10.5.4',
   postcss: '^8.5.26',

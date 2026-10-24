@@ -7,8 +7,8 @@
     "@object-ui/components": "workspace:*",
     "@object-ui/core": "workspace:*",
     "@object-ui/react": "workspace:*",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "scripts": {
     "lint": "eslint ."

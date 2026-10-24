@@ -50,8 +50,8 @@
   },
   "devDependencies": {
     "@object-ui/test-support": "workspace:*",
-    "@types/react": "19.2.18",
-    "react": "19.2.8",
+    "@types/react": "19.3.0",
+    "react": "19.3.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   },

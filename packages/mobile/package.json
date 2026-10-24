@@ -41,8 +41,8 @@
   },
   "devDependencies": {
     "@objectstack/spec": "^18.0.0-next.1",
-    "@types/react": "19.2.18",
-    "react": "19.2.8",
+    "@types/react": "19.3.0",
+    "react": "19.3.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   },

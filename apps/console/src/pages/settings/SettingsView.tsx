@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { ConsolePageHeader } from '@object-ui/app-shell';
 import { Loader2, ArrowLeft, ChevronRight, RotateCcw, ShieldAlert } from 'lucide-react';
 import { Button, Card, CardContent, Skeleton, Badge, getLazyIcon } from '@object-ui/components';
+import { ExpressionEvaluator } from '@object-ui/core';
 import { extractFieldErrors } from '@object-ui/react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { SettingsField } from './SettingsField';
@@ -27,21 +28,23 @@ import { useSettingsLabel, type SettingsLabelHelpers } from './useSettingsLabel'
 import { useUnsavedLeaveGuard } from './useUnsavedLeaveGuard';
 
 /**
- * Evaluate the manifest's `visible: "${data.foo === 'bar'}"`
- * expression against the live value map. Intentionally minimal — a
- * full expression engine lives in `@object-ui/core` and can be wired
- * in later via plugin.
+ * Evaluate the manifest's `visible: "${data.foo === 'bar'}"` expression
+ * against the live value map, through `@object-ui/core`'s `ExpressionEvaluator`
+ * — the CSP-safe interpreter (`SafeExpressionParser`) every other `visible`
+ * predicate in the renderer is judged by, never a compiled JS function. The
+ * manifest's values are bound as `data`, the one namespace the server's
+ * settings grammar reads too.
+ *
+ * Fails CLOSED: a predicate that does not evaluate hides the setting, the way
+ * the server refuses a save whose `visible` it cannot parse. Showing a field
+ * the deployment never meant to expose is the worse of the two mistakes.
  */
 function evalVisibility(expr: string | undefined, data: Record<string, unknown>): boolean {
   if (!expr) return true;
-  const trimmed = expr.trim();
-  const m = trimmed.match(/^\$\{(.+)\}$/);
-  if (!m) return true;
   try {
-    const fn = new Function('data', `with (data) { return (${m[1]}); }`);
-    return Boolean(fn(data));
+    return new ExpressionEvaluator({ data }).evaluateCondition(expr, { throwOnError: true });
   } catch {
-    return true;
+    return false;
   }
 }
 

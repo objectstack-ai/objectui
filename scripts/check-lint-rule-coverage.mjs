@@ -608,6 +608,17 @@ export const UNREACHED_GROUPS = [
       'STRENGTH decision that objectui#8337 triage deliberately kept out of the gate that reports it.',
     card: 'objectui#8337',
   },
+  {
+    glob: 'scripts/ui-root.d.mts',
+    reason:
+      'The hand-written declaration twin of `scripts/ui-root.mjs`, the one helper that package tests ' +
+      '(compiled with `allowJs: false`) import from `scripts/`: without it every such import is TS7016. ' +
+      'It holds two `export declare` lines and no executable code, and `scripts/__tests__/ui-root.test.ts` ' +
+      'pins its names to the module\'s real exports. Declared rather than repaired for the same reason as ' +
+      'the row above: reaching a `.d.mts` means widening a rule-bearing `files` glob to `.mts`, a rule ' +
+      'STRENGTH decision this gate reports and does not take (objectstack ruling D1: objectui as `ui/`).',
+    card: 'objectui#13472',
+  },
 ];
 
 /**

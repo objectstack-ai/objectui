@@ -1,11 +1,9 @@
 /**
  * `scripts/ui-root.mjs` -- the objectui tree root, resolved from the helper's
  * own location so the same answer holds standalone and under the objectstack
- * monorepo's `ui/` (objectstack ruling D1). It has no hand-written declaration
- * twin: `tsconfig.scripts.json` reads `.mjs` with `allowJs`, so the JSDoc on the
- * module is its typing and nothing is free to drift (a `.d.mts` beside it is
- * also a file no ESLint config reaches, which `check-lint-rule-coverage`
- * reports).
+ * monorepo's `ui/` (objectstack ruling D1). Its declaration twin
+ * `ui-root.d.mts` is pinned to the module's real export surface, since a
+ * hand-written declaration is the one thing here free to drift.
  */
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
@@ -44,9 +42,11 @@ describe('uiRoot() (objectstack ruling D1: the objectui tree as `ui/`)', () => {
     }
   });
 
-  it('exports exactly UI_ROOT and uiRoot, and carries no declaration twin', async () => {
+  it('declares in ui-root.d.mts exactly the names ui-root.mjs exports', async () => {
+    const declared = readFileSync(path.join(here, '..', 'ui-root.d.mts'), 'utf8');
+    const declaredNames = [...declared.matchAll(/^export declare (?:const|function) (\w+)/gm)].map((m) => m[1]).sort();
     const exported = Object.keys(await import('../ui-root.mjs')).sort();
+    expect(declaredNames).toEqual(exported);
     expect(exported).toEqual(['UI_ROOT', 'uiRoot']);
-    expect(existsSync(path.join(here, '..', 'ui-root.d.mts'))).toBe(false);
   });
 });

@@ -31,7 +31,7 @@
  * missing/!deployed endpoint degrades to no widget rather than a broken one.
  */
 import * as React from 'react';
-import { AI_USAGE_REFRESH_EVENT } from '@object-ui/plugin-chatbot';
+import { AI_USAGE_REFRESH_EVENT } from '@object-ui/plugin-chatbot/core';
 
 /**
  * The binding window. `weekly` and `fiveHour` are the cloud quota policy's two

@@ -36,7 +36,6 @@ import {
   DefaultInvitationsPage,
   DefaultSettingsPage,
   DefaultAcceptInvitationPage,
-  DefaultAiChatPage,
   RedirectWithSplash,
 } from '@object-ui/app-shell';
 
@@ -50,7 +49,6 @@ import { SetupRoute } from './components/SetupRoute';
 import { FormPage } from './components/FormPage';
 import { InternalFormRoute } from './components/InternalFormRoute';
 import { MetadataHmrReloader } from './components/MetadataHmrReloader';
-import SharedRecordPage from './pages/SharedRecordPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
@@ -86,6 +84,23 @@ const DocsLayout = lazy(() => import('./pages/DocsLayout'));
 const DocsIndex = lazy(() => import('./pages/DocsIndex'));
 const DocsSlug = lazy(() => import('./pages/DocsSlug'));
 const DocPage = lazy(() => import('./pages/DocPage'));
+
+/*
+ * The AI chat surfaces, lazy for the same reason (objectui#13410).
+ *
+ * `/ai…` and the public share page `/s/:token` are the two console routes that
+ * render the chat UI (`ChatbotEnhanced` and everything it reaches in
+ * `@object-ui/plugin-chatbot`: `streamdown`, `shiki`, the AI Elements). Imported
+ * statically here, that UI was in every first page load, the third-largest
+ * eager chunk, including for users who never open a chat. The AI page arrives
+ * through `./components/aiChatPage`, a console-local module nothing imports
+ * statically, because an `import()` of the `@object-ui/app-shell` barrel this
+ * file already imports would move nothing (see `./components/studioBuilder`).
+ */
+const DefaultAiChatPage = lazy(() =>
+  import('./components/aiChatPage').then((m) => ({ default: m.DefaultAiChatPage })),
+);
+const SharedRecordPage = lazy(() => import('./pages/SharedRecordPage'));
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || '';
 const AUTH_URL = `${SERVER_URL}/api/v1/auth`;
@@ -250,7 +265,7 @@ export function App() {
               * link. The page itself talks directly to the framework
               * REST API and renders a read-only view.
               */}
-            <Route path="/s/:token" element={<SharedRecordPage />} />
+            <Route path="/s/:token" element={<Suspense fallback={<LoadingScreen />}><SharedRecordPage /></Suspense>} />
             {/* Application builder (ADR-0080/0084) — the whole `/studio`
               * subtree, declared in `components/StudioRoute` so its ENTRY gate
               * and the routes it guards cannot be separated by an edit to
@@ -388,17 +403,17 @@ export function App() {
             */}
             <Route path="/ai" element={
               <ProtectedRoute>
-                <RequireAiSurface><DefaultAiChatPage /></RequireAiSurface>
+                <RequireAiSurface><Suspense fallback={<LoadingScreen />}><DefaultAiChatPage /></Suspense></RequireAiSurface>
               </ProtectedRoute>
             } />
             <Route path="/ai/:agent" element={
               <ProtectedRoute>
-                <RequireAiSurface><DefaultAiChatPage /></RequireAiSurface>
+                <RequireAiSurface><Suspense fallback={<LoadingScreen />}><DefaultAiChatPage /></Suspense></RequireAiSurface>
               </ProtectedRoute>
             } />
             <Route path="/ai/:agent/:conversationId" element={
               <ProtectedRoute>
-                <RequireAiSurface><DefaultAiChatPage /></RequireAiSurface>
+                <RequireAiSurface><Suspense fallback={<LoadingScreen />}><DefaultAiChatPage /></Suspense></RequireAiSurface>
               </ProtectedRoute>
             } />
             {/*

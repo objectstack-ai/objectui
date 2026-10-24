@@ -526,6 +526,7 @@ export default defineConfig({
       '@object-ui/data-objectstack': path.resolve(__dirname, './packages/data-objectstack/src'),
       '@object-ui/layout': path.resolve(__dirname, './packages/layout/src'),
       '@object-ui/plugin-calendar': path.resolve(__dirname, './packages/plugin-calendar/src'),
+      '@object-ui/plugin-chatbot/core': path.resolve(__dirname, './packages/plugin-chatbot/src/core.ts'),
       '@object-ui/plugin-chatbot': path.resolve(__dirname, './packages/plugin-chatbot/src'),
       '@object-ui/plugin-detail': path.resolve(__dirname, './packages/plugin-detail/src'),
       '@object-ui/plugin-editor': path.resolve(__dirname, './packages/plugin-editor/src'),

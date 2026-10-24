@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useAgents } from '@object-ui/plugin-chatbot';
+import { useAgents } from '@object-ui/plugin-chatbot/core';
 import { useAiSurfaceEnabled } from '../useAiSurface';
 
 // The surface is gated on the live agent catalog, so we mock useAgents and
 // assert the catalog → enabled/loading mapping (incl. the not-yet-fetched latch).
-vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@object-ui/plugin-chatbot')>()),
+vi.mock('@object-ui/plugin-chatbot/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@object-ui/plugin-chatbot/core')>()),
   useAgents: vi.fn(),
 }));
 const mockAgents = vi.mocked(useAgents);

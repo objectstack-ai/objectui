@@ -653,6 +653,9 @@ const workspaceAliases: Record<string, string> = {
   // Plugin Aliases
   '@object-ui/plugin-calendar': path.resolve(import.meta.dirname, '../../packages/plugin-calendar/src'),
   '@object-ui/plugin-charts': path.resolve(import.meta.dirname, '../../packages/plugin-charts/src'),
+  // `/core` before the bare package, for the prefix-match reason given on
+  // `@object-ui/types/zod` above (objectui#13410).
+  '@object-ui/plugin-chatbot/core': path.resolve(import.meta.dirname, '../../packages/plugin-chatbot/src/core.ts'),
   '@object-ui/plugin-chatbot': path.resolve(import.meta.dirname, '../../packages/plugin-chatbot/src'),
   '@object-ui/plugin-detail': path.resolve(import.meta.dirname, '../../packages/plugin-detail/src'),
   '@object-ui/plugin-editor': path.resolve(import.meta.dirname, '../../packages/plugin-editor/src'),
@@ -1475,6 +1478,24 @@ export default defineConfig({
             { name: 'plugin-tree', test: /[\\/]packages[\\/]plugin-tree[\\/]/, priority: 70 },
             { name: 'plugin-calendar', test: /[\\/]packages[\\/]plugin-calendar[\\/]/, priority: 70 },
             { name: 'plugin-kanban', test: /[\\/]packages[\\/]plugin-kanban[\\/]/, priority: 70 },
+            //
+            // ## The chatbot's side-effect-free half stays out of its chunk (objectui#13410)
+            //
+            // The console shell is eager and imports the agent catalog hook and a
+            // few pure parsers through `@object-ui/plugin-chatbot/core`. Left to
+            // the `plugin-chatbot` group below, those modules would be co-tenants
+            // of the chat UI and pull the whole chunk back into every first load,
+            // the co-tenancy mechanism objectui#6680 records further down. This
+            // group takes exactly the modules `src/core.ts` re-exports from, so
+            // `plugin-chatbot` is reached only through the lazy chat surfaces.
+            // `includeDependenciesRecursively: false` for the reason `types-zod`
+            // above gives. ⛔ A module added to `core.ts` belongs in this list.
+            {
+              name: 'plugin-chatbot-core',
+              test: /[\\/]packages[\\/]plugin-chatbot[\\/]src[\\/](core|useAgents|agentAliases|aiUsageEvents|publishHealth|mapMessages)\.tsx?$/,
+              priority: 71,
+              includeDependenciesRecursively: false,
+            },
             { name: 'plugin-chatbot', test: /[\\/]packages[\\/]plugin-chatbot[\\/]/, priority: 70 },
             //
             // ## `vendor-markdown` claims only what the first load reaches (objectui#11854)

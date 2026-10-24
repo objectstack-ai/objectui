@@ -49,7 +49,7 @@ import { CloudUpload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
-import { publishHealthFromResponse } from '@object-ui/plugin-chatbot';
+import { publishHealthFromResponse } from '@object-ui/plugin-chatbot/core';
 import { useMetadata } from '../../providers/MetadataProvider.js';
 import { useMetadataClient } from '../../views/metadata-admin/useMetadata.js';
 import { usePendingDrafts } from '../../preview/usePendingDrafts.js';

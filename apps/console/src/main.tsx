@@ -44,6 +44,9 @@ import './registerApprovalsComponents';
 // Register `audit:log` and `ai:approvals` component refs (objectui#10520).
 import './registerSystemComponents';
 
+// Register the `chatbot*` node types as lazy stubs (objectui#13410).
+import './registerChatbotComponents';
+
 // (Per-type metadata-admin override for `object` was removed: the
 // `object` type now uses the same generic ResourceListPage as every
 // other metadata type for visual consistency. The visual ObjectManager

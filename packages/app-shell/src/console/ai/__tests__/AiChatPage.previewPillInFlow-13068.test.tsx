@@ -44,12 +44,6 @@ vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => {
   const RealChatbot = actual.ChatbotEnhanced as React.ComponentType<Record<string, unknown>>;
   return {
     ...actual,
-    useAgents: () => ({
-      agents: [{ name: 'build', label: 'Build' }],
-      isLoading: false,
-      error: undefined,
-      refetch: vi.fn(),
-    }),
     useAiModels: () => ({ models: [], defaultModelId: undefined }),
     useHitlInChat: () => ({ decide: vi.fn(), decisions: {} }),
     useObjectChat: () => ({
@@ -79,6 +73,15 @@ vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => {
     },
   };
 });
+vi.mock('@object-ui/plugin-chatbot/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@object-ui/plugin-chatbot/core')>()),
+  useAgents: () => ({
+    agents: [{ name: 'build', label: 'Build' }],
+    isLoading: false,
+    error: undefined,
+    refetch: vi.fn(),
+  }),
+}));
 vi.mock('../../../hooks/useCanAuthorMetadata', () => ({
   useCanAuthorMetadata: () => true,
 }));

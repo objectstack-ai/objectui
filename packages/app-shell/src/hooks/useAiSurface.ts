@@ -41,7 +41,7 @@
  */
 
 import { useRef } from 'react';
-import { useAgents } from '@object-ui/plugin-chatbot';
+import { useAgents } from '@object-ui/plugin-chatbot/core';
 
 /**
  * Resolve the AI service base URL, mirroring AiChatPage / the Home CTAs:

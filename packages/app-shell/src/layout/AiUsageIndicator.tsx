@@ -37,7 +37,7 @@
 import * as React from 'react';
 import { cn, Button, Popover, PopoverTrigger, PopoverContent } from '@object-ui/components';
 import { formatNumber, useObjectTranslation } from '@object-ui/i18n';
-import { useAgents } from '@object-ui/plugin-chatbot';
+import { useAgents } from '@object-ui/plugin-chatbot/core';
 import { useAiUsage, type AiMeterUsage } from '../hooks/useAiUsage.js';
 import { cloudConsoleUrl } from '../console/marketplace/marketplaceApi.js';
 

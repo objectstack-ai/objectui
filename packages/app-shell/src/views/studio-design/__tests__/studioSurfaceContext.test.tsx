@@ -31,7 +31,7 @@ vi.mock('@object-ui/auth', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, useAuth: () => ({ user: { id: 'u1' } }) };
 });
-vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => {
+vi.mock('@object-ui/plugin-chatbot/core', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,

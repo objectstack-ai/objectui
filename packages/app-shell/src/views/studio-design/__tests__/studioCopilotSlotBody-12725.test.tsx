@@ -43,8 +43,8 @@ vi.mock('../../../layout/ChatDock', async (importOriginal) => {
 });
 
 const catalog = vi.hoisted(() => ({ agents: [{ name: 'build' }] as Array<{ name: string }> }));
-vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@object-ui/plugin-chatbot')>()),
+vi.mock('@object-ui/plugin-chatbot/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@object-ui/plugin-chatbot/core')>()),
   useAgents: () => ({ agents: catalog.agents, isLoading: false, error: null }),
 }));
 // Partial — the module also feeds the metadata client factory, which imports

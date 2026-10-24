@@ -27,7 +27,7 @@
 
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { publishHealthFromResponse, type PublishHealth } from '@object-ui/plugin-chatbot';
+import { publishHealthFromResponse, type PublishHealth } from '@object-ui/plugin-chatbot/core';
 import { useMetadataClient } from '../views/metadata-admin/useMetadata.js';
 import { emitMetadataRefresh } from '../assistant/assistantBus.js';
 import { lintDraftCapabilityReferences } from './capabilityLint.js';

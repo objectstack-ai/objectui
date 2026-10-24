@@ -11,6 +11,7 @@ import { useDisplayLocale } from '@object-ui/i18n';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { generateUniqueId } from './utils';
+import { emitAiUsageRefresh } from './aiUsageEvents';
 import { uiMessagesToChatMessages } from './mapMessages';
 import { toRuntimeRole, toRuntimeTimestamp } from './chatMessageAdapter';
 import type { SeamChatMessage, SeamToolInvocation } from './chatMessageAdapter';
@@ -67,24 +68,10 @@ export type ObjectChatMessage = Omit<SeamChatMessage, 'timestamp'> & {
   timestamp?: string;
 };
 
-/**
- * Window event the AI usage indicator (ADR-0057 #8) listens for to refetch its
- * quota headroom. A completed turn consumes tokens and a rejected send (429) means
- * the wall was hit — both change what the usage ring should show. Emitting a window
- * event keeps the indicator (in `@object-ui/app-shell`) decoupled from this chat
- * engine: no callback has to be threaded through `ChatPane`.
- */
-export const AI_USAGE_REFRESH_EVENT = 'objectui:ai-usage-refresh';
-
-/** Fire-and-forget nudge for the usage indicator. SSR-safe; never throws. */
-export function emitAiUsageRefresh(): void {
-  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
-  try {
-    window.dispatchEvent(new CustomEvent(AI_USAGE_REFRESH_EVENT));
-  } catch {
-    /* CustomEvent unavailable (very old env) — the indicator just polls on its own cadence */
-  }
-}
+// The usage-indicator refresh seam lives in the side-effect-free
+// `./aiUsageEvents` so `@object-ui/plugin-chatbot/core` can serve it without
+// this hook's `@ai-sdk/react` closure (objectui#13410); re-exported unchanged.
+export { AI_USAGE_REFRESH_EVENT, emitAiUsageRefresh } from './aiUsageEvents';
 
 /** An error from {@link sendAwareFetch}: a chat POST rejected before streaming. */
 export interface SendFailure extends Error {

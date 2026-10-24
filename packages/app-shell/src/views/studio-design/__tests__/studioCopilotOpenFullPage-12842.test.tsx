@@ -16,8 +16,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { readDockReturnLocation } from '../../../layout/chatDockState';
 
-vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@object-ui/plugin-chatbot')>()),
+vi.mock('@object-ui/plugin-chatbot/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@object-ui/plugin-chatbot/core')>()),
   useAgents: () => ({ agents: [{ name: 'build' }], isLoading: false, error: null }),
 }));
 // Partial — the module also feeds the metadata client factory, which imports

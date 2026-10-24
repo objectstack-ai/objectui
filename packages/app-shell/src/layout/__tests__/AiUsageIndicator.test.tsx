@@ -34,7 +34,7 @@ vi.mock('../../hooks/useAiUsage', () => ({ useAiUsage: vi.fn() }));
 // objectui#11799 — the indicator reads usage only while the agent catalog lists
 // an agent, so every case here is a viewer with AI on. AI off is pinned in
 // `AiUsageIndicator.aiOff-11799.test.tsx`, over the real catalog hook.
-vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => ({
+vi.mock('@object-ui/plugin-chatbot/core', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useAgents: () => ({ agents: [{ name: 'ask', label: 'Ask' }], isLoading: false, error: undefined, refetch: () => {} }),
 }));

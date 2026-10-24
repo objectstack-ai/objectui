@@ -48,7 +48,7 @@ import {
 } from 'lucide-react';
 import { Link, useInRouterContext } from 'react-router-dom';
 import { cn, EmptyDescription } from '@object-ui/components';
-import { agentRouteName } from '@object-ui/plugin-chatbot';
+import { agentRouteName } from '@object-ui/plugin-chatbot/core';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';

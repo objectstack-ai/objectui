@@ -37,7 +37,7 @@
  * @module
  */
 
-import { isBuildAgent } from '@object-ui/plugin-chatbot';
+import { isBuildAgent } from '@object-ui/plugin-chatbot/core';
 
 /** The ADR-0063 binding axis: exactly two products, bound by surface. */
 export type ChatProduct = 'ask' | 'build';

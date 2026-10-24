@@ -25,7 +25,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { agentRouteName } from '@object-ui/plugin-chatbot';
+import { agentRouteName } from '@object-ui/plugin-chatbot/core';
 import { AgentPreview } from './AgentPreview';
 
 afterEach(cleanup);

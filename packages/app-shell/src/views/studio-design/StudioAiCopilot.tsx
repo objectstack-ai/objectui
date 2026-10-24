@@ -5,7 +5,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@object-ui/auth';
 import { Button } from '@object-ui/components';
 import { Maximize2 } from 'lucide-react';
-import { useAgents } from '@object-ui/plugin-chatbot';
+import { useAgents } from '@object-ui/plugin-chatbot/core';
 import { useChatConversation } from '../../hooks/useChatConversation.js';
 import { chatConversationScope, chatProductOfAgent } from '../../hooks/chatScope.js';
 import { resolveSurfaceAgent } from '../../hooks/surfaceAgent.js';

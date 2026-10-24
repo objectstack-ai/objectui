@@ -43,13 +43,6 @@ vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
-    useAgents: () => ({
-      agents: [{ name: 'metadata_assistant', label: 'Build', capabilities: ['build'] }],
-      isLoading: false,
-      loading: false,
-      error: undefined,
-      refetch: vi.fn(),
-    }),
     ChatbotEnhanced: (props: Record<string, unknown>) => {
       chip = props;
       return null;
@@ -70,6 +63,16 @@ vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => {
     useAiModels: () => ({ models: [], defaultModelId: undefined }),
   };
 });
+vi.mock('@object-ui/plugin-chatbot/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@object-ui/plugin-chatbot/core')>()),
+  useAgents: () => ({
+    agents: [{ name: 'metadata_assistant', label: 'Build', capabilities: ['build'] }],
+    isLoading: false,
+    loading: false,
+    error: undefined,
+    refetch: vi.fn(),
+  }),
+}));
 vi.mock('@object-ui/auth', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, useAuth: () => ({ user: { id: 'u1' } }) };

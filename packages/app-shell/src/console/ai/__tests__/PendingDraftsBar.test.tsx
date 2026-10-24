@@ -42,8 +42,8 @@ function json(body: unknown): Response {
 vi.mock('../../../providers/MetadataProvider.js', () => ({
   useMetadata: () => ({ refresh }),
 }));
-vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@object-ui/plugin-chatbot')>()),
+vi.mock('@object-ui/plugin-chatbot/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@object-ui/plugin-chatbot/core')>()),
   publishHealthFromResponse: () => undefined,
 }));
 

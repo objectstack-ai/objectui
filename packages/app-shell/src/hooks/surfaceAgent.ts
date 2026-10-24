@@ -37,7 +37,7 @@ import {
   resolveAgentParam,
   resolveDefaultAgentName,
   type AgentDescriptor,
-} from '@object-ui/plugin-chatbot';
+} from '@object-ui/plugin-chatbot/core';
 
 /**
  * The surfaces that resolve an agent. `studio-build` is the ADR-0080 Studio

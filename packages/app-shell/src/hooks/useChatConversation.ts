@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // `@object-ui/plugin-chatbot` is already a static member of this package's
 // barrel closure (`index.ts` re-exports `AiChatPage`, which imports it), so
 // this adds no package edge and no eager bundle weight.
-import { detectPendingApproval } from '@object-ui/plugin-chatbot';
+import { detectPendingApproval } from '@object-ui/plugin-chatbot/core';
 
 /** Minimal UIMessage shape compatible with `@ai-sdk/react`'s `useChat`. */
 export interface HydratedUIMessagePart {

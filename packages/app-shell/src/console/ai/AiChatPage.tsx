@@ -59,19 +59,9 @@ import {
 import { Bug, Check, ChevronDown, Eye, PanelLeft, PanelLeftClose, PanelLeftOpen, PanelRightOpen, Share2 } from 'lucide-react';
 import {
   ChatbotEnhanced,
-  useAgents,
   useObjectChat,
   useAiModels,
   useHitlInChat,
-  resolveDefaultAgentName,
-  PLATFORM_DEFAULT_AGENT,
-  agentRouteName,
-  resolveAgentParam,
-  isBuiltinAgentName,
-  isBuildAgent,
-  agentHasCapability,
-  isAskAgent,
-  publishHealthFromResponse,
   detectDraftResult,
   detectProposedPlan,
   detectBuilderHandoff,
@@ -80,13 +70,11 @@ import {
   detectReplayOutcome,
   detectAuthoringVerdict,
   detectBuiltAppPackage,
-  detectPendingApproval,
   buildProgressFromDraftReview,
   // The authoring/honest -> runtime message seam (objectui#4399 / PR #4416),
   // consumed here one hop up from the plugin's own renderers (objectui#4437).
   // See `runtimeMessages` below for why this host calls it exactly once.
   toRuntimeMessages,
-  type AgentDescriptor,
   type ChatbotEnhancedToolInvocation,
   // The ENHANCED message shape — the one `<ChatbotEnhanced>` renders and the
   // one this file actually produces (`toolInvocations`, `buildProgress`).
@@ -103,6 +91,22 @@ import {
   // #4400). Pinned in the plugin's `chat-message-contract.test.ts`.
   type ChatbotEnhancedMessage as ChatMessage,
 } from '@object-ui/plugin-chatbot';
+// The side-effect-free names come through `/core` like every other app-shell
+// import of them, so a test stubs each in one place (objectui#13410).
+import {
+  useAgents,
+  resolveDefaultAgentName,
+  PLATFORM_DEFAULT_AGENT,
+  agentRouteName,
+  resolveAgentParam,
+  isBuiltinAgentName,
+  isBuildAgent,
+  agentHasCapability,
+  isAskAgent,
+  publishHealthFromResponse,
+  detectPendingApproval,
+  type AgentDescriptor,
+} from '@object-ui/plugin-chatbot/core';
 
 import { AppHeader } from '../../layout/AppHeader.js';
 import { CONSOLE_TOP_BAR } from '../../layout/consoleTopBar.js';
@@ -138,8 +142,7 @@ import { studioChangesReviewTarget } from '../../views/studio-design/studioChang
 import { BuildDebugDrawer } from './BuildDebugDrawer.js';
 import { isConversationZh } from './conversationLanguage.js';
 import { resolveOutboundAgentText, type OutboundAgentTextKey } from './outboundAgentText.js';
-
-const DEFAULT_AI_PATH = '/api/v1/ai';
+import { resolveApiBase } from './resolveApiBase.js';
 
 function partString(part: HydratedUIMessagePart, key: string): string | undefined {
   const value = part[key];
@@ -464,14 +467,9 @@ export function agentEmptyState(
   };
 }
 
-export function resolveApiBase(explicit?: string): string {
-  if (explicit) return explicit.replace(/\/$/, '');
-  const env = (import.meta as any).env ?? {};
-  const fromEnv = env.VITE_AI_BASE_URL as string | undefined;
-  if (fromEnv) return fromEnv.replace(/\/$/, '');
-  const serverUrl = (env.VITE_SERVER_URL as string | undefined) ?? '';
-  return `${serverUrl.replace(/\/$/, '')}${DEFAULT_AI_PATH}`;
-}
+// Lives in `./resolveApiBase` so the eagerly loaded dock chrome can call it
+// without importing this module (objectui#13410); re-exported unchanged.
+export { resolveApiBase };
 
 export interface AiChatPageProps {
   /** Override the resolved AI service base URL. */

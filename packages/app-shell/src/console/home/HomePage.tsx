@@ -26,7 +26,7 @@ import { useObjectTranslation } from '@object-ui/i18n';
 // Its own line: the line above is the pack-hook binding `perm-home-namespace-3546.test.tsx` reads.
 import { useObjectLabel } from '@object-ui/i18n';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
-import { useAgents, isAskAgent, agentHasCapability } from '@object-ui/plugin-chatbot';
+import { useAgents, isAskAgent, agentHasCapability } from '@object-ui/plugin-chatbot/core';
 // May this session author metadata? Shared with the chat surfaces since the
 // maker convergence (cloud#1674) — the doctrine (objectstack#8270 posture,
 // unknown→fail-open) lives with the hook.

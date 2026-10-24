@@ -26,7 +26,7 @@
  */
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { ChatDockPanel, ChatDockMobileSheet, type ChatDockState } from '../ChatDock';
 import { resolveSurfaceAgent } from '../../hooks/surfaceAgent';
 
@@ -67,8 +67,8 @@ vi.mock('../../console/ai/AiChatPage', () => ({
   ChatPane: () => null,
   resolveApiBase: (explicit?: string) => explicit ?? '/api/v1/ai',
 }));
-vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@object-ui/plugin-chatbot')>()),
+vi.mock('@object-ui/plugin-chatbot/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@object-ui/plugin-chatbot/core')>()),
   useAgents: () => ({ agents: [], isLoading: false, error: undefined }),
 }));
 vi.mock('../../hooks', () => ({
@@ -100,30 +100,32 @@ beforeEach(() => {
 });
 
 describe('ChatDock default body on a partial runtime-config snapshot (objectui#5577)', () => {
-  it('mounts the desktop rail and fails OPEN when `features` is absent', () => {
+  it('mounts the desktop rail and fails OPEN when `features` is absent', async () => {
     render(<ChatDockPanel dock={dockState()} />);
 
     expect(screen.getByTestId('chat-dock-panel')).toBeInTheDocument();
-    expect(resolverMock).toHaveBeenCalled();
+    // The default body is loaded on first render (objectui#13410).
+    await waitFor(() => expect(resolverMock).toHaveBeenCalled());
     expect(resolverMock.mock.calls[0][1]).toMatchObject({ aiStudioEnabled: true });
   });
 
-  it('mounts the mobile sheet and fails OPEN when `features` is absent', () => {
+  it('mounts the mobile sheet and fails OPEN when `features` is absent', async () => {
     render(<ChatDockMobileSheet open onOpenChange={vi.fn()} />);
 
-    expect(resolverMock).toHaveBeenCalled();
+    await waitFor(() => expect(resolverMock).toHaveBeenCalled());
     expect(resolverMock.mock.calls[0][1]).toMatchObject({ aiStudioEnabled: true });
   });
 
-  it('still passes the flag through the `default` surface, not a bare call', () => {
+  it('still passes the flag through the `default` surface, not a bare call', async () => {
     // The dock is the console's ambient assistant; the flag only means anything
     // paired with the surface the resolver is bounded on.
     render(<ChatDockPanel dock={dockState()} />);
 
+    await waitFor(() => expect(resolverMock).toHaveBeenCalled());
     expect(resolverMock.mock.calls[0][0]).toBe('default');
   });
 
-  it('asks the ACCESSOR rather than re-spelling the read inline', () => {
+  it('asks the ACCESSOR rather than re-spelling the read inline', async () => {
     // Scoped deliberately tighter than the two cases above. Those pin the
     // crash-closure and stay green for ANY optional-chained inline read
     // (measured: reverting this call site to `features?.aiStudio !== false`
@@ -132,6 +134,6 @@ describe('ChatDock default body on a partial runtime-config snapshot (objectui#5
     // which is the actual subject of objectui#5577: ONE doctrine, ONE spelling.
     render(<ChatDockPanel dock={dockState()} />);
 
-    expect(aiStudioSpy).toHaveBeenCalled();
+    await waitFor(() => expect(aiStudioSpy).toHaveBeenCalled());
   });
 });

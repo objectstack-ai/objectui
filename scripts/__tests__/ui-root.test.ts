@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stripComments } from '../js-comment-mask.mjs';
 import { UI_ROOT, uiRoot } from '../ui-root.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -34,7 +35,7 @@ describe('uiRoot() (objectstack ruling D1: the objectui tree as `ui/`)', () => {
 
   it('consults no marker, no git and no cwd -- the source is one path.resolve from import.meta.url', () => {
     const source = readFileSync(path.join(here, '..', 'ui-root.mjs'), 'utf8');
-    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const code = stripComments(source);
     expect(code).toContain("path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')");
     for (const forbidden of ['process.cwd', 'existsSync', 'rev-parse', 'pnpm-workspace.yaml', 'find-up']) {
       expect(code, `the helper must not spell ${forbidden}`).not.toContain(forbidden);

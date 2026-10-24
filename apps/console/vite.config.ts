@@ -24,6 +24,7 @@ import {
   resolveSpecDistInjection,
 } from '../../scripts/vite-objectstack-spec-dist.ts';
 import { viteIneffectiveDynamicImports } from '../../scripts/vite-ineffective-dynamic-imports.ts';
+import { frameworkPackagesDir, workspaceChunkTests } from '../../scripts/vite-objectstack-workspace.ts';
 import { viteDeclaredLazyViews } from '../../scripts/vite-declared-lazy-views.ts';
 import { viteTypesZodLazy } from '../../scripts/vite-types-zod-lazy.ts';
 import { compression } from 'vite-plugin-compression2';
@@ -106,7 +107,7 @@ function preloadCriticalChunks(): Plugin {
  * instead of quietly ceasing to guard anything.
  */
 function assertLazyLinterStaysLazy(specTest: RegExp): Plugin {
-  const LINT = /@objectstack[\\/+]lint/;
+  const LINT = WORKSPACE_CHUNK_TESTS.lint;
 
   return {
     name: 'assert-lazy-linter-stays-lazy',
@@ -739,8 +740,17 @@ const OPTIMIZE_DEPS_INCLUDE = [
 // The lookaheads are deliberately tight: `lint[\\/]` and `lint@` match the
 // `lint` package only, so a future `@objectstack/lint-*` sibling still groups
 // here rather than silently scattering into its importers' chunks.
-const VENDOR_OBJECTSTACK_TEST =
-  /([\\/]node_modules[\\/]@objectstack[\\/](?!lint[\\/])|[\\/]@objectstack\+(?!lint@))/;
+//
+// objectstack ruling D1: inside the objectstack monorepo (objectui as `ui/`)
+// the framework packages are workspace links, so Vite sees their REAL paths
+// (`<monorepo root>/packages/<name>/dist/...`), never a node_modules spelling.
+// The monorepo's own `packages/` directory therefore joins this test, the
+// spec counter-probe and the lazy-linter guard below as one more alternative;
+// standalone that directory does not exist and the alternative matches
+// nothing. The three tests are built in `scripts/vite-objectstack-workspace.ts`
+// so a unit test can read them -- its header carries the measurement.
+const WORKSPACE_CHUNK_TESTS = workspaceChunkTests(frameworkPackagesDir(import.meta.dirname));
+const VENDOR_OBJECTSTACK_TEST = WORKSPACE_CHUNK_TESTS.vendor;
 
 // "This module id IS `@objectstack/spec`" — the subject of the counter-probe in
 // `assertLazyLinterStaysLazy` above, kept separate from the group test on
@@ -749,8 +759,9 @@ const VENDOR_OBJECTSTACK_TEST =
 // can see the SPEC chunk the counter-probe exists to find — reusing it there
 // would keep the build green by lowering the bar, which is the one outcome
 // objectui#5388 must not produce. Both spellings are covered: a plain install
-// (`/node_modules/@objectstack/spec/…`) and pnpm's store (`/@objectstack+spec@…`).
-const SPEC_MODULE_TEST = /@objectstack[\\/+]spec/;
+// (`/node_modules/@objectstack/spec/…`) and pnpm's store (`/@objectstack+spec@…`),
+// plus the monorepo's workspace path (see `WORKSPACE_CHUNK_TESTS` above).
+const SPEC_MODULE_TEST = WORKSPACE_CHUNK_TESTS.spec;
 
 // Opt-in override of the installed `@objectstack/spec` — the spec twin of
 // OBJECTSTACK_CLIENT_DIST above, so a framework build can bundle the console

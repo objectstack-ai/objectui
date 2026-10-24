@@ -22,6 +22,7 @@ import {
   specSubpathOf,
   specSubpathsFromLiterals,
   specSymbols,
+  workspaceSpecVersion,
 } from '../check-spec-range-floors.mjs';
 
 // Plain-JS CI helper; its types are INFERRED from the .mjs source by
@@ -154,6 +155,49 @@ describe('the declared floor', () => {
     // caps the version without flooring it is the one spelling that gets there.
     for (const range of ['<18.0.0', '<=18.0.0', '<18.0.0 <17.9.0']) {
       expect(() => minVersionOf(range), range).toThrow(/names no lower bound/);
+    }
+  });
+
+  it('reads a workspace: range as the workspace spec\'s own version, and only when told it (objectstack ruling D1)', () => {
+    // Inside the objectstack monorepo the ranges are `workspace:^`, which publishes as
+    // `^<the spec's version>`: that version is the floor. Without the version the
+    // spelling stays UNREADABLE (the loop above keeps `workspace:*` in its list),
+    // because a workspace range read without its workspace has no floor at all.
+    for (const range of ['workspace:*', 'workspace:^', 'workspace:~', 'workspace:']) {
+      expect(minVersionOf(range, { workspaceVersion: '18.1.0' }), range).toBe('18.1.0');
+      expect(() => minVersionOf(range), range).toThrow(/workspace package's own version/);
+      expect(() => minVersionOf(range, { workspaceVersion: 'latest' }), range).toThrow(/is not one/);
+    }
+    // A range tail is that range, with or without the workspace version.
+    expect(minVersionOf('workspace:^18.0.0-next.1')).toBe('18.0.0-next.1');
+    expect(minVersionOf('workspace:~17.2.0', { workspaceVersion: '18.1.0' })).toBe('17.2.0');
+    // Every non-workspace spelling reads exactly as before, version told or not.
+    expect(minVersionOf('^17.0.0', { workspaceVersion: '18.1.0' })).toBe('17.0.0');
+    expect(() => minVersionOf('latest', { workspaceVersion: '18.1.0' })).toThrow();
+    // Through the declared floor: the workspace version takes part in "highest wins".
+    const floor = effectiveFloor(
+      { dependencies: { [SPEC_PACKAGE]: 'workspace:^' }, peerDependencies: { [SPEC_PACKAGE]: '^17.1.0' } },
+      undefined,
+      { workspaceVersion: '18.1.0' },
+    );
+    expect(floor?.version).toBe('18.1.0');
+    expect(() => effectiveFloor({ dependencies: { [SPEC_PACKAGE]: 'workspace:^' } })).toThrow(/dependencies/);
+  });
+
+  it('finds the workspace spec\'s version in the nearest node_modules above the root, and null when none is installed', () => {
+    const tree = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-range-floors-ws-'));
+    try {
+      expect(workspaceSpecVersion(tree)).toBeNull();
+      fs.mkdirSync(path.join(tree, 'node_modules', SPEC_PACKAGE), { recursive: true });
+      fs.writeFileSync(path.join(tree, 'node_modules', SPEC_PACKAGE, 'package.json'), JSON.stringify({ name: SPEC_PACKAGE, version: '18.1.0' }));
+      expect(workspaceSpecVersion(tree)).toBe('18.1.0');
+      // A nested tree (`ui/`) with no install of its own reads the one above it.
+      fs.mkdirSync(path.join(tree, 'ui/packages'), { recursive: true });
+      expect(workspaceSpecVersion(path.join(tree, 'ui'))).toBe('18.1.0');
+      // This checkout resolves the installed spec, which is what a run reads by default.
+      expect(workspaceSpecVersion(repoRoot)).toMatch(/^\d+\.\d+\.\d+/);
+    } finally {
+      fs.rmSync(tree, { recursive: true, force: true });
     }
   });
 

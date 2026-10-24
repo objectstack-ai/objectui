@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { compareVersions, computeFloor, main, releaseTags } from '../objectstack-floor.mjs';
+import { compareVersions, computeFloor, floorOfRange, installedVersion, main, planRanges, releaseTags } from '../objectstack-floor.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'objectstack-floor-test-'));
@@ -106,6 +106,48 @@ describe('the step, end to end', () => {
     const pristine = dry.read();
     expect(run(dry.root, ['--dry-run'])).toMatchObject({ code: 0, out: expect.stringContaining('^1.0.0-next.0 → ^1.0.0-next.1') });
     expect(dry.read()).toEqual(pristine);
+  });
+
+  it('reads a workspace: range as the workspace package\'s own version (objectstack ruling D1)', () => {
+    // Inside the objectstack monorepo the ranges are `workspace:^`, which publishes as
+    // `^<that package's version>`; the floor is that version, resolved per name.
+    const own = (name: string) => (name === '@objectstack/spec' ? '1.0.0-next.1' : null);
+    expect(floorOfRange('workspace:^', '@objectstack/spec', own)).toBe('1.0.0-next.1');
+    expect(floorOfRange('workspace:*', '@objectstack/spec', own)).toBe('1.0.0-next.1');
+    expect(floorOfRange('workspace:~', '@objectstack/spec', own)).toBe('1.0.0-next.1');
+    expect(floorOfRange('workspace:^1.0.0-next.0', '@objectstack/spec', own)).toBe('1.0.0-next.0');
+    // A workspace package this tree does not resolve, or a resolver that answers nothing, is UNREADABLE, never 0.0.0.
+    expect(floorOfRange('workspace:^', '@objectstack/lint', own)).toBeNull();
+    expect(floorOfRange('workspace:^', '@objectstack/spec', () => 'latest')).toBeNull();
+    // Every semver spelling reads as before.
+    expect(floorOfRange('^1.0.0-next.0', '@objectstack/spec', own)).toBe('1.0.0-next.0');
+    expect(floorOfRange('latest', '@objectstack/spec', own)).toBeNull();
+
+    const pkg = { name: '@x/a', dir: 'packages/a', manifest: { dependencies: { '@objectstack/spec': 'workspace:^', '@objectstack/lint': '^1.0.0-next.2' } } };
+    const kept = planRanges([pkg], '1.0.0-next.1', { workspaceVersionOf: own });
+    expect(kept.map((r) => [r.name, r.action, r.to])).toEqual([['@objectstack/spec', 'kept', 'workspace:^'], ['@objectstack/lint', 'kept', '^1.0.0-next.2']]);
+    const below = planRanges([pkg], '1.0.0-next.2', { workspaceVersionOf: own });
+    expect(below.map((r) => [r.name, r.action, r.to])).toEqual([['@objectstack/spec', 'moved', '^1.0.0-next.2'], ['@objectstack/lint', 'kept', '^1.0.0-next.2']]);
+    // The default resolver knows no workspace: the range is unreadable, as before this change.
+    expect(planRanges([pkg], '1.0.0-next.1').map((r) => r.action)).toEqual(['unreadable', 'kept']);
+  });
+
+  it('resolves a workspace package\'s version from the nearest node_modules, end to end', () => {
+    const { root, read } = fixture(sha.c3, 'workspace:^');
+    // Nothing installed: the range cannot be read, nothing is written.
+    const before = read();
+    expect(run(root).code).toBe(1);
+    expect(read()).toEqual(before);
+    expect(installedVersion(root, '@objectstack/spec')).toBeNull();
+    // The workspace spec at the floor: kept.
+    fs.mkdirSync(path.join(root, 'node_modules/@objectstack/spec'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'node_modules/@objectstack/spec/package.json'), JSON.stringify({ name: '@objectstack/spec', version: '1.0.0-next.1' }));
+    expect(installedVersion(root, '@objectstack/spec')).toBe('1.0.0-next.1');
+    expect(installedVersion(path.join(root, 'packages/a'), '@objectstack/spec')).toBe('1.0.0-next.1');
+    const { code, out } = run(root);
+    expect(code).toBe(0);
+    expect(out).toContain('kept');
+    expect(JSON.parse(read()[0]).dependencies['@objectstack/spec']).toBe('workspace:^');
   });
 
   it('runs first in `pnpm changeset:publish`, and between the build and the scan nightly', () => {

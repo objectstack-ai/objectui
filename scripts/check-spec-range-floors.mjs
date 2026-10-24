@@ -215,6 +215,16 @@ export const FLOOR_VERSION = new RegExp(`^${FLOOR_SPELLING}$`);
 /** One lower-bound comparator: an optional operator, then a FLOOR_VERSION. */
 const LOWER_BOUND = new RegExp(String.raw`^(\^|~|>=|=)?(${FLOOR_SPELLING})$`);
 
+/**
+ * pnpm's workspace protocol (objectstack ruling D1: inside the objectstack
+ * monorepo objectui declares `@objectstack/spec` as `workspace:^`). The tail is
+ * `*`, `^`, `~`, empty, or a range: the first four say "the workspace package
+ * at whatever version it has", and publish as `^<that version>`, so their floor
+ * IS the workspace package's own version; a range tail is read as that range.
+ */
+export const WORKSPACE_PROTOCOL = /^workspace:(.*)$/;
+const WORKSPACE_OWN_VERSION = new Set(['', '*', '^', '~']);
+
 /** `[major, minor, patch]`, or `null` when `version` is not a plain release. */
 export function parseVersion(version) {
   const match = RELEASE_VERSION.exec(String(version).trim());
@@ -263,13 +273,35 @@ export function majorOf(version) {
  * takes the LOWEST branch: a consumer may satisfy the range through any
  * alternative, so the lowest is what the range admits — and since finding the
  * lowest is an ordering, a union with a prerelease branch still throws.
+ *
+ * A `workspace:` range (WORKSPACE_PROTOCOL above) reads as the workspace
+ * package's own version, which the caller passes as `workspaceVersion`; with
+ * none passed it THROWS like any other unreadable spelling, so a tree where the
+ * workspace package cannot be found never reads as "floor 0.0.0".
+ *
+ * @param {string} range
+ * @param {{ workspaceVersion?: string | null }} [options]
  */
-export function minVersionOf(range) {
+export function minVersionOf(range, { workspaceVersion = null } = {}) {
   const text = String(range).trim();
   if (text.length === 0) throw new Error('an empty range names no floor.');
 
+  const workspace = WORKSPACE_PROTOCOL.exec(text);
+  if (workspace) {
+    const tail = workspace[1].trim();
+    if (!WORKSPACE_OWN_VERSION.has(tail)) return minVersionOf(tail, { workspaceVersion });
+    if (typeof workspaceVersion !== 'string' || !FLOOR_VERSION.test(workspaceVersion)) {
+      throw new Error(
+        `range "${text}" names the workspace package's own version as its floor, and this run was not told that ` +
+          `version${workspaceVersion ? ` ("${workspaceVersion}" is not one)` : ''}. Reported as a failure rather than guessed: ` +
+          'a workspace range read without its workspace is a range with no floor at all.',
+      );
+    }
+    return workspaceVersion;
+  }
+
   if (text.includes('||')) {
-    const branches = text.split('||').map((branch) => minVersionOf(branch));
+    const branches = text.split('||').map((branch) => minVersionOf(branch, { workspaceVersion }));
     return branches.reduce((lowest, candidate) => (compareVersions(candidate, lowest) < 0 ? candidate : lowest));
   }
 
@@ -300,10 +332,12 @@ export function minVersionOf(range) {
  * The lowest `@objectstack/spec` a consumer install of this package may land.
  *
  * @param {object} manifest
+ * @param {readonly string[]} [fields]
+ * @param {{ workspaceVersion?: string | null }} [options] the workspace spec's own version, for a `workspace:` range
  * @returns {{ version: string, ranges: {field: string, range: string}[] } | null}
  *   `null` when no consumer-facing field declares the spec at all.
  */
-export function effectiveFloor(manifest, fields = RUNTIME_FIELDS) {
+export function effectiveFloor(manifest, fields = RUNTIME_FIELDS, { workspaceVersion = null } = {}) {
   const ranges = [];
   for (const field of fields) {
     const range = manifest?.[field]?.[SPEC_PACKAGE];
@@ -315,7 +349,7 @@ export function effectiveFloor(manifest, fields = RUNTIME_FIELDS) {
   for (const { field, range } of ranges) {
     let min;
     try {
-      min = minVersionOf(range);
+      min = minVersionOf(range, { workspaceVersion });
     } catch (error) {
       throw new Error(
         `${field}["${SPEC_PACKAGE}"] = "${range}": ${error.message} A range whose floor cannot be named ` +
@@ -340,6 +374,35 @@ export function effectiveFloor(manifest, fields = RUNTIME_FIELDS) {
     }
   }
   return { version: floor, ranges };
+}
+
+/**
+ * The version of `@objectstack/spec` the workspace resolves, read from the
+ * installed package's manifest -- the nearest `node_modules/@objectstack/spec`
+ * walking up from `root`. Standalone that is the pinned build linked into
+ * `node_modules`; inside the objectstack monorepo it is the workspace link to
+ * `packages/spec`. `null` when nothing is installed, which a `workspace:` range
+ * then turns into an unreadable-range finding rather than a floor.
+ *
+ * @param {string} root
+ * @returns {string | null}
+ */
+export function workspaceSpecVersion(root) {
+  let dir = root;
+  for (;;) {
+    const manifest = join(dir, 'node_modules', SPEC_PACKAGE, 'package.json');
+    if (existsSync(manifest)) {
+      try {
+        const version = JSON.parse(readFileSync(manifest, 'utf8')).version;
+        return typeof version === 'string' ? version : null;
+      } catch {
+        return null;
+      }
+    }
+    const parent = join(dir, '..');
+    if (parent === dir) return null;
+    dir = parent;
+  }
 }
 
 // ── what the artifact references ─────────────────────────────────────────────
@@ -856,10 +919,12 @@ export function publishedVersions(run = () => execFileSync('npm', ['view', SPEC_
  *   load?: (version: string) => { entryFor: (subpath: string) => any },
  *   log?: (line: string) => void,
  *   packages?: {name: string, dir: string, manifest: object}[],
- * }} [options]
+ *   workspaceVersion?: string | null,
+ * }} [options] `workspaceVersion` replaces the installed spec's version a `workspace:` range reads as its floor
  */
-export function analyze(root, { cacheRoot, load, log = () => {}, packages } = {}) {
+export function analyze(root, { cacheRoot, load, log = () => {}, packages, workspaceVersion } = {}) {
   const resolvedCache = cacheRoot ?? join(root, 'node_modules/.cache/spec-range-floors');
+  const specVersion = workspaceVersion === undefined ? workspaceSpecVersion(root) : workspaceVersion;
   const loadSpec = load ?? ((version) => loadPublishedSpec(version, resolvedCache, { log }));
 
   const all = packages ?? discoverPublishedPackages(root);
@@ -870,7 +935,7 @@ export function analyze(root, { cacheRoot, load, log = () => {}, packages } = {}
   for (const pkg of all) {
     let floor;
     try {
-      floor = effectiveFloor(pkg.manifest);
+      floor = effectiveFloor(pkg.manifest, RUNTIME_FIELDS, { workspaceVersion: specVersion });
     } catch (error) {
       findings.push({ reason: 'unreadable-range', pkg: pkg.name, detail: error.message });
       continue;

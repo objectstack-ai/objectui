@@ -45,6 +45,46 @@ export const SPEC = '@objectstack/spec';
 export const TAG_PREFIX = `${SPEC}@`;
 const VERSION = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/;
 const RANGE = /^(?:\^|~|>=|=)?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/;
+// pnpm's workspace protocol (objectstack ruling D1: inside the objectstack monorepo the
+// `@objectstack/*` ranges are `workspace:^`). `workspace:*` / `^` / `~` / bare publish as
+// `^<the workspace package's own version>`, so that version is the range's floor; a range
+// tail (`workspace:^1.2.3`) is read as the range.
+const WORKSPACE = /^workspace:(.*)$/;
+const WORKSPACE_OWN_VERSION = new Set(['', '*', '^', '~']);
+
+/**
+ * The version of `name` the workspace resolves: the nearest `node_modules/<name>/package.json`
+ * walking up from `root` -- the pinned build standalone, the workspace link in the monorepo.
+ * `null` when nothing is installed, which a `workspace:` range then reports as unreadable.
+ */
+export function installedVersion(root, name) {
+  let dir = root;
+  for (;;) {
+    const manifest = path.join(dir, 'node_modules', name, 'package.json');
+    if (fs.existsSync(manifest)) {
+      try {
+        const version = JSON.parse(fs.readFileSync(manifest, 'utf8')).version;
+        return typeof version === 'string' ? version : null;
+      } catch {
+        return null;
+      }
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+/** The lowest version `from` admits, or `null` when this step cannot read it. */
+export function floorOfRange(from, name, workspaceVersionOf) {
+  const text = String(from).trim();
+  const workspace = WORKSPACE.exec(text);
+  if (!workspace) return RANGE.exec(text)?.[1] ?? null;
+  const tail = workspace[1].trim();
+  if (!WORKSPACE_OWN_VERSION.has(tail)) return RANGE.exec(tail)?.[1] ?? null;
+  const own = workspaceVersionOf(name);
+  return typeof own === 'string' && VERSION.test(own) ? own : null;
+}
 
 /** Semver precedence of two `X.Y.Z[-prerelease]` versions: negative, 0 or positive. */
 export function compareVersions(a, b) {
@@ -96,14 +136,21 @@ export function releaseTags(dir, url, pin) {
   return { tagged, contains };
 }
 
-/** Every `@objectstack/*` range of every published manifest, judged against the floor. */
-export function planRanges(packages, floor) {
+/**
+ * Every `@objectstack/*` range of every published manifest, judged against the floor.
+ *
+ * @param {{ name: string, dir: string, manifest: object }[]} packages
+ * @param {string} floor
+ * @param {{ workspaceVersionOf?: (name: string) => string | null }} [options]
+ *   what a `workspace:` range of `name` reads as its floor (default: nothing is a workspace)
+ */
+export function planRanges(packages, floor, { workspaceVersionOf = () => null } = {}) {
   const rows = [];
   for (const pkg of packages) {
     for (const field of ALL_FIELDS) {
       for (const [name, from] of Object.entries(pkg.manifest[field] ?? {})) {
         if (!name.startsWith('@objectstack/')) continue;
-        const min = RANGE.exec(String(from).trim())?.[1];
+        const min = floorOfRange(from, name, workspaceVersionOf);
         const action = !min ? 'unreadable' : compareVersions(min, floor) < 0 ? 'moved' : 'kept';
         rows.push({ pkg, field, name, from, to: action === 'moved' ? `^${floor}` : from, action });
       }
@@ -151,7 +198,7 @@ export function main({ root = REPO_ROOT, argv = process.argv.slice(2), env = pro
       return 2;
     }
     console.log(`Floor ${floor}: the earliest published ${SPEC} whose tag ${TAG_PREFIX}${floor} contains the pin ${pin}.`);
-    const rows = planRanges(discoverPublishedPackages(root), floor);
+    const rows = planRanges(discoverPublishedPackages(root), floor, { workspaceVersionOf: (name) => installedVersion(root, name) });
     for (const r of rows) console.log(`  ${r.action.padEnd(10)} ${r.pkg.name}  ${r.field}  ${r.name}  ${r.from}${r.action === 'moved' ? ` → ${r.to}` : ''}`);
     const unreadable = rows.filter((r) => r.action === 'unreadable');
     if (unreadable.length) throw new Error(`${unreadable.length} range(s) above name no minimum this step can read; nothing was written.`);

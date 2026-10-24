@@ -60,6 +60,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ListViewSchema as SpecListViewSchema, UserActionsConfigSchema } from '@objectstack/spec/ui';
@@ -87,8 +88,26 @@ const parseVersion = (v: string): [number, number, number] | null => {
 
 const isPrerelease = (v: string): boolean => /^\d+\.\d+\.\d+-/.test(v.trim());
 
-/** The minimum version a `^X.Y.Z` range admits. */
-const floorOf = (range: string): string => range.trim().replace(/^[\^~>=\s]+/, '');
+/**
+ * The `@objectstack/spec` this package resolves, read from the installed
+ * manifest: the pinned build standalone, the workspace link to `packages/spec`
+ * inside the objectstack monorepo (objectstack ruling D1). A `workspace:` range
+ * publishes as `^<this version>`, so this is that range's floor.
+ */
+const installedSpecVersion = (): string =>
+  (createRequire(import.meta.url)('@objectstack/spec/package.json') as { version: string }).version;
+
+/**
+ * The minimum version a range admits: the bare version of a `^X.Y.Z` range,
+ * and the installed spec's own version for `workspace:*` / `^` / `~` / bare
+ * (a `workspace:<range>` tail reads as that range).
+ */
+const floorOf = (range: string): string => {
+  const workspace = /^workspace:(.*)$/.exec(range.trim());
+  if (!workspace) return range.trim().replace(/^[\^~>=\s]+/, '');
+  const tail = workspace[1].trim();
+  return ['', '*', '^', '~'].includes(tail) ? installedSpecVersion() : floorOf(tail);
+};
 
 /** Whether every version `range` admits is at or above `required`. */
 const admitsOnlyAtOrAbove = (range: string, required: string): boolean => {
@@ -155,7 +174,23 @@ describe('the DECLARED spec floor admits only specs that accept the fold (object
 
       // A range it cannot reason about must not read as satisfied.
       expect(admitsOnlyAtOrAbove('*', REQUIRED_FLOOR)).toBe(false);
-      expect(admitsOnlyAtOrAbove('workspace:*', REQUIRED_FLOOR)).toBe(false);
+    });
+
+    it('reads a workspace: range as the installed spec\'s own version (objectstack ruling D1)', () => {
+      // Inside the objectstack monorepo this package declares `workspace:^`,
+      // which publishes as `^<the spec's version>`: that version is the floor.
+      const installed = installedSpecVersion();
+      expect(installed).toMatch(/^\d+\.\d+\.\d+/);
+      for (const range of ['workspace:*', 'workspace:^', 'workspace:~', 'workspace:']) {
+        expect(floorOf(range), range).toBe(installed);
+      }
+      expect(floorOf('workspace:^17.3.0')).toBe('17.3.0');
+      // The comparator still fires on it: the installed spec is at or above the
+      // measured floor (or this package could not build), and below a floor no
+      // spec has reached.
+      expect(admitsOnlyAtOrAbove('workspace:^', REQUIRED_FLOOR)).toBe(true);
+      expect(admitsOnlyAtOrAbove('workspace:^', '9999.0.0')).toBe(false);
+      expect(admitsOnlyAtOrAbove('workspace:^17.2.0', REQUIRED_FLOOR)).toBe(false);
     });
   });
 

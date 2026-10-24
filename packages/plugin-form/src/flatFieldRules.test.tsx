@@ -101,6 +101,30 @@ describe.each(CONTAINERS)('%s — no-sections form honours field-level rules (#4
       />,
     );
 
+  /**
+   * The same form on an EDIT of a stored row: with `mode: 'edit'` and a
+   * `recordId` the container hands the renderer `previousValues`, which is
+   * what makes it an edit form. `readonlyWhen` binds there only — the server
+   * exempts INSERT from it (objectui#13436).
+   */
+  const renderFlatEdit = (ds: any, status: string) => {
+    ds.findOne.mockResolvedValue({ id: 'r1', status });
+    return render(
+      <Container
+        schema={{
+          type: 'object-form',
+          formType,
+          objectName: 'invoice',
+          mode: 'edit',
+          recordId: 'r1',
+          open: true,
+          initialData: { id: 'r1', status },
+        } as any}
+        dataSource={ds}
+      />,
+    );
+  };
+
   it('hides a `visibleWhen`-FALSE field and shows it when the predicate holds', async () => {
     renderFlat(makeDS(), 'draft');
     await screen.findByLabelText(/^Status$/);
@@ -112,10 +136,19 @@ describe.each(CONTAINERS)('%s — no-sections form honours field-level rules (#4
     expect(await screen.findByLabelText(/^Sent at$/)).toBeTruthy();
   });
 
-  it('locks a `readonlyWhen`-TRUE field', async () => {
+  it('locks a `readonlyWhen`-TRUE field on an edit form', async () => {
+    renderFlatEdit(makeDS(), 'sent');
+    await waitFor(() => expect(document.body.querySelector('[data-field="amount"]')).toBeTruthy());
+    await waitFor(() => expect(controlOf('amount')).toBeNull());
+  });
+
+  it('leaves a `readonlyWhen`-TRUE field editable on a create form (objectui#13436)', async () => {
+    // The server does not apply `readonlyWhen` on INSERT, so a create form
+    // must not lock the field either: the user could not fill a form the API
+    // accepts.
     renderFlat(makeDS(), 'sent');
     await waitFor(() => expect(document.body.querySelector('[data-field="amount"]')).toBeTruthy());
-    expect(controlOf('amount')).toBeNull();
+    expect(controlOf('amount')).not.toBeNull();
   });
 
   it('leaves the same field editable when the predicate is FALSE', async () => {

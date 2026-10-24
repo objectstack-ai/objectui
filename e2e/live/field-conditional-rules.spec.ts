@@ -10,7 +10,7 @@ import { selectOption } from './helpers';
  *
  * The showcase Invoice header declares:
  *   • issued_on.requiredWhen = "record.status in ['sent', 'paid']"
- *   • tax_rate.readonlyWhen  = "record.status == 'paid'"
+ *   • tax_rate.readonlyWhen  = "record.status == 'paid'"   (edit forms only)
  *   • paid_on.visibleWhen    = "record.status == 'paid'"   (UX-only)
  *     paid_on.requiredWhen   = "record.status == 'paid'"
  *
@@ -53,12 +53,14 @@ test('header fields react to Status via CEL visibleWhen / readonlyWhen / require
   await expect(taxRateReadonly).toHaveCount(0);
   expect(await isRequired(dialog, 'Issued On')).toBe(false);
 
-  // --- Paid: tax_rate locks (readonlyWhen), paid_on appears + required,
-  //     issued_on required. ---
+  // --- Paid: paid_on appears + required, issued_on required. tax_rate stays
+  //     editable: this is a New dialog, and the server exempts INSERT from
+  //     readonlyWhen, so the create form does not apply it either
+  //     (objectui#13436). ---
   await selectOption(dialog, 'status', 'paid');
   await expect(paidOn).toHaveCount(1);
-  await expect(taxRate).toHaveCount(0);
-  await expect(taxRateReadonly).toBeVisible();
+  await expect(taxRate).toBeEnabled();
+  await expect(taxRateReadonly).toHaveCount(0);
   expect(await isRequired(dialog, 'Paid On')).toBe(true);
   expect(await isRequired(dialog, 'Issued On')).toBe(true);
 

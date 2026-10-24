@@ -457,6 +457,8 @@ export type {
   AggregateParams,
   AggregateResult,
   DataSourceMutationEvent,
+  BulkWriteRowError,
+  BulkWriteResult,
   ImportWriteMode,
   ImportFieldMappingEntry,
   ImportRequestOptions,

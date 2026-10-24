@@ -1,5 +1,64 @@
 # @object-ui/plugin-list
 
+## 18.1.0
+
+### Minor Changes
+
+- ff77cfc: On a cloud-managed environment (`features.cloudManaged: true` from `/auth/config`), the console says what the server already enforces. Setup → Users shows one line saying where people are invited (the organization, in the cloud) and marks a user who holds no permission set beyond the baseline as "Not authorized", read from their `sys_user_permission_set` and `sys_user_position` rows. The identity import entry is not offered, the organization members page shows a note instead of Invite member, and the recovery-password reminder does not show. With the flag absent or `false`, nothing changes.
+  
+  `AuthPublicConfig['features']` gains `cloudManaged`. `ObjectGrid` gains the `rowAdornment` host prop, a node drawn beside one row's title (the declared name field's cell, else the first shown column, and the card title in the card view), and `ListView` forwards its own `rowAdornment` to the grid.
+  
+  Clause-②: yes
+  Metadata-protocol: none
+
+### Patch Changes
+
+- ad74e98: fix(plugin-list): the synthetic "All records" tab of a tabs-mode user-filter bar (`showAllRecords`) now reads its label from the new `list.userFilters.allRecords` i18n key, filled in every shipped locale (zh: 全部记录), instead of a hard-coded English string (objectui#13405). The tab's `__all__` id and behaviour are unchanged.
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [8701f1e]
+- Updated dependencies [5235d6d]
+- Updated dependencies [8e649da]
+- Updated dependencies [7c405b7]
+- Updated dependencies [0093b2c]
+- Updated dependencies [813c3d9]
+- Updated dependencies [3aafc0d]
+- Updated dependencies [601c406]
+- Updated dependencies [b911ebb]
+- Updated dependencies [0d12e95]
+- Updated dependencies [ff77cfc]
+- Updated dependencies [49a536d]
+- Updated dependencies [241cb78]
+- Updated dependencies [404ccae]
+- Updated dependencies [ec627ab]
+- Updated dependencies [0f4adc3]
+- Updated dependencies [fa31856]
+- Updated dependencies [8e90779]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [7f60e9d]
+- Updated dependencies [d9aff15]
+- Updated dependencies [4eeb174]
+- Updated dependencies [afcf654]
+- Updated dependencies [2c3dc72]
+- Updated dependencies [cee3bc5]
+- Updated dependencies [2958f17]
+- Updated dependencies [a78608f]
+- Updated dependencies [1d178e0]
+- Updated dependencies [2c4e5f5]
+- Updated dependencies [6fb31dc]
+- Updated dependencies [fbb4b23]
+- Updated dependencies [f3044f7]
+- Updated dependencies [c8f8b10]
+- Updated dependencies [ad74e98]
+  - @object-ui/types@18.1.0
+  - @object-ui/components@18.1.0
+  - @object-ui/fields@18.1.0
+  - @object-ui/i18n@18.1.0
+  - @object-ui/react@18.1.0
+  - @object-ui/permissions@18.1.0
+  - @object-ui/core@18.1.0
+  - @object-ui/mobile@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

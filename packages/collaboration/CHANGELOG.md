@@ -1,5 +1,32 @@
 # @object-ui/collaboration
 
+## 18.1.0
+
+### Patch Changes
+
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [5235d6d]
+- Updated dependencies [0093b2c]
+- Updated dependencies [ff77cfc]
+- Updated dependencies [241cb78]
+- Updated dependencies [404ccae]
+- Updated dependencies [ec627ab]
+- Updated dependencies [0f4adc3]
+- Updated dependencies [fa31856]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [7f60e9d]
+- Updated dependencies [4eeb174]
+- Updated dependencies [afcf654]
+- Updated dependencies [2c3dc72]
+- Updated dependencies [2958f17]
+- Updated dependencies [1d178e0]
+- Updated dependencies [2c4e5f5]
+- Updated dependencies [6fb31dc]
+- Updated dependencies [ad74e98]
+  - @object-ui/types@18.1.0
+  - @object-ui/i18n@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

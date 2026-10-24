@@ -1,5 +1,25 @@
 # @object-ui/auth
 
+## 18.1.0
+
+### Minor Changes
+
+- ff77cfc: On a cloud-managed environment (`features.cloudManaged: true` from `/auth/config`), the console says what the server already enforces. Setup → Users shows one line saying where people are invited (the organization, in the cloud) and marks a user who holds no permission set beyond the baseline as "Not authorized", read from their `sys_user_permission_set` and `sys_user_position` rows. The identity import entry is not offered, the organization members page shows a note instead of Invite member, and the recovery-password reminder does not show. With the flag absent or `false`, nothing changes.
+  
+  `AuthPublicConfig['features']` gains `cloudManaged`. `ObjectGrid` gains the `rowAdornment` host prop, a node drawn beside one row's title (the declared name field's cell, else the first shown column, and the card title in the card view), and `ListView` forwards its own `rowAdornment` to the grid.
+  
+  Clause-②: yes
+  Metadata-protocol: none
+- 2958f17: The console knows the `external` organization role that objectstack#25515 added to `@objectstack/spec`'s membership vocabulary (objectui#13427). Without it `ORG_ROLE_LABELS` no longer type-checked against an `@objectstack/spec` that lists the role.
+  
+  `@object-ui/auth` exports `ORG_ROLE_EXTERNAL` and labels it (`organization.roles.external`, "External"). Every pack in `@object-ui/i18n` carries the key; zh reads 外部成员, as the server's own `sys_member.role` option does. Wherever the installed spec lists the role, the invite dialog offers it to every issuer who can invite, a delegated admin included, because objectstack's invitation cap admits it from any issuer: it confers less than a member. Owners and admins can also set it from the members page. On the grade ladder it sits with `member`, as it does in objectstack's cap, so it never unlocks an administrative affordance.
+
+### Patch Changes
+
+- 0984c77: The `@objectstack/*` pin moves from `915e940499` to objectstack `e649c2d91e`, the 18.1.0 release commit (objectstack#25606), past objectstack#25483 and objectstack#25564, which ship together in that release (objectui#13440).
+  
+  `@object-ui/auth` now takes `ORG_ROLE_EXTERNAL` from `@objectstack/spec`'s `MEMBERSHIP_ROLE_EXTERNAL` instead of spelling the literal. The exported name and its value (`'external'`) are unchanged, and `ORG_ROLE_LABELS` is typed by `OrgRole` alone again. The published module now imports that constant, so it needs an `@objectstack/spec` that exports it (18.1.0 or later); the publish step floors the `@objectstack/*` ranges at the release that contains the pin. With that spec the invite dialog lists `external` among the roles it offers, as objectui#13427 described for a spec that lists the role.
+
 ## 18.0.0
 
 ### Major Changes

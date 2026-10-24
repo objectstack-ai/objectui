@@ -1,5 +1,70 @@
 # @object-ui/plugin-detail
 
+## 18.1.0
+
+### Patch Changes
+
+- f669732: The inline-edit save bar shows an object-level rule's refusal as the rule's own message, without a field label (objectui#13292).
+  
+  The server names an object-level rule (a `script` rule, or one that lists no fields) with the `_record` sentinel. The bar used to print that sentinel as a field label, so the banner read `_record: …`. Now an entry that names `_record`, or names no field of the record, is shown alone in the banner and is not published as a per-field hint. Field-level entries are unchanged: they keep their label and their hint beside the input.
+- 49a536d: The record header's highlights write the year on every date (objectui#13331).
+  
+  A current-year date dropped its year in the strip, so a contract record read "Start Date Sep 15, 2025 | End Date Sep 15" and a contract that ended this September looked like it ended next month. The strip now asks for the year, and both dates read alike. Dates inside the ±7-day window keep their relative phrase ("In 2 days").
+  
+  `formatDate` takes a new opt-in option, `alwaysShowYear`, which keeps the year on its default face; the `date` and `datetime` cell renderers take an `alwaysShowYear` prop that hands it on. Neither is on by default: grid cells and cards still drop the current year.
+- 404ccae: Setup's metadata deletes and the related list's row delete now ask in the console's in-app confirm dialog and name what goes (objectui#13333).
+  
+  - The metadata editor's Reset overlay / Delete and Discard draft, the history timeline's Rollback, the Datasources page's Delete and a metadata type's `confirmText` action no longer use the browser's native `confirm()`. Each opens an in-app AlertDialog whose title names the item: by its type label and its own label for Reset / Delete (for example `Delete Object "Account"?`), with the machine `type/name` in the body; by label and name for a datasource; by action and item for a type action.
+  - The related list's row Delete no longer asks "Are you sure you want to delete this record?". The sentence names the row by its record title, the same resolver the record header uses, so a grant row reads by its declared title (the grant and the user it belongs to). The `detail.deleteRowConfirmation` string now takes a `{{name}}` value in all ten locales.
+- b93c9f6: After a save, delete or action, the record page and the list ask the platform's explain engine each record's edit and delete question once (objectui#13341).
+  
+  One write often reaches the console's data-change bus twice: once when the data source reports it, and again from the page or list that made it. When the second notice arrived while the fresh permission check was still waiting for its answer, the check was thrown away and sent again, so one Setup save could send `POST /api/v1/security/explain` two to six times. Now a notice that arrives while a record's fresh check is on its way joins that check. A check that was already on its way before the write is still discarded and asked again, and a change announced after the check has answered still asks again, so Edit and Delete still follow the record's state after the write.
+  
+  The list also stops asking again about rows whose answer is already on its way when its own re-read changes the rows on screen, and asks only about the rows nobody has asked about yet. A list whose rows go past the server's batch limit now sends its batches at once instead of one after another.
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [8701f1e]
+- Updated dependencies [5235d6d]
+- Updated dependencies [8e649da]
+- Updated dependencies [7c405b7]
+- Updated dependencies [0093b2c]
+- Updated dependencies [813c3d9]
+- Updated dependencies [3aafc0d]
+- Updated dependencies [601c406]
+- Updated dependencies [b911ebb]
+- Updated dependencies [0d12e95]
+- Updated dependencies [ff77cfc]
+- Updated dependencies [49a536d]
+- Updated dependencies [241cb78]
+- Updated dependencies [404ccae]
+- Updated dependencies [ec627ab]
+- Updated dependencies [0f4adc3]
+- Updated dependencies [fa31856]
+- Updated dependencies [8e90779]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [7f60e9d]
+- Updated dependencies [d9aff15]
+- Updated dependencies [4eeb174]
+- Updated dependencies [afcf654]
+- Updated dependencies [2c3dc72]
+- Updated dependencies [cee3bc5]
+- Updated dependencies [2958f17]
+- Updated dependencies [a78608f]
+- Updated dependencies [1d178e0]
+- Updated dependencies [2c4e5f5]
+- Updated dependencies [6fb31dc]
+- Updated dependencies [fbb4b23]
+- Updated dependencies [f3044f7]
+- Updated dependencies [c8f8b10]
+- Updated dependencies [ad74e98]
+  - @object-ui/types@18.1.0
+  - @object-ui/components@18.1.0
+  - @object-ui/fields@18.1.0
+  - @object-ui/i18n@18.1.0
+  - @object-ui/react@18.1.0
+  - @object-ui/permissions@18.1.0
+  - @object-ui/core@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

@@ -1,5 +1,96 @@
 # @object-ui/plugin-grid
 
+## 18.1.0
+
+### Minor Changes
+
+- ff77cfc: On a cloud-managed environment (`features.cloudManaged: true` from `/auth/config`), the console says what the server already enforces. Setup → Users shows one line saying where people are invited (the organization, in the cloud) and marks a user who holds no permission set beyond the baseline as "Not authorized", read from their `sys_user_permission_set` and `sys_user_position` rows. The identity import entry is not offered, the organization members page shows a note instead of Invite member, and the recovery-password reminder does not show. With the flag absent or `false`, nothing changes.
+  
+  `AuthPublicConfig['features']` gains `cloudManaged`. `ObjectGrid` gains the `rowAdornment` host prop, a node drawn beside one row's title (the declared name field's cell, else the first shown column, and the card title in the card view), and `ListView` forwards its own `rowAdornment` to the grid.
+  
+  Clause-②: yes
+  Metadata-protocol: none
+
+### Patch Changes
+
+- cd14d8e: The bulk action confirm step reads `confirmText` as a string or as a `{ dialect: 'template', source }` envelope (objectui#13183).
+  
+  `@objectstack/spec` is making a bulk action's `confirmText` a `template` slot (objectstack#24947), so a parsed bulk definition serves the envelope where it served a string. The confirm step rendered `confirmText` as it came, so an envelope would have broken it. It now shows the string, or the envelope's `source` as written; a blank or absent value still shows the default sentence ("This will apply to N record(s)."). `{{ }}` holes are not filled yet: `{{ count }}` still shows as written. `BulkActionDef.confirmText` in `@object-ui/types` is typed `string | { dialect?: 'template'; source: string }`, and `@object-ui/plugin-grid` reads it through one helper, `bulkConfirmTextSource`.
+- 56cf4d8: The Import Wizard sends a CSV file to the import door as CSV text (objectui#13315). When you import a `.csv`, `.tsv` or `.txt` file, the request is now `format: 'csv'` with the rows the preview shows written out as CSV. This holds on the hand-mapped path, and with a saved mapping that does not declare `sourceFormat: 'json'`. Before, those rows were sent as JSON, so the server never read the file's cells through its CSV import rule, the one its CSV export pairs with.
+  
+  - **The text is the preview's rows.** The wizard writes the CSV from the rows it shows, not from the file as uploaded, as it already did for a mapping that declares `sourceFormat: 'csv'`. A cell you corrected in the preview is sent corrected. The dry-run check sends the same request as the import.
+  - **Unchanged:** an `.xlsx` sheet and a pasted table are sent as JSON rows. A saved mapping that declares `sourceFormat: 'json'` still gets JSON rows from any file, because the import door does not accept CSV text for it.
+  - **User import** (`sys_user`) sends a CSV file as CSV text too, in batches of at most 500 rows. Each one-time password is still shown with the email or phone number of its row.
+  
+  Three shapes now import differently from what the preview shows:
+  
+  - **A last row whose mapped cells are all empty is not imported.** When the file's last row, or a run of last rows, has data only in columns you did not map, the server does not read it. The import counts one row fewer than the preview, and that row creates no record and reports no error. A row of that shape anywhere else in the file is imported as before, so row numbers keep matching the preview. User import sends the file in batches of 500 rows, so there the same holds for the last row of each batch.
+  - **A cell that begins with an apostrophe and ends in a tab or a line break keeps the apostrophe** when the rest of it starts with `+` or `-` and holds only digits, spaces and `( ) + - . ,`. The preview trims the tab or line break before the cell is sent, and a server whose CSV import removes the apostrophe the CSV export adds leaves this trimmed cell as it is. The wizard imported such a cell with its apostrophe before this change too.
+  - **A space before a leading apostrophe is trimmed first.** On a server whose CSV import removes the apostrophe the CSV export adds, a cell typed as a space, an apostrophe and a value the export would write with an apostrophe now imports without the apostrophe. Before this change it imported with it.
+  
+  No export, prop or type is added to either package entry.
+- b93c9f6: After a save, delete or action, the record page and the list ask the platform's explain engine each record's edit and delete question once (objectui#13341).
+  
+  One write often reaches the console's data-change bus twice: once when the data source reports it, and again from the page or list that made it. When the second notice arrived while the fresh permission check was still waiting for its answer, the check was thrown away and sent again, so one Setup save could send `POST /api/v1/security/explain` two to six times. Now a notice that arrives while a record's fresh check is on its way joins that check. A check that was already on its way before the write is still discarded and asked again, and a change announced after the check has answered still asks again, so Edit and Delete still follow the record's state after the write.
+  
+  The list also stops asking again about rows whose answer is already on its way when its own re-read changes the rows on screen, and asks only about the rows nobody has asked about yet. A list whose rows go past the server's batch limit now sends its batches at once instead of one after another.
+- d019aaa: The import wizard now opens its mapping step with the object's saved mapping applied when the object ships exactly one that the target accepts (objectui#13343). Before, the step always opened on "Map columns manually", so a user who never opened the "Saved mapping" menu imported without the mapping's renames and transforms. The preselection applies the mapping the same way picking it from the menu does, and the wizard decides it once per opening: a re-fetched mapping list or a re-render does not apply it again after the user switches back to manual mapping. With no saved mapping, or with several the target accepts, the step still opens on manual mapping. A mapping whose write mode the target refuses is still listed disabled and is not counted.
+- f1a4b08: Grids: hovering a `lookup` or `master_detail` cell no longer shows the referenced record's raw id (objectui#13377).
+  
+  The table's cell wrapper set its `title` tooltip to the cell's raw value, and for a reference column that value is the related record's id. So hovering beside the drawn name, or beside "Restricted record" for a record the viewer cannot read, still showed the id.
+  
+  - **`@object-ui/types`:** `TableColumn` gains an optional `foreignKey` boolean: the column's raw value is the id of a referenced record. The zod mirror (`TableColumnSchema`) keeps it, and the static `table` column refuses it by name, like `masked` and `chips`.
+  - **`@object-ui/components`:** a `data-table` column with `foreignKey: true` draws no `title` tooltip. Nothing else changes for it: copy, CSV export, inline edit, search and sort behave as before.
+  - **`@object-ui/plugin-grid`:** `ObjectGrid` sets `foreignKey` on every `lookup`, `master_detail`, `tree` and `user` column, read from the column's own type or the object's field type. Every other column keeps its tooltip.
+- fbb4b23: data-table / VirtualGrid: selecting a cell's text no longer opens the record or starts an inline edit, and Ctrl/Cmd+C copies the selected text instead of the whole cell value. A plain click still opens or edits as before (objectui#13188).
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [8701f1e]
+- Updated dependencies [5235d6d]
+- Updated dependencies [8e649da]
+- Updated dependencies [7c405b7]
+- Updated dependencies [0093b2c]
+- Updated dependencies [f669732]
+- Updated dependencies [813c3d9]
+- Updated dependencies [3aafc0d]
+- Updated dependencies [601c406]
+- Updated dependencies [b911ebb]
+- Updated dependencies [0d12e95]
+- Updated dependencies [ff77cfc]
+- Updated dependencies [49a536d]
+- Updated dependencies [241cb78]
+- Updated dependencies [404ccae]
+- Updated dependencies [ec627ab]
+- Updated dependencies [b93c9f6]
+- Updated dependencies [0f4adc3]
+- Updated dependencies [fa31856]
+- Updated dependencies [8e90779]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [7f60e9d]
+- Updated dependencies [d9aff15]
+- Updated dependencies [4eeb174]
+- Updated dependencies [afcf654]
+- Updated dependencies [2c3dc72]
+- Updated dependencies [cee3bc5]
+- Updated dependencies [2958f17]
+- Updated dependencies [a78608f]
+- Updated dependencies [1d178e0]
+- Updated dependencies [2c4e5f5]
+- Updated dependencies [6fb31dc]
+- Updated dependencies [fbb4b23]
+- Updated dependencies [f3044f7]
+- Updated dependencies [c8f8b10]
+- Updated dependencies [ad74e98]
+  - @object-ui/types@18.1.0
+  - @object-ui/components@18.1.0
+  - @object-ui/fields@18.1.0
+  - @object-ui/i18n@18.1.0
+  - @object-ui/plugin-detail@18.1.0
+  - @object-ui/react@18.1.0
+  - @object-ui/permissions@18.1.0
+  - @object-ui/core@18.1.0
+  - @object-ui/mobile@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

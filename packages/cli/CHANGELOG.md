@@ -1,5 +1,31 @@
 # @object-ui/cli
 
+## 18.1.0
+
+### Patch Changes
+
+- 7e9708e: The console home blocks `hero`, `stat`, `usage-bar`, `checklist` and `tile-grid` register under the `app-shell` namespace, so the console no longer logs a "without a namespace is deprecated" warning for each on every boot (objectui#13301).
+  
+  Pages keep writing the bare key: `type: 'hero'` still draws the block through the registry's bare fallback. `objectui check` now knows the five `app-shell:` keys as registered, and `objectui validate` refuses them at `type`, so the bare spelling stays the one authorable key.
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [8701f1e]
+- Updated dependencies [7c405b7]
+- Updated dependencies [3aafc0d]
+- Updated dependencies [601c406]
+- Updated dependencies [b911ebb]
+- Updated dependencies [8e90779]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [d9aff15]
+- Updated dependencies [a78608f]
+- Updated dependencies [1d178e0]
+- Updated dependencies [6fb31dc]
+- Updated dependencies [fbb4b23]
+- Updated dependencies [c8f8b10]
+  - @object-ui/types@18.1.0
+  - @object-ui/components@18.1.0
+  - @object-ui/react@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

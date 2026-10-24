@@ -1,5 +1,65 @@
 # @object-ui/components
 
+## 18.1.0
+
+### Minor Changes
+
+- 8701f1e: The record page heading draws a `nameField` that declares a widget with a read face of its own through that face, the one the field's list column draws (objectui#13216). A record share (`nameField: 'recipient_id'`, which declares `widget: 'recipient-picker'` and `dependsOn: ['recipient_type']`) now heads its page with the recipient's name instead of the user id it stores. Every other heading is unchanged: a plain text or select `nameField`, a `titleFormat`, an explicit `title`, an object with no `nameField`, a widget with no read face of its own, a widget whose key has no face registered under it (it draws the stored text), and a host that does not load `@object-ui/fields`.
+  
+  `@object-ui/components` adds a field-face seam on its entry: `setFieldReadFaceResolver(resolver)` installs the resolver, `resolveFieldReadFace(field)` asks it, and the types `FieldReadFace`, `FieldReadFaceProps` and `FieldReadFaceResolver` describe them. `@object-ui/fields` fills it when it loads, with the same `getCellRenderer(resolveCellRendererType(field))` lookup the grid's cells make, so a host has nothing to wire. `RecordTitleChip` gains an optional `titleNode` prop, drawn inside its heading in place of the `title` text; `title` stays a required string.
+- d9aff15: A record page inside the Setup app no longer draws the floating managed-by badge (the amber "Identity" chip at the top-right of an organization, team, business unit or user record) (objectui#13385). The header's object label ("Organization") carries the badge's note instead: hovering or focusing it shows "Organization · Managed by the identity provider", and the note is the label's accessible description. The note is the badge's own tooltip title, under the same gate: only a caller who can author metadata sees it, and a `platform` object shows none. Every record page outside Setup, a `sys_*` object opened in another app included, and every list header keep the badge unchanged.
+  
+  `RecordContextValue` (`@object-ui/react`) gains an optional, host-injected `objectLabelNote`, which `page:header` forwards to `RecordTitleChip`. `RecordTitleChip` (`@object-ui/components`) gains an optional `objectLabelNote` prop: with it the object label becomes a focusable tooltip trigger described by the note; without it the label draws exactly as before.
+
+### Patch Changes
+
+- 7c405b7: A `page:tabs` item whose `visibleWhen` faults on evaluation is no longer drawn (objectui#13286).
+  
+  A predicate that cannot be evaluated (a source over the CEL engine's AST bound, a type error, an unbound root, a missing function) used to fall back to visible, so the tab drew for a viewer the predicate was written to exclude. It now fails closed: the tab, header and panel, is withheld, and the fault is logged once per authored source through the same console report as before, now saying the tab was withheld. If the withheld tab was the active one, the strip falls back to the first visible tab. A tab with no `visibleWhen`, or a blank one, is still shown, and a predicate that evaluates decides exactly as before. Form field rules keep their documented fail-open.
+- 3aafc0d: A page node whose declared `visibleWhen` / `visible` / `visibleOn` predicate cannot be evaluated (over the CEL bounds, a type error, an unbound root, a missing function) is no longer rendered: page visibility gates now fail closed, as a `page:tabs` item already did. The fault is still reported once, and the console line says the node was withheld. A blank gate still means "no gate", and a predicate that evaluates decides as before. A `page:tabs` badge no longer counts a related list withheld this way. Form field rules keep their fail-open (objectui#13299).
+- f1a4b08: Grids: hovering a `lookup` or `master_detail` cell no longer shows the referenced record's raw id (objectui#13377).
+  
+  The table's cell wrapper set its `title` tooltip to the cell's raw value, and for a reference column that value is the related record's id. So hovering beside the drawn name, or beside "Restricted record" for a record the viewer cannot read, still showed the id.
+  
+  - **`@object-ui/types`:** `TableColumn` gains an optional `foreignKey` boolean: the column's raw value is the id of a referenced record. The zod mirror (`TableColumnSchema`) keeps it, and the static `table` column refuses it by name, like `masked` and `chips`.
+  - **`@object-ui/components`:** a `data-table` column with `foreignKey: true` draws no `title` tooltip. Nothing else changes for it: copy, CSV export, inline edit, search and sort behave as before.
+  - **`@object-ui/plugin-grid`:** `ObjectGrid` sets `foreignKey` on every `lookup`, `master_detail`, `tree` and `user` column, read from the column's own type or the object's field type. Every other column keeps its tooltip.
+- a78608f: A create form no longer locks fields through `readonlyWhen`. The server does not apply `readonlyWhen` on insert, but the form evaluated it against the seeded defaults, so a predicate over a defaulted column (`record.status == 'pending_verify'` with `status` defaulting to `'pending_verify'`) or a `!=` over an unset one (`record.approval_status != 'returned'`) rendered fields read-only on New that the API accepts. `readonlyWhen` now applies only to an edit form (one given `previousValues`), and no longer warns a fault on a create form; static `readonly: true` still locks on create, and `visibleWhen` / `requiredWhen` are unchanged.
+- fbb4b23: data-table / VirtualGrid: selecting a cell's text no longer opens the record or starts an inline edit, and Ctrl/Cmd+C copies the selected text instead of the whole cell value. A plain click still opens or edits as before (objectui#13188).
+- c8f8b10: data-table: with row numbers on, the header's select-all checkbox, each row's checkbox and the row number now share one centre line in the leading column (objectui#13293).
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [5235d6d]
+- Updated dependencies [0093b2c]
+- Updated dependencies [3aafc0d]
+- Updated dependencies [601c406]
+- Updated dependencies [b911ebb]
+- Updated dependencies [ff77cfc]
+- Updated dependencies [49a536d]
+- Updated dependencies [241cb78]
+- Updated dependencies [404ccae]
+- Updated dependencies [ec627ab]
+- Updated dependencies [0f4adc3]
+- Updated dependencies [fa31856]
+- Updated dependencies [8e90779]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [7f60e9d]
+- Updated dependencies [d9aff15]
+- Updated dependencies [4eeb174]
+- Updated dependencies [afcf654]
+- Updated dependencies [2c3dc72]
+- Updated dependencies [2958f17]
+- Updated dependencies [1d178e0]
+- Updated dependencies [2c4e5f5]
+- Updated dependencies [6fb31dc]
+- Updated dependencies [ad74e98]
+  - @object-ui/types@18.1.0
+  - @object-ui/i18n@18.1.0
+  - @object-ui/react@18.1.0
+  - @object-ui/core@18.1.0
+  - @object-ui/sdui-parser@18.1.0
+  - @object-ui/react-runtime@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

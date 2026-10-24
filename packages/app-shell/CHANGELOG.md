@@ -1,5 +1,276 @@
 # @object-ui/app-shell — Changelog
 
+## 18.1.0
+
+### Minor Changes
+
+- a14737b: Setup → Positions now says who holds each position and which permission sets it grants, and a click anywhere on a row opens the item (objectstack#25333).
+  
+  - **Two columns, both the server's.** The position list reads `GET /meta/position?include=grants`. **Holders** shows the served `_holderCount`, and **Permission sets** shows the served `_grantedPermissionSets` in the order the server sends them. The server computes both where the authorization resolver enforces them, and the console computes neither.
+  - **The set a position grants by its name is shown, marked "(by name)".** That set shares the position's name, and the position-name fold grants it even though the definition does not list it (objectstack#24757). A tooltip says why it is there. Sets the definition lists carry no mark.
+  - **A count nobody measured is "—", never 0.** That covers a count the server did not serve (`null`: no active organization, or a caller who may not read position assignments) and a server that predates `include=grants`.
+  - **The whole row opens the item** on every Setup metadata list, as a record list's row does. The first cell keeps its link for the keyboard, screen readers and opening in a new tab. A click on a control in the row (the Active switch, Clone, a link) is still that control's. A modified click, a click that ends a text selection, and a click inside a dialog a row control opened do not open the row.
+  - **`@object-ui/data-objectstack`**: `MetadataClient.list` / `listResponse` accept `include: 'grants'`, sent as the `include` query parameter.
+
+### Patch Changes
+
+- b001d21: The README's "Setup half of an item" now says what objectstack's shipped organization administrator set does on the assignment objects: it creates and removes rows on `sys_user_position` and `sys_user_permission_set` and never edits them, bounded on the server by the delegated-administration gate, so that administrator sees Add and Remove on a position's and a permission set's holders. No behaviour change.
+- 36b70c0: The package edit dialog (Studio / Setup) now edits a package's `dependencies`. The row is no longer locked once the package exists, and saving sends it to `PATCH /api/v1/packages/:id` beside the name, description and version when the author changed it; emptying it sends `{}`, which clears the declaration. The server's `400 VALIDATION_ERROR` for a malformed row and `422 WRITABLE_PACKAGE_REQUIRED` for a read-only package show in the dialog, which stays open.
+- 5235d6d: Setup › Packaged automation: the clone result now offers the next steps (objectui#13270).
+  
+  A clone of a packaged flow is created `draft`, which does not switch it off, so a cloned record-change or schedule flow runs beside the flow it was copied from. The result used to show the server's notice and nothing to click. It now keeps that notice and adds:
+  
+  - **Switch "SOURCE" off** — calls the same packaged-flow toggle as the row's own switch, for the flow that was cloned. On success the row reads off and the result says the source is switched off. A refusal shows the server's message beside the button, and the button stays. When the source is already off, no switch-off is offered.
+  - **Open the clone in Studio** — links the package-less Studio scope (`/studio/~org/automations`) opened on the clone.
+  
+  The clone itself is unchanged. Three new language-pack keys, `packagedAutomation.cloneSwitchSourceOff`, `.cloneSourceOff` and `.cloneOpen`, in all ten packs.
+- cf153eb: The permission-set editor no longer keeps the clone notice once the copy is held or saved (objectui#13272).
+  
+  "Clone to customize" opens the copy with the server's notice: what was not copied, and that the copy is held by nobody yet. The notice is the server's answer at the moment of the clone. It stayed on the copy for as long as the copy was open, so after a user was assigned and the copy was saved it still said nobody held it. The notice now goes when the copy's Assigned Users list first shows anyone (a direct grant or a holder through a position), or when a save of the copy succeeds. A refused save keeps it, and so does a failed read of the holders. On an embedded host, where the copy is announced on the set it was cloned from, saving that set keeps it too. While the notice shows, it is still shown whole and in the server's words.
+- 9e1bff6: The app's report index (`/apps/APP/reports`) and the ⌘K palette's report list now include the reports a module contributes to the app's navigation (`navigationContributions`), not only the reports the app's own package owns. The index lists the union of the app package's reports and every report a `type: 'report'` navigation entry names, deduplicated by name; an entry naming a report the server does not serve is left out, and the dataset read gate still hides a report the member may not read.
+- 53dea27: The package dialog's Dependencies row is now an author-facing editor (objectui#13278). It used to be the spec form's raw JSON box under the developer hint "widget object-fields — falling back to JSON until a custom renderer is registered", because the manifest's `dependencies` is a string map the spec form has no renderer for.
+  
+  The row now lists one line per dependency, a package name and a version range, with add and remove, in create, edit and view mode. It sends the same flat map as before: in edit mode only when changed, and `{}` when every row is removed. An empty or duplicate package name is flagged under its row and keeps save disabled. The ranges are judged by the server, whose refusals render in the dialog as before.
+  
+  Nothing is added to the package entry: no export, prop or type member. The new copy lives in the metadata-admin designer's own string tables (en and zh).
+- 7e9708e: The console home blocks `hero`, `stat`, `usage-bar`, `checklist` and `tile-grid` register under the `app-shell` namespace, so the console no longer logs a "without a namespace is deprecated" warning for each on every boot (objectui#13301).
+  
+  Pages keep writing the bare key: `type: 'hero'` still draws the block through the registry's bare fallback. `objectui check` now knows the five `app-shell:` keys as registered, and `objectui validate` refuses them at `type`, so the bare spelling stays the one authorable key.
+- 2794254: The Position preview lists the permission sets a position declares in `permissionSets` (ADR-0131 D4), by machine name in declared order. The "positions don't grant data access on their own — bind it to Permission Sets" note now shows only for a position that declares none (objectui#13304).
+- 78bd6d7: The `/data` page's generated filter bar now offers single-value relation fields (`lookup`, `master_detail` and `user`) beside the picklist fields (objectui#13310). A relation chip opens the list's existing remote-search picker, which queries the related object through the caller's data source, and a pick filters the rows by the related record's id. The selection persists in the same `uf_*` URL params as the picklist filters, so it survives a reload; an id that no longer resolves shows as the id.
+  
+  So an organization's Members "View all" page, which anchors no declared view, can now be filtered by User as well as by Role.
+  
+  Picklist fields keep their slots: relation fields follow them in declaration order and take only the slots the picklists leave under the bar's four-field cap. A multi-value relation (`multiple: true`), a hidden field and a field the caller cannot read are not offered. An object without a single-value relation field renders the same bar as before.
+- 56cf4d8: The Import Wizard sends a CSV file to the import door as CSV text (objectui#13315). When you import a `.csv`, `.tsv` or `.txt` file, the request is now `format: 'csv'` with the rows the preview shows written out as CSV. This holds on the hand-mapped path, and with a saved mapping that does not declare `sourceFormat: 'json'`. Before, those rows were sent as JSON, so the server never read the file's cells through its CSV import rule, the one its CSV export pairs with.
+  
+  - **The text is the preview's rows.** The wizard writes the CSV from the rows it shows, not from the file as uploaded, as it already did for a mapping that declares `sourceFormat: 'csv'`. A cell you corrected in the preview is sent corrected. The dry-run check sends the same request as the import.
+  - **Unchanged:** an `.xlsx` sheet and a pasted table are sent as JSON rows. A saved mapping that declares `sourceFormat: 'json'` still gets JSON rows from any file, because the import door does not accept CSV text for it.
+  - **User import** (`sys_user`) sends a CSV file as CSV text too, in batches of at most 500 rows. Each one-time password is still shown with the email or phone number of its row.
+  
+  Three shapes now import differently from what the preview shows:
+  
+  - **A last row whose mapped cells are all empty is not imported.** When the file's last row, or a run of last rows, has data only in columns you did not map, the server does not read it. The import counts one row fewer than the preview, and that row creates no record and reports no error. A row of that shape anywhere else in the file is imported as before, so row numbers keep matching the preview. User import sends the file in batches of 500 rows, so there the same holds for the last row of each batch.
+  - **A cell that begins with an apostrophe and ends in a tab or a line break keeps the apostrophe** when the rest of it starts with `+` or `-` and holds only digits, spaces and `( ) + - . ,`. The preview trims the tab or line break before the cell is sent, and a server whose CSV import removes the apostrophe the CSV export adds leaves this trimmed cell as it is. The wizard imported such a cell with its apostrophe before this change too.
+  - **A space before a leading apostrophe is trimmed first.** On a server whose CSV import removes the apostrophe the CSV export adds, a cell typed as a space, an apostrophe and a value the export would write with an apostrophe now imports without the apostrophe. Before this change it imported with it.
+  
+  No export, prop or type is added to either package entry.
+- b8fa223: Setup → Datasources offers "Sync objects" only on a datasource that can be synced (objectui#13318).
+  
+  The server refuses every Sync step (listing remote tables, drafting and importing an object) on a datasource whose schema mode is `managed`, with a `400` that names the rule and the remedy. A datasource saved without a schema mode is managed too, and so is the platform's `default` datasource. The page still showed the button on every row, so on such a row it opened a dialog that could only show the refusal.
+  
+  The button now shows only on a row whose schema mode is `external` or `validate-only`, and never on the `default` row. To sync from a managed datasource, edit it and set its Schema mode to External or Validate only.
+- b911ebb: A navigation entry's API `dataSource` and a page element bound to the same read now make one request per console open (objectui#13323). Before, `readElementApi` shared a request only while it was in flight, so when the sidebar's read for an entry's `visible` had settled before the page element mounted, the element sent a second `GET` for an answer the console already held.
+  
+  `@object-ui/react` exports `ElementApiOpenScope` (with `useElementApiOpen` and the `ElementApiOpen` type): inside it, a read that has already answered under the same `open` name is answered again with no request. A failed read is not kept, a read under another `open` asks again, and any `notifyDataChanged` drops what the open kept. `readElementApi` takes the open as an optional third argument; without one it behaves as before.
+  
+  `@object-ui/app-shell`'s `ConnectedShell` mounts the scope and names one open per visit of a history entry: following a link or a navigation entry, and Back or Forward, start a new open and read again, even on an entry visited before; a redirect that replaces the address (the app root's landing on its first entry) stays in the open. A language switch starts over. No read happens at a different time than before; only whether a second read in one open reaches the network changes.
+- ff77cfc: On a cloud-managed environment (`features.cloudManaged: true` from `/auth/config`), the console says what the server already enforces. Setup → Users shows one line saying where people are invited (the organization, in the cloud) and marks a user who holds no permission set beyond the baseline as "Not authorized", read from their `sys_user_permission_set` and `sys_user_position` rows. The identity import entry is not offered, the organization members page shows a note instead of Invite member, and the recovery-password reminder does not show. With the flag absent or `false`, nothing changes.
+  
+  `AuthPublicConfig['features']` gains `cloudManaged`. `ObjectGrid` gains the `rowAdornment` host prop, a node drawn beside one row's title (the declared name field's cell, else the first shown column, and the card title in the card view), and `ListView` forwards its own `rowAdornment` to the grid.
+  
+  Clause-②: yes
+  Metadata-protocol: none
+- 241cb78: Setup refusals lead with one plain sentence. The Packages sheet, the metadata editor's error banner (Positions and every other metadata type) and the action parameter dialog (OAuth application registration among them) now show the first sentence of the server's message, without a leading bracketed code or field path and without the trailing declared code. The whole message, byte for byte, sits behind a "More" toggle with a copy button. A one-sentence message renders as before. New `refusalDetails.*` strings in all ten locale packs (objectui#13332).
+- 404ccae: Setup's metadata deletes and the related list's row delete now ask in the console's in-app confirm dialog and name what goes (objectui#13333).
+  
+  - The metadata editor's Reset overlay / Delete and Discard draft, the history timeline's Rollback, the Datasources page's Delete and a metadata type's `confirmText` action no longer use the browser's native `confirm()`. Each opens an in-app AlertDialog whose title names the item: by its type label and its own label for Reset / Delete (for example `Delete Object "Account"?`), with the machine `type/name` in the body; by label and name for a datasource; by action and item for a type action.
+  - The related list's row Delete no longer asks "Are you sure you want to delete this record?". The sentence names the row by its record title, the same resolver the record header uses, so a grant row reads by its declared title (the grant and the user it belongs to). The `detail.deleteRowConfirmation` string now takes a `{{name}}` value in all ten locales.
+- fb25620: A sidebar navigation group now opens on first view unless it declares `expanded: false` (or the legacy `defaultOpen: false`), however many entries it holds (objectui#13336).
+  
+  `NavigationRenderer` used to collapse any group that declared neither field once it had eight or more children. On Setup that closed Configuration (13 entries) although only Advanced declares `expanded: false`, hiding entries such as Localization, Email and Authentication on first view. The count rule is gone: a group holding the current route opens; otherwise its declared `expanded` / `defaultOpen` decides; otherwise it opens. Studio's navigation preview follows the same rule, so it still matches the running sidebar.
+  
+  An app that relied on a long, undeclared group starting closed should now declare `expanded: false` on it.
+- 3ec84be: Setup → Positions: a new position is created together with its permission sets, Save is labelled, Remove holder asks first, and the holder picker offers organization members only (objectui#13337).
+  
+  - New Position shows the Permission Sets picker beside the label, name and description, so binding a set no longer takes a first save and a second edit.
+  - The metadata editor's Save draws the word "Save" beside its icon. Its accessible name and tooltip are unchanged: the shortcut hint, or why Save is withheld.
+  - Removing a position holder opens a confirm that names the person; nothing is sent until it is confirmed.
+  - Add holder reads the active organization's `sys_member` rows when it opens and offers only the users they name, so a user removed from the organization is no longer offered (the server already refuses such an assignment). With no active organization, or no `sys_member` object registered, the picker lists every user it may read, as before.
+- fcbf1b2: Setup's Permission Sets and Positions lists ask before the Active switch turns an item off, and a toast confirms the change either way (objectui#13338).
+  
+  Switching a permission set or a position off opens a confirm that names how many users lose the access. The count is read from the server when the confirm opens: for a position, its `sys_user_position` rows; for a permission set, its `sys_user_permission_set` rows and the holders of every position whose definition lists the set, one person counted once, as the set's Assigned Users section counts them. A set bound to the `everyone` position is said to reach every signed-in member. A count that cannot be read is said as such, never as "0 users", and the admin may still go ahead. Cancel leaves the item on. Switching an item on asks nothing.
+- 8d305ab: Setup → Packages: in a package's sheet, *Adopt loose items* asks in the in-app confirmation, reports how many items it adopted, and each action clears the previous action's message (objectui#13339).
+  
+  *Adopt loose items* used the browser's native confirm, which an embedded frame can block or answer on its own. It now opens the sheet's in-app dialog, like Delete and Discard; its Cancel sends nothing. After an adoption the sheet says "N items adopted into this base.", with the count the server answers (`reassignedCount`), so an adoption that found nothing reads "0 items adopted into this base." instead of "Loose items adopted into this base.".
+  
+  The sheet's message line now answers the action the administrator started last. Pressing Duplicate, Delete app, Discard changes, Adopt loose items, Edit or View info clears the previous action's message, as the actions that run straight away already did; a Revert refusal no longer stays under the Duplicate form. English and Chinese.
+- 4603b8c: Console toasts no longer cover the page header's actions (objectui#13340). With no drawer open the toaster now sits top-centre, just below the console's top bar, instead of in the top-right corner, which is where every page header puts its actions. At 1440×900 a toast used to cover a list's New and Import buttons for its whole 4 s life. While a right-side drawer is open the toaster still goes to the top-right corner and steps clear of the drawer as before (objectui#11685), and it still never uses the bottom-right corner, which belongs to the assistant (objectui#7482).
+  
+  New tests check that one server refusal raises one error toast, on the record form renderer and on an action's parameter dialog (Users → Create User, Teams → Add Member).
+- 05049f8: A screen flow that ends refused shows its message and Close alone (objectui#13342).
+  
+  When a screen-flow run ends with `outcome: 'refused'`, the dialog used to keep the screen the run had paused on under the refusal: its input fields stayed visible and editable, though a refused run is never resumed and nothing would submit them. The dialog now shows the flow's name, the step's heading, the refusal message and Close, with no screen fields. An `object-form` step, whose Close lived in the form's own button bar, gets the runner's Close instead, and the dialog takes its narrow width.
+  
+  A screen still waiting for input renders as before, and a run that fails keeps its screen and the typed values under the reason.
+- 0f4adc3: Setup › Packaged automation: the Clone dialog now opens with a name and label filled in (objectui#13344).
+  
+  It used to open with both fields empty. It now proposes `<source>_copy` as the machine name and "<source label> (copy)" as the label, using the flow's machine name when it has no label. Both fields stay editable, and the dialog can be submitted as it opens: the proposed name keeps the lowercase snake_case shape a flow name must have, and it is the same name the server suggests when a name is taken. A name that is already taken is still refused by the server with its 409 message, shown as sent.
+  
+  One new language-pack key, `packagedAutomation.cloneCopyLabel`, in all ten packs.
+- 5b40cea: A metadata form row now shows the field's label only (objectui#13352). `SchemaForm`'s default row used to draw the field's machine key in a code chip beside the label whenever the label did not spell it, so Setup → Packages → New package read `Display name* name`. The key is now offered on demand instead, as the label's hover tooltip ("Machine name: name"), under the same rule as before: only when the label does not already spell the key, judged alike in every locale. The control's accessible name is the label alone.
+- fa31856: Connect an Agent no longer mints an unnamed API key in one click (objectui#13355). "Create key" stays disabled until the administrator types a name, and the name is sent as typed: the key is no longer created as `agent-key` when the name box is empty. Clicking "Create key" now opens an in-app confirm naming the key; Cancel creates nothing, and confirming creates the key and shows it once to copy, as before. This matches Setup → API Keys → Create Key, which also requires a name.
+  
+  New string: `connectAgent.apiKey.confirmTitle`, in all ten locale packs.
+- 3a73c07: Setup → Installed Apps is titled "Installed Apps" and says when no app is installed from the marketplace yet (objectui#13356).
+  
+  The Installed Apps entry opens the Packages page filtered to marketplace installs (`?source=marketplace`). That view now carries the entry's title instead of "Packages", and with no marketplace install it reads "No apps installed from the marketplace yet" instead of "No packages match your filters.", which blamed a filter the administrator had not set. "No packages match your filters." stays for a filter the viewer did set: a search that hides the marketplace installs that exist, or another Source. Setup → Packages, opened without a Source, is unchanged. English and Chinese.
+- 8e90779: An action's `confirmText`, `successMessage` and `errorMessage` read the `template` envelope and fill `{{ }}` holes (objectui#13367).
+  
+  `@objectstack/spec` is making these three keys `template` slots (objectstack#24814), so a parsed action serves `{ dialect: 'template', source }` where it served a string. Before this change the success toast skipped the envelope and showed the default text, and the error toast showed the generic failure. `ActionRunner` now reads a string or the envelope for all three, and fills `{{ path }}` / `{{ path | formatter }}` holes with `@objectstack/formula`'s `templateEngine`, the engine the flow notifications render with:
+  
+  - `confirmText`: `record` (the record the action runs against, the clicked row on a list) and `params` (the action's static params);
+  - `successMessage`: `result` (the payload `${result.*}` reads) and `record`;
+  - `errorMessage`: no hole is filled; the text shows as written.
+  
+  A sentence with no `{{ }}` hole keeps today's `${…}` reading, so the platform's own `${result.email}`-style success sentences still work until the spec converts them. A sentence is read in one dialect only: a value filled into a `{{ }}` hole is never read again as `${…}`. An envelope with no text never reaches the dialog or a toast as an object; a `confirmText` envelope with no text still asks for confirmation.
+  
+  `useActionTextLocalizer` keeps the envelope: it used to read it as a per-locale map and hand the runner the word `template`. A bundle entry replaces the envelope's `source`. On a flow action the console reads the envelope too, so the action's own success copy still outranks the flow's (`flowSuccessCopy`). `@object-ui/core` exports the reader it uses: `ActionCopyTemplate`, `isActionCopyEnvelope`, `actionCopySource`, `hasTemplateHoles` and `fillTemplateHoles`.
+  
+  Clause-②: yes
+  Metadata-protocol: none
+- 6183aa9: An action's `onSuccess.navigate` to a path with no app segment opens that page in the current app (objectui#13379).
+  
+  `onSuccess: { navigate: '/crm_opportunity/${result.id}' }` used to land on Home: the console handed the path to its router unchanged, and under the `/_console` basename it matched no route. The console action runtime now hosts such a path under the current app, the same way an inbox notification link is hosted, so it opens `/apps/APP/crm_opportunity/...`. With no app current (on Home), it is hosted under the first app the user can open, as notification links are.
+  
+  These are unchanged: a path that already names its app (`/apps/APP/...`), an external URL, a `mailto:` address, a `./` path, and a console route outside an app (`/forms/NAME`, which `type: 'form'` actions open, and `/home`, `/studio`, `/setup` and the other top-level routes). A `type: 'url'` action shares this navigator, so its app-relative paths are hosted the same way.
+- 7f60e9d: A single-record action launched with 0 or several rows selected is refused before any dialog opens, and the refusal is translated (objectui#13384).
+  
+  `ActionRunner` now asks the handler it will dispatch to for an early refusal (`ActionRunnerHandler`'s optional `refuseBeforeInput`) before the confirmation and the param dialog. The handlers `createServerActionHandler` builds answer it with the row-count check the dispatch already runs, so "select a row first" and "select exactly one row" are shown before the user fills anything in, and nothing is sent. With exactly one row the dialog behaves as before. A host that wraps the built handler in its own function keeps the early refusal only by forwarding `refuseBeforeInput`; the console's `createConsoleServerActionHandler` now forwards it, so on a list page (HotCRM's "Add to Campaign" on My Leads) the refusal toast shows and no dialog opens.
+  
+  Both refusals now carry a pack key (`actions.selectRowFirst`, `actions.selectExactlyOneRow`, defined in every shipped pack). `resolveServerActionRecordId` returns it as `errorKey` beside the English `error`, and the runner's early refusal goes through its translator by that key.
+- d9aff15: A record page inside the Setup app no longer draws the floating managed-by badge (the amber "Identity" chip at the top-right of an organization, team, business unit or user record) (objectui#13385). The header's object label ("Organization") carries the badge's note instead: hovering or focusing it shows "Organization · Managed by the identity provider", and the note is the label's accessible description. The note is the badge's own tooltip title, under the same gate: only a caller who can author metadata sees it, and a `platform` object shows none. Every record page outside Setup, a `sys_*` object opened in another app included, and every list header keep the badge unchanged.
+  
+  `RecordContextValue` (`@object-ui/react`) gains an optional, host-injected `objectLabelNote`, which `page:header` forwards to `RecordTitleChip`. `RecordTitleChip` (`@object-ui/components`) gains an optional `objectLabelNote` prop: with it the object label becomes a focusable tooltip trigger described by the note; without it the label draws exactly as before.
+- 01b85d8: Changing the ⌘K query no longer blanks the console (objectui#13387).
+  
+  The palette lists record hits under one heading per object. When a new query stopped finding an object, that object's heading went away while cmdk's own sort still walked it, and the error unmounted the whole console until a reload. The palette already decides which entries show (its own matching, and the server's ranked record hits), so cmdk's filter and sort are now off: what the palette renders is what shows, in the order it renders it. A record hit's value no longer carries the query.
+  
+  The palette also sits behind its own error boundary. An error inside it closes the palette and is reported; the console stays, and the next ⌘K opens a fresh palette.
+  
+  Clause-②: no
+  Metadata-protocol: none
+- 78e00db: Studio says when a display name yields no identifier, and Add field no longer names a field `field_<N>` behind the author's back (objectui#13389).
+  
+  A display name with no Latin letters (a Chinese one, say) makes no identifier, since identifiers take lowercase letters, digits and underscores only. Before this change the identifier box stayed empty and Create stayed off, and nothing said why. New object and the other Studio create dialogs now say it under the identifier and ask for one. On New package, the line under Package ID gives the same reason instead of "Filled in from the display name until you edit it".
+  
+  Add field shows the api name the label derives before Create. When the label derives none, or derives a name another field already has, the popover shows an API name box and Create waits for a name. Before, the field was created as `field_<N>`, and that name becomes the column and the API field name once it is published. A Latin label works as before.
+- 4b1ddf3: An action run from a record page's action bar with an `onSuccess.navigate` to a path with no app segment opens that page in the record page's app (objectui#13396).
+  
+  The record page mounts its own action provider, and its navigator still handed such a path to the router unchanged, so `onSuccess: { navigate: '/crm_opportunity/${result.id}' }` landed on Home there even after objectui#13379 fixed the same hop elsewhere in the console. The record page's navigator now sorts the path the way the console action runtime does and hosts it under the app in the record page's URL, opening `/apps/APP/crm_opportunity/...`.
+  
+  These are unchanged: a path that already names its app (`/apps/APP/...`), an external URL, a `mailto:` address, a `./` path, and a console route outside an app (`/forms/NAME`, `/home` and the other top-level routes).
+- 4eeb174: A record-scoped flow action launched from a list toolbar with 0 or several rows selected is refused before its param dialog opens, and its refusal is translated (objectui#13397).
+  
+  The console's `flowHandler` now carries `refuseBeforeInput`, the early refusal objectui#13384 gave the `script` handler, answered by the same resolver its dispatch runs. The runner asks it before the confirmation and the param dialog, so "select a row first" and "select exactly one row" show in the session's language before the user fills anything in, and nothing is sent. With exactly one row the flow behaves as before. A direct call that is refused at dispatch time is shown through the refusal's pack key too.
+  
+  The console server-action wrapper's `newTabUrl` refusal ("no record id available") now has a pack key, `console.serverAction.noRecordId`, defined in every shipped pack, and the wrapper's fast path shows the resolver's own refusal through its pack key.
+- 130c77d: Setup → Permission Sets → Assigned Users: Remove asks first, and the add picker offers organization members only (objectui#13408), the same shape as the positions page (objectui#13337).
+  
+  - Removing a direct grant opens a confirm that names the person; nothing is sent until it is confirmed, and Cancel writes nothing.
+  - Add user reads the active organization's `sys_member` rows when it opens and offers only the users they name, so a user removed from the organization is no longer offered (the server already refuses such a grant). A refused membership read is said in the server's words and the picker stays shut. With no active organization, or no `sys_member` object registered, the picker lists every user it may read, as before.
+  - The membership read is one helper shared by both pages (`organization-members.ts`).
+- 47138b7: The Console's first page load no longer downloads the chat UI (objectui#13410). The `plugin-chatbot` chunk (169.6 KB gzipped, the third-largest eager chunk) and most of `vendor-markdown` used to load on every page, including for users who never open a chat, because the console shell imported a handful of small helpers from the `@object-ui/plugin-chatbot` package root, and the root re-exports the renderer that registers the chat components when it is evaluated. Measured on the Console's production build, the eager closure drops by 254,055 gzipped bytes (3,326,111 to 3,072,056). The chat now loads when it is first shown: opening the dock, visiting `/ai…` or `/s/:token`, or rendering a `chatbot`, `chatbot-enhanced` or `chatbot-floating` node.
+  
+  `@object-ui/plugin-chatbot` adds a side-effect-free `@object-ui/plugin-chatbot/core` subpath: `useAgents`, `resolveDefaultAgentName`, `PLATFORM_DEFAULT_AGENT`, `agentHasCapability`, the agent alias helpers (`AGENT_ALIAS_GROUPS`, `agentAliasGroup`, `agentRouteName`, `resolveAgentParam`, `isBuiltinAgentName`, `isBuildAgent`, `isAskAgent`), `AI_USAGE_REFRESH_EVENT`, `emitAiUsageRefresh`, `publishHealthFromResponse` and `detectPendingApproval`, with their types. Importing it registers nothing and reaches no chat UI module. The package root still exports every one of these names, unchanged.
+  
+  `@object-ui/app-shell` takes those names from `/core`, and the ChatDock loads its default chat body on first render instead of importing it. `resolveApiBase` is still exported from the same places.
+- 576fd25: A `type: 'form'` action fired inside an app opens its form inside that app, headed by a label, with a Cancel (objectui#13433).
+  
+  The form opened on the app-less `/forms/:name`, so the app's sidebar, switcher and branding disappeared. The page was headed by the raw view name (`showcase_task.form`) and had only Submit, so the browser's Back button was the only way out without saving.
+  
+  - The console now also serves the form at `/apps/:appName/forms/:name`, inside the app's own shell. The record page, object list and page action navigators open a form hop there when their own route is an app route. The console-wide runtime has no route of its own, so its form hops keep the app-less route. `/forms/:name` is unchanged and still serves every other link.
+  - A form view with no label and no form `title` is headed by its object's label in the session's language. An authored view label or `title` still wins.
+  - The internal form has a Cancel. It goes back to the page the form was opened from. With no such page (a cold link) it goes to the record being edited, else to the app's home, or to Home on the app-less route. The public `/f/:slug` form has no Cancel.
+- 2c4e5f5: A member who may read none of the objects an app names now lands on one page that says they need access and whom to ask, instead of the app's dashboard drawn as a grid of "You don't have access" tiles (objectstack-ai/objectstack#25338).
+  
+  The app root's landing asks the object-read prune's own verdict (`useNavMemberGates().can`) over every `type: 'object'` entry the app names, at every depth and in every area. When the app names at least one object and the member may read none of them, it renders `AppNoAccessEmptyState` with the new `reason="no-readable-object"`: "Your account cannot read any of the records in this app yet. Ask an administrator to assign you a permission set.", plus the Setup link for a member who may grant access. One readable object, or an app that names no object at all, lands exactly as before.
+  
+  Clause-②: yes
+  Metadata-protocol: none
+- f2f4b7d: Publish from Home no longer reports a `defineCapability` declaration as a capability that resolves nowhere (objectui#7611).
+  
+  The advisory capability-reference lint that runs over pending drafts before **Publish** handed `@objectstack/lint`'s `validateCapabilityReferences` the drafts and the permission sets only, so a capability a package declares with `defineCapability` and no permission set grants yet was flagged on every object, field, action or app draft that required it. The lint now also reads the capabilities the registry serves (`GET /api/v1/meta/capability`) into the rule's `capabilities` source. A misspelled capability is still reported. If that read fails, the lint runs on the other sources as before and never blocks publishing.
+  
+  Internal, no behaviour change: `approverIdentity` drops a display-column entry for `sys_position`, which no approver binding has named since `position` became registry-bound.
+  
+  Clause-②: no
+  Metadata-protocol: none
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [8701f1e]
+- Updated dependencies [5235d6d]
+- Updated dependencies [8e649da]
+- Updated dependencies [7c405b7]
+- Updated dependencies [0093b2c]
+- Updated dependencies [f669732]
+- Updated dependencies [813c3d9]
+- Updated dependencies [3aafc0d]
+- Updated dependencies [601c406]
+- Updated dependencies [56cf4d8]
+- Updated dependencies [b911ebb]
+- Updated dependencies [0d12e95]
+- Updated dependencies [ff77cfc]
+- Updated dependencies [49a536d]
+- Updated dependencies [241cb78]
+- Updated dependencies [404ccae]
+- Updated dependencies [8cf3a86]
+- Updated dependencies [ec627ab]
+- Updated dependencies [fb25620]
+- Updated dependencies [b93c9f6]
+- Updated dependencies [d019aaa]
+- Updated dependencies [0f4adc3]
+- Updated dependencies [fa31856]
+- Updated dependencies [8e90779]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [7f60e9d]
+- Updated dependencies [d9aff15]
+- Updated dependencies [eadceab]
+- Updated dependencies [4eeb174]
+- Updated dependencies [afcf654]
+- Updated dependencies [b317942]
+- Updated dependencies [2c3dc72]
+- Updated dependencies [47138b7]
+- Updated dependencies [cee3bc5]
+- Updated dependencies [2958f17]
+- Updated dependencies [a78608f]
+- Updated dependencies [0984c77]
+- Updated dependencies [56b65c0]
+- Updated dependencies [1d178e0]
+- Updated dependencies [1d178e0]
+- Updated dependencies [a14737b]
+- Updated dependencies [2c4e5f5]
+- Updated dependencies [6fb31dc]
+- Updated dependencies [fbb4b23]
+- Updated dependencies [f3044f7]
+- Updated dependencies [c8f8b10]
+- Updated dependencies [ad74e98]
+  - @object-ui/types@18.1.0
+  - @object-ui/plugin-grid@18.1.0
+  - @object-ui/components@18.1.0
+  - @object-ui/fields@18.1.0
+  - @object-ui/i18n@18.1.0
+  - @object-ui/plugin-detail@18.1.0
+  - @object-ui/react@18.1.0
+  - @object-ui/permissions@18.1.0
+  - @object-ui/auth@18.1.0
+  - @object-ui/plugin-list@18.1.0
+  - @object-ui/core@18.1.0
+  - @object-ui/layout@18.1.0
+  - @object-ui/plugin-charts@18.1.0
+  - @object-ui/plugin-chatbot@18.1.0
+  - @object-ui/plugin-dashboard@18.1.0
+  - @object-ui/data-objectstack@18.1.0
+  - @object-ui/collaboration@18.1.0
+  - @object-ui/plugin-calendar@18.1.0
+  - @object-ui/plugin-designer@18.1.0
+  - @object-ui/plugin-editor@18.1.0
+  - @object-ui/plugin-form@18.1.0
+  - @object-ui/plugin-kanban@18.1.0
+  - @object-ui/plugin-report@18.1.0
+  - @object-ui/plugin-view@18.1.0
+  - @object-ui/providers@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

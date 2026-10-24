@@ -1,5 +1,65 @@
 # @object-ui/i18n
 
+## 18.1.0
+
+### Patch Changes
+
+- 5235d6d: Setup › Packaged automation: the clone result now offers the next steps (objectui#13270).
+  
+  A clone of a packaged flow is created `draft`, which does not switch it off, so a cloned record-change or schedule flow runs beside the flow it was copied from. The result used to show the server's notice and nothing to click. It now keeps that notice and adds:
+  
+  - **Switch "SOURCE" off** — calls the same packaged-flow toggle as the row's own switch, for the flow that was cloned. On success the row reads off and the result says the source is switched off. A refusal shows the server's message beside the button, and the button stays. When the source is already off, no switch-off is offered.
+  - **Open the clone in Studio** — links the package-less Studio scope (`/studio/~org/automations`) opened on the clone.
+  
+  The clone itself is unchanged. Three new language-pack keys, `packagedAutomation.cloneSwitchSourceOff`, `.cloneSourceOff` and `.cloneOpen`, in all ten packs.
+- 0093b2c: Settings pages: a `url`, `email`, `phone` or `color` value that misses the format its type declares now blocks Save (objectui#13287). No request goes out, the row is marked inline with a message naming what the format expects, and focus moves to the first such row, on the same path as the `required` check. The grammars are the settings service's own (objectstack#24882), judged on the trimmed value; an empty value is left to `required`, and a hidden or env-locked row is not judged. Adds `console.settingsView.invalidPhone` and `console.settingsView.invalidColor` to every locale pack; `email` and `url` reuse `validation.email` and `validation.url`.
+- ff77cfc: On a cloud-managed environment (`features.cloudManaged: true` from `/auth/config`), the console says what the server already enforces. Setup → Users shows one line saying where people are invited (the organization, in the cloud) and marks a user who holds no permission set beyond the baseline as "Not authorized", read from their `sys_user_permission_set` and `sys_user_position` rows. The identity import entry is not offered, the organization members page shows a note instead of Invite member, and the recovery-password reminder does not show. With the flag absent or `false`, nothing changes.
+  
+  `AuthPublicConfig['features']` gains `cloudManaged`. `ObjectGrid` gains the `rowAdornment` host prop, a node drawn beside one row's title (the declared name field's cell, else the first shown column, and the card title in the card view), and `ListView` forwards its own `rowAdornment` to the grid.
+  
+  Clause-②: yes
+  Metadata-protocol: none
+- 241cb78: Setup refusals lead with one plain sentence. The Packages sheet, the metadata editor's error banner (Positions and every other metadata type) and the action parameter dialog (OAuth application registration among them) now show the first sentence of the server's message, without a leading bracketed code or field path and without the trailing declared code. The whole message, byte for byte, sits behind a "More" toggle with a copy button. A one-sentence message renders as before. New `refusalDetails.*` strings in all ten locale packs (objectui#13332).
+- 404ccae: Setup's metadata deletes and the related list's row delete now ask in the console's in-app confirm dialog and name what goes (objectui#13333).
+  
+  - The metadata editor's Reset overlay / Delete and Discard draft, the history timeline's Rollback, the Datasources page's Delete and a metadata type's `confirmText` action no longer use the browser's native `confirm()`. Each opens an in-app AlertDialog whose title names the item: by its type label and its own label for Reset / Delete (for example `Delete Object "Account"?`), with the machine `type/name` in the body; by label and name for a datasource; by action and item for a type action.
+  - The related list's row Delete no longer asks "Are you sure you want to delete this record?". The sentence names the row by its record title, the same resolver the record header uses, so a grant row reads by its declared title (the grant and the user it belongs to). The `detail.deleteRowConfirmation` string now takes a `{{name}}` value in all ten locales.
+- ec627ab: A lookup / master-detail / tree value whose referenced record the viewer's own read answers "not found" for (a 404, which is what the server answers for a record this viewer may not read) now reads "Restricted record", translated, with a lock icon, no record id and no link, in grids and on the record page (objectui#13335). It used to print the raw id beside a question mark. No additional read is made: the label comes from the same lookup read the cell already performed, so it reveals nothing the id did not. A reference that is still loading, whose read failed, or that is empty renders as before, and a readable reference still shows its name as a link. New key: `detail.restrictedLookupReference` in all ten locale packs.
+- 0f4adc3: Setup › Packaged automation: the Clone dialog now opens with a name and label filled in (objectui#13344).
+  
+  It used to open with both fields empty. It now proposes `<source>_copy` as the machine name and "<source label> (copy)" as the label, using the flow's machine name when it has no label. Both fields stay editable, and the dialog can be submitted as it opens: the proposed name keeps the lowercase snake_case shape a flow name must have, and it is the same name the server suggests when a name is taken. A name that is already taken is still refused by the server with its 409 message, shown as sent.
+  
+  One new language-pack key, `packagedAutomation.cloneCopyLabel`, in all ten packs.
+- fa31856: Connect an Agent no longer mints an unnamed API key in one click (objectui#13355). "Create key" stays disabled until the administrator types a name, and the name is sent as typed: the key is no longer created as `agent-key` when the name box is empty. Clicking "Create key" now opens an in-app confirm naming the key; Cancel creates nothing, and confirming creates the key and shows it once to copy, as before. This matches Setup → API Keys → Create Key, which also requires a name.
+  
+  New string: `connectAgent.apiKey.confirmTitle`, in all ten locale packs.
+- 7f60e9d: A single-record action launched with 0 or several rows selected is refused before any dialog opens, and the refusal is translated (objectui#13384).
+  
+  `ActionRunner` now asks the handler it will dispatch to for an early refusal (`ActionRunnerHandler`'s optional `refuseBeforeInput`) before the confirmation and the param dialog. The handlers `createServerActionHandler` builds answer it with the row-count check the dispatch already runs, so "select a row first" and "select exactly one row" are shown before the user fills anything in, and nothing is sent. With exactly one row the dialog behaves as before. A host that wraps the built handler in its own function keeps the early refusal only by forwarding `refuseBeforeInput`; the console's `createConsoleServerActionHandler` now forwards it, so on a list page (HotCRM's "Add to Campaign" on My Leads) the refusal toast shows and no dialog opens.
+  
+  Both refusals now carry a pack key (`actions.selectRowFirst`, `actions.selectExactlyOneRow`, defined in every shipped pack). `resolveServerActionRecordId` returns it as `errorKey` beside the English `error`, and the runner's early refusal goes through its translator by that key.
+- 4eeb174: A record-scoped flow action launched from a list toolbar with 0 or several rows selected is refused before its param dialog opens, and its refusal is translated (objectui#13397).
+  
+  The console's `flowHandler` now carries `refuseBeforeInput`, the early refusal objectui#13384 gave the `script` handler, answered by the same resolver its dispatch runs. The runner asks it before the confirmation and the param dialog, so "select a row first" and "select exactly one row" show in the session's language before the user fills anything in, and nothing is sent. With exactly one row the flow behaves as before. A direct call that is refused at dispatch time is shown through the refusal's pack key too.
+  
+  The console server-action wrapper's `newTabUrl` refusal ("no record id available") now has a pack key, `console.serverAction.noRecordId`, defined in every shipped pack, and the wrapper's fast path shows the resolver's own refusal through its pack key.
+- afcf654: zh-CN: the admin-override approval copy no longer calls the override 越权 ("exceeding one's authority", the word for a violation). The override levers now read 管理员代为通过 / 管理员代为拒绝 / 管理员代为转签 / 管理员代为撤回 (`approvalsInbox.overrideActionLabel` is `管理员代为{{action}}`), the history chip reads 管理员代办 (`viaOverrideChip`) and its hint names the 管理员代办 path (`viaOverrideHint`), and the confirmation notices say 以管理员身份代为处理 and 记录为管理员代办 (`overrideNotice*`, `overrideReassignNotice*`, `overrideRecallNotice*`). Only the zh pack changes; the rest of each sentence and every placeholder are unchanged (objectui#13402).
+- 2c3dc72: charts: a sankey now names every node and colours its flows, and a funnel labels every stage. Sankey nodes were bare bars with no text and every link was one grey, so the chart could not be read without hovering. Each node now carries its name (to its right, or to its left in the last column so it stays on the chart), and each link is stroked in the palette colour of the category it flows into. Every link leaves the same root node, so colouring by source would paint them all one colour again. A funnel labelled each stage to the right of its segment, past the plot's edge, so only the narrowest stage's label showed. Labels now sit centred inside their segments, in foreground text with a background halo so a name wider than the narrowest segment stays legible. The sankey's "Showing N of M rows" footnote now comes from the locale packs under the new count family `chart.sankeyOmittedRows`, translated in all ten packs. The English text is unchanged (objectui#13404).
+- 2958f17: The console knows the `external` organization role that objectstack#25515 added to `@objectstack/spec`'s membership vocabulary (objectui#13427). Without it `ORG_ROLE_LABELS` no longer type-checked against an `@objectstack/spec` that lists the role.
+  
+  `@object-ui/auth` exports `ORG_ROLE_EXTERNAL` and labels it (`organization.roles.external`, "External"). Every pack in `@object-ui/i18n` carries the key; zh reads 外部成员, as the server's own `sys_member.role` option does. Wherever the installed spec lists the role, the invite dialog offers it to every issuer who can invite, a delegated admin included, because objectstack's invitation cap admits it from any issuer: it confers less than a member. Owners and admins can also set it from the members page. On the grade ladder it sits with `member`, as it does in objectstack's cap, so it never unlocks an administrative affordance.
+- 2c4e5f5: A member who may read none of the objects an app names now lands on one page that says they need access and whom to ask, instead of the app's dashboard drawn as a grid of "You don't have access" tiles (objectstack-ai/objectstack#25338).
+  
+  The app root's landing asks the object-read prune's own verdict (`useNavMemberGates().can`) over every `type: 'object'` entry the app names, at every depth and in every area. When the app names at least one object and the member may read none of them, it renders `AppNoAccessEmptyState` with the new `reason="no-readable-object"`: "Your account cannot read any of the records in this app yet. Ask an administrator to assign you a permission set.", plus the Setup link for a member who may grant access. One readable object, or an app that names no object at all, lands exactly as before.
+  
+  Clause-②: yes
+  Metadata-protocol: none
+- ad74e98: fix(plugin-list): the synthetic "All records" tab of a tabs-mode user-filter bar (`showAllRecords`) now reads its label from the new `list.userFilters.allRecords` i18n key, filled in every shipped locale (zh: 全部记录), instead of a hard-coded English string (objectui#13405). The tab's `__all__` id and behaviour are unchanged.
+- Updated dependencies [49a536d]
+- Updated dependencies [8e90779]
+- Updated dependencies [7f60e9d]
+  - @object-ui/core@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

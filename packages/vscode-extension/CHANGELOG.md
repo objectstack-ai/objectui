@@ -1,5 +1,20 @@
 # Changelog
 
+## 18.1.0
+
+### Patch Changes
+
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [49a536d]
+- Updated dependencies [8e90779]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [7f60e9d]
+- Updated dependencies [1d178e0]
+- Updated dependencies [6fb31dc]
+  - @object-ui/types@18.1.0
+  - @object-ui/core@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

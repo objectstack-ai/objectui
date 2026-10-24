@@ -1,5 +1,30 @@
 # @object-ui/data-objectstack
 
+## 18.1.0
+
+### Minor Changes
+
+- a14737b: Setup → Positions now says who holds each position and which permission sets it grants, and a click anywhere on a row opens the item (objectstack#25333).
+  
+  - **Two columns, both the server's.** The position list reads `GET /meta/position?include=grants`. **Holders** shows the served `_holderCount`, and **Permission sets** shows the served `_grantedPermissionSets` in the order the server sends them. The server computes both where the authorization resolver enforces them, and the console computes neither.
+  - **The set a position grants by its name is shown, marked "(by name)".** That set shares the position's name, and the position-name fold grants it even though the definition does not list it (objectstack#24757). A tooltip says why it is there. Sets the definition lists carry no mark.
+  - **A count nobody measured is "—", never 0.** That covers a count the server did not serve (`null`: no active organization, or a caller who may not read position assignments) and a server that predates `include=grants`.
+  - **The whole row opens the item** on every Setup metadata list, as a record list's row does. The first cell keeps its link for the keyboard, screen readers and opening in a new tab. A click on a control in the row (the Active switch, Clone, a link) is still that control's. A modified click, a click that ends a text selection, and a click inside a dialog a row control opened do not open the row.
+  - **`@object-ui/data-objectstack`**: `MetadataClient.list` / `listResponse` accept `include: 'grants'`, sent as the `include` query parameter.
+
+### Patch Changes
+
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [49a536d]
+- Updated dependencies [8e90779]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [7f60e9d]
+- Updated dependencies [1d178e0]
+- Updated dependencies [6fb31dc]
+  - @object-ui/types@18.1.0
+  - @object-ui/core@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

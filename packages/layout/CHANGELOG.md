@@ -1,5 +1,37 @@
 # @object-ui/layout
 
+## 18.1.0
+
+### Patch Changes
+
+- 8cf3a86: `AppShell` now draws one `main` landmark. `SidebarInset` already renders a `<main>`, and the content element inside it was a second `<main>`, so every console page (Setup record pages included) announced two main regions to screen readers. The content element is now a `<div>`; `className` still lands on it, and the skip link still targets the console's route slot.
+- fb25620: A sidebar navigation group now opens on first view unless it declares `expanded: false` (or the legacy `defaultOpen: false`), however many entries it holds (objectui#13336).
+  
+  `NavigationRenderer` used to collapse any group that declared neither field once it had eight or more children. On Setup that closed Configuration (13 entries) although only Advanced declares `expanded: false`, hiding entries such as Localization, Email and Authentication on first view. The count rule is gone: a group holding the current route opens; otherwise its declared `expanded` / `defaultOpen` decides; otherwise it opens. Studio's navigation preview follows the same rule, so it still matches the running sidebar.
+  
+  An app that relied on a long, undeclared group starting closed should now declare `expanded: false` on it.
+- Updated dependencies [8556295]
+- Updated dependencies [cd14d8e]
+- Updated dependencies [8701f1e]
+- Updated dependencies [7c405b7]
+- Updated dependencies [3aafc0d]
+- Updated dependencies [601c406]
+- Updated dependencies [b911ebb]
+- Updated dependencies [49a536d]
+- Updated dependencies [8e90779]
+- Updated dependencies [f1a4b08]
+- Updated dependencies [7f60e9d]
+- Updated dependencies [d9aff15]
+- Updated dependencies [a78608f]
+- Updated dependencies [1d178e0]
+- Updated dependencies [6fb31dc]
+- Updated dependencies [fbb4b23]
+- Updated dependencies [c8f8b10]
+  - @object-ui/types@18.1.0
+  - @object-ui/components@18.1.0
+  - @object-ui/react@18.1.0
+  - @object-ui/core@18.1.0
+
 ## 18.0.0
 
 ### Major Changes

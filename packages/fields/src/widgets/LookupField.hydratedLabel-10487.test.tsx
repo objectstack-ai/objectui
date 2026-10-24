@@ -25,7 +25,7 @@
  * no-schema path cannot pass. Pinned:
  *
  *  - the mounted chip reads the declared `nameField` once the schema
- *    resolves, on the single-id `findOne` path and on the batched `$in` path;
+ *    resolves, for one hydrated id and for several — both on the batched `$in` read;
  *    the record is fetched once — the schema's arrival relabels, it does not
  *    re-fetch;
  *  - the other order, the schema arriving while the record fetch is still in
@@ -61,7 +61,8 @@ const ROWS: Record<string, unknown>[] = [
 /**
  * A backend whose `getObjectSchema` answers only when `releaseSchema()` is
  * called — so the test, not the scheduler, decides which of the two requests
- * wins. With `holdRecord`, `findOne` also answers only on `releaseRecord()`.
+ * wins. With `holdRecord`, the hydration `$in` read also answers only on
+ * `releaseRecord()`.
  */
 function makeBackend({ holdRecord = false }: { holdRecord?: boolean } = {}) {
   let releaseSchema!: () => void;
@@ -75,14 +76,11 @@ function makeBackend({ holdRecord = false }: { holdRecord?: boolean } = {}) {
   const find = vi.fn(async (objectName: string, params?: { $filter?: { id?: { $in?: unknown[] } } }) => {
     if (objectName !== 'contract') return { data: [], total: 0 };
     const wanted = params?.$filter?.id?.$in;
+    if (wanted && holdRecord) await recordHeld;
     const rows = wanted ? ROWS.filter((r) => wanted.includes(r.id)) : ROWS;
     return { data: rows.map((r) => ({ ...r })), total: rows.length };
   });
-  const findOne = vi.fn(async (objectName: string, id: string) => {
-    if (holdRecord) await recordHeld;
-    const row = objectName === 'contract' ? ROWS.find((r) => r.id === id) : undefined;
-    return row ? { ...row } : null;
-  });
+  const findOne = vi.fn(async () => null);
   const getObjectSchema = vi.fn(async (objectName: string) => {
     await schemaHeld;
     return objectName === 'contract'
@@ -93,6 +91,11 @@ function makeBackend({ holdRecord = false }: { holdRecord?: boolean } = {}) {
 }
 
 type Backend = ReturnType<typeof makeBackend>['ds'];
+
+/** The hydration reads: the batched `$in` read of the referenced records. */
+function hydrationReads(ds: Backend) {
+  return ds.find.mock.calls.filter(([, params]) => params?.$filter?.id?.$in);
+}
 
 /** Holds the value, so a pick commits and the chip re-resolves from it. */
 function Host({ ds, initial, multiple = false }: { ds: Backend; initial: unknown; multiple?: boolean }) {
@@ -189,8 +192,8 @@ describe('LookupField — a hydrated value is labelled from the schema once it a
     expect(afterSchema).toEqual(['HT-001']);
     // The schema's arrival relabels the record already fetched; it does not
     // fetch it again.
-    expect(ds.findOne).toHaveBeenCalledTimes(1);
-    expect(ds.findOne).toHaveBeenCalledWith('contract', 'c1');
+    expect(hydrationReads(ds)).toEqual([['contract', { $filter: { id: { $in: ['c1'] } }, $top: 1 }]]);
+    expect(ds.findOne).not.toHaveBeenCalled();
   });
 
   it('several hydrated ids (the batched $in path): every chip reads the declared nameField after the schema resolves', async () => {
@@ -204,7 +207,7 @@ describe('LookupField — a hydrated value is labelled from the schema once it a
   it('the schema arrives while the record fetch is in flight: one fetch, and the chip reads the declared nameField', async () => {
     const { ds, releaseSchema, releaseRecord } = makeBackend({ holdRecord: true });
     render(<Host ds={ds} initial="c1" />);
-    await waitFor(() => expect(ds.findOne).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(hydrationReads(ds)).toHaveLength(1));
     await act(async () => {
       releaseSchema();
     });
@@ -215,7 +218,7 @@ describe('LookupField — a hydrated value is labelled from the schema once it a
     await settle();
     expect(chipLabels()).toEqual(['HT-001']);
     // The schema's arrival does not cancel the fetch in flight to issue another.
-    expect(ds.findOne).toHaveBeenCalledTimes(1);
+    expect(hydrationReads(ds)).toHaveLength(1);
   });
 
   it('the same derivation follows the policy: a field denied after the chip is labelled leaves the label', async () => {
@@ -231,7 +234,7 @@ describe('LookupField — a hydrated value is labelled from the schema once it a
     // Nothing else on the row is nameable on this path, so the label falls
     // through to the id — the label the dropdown builds for the same row.
     expect(chipLabels()).toEqual(['c1']);
-    expect(ds.findOne).toHaveBeenCalledTimes(1);
+    expect(hydrationReads(ds)).toHaveLength(1);
   });
 
   it('control: the dropdown option for the same record reads the declared nameField', async () => {

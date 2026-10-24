@@ -33,7 +33,7 @@ import {
   renderLookupColumnValue,
 } from './lookupColumnDisplay.js';
 import { useSafeFieldLabel, useDisplayLocale } from '@object-ui/i18n';
-import { SchemaRendererContext as ImportedSchemaRendererContext, useAction, useHasActionProvider } from '@object-ui/react';
+import { SchemaRendererContext as ImportedSchemaRendererContext, useAction, useHasActionProvider, fetchReferenceRecords } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { useFieldTranslation } from './useFieldTranslation.js';
 
@@ -846,48 +846,18 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     let cancelled = false;
     (async () => {
       try {
+        // Read through the shared reference store: one `$in` read per
+        // referenced object for everything asked this tick — every lookup
+        // field of a form, every chip of a multi-value field, and every cell
+        // of a list drawing the same records — answered from its cache when
+        // any of them already read the key. Keyed by the column the field
+        // commits (`idField: 'name'` — position machine names,
+        // objectstack-ai/objectstack#3508). Chunked by the store so no request
+        // exceeds the page size a server may cap `$top` at (#3108).
+        const answers = await fetchReferenceRecords(dataSource, referenceTo, unresolved, idField);
         const fetched: Record<string, unknown>[] = [];
-        // Single id: the pre-existing cheap paths — a primary-id `findOne`
-        // GET, or an equality filter when the field commits a different
-        // column (`idField: 'name'` — e.g. position machine names,
-        // objectstack-ai/objectstack#3508).
-        if (unresolved.length === 1) {
-          const id = unresolved[0];
-          if (typeof (dataSource as any).findOne === 'function' && idField === 'id') {
-            const rec = await (dataSource as any).findOne(referenceTo, id);
-            if (rec) fetched.push(rec);
-          } else {
-            const res = await dataSource.find(referenceTo, {
-              $filter: { [idField]: id },
-              $top: 1,
-            } as QueryParams);
-            const rows = (res as any)?.data ?? res ?? [];
-            if (rows[0]) fetched.push(rows[0]);
-          }
-        } else {
-          // SEVERAL unresolved ids: one `$in` query per chunk. A multi-value
-          // field can hold dozens of ids, and the old serial findOne-per-id
-          // took seconds while the trigger sat on the empty "Select…"
-          // placeholder (#3108).
-          // Chunked to LOOKUP_PAGE_SIZE so no request exceeds the page size
-          // a server may cap `$top` at; chunks run in parallel.
-          const chunks: any[][] = [];
-          for (let i = 0; i < unresolved.length; i += LOOKUP_PAGE_SIZE) {
-            chunks.push(unresolved.slice(i, i + LOOKUP_PAGE_SIZE));
-          }
-          const results = await Promise.all(
-            chunks.map((chunk) =>
-              dataSource.find(referenceTo, {
-                $filter: { [idField]: { $in: chunk } },
-                $top: chunk.length,
-              } as QueryParams),
-            ),
-          );
-          for (const res of results) {
-            const rows = (res as any)?.data ?? res ?? [];
-            if (!Array.isArray(rows)) continue;
-            for (const row of rows) fetched.push(row);
-          }
+        for (const answer of answers.values()) {
+          if (answer.state === 'readable') fetched.push(answer.record as Record<string, unknown>);
         }
         if (!cancelled && fetched.length) {
           setHydratedRecords((prev) => mergeRowsByValue(prev, fetched, idField));

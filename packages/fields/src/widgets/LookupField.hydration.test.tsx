@@ -120,8 +120,8 @@ describe('LookupField — multi-value hydration batches and shows loading (#3108
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeTruthy());
   });
 
-  it('keeps the cheap findOne GET for a single unresolved primary id', async () => {
-    const find = vi.fn(async () => ({ data: [] }));
+  it('a single unresolved id joins the same batched $in read — no per-id findOne', async () => {
+    const find = vi.fn(async () => ({ data: [{ id: 'u1', name: 'Ada' }] }));
     const findOne = vi.fn(async () => ({ id: 'u1', name: 'Ada' }));
     render(
       <LookupField
@@ -131,6 +131,7 @@ describe('LookupField — multi-value hydration batches and shows loading (#3108
         field={{ reference: 'sys_user', multiple: true } as never}
       />,
     );
-    await waitFor(() => expect(findOne).toHaveBeenCalledWith('sys_user', 'u1'));
+    await waitFor(() => expect(find).toHaveBeenCalledWith('sys_user', { $filter: { id: { $in: ['u1'] } }, $top: 1 }));
+    expect(findOne).not.toHaveBeenCalled();
   });
 });

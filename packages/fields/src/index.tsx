@@ -8,7 +8,7 @@
 
 import React from 'react';
 import type { DateFieldMetadata, DateTimeFieldMetadata, FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
-import { ComponentRegistry, percentDisplayValue, type PercentScale, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, withoutDeniedFields, type RegistryComponentMeta, type DateDisplayOptions } from '@object-ui/core';
+import { ComponentRegistry, percentDisplayValue, type PercentScale, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, withoutDeniedFields, type RegistryComponentMeta, type DateDisplayOptions } from '@object-ui/core';
 // The platform's own value-shape contract, asked rather than restated
 // (objectui#6744). See `locationStoredValueSchemaFor` below for why this is a
 // runtime import in the barrel and not a hand-written coordinate range.
@@ -18,7 +18,7 @@ import { valueSchemaFor, resolveFieldScale } from '@objectstack/spec/data';
 import { useLocalization, useDisplayLocale, formatDisplayNumber } from '@object-ui/i18n';
 import { Badge, Avatar, AvatarImage, AvatarFallback, Button, Checkbox, EmptyValue, cn, setFieldReadFaceResolver } from '@object-ui/components';
 import { Check, Copy, Phone as PhoneIcon, MapPin, CircleQuestionMark, Lock, Star } from 'lucide-react';
-import { useObjectTranslation } from '@object-ui/react';
+import { useObjectTranslation, useReferenceRecords, useReferenceObjectDef, pickReferenceRecord } from '@object-ui/react';
 import { SchemaRendererContext as _SchemaRendererContext } from '@object-ui/react';
 import { useRelatedRecordActions } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
@@ -33,17 +33,14 @@ import { formatNumberFieldValue, formatCurrency, formatPercentPoints, percentCel
 import { useFieldTranslation } from './widgets/useFieldTranslation.js';
 import { useBooleanValueLabel } from './widgets/booleanValueLabel.js';
 
-// Module-level cache so multiple renderers fetching the same lookup ID
-// only trigger one network call. Keyed by `${objectName}:${id}`. It holds the
-// fetched RECORD and the referenced object's schema, not a resolved name: the
-// name is a display value, resolved per render from the row the viewer may
-// read (objectui#10501), so it follows the permission policy of the render
-// that shows it rather than the one in force when the record arrived.
-type LookupCacheEntry =
-  | { state: 'pending'; promise: Promise<void> }
-  | { state: 'ok'; record: Record<string, unknown> | null | undefined; schema: unknown }
-  | { state: 'err' };
-const lookupNameCache: Map<string, LookupCacheEntry> = new Map();
+// Referenced records and the referenced object's schema are read through
+// `@object-ui/react`'s shared reference store (`useReferenceRecords`,
+// `useReferenceObjectDef`): every cell of a page that names a record of the
+// same object shares ONE `$in` read, and every surface on the data source
+// shares the answers. This package caches nothing of its own. The store holds
+// the RECORD, not a resolved name: the name is a display value, resolved per
+// render from the row the viewer may read (objectui#10501), so it follows the
+// permission policy of the render that shows it.
 
 /**
  * Pick the most reasonable display name from an arbitrary record object.
@@ -100,70 +97,18 @@ export function pickRecordDisplayName(
   return undefined;
 }
 
-// Module-level cache of referenced-object schemas (keyed by object name) so
-// many lookup cells pointing at the same object trigger ONE metadata fetch.
-type RefSchemaCacheEntry =
-  | { state: 'pending'; promise: Promise<void> }
-  | { state: 'ok'; schema: unknown }
-  | { state: 'err' };
-const refObjectSchemaCache: Map<string, RefSchemaCacheEntry> = new Map();
-
 /**
- * Fetch (and cache) the referenced object's schema via
- * `dataSource.getObjectSchema`. Resolves to `undefined` when the data source
- * doesn't expose schema metadata or the fetch fails — callers fall back to the
- * key heuristic in that case.
- */
-async function fetchRefObjectSchema(dataSource: any, referenceTo: string): Promise<any> {
-  const settled = () => {
-    const entry = refObjectSchemaCache.get(referenceTo);
-    return entry?.state === 'ok' ? entry.schema : undefined;
-  };
-  const existing = refObjectSchemaCache.get(referenceTo);
-  if (existing?.state === 'pending') {
-    await existing.promise;
-    return settled();
-  }
-  if (existing) return settled();
-  const getSchema = dataSource?.getObjectSchema;
-  if (typeof getSchema !== 'function') return undefined;
-  const promise = Promise.resolve()
-    .then(() => getSchema.call(dataSource, referenceTo))
-    .then((schema: unknown) => { refObjectSchemaCache.set(referenceTo, { state: 'ok', schema }); })
-    .catch(() => { refObjectSchemaCache.set(referenceTo, { state: 'err' }); });
-  refObjectSchemaCache.set(referenceTo, { state: 'pending', promise });
-  await promise;
-  return settled();
-}
-
-/**
- * React hook wrapper over {@link fetchRefObjectSchema}: returns the referenced
- * object's schema once loaded (re-rendering when it lands), `undefined` while
- * pending or when schema metadata isn't available.
+ * The referenced object's schema (nameField / titleFormat), read once per data
+ * source through the shared reference store: `undefined` while pending or when
+ * the data source exposes no schema metadata — callers fall back to the key
+ * heuristic in that case.
  */
 function useRefObjectSchema(referenceTo: string | undefined): any {
   const ctx = React.useContext(_SchemaRendererContext);
   // No cast: the context declares `DataSource | null | undefined` since
   // objectui#7912, and this read has no second channel to merge with.
-  const dataSource = ctx?.dataSource;
-  const [, force] = React.useState(0);
-  const canFetch =
-    !!referenceTo && !!dataSource && typeof dataSource.getObjectSchema === 'function';
-
-  React.useEffect(() => {
-    if (!canFetch) return;
-    const entry = refObjectSchemaCache.get(referenceTo!);
-    if (entry && entry.state !== 'pending') return; // settled before this render
-    let alive = true;
-    fetchRefObjectSchema(dataSource, referenceTo!).then(() => {
-      if (alive) force((n) => n + 1);
-    });
-    return () => { alive = false; };
-  }, [canFetch, referenceTo, dataSource]);
-
-  if (!canFetch) return undefined;
-  const entry = refObjectSchemaCache.get(referenceTo!);
-  return entry?.state === 'ok' ? entry.schema : undefined;
+  const answer = useReferenceObjectDef(ctx?.dataSource, referenceTo);
+  return answer.state === 'ok' ? answer.def : undefined;
 }
 
 /**
@@ -234,12 +179,12 @@ export function isLikelyOpaqueId(v: unknown): boolean {
 }
 
 /**
- * What {@link useLookupName} learned about one referenced record.
+ * What {@link useLookupNames} learned about one referenced record.
  *
  * - `named` — the reader's read returned the record and a display field named it.
  * - `absent` — the reader's own read SETTLED with no record (objectui#13335):
- *   `findOne` answered `null`, the `DataSource` contract's "not found", which
- *   is what a 404 becomes for a record the viewer may not read. The platform
+ *   the batched `$in` read answered without a row for the id — the list-read
+ *   form of a 404 for a record the viewer may not read. The platform
  *   answers a record hidden from this reader and a record that does not exist
  *   identically on purpose (existence non-disclosure, objectui#8631), so this
  *   state is that fused answer and nothing finer.
@@ -249,95 +194,43 @@ export function isLikelyOpaqueId(v: unknown): boolean {
 type LookupNameAnswer = { state: 'named'; name: string } | { state: 'absent' } | undefined;
 
 /**
- * Fetch-on-demand resolver for foreign-key IDs that weren't expanded by the
- * server. Reads `dataSource` from SchemaRendererContext; safely no-ops if
- * the context isn't installed. Returns a {@link LookupNameAnswer}.
+ * Resolver for foreign-key IDs the server did not expand. Reads `dataSource`
+ * from SchemaRendererContext and safely no-ops if the context isn't installed.
+ * Returns one {@link LookupNameAnswer} per id, keyed by the id's string form.
  *
- * The effect only FETCHES: the record and the referenced object's schema are
- * cached, and the name is resolved from them on every render with the
- * caller's `policy` (objectui#10501). A policy that loads or changes after the
- * record arrived therefore relabels the cell on the render it causes, with no
- * second read — a name resolved inside the effect would be fixed by the policy
- * of the render that STARTED the fetch, and re-running the effect could not
- * move it, because a settled entry returns early below.
+ * Every id goes through the shared reference store, so a page of cells — and
+ * every chip of a multi-value cell — costs ONE `$in` read per referenced
+ * object, not one `findOne` per cell. The store caches the record and the
+ * referenced object's schema; the name is resolved from them on every render
+ * with the caller's `policy` (objectui#10501), so a policy that loads or
+ * changes after the record arrived relabels the cell with no second read.
  */
-function useLookupName(
+function useLookupNames(
   referenceTo: string | undefined,
-  value: unknown,
+  ids: readonly (string | number)[],
   displayField: string | undefined,
   policy: FieldReadPolicy,
-): LookupNameAnswer {
+): ReadonlyMap<string, LookupNameAnswer> {
   const ctx = React.useContext(_SchemaRendererContext);
   const dataSource = ctx?.dataSource;
-  const [, force] = React.useState(0);
-
-  const isResolvable =
-    !!referenceTo &&
-    !!dataSource &&
-    typeof dataSource.find === 'function' &&
-    (typeof value === 'string' || typeof value === 'number') &&
-    value !== '';
-  // The preferred display field is part of the cache identity (objectstack-ai/objectstack#2926 ⑧). The
-  // entry now holds the record, not a name, so two columns with different
-  // `displayField`s could share one; the key is left as it was so that this
-  // change does not alter how many reads a screen makes.
-  const cacheKey = isResolvable
-    ? `${referenceTo}:${String(value)}:${displayField ?? ''}`
-    : '';
-
-  React.useEffect(() => {
-    if (!isResolvable) return;
-    const existing = lookupNameCache.get(cacheKey);
-    if (existing && existing.state !== 'pending' && (existing as any).promise == null) return;
-    if (existing?.state === 'pending') return;
-
-    const promise: Promise<void> = (async () => {
-      try {
-        let record: Record<string, unknown> | undefined;
-        if (typeof (dataSource as any).findOne === 'function') {
-          record = await (dataSource as any).findOne(referenceTo, value);
-        } else {
-          // Top-level `$top`, not `{ options: { $top: 1 } }` (objectui#4025):
-          // `options` is not a `QueryParams` key and no adapter reads it. Here
-          // the nesting was harmless — the filter is primary-key equality, so
-          // the answer is at most one row with or without a cap — but it is the
-          // same spelling that cost `object-kanban` its row cap, and leaving one
-          // live instance in the repo is what makes the next one look precedented.
-          const result = await (dataSource as any).find(referenceTo, {
-            $filter: { id: value },
-            $top: 1,
-          });
-          // Read the rows through `@object-ui/core`'s `extractRecords` rather
-          // than a fourth hand-rolled ladder. This site used to spell it
-          // `result?.value || result?.data || []` — `value` AHEAD of `data`,
-          // the ONE rows member `QueryResult` (`@object-ui/types`) declares.
-          // A producer emitting both was resolved to the undeclared key
-          // (objectui#6917 arm A). `extractRecords` accepts the same shapes
-          // (bare array, `data`, `value`) in the order the contract implies,
-          // and is the single measured answer for this seam (objectui#6839).
-          const records: any[] = extractRecords(result);
-          record = records[0];
-        }
-        // Resolve through the referenced object's schema (nameField /
-        // titleFormat) so the chip agrees with the picker — the bare key
-        // heuristic alone can surface an autonumber over the real name.
-        const schema = await fetchRefObjectSchema(dataSource, referenceTo!);
-        lookupNameCache.set(cacheKey, { state: 'ok', record, schema });
-      } catch {
-        lookupNameCache.set(cacheKey, { state: 'err' });
-      }
-      force((n) => n + 1);
-    })();
-
-    lookupNameCache.set(cacheKey, { state: 'pending', promise });
-  }, [cacheKey, isResolvable, referenceTo, value, dataSource]);
-
-  if (!isResolvable) return undefined;
-  const entry = lookupNameCache.get(cacheKey);
-  if (entry?.state !== 'ok') return undefined;
-  if (entry.record == null) return { state: 'absent' };
-  const name = resolveLookupRecordName(entry.record, entry.schema, displayField, policy, referenceTo);
-  return name ? { state: 'named', name } : undefined;
+  const answers = useReferenceRecords(dataSource, referenceTo, ids);
+  const def = useReferenceObjectDef(dataSource, referenceTo);
+  const out = new Map<string, LookupNameAnswer>();
+  if (!referenceTo || !dataSource) return out;
+  // The name waits for the schema to settle either way, so the chip never
+  // flips from a heuristic name to the declared one (issue #2357).
+  if (def.state === 'pending') return out;
+  const schema = def.state === 'ok' ? def.def : undefined;
+  for (const id of ids) {
+    const answer = pickReferenceRecord(answers, referenceTo, id);
+    if (answer?.state === 'absent') {
+      out.set(String(id), { state: 'absent' });
+    } else if (answer?.state === 'readable') {
+      const name = resolveLookupRecordName(answer.record, schema, displayField, policy, referenceTo);
+      if (name) out.set(String(id), { state: 'named', name });
+    }
+  }
+  return out;
 }
 
 /**
@@ -2588,34 +2481,16 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   // re-renders this cell through the context, and the names follow it.
   const perms = usePermissions();
 
-  // Pick the FIRST primitive id we see (for arrays, only the first one is auto-resolved
-  // to keep the cell cheap; multi-value lookups should generally be expanded server-side).
-  const primaryPrimitiveId = (() => {
-    if (Array.isArray(value)) {
-      const firstPrimitive = value.find(
-        (v) => v != null && (typeof v === 'string' || typeof v === 'number') && v !== '',
-      );
-      return firstPrimitive;
-    }
-    if (
-      value != null &&
-      value !== '' &&
-      (typeof value === 'string' || typeof value === 'number') &&
-      typeof value !== 'object'
-    ) {
-      return value;
-    }
-    return undefined;
-  })();
+  // Every primitive id the value holds — the scalar, or EVERY entry of a
+  // multi-value array. They are all resolved: the reads are batched per
+  // referenced object across the whole page, so resolving entries 2..n costs
+  // no extra request (a multi-value cell used to resolve only its first id).
+  const primitiveIds: Array<string | number> = (Array.isArray(value) ? value : [value]).filter(
+    (v): v is string | number => (typeof v === 'string' && v !== '') || typeof v === 'number',
+  );
 
   // Always call the hook (rules of hooks). It safely no-ops when inputs are missing.
-  const lookupAnswer = useLookupName(referenceTo, primaryPrimitiveId, displayField, perms);
-  const resolvedName = lookupAnswer?.state === 'named' ? lookupAnswer.name : undefined;
-  // The reader's own read of the first primitive answered "no record"
-  // (objectui#13335). Only that id gets the restricted face: in flight, a
-  // failed read, an unnamed record and the entries never asked keep the
-  // unresolved one below.
-  const restrictedId = lookupAnswer?.state === 'absent' ? primaryPrimitiveId : undefined;
+  const lookupAnswers = useLookupNames(referenceTo, primitiveIds, displayField, perms);
   const restrictedLabel = useRestrictedLookupLabel();
 
   // THE FLOOR by name and nothing more (objectui#8496). Same childless-container
@@ -2672,7 +2547,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
     (field as { options?: Array<{ value: unknown; label: string }> }).options || [];
 
   // Resolve a primitive ID to a label. Order:
-  //   options → server-resolved name (via useLookupName) → UNRESOLVED
+  //   options → server-resolved name (via useLookupNames) → UNRESOLVED
   //
   // ⭐ That last arm used to be TWO, and the split between them was the
   // defect (objectui#8695). `isLikelyOpaqueId(val)` sent opaque-LOOKING
@@ -2703,10 +2578,13 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
       const found = options.find((opt) => String(opt.value) === String(val));
       if (found) return { text: found.label, unresolved: false, restricted: false };
     }
-    if (val === primaryPrimitiveId && resolvedName) {
-      return { text: resolvedName, unresolved: false, restricted: false };
+    const answer = val != null && typeof val !== 'object' ? lookupAnswers.get(String(val)) : undefined;
+    if (answer?.state === 'named') {
+      return { text: answer.name, unresolved: false, restricted: false };
     }
-    if (restrictedId !== undefined && val === restrictedId) {
+    // The reader's own read answered "no record" for this id (objectui#13335).
+    // In flight, a failed read and an unnamed record keep the unresolved face.
+    if (answer?.state === 'absent') {
       return { text: String(val), unresolved: false, restricted: true };
     }
     return { text: String(val), unresolved: true, restricted: false };
@@ -2999,24 +2877,22 @@ function UnresolvedUserReference({
  * ## The state this names, and how many causes hide behind it
  *
  * `LookupCellRenderer` reaches here when neither the author's `options` nor
- * `useLookupName` produced a name, and the reader's read did not answer "no
+ * `useLookupNames` produced a name, and the reader's read did not answer "no
  * record". The causes left, which the renderer does not tell apart:
  *
  *   1. never fetched — no `dataSource`, or no `reference` on the field;
  *   2. IN FLIGHT — the first paint of every successful resolve passes through
  *      here (measured: the settled paint replaces it);
- *   3. the resolver threw (`state: 'err'`);
- *   4. it answered with a record no display field could name;
- *   5. not attempted BY POLICY — only the FIRST primitive of an array is
- *      auto-resolved (`primaryPrimitiveId`), so entries 2..n never ask.
+ *   3. the batched read rejected (`state: 'failed'` in the reference store);
+ *   4. it answered with a record no display field could name.
  *
  * A sixth cause used to land here too: the resolver answered with NO record.
- * `useLookupName` now surfaces that one (objectui#13335) and it draws
+ * `useLookupNames` now surfaces that one (objectui#13335) and it draws
  * `RestrictedLookupReference` instead — it is the reader's own read saying
  * "not found", which a 404 for a record they may not read becomes. That face
  * still does not tell "cannot read" from "does not exist": the platform fuses
  * them on purpose (objectui#8631), and so does the label. What is true of the
- * five above is epistemic, and it is all this affordance says: this screen
+ * four above is epistemic, and it is all this affordance says: this screen
  * did not resolve it.
  *
  * ## Why the raw value stays, and the `—` does not
@@ -3154,6 +3030,24 @@ export function UserCellRenderer({ value, field }: CellRendererProps): React.Rea
     (field as { reference?: string } | undefined)?.reference ||
     'sys_user';
 
+  // A bare id (a person reference the server did not expand) is read through
+  // the shared reference store, batched with every other cell of the page —
+  // one `$in` read per page, not one per cell. Called before any early return
+  // (rules of hooks); it no-ops without a data source.
+  const ctx = React.useContext(_SchemaRendererContext);
+  const personIds: Array<string | number> = (Array.isArray(value) ? value : [value]).filter(
+    (v): v is string | number => (typeof v === 'string' && v !== '') || typeof v === 'number',
+  );
+  const personAnswers = useReferenceRecords(ctx?.dataSource, personObject, personIds);
+  const restrictedLabel = useRestrictedLookupLabel();
+  /** The person a bare id resolved to, `'absent'` for "no record", else undefined. */
+  const personFor = (id: unknown): Record<string, any> | 'absent' | undefined => {
+    const answer = pickReferenceRecord(personAnswers, personObject, id);
+    if (answer?.state === 'readable') return answer.record as Record<string, any>;
+    if (answer?.state === 'absent') return 'absent';
+    return undefined;
+  };
+
   // THE FLOOR by name (objectui#8496) plus ONE extension: every falsy scalar.
   // `!value` alone never saw `[]` — a truthy empty array reached the
   // avatar-stack branch below and rendered an empty stack (objectui#8481) —
@@ -3167,7 +3061,13 @@ export function UserCellRenderer({ value, field }: CellRendererProps): React.Rea
   // failed" as "resolution succeeded". See `UnresolvedUserReference` for the two
   // populations that reach here and why the sentence is epistemic.
   if (typeof value !== 'object') {
-    return <UnresolvedUserReference value={value} />;
+    const person = personFor(value);
+    // The reader's own read answered "no record" (objectui#13335): the
+    // restricted face, as the lookup cell draws it — no id, no avatar.
+    if (person === 'absent') return <RestrictedLookupReference label={restrictedLabel} />;
+    if (!person) return <UnresolvedUserReference value={value} />;
+    // Resolved: drawn exactly as an expanded reference is, below.
+    return <UserCellRenderer value={person} field={field} />;
   }
   
   if (Array.isArray(value)) {
@@ -3179,11 +3079,15 @@ export function UserCellRenderer({ value, field }: CellRendererProps): React.Rea
           // reference this screen did not resolve, and it said so by drawing
           // nothing. A multi-value `user` field must not be honest on its
           // single-value shape and silent on this one.
-          if (typeof entry !== 'object' || entry === null) {
+          const resolved = typeof entry !== 'object' || entry === null ? personFor(entry) : entry;
+          if (resolved === 'absent') {
+            return <RestrictedLookupReference key={idx} label={restrictedLabel} />;
+          }
+          if (resolved == null || typeof resolved !== 'object') {
             return <UnresolvedUserReference key={idx} value={entry} className="text-sm" />;
           }
           // Each person as the viewer may read it (objectui#10535).
-          const user = withoutDeniedFields(entry, perms, personObject);
+          const user = withoutDeniedFields(resolved, perms, personObject);
           // An entry carrying nothing names no person (objectui#8596) — the
           // same ruling as the scalar branch below, one input-shape over.
           if (isPlainObjectValue(user) && Object.keys(user).length === 0) {

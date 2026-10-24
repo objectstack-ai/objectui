@@ -14,7 +14,8 @@
  * target here. A served legacy def reaches this cell already folded onto
  * `reference` by the ingestion choke point (`normalizeSchemaReferenceKeys`).
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { findByIds } from './findByIds';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
@@ -27,13 +28,13 @@ import { SchemaRendererProvider } from '@object-ui/react';
 const OPAQUE_ID = '01ARZ3NDEKTSV4RRFFQ69G5FAV';
 
 function makeDataSource() {
-  const findOne = vi.fn(async (object: string, id: string) => {
+  const find = findByIds((object, id) => {
     if (object === 'showcase_account' && id === OPAQUE_ID) {
       return { id, name: 'Globex' };
     }
     return null;
   });
-  return { findOne, find: vi.fn() } as any;
+  return { find } as any;
 }
 
 describe('LookupCellRenderer — reference key resolution', () => {
@@ -55,7 +56,7 @@ describe('LookupCellRenderer — reference key resolution', () => {
     });
     // …and the muted placeholder must NOT be what the user sees.
     expect(screen.queryByText('—')).not.toBeInTheDocument();
-    expect(ds.findOne).toHaveBeenCalledWith('showcase_account', OPAQUE_ID);
+    expect(ds.find).toHaveBeenCalledWith('showcase_account', { $filter: { id: { $in: [OPAQUE_ID] } }, $top: 1 });
   });
 
   it('reads no target from a retired `reference_to` (objectui#11070 round 4)', async () => {
@@ -72,7 +73,7 @@ describe('LookupCellRenderer — reference key resolution', () => {
     expect(screen.getByText(OPAQUE_ID)).toBeInTheDocument();
     // …because nothing named an object to resolve it through.
     await new Promise((r) => setTimeout(r, 20));
-    expect(ds.findOne).not.toHaveBeenCalled();
+    expect(ds.find).not.toHaveBeenCalled();
     expect(screen.queryByText('Globex')).not.toBeInTheDocument();
   });
 });

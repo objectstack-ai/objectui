@@ -127,6 +127,11 @@ function makeDataSource(fields: Record<string, any>, rows: any[]) {
     refQueries,
     find: vi.fn(async (objectName: string, params: any) => {
       if (objectName === REF) {
+        // The batched referenced-record read the lookup chip and cells make
+        // through the shared reference store: answered by id, and not a picker
+        // query, so it is not recorded in `refQueries`.
+        const ids = params?.$filter?.id?.$in;
+        if (Array.isArray(ids)) return { data: PEOPLE.filter((p) => ids.includes(p.id)) };
         refQueries.push(params);
         let recs = PEOPLE;
         const filter = params?.$filter;
@@ -229,11 +234,21 @@ describe('objectui#7154 — the four picker keys reach the grid’s inline picke
 
     // CONTROL — same reference, same records, no `multiple`: the second pick
     // REPLACES the first and the compact trigger shows that one record.
+    //
+    // The picks are read OUTSIDE the multi cell: that cell now names every
+    // chip it holds (a multi-value lookup resolves all its ids), so a bare
+    // `getByText('Person 01')` would find its chip before the dropdown loads.
     const singleCell = cellAt(container, 2);
+    const option = (name: string) =>
+      waitFor(() => {
+        const match = screen.getAllByText(name).find((el) => !multiCell.contains(el));
+        expect(match).toBeTruthy();
+        return match as HTMLElement;
+      });
     fireEvent.click(await openEditor(singleCell));
-    fireEvent.click(await waitFor(() => screen.getByText('Person 01')));
+    fireEvent.click(await option('Person 01'));
     fireEvent.click(await openEditor(singleCell));
-    fireEvent.click(await waitFor(() => screen.getByText('Person 02')));
+    fireEvent.click(await option('Person 02'));
     await waitFor(() => {
       expect(within(singleCell).getByText('Person 02')).toBeInTheDocument();
     });

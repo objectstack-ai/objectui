@@ -9,15 +9,16 @@
 /**
  * objectui#13335 — a lookup whose referenced record the viewer may not read
  * printed the raw id beside a question mark ("CTPnPnOW17jcvcy-"). The record
- * GET answers 404 for that viewer, which the ObjectStack adapter turns into
- * `findOne` → `null`, the `DataSource` contract's "not found".
+ * GET answers 404 for that viewer; the batched `$in` read the cell now makes
+ * through the shared reference store answers the same thing by leaving the
+ * row out — the list-read form of "not found".
  *
  * That ONE settled answer now draws "Restricted record": no id, no link, and
  * no second read. Everything else keeps today's face, and the controls below
  * say so: a readable record (named, linked), the first paint while the read
- * is in flight, a read that threw, the array entries never asked, and an empty
- * value. The module-level lookup cache is keyed by object and id, so every
- * case uses its own id.
+ * is in flight, a read that threw, and an empty value. The reference store is
+ * keyed by data source and every case builds its own, so no case inherits
+ * another's answer.
  */
 
 import React from 'react';
@@ -34,11 +35,13 @@ afterEach(() => cleanup());
 const OBJECT = 'kb_case_13335';
 const READABLE = { id: 'CASE-READABLE-01', name: 'Printer jam' };
 
-/** `findOne` answers like the adapter: the readable record, or `null` (a 404) for anything else. */
+/** The batched `$in` read answers like the server: the readable row, nothing for any other id. */
 function makeDataSource(overrides: Record<string, unknown> = {}) {
   return {
-    findOne: vi.fn(async (_object: string, id: string) => (id === READABLE.id ? READABLE : null)),
-    find: vi.fn(),
+    findOne: vi.fn(),
+    find: vi.fn(async (_object: string, params: any) => ({
+      data: (params?.$filter?.id?.$in ?? []).includes(READABLE.id) ? [READABLE] : [],
+    })),
     ...overrides,
   } as any;
 }
@@ -82,9 +85,9 @@ describe('objectui#13335 — a lookup the reader\'s read answers "not found" for
     expect(container.querySelector('a'), 'no link to a page that answers 404').toBeNull();
     expect(unresolved(container), 'not the unresolved face as well').toHaveLength(0);
     // ⛔ No title fetch around the reader's authority: the one read is the reader's own.
-    expect(ds.findOne).toHaveBeenCalledTimes(1);
-    expect(ds.findOne).toHaveBeenCalledWith(OBJECT, id);
-    expect(ds.find).not.toHaveBeenCalled();
+    expect(ds.find).toHaveBeenCalledTimes(1);
+    expect(ds.find).toHaveBeenCalledWith(OBJECT, { $filter: { id: { $in: [id] } }, $top: 1 });
+    expect(ds.findOne).not.toHaveBeenCalled();
   });
 
   it('the label is the `en` pack value when no provider is mounted', async () => {
@@ -108,17 +111,18 @@ describe('objectui#13335 — a lookup the reader\'s read answers "not found" for
     expect(container.innerHTML).not.toContain(id);
   });
 
-  it('in a multi-value cell, only the entry that was read and not found is restricted', async () => {
+  it('in a multi-value cell, every entry is read in ONE request, and only the ones not found are restricted', async () => {
     const first = 'CASE-RESTRICTED-ARR-1';
-    const second = 'CASE-NEVER-ASKED-ARR-2';
-    const { container } = renderLookup([first, second], makeDataSource());
+    const ds = makeDataSource();
+    const { container } = renderLookup([first, READABLE.id], ds);
 
     await waitFor(() => expect(restricted(container)).toHaveLength(1));
+    await waitFor(() => expect(screen.getByText('Printer jam')).toBeInTheDocument());
     expect(container.innerHTML).not.toContain(first);
-    // Entries after the first are never read, so nothing is known about them.
-    expect(unresolved(container)).toHaveLength(1);
-    expect(unresolved(container)[0]!.textContent).toBe(second);
+    expect(unresolved(container)).toHaveLength(0);
     expect(restricted(container)[0]!.closest('a'), 'the restricted chip is not a link').toBeNull();
+    expect(ds.find).toHaveBeenCalledTimes(1);
+    expect(ds.find.mock.calls[0][1].$filter.id.$in).toEqual([first, READABLE.id]);
   });
 });
 
@@ -133,25 +137,25 @@ describe('objectui#13335 — CONTROLS: every other state renders as before', () 
 
   it('while the read is in flight, the cell keeps the unresolved face, not the restricted one', async () => {
     const id = 'CASE-IN-FLIGHT';
-    let answer!: (v: null) => void;
+    let answer!: (v: unknown) => void;
     const ds = makeDataSource({
-      findOne: vi.fn(() => new Promise<null>((resolve) => { answer = resolve; })),
+      find: vi.fn(() => new Promise<unknown>((resolve) => { answer = resolve; })),
     });
     const { container } = renderLookup(id, ds);
 
     expect(unresolved(container)).toHaveLength(1);
     expect(restricted(container)).toHaveLength(0);
     // The control: the same cell turns restricted once that read settles empty.
-    await waitFor(() => expect(ds.findOne).toHaveBeenCalled());
-    answer(null);
+    await waitFor(() => expect(ds.find).toHaveBeenCalled());
+    answer({ data: [] } as any);
     await waitFor(() => expect(restricted(container)).toHaveLength(1));
   });
 
   it('a read that THREW keeps the unresolved face and its id — a failure is not a "not found"', async () => {
     const id = 'CASE-READ-THREW';
-    const ds = makeDataSource({ findOne: vi.fn(async () => { throw new Error('500'); }) });
+    const ds = makeDataSource({ find: vi.fn(async () => { throw new Error('500'); }) });
     const { container } = renderLookup(id, ds);
-    await waitFor(() => expect(ds.findOne).toHaveBeenCalled());
+    await waitFor(() => expect(ds.find).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 20));
     expect(restricted(container)).toHaveLength(0);
     expect(unresolved(container)).toHaveLength(1);
@@ -163,6 +167,6 @@ describe('objectui#13335 — CONTROLS: every other state renders as before', () 
     const { container } = renderLookup(null, ds);
     expect(container.querySelector('[data-slot="empty-value"]')).not.toBeNull();
     expect(restricted(container)).toHaveLength(0);
-    expect(ds.findOne).not.toHaveBeenCalled();
+    expect(ds.find).not.toHaveBeenCalled();
   });
 });

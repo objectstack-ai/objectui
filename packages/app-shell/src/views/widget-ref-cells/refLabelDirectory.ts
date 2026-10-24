@@ -19,9 +19,11 @@
  *     definitions, so the label AND the icon come from one read the console
  *     already caches for the session;
  *   - a record kind (`user`, `team`, `business_unit`, `unit_and_subordinates`,
- *     `RECIPIENT_RECORD_KINDS`) → the stored ids THEMSELVES, read by exact id:
- *     every id any cell asks for in one tick goes out as one `$in` query per
- *     kind. ⛔ Not the picker's candidate list: that query stops at 500 rows by
+ *     `RECIPIENT_RECORD_KINDS`) → the stored ids THEMSELVES, read by exact id
+ *     through `@object-ui/react`'s shared reference store: every id any cell
+ *     asks for in one tick goes out as one `$in` query per object and stored
+ *     column — shared with every lookup and user cell on the page. ⛔ Not the
+ *     picker's candidate list: that query stops at 500 rows by
  *     name, and a recipient past it is a real recipient the list must still
  *     name. The ROW is kept, and its label is built at render with the fields
  *     the viewer may not read removed (`withoutDeniedFields`), as the lookup
@@ -34,7 +36,7 @@
  *
  * Nothing is read per cell: a catalog (the objects, a registry type, one
  * object's user columns) is read the first time any cell asks it, and record
- * ids are batched per kind, once per data source.
+ * ids are batched by the shared reference store, once per data source.
  *
  * ## The answers a face gets
  *
@@ -71,8 +73,8 @@
  */
 
 import React from 'react';
-import { MetadataCtx, SchemaRendererContext } from '@object-ui/react';
-import { extractRecords, withoutDeniedFields } from '@object-ui/core';
+import { MetadataCtx, SchemaRendererContext, pickReferenceRecord, useReferenceRecords } from '@object-ui/react';
+import { withoutDeniedFields } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import type { DataSource } from '@object-ui/types';
 import {
@@ -90,15 +92,12 @@ export type RefLabel =
   | { readonly state: 'resolved'; readonly label: string; readonly icon?: string }
   | { readonly state: 'unresolved' };
 
-/** A book entry: a `RefLabel`, or — for a record kind — the row it was read as. */
-type Entry = RefLabel | { readonly state: 'record'; readonly row: Readonly<Record<string, unknown>> };
+/** A book entry. */
+type Entry = RefLabel;
 
 const UNASKED: RefLabel = Object.freeze({ state: 'unasked' });
 const PENDING: RefLabel = Object.freeze({ state: 'pending' });
 const UNRESOLVED: RefLabel = Object.freeze({ state: 'unresolved' });
-
-/** At most this many ids go into one `$in` query. */
-const ID_QUERY_CHUNK = 100;
 
 /** One catalog member's face: its label, and an icon when the list has one. */
 interface CatalogItem {
@@ -114,12 +113,6 @@ class LabelBook {
   private readonly entries = new Map<string, Entry>();
   private readonly listeners = new Set<() => void>();
   private readonly catalogs = new Map<string, Promise<Catalog>>();
-  /** Record kind → id → entry key, waiting for the next flush. */
-  private recordQueue = new Map<string, Map<string, string>>();
-  private flushScheduled = false;
-
-  constructor(private readonly dataSource: DataSource) {}
-
   readonly subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
     return () => {
@@ -156,56 +149,6 @@ class LabelBook {
       this.publish();
     });
   }
-
-  /** Ask for one record of a record kind by its stored id; batched per kind. */
-  askRecord(kind: string, id: string, key: string): void {
-    if (this.entries.has(key)) return;
-    this.entries.set(key, PENDING);
-    let ids = this.recordQueue.get(kind);
-    if (!ids) {
-      ids = new Map();
-      this.recordQueue.set(kind, ids);
-    }
-    ids.set(id, key);
-    if (this.flushScheduled) return;
-    this.flushScheduled = true;
-    queueMicrotask(() => {
-      this.flushScheduled = false;
-      const queue = this.recordQueue;
-      this.recordQueue = new Map();
-      for (const [queuedKind, queuedIds] of queue) void this.readRecords(queuedKind, queuedIds);
-    });
-  }
-
-  /** One `$in` query per kind (per chunk) over the ids asked this tick. */
-  private async readRecords(kind: string, ids: ReadonlyMap<string, string>): Promise<void> {
-    const mapping = RECIPIENT_RECORD_KINDS[kind];
-    const rowsById = new Map<string, Readonly<Record<string, unknown>>>();
-    let failed = !mapping;
-    if (mapping) {
-      try {
-        const all = [...ids.keys()];
-        for (let i = 0; i < all.length; i += ID_QUERY_CHUNK) {
-          const chunk = all.slice(i, i + ID_QUERY_CHUNK);
-          const res = await this.dataSource.find(mapping.object, {
-            $filter: { [mapping.storeField]: { $in: chunk } },
-            $top: chunk.length,
-          });
-          for (const row of extractRecords(res)) {
-            const stored = (row as Record<string, unknown> | null)?.[mapping.storeField];
-            if (stored != null) rowsById.set(String(stored), row as Readonly<Record<string, unknown>>);
-          }
-        }
-      } catch {
-        failed = true;
-      }
-    }
-    for (const [id, key] of ids) {
-      const row = failed ? undefined : rowsById.get(id);
-      this.entries.set(key, row ? Object.freeze({ state: 'record', row }) : UNRESOLVED);
-    }
-    this.publish();
-  }
 }
 
 const books = new WeakMap<DataSource, LabelBook>();
@@ -213,7 +156,7 @@ const books = new WeakMap<DataSource, LabelBook>();
 function bookFor(dataSource: DataSource): LabelBook {
   let book = books.get(dataSource);
   if (!book) {
-    book = new LabelBook(dataSource);
+    book = new LabelBook();
     books.set(dataSource, book);
   }
   return book;
@@ -302,17 +245,23 @@ export function useRecipientLabel(
   const record = RECIPIENT_RECORD_KINDS[kind];
   const registry = RECIPIENT_REGISTRY_KINDS[kind];
   const id = dependentValues && typeof value === 'string' ? value : '';
-  const key = !id
+  // A record kind is read through the shared reference store, keyed by the
+  // column its recipients are stored in; every other kind through the book.
+  const recordReadable = !!(id && record && typeof dataSource?.find === 'function');
+  const recordAnswers = useReferenceRecords(
+    recordReadable ? dataSource : null,
+    record?.object,
+    recordReadable ? [id] : [],
+    record?.storeField,
+  );
+  const key = !id || record
     ? ''
-    : record
-      ? typeof dataSource?.find === 'function' ? JSON.stringify(['record', kind, id]) : ''
-      : registry
+    : registry
         ? store.present ? JSON.stringify(['registry', registry.type, id]) : ''
         : kind === FIELD_RECIPIENT_TYPE && objectName && typeof dataSource?.getObjectSchema === 'function'
           ? JSON.stringify(['field', objectName, id])
           : '';
   const entry = useBookEntry(dataSource, key, (book) => {
-    if (record) return book.askRecord(kind, id, key);
     if (registry) {
       return book.ask(`registry:${registry.type}`, id, key, async () => {
         const items = (await store.ref.current?.ensureType(registry.type)) ?? [];
@@ -330,9 +279,14 @@ export function useRecipientLabel(
       return new Map(deriveUserFields(schema).map((f) => [f.name, { label: f.label }]));
     });
   });
-  if (entry.state !== 'record') return entry;
+  if (!record) return entry;
+  if (!recordReadable) return UNASKED;
+  const answer = pickReferenceRecord(recordAnswers, record.object, id, record.storeField);
+  if (!answer || answer.state === 'pending') return PENDING;
+  // A deleted record and a refused read both draw the raw stored value, muted.
+  if (answer.state !== 'readable') return UNRESOLVED;
   // Built at render, from the row with the fields this viewer may not read
   // removed, so a policy that loads after the row relabels the cell.
-  const shown = withoutDeniedFields(entry.row, perms, record?.object, record ? [record.storeField] : undefined);
-  return { state: 'resolved', label: recipientCandidateLabel(record?.labelFields, shown) };
+  const shown = withoutDeniedFields(answer.record, perms, record.object, [record.storeField]);
+  return { state: 'resolved', label: recipientCandidateLabel(record.labelFields, shown) };
 }

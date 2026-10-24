@@ -64,9 +64,12 @@ const titlesIn = (cell: HTMLElement) =>
 
 async function renderGrid(extraColumns: Array<Record<string, unknown>> = []) {
   const ds = {
-    find: vi.fn(async () => ({ data: ROWS, total: ROWS.length, hasMore: false, pageSize: 50 })),
-    findOne: vi.fn(async (objectName: string, id: string) =>
-      objectName === REFERENCED && id === READABLE.id ? READABLE : null,
+    find: vi.fn(async (objectName: string, params?: any) =>
+      objectName === REFERENCED
+        // The batched `$in` read the lookup cells make through the shared
+        // reference store: the readable row, nothing for the unreadable id.
+        ? { data: (params?.$filter?.id?.$in ?? []).includes(READABLE.id) ? [READABLE] : [] }
+        : { data: ROWS, total: ROWS.length, hasMore: false, pageSize: 50 },
     ),
     getObjectSchema: async (name: string) =>
       name === REFERENCED

@@ -58,7 +58,7 @@
  */
 
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { MetadataCtx, useAdapter } from '@object-ui/react';
+import { MetadataCtx, fetchReferenceRecords, useAdapter } from '@object-ui/react';
 import {
   APPROVER_DIRECTORY_BINDINGS,
   APPROVER_REGISTRY_TYPES,
@@ -121,18 +121,14 @@ async function resolveLabels(
 ): Promise<void> {
   const binding = APPROVER_DIRECTORY_BINDINGS[kind];
   if (!binding) return;
-  const rows = asArray(
-    await adapter.find(binding.object, {
-      $filter: { [binding.valueField]: { $in: values } },
-      $top: 200,
-    }),
-  );
-  for (const row of rows) {
-    const key = row?.[binding.valueField];
-    if (key == null) continue;
-    const label = rowLabel(row, binding.displayFields);
+  // Through the shared reference store: one `$in` read per object and value
+  // column, shared with every cell on the page that names the same records.
+  const answers = await fetchReferenceRecords(adapter, binding.object, values, binding.valueField);
+  for (const [key, answer] of answers) {
+    if (answer.state !== 'readable') continue;
+    const label = rowLabel(answer.record, binding.displayFields);
     if (!label) continue;
-    const ref = `${kind}:${String(key)}`;
+    const ref = `${kind}:${key}`;
     into.set(ref, { ...into.get(ref), label });
   }
 }
@@ -198,12 +194,13 @@ async function resolveStaffing(
   const allIds = [...new Set([...userIdsByPosition.values()].flat())];
   const nameById = new Map<string, string>();
   if (allIds.length > 0) {
-    const people = asArray(
-      await adapter.find(PERSON_OBJECT, { $filter: { id: { $in: allIds } }, $top: 500 }),
-    );
-    for (const p of people) {
-      if (p?.id == null) continue;
-      nameById.set(String(p.id), rowLabel(p, PERSON_DISPLAY_FIELDS) || String(p.id));
+    const people = await fetchReferenceRecords(adapter, PERSON_OBJECT, allIds);
+    for (const [id, answer] of people) {
+      // A refused read is not "nobody": the leg rejects, so `holders` stays
+      // unknown rather than listing raw ids (see `loadSlate`).
+      if (answer.state === 'failed') throw new Error(`${PERSON_OBJECT} read failed`);
+      if (answer.state !== 'readable') continue;
+      nameById.set(id, rowLabel(answer.record, PERSON_DISPLAY_FIELDS) || id);
     }
   }
 

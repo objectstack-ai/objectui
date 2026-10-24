@@ -12,6 +12,7 @@ export * from './hooks/index.js'; // will be empty for now
 export * from './context/index.js'; // will be empty for now
 export * from './LazyPluginLoader.js';
 export * from './data-invalidation.js';
+export * from './reference-records.js';
 // PageComponentSchema.dataSource — mapping the spec's per-element data binding
 // onto the schema keys each object-bound block reads (objectstack#6953).
 export * from './element-data-source/ElementDataSourceGate.js';

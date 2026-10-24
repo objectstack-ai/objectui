@@ -483,6 +483,41 @@ function Section({ collapsed, children }: { collapsed: boolean; children: ReactN
 }
 ```
 
+### Referenced records — `useReferenceRecords` / `fetchReferenceRecords`
+
+The one client-side reader of records a stored reference points at. Every
+surface that has to NAME a reference — lookup and user cells, pointer-pair
+cells, a related list's sort labels, a lookup picker's chip, the recipient and
+approver directories — reads through it, so a page of them costs **one `$in`
+read per referenced object**, never one `findOne` per row:
+
+```tsx
+import { useReferenceRecords, pickReferenceRecord } from '@object-ui/react';
+
+function OwnerName({ dataSource, ownerId }) {
+  const answers = useReferenceRecords(dataSource, 'sys_user', [ownerId]);
+  const answer = pickReferenceRecord(answers, 'sys_user', ownerId);
+  if (answer?.state === 'readable') return <>{String(answer.record.name)}</>;
+  if (answer?.state === 'absent') return <>Restricted record</>; // deleted or not visible
+  return <>{ownerId}</>; // pending, or the read failed
+}
+```
+
+- Keys asked in the same tick are merged per `(object, keyField)` into one
+  `find` with `{ $filter: { <keyField>: { $in } }, $top }`, chunked at
+  `MAX_KEYS_PER_READ`. `keyField` defaults to `id`; pass the stored column for a
+  reference kept by another field (e.g. a position's machine `name`).
+- Answers are `pending` · `readable` (the row) · `absent` (the read settled
+  without the row — deleted and hidden are one answer on purpose) · `failed`
+  (the read rejected). The row is cached, never a label: build labels per
+  render with the viewer's field policy.
+- Answers are cached per data source object and staled by the
+  data-invalidation bus: after `notifyDataChanged({ objectName, recordId? })`
+  a mounted reader re-reads the stale keys in place.
+- `useReferenceRecordSets` asks several objects at once, `fetchReferenceRecords`
+  is the promise form for effects, and `useReferenceObjectDef` /
+  `fetchReferenceObjectDef` read an object's definition once per data source.
+
 ### RelatedRecordActionsProvider / useRelatedRecordActions
 
 The host's navigation seam for low-level renderers that have no router. The

@@ -29,7 +29,7 @@ import {
   resolveIcon,
   useIsMobile,
 } from '@object-ui/components';
-import { SchemaRenderer, useCapabilityGate, useCondition, toPredicateInput, useSettledSchema, useFilterScope, useResolvedFilter, usePredicateScope, type RelatedRowActionDef } from '@object-ui/react';
+import { SchemaRenderer, useCapabilityGate, useCondition, toPredicateInput, useSettledSchema, useFilterScope, useResolvedFilter, usePredicateScope, useReferenceRecordSets, pickReferenceRecord, readReferenceObjectDef, fetchReferenceObjectDef, type RelatedRowActionDef } from '@object-ui/react';
 import {
   Plus,
   ExternalLink,
@@ -586,8 +586,6 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   const [addBusy, setAddBusy] = React.useState(false);
   const [addError, setAddError] = React.useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = React.useState(0);
-  // Per-lookup-field cache of resolved labels: fieldName -> Map<id, label>
-  const [lookupLabels, setLookupLabels] = React.useState<Record<string, Record<string, string>>>({});
   const { t } = useDetailTranslation();
   const { fieldLabel: resolveFieldLabel } = useSafeFieldLabel();
   /**
@@ -1250,13 +1248,15 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     return () => window.removeEventListener('objectui:related-changed', onChanged as EventListener);
   }, [api, dataProvided]);
 
-  // Resolve reference-field display labels by batch-fetching referenced
-  // records. For each reference-bearing column whose data is a primitive ID,
-  // gather unique IDs and fetch them in one round trip per target object. The
-  // resulting id → name map is exposed via `options` on the field meta so
-  // the existing LookupCellRenderer renders a friendly label instead of the
-  // raw ID; a `user` column has no `options` reader, so `makeCell` folds the
-  // resolved name into the VALUE it hands that cell instead.
+  // Resolve reference-field display labels from the referenced records. For
+  // each reference-bearing column whose data is a primitive ID, every id goes
+  // to `@object-ui/react`'s shared reference store, which reads them with one
+  // `$in` per target object — the SAME read, and the same cache, the cells of
+  // this list use for their own names, so resolving the labels here costs no
+  // request of its own. The resulting id → name map is exposed via `options`
+  // on the field meta so `LookupCellRenderer` renders a friendly label, folded
+  // into the VALUE a `user` cell gets (it has no `options` reader), and read by
+  // the client-side sort below.
   //
   // [objectui#10112] The membership test is the canonical reference-bearing
   // family, not a private `lookup`/`master_detail` disjunction. That
@@ -1266,79 +1266,56 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   // is the FALLBACK half: the auto-fetch above now asks the server to expand
   // the same family, so this path runs for data a CALLER supplied, and for a
   // backend that does not honour `$expand`.
-  React.useEffect(() => {
-    if (!dataSource?.find || !objectSchema?.fields || !relatedData.length) return;
-    const fields = objectSchema.fields as Record<string, any>;
-    const tasks: Array<{ fieldName: string; target: string; ids: string[] }> = [];
-    for (const [fieldName, def] of Object.entries(fields)) {
+  const referenceRequests: Array<{ fieldName: string; objectName: string; values: string[] }> = [];
+  if (objectSchema?.fields && relatedData.length) {
+    for (const [fieldName, def] of Object.entries(objectSchema.fields as Record<string, any>)) {
       if (!isExpandableFieldType(def)) continue;
       // objectui#6837 half 2 — maintainer 2026-08-31: protocol normalization
       // belongs on the SERVER, the front end just executes the protocol.
       // `reference` is the only target spelling `@objectstack/spec`'s
-      // `FieldSchema` declares; it refuses `reference_to` by name with its own
-      // "did you mean -> `reference`?" rename. objectstack#13847 rewrites
-      // stored `reference_to` on the serve path and in `os migrate meta`. A
-      // legacy-only def is canonicalised ONCE at the ingestion choke point
-      // (`normalizeSchemaReferenceKeys`, which warns in dev) — never here.
+      // `FieldSchema` declares; a legacy-only def is canonicalised ONCE at the
+      // ingestion choke point (`normalizeSchemaReferenceKeys`) — never here.
       const target = def.reference;
       if (!target) continue;
       const ids = new Set<string>();
       for (const row of relatedData) {
         const v = row?.[fieldName];
-        if (v == null) continue;
         if (typeof v === 'string' && v) ids.add(v);
         else if (typeof v === 'number') ids.add(String(v));
       }
-      // Skip ids already cached
-      const cached = lookupLabels[fieldName] || {};
-      const missing = Array.from(ids).filter((id) => !(id in cached));
-      if (missing.length > 0) tasks.push({ fieldName, target, ids: missing });
+      if (ids.size > 0) referenceRequests.push({ fieldName, objectName: target, values: Array.from(ids) });
     }
-    if (tasks.length === 0) return;
-    let cancelled = false;
-    Promise.all(
-      tasks.map(({ fieldName, target, ids }) =>
-        Promise.all([
-          dataSource.find(target, { $filter: { id: { $in: ids } }, $top: ids.length }),
-          // Target object's schema (nameField / titleFormat) so the batch map
-          // resolves display names through the same ADR-0079 resolver as the
-          // cell's own fetch — see resolveRelatedLookupLabel (objectui#3330).
-          typeof dataSource.getObjectSchema === 'function'
-            ? dataSource.getObjectSchema(target).catch(() => undefined)
-            : Promise.resolve(undefined),
-        ])
-          .then(([res, refSchema]: [any, any]) => {
-            const records: any[] = Array.isArray(res) ? res : res?.data || [];
-            const map: Record<string, string> = {};
-            for (const r of records) {
-              const id = r?.id || r?._id;
-              if (!id) continue;
-              map[String(id)] = resolveRelatedLookupLabel(r, refSchema) ?? String(id);
-            }
-            return { fieldName, map };
-          })
-          .catch((err: unknown) => {
-            console.warn(`[RelatedList] Failed to resolve lookups for ${fieldName}:`, err);
-            return { fieldName, map: {} as Record<string, string> };
-          }),
-      ),
-    ).then((results) => {
-      if (cancelled) return;
-      setLookupLabels((prev) => {
-        const next = { ...prev };
-        for (const { fieldName, map } of results) {
-          next[fieldName] = { ...(next[fieldName] || {}), ...map };
-        }
-        return next;
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-    // Intentionally exclude `lookupLabels` from deps: we add to the cache and
-    // would otherwise loop. We dedupe via the `missing` check.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataSource, objectSchema, relatedData]);
+  }
+  const referenceAnswers = useReferenceRecordSets(dataSource, referenceRequests);
+  // The target objects' schemas (nameField / titleFormat), so the map resolves
+  // display names through the same ADR-0079 resolver as the cell's own read —
+  // see resolveRelatedLookupLabel (objectui#3330). Read once per data source by
+  // the same store; its settle re-renders this list through the hook above.
+  const referenceTargetsKey = Array.from(new Set(referenceRequests.map((r) => r.objectName))).sort().join(',');
+  React.useEffect(() => {
+    if (!referenceTargetsKey) return;
+    for (const target of referenceTargetsKey.split(',')) void fetchReferenceObjectDef(dataSource, target);
+  }, [dataSource, referenceTargetsKey]);
+  const lookupLabelsContent: Record<string, Record<string, string>> = {};
+  for (const { fieldName, objectName: target, values } of referenceRequests) {
+    const def = readReferenceObjectDef(dataSource, target);
+    // Wait for the schema to settle so a label never flips from a heuristic
+    // name to the declared one.
+    if (def.state === 'pending') continue;
+    const refSchema = def.state === 'ok' ? def.def : undefined;
+    const map: Record<string, string> = {};
+    for (const id of values) {
+      const answer = pickReferenceRecord(referenceAnswers, target, id);
+      if (answer?.state === 'readable') map[id] = resolveRelatedLookupLabel(answer.record, refSchema) ?? id;
+    }
+    if (Object.keys(map).length > 0) lookupLabelsContent[fieldName] = map;
+  }
+  // Held by CONTENT, so the column and sort memos below re-run only when a
+  // label actually changes, never on the fresh object this render built
+  // (AGENTS.md #10).
+  const lookupLabelsKey = JSON.stringify(lookupLabelsContent);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const lookupLabels = React.useMemo(() => lookupLabelsContent, [lookupLabelsKey]);
 
   // Confirm-delete dialog state. Replaces window.confirm() so the related
   // list matches the rest of the app's Shadcn AlertDialog UX.

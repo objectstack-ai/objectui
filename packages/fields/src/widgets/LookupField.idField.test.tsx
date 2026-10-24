@@ -40,15 +40,15 @@ describe('LookupField — idField hydration (#3508)', () => {
     // would 404; hydration must go through $filter on the committed field.
     expect(findOne).not.toHaveBeenCalled();
     const hydration = find.mock.calls.find(
-      (c) => (c as unknown[])[1] && ((c as never[])[1] as { $filter?: Record<string, unknown> }).$filter?.name === 'sales_manager',
+      (c) => JSON.stringify(((c as never[])[1] as { $filter?: unknown })?.$filter) === JSON.stringify({ name: { $in: ['sales_manager'] } }),
     );
     expect(hydration).toBeTruthy();
   });
 
-  it('keeps findOne hydration for the default primary-id lookup', async () => {
-    const find = vi.fn(async () => ({ data: [] }));
+  it('the default primary-id lookup hydrates through the shared batched read, never a per-id findOne', async () => {
+    const find = vi.fn(async () => ({ data: [{ id: 'u1', name: 'Ada' }] }));
     const findOne = vi.fn(async () => ({ id: 'u1', name: 'Ada' }));
-    render(
+    const { findByText } = render(
       <LookupField
         value="u1"
         onChange={() => {}}
@@ -56,6 +56,8 @@ describe('LookupField — idField hydration (#3508)', () => {
         field={{ reference: 'sys_user', multiple: false } as never}
       />,
     );
-    await waitFor(() => expect(findOne).toHaveBeenCalledWith('sys_user', 'u1'));
+    expect(await findByText('Ada')).toBeTruthy();
+    expect(find).toHaveBeenCalledWith('sys_user', { $filter: { id: { $in: ['u1'] } }, $top: 1 });
+    expect(findOne).not.toHaveBeenCalled();
   });
 });

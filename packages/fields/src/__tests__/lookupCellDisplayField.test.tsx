@@ -6,7 +6,8 @@
  * first — so a target object whose displayNameField is a localized/label
  * field still rendered the raw API `name`.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { findByIds } from './findByIds';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
@@ -18,7 +19,7 @@ const ID_A = '01ARZ3NDEKTSV4RRFFQ69G5FAA';
 const ID_B = '01ARZ3NDEKTSV4RRFFQ69G5FAB';
 
 function makeDataSource() {
-  const findOne = vi.fn(async (object: string, id: string) => {
+  const find = findByIds((object, id) => {
     if (object === 'showcase_category') {
       // Record carries BOTH the raw API name and a localized label field.
       if (id === ID_A) return { id, name: 'cat_hardware', label_zh: '硬件' };
@@ -26,7 +27,7 @@ function makeDataSource() {
     }
     return null;
   });
-  return { findOne, find: vi.fn() } as any;
+  return { find } as any;
 }
 
 describe('LookupCellRenderer — displayField resolution', () => {
@@ -72,7 +73,7 @@ describe('LookupCellRenderer — displayField resolution', () => {
       </SchemaRendererProvider>,
     );
     expect(screen.getByText('硬件')).toBeInTheDocument();
-    expect(ds.findOne).not.toHaveBeenCalled();
+    expect(ds.find).not.toHaveBeenCalled();
   });
 
   it('does not serve a cached heuristic name to a displayField column (cache key isolation)', async () => {

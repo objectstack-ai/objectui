@@ -100,6 +100,11 @@ function makeBackend({
   const related: Record<string, Record<string, unknown>> = { task: tasks, owner: users };
 
   const find = vi.fn(async (objectName: string, params?: Record<string, any>) => {
+    if (objectName === 'task') {
+      // The batched referenced-record read the cells make for a bare key.
+      const keys: unknown[] = params?.$filter?.id?.$in ?? [];
+      return { data: keys.map((k) => tasks[String(k)]).filter(Boolean) };
+    }
     if (objectName !== 'task_version') return { data: [], total: 0 };
     const expand: string[] = honoursExpand && Array.isArray(params?.$expand) ? params!.$expand : [];
     const skip = Number(params?.$skip ?? 0);

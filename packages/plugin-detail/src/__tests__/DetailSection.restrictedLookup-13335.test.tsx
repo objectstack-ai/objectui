@@ -8,7 +8,7 @@
 
 /**
  * objectui#13335 on the RECORD PAGE: a lookup whose record the viewer may not
- * read (its GET answers 404, so `findOne` answers `null`) printed the raw id
+ * read (its GET answers 404; the batched read leaves its row out) printed the raw id
  * beside a question mark. Driven through the real `DetailSection`, so the pin
  * stays red if the record page stops reaching the shared lookup renderer.
  * The readable sibling in the same section is the control.
@@ -32,8 +32,11 @@ beforeAll(() => {
 describe('objectui#13335 — DetailSection: an unreadable lookup reads "Restricted record"', () => {
   it('the unreadable reference shows the label with no id; the readable one keeps its name', async () => {
     const ds = {
-      findOne: vi.fn(async (_o: string, id: string) => (id === READABLE.id ? READABLE : null)),
-      find: vi.fn(),
+      // The batched `$in` read the lookup cell makes through the shared
+      // reference store: the readable row, and nothing for the unreadable id.
+      find: vi.fn(async (_o: string, params: any) => ({
+        data: (params?.$filter?.id?.$in ?? []).includes(READABLE.id) ? [READABLE] : [],
+      })),
     } as any;
     const objectSchema = {
       fields: {

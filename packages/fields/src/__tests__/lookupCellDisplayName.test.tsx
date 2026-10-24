@@ -13,6 +13,7 @@
  * key heuristic only as the no-schema fallback.
  */
 import { describe, it, expect, vi } from 'vitest';
+import { findByIds } from './findByIds';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
@@ -26,10 +27,7 @@ const EXPANDED = { id: 'rec1', req_number: '0001', req_name: 'Annual Maintenance
 
 function makeDataSource(objectName: string, schema: any, record?: any) {
   return {
-    find: vi.fn(),
-    findOne: vi.fn(async (object: string, id: string) =>
-      object === objectName && record && id === record.id ? record : null,
-    ),
+    find: findByIds((object, id) => (object === objectName && record && id === record.id ? record : null)),
     getObjectSchema: vi.fn(async (object: string) =>
       object === objectName ? schema : null,
     ),

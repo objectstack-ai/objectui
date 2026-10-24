@@ -180,6 +180,33 @@ Data-aware plugins may also use optional methods such as `batchTransaction`, `bu
 
 `listMetadataItems(type)` lists one metadata registry type as `{ name, label }` headers, for the `position-ref` / `permission-ref` field widgets (see the [Fields guide](./fields.md)). An empty array means the registry has no item of that type, so a failed load must **reject**, never resolve `[]`.
 
+### How referenced records are read
+
+A reference field (`lookup`, `master_detail`, `tree`, `user`) stores a key of
+another object. List surfaces ask the server to resolve it in the row read with
+`$expand`; when a row still arrives with a bare key — a caller-supplied
+dataset, a backend that does not expand, or an expansion the server refused
+because the viewer cannot read the target — the cells resolve it on the client.
+
+They never read one record per cell. Every reference cell, pointer-pair cell,
+related-list label map, lookup chip and directory reads through one shared
+store in `@object-ui/react` (`useReferenceRecords`), which merges every key
+asked in the same tick into **one `find` per referenced object**:
+
+```typescript
+await dataSource.find('sys_user', {
+  $filter: { id: { $in: ['u1', 'u2', 'u3' /* …every key on the page */] } },
+  $top: 3,
+});
+```
+
+So an adapter needs nothing beyond `find` with an `$in` filter for this path,
+and a 25-row page with an unexpanded `user_id` column costs one request, not
+25. A key the answer leaves out is drawn as a restricted record (deleted and not
+visible are one answer); a rejected read leaves the raw key with an unresolved
+marker. Answers are cached per data source and refreshed by the
+data-invalidation bus (`notifyDataChanged`) after a write.
+
 ### Cross-object atomic writes (`batchTransaction`)
 
 Master-detail saves (a parent record plus its child line items) go through

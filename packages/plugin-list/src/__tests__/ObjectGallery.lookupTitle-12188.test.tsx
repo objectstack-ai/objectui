@@ -81,15 +81,21 @@ const userDef = {
   fields: { name: { type: 'text', label: 'Name' }, email: { type: 'email', label: 'Email' } },
 };
 
-/** The referenced users the id-shaped arm resolves through the lookup cell's own fetch. */
+/** The referenced users the id-shaped arm resolves through the lookup cell's batched read. */
 const users: Record<string, Record<string, unknown>> = {
   u_id_shape: { id: 'u_id_shape', name: 'Ada Lovelace', email: 'ada@example.com' },
 };
 
 function makeDataSource(opts: { rows?: Record<string, unknown>[]; noSchema?: boolean } = {}) {
   return {
-    find: vi.fn(async (_object: string) => opts.rows ?? []),
-    findOne: vi.fn(async (_object: string, id: unknown) => users[String(id)]),
+    find: vi.fn(async (_object: string, params?: any) => {
+      // The batched referenced-record read the lookup cell makes through the
+      // shared reference store, answered by id.
+      const ids = params?.$filter?.id?.$in;
+      if (Array.isArray(ids)) return { data: ids.map((id: unknown) => users[String(id)]).filter(Boolean) };
+      return opts.rows ?? [];
+    }),
+    findOne: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -157,10 +163,11 @@ describe('objectui#12188 — a lookup title field on a gallery card draws the re
       ds,
     );
 
-    // Resolved by `LookupCellRenderer`'s fetch-on-demand, the same answer the
+    // Resolved by `LookupCellRenderer`'s batched read, the same answer the
     // grid's lookup cell gives — not a raw id printed as if it were a name.
     await waitFor(() => expect(headings()[0].textContent).toBe('Ada Lovelace'));
-    expect(ds.findOne).toHaveBeenCalledWith('sys_user', 'u_id_shape');
+    expect(ds.find).toHaveBeenCalledWith('sys_user', { $filter: { id: { $in: ['u_id_shape'] } }, $top: 1 });
+    expect(ds.findOne).not.toHaveBeenCalled();
     expect(container.textContent).not.toContain(OBJECT_DEF_LITERAL);
   });
 

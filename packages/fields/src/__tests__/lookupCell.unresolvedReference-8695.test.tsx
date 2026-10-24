@@ -53,7 +53,7 @@
  * as objectui#8434 ruled, and `THE SENTENCE` below pins that.
  *
  * ⚠️ Since objectui#13335 one of the six no longer reaches this arm: a read
- * that SETTLED with no record (`findOne` → `null`, a 404 for this reader) now
+ * that SETTLED with no record (the batched read left the row out — a 404 for this reader) now
  * draws "Restricted record" instead — still fused, deliberately, over "cannot
  * read" and "does not exist". The other five keep this affordance, and
  * `lookupCell.restrictedRecord-13335.test.tsx` pins the boundary between them.
@@ -68,6 +68,7 @@
 
 import React from 'react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
+import { findByIds } from './findByIds';
 import { render, cleanup, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { en } from '@object-ui/i18n';
@@ -282,10 +283,10 @@ describe('objectui#8695 — POSITIVE CONTROLS: a resolved reference is untouched
   });
 
   it('the fetch-on-demand resolver names it, and the affordance goes away', async () => {
-    const findOne = vi.fn(async (_o: string, id: string) => ({ id, name: 'Globex' }));
+    const find = findByIds((_o, id) => ({ id, name: 'Globex' }));
     const Renderer = getCellRenderer('lookup');
     const { container } = render(
-      <SchemaRendererProvider dataSource={{ findOne, find: vi.fn() } as any}>
+      <SchemaRendererProvider dataSource={{ find } as any}>
         <Renderer
           value={'01ARZ3NDEKTSV4RRFFQ69G5FAV' as any}
           field={{ type: 'lookup', name: 'account', reference: 'account' } as any}

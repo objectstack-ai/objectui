@@ -39,6 +39,7 @@
 
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { findByIds } from './findByIds';
 import { render, screen, cleanup, waitFor, act, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { SchemaRendererProvider } from '@object-ui/react';
@@ -64,14 +65,11 @@ function stripped<T extends Record<string, unknown>>(row: T, ...denied: string[]
 
 /**
  * A backend that does NOT strip denied keys — the case this gate defends.
- * `findOne` serves `records` by id; `getObjectSchema` serves `schema`.
+ * The batched `find` serves `records` by id; `getObjectSchema` serves `schema`.
  */
 function makeDataSource(objectName: string, schema: Record<string, unknown>, records: Record<string, unknown>[] = []) {
   return {
-    find: vi.fn(async () => ({ data: [] })),
-    findOne: vi.fn(async (object: string, id: string) =>
-      object === objectName ? records.find((r) => r.id === id) ?? null : null,
-    ),
+    find: findByIds((object, id) => (object === objectName ? records.find((r) => r.id === id) ?? null : null)),
     getObjectSchema: vi.fn(async (object: string) => (object === objectName ? schema : undefined)),
   };
 }
@@ -178,7 +176,7 @@ describe('LookupCellRenderer — the referenced record is named from the fields 
 
     await waitFor(() => expect(screen.getByTestId('cell')).toHaveTextContent('Ada Lovelace'));
     await settle();
-    expect(ds.findOne).toHaveBeenCalledWith('rg_person_fetch', 'p1');
+    expect(ds.find).toHaveBeenCalledWith('rg_person_fetch', { $filter: { id: { $in: ['p1'] } }, $top: 1 });
     expect(screen.getByTestId('cell').innerHTML).not.toContain('ada@example.com');
   });
 
@@ -265,7 +263,7 @@ describe('LookupCellRenderer — the referenced record is named from the fields 
       const ds = makeDataSource('rg_person_late_fetch', { titleFormat: '{email}' }, PEOPLE);
       await relabels(ds, 'rg_person_late_fetch', 'p1');
       // Relabelling re-reads the policy, not the backend.
-      expect(ds.findOne).toHaveBeenCalledTimes(1);
+      expect(ds.find).toHaveBeenCalledTimes(1);
     });
   });
 });

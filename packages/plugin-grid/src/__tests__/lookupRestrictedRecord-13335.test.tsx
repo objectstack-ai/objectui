@@ -8,7 +8,7 @@
 
 /**
  * objectui#13335 in the GRID: a lookup cell whose record the viewer may not
- * read (its GET answers 404, so `findOne` answers `null`) printed the raw id
+ * read (its GET answers 404; the batched read leaves its row out) printed the raw id
  * beside a question mark. Driven through the real `ObjectGrid`; the second
  * row's readable reference is the control.
  */
@@ -41,9 +41,12 @@ beforeAll(() => {
 describe('objectui#13335 — ObjectGrid: an unreadable lookup cell reads "Restricted record"', () => {
   it('the unreadable cell shows the label with no id; the readable cell keeps its name', async () => {
     const ds = {
-      find: vi.fn(async () => ({ data: ROWS, total: ROWS.length, hasMore: false, pageSize: 50 })),
-      findOne: vi.fn(async (objectName: string, id: string) =>
-        objectName === REFERENCED && id === READABLE.id ? READABLE : null,
+      find: vi.fn(async (objectName: string, params?: any) =>
+        objectName === REFERENCED
+          // The batched `$in` read the lookup cells make through the shared
+          // reference store: the readable row, nothing for the unreadable id.
+          ? { data: (params?.$filter?.id?.$in ?? []).includes(READABLE.id) ? [READABLE] : [] }
+          : { data: ROWS, total: ROWS.length, hasMore: false, pageSize: 50 },
       ),
       getObjectSchema: async (name: string) =>
         name === REFERENCED

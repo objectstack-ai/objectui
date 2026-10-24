@@ -136,7 +136,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, isAbsolute, join, relative } from 'node:path';
 
 import {
   FALSE_VERDICTS,
@@ -467,8 +467,26 @@ function scannable(relPath) {
   return true;
 }
 
+/**
+ * The tree this gate reads. Its subject is the REPOSITORY AT THE CWD -- `git
+ * rev-parse --show-toplevel`, so a run from any subdirectory works and the
+ * self-test can drive the gate against a scratch repository -- narrowed to the
+ * objectui tree (`scripts/ui-root.mjs`) when that tree lies inside it.
+ * Standalone the two coincide. Under the objectstack monorepo (objectui as
+ * `ui/`) the toplevel is the objectstack root and the narrowing is what
+ * `--relative` in `changedPaths` and `rev:./path` in `blobAt` rest on. In a
+ * scratch repository the objectui tree is OUTSIDE it, so the toplevel is read.
+ */
+export function gateRoot(cwd = process.cwd()) {
+  const top = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' }).trim();
+  const ui = uiRoot();
+  const below = relative(top, ui);
+  const inside = below === '' || (!below.startsWith('..') && !isAbsolute(below));
+  return inside ? ui : top;
+}
+
 function main(argv, env = process.env) {
-  const root = uiRoot();
+  const root = gateRoot();
   const head = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
     cwd: root,
     encoding: 'utf8',

@@ -86,6 +86,10 @@ export const ALLOWLIST = new Map([
     'scripts/objectstack-pin.mjs',
     'packs the pin from an objectstack tree and refuses one with no pnpm-workspace.yaml -- a probe of THAT tree, not of this root; the file itself is deleted at cutover',
   ],
+  [
+    'scripts/check-new-cross-file-line-citations.mjs',
+    "the gate's subject is the REPOSITORY AT THE CWD (its self-test drives it against a scratch repository), so `gateRoot()` reads the toplevel and narrows to `uiRoot()` only when the objectui tree lies inside it -- a probe of THAT repository, not a lookup of this root",
+  ],
   ['packages/cli/src/utils/app-generator.ts', "asks whether the USER's cwd is a pnpm workspace to choose the scaffold shape -- product behaviour, not a repo-root lookup"],
   ['packages/cli/src/utils/workspace-vite.ts', "asks whether the USER's cwd is a pnpm workspace before reading its globs -- product behaviour, not a repo-root lookup"],
   ['packages/cli/src/__tests__/app-generator.test.ts', 'mirrors the generator\'s own cwd predicate to compute the expected scaffold shape'],

@@ -21,6 +21,7 @@ import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, renderHook, screen } from '@testing-library/react';
 import { ChatbotEnhanced } from '../ChatbotEnhanced';
+import { toRuntimeMessages } from '../chatMessageAdapter';
 import { useObjectChat, type UseObjectChatOptions } from '../useObjectChat';
 
 vi.mock('@ai-sdk/react', () => ({
@@ -72,7 +73,7 @@ describe('a re-hydrated stored message keeps its chart order (objectui#13492)', 
   it('and the bubble renders the chart above the analysis', async () => {
     const { result } = renderHook(() => useObjectChat({ api: API, conversationId: 'c1', initialMessages: STORED }));
     const { container } = render(
-      <ChatbotEnhanced placeholder="Ask…" onSendMessage={vi.fn()} messages={result.current.messages} />,
+      <ChatbotEnhanced placeholder="Ask…" onSendMessage={vi.fn()} messages={toRuntimeMessages(result.current.messages)} />,
     );
     await screen.findByText('Most customers are healthy.');
     const chart = container.querySelector('[data-testid="chat-chart"]')!;

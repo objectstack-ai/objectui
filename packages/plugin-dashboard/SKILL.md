@@ -1,3 +1,12 @@
+---
+name: plugin-dashboard
+description: Skill notes for @object-ui/plugin-dashboard, the server-driven dashboard renderer — repo-internal package notes, not part of the published skills catalog.
+metadata:
+  # Hides this file from `npx skills add` discovery: every SKILL.md outside the
+  # published `skills/` catalog carries this marker.
+  internal: true
+---
+
 # @object-ui/plugin-dashboard — Skill notes
 
 Server-driven dashboard renderer. Consumes `DashboardSchema` (from

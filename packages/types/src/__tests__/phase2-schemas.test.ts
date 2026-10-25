@@ -583,10 +583,10 @@ describe('Phase 2: Enhanced ActionSchema Zod Validation', () => {
       label: 'Submit',
       actionType: 'ajax',
       api: '/api/submit',
-      timeout: 30000,
+      timeoutMs: 30000,
       retry: {
         maxAttempts: 3,
-        delay: 1000,
+        delayMs: 1000,
       },
     };
 

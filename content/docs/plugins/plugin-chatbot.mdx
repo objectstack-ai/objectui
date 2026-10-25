@@ -98,7 +98,7 @@ const schema: ChatbotSchema = {
   maxHeight?: string,
   autoResponse?: boolean,
   autoResponseText?: string,
-  autoResponseDelay?: number,
+  autoResponseDelayMs?: number,
   onSend?: (content: string, messages: ObjectChatMessage[]) => void,
   className?: string,
   // AI / service-ai integration fields
@@ -179,7 +179,7 @@ to apply. They are documented in their own table after this one, under
 | `maxHeight` | string | `'500px'` | **`chatbot` and `chatbot-enhanced` only** (declared on `ChatbotSchema` and `ChatbotEnhancedSchema`; `ChatbotFloatingSchema` does not declare it). Maximum height of the chat message container, as a CSS length. `chatbot-floating` does not read it: its panel is sized by `floatingConfig.panelHeight` (a **number** of pixels, default `520`), and the panel pins its inner chat to `maxHeight: '100%'` so it fills that panel - a `maxHeight` authored on a floating node would be overridden even if it were forwarded. Size a floating chatbot with `floatingConfig.panelHeight` instead |
 | `autoResponse` | boolean | `false` | Enable auto-response (demo mode, ignored when `api` is set) |
 | `autoResponseText` | string | - | Text for auto-response |
-| `autoResponseDelay` | number | `1000` | Delay before auto-response (ms) |
+| `autoResponseDelayMs` | number | `1000` | Delay before auto-response, in milliseconds (renamed from `autoResponseDelay`, which is now refused with a message naming this key) |
 | `onSend` | function | - | Callback when message is sent |
 | `className` | string | `''` | Additional Tailwind CSS classes |
 | `api` | string | - | Backend SSE endpoint (e.g., `/api/v1/ai/chat`). Enables AI streaming mode |
@@ -329,7 +329,7 @@ const schema: ChatbotSchema = {
   messages: [], // seed with your own ChatMessage values
   autoResponse: true,
   autoResponseText: 'Thanks!',
-  autoResponseDelay: 1000,
+  autoResponseDelayMs: 1000,
 };
 ```
 
@@ -410,7 +410,8 @@ The AI build conversation's two cards draw only what the build agent's tool
 results declare. The plan card (`propose_blueprint`) reads the result's
 `planCard`: a chip per field with the format its sample data is held to, a
 dashed chip for a field the agent added on its own, the record's name field,
-one line per view, the assumptions, and the sample data the build will stage.
+one line per view, the assumptions, the sample data the build will stage, and
+how the build will land (`posture`: live at once, or saved as a draft).
 The result card (`apply_blueprint`, then a later `verify_build` in the same
 turn) reads `checklist`: a passed/total chip, the verified lines in two
 columns, and the app and package that "Open app" and "View in Studio" open.
@@ -553,7 +554,7 @@ const salesBot: ChatbotSchema = {
   userAvatarFallback: 'You',
   autoResponse: true,
   autoResponseText: 'Great choice! Let me show you some options...',
-  autoResponseDelay: 1200,
+  autoResponseDelayMs: 1200,
   maxHeight: '500px',
   className: 'border-2 border-primary rounded-xl'
 };

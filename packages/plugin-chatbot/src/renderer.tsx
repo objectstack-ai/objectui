@@ -29,7 +29,7 @@ import { toRuntimeMessages } from './chatMessageAdapter';
  * 
  * **Legacy Mode** (when `api` is not set):
  * - Local auto-response for demo/playground use
- * - Schema fields: autoResponse, autoResponseText, autoResponseDelay
+ * - Schema fields: autoResponse, autoResponseText, autoResponseDelayMs
  * 
  * Both modes support the `onSend` callback:
  * - Signature: `onSend(content: string, messages: ObjectChatMessage[]): void`
@@ -93,7 +93,7 @@ ComponentRegistry.register('chatbot',
       showTimestamp: schema.showTimestamp,
       autoResponse: schema.autoResponse,
       autoResponseText: schema.autoResponseText,
-      autoResponseDelay: schema.autoResponseDelay,
+      autoResponseDelay: schema.autoResponseDelayMs,
       onSend: schema.onSend,
     });
 
@@ -214,7 +214,7 @@ ComponentRegistry.register('chatbot',
         name: 'autoResponseText', 
         type: 'string'      },
       { 
-        name: 'autoResponseDelay', 
+        name: 'autoResponseDelayMs', 
         type: 'number'      },
       { 
         name: 'className', 
@@ -236,7 +236,7 @@ ComponentRegistry.register('chatbot',
       maxHeight: '500px',
       autoResponse: true,
       autoResponseText: 'Thank you for your message! This is an automated response.',
-      autoResponseDelay: 1000,
+      autoResponseDelayMs: 1000,
       className: 'w-full max-w-2xl'
     }
   }
@@ -281,7 +281,7 @@ ComponentRegistry.register('chatbot-enhanced',
       showTimestamp: schema.showTimestamp,
       autoResponse: schema.autoResponse,
       autoResponseText: schema.autoResponseText,
-      autoResponseDelay: schema.autoResponseDelay,
+      autoResponseDelay: schema.autoResponseDelayMs,
       onSend: schema.onSend,
     });
 
@@ -352,7 +352,7 @@ ComponentRegistry.register('chatbot-enhanced',
       { name: 'streamingEnabled', type: 'boolean' },
       { name: 'autoResponse', type: 'boolean' },
       { name: 'autoResponseText', type: 'string' },
-      { name: 'autoResponseDelay', type: 'number' },
+      { name: 'autoResponseDelayMs', type: 'number' },
       { name: 'className', type: 'string' }
     ],
     defaultProps: {
@@ -373,7 +373,7 @@ ComponentRegistry.register('chatbot-enhanced',
       maxHeight: '500px',
       autoResponse: true,
       autoResponseText: 'Thank you for your message! This is an automated response.',
-      autoResponseDelay: 1000,
+      autoResponseDelayMs: 1000,
       className: 'w-full max-w-2xl'
     }
   }
@@ -418,7 +418,7 @@ ComponentRegistry.register('chatbot-floating',
       showTimestamp: schema.showTimestamp,
       autoResponse: schema.autoResponse,
       autoResponseText: schema.autoResponseText,
-      autoResponseDelay: schema.autoResponseDelay,
+      autoResponseDelay: schema.autoResponseDelayMs,
       onSend: schema.onSend,
     });
 
@@ -504,7 +504,7 @@ ComponentRegistry.register('chatbot-floating',
       { name: 'streamingEnabled', type: 'boolean' },
       { name: 'autoResponse', type: 'boolean' },
       { name: 'autoResponseText', type: 'string' },
-      { name: 'autoResponseDelay', type: 'number' },
+      { name: 'autoResponseDelayMs', type: 'number' },
       { name: 'className', type: 'string' },
     ],
     defaultProps: {
@@ -528,7 +528,7 @@ ComponentRegistry.register('chatbot-floating',
       enableFileUpload: false,
       autoResponse: true,
       autoResponseText: 'Thank you for your message! This is an automated response.',
-      autoResponseDelay: 1000,
+      autoResponseDelayMs: 1000,
     }
   }
 );

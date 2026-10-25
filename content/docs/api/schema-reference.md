@@ -667,7 +667,7 @@ A powerful action definition supporting API calls, confirmations, dialogs, chain
   "condition": "${data.items.length > 0}",
   "retry": {
     "maxAttempts": 3,
-    "delay": 1000
+    "delayMs": 1000
   }
 }
 ```
@@ -689,7 +689,7 @@ A powerful action definition supporting API calls, confirmations, dialogs, chain
 | `successMessage` / `errorMessage` | `string` | Toast messages on success/failure. |
 | `reload` | `boolean` | Reload data after action completes. |
 | `redirect` | `string` | URL to navigate to after action. |
-| `retry` | `object` | Retry config with `maxAttempts` and `delay`. |
+| `retry` | `object` | Retry config with `maxAttempts` and `delayMs` (milliseconds; renamed from `delay`, objectstack#25762). |
 
 **Related:** [DetailSchema](#detailschema), [ButtonSchema](#buttonschema)
 

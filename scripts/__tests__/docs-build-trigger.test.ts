@@ -296,7 +296,7 @@ const fixtures: Record<string, string[]> = {
   'site only': [`${SITE_DIR}/app/page.tsx`],
   'root readme only': ['README.md'],
   'changeset only': ['.changeset/lovely-pandas-clap.md'],
-  'internal docs only': ['docs/adr/ADR-9999-example.md'],
+  'internal docs only': ['docs/adr/9999-example.md'],
   'unrelated workflow only': ['.github/workflows/nothing-to-do-with-the-site.yml'],
   'ci.yml only': ['.github/workflows/ci.yml'],
 };

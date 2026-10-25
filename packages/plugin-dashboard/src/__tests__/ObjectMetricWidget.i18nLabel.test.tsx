@@ -77,6 +77,9 @@
 
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
+// Module scope as well as where a test awaits it below: the cold transform is paid
+// during collection, which no test or hook timeout clocks (AGENTS.md, flaky-test discipline).
+import '@objectstack/spec/ui';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
 // Imported from the package barrel at MODULE scope: the drill drawer renders

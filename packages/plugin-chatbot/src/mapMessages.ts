@@ -372,6 +372,15 @@ export interface ProposedPlanCard {
   assumptions: string[];
   /** The sample data the build stages, as one line. Absent when it stages none. */
   sampleData?: { line: string };
+  /**
+   * cloud#2924 ruling A — how the build will land once approved: `publish` (a
+   * new app's first build, or an app with no records yet) or `draft` (an app
+   * live with records), and the card's `line` (e.g. 「首次搭建直接上线；之后的修改
+   * 先存草稿，由你发布」). Absent where the build does not publish in the turn,
+   * and the card then says nothing about it. The producer's `liveRecords` is
+   * already in the line, so it is not lifted.
+   */
+  posture?: { mode: 'publish' | 'draft'; line: string };
 }
 
 /**
@@ -552,11 +561,15 @@ function liftPlanCard(raw: unknown): ProposedPlanCard | undefined {
     ];
   });
   const sampleData = recordOf(card.sampleData);
+  const posture = recordOf(card.posture);
   return {
     objects,
     views: viewLines(card.views),
     assumptions: nonEmptyStrings(card.assumptions),
     ...(sampleData && isText(sampleData.line) ? { sampleData: { line: sampleData.line } } : {}),
+    ...(posture && (posture.mode === 'publish' || posture.mode === 'draft') && isText(posture.line)
+      ? { posture: { mode: posture.mode, line: posture.line } }
+      : {}),
   };
 }
 

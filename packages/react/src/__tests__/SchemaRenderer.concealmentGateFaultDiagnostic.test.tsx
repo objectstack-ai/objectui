@@ -90,6 +90,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+// Module scope as well as after each `vi.resetModules()` below: the cold transform is
+// paid once during collection, and every re-import after a reset re-evaluates the cached
+// transform instead of compiling inside a clocked window (AGENTS.md, flaky-test discipline).
+import '@object-ui/core';
 import { render, screen, cleanup } from '@testing-library/react';
 import React from 'react';
 import {

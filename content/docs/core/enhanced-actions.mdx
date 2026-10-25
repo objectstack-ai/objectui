@@ -64,8 +64,8 @@ const ajaxAction: ActionSchema = {
 - `method` - HTTP method (GET, POST, PUT, DELETE, PATCH)
 - `data` - Request body/payload
 - `headers` - Custom HTTP headers
-- `timeout` - Request timeout in milliseconds
-- `retry` - Retry configuration
+- `timeoutMs` - Request timeout in milliseconds (renamed from `timeout`)
+- `retry` - Retry configuration (`maxAttempts`, `delayMs`)
 
 ### Confirm Actions
 
@@ -389,11 +389,11 @@ const retryAction: ActionSchema = {
   api: '/api/submit',
   method: 'POST',
   
-  timeout: 30000,  // 30 seconds
+  timeoutMs: 30000,  // 30 seconds
   
   retry: {
     maxAttempts: 3,
-    delay: 1000  // 1 second between retries
+    delayMs: 1000  // 1 second between retries
   }
 };
 ```
@@ -467,10 +467,10 @@ const complexAction: ActionSchema = {
   },
   
   // Retry
-  timeout: 60000,
+  timeoutMs: 60000,
   retry: {
     maxAttempts: 3,
-    delay: 2000
+    delayMs: 2000
   },
   
   // Post-action behavior

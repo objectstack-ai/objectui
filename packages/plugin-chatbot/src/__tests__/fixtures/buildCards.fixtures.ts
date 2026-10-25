@@ -59,6 +59,8 @@ const W = {
     loanTitleTemplate: '{图书} · {读者} · {借出日期}',
     loanTitleLine: '名称：自动生成「{图书} · {读者} · {借出日期}」，表单里不出现',
     nextSteps: ['给借阅记录加续借次数', '做一个本月借出统计的仪表盘', '只允许管理员删除图书'],
+    postureFirstBuild: '首次搭建直接上线；之后的修改先存草稿，由你发布',
+    postureIntoLiveApp: '这个应用已上线，有 36 条记录在用；这次的改动先存为草稿，由你在「变更」里核对后发布',
   },
   en: {
     app: 'Library Lending',
@@ -104,6 +106,9 @@ const W = {
     loanTitleTemplate: '{Book} · {Reader} · {Loan date}',
     loanTitleLine: 'Name: generated as “{Book} · {Reader} · {Loan date}”, not on the form',
     nextSteps: ['Add a renewal count to loans', 'Make a dashboard of this month’s loans', 'Only admins may delete books'],
+    postureFirstBuild: 'This first build goes live at once; later changes are saved as drafts for you to publish',
+    postureIntoLiveApp:
+      'This app is live with 36 records in use; this change is saved as a draft for you to review in Changes and publish',
   },
 } as const;
 
@@ -113,9 +118,21 @@ const W = {
  * from its two lookups and its date, as cloud#2925's builder writes it: a formula
  * `nameField` on the blueprint, and on the plan card `nameField.generated` with
  * the title field left out of the loan's chips (its line stands for it).
+ * `posture` (cloud#2924 ruling A) adds `planCard.posture` as `planCardOf`
+ * writes it: `'firstBuild'` for a new app's first build, `'draft'` for a build
+ * into an app live with 36 records.
  */
-export function planEnvelope(lang: Lang, opts: { generatedTitle?: boolean } = {}) {
+export function planEnvelope(
+  lang: Lang,
+  opts: { generatedTitle?: boolean; posture?: 'firstBuild' | 'draft' } = {},
+) {
   const w = W[lang];
+  const posture =
+    opts.posture === 'firstBuild'
+      ? { mode: 'publish' as const, liveRecords: 0, line: w.postureFirstBuild }
+      : opts.posture === 'draft'
+        ? { mode: 'draft' as const, liveRecords: 36, line: w.postureIntoLiveApp }
+        : undefined;
   const loanTitleField = {
     name: 'title',
     label: w.loanTitle,
@@ -280,6 +297,7 @@ export function planEnvelope(lang: Lang, opts: { generatedTitle?: boolean } = {}
         ],
         line: w.sampleLine,
       },
+      ...(posture ? { posture } : {}),
     },
   };
 }

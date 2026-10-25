@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@objectstack/spec": "^18.0.0-next.1",
-    "better-auth": "^1.7.2"
+    "better-auth": "1.7.12"
   },
   "devDependencies": {
     "@types/react": "19.3.0",

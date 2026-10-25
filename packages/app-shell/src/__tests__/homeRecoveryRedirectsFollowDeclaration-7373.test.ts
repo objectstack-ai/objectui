@@ -16,7 +16,7 @@
  *
  * What was left behind: a control-plane customer refused an app, or landed on a
  * surface their runtime does not serve, was dropped on the ENVIRONMENT launcher
- * (ADR-0075) — "Build an app" / "Start from a template" cards acting on an
+ * (ObjectUI ADR-0075) — "Build an app" / "Start from a template" cards acting on an
  * environment the control plane does not have, and "Your apps" tiles that are
  * the control plane's own internal management apps. The declaration was already
  * read by `/` and by the chrome; only the error paths still disagreed.
@@ -67,7 +67,7 @@
  *   - `utils/homePath.ts` — `HOME_LAUNCHER_PATH` IS the launcher, and the `??`
  *     fallback every site above resolves through. Making it anything else is
  *     option C (redirecting `/home` itself), which the card's ruling excluded:
- *     it would strip the environment layer of its real launcher (ADR-0075).
+ *     it would strip the environment layer of its real launcher (ObjectUI ADR-0075).
  *
  * `console/ConsoleShell.tsx`'s `RootRedirect` was a second such site — the `/`
  * LANDING rather than a recovery exit, held out of the launcher scan by a
@@ -175,7 +175,7 @@ describe('objectui#7373 — recovery redirects follow the declared landing', () 
   it('⛔ the launcher constant itself is untouched — option C stays excluded', () => {
     // `HOME_LAUNCHER_PATH` is the fallback every site above resolves through.
     // A card that "fixed" this line would redirect `/home` itself and strip the
-    // environment layer of its launcher (ADR-0075) — excluded by the ruling.
+    // environment layer of its launcher (ObjectUI ADR-0075) — excluded by the ruling.
     const src = stripComments(read('packages/app-shell/src/utils/homePath.ts'));
     expect(src).toMatch(/export const HOME_LAUNCHER_PATH = '\/home';/);
   });

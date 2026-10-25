@@ -492,9 +492,6 @@ importers:
       '@object-ui/plugin-view':
         specifier: workspace:*
         version: link:../../packages/plugin-view
-      '@object-ui/providers':
-        specifier: workspace:*
-        version: link:../../packages/providers
       '@object-ui/react':
         specifier: workspace:*
         version: link:../../packages/react

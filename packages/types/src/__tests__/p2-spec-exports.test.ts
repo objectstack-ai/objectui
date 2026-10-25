@@ -252,8 +252,8 @@ describe('v3.0.10 Spec Protocol New Types', () => {
   // that the spec publishes a live `ThemeModeSchema` validator, and
   // objectstack#10485 (PR objectstack#10695) retired the spec's entire theme
   // module — there is no upstream referent left to assert against
-  // (objectui#5710). The provider's own mode handling stays covered by
-  // `packages/providers/src/__tests__/theme-mode-spec-parity.test.tsx`.
+  // (objectui#5710). The mode-only provider that test pointed at retired with
+  // the `@object-ui/providers` theme trio (objectui#13453).
 });
 describe('Type re-exports from @object-ui/types index', () => {
   it('should re-export P2.3 types (compile-time verification)', async () => {

@@ -4,9 +4,10 @@
  * Reusable context providers for ObjectUI applications
  */
 
-export { DataSourceProvider, useDataSource } from './DataSourceProvider.js';
-export { MetadataProvider, useMetadata } from './MetadataProvider.js';
-export { ThemeProvider, useTheme } from './ThemeProvider.js';
+// `DataSourceProvider` / `useDataSource`, `MetadataProvider` / `useMetadata`
+// and `ThemeProvider` / `useTheme` retired in objectui#13453: they duplicated
+// names `@object-ui/react` and `@object-ui/app-shell` publish with different
+// implementations, and nothing in the repo but one example read them.
 export {
   UploadProvider,
   useUpload,
@@ -15,13 +16,6 @@ export {
   createAzureBlobAdapter,
   createObjectStackUploadAdapter,
 } from './UploadProvider.js';
-
-export type {
-  DataSourceProviderProps,
-  MetadataProviderProps,
-  ThemePreferenceProviderProps,
-  ThemePreference,
-} from './types.js';
 
 export type {
   UploadAdapter,

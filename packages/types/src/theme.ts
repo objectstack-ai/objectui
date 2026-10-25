@@ -61,12 +61,11 @@
  * The theme mode vocabulary, as a runtime tuple.
  *
  * A runtime `as const` tuple rather than a bare union, deliberately — the
- * `SPEC_GESTURE_TYPES` precedent in `./mobile.ts`: the parity pins in
- * `@object-ui/providers` (`theme-mode-spec-parity.test.tsx`,
- * `spec-symbol-batch7.test.ts`) read the mode vocabulary at runtime, and this
- * tuple keeps those pins executable against the vocabulary's owner. A
- * type-only union would have left them nothing to read, which is how a
- * retirement quietly takes working coverage with it.
+ * `SPEC_GESTURE_TYPES` precedent in `./mobile.ts`: a pin can read the mode
+ * vocabulary at runtime against its owner, where a type-only union would
+ * leave it nothing to read, which is how a retirement quietly takes working
+ * coverage with it. (Its first readers, the parity pins of the
+ * `@object-ui/providers` theme provider, retired with it in objectui#13453.)
  */
 export const THEME_MODES = ['auto', 'light', 'dark'] as const;
 
@@ -74,9 +73,9 @@ export const THEME_MODES = ['auto', 'light', 'dark'] as const;
  * Theme display mode. `auto` follows the OS preference.
  *
  * Owned here since the upstream theme retirement (objectui#5716). Note the
- * pre-spec `'system'` spelling is NOT part of this vocabulary — it is
- * `@object-ui/providers`' own legacy alias of `auto`, declared there on
- * `ThemePreference` (objectui#2942).
+ * pre-spec `'system'` spelling is NOT part of this vocabulary — it was the
+ * legacy alias of `auto` on `@object-ui/providers`' `ThemePreference`
+ * (objectui#2942), which retired in objectui#13453.
  */
 export type ThemeMode = (typeof THEME_MODES)[number];
 

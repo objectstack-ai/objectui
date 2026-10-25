@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Link, useParams } from 'react-router-dom'
 import { AppShell } from '@object-ui/app-shell';
 import { ObjectView } from '@object-ui/plugin-view';
 import { ObjectForm } from '@object-ui/plugin-form';
-import { ThemeProvider, DataSourceProvider } from '@object-ui/providers';
+import { ThemeProvider, SchemaRendererProvider } from '@object-ui/react';
 import { mockDataSource } from './mockDataSource';
 
 /**
@@ -14,8 +14,8 @@ import { mockDataSource } from './mockDataSource';
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="light" storageKey="byo-backend-console-theme">
-      <DataSourceProvider dataSource={mockDataSource}>
+    <ThemeProvider defaultMode="light" persist storageKey="byo-backend-console-theme">
+      <SchemaRendererProvider dataSource={mockDataSource}>
         <BrowserRouter>
           <AppShell sidebar={<Sidebar />}>
             <Routes>
@@ -26,7 +26,7 @@ function App() {
             </Routes>
           </AppShell>
         </BrowserRouter>
-      </DataSourceProvider>
+      </SchemaRendererProvider>
     </ThemeProvider>
   );
 }
@@ -83,7 +83,7 @@ function Home() {
       <h1 className="mb-4 text-3xl font-bold">Welcome to Minimal Console</h1>
       <p className="mb-6 text-muted-foreground">
         This is a demonstration of third-party ObjectUI integration using
-        @object-ui/app-shell and @object-ui/providers.
+        @object-ui/app-shell and @object-ui/react.
       </p>
 
       <div className="grid gap-4 md:grid-cols-2">

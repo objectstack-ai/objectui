@@ -622,8 +622,11 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // RENAME branch: providers' declaration now spells
   // `ThemePreferenceProviderProps`, and the providers root publishes that name
   // instead; react keeps the general one. The two `ThemeProvider` components
-  // keep their names — value names are outside this gate's bound
-  // (objectui#6349, batch 10).
+  // kept their names — value names are outside this gate's bound
+  // (objectui#6349, batch 10). objectui#13453 then retired the providers
+  // copy outright (`ThemeProvider`, `ThemePreferenceProviderProps`, and the
+  // `DataSourceProvider` / `MetadataProvider` beside it), so react's is the
+  // only `ThemeProvider` left.
   // `TranslateFn` sat here — i18next's `t` narrowed to `(key, options?) => string`,
   // declared BYTE-IDENTICALLY in three files (one sha256 across the three).
   // objectui#8165 re-pointed `packages/app-shell/src/providers/saveAdvisoryToast.ts`

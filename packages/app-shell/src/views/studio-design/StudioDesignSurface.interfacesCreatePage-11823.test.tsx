@@ -102,6 +102,11 @@ import { registerMetadataPreview } from '../metadata-admin/preview-registry';
 import { PagePreview } from '../metadata-admin/previews/PagePreview';
 import { pageStarterSource } from './interfaceCreate';
 import { t } from '../metadata-admin/i18n';
+import { CAP_REACT_PAGES, enableCapability } from '@object-ui/core';
+
+// `kind:'react'` pages run only where the host turns the react-pages capability on
+// (it defaults off); the pages this file renders need it on.
+enableCapability(CAP_REACT_PAGES);
 
 const dataSource = createEmptyDataSource();
 

@@ -30,7 +30,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
-import { ComponentRegistry } from '@object-ui/core';
+import { CAP_REACT_PAGES, ComponentRegistry, enableCapability } from '@object-ui/core';
 import { SchemaRenderer, AdapterCtx } from '@object-ui/react';
 
 const adapter = { find: async () => [], getObjectSchema: async () => ({ name: 'showcase_project', fields: {} }) } as any;
@@ -55,6 +55,10 @@ const PLAIN_SCHEMA = { type: 'home', kind: 'react', name: 'test_page', source: c
 // `hookTimeout`, which is why this carried a raised timeout. See
 // object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
 import '../renderers';
+
+// `kind:'react'` pages run only where the host turns the react-pages capability on
+// (it defaults off); the pages this file renders need it on.
+enableCapability(CAP_REACT_PAGES);
 
 afterEach(() => {
   ComponentRegistry.unregister('object-kanban', 'plugin-kanban');

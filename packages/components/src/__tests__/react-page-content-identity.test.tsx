@@ -29,6 +29,11 @@ import { SchemaRenderer, AdapterCtx } from '@object-ui/react';
 // Registers PageRenderer for `type:'home'`, which dispatches kind:'react'. At
 // module scope, not in a hook (object-ui/no-dynamic-import-in-test-hook).
 import '../renderers';
+import { CAP_REACT_PAGES, enableCapability } from '@object-ui/core';
+
+// `kind:'react'` pages run only where the host turns the react-pages capability on
+// (it defaults off); the pages this file renders need it on.
+enableCapability(CAP_REACT_PAGES);
 
 const adapter = { find: async () => [], getObjectSchema: async () => ({ name: 'x', fields: {} }) } as any;
 

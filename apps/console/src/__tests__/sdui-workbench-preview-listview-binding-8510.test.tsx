@@ -38,7 +38,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
-import { ComponentRegistry } from '@object-ui/core';
+import { CAP_REACT_PAGES, ComponentRegistry, enableCapability } from '@object-ui/core';
 import { SchemaRenderer, SchemaRendererProvider, AdapterCtx } from '@object-ui/react';
 // The page renderers (`type:'home'`), which dispatch `kind:'react'` to the
 // react page tier.
@@ -47,6 +47,10 @@ import '@object-ui/components';
 import '@object-ui/plugin-list';
 import { validateReactPageProps, REACT_PROP_RETIRED } from '@objectstack/lint';
 import { pagesOf, previewHarnessFiles, readHarness } from './helpers/preview-page-sources';
+
+// `kind:'react'` pages run only where the host turns the react-pages capability on
+// (it defaults off); the pages this file renders need it on.
+enableCapability(CAP_REACT_PAGES);
 
 const HARNESS = 'sdui-workbench-preview.tsx';
 const OBJECT = 'showcase_project';

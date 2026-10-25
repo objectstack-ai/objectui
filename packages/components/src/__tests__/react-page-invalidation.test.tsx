@@ -44,6 +44,11 @@ import type { PageDocumentNode } from '@object-ui/types';
 import '@object-ui/react-runtime';
 // Registers PageRenderer for `type:'home'`, which dispatches kind:'react'.
 import '../renderers';
+import { CAP_REACT_PAGES, enableCapability } from '@object-ui/core';
+
+// `kind:'react'` pages run only where the host turns the react-pages capability on
+// (it defaults off); the pages this file renders need it on.
+enableCapability(CAP_REACT_PAGES);
 
 /** The Live data pattern the react-pages guide teaches, nonce included. */
 const SOURCE = `

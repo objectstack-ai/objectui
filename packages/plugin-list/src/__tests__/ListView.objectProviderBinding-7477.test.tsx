@@ -86,7 +86,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor, cleanup, act } from '@testing-library/react';
-import { ComponentRegistry } from '@object-ui/core';
+import { CAP_REACT_PAGES, ComponentRegistry, enableCapability } from '@object-ui/core';
 import { SchemaRenderer, SchemaRendererProvider, AdapterCtx } from '@object-ui/react';
 // Registers the page renderers (`type:'page'` / `'home'`), which dispatch
 // `kind:'react'` to `ReactKindPage`.
@@ -94,6 +94,10 @@ import '@object-ui/components';
 // Registers the REAL `list-view`, which is what the react page's scope resolves.
 import '../index';
 import { ListView } from '../ListView';
+
+// `kind:'react'` pages run only where the host turns the react-pages capability on
+// (it defaults off); the pages this file renders need it on.
+enableCapability(CAP_REACT_PAGES);
 
 const OBJECT = 'crm_task';
 

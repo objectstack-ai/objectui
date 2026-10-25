@@ -29,10 +29,14 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
-import { ComponentRegistry } from '@object-ui/core';
+import { CAP_REACT_PAGES, ComponentRegistry, enableCapability } from '@object-ui/core';
 import { SchemaRenderer, AdapterCtx, SchemaRendererContext } from '@object-ui/react';
 import type { PageDocumentNode } from '@object-ui/types';
 import '../renderers';
+
+// `kind:'react'` pages run only where the host turns the react-pages capability on
+// (it defaults off); the pages this file renders need it on.
+enableCapability(CAP_REACT_PAGES);
 
 /** The adapter each render of the stand-in block resolved from its context. */
 const seen: unknown[] = [];

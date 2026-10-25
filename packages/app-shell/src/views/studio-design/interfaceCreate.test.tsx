@@ -49,6 +49,10 @@ import type { NavNode } from './navSurface';
 import { t, type SupportedLocale } from '../metadata-admin/i18n';
 import { isStaticPageOption } from '../metadata-admin/inspectors/nav-target';
 
+// `kind:'react'` pages run only where the host turns the react-pages capability on
+// (it defaults off); the pages this file renders need it on.
+enableCapability(CAP_REACT_PAGES);
+
 const LOCALES: SupportedLocale[] = ['en-US', 'zh-CN'];
 const starterOf = (locale: SupportedLocale) => t('engine.studio.interfaces.create.pageStarter', locale);
 

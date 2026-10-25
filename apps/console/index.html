@@ -16,6 +16,31 @@
     <link rel="manifest" href="./manifest.json" />
     <title></title>
     <!--
+      zod runs without its JIT (objectui#13511).
+
+      zod v4 decides whether it may compile parsers by calling
+      `new Function('')` once, inside a try/catch, the first time an object
+      schema is built. The document's content-security-policy refuses `eval`
+      unless the deployment turns the `kind:'react'` page tier on, so that probe
+      is refused and a browser that reports violations files one report per
+      load, although nothing breaks. With `jitless` set, zod skips the probe and
+      uses its interpreter.
+
+      ⛔ It is set HERE, in a classic script ahead of the module entry, and not
+      with `z.config()` in `src/main.tsx`: the bundle puts zod and the schemas
+      built at load time into vendor chunks that the entry chunk imports, so
+      they run before any line of the entry's own body (measured on the
+      production build: the probe fired from `vendor-objectstack` with the call
+      at the top of main.tsx). zod reads its config from this global, created on
+      first load when absent (`zod/v4/core/core.js`), and every zod copy in the
+      page shares it. `src/__tests__/zod-jitless-13511.test.ts` runs this script
+      before the installed zod and holds both halves.
+    -->
+    <script>
+      window.__zod_globalConfig = window.__zod_globalConfig || {};
+      window.__zod_globalConfig.jitless = true;
+    </script>
+    <!--
       Pre-React branding, and the page's ONE `GET /api/v1/runtime/config`
       (objectui#5544).
 

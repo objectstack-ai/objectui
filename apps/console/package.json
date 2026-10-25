@@ -116,7 +116,8 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "vite": "^8.2.1",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "zod": "^4.6.5"
   },
   "dependencies": {
     "@object-ui/sdui-parser": "workspace:*"

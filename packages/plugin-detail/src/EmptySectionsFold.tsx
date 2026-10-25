@@ -18,7 +18,7 @@ export interface EmptySectionsFoldProps {
   /** The sections the body draws, as handed to each `DetailSection`. */
   sections: DetailViewSection[];
   /** The record as the sections read it (record plus the inline-edit draft). */
-  data: any;
+  data: Record<string, unknown> | null | undefined;
   isEditing: boolean;
   /** The rendered sections. */
   children: React.ReactNode;
@@ -36,7 +36,10 @@ export interface EmptySectionsFoldProps {
  * Emptiness is `hasCellValue` over `data[name] ?? field.value`, the reading
  * `DetailSection` folds by.
  */
-export function emptySectionsFoldCount(sections: DetailViewSection[], data: any): number {
+export function emptySectionsFoldCount(
+  sections: DetailViewSection[],
+  data: Record<string, unknown> | null | undefined,
+): number {
   // This runs ABOVE every per-section error boundary in `DetailView`, so a
   // malformed section must not throw from here and blank the whole body
   // (objectui#8497): a section with no field array, or anything that throws

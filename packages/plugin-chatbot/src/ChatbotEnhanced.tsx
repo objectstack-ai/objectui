@@ -3506,11 +3506,14 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                   const { designNotes, deferred } = classifyAssumptions(
                     tool.proposedPlan!.assumptions,
                   );
+                  const posture = tool.proposedPlan!.planCard?.posture;
                   return (
                     <>
-                      {designNotes.length > 0 ? (
+                      {designNotes.length > 0 || posture ? (
                         // objectui#12724 — a list, one item per assumption
-                        // (`planCard.assumptions`, else `blueprint.assumptions`).
+                        // (`planCard.assumptions`, else `blueprint.assumptions`),
+                        // then how the build will land (`planCard.posture.line`,
+                        // cloud#2924) as the last item, where the artboard draws it.
                         <div className="flex flex-col gap-0.5" data-testid="proposed-plan-assumptions">
                           <span className="text-[11px] font-medium text-foreground/70">
                             {planAssumptionsLabel}
@@ -3519,6 +3522,11 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                             {designNotes.map((a, idx) => (
                               <li key={idx}>{a}</li>
                             ))}
+                            {posture ? (
+                              <li data-testid="proposed-plan-posture" data-posture={posture.mode}>
+                                {posture.line}
+                              </li>
+                            ) : null}
                           </ul>
                         </div>
                       ) : null}

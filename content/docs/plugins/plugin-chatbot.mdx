@@ -410,7 +410,8 @@ The AI build conversation's two cards draw only what the build agent's tool
 results declare. The plan card (`propose_blueprint`) reads the result's
 `planCard`: a chip per field with the format its sample data is held to, a
 dashed chip for a field the agent added on its own, the record's name field,
-one line per view, the assumptions, and the sample data the build will stage.
+one line per view, the assumptions, the sample data the build will stage, and
+how the build will land (`posture`: live at once, or saved as a draft).
 The result card (`apply_blueprint`, then a later `verify_build` in the same
 turn) reads `checklist`: a passed/total chip, the verified lines in two
 columns, and the app and package that "Open app" and "View in Studio" open.

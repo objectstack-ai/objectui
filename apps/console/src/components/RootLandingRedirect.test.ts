@@ -70,7 +70,7 @@ describe('resolveLandingPath', () => {
   // platform administration console shipped by @objectstack/platform-objects
   // into every deployment, so "the only app I can see is Setup" means "this
   // environment has no product apps yet", not "Setup is the product". Under
-  // ADR-0075 the environment layer's home is the environment's own
+  // ObjectUI ADR-0075 the environment layer's home is the environment's own
   // responsibility, and `/home` — build-with-AI, start-from-a-template, Your
   // apps — is that home.
   describe('objectui#4048 — a Setup-only deployment lands on the env home', () => {
@@ -93,7 +93,7 @@ describe('resolveLandingPath', () => {
       expect(resolveLandingPath([{ name: 'setup' }])).toBe('/home');
     });
 
-    it('still lands in Setup when the deployment DECLARES it (ADR-0075 wins over the default)', () => {
+    it('still lands in Setup when the deployment DECLARES it (ObjectUI ADR-0075 wins over the default)', () => {
       // The declared landing is the escape hatch: an admin-console deployment
       // that genuinely wants Setup as its first screen says so with
       // `isDefault`, and rule 1 is deliberately untouched by this fix.

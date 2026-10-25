@@ -64,7 +64,11 @@ import type { ComponentInputControlType } from './base.js';
  *
  * @example
  * ```ts
- * import { CustomChart } from './widgets/CustomChart';
+ * // The widget's React component. In an app it is imported at build time
+ * // (e.g. `import { CustomChart } from './widgets/CustomChart'`).
+ * function CustomChart() {
+ *   return null;
+ * }
  *
  * const manifest: RuntimeWidgetManifest = {
  *   name: 'custom-chart',

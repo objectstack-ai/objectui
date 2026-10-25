@@ -682,8 +682,10 @@ export function AppHeader({
         // translated (a published edit kept over the packaged catalog), so it
         // is drawn as given — the page header draws it the same way. Only the
         // humanized slug, which no server translated, goes through the bundle
-        // (objectui#11295).
-        routeTitle = dashboardDef?.label || dashboardLabel({ name: dashboardName, label: humanizeSlug(dashboardName) });
+        // (objectui#11295). The label may be an inline locale map; drawn raw,
+        // it blanked the route (objectui#13488).
+        routeTitle = metadataText(dashboardDef?.label, language)
+          ?? dashboardLabel({ name: dashboardName, label: humanizeSlug(dashboardName) });
       }
     } else if (routeType === 'page') {
       // No crumb at all since objectui#12526 (no 「Pages」 type crumb since
@@ -695,7 +697,9 @@ export function AppHeader({
       if (pathParts[3]) {
         const pageName = pathParts[3];
         const pageDef = preferLocal(metadata.pages as any[], pageName, (currentApp as any)?._packageId);
-        const fallback = pageDef?.label || humanizeSlug(pageName);
+        // A page's `label` may be an inline locale map; drawn raw, the phone
+        // bar's title blanked the page (objectui#13488).
+        const fallback = metadataText(pageDef?.label, language) ?? humanizeSlug(pageName);
         routeTitle = pageLabel({ name: pageName, label: fallback });
       }
     } else if (routeType === 'report') {

@@ -86,7 +86,7 @@ describe('ObjectGantt — an invalid `gantt` block is refused (objectui#13459)',
   it('keeps the console diagnostic beside the refusal', async () => {
     render(<ObjectGantt schema={inline({ startDateField: 'start_date', titleField: 'name' })} />);
     await screen.findByTestId('gantt-invalid-config');
-    expect(warn.mock.calls.some((c) => String(c[0]).includes('Invalid gantt configuration'))).toBe(true);
+    expect(warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('Invalid gantt configuration'))).toBe(true);
   });
 
   it('CONTROL: a valid block still renders its tasks, with no refusal', async () => {

@@ -245,7 +245,7 @@ export function positionsDistributing(positions: readonly unknown[], setName: st
  * caller's language (objectui#13477). A definition with no label has no entry,
  * so its chip shows the name, as `CitedItemChip` in `AccessExplainPanel` does.
  */
-export function positionLabels(positions: readonly unknown[]): Map<string, string> {
+function positionLabels(positions: readonly unknown[]): Map<string, string> {
   const out = new Map<string, string>();
   for (const raw of positions) {
     const p = raw as { name?: unknown; label?: unknown } | null;

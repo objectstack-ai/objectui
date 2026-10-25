@@ -101,8 +101,8 @@ export const DEFAULT_PAGE_SOURCE_KIND: PageSourceKind = 'html';
 
 /**
  * The source kinds this deployment can render, in the order the dialog offers
- * them. `react` is left out where the host has turned the react-pages
- * capability off (`OS_PAGE_REACT=off`): the save door would accept such a page,
+ * them. `react` is left out unless the host has turned the react-pages
+ * capability on (`OS_PAGE_REACT_ENABLED=true`): the save door would accept such a page,
  * but the preview beside its editor, and the running app, would only say that
  * react pages are disabled here.
  */

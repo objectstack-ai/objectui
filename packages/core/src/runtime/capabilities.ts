@@ -11,11 +11,12 @@
  * bundle code runs.
  *
  * {@link CAP_REACT_PAGES} (`kind:'react'` — execute author JavaScript in the
- * main React tree) defaults **ON**: ObjectStack pages are authored by trusted
- * authors and pass human review (draft-gating, ADR-0033), so the platform
- * trusts them by default. A deployment that does NOT trust its page authors
- * turns it off server-side — the ObjectStack runtime injects the disable global
- * when `OS_PAGE_REACT=off` (see framework cli/utils/console.ts).
+ * main React tree, no sandbox) defaults **OFF**: whether a deployment's page
+ * authors are trusted is the operator's call, so the host turns it on
+ * explicitly. The ObjectStack runtime injects the enable global when the
+ * deployment sets `OS_PAGE_REACT_ENABLED=true`, and the disable global
+ * otherwise (objectstack `packages/cli/src/utils/console.ts`,
+ * `readReactPagesTier`; ADR-0081 as amended).
  *
  * Globals a host/server can set in the page before the bundle runs:
  *   - `globalThis.__OBJECTUI_CAPABILITIES__`          — string[] to force ON
@@ -24,7 +25,7 @@
 
 /** Default state per capability when neither the host nor a global overrides it. */
 const DEFAULTS: Record<string, boolean> = {
-  'react-pages': true,
+  'react-pages': false,
 };
 
 // Explicit host overrides (enable/disable) — win over defaults and globals.
@@ -70,7 +71,7 @@ export function isCapabilityEnabled(name: string): boolean {
 
 /**
  * `kind:'react'` — execute trusted author JavaScript (full React: hooks, event
- * handlers, arbitrary JS) directly in the main React tree. Default ON; a
- * deployment disables it server-side with `OS_PAGE_REACT=off`.
+ * handlers, arbitrary JS) directly in the main React tree. Default OFF; a
+ * deployment turns it on server-side with `OS_PAGE_REACT_ENABLED=true`.
  */
 export const CAP_REACT_PAGES = 'react-pages';

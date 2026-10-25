@@ -35,11 +35,12 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { SchemaRenderer, SchemaRendererProvider, AdapterCtx } from '@object-ui/react';
 import { I18nProvider } from '@object-ui/i18n';
-// NOTE: we do NOT call enableCapability here — `react-pages` is ON by default.
-// `?disable=1` simulates a server that set OS_PAGE_REACT=off (the runtime would
-// inject this global); the page then renders the "disabled" notice.
-if (new URLSearchParams(location.search).has('disable')) {
-  (window as unknown as { __OBJECTUI_CAPABILITIES_DISABLED__?: string[] }).__OBJECTUI_CAPABILITIES_DISABLED__ = ['react-pages'];
+// `react-pages` is OFF by default, so this preview enables it the way a server
+// with OS_PAGE_REACT_ENABLED=true does: it sets the enable global the runtime
+// injects. `?disable=1` leaves it unset (a server with the tier off); the page
+// then renders the "disabled" notice.
+if (!new URLSearchParams(location.search).has('disable')) {
+  (window as unknown as { __OBJECTUI_CAPABILITIES__?: string[] }).__OBJECTUI_CAPABILITIES__ = ['react-pages'];
 }
 
 // ---- in-memory adapter (just enough for ListView + ObjectForm) ----

@@ -10,11 +10,10 @@
  * Unlike `kind:'html'` (constrained JSX parsed, never executed), a react page's
  * `source` is real JavaScript/JSX: hooks, event handlers, `.map`, arbitrary
  * expressions. It is transpiled (Sucrase) and evaluated directly in the main
- * React tree by `@object-ui/react-runtime` — NO sandbox. The platform trusts
- * its (reviewed, draft-gated) page authors, so the host capability
- * `CAP_REACT_PAGES` defaults ON; a deployment that does not trust its authors
- * turns it OFF server-side (the runtime injects the disable global when
- * `OS_PAGE_REACT=off`). The transpiler is lazy-loaded — fetched in a
+ * React tree by `@object-ui/react-runtime` — NO sandbox. So the host capability
+ * `CAP_REACT_PAGES` defaults OFF; a deployment whose page authors are trusted
+ * turns it ON server-side (the runtime injects the enable global when
+ * `OS_PAGE_REACT_ENABLED=true`). The transpiler is lazy-loaded — fetched in a
  * separate chunk only when a react page actually renders with the capability on.
  *
  * Scope injected into the source:
@@ -205,9 +204,9 @@ function CapabilityDisabledNotice(): React.ReactElement {
       <div className="font-semibold">React pages are disabled on this deployment</div>
       <p className="mt-1 leading-relaxed">
         <code>kind:&apos;react&apos;</code> pages execute author JavaScript directly in the
-        application. This deployment has turned the capability off
-        (<code>OS_PAGE_REACT=off</code> / <code>disableCapability(&apos;react-pages&apos;)</code>).
-        It is ON by default; re-enable it if your page authors are trusted.
+        application, so they are off unless the deployment turns them on. An operator whose
+        page authors are trusted sets <code>OS_PAGE_REACT_ENABLED=true</code> on the server
+        (a host embedding the renderer calls <code>enableCapability(&apos;react-pages&apos;)</code>).
       </p>
     </div>
   );
@@ -218,7 +217,7 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
   // The live data source for the injected data blocks (and the page's own
   // `useAdapter()` calls). Same object the rest of the app renders against.
   const adapter = useAdapter();
-  // Gate: default-closed. Off in OSS / untrusted builds. Read here so the hooks
+  // Gate: default-closed, on only where the host enabled it. Read here so the hooks
   // below stay unconditional; the disabled notice is returned after them, and
   // the effect never loads the gated runtime when disabled.
   const capabilityEnabled = isCapabilityEnabled(CAP_REACT_PAGES);

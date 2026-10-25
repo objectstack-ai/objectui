@@ -64,14 +64,17 @@ function Page() {
 ### The security gate
 
 A react page's source is transpiled and evaluated directly in the application —
-no isolation, full access to the page's React tree. The platform assumes page
-authors are reviewed and draft-gated, so the host capability `react-pages`
-defaults **ON**.
+no isolation, full access to the page's React tree. So the host capability
+`react-pages` defaults **OFF**, and a deployment turns it on only when its page
+authors are trusted and reviewed.
 
-A deployment that does not trust its authors turns it off server-side with
-`OS_PAGE_REACT=off` (or `disableCapability('react-pages')` in the host). Pages
-then render an explanatory notice instead of executing. Existing `kind:'html'`
-pages are unaffected.
+On ObjectStack the operator turns it on server-side with
+`OS_PAGE_REACT_ENABLED=true`; the server then writes the enable global
+(`window.__OBJECTUI_CAPABILITIES__`) into the Console document, and with the
+tier off it writes the disable global instead. A host that embeds the renderer
+itself calls `enableCapability('react-pages')` before rendering. While the
+capability is off, a react page renders a notice that names the switch instead
+of executing. `kind:'html'` pages are unaffected either way.
 
 ### What is in scope
 

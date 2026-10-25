@@ -21,8 +21,9 @@ import {
   HttpFetchError,
   inflightGetKey,
   sharedGetJson,
-  resetInflightGetsForTesting,
 } from '../index.js';
+// Test-only, so off the package barrel (objectui#13453): read from the module.
+import { resetInflightGetsForTesting } from '../http-inflight.js';
 
 /** A promise plus its settlers, so a test controls exactly when a fetch answers. */
 function deferred<T>() {

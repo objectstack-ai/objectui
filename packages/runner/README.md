@@ -173,7 +173,6 @@ For detailed documentation, visit the [Object UI Documentation](https://www.obje
 ## Links
 
 - 📚 [Documentation](https://www.objectui.org/docs/utilities/runner)
-- 📦 [npm package](https://www.npmjs.com/package/@object-ui/runner)
 - 📝 [Changelog](./CHANGELOG.md)
 - 🐛 [Report an issue](https://github.com/objectstack-ai/objectui/issues)
 - 🤝 [Contributing Guide](https://github.com/objectstack-ai/objectui/blob/main/CONTRIBUTING.md)

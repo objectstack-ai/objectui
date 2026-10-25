@@ -14,7 +14,6 @@
       "@object-ui/data-objectstack",
       "@object-ui/cli",
       "@object-ui/create-plugin",
-      "@object-ui/runner",
       "@object-ui/auth",
       "@object-ui/permissions",
       "@object-ui/mobile",
@@ -51,6 +50,7 @@
   "ignore": [
     "@object-ui/example-*",
     "@object-ui/site",
+    "@object-ui/runner",
     "@object-ui/test-support"
   ],
   "privatePackages": {

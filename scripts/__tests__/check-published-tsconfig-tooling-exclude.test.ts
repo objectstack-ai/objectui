@@ -317,12 +317,15 @@ describe('the shipped carve-outs, against the emitters they claim', () => {
     // predicate fired `carve-out-no-longer-holds` and named the remedy. The
     // package is now ENFORCED (the gate's population reads 34 enforced / 5
     // carve-outs, up from 33 / 6), so this is protection gained, not waived.
+    //
+    // FOUR since objectui#13453 made `@object-ui/runner` private: an
+    // unpublished package has no published `dist` to protect, and the gate's
+    // `stale-carve-out` finding named the remedy.
     expect(Object.keys(EMITTER_CARVE_OUTS).sort()).toEqual([
       '@object-ui/cli',
       '@object-ui/console',
       '@object-ui/create-plugin',
       '@object-ui/data-objectstack',
-      '@object-ui/runner',
     ]);
   });
 

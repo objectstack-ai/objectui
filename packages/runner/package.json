@@ -1,6 +1,6 @@
 {
   "name": "@object-ui/runner",
-  "private": false,
+  "private": true,
   "version": "18.1.0",
   "description": "Universal Object UI Application Runner",
   "type": "module",

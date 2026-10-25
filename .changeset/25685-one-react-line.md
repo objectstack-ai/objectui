@@ -28,7 +28,6 @@
 "@object-ui/plugin-tree": patch
 "@object-ui/providers": patch
 "@object-ui/react": patch
-"@object-ui/runner": patch
 ---
 
 Clause-②: no

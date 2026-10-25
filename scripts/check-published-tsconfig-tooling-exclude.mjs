@@ -79,10 +79,9 @@
  *   - `@object-ui/create-plugin` is a THIRD `tsup` package, alongside the `cli`
  *     and `data-objectstack` the ruling names. Same `tsup.config.ts` shape,
  *     same `dts: true`, same entry-graph emit.
- *   - `@object-ui/runner` is a SECOND Vite APPLICATION, alongside
- *     `@object-ui/console`. Its `vite.config.ts` loads no `dts()` plugin at all
- *     and its tsconfig sets `noEmit: true`, so it writes no declarations; its
- *     published `dist` is a bundle built from the Rollup entry graph.
+ *   - `@object-ui/runner` was a SECOND Vite APPLICATION, alongside
+ *     `@object-ui/console`, until objectui#13453 made it `private: true`; it
+ *     is no longer published, so its carve-out entry was deleted.
  *
  * Requiring the directory form in either would be asserting something about a
  * config the emitter does not consult -- a phantom check, green about nothing,
@@ -91,7 +90,7 @@
  * So every entry below states the FACTS that make it a carve-out, and `requires`
  * re-checks them on every run (the technique `HOST_PROVIDED` in
  * `check-phantom-dependencies.mjs` uses). The day `create-plugin` stops using
- * `tsup`, or `runner` gains a `dts()` plugin, the carve-out stops holding and
+ * `tsup`, or `console` gains a `dts()` plugin, the carve-out stops holding and
  * this gate goes red -- rather than silently exempting a package that now emits
  * declarations from a config nobody is checking.
  */
@@ -287,17 +286,6 @@ export const EMITTER_CARVE_OUTS = {
       'its published bundle comes from the Rollup entry graph. Worth recording rather than just ' +
       'exempting -- it is the one package that DOES carry a non-test helper under a tooling ' +
       'directory (`src/__tests__/helpers/preview-page-sources.ts`), live behind this single guard',
-    requires: (facts) => {
-      if (facts.hasDtsPlugin) return 'its vite config now loads a `dts()` plugin, so it emits declarations';
-      if (facts.tsconfigNoEmit !== true) return 'its tsconfig no longer sets `noEmit: true`';
-      return null;
-    },
-  },
-  '@object-ui/runner': {
-    reason:
-      'the SECOND Vite application, found at authoring time rather than named in the ruling ' +
-      '(objectui#7212): same shape as `console` -- `noEmit: true`, no `dts()` plugin, published ' +
-      '`dist` is a bundle from the Rollup entry graph',
     requires: (facts) => {
       if (facts.hasDtsPlugin) return 'its vite config now loads a `dts()` plugin, so it emits declarations';
       if (facts.tsconfigNoEmit !== true) return 'its tsconfig no longer sets `noEmit: true`';

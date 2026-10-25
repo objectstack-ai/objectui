@@ -20,7 +20,7 @@
 
 import { z } from 'zod';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
-import { handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
+import { durationKeyRenamedGuidance, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 import type { ActionSchema as ActionDeclaration } from '../crud.js';
 
 /**
@@ -139,10 +139,12 @@ export const ActionSchema: z.ZodType<ActionDeclaration, ActionDeclaration> = z.l
     event: z.string().optional().describe('Event name'),
     metadata: z.record(z.string(), z.any()).optional().describe('Additional metadata'),
   }).optional().describe('Action logging/tracking'),
-  timeout: z.number().optional().describe('Timeout in milliseconds'),
+  timeoutMs: z.number().optional().describe('Timeout in milliseconds'),
+  timeout: retirementTombstone(durationKeyRenamedGuidance('timeout', 'timeoutMs', 'milliseconds')),
   retry: z.object({
     maxAttempts: z.number().optional().describe('Maximum retry attempts'),
-    delay: z.number().optional().describe('Delay between retries (in ms)'),
+    delayMs: z.number().optional().describe('Delay between retries (in ms)'),
+    delay: retirementTombstone(durationKeyRenamedGuidance('delay', 'delayMs', 'milliseconds')),
   }).optional().describe('Retry configuration'),
 }));
 

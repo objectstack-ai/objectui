@@ -122,7 +122,7 @@ type SharedKeys =
   | 'messages' | 'placeholder' | 'api' | 'conversationId' | 'systemPrompt' | 'model'
   | 'streamingEnabled' | 'headers' | 'requestBody' | 'onError'
   | 'showTimestamp' | 'userAvatarUrl' | 'userAvatarFallback' | 'assistantAvatarUrl'
-  | 'assistantAvatarFallback' | 'autoResponse' | 'autoResponseText' | 'autoResponseDelay'
+  | 'assistantAvatarFallback' | 'autoResponse' | 'autoResponseText' | 'autoResponseDelayMs'
   | 'onSend';
 
 /* ── The discriminants: one node, one type ───────────────────────────────── */
@@ -137,8 +137,11 @@ export type assertionOneDiscriminantPerFace = [
 
 export type assertionSharedKeyAliasIsTheCensus = Expect<Equal<ChatbotSharedKey, SharedKeys>>;
 
-/** The objectui#5605 tombstone, declared (as `?: never`) on all three faces by one pick. */
-type RetiredOnEveryFace = 'maxToolRoundtrips';
+/**
+ * The objectui#5605 tombstone and the objectstack#25762 rename tombstone (`autoResponseDelay`, now
+ * `autoResponseDelayMs` in `SharedKeys`), each declared (as `?: never`) on all three faces by one pick.
+ */
+type RetiredOnEveryFace = 'maxToolRoundtrips' | 'autoResponseDelay';
 
 /** `chatbot-enhanced`: the shared nineteen + the tombstone + `maxHeight`, `processVisibility`, and its four own keys. */
 export type assertionEnhancedDeclaresWhatItReads = Expect<
@@ -221,6 +224,13 @@ export type assertionMaxToolRoundtripsIsATombstoneOnEveryFace = [
   Expect<Equal<ChatbotSchema['maxToolRoundtrips'], undefined>>,
   Expect<Equal<ChatbotEnhancedSchema['maxToolRoundtrips'], undefined>>,
   Expect<Equal<ChatbotFloatingSchema['maxToolRoundtrips'], undefined>>,
+];
+
+/** ── `autoResponseDelay`: renamed `autoResponseDelayMs` on all three faces (objectstack#25762) ── */
+export type assertionAutoResponseDelayIsATombstoneOnEveryFace = [
+  Expect<Equal<ChatbotSchema['autoResponseDelay'], undefined>>,
+  Expect<Equal<ChatbotEnhancedSchema['autoResponseDelay'], undefined>>,
+  Expect<Equal<ChatbotFloatingSchema['autoResponseDelay'], undefined>>,
 ];
 
 /* ── `displayMode`: one type on both faces; `floatingConfig`: live on the floating face only ── */
@@ -488,7 +498,7 @@ describe('the census is structural: picked off `ChatbotSchema`, never copied', (
     'messages', 'placeholder', 'api', 'conversationId', 'systemPrompt', 'model', 'streamingEnabled',
     'headers', 'requestBody', 'onError', 'showTimestamp', 'userAvatarUrl', 'userAvatarFallback',
     'assistantAvatarUrl', 'assistantAvatarFallback', 'autoResponse', 'autoResponseText',
-    'autoResponseDelay', 'onSend',
+    'autoResponseDelayMs', 'onSend',
   ];
 
   it('every shared arm on the two twins carries `ChatbotSchema`\'s own description — one spelling', () => {

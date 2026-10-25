@@ -19,7 +19,7 @@
 import { z } from 'zod';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 import type { MenuItem } from '../overlay.js';
-import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, durationKeyRenamedGuidance, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 
 /**
  * Dialog Schema - Dialog/modal component
@@ -365,7 +365,8 @@ export const TooltipSchema = BaseSchema.extend({
     .describe('Rich tooltip content — the fallback for `content`, published by the registration as the "Rich Content" slot (objectui#6771)'),
   side: z.enum(['top', 'right', 'bottom', 'left']).optional().describe('Tooltip side'),
   align: z.enum(['start', 'center', 'end']).optional().describe('Tooltip alignment'),
-  delayDuration: z.number().optional().describe('Delay before showing (ms)'),
+  delayDurationMs: z.number().optional().describe('Delay before showing (ms)'),
+  delayDuration: retirementTombstone(durationKeyRenamedGuidance('delayDuration', 'delayDurationMs', 'milliseconds')),
   // AN INVERSION, not a widening. objectui#8284 tombstoned `children` here on
   // the measured ground that the renderer read `content || body` and never
   // `children`. objectui#6771 changed the READ, not the principle: the renderer
@@ -394,22 +395,24 @@ export const HoverCardSchema = BaseSchema.extend({
   side: z.enum(['top', 'right', 'bottom', 'left']).optional().describe('Hover card side'),
   align: z.enum(['start', 'center', 'end']).optional()
     .describe('Alignment against the trigger, forwarded as `align` on `HoverCardContent`, beside the already-declared `side` (objectui#6150)'),
-  openDelay: z.number().optional().describe('Delay before opening (ms)'),
-  closeDelay: z.number().optional().describe('Delay before closing (ms)'),
+  openDelayMs: z.number().optional().describe('Delay before opening (ms)'),
+  closeDelayMs: z.number().optional().describe('Delay before closing (ms)'),
+  openDelay: retirementTombstone(durationKeyRenamedGuidance('openDelay', 'openDelayMs', 'milliseconds')),
+  closeDelay: retirementTombstone(durationKeyRenamedGuidance('closeDelay', 'closeDelayMs', 'milliseconds')),
   onOpenChange: handlerKeyRefusal('onOpenChange', 'runtime-slot', 'Open change handler'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `hover-card` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `align`, `closeDelay`, `content`, `openDelay`, `side`, `trigger`.',
+    + 'What it renders instead: `align`, `closeDelayMs`, `content`, `openDelayMs`, `side`, `trigger`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `hover-card` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `align`, `closeDelay`, `content`, `openDelay`, `side`, `trigger`.',
+    + 'What it renders instead: `align`, `closeDelayMs`, `content`, `openDelayMs`, `side`, `trigger`.',
   ),
 });
 

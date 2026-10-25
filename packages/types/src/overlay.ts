@@ -824,7 +824,14 @@ export interface TooltipSchema extends BaseSchema {
    * Delay before showing (ms)
    * @default 200
    */
-  delayDuration?: number;
+  delayDurationMs?: number;
+  /**
+   * RENAMED to {@link TooltipSchema.delayDurationMs} (objectstack#25762, ADR-0087): a duration
+   * carries its unit in its key name, never only in its description. The
+   * value (milliseconds) is unchanged; the zod twin refuses this spelling by name.
+   * @deprecated Renamed to `delayDurationMs`.
+   */
+  delayDuration?: never;
 }
 
 /**
@@ -865,12 +872,26 @@ export interface HoverCardSchema extends BaseSchema {
    * Open delay (ms)
    * @default 200
    */
-  openDelay?: number;
+  openDelayMs?: number;
   /**
    * Close delay (ms)
    * @default 300
    */
-  closeDelay?: number;
+  closeDelayMs?: number;
+  /**
+   * RENAMED to {@link HoverCardSchema.openDelayMs} (objectstack#25762, ADR-0087): a duration
+   * carries its unit in its key name, never only in its description. The
+   * value (milliseconds) is unchanged; the zod twin refuses this spelling by name.
+   * @deprecated Renamed to `openDelayMs`.
+   */
+  openDelay?: never;
+  /**
+   * RENAMED to {@link HoverCardSchema.closeDelayMs} (objectstack#25762, ADR-0087): a duration
+   * carries its unit in its key name, never only in its description. The
+   * value (milliseconds) is unchanged; the zod twin refuses this spelling by name.
+   * @deprecated Renamed to `closeDelayMs`.
+   */
+  closeDelay?: never;
   /**
    * Alignment of the card against its trigger.
    *
@@ -902,7 +923,7 @@ export interface HoverCardSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `align`, `closeDelay`, `content`, `openDelay`, `side`, `trigger` (in
+   * `align`, `closeDelayMs`, `content`, `openDelayMs`, `side`, `trigger` (in
    * `packages/components/src/renderers/overlay/hover-card.tsx`).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
@@ -929,7 +950,7 @@ export interface HoverCardSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `align`, `closeDelay`, `content`, `openDelay`, `side`, `trigger` (in
+   * `align`, `closeDelayMs`, `content`, `openDelayMs`, `side`, `trigger` (in
    * `packages/components/src/renderers/overlay/hover-card.tsx`).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both

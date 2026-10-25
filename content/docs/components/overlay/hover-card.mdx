@@ -20,8 +20,8 @@ interface HoverCardSchema {
   content: SchemaNode | SchemaNode[];   // Card content
   side?: 'top' | 'right' | 'bottom' | 'left';
   align?: 'start' | 'center' | 'end';
-  openDelay?: number;                   // Delay before opening (ms)
-  closeDelay?: number;                  // Delay before closing (ms)
+  openDelayMs?: number;                 // Delay before opening (ms)
+  closeDelayMs?: number;                // Delay before closing (ms)
   className?: string;
 }
 ```

@@ -15,5 +15,5 @@ The `html` FIELD type (`HtmlFieldMetadata`, drawn by `field:html`) is a differen
 
 Fix for a page that still names it: in place of `{ "type": "html", "html": "…" }`, declare rich text a user edits as an `html` or `richtext` field on the object, whose value renders sanitised, and write authored page copy as a `kind: 'html'` page.
 
-Clause-②: no
+Clause-②: no (narrowing)
 Metadata-protocol: narrowed

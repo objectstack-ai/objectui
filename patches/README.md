@@ -25,8 +25,10 @@ its `patchedDependencies` entry, and re-run `pnpm install`.
 | | |
 |---|---|
 | Package | `@radix-ui/react-focus-scope@1.1.16` |
-| Tracking | objectui#3183 |
-| Remove when | upstream `radix-ui/primitives` cancels the pending stack eviction on an effect re-run |
+| Tracking | objectui#3183, objectui#13466 |
+| Upstream | [radix-ui/primitives#4226](https://github.com/radix-ui/primitives/issues/4226) (same root cause, Suspense trigger); related, closed: [radix-ui/primitives#4148](https://github.com/radix-ui/primitives/issues/4148) |
+| Last measured | 2026-10-25: stock `1.3.1` with the patch removed fails the race case (1 failed / 2 passed) |
+| Remove when | radix-ui/primitives#4226 is fixed in a released `@radix-ui/react-focus-scope` and the regression test below is green on that release with this patch removed |
 
 `FocusScope`'s stack effect schedules `focusScopesStack.remove(scope)` inside a
 `setTimeout(0)` cleanup. When the effect re-runs for a **still-mounted** scope (a

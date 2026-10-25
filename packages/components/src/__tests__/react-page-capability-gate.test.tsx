@@ -15,6 +15,7 @@ import { render, cleanup } from '@testing-library/react';
 import React from 'react';
 import { CAP_REACT_PAGES, disableCapability, enableCapability } from '@object-ui/core';
 import { SchemaRenderer, AdapterCtx } from '@object-ui/react';
+import type { PageDocumentNode } from '@object-ui/types';
 // Registers PageRenderer for `type:'home'`, which dispatches kind:'react'.
 import '../renderers';
 // The runtime chunk the page loads once enabled, imported here so its cold
@@ -23,10 +24,11 @@ import '@object-ui/react-runtime';
 
 const adapter = { find: async () => [] } as any;
 
-const SCHEMA = {
+const SCHEMA: PageDocumentNode = {
   type: 'home',
   kind: 'react',
   name: 'gate_page',
+  label: 'Gate page',
   source: `function Page() { return <p data-testid="ran">ran</p>; }`,
 };
 

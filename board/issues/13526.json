@@ -2,9 +2,9 @@
   "number": 13526,
   "kind": "pull_request",
   "title": "feat(core): the react-pages capability defaults off; a host turns it on",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
-  "draft": true,
+  "draft": false,
   "author": {
     "login": "objectstack-fleet[bot]",
     "id": 332303061,
@@ -26,11 +26,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-25T11:15:58Z",
-  "updated_at": "2026-10-25T13:44:57Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
-  "comments": 3,
+  "updated_at": "2026-10-25T14:56:49Z",
+  "closed_at": "2026-10-25T14:56:47Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-25T14:56:47Z",
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/13526",
   "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-tesla\"} -->\n_Requested by **Tesla** · [project thread](https://claude.ai/code/project/chan_01AXsQkLFKRdQCqQ3RTr6JaoBY54KcuzDWcTYXW18gG3bJ)_\n\n## What changes\n\nThe `react-pages` capability in `@object-ui/core` (it gates `kind: 'react'` pages, whose source runs in the application with no sandbox) now defaults to **off**. A host turns it on explicitly.\n\n- `packages/core/src/runtime/capabilities.ts`: the default flips to `false`. The two page globals keep their meaning: `__OBJECTUI_CAPABILITIES__` turns a capability on, `__OBJECTUI_CAPABILITIES_DISABLED__` turns it off and wins over a stale enable list.\n- `ReactKindPage` (`packages/components/src/renderers/layout/react-page.tsx`) already drew a named notice instead of a blank page while the capability is off. Its text now says the tier is off unless the deployment turns it on and names the switch, `OS_PAGE_REACT_ENABLED=true` (or `enableCapability('react-pages')` for a host that embeds the renderer). The title \"React pages are disabled on this deployment\" is unchanged.\n- Studio's new-page dialog (`offeredPageSourceKinds`) already offered `react` only while the capability is on; only its comment changes.\n- `apps/console/src/sdui-workbench-preview.tsx` (a dev preview harness) now sets the enable global itself, the way the server does, and `?disable=1` leaves it unset.\n- `content/docs/guide/react-pages.md`: the security-gate section states the new default and how the server and an embedding host turn it on.\n\n## Landing order\n\nThe ObjectStack server half is objectstack-ai/objectstack#25789: it reads `OS_PAGE_REACT_ENABLED` and writes the enable global when on and the disable global when off, so the Console follows the server whichever default its build carries. Land that first. After it, this PR changes nothing a server-hosted Console does; it changes the default for a host that embeds the renderer without saying either way, and for a Console served by an older server, where react pages stay off until the server is upgraded.\n\nThis PR does not move `.objectstack-sha`: nothing here reads an objectstack symbol the current pin lacks, and the pin move before the merge window is already in flight on its own card.\n\n## Known side effect until a follow-up lands\n\nWith the tier off, the server's content-security-policy refuses `eval`, and zod's one-time `eval` probe at Console boot is reported as one violation per load (nothing breaks). objectui#13511 sets zod `jitless` in the Console boot and removes it.\n\n## Tests\n\n- New `packages/components/src/__tests__/react-page-capability-gate.test.tsx`: a real react page through the real `type: 'home'` PageRenderer draws the notice naming `OS_PAGE_REACT_ENABLED=true` by default and never runs its source; with the capability enabled the same source runs; disabled again, it is closed.\n- `packages/core/src/runtime/__tests__/capabilities.test.ts`, rewritten to load a fresh module per case (the default is only observable before any override): default off; the enable global turns it on; the disable global wins over an enable list; host enable and disable; unknown capabilities off.\n- Nine test files that render react pages relied on the old default and now enable the capability at module scope: `react-page-adapter`, `react-page-content-identity`, `react-page-invalidation`, `react-page-scope`, `react-page-state` (components), `interfaceCreate` and `StudioDesignSurface.interfacesCreatePage-11823` (app-shell), `ListView.objectProviderBinding-7477` (plugin-list), `sdui-workbench-preview-listview-binding-8510` (console). Measured: before the opt-in those nine files failed (27 tests) and nothing else failed, in a run of 695 files across core runtime, components, app-shell studio-design and previews, console, and the two plugin files.\n- After: `pnpm exec vitest run packages/core/src/runtime/ packages/components/src/__tests__/react-page …` (the eleven files above plus the gate test) → `Test Files 11 passed (11)`, `Tests 73 passed (73)`.\n- Ablation: with the default put back to `true`, the default-off cases in the gate test and the capabilities test go red (2 failed, 6 passed); restored, `git diff HEAD` is empty.\n- `turbo run type-check --filter=@object-ui/core --filter=@object-ui/components` → 10/10 tasks. `turbo run type-check --filter=@object-ui/app-shell --filter=@object-ui/plugin-list --filter=@object-ui/console` → 38/38 tasks. Head `f2792aa`.\n- `eslint --no-inline-config` on every changed `.ts`/`.tsx` → 0 errors. `check-changeset-presence`, `check-changeset-no-major`, `check:new-line-citations`, `check:control-bytes` → exit 0. `check-governed-queue-guard --test` on the file list → NOT GOVERNED.\n\n## Changeset\n\n`.changeset/react-pages-default-off.md`: `minor` for `@object-ui/core`, `@object-ui/components`, `@object-ui/app-shell`, `@object-ui/console` (a published default changes; `minor` under this repository's version policy), with the FROM → TO for an embedding host.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01X4d6XVfcfxL17bMpptytcc)_\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01X4d6XVfcfxL17bMpptytcc\n"

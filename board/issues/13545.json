@@ -1,0 +1,30 @@
+{
+  "number": 13545,
+  "kind": "pull_request",
+  "title": "chore(pin): bump .objectstack-sha to objectstack main 5e7cf63e71 at the freeze (objectstack#25727)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T15:06:32Z",
+  "updated_at": "2026-10-25T15:40:55Z",
+  "closed_at": "2026-10-25T15:40:53Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-25T15:40:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13545",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-tesla\"} -->\n_Requested by **Tesla** · [project thread](https://claude.ai/code/project/chan_01AXsQkLFKRdQCqQ3RTr6Jao?thread=cmsg_01AXsQkLFKRdQCqQ3RTr6JaoL8sNsjGD2KCCE4QzojaRfw)_\n\nPart of objectstack-ai/objectstack#25727\nPart of objectstack-ai/objectstack#25677\n\nClause-②: no\nMetadata-protocol: none\n\n## What changes\n\nThe final pin bump before objectui main freezes for the merge into objectstack `ui/` (objectstack#25752 step 2). `.objectstack-sha` moves from `5874d25302cbb80db675eddf1b69198073fbe2a9` to **`5e7cf63e71d92198a77cc88ed22f34afb1e86cb6`**, the objectstack `main` HEAD at 15:01Z. The branch was restarted from objectui `main` at `3b7b04007f` (after #13526).\n\nThis is a one-line diff. `scripts/bump-objectstack.sh` rebuilt the pin and the packed manifests in `.objectstack-pin/` came out byte-identical, so `pnpm install` left `pnpm-lock.yaml` unchanged. The only `packages/spec` change in the range is a `describe()` string in `ui/page.zod.ts` plus a liveness ledger file. No changeset is owed, because no published source changes.\n\n## Verification (local)\n\n| Gate | Exit / verdict |\n|---|---|\n| `scripts/bump-objectstack.sh --no-commit 5e7cf63e71` + `pnpm install` | 0, diff is `.objectstack-sha` only |\n| `check:installed-pin-claims` | OK (spec/client/formula = 18.1.0, lock and tree agree) |\n| `check:spec-symbols` | ✅ all four sections |\n| `check-changeset-presence.mjs` | no changeset owed |\n| `pnpm type-check` | reported in a follow-up comment |\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nSession: `https://claude.ai/code/session_01K1ngdG6x8wAt8cjeVx2cSk`\n"
+}

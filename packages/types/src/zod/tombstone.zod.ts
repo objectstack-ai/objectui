@@ -242,6 +242,44 @@ export function retiredNodeType(type: string, guidance: string) {
 }
 
 /**
+ * The guidance for a DURATION KEY RENAMED so its name carries its unit
+ * (objectstack#25762, maintainer decision E of the objectui → objectstack merge,
+ * objectstack#25677). After the merge, `@objectstack/spec`'s
+ * `check:duration-unit-keys` judges this package's mirrors too, and it refuses a
+ * numeric key whose unit lives only in its `.describe()` prose — the
+ * `timeout: 300` that reads as either milliseconds or seconds. objectstack
+ * renamed its own population the same way (objectstack#15679 / objectstack#15680:
+ * `…Ms` / `…Seconds`, the unit the describe already stated). Feed the ONE string
+ * to a {@link retirementTombstone} under the old spelling, beside the renamed key:
+ *
+ * ```ts
+ * durationMs: z.number().optional().describe('Auto-dismiss duration (ms)'),
+ * duration: retirementTombstone(durationKeyRenamedGuidance('duration', 'durationMs', 'milliseconds')),
+ * ```
+ *
+ * It is ADR-0087's rename-with-refusal shape adapted to this package: the old
+ * key stays DECLARED and refuses by name, pointing at the new one, so an author
+ * who still writes it is told what to write instead rather than having the value
+ * kept unread by `.passthrough()`. objectui keeps no conversion registry (the
+ * ADR-0087 D2 table lives in `@objectstack/spec`), so the refusal plus the
+ * changeset's FROM → TO table is the conversion. Only the key moves; the value
+ * and its unit are unchanged, and the guidance says so.
+ *
+ * @param retired the spelling an author may still write
+ * @param renamed the unit-carrying spelling that replaces it
+ * @param unit    the unit both spellings carry, spelled out in words
+ */
+export function durationKeyRenamedGuidance(
+  retired: string,
+  renamed: string,
+  unit: 'milliseconds' | 'seconds',
+): string {
+  return `RENAMED (objectstack#25762, ADR-0087) — \`${retired}\` is now \`${renamed}\`: a duration carries `
+    + 'its unit in its key name, never only in its description. '
+    + `Rename the key to \`${renamed}\`; the value (${unit}) is unchanged.`;
+}
+
+/**
  * The guidance for a node whose renderer reads NEITHER content channel
  * (objectui#9256, family D; the E3 residual moved there by the maintainer's
  * ruling on objectui#8284, Q2 A). Feed the ONE string to both members, each a

@@ -22,7 +22,7 @@ import { renderChildren, renderTriggerSlot } from '../../lib/utils';
 
 ComponentRegistry.register('tooltip', 
   ({ schema, className, ...props }: { schema: TooltipSchema; className?: string; [key: string]: any }) => (
-    <TooltipProvider delayDuration={schema.delayDuration}>
+    <TooltipProvider delayDuration={schema.delayDurationMs}>
       <Tooltip {...props}>
         {renderTriggerSlot(TooltipTrigger, schema.trigger)}
         <TooltipContent side={schema.side} align={schema.align} className={className}>
@@ -35,7 +35,7 @@ ComponentRegistry.register('tooltip',
     namespace: 'ui',
     label: 'Tooltip',
     inputs: [
-      { name: 'delayDuration', type: 'number' },
+      { name: 'delayDurationMs', type: 'number' },
       { name: 'side', type: 'enum', enum: ['top', 'right', 'bottom', 'left'] },
       { name: 'align', type: 'enum', enum: ['start', 'center', 'end'] },
       { 
@@ -58,7 +58,7 @@ ComponentRegistry.register('tooltip',
     defaultProps: {
       trigger: [{ type: 'button', label: 'Hover me', variant: 'outline' }],
       content: 'Tooltip content',
-      delayDuration: 700,
+      delayDurationMs: 700,
       side: 'top'
     }
   }

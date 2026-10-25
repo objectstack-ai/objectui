@@ -22,7 +22,7 @@ ComponentRegistry.register('toast',
       
       toastFn(schema.title || 'Notification', {
         description: schema.description,
-        duration: schema.duration,
+        duration: schema.durationMs,
       });
     };
     
@@ -42,7 +42,7 @@ ComponentRegistry.register('toast',
         name: 'variant', 
         type: 'enum', 
         enum: ['default', 'success', 'warning', 'error', 'info']      },
-      { name: 'duration', type: 'number' },
+      { name: 'durationMs', type: 'number' },
       { name: 'buttonLabel', type: 'string' },
       {
         name: 'buttonVariant',
@@ -57,7 +57,7 @@ ComponentRegistry.register('toast',
       title: 'Notification',
       buttonLabel: 'Show Toast',
       variant: 'default',
-      duration: 5000
+      durationMs: 5000
     }
   }
 );

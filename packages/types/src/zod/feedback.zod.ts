@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { durationKeyRenamedGuidance, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 
 /**
@@ -106,7 +106,8 @@ export const ToastSchema = BaseSchema.extend({
   title: z.string().optional().describe('Toast title'),
   description: z.string().optional().describe('Toast description'),
   variant: z.enum(['default', 'success', 'warning', 'error', 'info']).optional().describe('Toast variant'),
-  duration: z.number().optional().describe('Auto-dismiss duration (ms)'),
+  durationMs: z.number().optional().describe('Auto-dismiss duration (ms)'),
+  duration: retirementTombstone(durationKeyRenamedGuidance('duration', 'durationMs', 'milliseconds')),
   position: z.enum([
     'top-left',
     'top-center',
@@ -135,7 +136,7 @@ export const ToastSchema = BaseSchema.extend({
     + 'NO replacement spelling and the capability was never fulfilled — objectui#6250 moved the toast '
     + 'demos off an in-toast action entirely, and an in-toast action button is a capability expansion '
     + 'with zero runtime today. Raise the toast from the node itself (`title`, `description`, '
-    + '`variant`, `duration`) and label its trigger with `buttonLabel` / `buttonVariant`.',
+    + '`variant`, `durationMs`) and label its trigger with `buttonLabel` / `buttonVariant`.',
   ),
   onDismiss: handlerKeyRefusal('onDismiss', 'retired', 'Dismiss handler'),
   // The trigger button the `toast` renderer draws in place. `buttonVariant`
@@ -157,7 +158,7 @@ export const ToastSchema = BaseSchema.extend({
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `buttonLabel`, `buttonVariant`, `className`, `description`, `duration`, '
+    + 'What it renders instead: `buttonLabel`, `buttonVariant`, `className`, `description`, `durationMs`, '
     + '`title`, `variant`.',
   ),
   children: retirementTombstone(
@@ -165,7 +166,7 @@ export const ToastSchema = BaseSchema.extend({
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `buttonLabel`, `buttonVariant`, `className`, `description`, `duration`, '
+    + 'What it renders instead: `buttonLabel`, `buttonVariant`, `className`, `description`, `durationMs`, '
     + '`title`, `variant`.',
   ),
 });

@@ -241,7 +241,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ schema, onRefresh })
               rule itself lives in the shared print sheet
               (`@object-ui/app-shell/styles.css`, objectui#4462). */}
           <div className="flex items-center gap-2" data-print-hide>
-            {report.refreshInterval && (
+            {report.refreshIntervalSeconds && (
               <Button variant="outline" size="sm" onClick={handleRefresh}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh

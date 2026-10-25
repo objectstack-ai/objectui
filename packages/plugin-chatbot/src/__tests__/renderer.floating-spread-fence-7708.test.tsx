@@ -108,7 +108,7 @@ describe('chatbot-floating: a sent message renders on the panel (fixed, objectui
       messages: [{ id: 'seed', role: 'assistant', content: 'seed-message-marker' }],
       autoResponse: true,
       autoResponseText: 'auto-reply-marker',
-      autoResponseDelay: 0,
+      autoResponseDelayMs: 0,
     });
 
     // Before the fix: the raw `{...props}` spread, LAST, put the AUTHORED

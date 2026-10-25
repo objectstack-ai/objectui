@@ -247,7 +247,14 @@ export interface ActionSchema extends BaseSchema {
   /**
    * Timeout in milliseconds
    */
-  timeout?: number;
+  timeoutMs?: number;
+  /**
+   * RENAMED to {@link ActionSchema.timeoutMs} (objectstack#25762, ADR-0087): a duration
+   * carries its unit in its key name, never only in its description. The
+   * value (milliseconds) is unchanged; the zod twin refuses this spelling by name.
+   * @deprecated Renamed to `timeoutMs`.
+   */
+  timeout?: never;
   /**
    * Retry configuration
    */
@@ -259,7 +266,14 @@ export interface ActionSchema extends BaseSchema {
     /**
      * Delay between retries (in ms)
      */
-    delay?: number;
+    delayMs?: number;
+    /**
+     * RENAMED to `delayMs` (objectstack#25762, ADR-0087): a duration
+     * carries its unit in its key name, never only in its description. The
+     * value (milliseconds) is unchanged; the zod twin refuses this spelling by name.
+     * @deprecated Renamed to `delayMs`.
+     */
+    delay?: never;
   };
 }
 

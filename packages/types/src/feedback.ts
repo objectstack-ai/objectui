@@ -298,7 +298,14 @@ export interface ToastSchema extends BaseSchema {
    * Auto-dismiss duration in milliseconds
    * @default 5000
    */
-  duration?: number;
+  durationMs?: number;
+  /**
+   * RENAMED to {@link ToastSchema.durationMs} (objectstack#25762, ADR-0087): a duration
+   * carries its unit in its key name, never only in its description. The
+   * value (milliseconds) is unchanged; the zod twin refuses this spelling by name.
+   * @deprecated Renamed to `durationMs`.
+   */
+  duration?: never;
   /**
    * Toast position
    * @default 'bottom-right'
@@ -312,7 +319,7 @@ export interface ToastSchema extends BaseSchema {
    * published faces whose accept sets were disjoint, one of them empty. An
    * author who wrote `action` got a green `safeParse` and a `tsc` refusal, and
    * no spelling satisfied both. The `toast` renderer read NEITHER face — it
-   * reads `variant`, `title`, `description`, `duration`, `buttonVariant`,
+   * reads `variant`, `title`, `description`, `durationMs`, `buttonVariant`,
    * `className` and `buttonLabel`, and nothing else — so nothing could ever have
    * run it.
    *
@@ -371,7 +378,7 @@ export interface ToastSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `buttonLabel`, `buttonVariant`, `className`, `description`, `duration`,
+   * `buttonLabel`, `buttonVariant`, `className`, `description`, `durationMs`,
    * `title`, `variant` (in
    * `packages/components/src/renderers/feedback/toast.tsx`).
    *
@@ -398,7 +405,7 @@ export interface ToastSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `buttonLabel`, `buttonVariant`, `className`, `description`, `duration`,
+   * `buttonLabel`, `buttonVariant`, `className`, `description`, `durationMs`,
    * `title`, `variant` (in
    * `packages/components/src/renderers/feedback/toast.tsx`).
    *

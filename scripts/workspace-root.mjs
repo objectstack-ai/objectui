@@ -55,6 +55,35 @@
  * computed before: the file is at the objectui root, so rule (a) picks it and
  * rule (b) returns the globs verbatim.
  *
+ * ## Paths handed to git: git's own cwd-relative forms (objectstack#25728)
+ *
+ * The second half of the same class. Standalone, the git repository root IS
+ * the objectui tree; under the monorepo it is the OBJECTSTACK root, one level
+ * up, and git reads some paths against that root whatever `cwd` the script
+ * spawns it with. `git show <ref>:packages/x` then asks for a file that sits
+ * at `ui/packages/x`, and `git diff --name-only` answers `ui/packages/x` to a
+ * reader that matches `packages/...`. The one idiom, for every script:
+ *
+ *   - git runs with `cwd` at the tree it judges -- `uiRoot()`, or the
+ *     repository under test when a gate is driven against a scratch repo;
+ *   - a path INTO a revision is `revPath(ref, path)`, i.e. `<ref>:./<path>`:
+ *     git resolves `./` against the cwd, so the same spelling names the same
+ *     file in both layouts (and in a scratch repo, where `./` is the root);
+ *   - a path listing OUT of `diff` / `diff-tree` / `log` / `show`
+ *     (`--name-only`, `--name-status`, `--numstat`, `--stat`, `--raw`) carries
+ *     `--relative`, so git prints paths from the cwd and leaves out the
+ *     monorepo's own files;
+ *   - `ls-files`, `ls-tree`, `grep` and a pathspec after `--` are already
+ *     cwd-relative, so they never carry `--full-name` / `--full-tree`.
+ *
+ * Standalone every one of these is a no-op (the cwd is the repository root),
+ * so a reader's answer there is the one it computed before. Calls that hand git
+ * no path (`rev-parse`, `merge-base`, `cat-file -e <sha>`) need nothing.
+ * `nestedPrefix()` below is the WORKSPACE answer and is not used for git: git
+ * already knows where the cwd sits, and a scratch repo has no workspace.
+ * `pnpm check:ui-root-lookups` refuses the root-relative spellings so the class
+ * does not grow back; its header names the shapes and the bound.
+ *
  * ## The one parser
  *
  * Three scripts carried their own `packages:` parser; `parseWorkspaceGlobs` is
@@ -123,6 +152,18 @@ export function isNestedWorkspace(root = uiRoot()) {
  */
 export function nestedPrefix(root = uiRoot()) {
   return isNestedWorkspace(root) ? `${path.basename(path.resolve(root))}/` : '';
+}
+
+/**
+ * `<ref>:./<path>` -- a file at a revision, named relative to the cwd git runs
+ * in rather than to the repository root (see "Paths handed to git" above).
+ *
+ * @param {string} ref a revision (`HEAD`, a sha, `origin/main`)
+ * @param {string} file POSIX path relative to the tree git runs in
+ * @returns {string}
+ */
+export function revPath(ref, file) {
+  return `${ref}:./${file.replace(/^(?:\.\/)+/, '')}`;
 }
 
 /** @param {string} [root] @returns {string} absolute path of the governing `pnpm-workspace.yaml`. */

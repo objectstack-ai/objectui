@@ -50,12 +50,47 @@
  *   - SILENT a `.git` entry in a directory skip-list, a fixture that WRITES a
  *            `pnpm-workspace.yaml`, and any mention inside a comment.
  *
+ * ## Paths handed to git (objectstack#25728)
+ *
+ * The same move one level down: git reads some paths against the REPOSITORY
+ * root, whatever cwd it runs in, and under the monorepo that root is one level
+ * above the objectui tree. `scripts/workspace-root.mjs` ("Paths handed to
+ * git") writes down the one idiom -- git's own cwd-relative forms -- and this
+ * gate refuses the root-relative spellings it replaced. An argument list is a
+ * git argv when it is an array literal whose first element (after `-C <dir>` /
+ * `-c <k=v>` pairs) is a git subcommand string, the string arguments of a call
+ * whose callee is named `git...`, or a string command that starts `git `:
+ *
+ *   - FIRES  `git-rev-path`: a `show` / `cat-file` argv, or the call that
+ *            spawns one (so a `cat-file --batch` `input:` is in reach), holding
+ *            a `<ref>:<path>` string or template whose path part does not start
+ *            with `./` -- `${ref}:${file}`, `HEAD:packages/x`. Spell it
+ *            `revPath(ref, file)`;
+ *   - FIRES  `git-root-listing`: a `diff` / `diff-tree` / `diff-index` /
+ *            `log` / `show` / `whatchanged` argv with a path-listing flag
+ *            (`--name-only`, `--name-status`, `--numstat`, `--stat`, `--raw`,
+ *            `--summary`) and no `--relative`; an `ls-files` / `ls-tree` /
+ *            `grep` argv with `--full-name` or `--full-tree`;
+ *   - SILENT `revPath(...)`, `<ref>:./<path>`, a `<sha>^{commit}` probe, a
+ *            pathspec after `--`, `ls-files` / `ls-tree` / `grep` without
+ *            those flags, and a flag string that only starts with `-`.
+ *
+ * ⚠️ The bound, said per AGENTS.md #9: the detector reads argv it can SEE.
+ * An argv assembled across statements from names alone, a `<ref>:<path>`
+ * string built outside the spawning call and handed in by name, a `diff` whose
+ * PATCH headers (`+++ b/<path>`) are parsed for paths, `status --porcelain`
+ * (root-relative by design, and read here only as "is the tree clean"), and
+ * git run with a cwd other than the tree (so `./` resolves elsewhere) are out
+ * of its reach; the idiom in `scripts/workspace-root.mjs` is the rule, this is
+ * its tripwire.
+ *
  * ## The allowlist is a ledger, not a bypass
  *
  * Every entry names a file and the reason its probe is not a repo-root lookup
  * (a CLI asking whether the USER's cwd is a workspace; the pin script, which
  * the merge deletes; `scripts/workspace-root.mjs`, whose two probes are
- * anchored on `uiRoot()` and decide the WORKSPACE root once for every reader).
+ * anchored on `uiRoot()` and decide the WORKSPACE root once for every reader;
+ * the governed-surface guard, whose subject is the repository's own root).
  * An entry whose file no longer carries a hit is STALE and reds the run, so the
  * list can only shrink without being tended.
  */
@@ -90,6 +125,25 @@ const UPWARD_STEPS = new Set(['dirname']);
 const PATH_COMBINERS = new Set(['join', 'resolve']);
 const GIT_ROOT_FLAGS = new Set(['--show-toplevel', '--git-common-dir']);
 
+/** Every git subcommand this gate reads an argv for; a list whose head is not one of these is not a git argv. */
+const GIT_SUBCOMMANDS = new Set(['show', 'cat-file', 'diff', 'diff-tree', 'diff-index', 'log', 'whatchanged', 'ls-files', 'ls-tree', 'grep']);
+/** Subcommands whose `<ref>:<path>` argument git resolves from the REPOSITORY root unless the path starts with `./`. */
+const REV_PATH_SUBCOMMANDS = new Set(['show', 'cat-file']);
+/** Subcommands whose path listings are repository-root-relative unless `--relative`. */
+const DIFF_SUBCOMMANDS = new Set(['diff', 'diff-tree', 'diff-index', 'log', 'show', 'whatchanged']);
+const PATH_LISTING_FLAG = /^--(?:name-only|name-status|numstat|stat|raw|summary)(?:=|$)/;
+/** Subcommands that answer from the cwd unless told to answer from the root. */
+const CWD_LISTING_SUBCOMMANDS = new Set(['ls-files', 'ls-tree', 'grep']);
+const FULL_PATH_FLAGS = new Set(['--full-name', '--full-tree']);
+/** Placeholder for a template substitution when a template is read as a shape. */
+const HOLE = '\u0001';
+/**
+ * `<ref>:<path>` with something before the colon and a path after it that does
+ * not start with `./`. A leading `-` is a flag (`--format=%H:%s`); a leading
+ * `:` is pathspec magic (`:(glob)x`), not a revision.
+ */
+const ROOT_REV_PATH = /^[^\s:\-][^\s:]*:(?!\.\/)[^\s]/;
+
 /**
  * Files that carry a probe this gate recognises and that is NOT a repo-root
  * lookup. Path → reason. A path listed here that carries no hit is stale.
@@ -107,6 +161,10 @@ export const ALLOWLIST = new Map([
     'scripts/check-new-cross-file-line-citations.mjs',
     "the gate's subject is the REPOSITORY AT THE CWD (its self-test drives it against a scratch repository), so `gateRoot()` reads the toplevel and narrows to `uiRoot()` only when the objectui tree lies inside it -- a probe of THAT repository, not a lookup of this root",
   ],
+  [
+    'scripts/check-governed-queue-guard.mjs',
+    "its subject is the REPOSITORY's governed surfaces (`AGENTS.md`, `.github/workflows/**`, ... at the git root), so its `diff-tree --name-only` reads root-relative paths on purpose; under the monorepo the governed register is objectstack's own (objectstack#25712)",
+  ],
   ['packages/cli/src/utils/app-generator.ts', "asks whether the USER's cwd is a pnpm workspace to choose the scaffold shape -- product behaviour, not a repo-root lookup"],
   ['packages/cli/src/utils/workspace-vite.ts', "asks whether the USER's cwd is a pnpm workspace before reading its globs -- product behaviour, not a repo-root lookup"],
   ['packages/cli/src/__tests__/app-generator.test.ts', 'mirrors the generator\'s own cwd predicate to compute the expected scaffold shape'],
@@ -114,7 +172,7 @@ export const ALLOWLIST = new Map([
 
 // Cheap pre-filter: a file that spells none of these cannot carry a hit. It is
 // a SPEED filter only; every file that mentions one is parsed in full.
-const PREFILTER = /\.git['"`]|pnpm-workspace\.yaml|--show-toplevel|--git-common-dir|find-up|findUp/;
+const PREFILTER = /\.git['"`]|pnpm-workspace\.yaml|--show-toplevel|--git-common-dir|find-up|findUp|['"`](?:show|cat-file|diff|diff-tree|diff-index|log|whatchanged|ls-files|ls-tree|grep)['"`]|['"`]git /;
 
 function calleeName(node) {
   const e = node.expression;
@@ -183,6 +241,50 @@ function loopWalksUpward(loop) {
   return found;
 }
 
+/**
+ * A string-ish node read as a SHAPE: its text, with every template substitution
+ * replaced by one placeholder character. `null` for anything else.
+ */
+function shapeOf(node) {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+  if (ts.isTemplateExpression(node)) return node.head.text + node.templateSpans.map((s) => HOLE + s.literal.text).join('');
+  return null;
+}
+
+/**
+ * The git argv in a list of argument SHAPES (strings; `null` for a non-string
+ * node): an optional run of `-C <dir>` / `-c <k=v>` pairs, then a subcommand.
+ * `leading` non-string nodes may precede it (a wrapper's `root` argument).
+ *
+ * @param {(string | null)[]} shapes
+ * @returns {{ sub: string, rest: (string | null)[] } | null}
+ */
+function gitArgv(shapes, leading = 0) {
+  let i = 0;
+  while (i < leading && i < shapes.length && shapes[i] === null) i += 1;
+  while (shapes[i] === '-C' || shapes[i] === '-c') i += 2;
+  const sub = shapes[i];
+  return typeof sub === 'string' && GIT_SUBCOMMANDS.has(sub) ? { sub, rest: shapes.slice(i + 1) } : null;
+}
+
+/** Whether an argv lists paths from the REPOSITORY root (see the header's `git-root-listing`). */
+function listsFromGitRoot({ sub, rest }) {
+  const flags = rest.filter((s) => typeof s === 'string');
+  if (DIFF_SUBCOMMANDS.has(sub)) {
+    return flags.some((f) => PATH_LISTING_FLAG.test(f)) && !flags.some((f) => f === '--relative' || f.startsWith('--relative='));
+  }
+  if (CWD_LISTING_SUBCOMMANDS.has(sub)) return flags.some((f) => FULL_PATH_FLAGS.has(f));
+  return false;
+}
+
+const isRootRevPath = (shape) => typeof shape === 'string' && ROOT_REV_PATH.test(shape);
+
+/** Whether a callee is a git wrapper by name: `git`, `gitQuiet`, `runGit`, `this.git`. */
+function isGitCallee(call) {
+  const name = calleeName(call);
+  return typeof name === 'string' && /git/i.test(name);
+}
+
 const isLoop = (node) => ts.isForStatement(node) || ts.isWhileStatement(node) || ts.isDoStatement(node) || ts.isForOfStatement(node) || ts.isForInStatement(node);
 
 /**
@@ -190,14 +292,18 @@ const isLoop = (node) => ts.isForStatement(node) || ts.isWhileStatement(node) ||
  *
  * @param {string} file  Path used for reporting and for the script kind.
  * @param {string} text
- * @returns {{ line: number, shape: 'marker-probe' | 'marker-walk' | 'git-toplevel' | 'find-up', text: string }[]}
+ * @returns {{ line: number, shape: 'marker-probe' | 'marker-walk' | 'git-toplevel' | 'find-up' | 'git-rev-path' | 'git-root-listing', text: string }[]}
  */
 export function lookupsIn(file, text) {
   const kind = /\.tsx$/.test(file) ? ts.ScriptKind.TSX : /\.[cm]?js$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
   const src = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
   const binds = bindingsOf(src);
   const hits = [];
+  const seen = new Set();
   const record = (node, shape) => {
+    const key = `${node.getStart(src)}:${shape}`;
+    if (seen.has(key)) return;
+    seen.add(key);
     hits.push({
       line: src.getLineAndCharacterOfPosition(node.getStart(src)).line + 1,
       shape,
@@ -208,7 +314,52 @@ export function lookupsIn(file, text) {
   // inside one that steps upward is the walk's existence test, not a data read.
   const loops = [];
   const inUpwardWalk = () => loops.some(loopWalksUpward);
+  // Every `<ref>:<path>` under `scope` that names its path from the git root.
+  const recordRevPaths = (scope) => {
+    const visit = (n) => {
+      if (isRootRevPath(shapeOf(n))) record(n, 'git-rev-path');
+      ts.forEachChild(n, visit);
+    };
+    visit(scope);
+  };
+  // One git argv, read from `nodes`; `scope` is what a `<ref>:<path>` may hide in.
+  const judgeArgv = (anchor, nodes, scope, leading = 0) => {
+    const argv = gitArgv(nodes.map(shapeOf), leading);
+    if (!argv) return false;
+    if (listsFromGitRoot(argv)) record(anchor, 'git-root-listing');
+    if (REV_PATH_SUBCOMMANDS.has(argv.sub)) {
+      for (const n of nodes) if (isRootRevPath(shapeOf(n))) record(n, 'git-rev-path');
+      if (scope) recordRevPaths(scope);
+    }
+    return true;
+  };
+  // A string command (`execSync('git show ...')`), split on whitespace.
+  const judgeCommand = (node) => {
+    const shape = shapeOf(node);
+    if (shape === null || !/^git\s/.test(shape)) return;
+    const words = shape.trim().split(/\s+/).slice(1).map((w) => w.replace(/^(['"])(.*)\1$/, '$2'));
+    const argv = gitArgv(words);
+    if (!argv) return;
+    if (listsFromGitRoot(argv)) record(node, 'git-root-listing');
+    if (REV_PATH_SUBCOMMANDS.has(argv.sub) && argv.rest.some(isRootRevPath)) record(node, 'git-rev-path');
+  };
+
   const walk = (node) => {
+    if (ts.isArrayLiteralExpression(node)) {
+      judgeArgv(node, node.elements, null);
+    } else if (ts.isCallExpression(node)) {
+      // The spawning call: an argv array among its arguments puts the whole
+      // call (a `cat-file --batch` `input:` included) in reach of the rev-path rule.
+      for (const arg of node.arguments) {
+        if (ts.isArrayLiteralExpression(arg)) {
+          const argv = gitArgv(arg.elements.map(shapeOf));
+          if (argv && REV_PATH_SUBCOMMANDS.has(argv.sub)) recordRevPaths(node);
+        }
+      }
+      // A variadic wrapper: `git(root, 'show', 'HEAD:x')`.
+      if (isGitCallee(node)) judgeArgv(node, node.arguments, null, 2);
+    }
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)) judgeCommand(node);
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text === 'find-up') {
       record(node, 'find-up');
     } else if (ts.isCallExpression(node)) {
@@ -301,6 +452,29 @@ export function selfTest() {
   run('a comment that mentions every spelling', `// walks up to .git or pnpm-workspace.yaml, like git rev-parse --show-toplevel or find-up\nexport const x = 1;`, 'silent');
   run('the helper itself', `import { uiRoot } from '../../../../scripts/ui-root.mjs';\nconst README = join(uiRoot(), 'packages/core/README.md');\nif (existsSync(README)) {}`, 'silent');
   run('an existsSync of something else', `${head}if (existsSync(join(root, 'packages/types/package.json'))) {}`, 'silent');
+  // ── Paths handed to git (objectstack#25728) ──────────────────────────────
+  // FIRES
+  run('`git show <ref>:<path>` through a wrapper (the check:i18n-drift red)', `${head}const text = gitQuiet(root, ['show', \`\${ref}:\${rel}\`]);`, 'fires', 'scripts/x.mjs');
+  run('`git show` of a literal root-relative path', `${head}execFileSync('git', ['show', 'origin/main:packages/i18n/src/locales/en.ts'], { cwd: root });`, 'fires', 'scripts/x.mjs');
+  run('a `cat-file --batch` input naming paths from the root', `${head}execFileSync('git', ['cat-file', '--batch'], { cwd: root, input: paths.map((p) => \`\${ref}:\${p}\`).join('\\n') });`, 'fires', 'scripts/x.mjs');
+  run('`-C <dir>` before `show`', `${head}spawnSync('git', ['-C', root, 'show', \`\${rev}:\${file}\`]);`, 'fires', 'scripts/x.mjs');
+  run('a variadic wrapper `git(root, "show", "HEAD:x")`', `const out = git(repo, 'show', 'HEAD:packages/x/package.json');`, 'fires');
+  run('a string command `git show <ref>:<path>`', `${head}execSync(\`git show \${base}:\${file}\`);`, 'fires', 'scripts/x.mjs');
+  run('`diff --name-only` without --relative (an argv built then pushed to)', `const args = ['diff', '--name-only', '-z'];\nargs.push(base);`, 'fires', 'scripts/x.mjs');
+  run('`diff-tree --name-status` without --relative', `${head}git(root, ['diff-tree', '-r', '--name-status', sha]);`, 'fires', 'scripts/x.mjs');
+  run('`log --numstat` without --relative', `${head}git(root, ['log', '--numstat', '--format=%H', range]);`, 'fires', 'scripts/x.mjs');
+  run('`ls-tree --full-tree`', `${head}git(root, ['ls-tree', '-r', '--name-only', '--full-tree', ref]);`, 'fires', 'scripts/x.mjs');
+  run('`ls-files --full-name`', `${head}execFileSync('git', ['ls-files', '--full-name', '-z'], { cwd: root });`, 'fires', 'scripts/x.mjs');
+  // SILENT
+  run('`revPath(ref, file)`', `import { revPath } from './workspace-root.mjs';\n${head}gitQuiet(root, ['show', revPath(ref, rel)]);`, 'silent', 'scripts/x.mjs');
+  run('`<ref>:./<path>` spelled out', `${head}execFileSync('git', ['show', \`\${rev}:./\${path}\`], { cwd: root });`, 'silent', 'scripts/x.mjs');
+  run('a `<sha>^{commit}` probe and a ref range', `${head}git(root, ['cat-file', '-e', \`\${sha}^{commit}\`]);\ngit(root, ['log', '--format=%H:%s', \`\${base}..\${head}\`]);`, 'silent', 'scripts/x.mjs');
+  run('`diff --name-only --relative`', `${head}git(root, ['diff', '--name-only', '--relative', base, head]);`, 'silent', 'scripts/x.mjs');
+  run('a patch `diff` with a pathspec after `--`', `${head}git(root, ['diff', '-U0', '--no-color', base, '--', file]);`, 'silent', 'scripts/x.mjs');
+  run('`ls-files` / `ls-tree` / `grep` answering from the cwd', `${head}git(root, ['ls-files', '-z']);\ngit(root, ['ls-tree', '-r', '--name-only', ref]);\ngit(root, ['grep', '-n', '-e', key, '--', 'packages']);`, 'silent', 'scripts/x.mjs');
+  run('pathspec magic, not a revision', `${head}git(root, ['ls-files', '--others', '--', ':(glob).changeset/*.md']);\ngit(root, ['diff', '--relative', '--name-only', base, '--', ':(glob).changeset/*.md']);`, 'silent', 'scripts/x.mjs');
+  run('a `<file>:<line>` diagnostic outside any git argv', `const where = \`\${file}:\${line}\`;\nconsole.log(['show', where].join(' '));`, 'silent', 'scripts/x.mjs');
+  run('a list that only looks like an argv', `const ROWS = [['status', 'Aggregate closure ceiling'], ['log', 'info', 'warn']];`, 'silent', 'scripts/x.mjs');
   return cases;
 }
 

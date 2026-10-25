@@ -151,6 +151,7 @@ import {
   readDesignerPairs,
 } from './check-i18n-designer-table-parity.mjs';
 import { isEntrypoint } from './invoked-as.mjs';
+import { revPath } from './workspace-root.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 
@@ -336,7 +337,7 @@ export function readPacks(root, ref) {
       if (!existsSync(full)) throw new Error(`${rel} does not exist in the working tree`);
       text = readFileSync(full, 'utf8');
     } else {
-      text = gitQuiet(root, ['show', `${ref}:${rel}`]);
+      text = gitQuiet(root, ['show', revPath(ref, rel)]);
       if (text === null) throw new Error(`cannot read ${label} — is ${ref} in this clone?`);
     }
     packs.set(lang, parsePack(text, label));
@@ -627,7 +628,7 @@ export function readDesignerTables(root, ref, { require = true } = {}) {
     if (!existsSync(full)) throw new Error(`${DESIGNER_TABLE} does not exist in the working tree`);
     text = readFileSync(full, 'utf8');
   } else {
-    text = gitQuiet(root, ['show', `${ref}:${DESIGNER_TABLE}`]);
+    text = gitQuiet(root, ['show', revPath(ref, DESIGNER_TABLE)]);
     if (text === null) {
       if (require) throw new Error(`cannot read ${label} — is ${ref} in this clone?`);
       return { values: new Map(), fileMissing: true };

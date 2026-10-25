@@ -19,6 +19,8 @@ export declare function workspaceRoot(root?: string): string;
 export declare function isNestedWorkspace(root?: string): boolean;
 /** The tree's directory-name prefix in the parent's globs (`ui/`), or `''`. */
 export declare function nestedPrefix(root?: string): string;
+/** `<ref>:./<path>`: a file at a revision, relative to the cwd git runs in. */
+export declare function revPath(ref: string, file: string): string;
 export declare function workspaceManifestPath(root?: string): string;
 export declare function lockfilePath(root?: string): string;
 export declare function rootManifestPath(root?: string): string;

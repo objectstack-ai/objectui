@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { useDisplayLocale } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import { ConsolePageHeader, useAdapter, useMetadata, FlowRunner, type ScreenFlowState } from '@object-ui/app-shell';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import {
@@ -51,6 +51,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@object-ui/components';
+import { SLOT, withSlots } from '../../lib/inlineSlots';
 import {
   Play, Loader2, CheckCircle2, XCircle, Clock, AlertCircle, RefreshCw, Workflow,
 } from 'lucide-react';
@@ -190,6 +191,7 @@ function FlowPicker({
 }
 
 export function FlowRunsPage() {
+  const { t } = useObjectTranslation();
   const adapter = useAdapter();
   const client: any = adapter?.getClient?.();
 
@@ -251,8 +253,10 @@ export function FlowRunsPage() {
         subtitle beside the title from `sm` up, in one row across the page
         above the padded body. Below `sm` the header hides the subtitle. */}
     <ConsolePageHeader
-      title="Flow Runs"
-      subtitle="Pick a flow, trigger a test run with sample inputs, and inspect recent run history"
+      title={t('console.developer.flowRuns.title', { defaultValue: 'Flow Runs' })}
+      subtitle={t('console.developer.flowRuns.subtitle', {
+        defaultValue: 'Pick a flow, trigger a test run with sample inputs, and inspect recent run history',
+      })}
       icon={<Workflow className="h-4 w-4" />}
     />
     <div className="flex flex-col gap-4 p-4 sm:p-6">
@@ -260,12 +264,12 @@ export function FlowRunsPage() {
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-base">Flow</CardTitle>
-              <CardDescription>Select a flow definition to test</CardDescription>
+              <CardTitle className="text-base">{t('console.developer.flowRuns.flowTitle', { defaultValue: 'Flow' })}</CardTitle>
+              <CardDescription>{t('console.developer.flowRuns.flowDescription', { defaultValue: 'Select a flow definition to test' })}</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={loadFlows} disabled={flowsLoading}>
               <RefreshCw className={`h-3.5 w-3.5 mr-2 ${flowsLoading ? 'animate-spin' : ''}`} />
-              Refresh
+              {t('common.refresh', { defaultValue: 'Refresh' })}
             </Button>
           </div>
         </CardHeader>
@@ -275,7 +279,7 @@ export function FlowRunsPage() {
             <p className="text-sm text-red-500 font-mono break-all">{flowsError}</p>
           )}
           {!flowsLoading && !flowsError && flows.length === 0 && (
-            <p className="text-sm text-muted-foreground">No flow definitions found.</p>
+            <p className="text-sm text-muted-foreground">{t('console.developer.flowRuns.noFlows', { defaultValue: 'No flow definitions found.' })}</p>
           )}
           {!flowsLoading && !flowsError && flows.length > 0 && (
             <FlowPicker
@@ -318,6 +322,7 @@ function FlowTestRunner({
   flow: any;
   onExecuted?: () => void;
 }) {
+  const { t } = useObjectTranslation();
   const inputVars = useMemo<FlowVariable[]>(
     () => (flow?.variables ?? []).filter((v: FlowVariable) => v?.isInput),
     [flow],
@@ -380,13 +385,16 @@ function FlowTestRunner({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Test Run</CardTitle>
-        <CardDescription>Provide input values and invoke the flow</CardDescription>
+        <CardTitle className="text-base">{t('console.developer.flowRuns.testRunTitle', { defaultValue: 'Test Run' })}</CardTitle>
+        <CardDescription>{t('console.developer.flowRuns.testRunDescription', { defaultValue: 'Provide input values and invoke the flow' })}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {inputVars.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            This flow declares no input variables. Click Run to invoke with no parameters.
+            {t('console.developer.flowRuns.noInputs', {
+              defaultValue: 'This flow declares no input variables. Click {{action}} to invoke it with no parameters.',
+              action: t('console.developer.flowRuns.runFlow', { defaultValue: 'Run Flow' }),
+            })}
           </p>
         )}
         {inputVars.map(v => (
@@ -425,7 +433,9 @@ function FlowTestRunner({
         <div className="pt-1">
           <Button onClick={handleRun} disabled={running} size="sm">
             {running ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <Play className="h-3.5 w-3.5 mr-2" />}
-            {running ? 'Running…' : 'Run Flow'}
+            {running
+              ? t('console.developer.flowRuns.running', { defaultValue: 'Running…' })
+              : t('console.developer.flowRuns.runFlow', { defaultValue: 'Run Flow' })}
           </Button>
         </div>
 
@@ -433,11 +443,11 @@ function FlowTestRunner({
           <div className="pt-2 border-t mt-2 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               {error || result?.success === false ? (
-                <><XCircle className="h-4 w-4 text-red-500" /> Failed</>
+                <><XCircle className="h-4 w-4 text-red-500" /> {t('console.developer.flowRuns.failed', { defaultValue: 'Failed' })}</>
               ) : result?.status === 'paused' ? (
-                <><Clock className="h-4 w-4 text-amber-500" /> Waiting for input</>
+                <><Clock className="h-4 w-4 text-amber-500" /> {t('console.developer.flowRuns.waitingForInput', { defaultValue: 'Waiting for input' })}</>
               ) : (
-                <><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Result</>
+                <><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {t('console.developer.flowRuns.result', { defaultValue: 'Result' })}</>
               )}
               {typeof result?.durationMs === 'number' && (
                 <Badge variant="secondary" className="text-[10px] font-mono">
@@ -451,7 +461,13 @@ function FlowTestRunner({
             {result?.status === 'paused' && result?.screen && result?.runId && !screenFlow && (
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm text-muted-foreground">
-                  This run is paused at screen <span className="font-mono">{result.screen.nodeId}</span>.
+                  {withSlots(
+                    t('console.developer.flowRuns.pausedAtScreen', {
+                      defaultValue: 'This run is paused at screen {{node}}.',
+                      node: SLOT[0],
+                    }),
+                    [<span key="node" className="font-mono">{result.screen.nodeId}</span>],
+                  )}
                 </p>
                 <Button
                   size="sm"
@@ -465,7 +481,7 @@ function FlowTestRunner({
                     })
                   }
                 >
-                  Continue run
+                  {t('console.developer.flowRuns.continueRun', { defaultValue: 'Continue run' })}
                 </Button>
               </div>
             )}
@@ -498,6 +514,7 @@ function FlowRunsPanel({
   flowName: string;
   refreshKey?: number;
 }) {
+  const { t } = useObjectTranslation();
   const displayLocale = useDisplayLocale();
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -550,12 +567,12 @@ function FlowRunsPanel({
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-base">Recent Runs</CardTitle>
+              <CardTitle className="text-base">{t('console.developer.flowRuns.recentRuns', { defaultValue: 'Recent Runs' })}</CardTitle>
               <CardDescription className="font-mono text-xs">{flowName}</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={loadRuns} disabled={loading}>
               {loading ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-2" />}
-              Refresh
+              {t('common.refresh', { defaultValue: 'Refresh' })}
             </Button>
           </div>
         </CardHeader>
@@ -572,17 +589,20 @@ function FlowRunsPanel({
           )}
           {!loading && !error && runs.length === 0 && (
             <p className="text-sm text-muted-foreground py-6 text-center">
-              No runs yet. Use the Test Run panel to invoke this flow.
+              {t('console.developer.flowRuns.noRuns', {
+                defaultValue: 'No runs yet. Use the {{panel}} panel to invoke this flow.',
+                panel: t('console.developer.flowRuns.testRunTitle', { defaultValue: 'Test Run' }),
+              })}
             </p>
           )}
           {!loading && !error && runs.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Run</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Started</TableHead>
-                  <TableHead className="text-right">Duration</TableHead>
+                  <TableHead>{t('console.developer.flowRuns.columnRun', { defaultValue: 'Run' })}</TableHead>
+                  <TableHead>{t('console.developer.flowRuns.columnStatus', { defaultValue: 'Status' })}</TableHead>
+                  <TableHead>{t('console.developer.flowRuns.columnStarted', { defaultValue: 'Started' })}</TableHead>
+                  <TableHead className="text-right">{t('console.developer.flowRuns.columnDuration', { defaultValue: 'Duration' })}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -609,7 +629,9 @@ function FlowRunsPanel({
       <Sheet open={!!openRunId} onOpenChange={(o: boolean) => { if (!o) { setOpenRunId(null); setRunDetail(null); } }}>
         <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col">
           <SheetHeader className="p-4 border-b">
-            <SheetTitle className="font-mono text-sm break-all">Run {openRunId}</SheetTitle>
+            <SheetTitle className="font-mono text-sm break-all">
+              {t('console.developer.flowRuns.runTitle', { defaultValue: 'Run {{id}}', id: openRunId ?? '' })}
+            </SheetTitle>
             <SheetDescription>
               {runDetail && (
                 <span className="inline-flex items-center gap-2">
@@ -653,19 +675,19 @@ function FlowRunsPanel({
                       </div>
                       {step.input !== undefined && (
                         <div>
-                          <div className="text-[10px] uppercase text-muted-foreground mb-1">Input</div>
+                          <div className="text-[10px] uppercase text-muted-foreground mb-1">{t('console.developer.flowRuns.stepInput', { defaultValue: 'Input' })}</div>
                           <JsonBlock data={step.input} />
                         </div>
                       )}
                       {step.output !== undefined && (
                         <div>
-                          <div className="text-[10px] uppercase text-muted-foreground mb-1">Output</div>
+                          <div className="text-[10px] uppercase text-muted-foreground mb-1">{t('console.developer.flowRuns.stepOutput', { defaultValue: 'Output' })}</div>
                           <JsonBlock data={step.output} />
                         </div>
                       )}
                       {step.error && (
                         <div>
-                          <div className="text-[10px] uppercase text-red-500 mb-1">Error</div>
+                          <div className="text-[10px] uppercase text-red-500 mb-1">{t('console.developer.flowRuns.stepError', { defaultValue: 'Error' })}</div>
                           <JsonBlock data={step.error} />
                         </div>
                       )}
@@ -673,7 +695,7 @@ function FlowRunsPanel({
                   ))
                 ) : (
                   <div>
-                    <div className="text-[10px] uppercase text-muted-foreground mb-1">Run</div>
+                    <div className="text-[10px] uppercase text-muted-foreground mb-1">{t('console.developer.flowRuns.columnRun', { defaultValue: 'Run' })}</div>
                     <JsonBlock data={runDetail} />
                   </div>
                 )}

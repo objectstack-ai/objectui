@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Copy, Link2, Loader2, ShieldOff, Trash2 } from 'lucide-react';
+import { useObjectTranslation } from '@object-ui/i18n';
 import type {
   ShareLink as SpecShareLink,
   ShareLinkAudience,
@@ -115,23 +116,12 @@ const DEFAULT_DRAFT: CreateLinkDraft = {
   label: '',
 };
 
-const EXPIRY_OPTIONS: { label: string; value: number | null }[] = [
-  { label: '1 day', value: 1 },
-  { label: '7 days', value: 7 },
-  { label: '30 days', value: 30 },
-  { label: '90 days', value: 90 },
-  { label: 'Never', value: null },
-];
-
-// Audience values match the framework's ShareLinkAudience contract
-// (@objectstack/spec). Only the two that need no extra input are offered;
-// 'email' (allowlist) / 'public' require UI not yet built. The target
-// object's `publicSharing.allowedAudiences` further constrains this — the
-// server returns 422 AUDIENCE_NOT_ALLOWED if a value is not permitted.
-const AUDIENCE_OPTIONS: { value: ShareLinkAudience; label: string; help: string }[] = [
-  { value: 'link_only', label: 'Anyone with the link', help: 'No sign-in required' },
-  { value: 'signed_in', label: 'Signed-in users', help: 'Must be logged in to view' },
-];
+/**
+ * A failure the dialog shows: the server's or the transport's own message, or,
+ * when it carried none, which step failed, worded in the viewer's language at
+ * render (objectui#13460). Kept as data so the fetch callbacks need no `t`.
+ */
+type ShareDialogFailure = { message: string | undefined; step: 'load' | 'create' | 'revoke' };
 
 function buildPublicUrl(base: string | undefined, token: string): string {
   const root =
@@ -177,10 +167,36 @@ export function ShareDialog({
   publicBaseUrl,
   fetchHeaders,
 }: ShareDialogProps) {
+  const { t } = useObjectTranslation();
+  // Built per render so each choice is a literal `t()` call the i18n gates can read.
+  const expiryOptions: { label: string; value: number | null }[] = [
+    { label: t('shareDialog.expiry1d', { defaultValue: '1 day' }), value: 1 },
+    { label: t('shareDialog.expiry7d', { defaultValue: '7 days' }), value: 7 },
+    { label: t('shareDialog.expiry30d', { defaultValue: '30 days' }), value: 30 },
+    { label: t('shareDialog.expiry90d', { defaultValue: '90 days' }), value: 90 },
+    { label: t('shareDialog.expiryNever', { defaultValue: 'Never' }), value: null },
+  ];
+  // Audience values match the framework's ShareLinkAudience contract
+  // (@objectstack/spec). Only the two that need no extra input are offered;
+  // 'email' (allowlist) / 'public' require UI not yet built. The target
+  // object's `publicSharing.allowedAudiences` further constrains this — the
+  // server returns 422 AUDIENCE_NOT_ALLOWED if a value is not permitted.
+  const audienceOptions: { value: ShareLinkAudience; label: string; help: string }[] = [
+    {
+      value: 'link_only',
+      label: t('shareDialog.audienceLinkOnly', { defaultValue: 'Anyone with the link' }),
+      help: t('shareDialog.audienceLinkOnlyHelp', { defaultValue: 'No sign-in required' }),
+    },
+    {
+      value: 'signed_in',
+      label: t('shareDialog.audienceSignedIn', { defaultValue: 'Signed-in users' }),
+      help: t('shareDialog.audienceSignedInHelp', { defaultValue: 'Must be logged in to view' }),
+    },
+  ];
   const [links, setLinks] = useState<ShareLink[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ShareDialogFailure | null>(null);
   const [draft, setDraft] = useState<CreateLinkDraft>(DEFAULT_DRAFT);
   const [justCopied, setJustCopied] = useState<string | null>(null);
 
@@ -209,7 +225,7 @@ export function ShareDialog({
       const body = (await res.json()) as { links?: ShareLink[]; data?: ShareLink[] };
       setLinks(body.links ?? body.data ?? []);
     } catch (err: any) {
-      setError(err?.message ?? 'Failed to load share links');
+      setError({ message: err?.message, step: 'load' });
     } finally {
       setLoading(false);
     }
@@ -261,7 +277,7 @@ export function ShareDialog({
       }
       setDraft(DEFAULT_DRAFT);
     } catch (err: any) {
-      setError(err?.message ?? 'Failed to create share link');
+      setError({ message: err?.message, step: 'create' });
     } finally {
       setCreating(false);
     }
@@ -284,7 +300,7 @@ export function ShareDialog({
           ),
         );
       } catch (err: any) {
-        setError(err?.message ?? 'Failed to revoke link');
+        setError({ message: err?.message, step: 'revoke' });
       }
     },
     [apiBase, headers],
@@ -304,6 +320,15 @@ export function ShareDialog({
 
   const activeLinks = links.filter((l) => !l.revoked_at);
   const revokedLinks = links.filter((l) => l.revoked_at);
+  const errorText =
+    error === null
+      ? null
+      : error.message ??
+        (error.step === 'load'
+          ? t('shareDialog.loadFailed', { defaultValue: 'Failed to load share links' })
+          : error.step === 'create'
+            ? t('shareDialog.createFailed', { defaultValue: 'Failed to create share link' })
+            : t('shareDialog.revokeFailed', { defaultValue: 'Failed to revoke link' }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -311,20 +336,25 @@ export function ShareDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="h-4 w-4" />
-            Share {recordLabel ?? 'this record'}
+            {t('shareDialog.title', {
+              defaultValue: 'Share {{label}}',
+              label: recordLabel ?? t('shareDialog.thisRecord', { defaultValue: 'this record' }),
+            })}
           </DialogTitle>
           <DialogDescription>
-            Generate a link anyone (or selected people) can use to open this record.
-            Links can be revoked at any time.
+            {t('shareDialog.description', {
+              defaultValue:
+                'Generate a link anyone (or selected people) can use to open this record. Links can be revoked at any time.',
+            })}
           </DialogDescription>
         </DialogHeader>
 
-        {error && (
+        {errorText !== null && (
           <div
             className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
             data-testid="share-dialog-error"
           >
-            {error}
+            {errorText}
           </div>
         )}
 
@@ -332,7 +362,7 @@ export function ShareDialog({
         <section className="space-y-3 rounded-lg border bg-muted/30 p-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label className="text-xs">Who can access</Label>
+              <Label className="text-xs">{t('shareDialog.whoCanAccess', { defaultValue: 'Who can access' })}</Label>
               <Select
                 value={draft.audience}
                 onValueChange={(v) =>
@@ -343,11 +373,13 @@ export function ShareDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {AUDIENCE_OPTIONS.map((opt) => (
+                  {audienceOptions.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value} className="text-xs">
                       <div className="flex flex-col">
                         <span>{opt.label}</span>
-                        <span className="text-[10px] text-muted-foreground">{opt.help}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {opt.help}
+                        </span>
                       </div>
                     </SelectItem>
                   ))}
@@ -355,7 +387,7 @@ export function ShareDialog({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Expires in</Label>
+              <Label className="text-xs">{t('shareDialog.expiresIn', { defaultValue: 'Expires in' })}</Label>
               <Select
                 value={draft.expiresInDays == null ? 'never' : String(draft.expiresInDays)}
                 onValueChange={(v) =>
@@ -369,7 +401,7 @@ export function ShareDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {EXPIRY_OPTIONS.map((opt) => (
+                  {expiryOptions.map((opt) => (
                     <SelectItem
                       key={String(opt.value)}
                       value={opt.value == null ? 'never' : String(opt.value)}
@@ -382,22 +414,22 @@ export function ShareDialog({
               </Select>
             </div>
             <div className="space-y-1 sm:col-span-2">
-              <Label className="text-xs">Password (optional)</Label>
+              <Label className="text-xs">{t('shareDialog.password', { defaultValue: 'Password (optional)' })}</Label>
               <Input
                 type="password"
                 value={draft.password}
                 onChange={(e) => setDraft((d) => ({ ...d, password: e.target.value }))}
-                placeholder="Require a password to open"
+                placeholder={t('shareDialog.passwordPlaceholder', { defaultValue: 'Require a password to open' })}
                 className="h-8 text-xs"
                 data-testid="share-password"
               />
             </div>
             <div className="space-y-1 sm:col-span-2">
-              <Label className="text-xs">Label (only you see this)</Label>
+              <Label className="text-xs">{t('shareDialog.label', { defaultValue: 'Label (only you see this)' })}</Label>
               <Input
                 value={draft.label}
                 onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))}
-                placeholder="e.g. Sent to design review"
+                placeholder={t('shareDialog.labelPlaceholder', { defaultValue: 'e.g. Sent to design review' })}
                 className="h-8 text-xs"
                 data-testid="share-label"
               />
@@ -415,7 +447,7 @@ export function ShareDialog({
               ) : (
                 <Link2 className="mr-1 h-3 w-3" />
               )}
-              Create link
+              {t('shareDialog.createLink', { defaultValue: 'Create link' })}
             </Button>
           </div>
         </section>
@@ -424,13 +456,15 @@ export function ShareDialog({
         <section className="space-y-2">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-medium text-muted-foreground">
-              Existing links{activeLinks.length ? ` (${activeLinks.length})` : ''}
+              {activeLinks.length
+                ? t('shareDialog.existingLinksCount', { defaultValue: 'Existing links ({{n}})', n: activeLinks.length })
+                : t('shareDialog.existingLinks', { defaultValue: 'Existing links' })}
             </h4>
             {loading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           </div>
           {!loading && activeLinks.length === 0 && revokedLinks.length === 0 && (
             <p className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
-              No share links yet. Create one above.
+              {t('shareDialog.noLinks', { defaultValue: 'No share links yet. Create one above.' })}
             </p>
           )}
           <ul className="space-y-2">
@@ -446,7 +480,7 @@ export function ShareDialog({
             ))}
             {revokedLinks.length > 0 && (
               <li className="pt-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                Revoked
+                {t('shareDialog.revokedHeading', { defaultValue: 'Revoked' })}
               </li>
             )}
             {revokedLinks.map((link) => (
@@ -465,7 +499,7 @@ export function ShareDialog({
 
         <DialogFooter>
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-            Done
+            {t('common.done', { defaultValue: 'Done' })}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -483,6 +517,7 @@ interface LinkRowProps {
 }
 
 function LinkRow({ link, copied, onCopy, onRevoke, publicBaseUrl, disabled }: LinkRowProps) {
+  const { t } = useObjectTranslation();
   const url = buildPublicUrl(publicBaseUrl, link.token);
   return (
     <li
@@ -516,7 +551,9 @@ function LinkRow({ link, copied, onCopy, onRevoke, publicBaseUrl, disabled }: Li
             data-testid="share-link-copy"
           >
             <Copy className="mr-1 h-3 w-3" />
-            {copied ? 'Copied!' : 'Copy'}
+            {copied
+              ? t('shareDialog.copied', { defaultValue: 'Copied!' })
+              : t('shareDialog.copy', { defaultValue: 'Copy' })}
           </Button>
           <Button
             size="sm"
@@ -524,7 +561,7 @@ function LinkRow({ link, copied, onCopy, onRevoke, publicBaseUrl, disabled }: Li
             className="h-7 px-2 text-xs text-destructive hover:text-destructive"
             onClick={onRevoke}
             data-testid="share-link-revoke"
-            title="Revoke"
+            title={t('shareDialog.revoke', { defaultValue: 'Revoke' })}
           >
             <Trash2 className="h-3 w-3" />
           </Button>
@@ -533,7 +570,7 @@ function LinkRow({ link, copied, onCopy, onRevoke, publicBaseUrl, disabled }: Li
       {disabled && (
         <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
           <ShieldOff className="h-3 w-3" />
-          revoked
+          {t('shareDialog.revokedBadge', { defaultValue: 'revoked' })}
         </span>
       )}
     </li>

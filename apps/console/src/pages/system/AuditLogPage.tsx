@@ -37,7 +37,7 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { mergeFilterNodes, toFilterNodeSafely } from '@object-ui/core';
-import { useDisplayLocale } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import {
   Button,
   Card,
@@ -134,9 +134,17 @@ function auditObjectOf(objects: readonly unknown[]): unknown {
 /** A lowered filter, as `@object-ui/core`'s filter lowering hands it back. */
 type WhereNode = Exclude<ReturnType<typeof mergeFilterNodes>, undefined>;
 
+/**
+ * Why a preset is offered disabled. The page words it in the viewer's
+ * language (objectui#13460); `message` is the lowering's own refusal.
+ */
+type PresetRefusal =
+  | { kind: 'other-source' }
+  | { kind: 'filter'; message: string };
+
 type AuditPreset =
   | { key: string; label: string; applies: true; node: WhereNode | undefined }
-  | { key: string; label: string; applies: false; reason: string };
+  | { key: string; label: string; applies: false; reason: PresetRefusal };
 
 /**
  * The presets for `sys_audit_log`'s object document as the console's metadata
@@ -160,12 +168,12 @@ function auditPresetsOf(objectDef: unknown): AuditPreset[] {
     // page's fetch of `sys_audit_log`.
     const data = view.data as { provider?: unknown; object?: unknown } | undefined;
     if (data && typeof data === 'object' && (data.provider !== 'object' || data.object !== AUDIT_OBJECT)) {
-      presets.push({ key, label, applies: false, reason: 'This view reads another data source.' });
+      presets.push({ key, label, applies: false, reason: { kind: 'other-source' } });
       continue;
     }
     const lowered = toFilterNodeSafely(view.filter);
     if (!lowered.ok) {
-      presets.push({ key, label, applies: false, reason: `This view's filter cannot be applied here: ${lowered.refusal.message}` });
+      presets.push({ key, label, applies: false, reason: { kind: 'filter', message: lowered.refusal.message } });
       continue;
     }
     presets.push({ key, label, applies: true, node: lowered.node });
@@ -263,8 +271,13 @@ function actorOf(row: AuditRow): ActorFace {
 
 /** The actor column's face: the name with the id on hover, else the id, else "System". */
 function ActorCell({ face }: { face: ActorFace }) {
+  const { t } = useObjectTranslation();
   if (face.kind === 'system') {
-    return <span className="text-muted-foreground" title={face.principal ?? undefined}>System</span>;
+    return (
+      <span className="text-muted-foreground" title={face.principal ?? undefined}>
+        {t('console.system.auditLog.system', { defaultValue: 'System' })}
+      </span>
+    );
   }
   if (face.name) return <span title={face.id ?? undefined}>{face.name}</span>;
   return <span className="font-mono text-xs" title={face.id ?? undefined}>{truncate(face.id, 18)}</span>;
@@ -272,10 +285,11 @@ function ActorCell({ face }: { face: ActorFace }) {
 
 /** The drawer's actor row: the name, then the full id (or the principal) to copy. */
 function ActorDetail({ face }: { face: ActorFace }) {
+  const { t } = useObjectTranslation();
   if (face.kind === 'system') {
     return (
       <>
-        <div>System</div>
+        <div>{t('console.system.auditLog.system', { defaultValue: 'System' })}</div>
         {face.principal && <div className="font-mono text-xs break-all">{face.principal}</div>}
       </>
     );
@@ -289,6 +303,7 @@ function ActorDetail({ face }: { face: ActorFace }) {
 }
 
 export function AuditLogPage() {
+  const { t } = useObjectTranslation();
   const displayLocale = useDisplayLocale();
   // The actor filter's user lookup queries `sys_user` through the console's adapter.
   const adapter = useAdapter();
@@ -305,6 +320,7 @@ export function AuditLogPage() {
   const objectsLoading = getTypeStatus?.('object') === 'loading';
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(false);
+  /** The load's failure: its own message, or '' when it carried none (the page words that one). */
   const [error, setError] = useState<string | null>(null);
 
   // Filters. Each filter control is named by its visible label: the label's
@@ -383,7 +399,7 @@ export function AuditLogPage() {
       setRows(items.slice(0, PAGE_SIZE));
     } catch (err: any) {
       console.warn('[AuditLogPage] load failed:', err);
-      setError(err?.message || 'Failed to load audit log');
+      setError(err?.message || '');
       setRows([]);
       setHasMore(false);
     } finally {
@@ -427,16 +443,18 @@ export function AuditLogPage() {
         one row across the page above the padded body. Below `sm` the header
         hides the subtitle and keeps the icon, title and Refresh. */}
     <ConsolePageHeader
-      title="Audit Log"
-      subtitle="Read-only system activity and record changes. Newest first."
+      title={t('console.system.auditLog.title', { defaultValue: 'Audit Log' })}
+      subtitle={t('console.system.auditLog.subtitle', {
+        defaultValue: 'Read-only system activity and record changes. Newest first.',
+      })}
       icon={<ScrollText className="h-4 w-4" />}
       // The header's own Refresh icon button (objectui#12606).
-      refresh={{ onRefresh: load, label: 'Refresh', busy: loading }}
+      refresh={{ onRefresh: load, label: t('common.refresh', { defaultValue: 'Refresh' }), busy: loading }}
       actions={
         <Button asChild variant="outline" size="sm">
           <Link to={listHref}>
             <ExternalLink className="h-4 w-4 mr-1" />
-            Open as list
+            {t('console.system.auditLog.openAsList', { defaultValue: 'Open as list' })}
           </Link>
         </Button>
       }
@@ -447,40 +465,56 @@ export function AuditLogPage() {
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
           {presets.length > 0 && (
             <div className="md:col-span-5 flex flex-wrap items-center gap-2" role="group" aria-labelledby={presetsCaptionId}>
-              <span id={presetsCaptionId} className="text-xs text-muted-foreground mr-1">Presets</span>
-              {presets.map((p) => p.applies ? (
-                <Button
-                  key={p.key}
-                  size="sm"
-                  variant={p.key === activePreset?.key ? 'default' : 'outline'}
-                  aria-pressed={p.key === activePreset?.key}
-                  onClick={() => { setPresetKey(p.key === activePreset?.key ? null : p.key); setPage(0); }}
-                >
-                  {p.label}
-                </Button>
-              ) : (
-                <span key={p.key} className="inline-flex items-center gap-1">
-                  <Button size="sm" variant="outline" disabled aria-pressed={false} title={p.reason}>
-                    {p.label}
-                  </Button>
-                  <Link
-                    to={viewHref(p.key)}
-                    className="text-muted-foreground hover:text-foreground"
-                    aria-label={`Open ${p.label} as list`}
-                    title={p.reason}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </Link>
-                </span>
-              ))}
+              <span id={presetsCaptionId} className="text-xs text-muted-foreground mr-1">
+                {t('console.system.auditLog.presets', { defaultValue: 'Presets' })}
+              </span>
+              {presets.map((p) => {
+                if (p.applies) {
+                  return (
+                    <Button
+                      key={p.key}
+                      size="sm"
+                      variant={p.key === activePreset?.key ? 'default' : 'outline'}
+                      aria-pressed={p.key === activePreset?.key}
+                      onClick={() => { setPresetKey(p.key === activePreset?.key ? null : p.key); setPage(0); }}
+                    >
+                      {p.label}
+                    </Button>
+                  );
+                }
+                const reason = p.reason.kind === 'other-source'
+                  ? t('console.system.auditLog.presetOtherSource', { defaultValue: 'This view reads another data source.' })
+                  : t('console.system.auditLog.presetFilterUnsupported', {
+                      defaultValue: "This view's filter cannot be applied here: {{message}}",
+                      message: p.reason.message,
+                    });
+                return (
+                  <span key={p.key} className="inline-flex items-center gap-1">
+                    <Button size="sm" variant="outline" disabled aria-pressed={false} title={reason}>
+                      {p.label}
+                    </Button>
+                    <Link
+                      to={viewHref(p.key)}
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label={t('console.system.auditLog.openPresetAsList', {
+                        defaultValue: 'Open {{label}} as list',
+                        label: p.label,
+                      })}
+                      title={reason}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
+                  </span>
+                );
+              })}
             </div>
           )}
           <div className="space-y-1.5">
-            <Label htmlFor={actionFilterId} className="text-xs">Action</Label>
+            <Label htmlFor={actionFilterId} className="text-xs">{t('console.system.auditLog.action', { defaultValue: 'Action' })}</Label>
             <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setPage(0); }}>
               <SelectTrigger id={actionFilterId} className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All actions</SelectItem>
+                <SelectItem value="all">{t('console.system.auditLog.allActions', { defaultValue: 'All actions' })}</SelectItem>
                 {actionOptions.map((a) => (
                   <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                 ))}
@@ -488,7 +522,7 @@ export function AuditLogPage() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={objectFilterId} className="text-xs">Object</Label>
+            <Label htmlFor={objectFilterId} className="text-xs">{t('console.system.auditLog.object', { defaultValue: 'Object' })}</Label>
             {/* Picked from the served objects, never typed (objectui#13165):
                 it commits the object's API name, and choosing the chosen
                 object again commits '' for any object. A combobox takes no
@@ -498,14 +532,16 @@ export function AuditLogPage() {
               options={objectOptions}
               value={objectFilter}
               onValueChange={(v) => { setObjectFilter(v); setPage(0); }}
-              placeholder="Any object"
-              searchPlaceholder="Search objects…"
-              emptyText={objectsLoading ? 'Loading objects…' : 'No objects found.'}
+              placeholder={t('console.system.auditLog.anyObject', { defaultValue: 'Any object' })}
+              searchPlaceholder={t('console.system.auditLog.searchObjects', { defaultValue: 'Search objects…' })}
+              emptyText={objectsLoading
+                ? t('console.system.auditLog.loadingObjects', { defaultValue: 'Loading objects…' })
+                : t('console.system.auditLog.noObjects', { defaultValue: 'No objects found.' })}
               className="h-9 w-full"
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={actorFilterId} className="text-xs">Actor</Label>
+            <Label htmlFor={actorFilterId} className="text-xs">{t('console.system.auditLog.actor', { defaultValue: 'Actor' })}</Label>
             {/* The same lookup a `sys_user` reference field gets. It commits the
                 chosen user's id, and removing the chip commits null. Its `id`
                 reaches the lookup's trigger button, the control the label
@@ -518,35 +554,37 @@ export function AuditLogPage() {
               field={{
                 type: 'lookup',
                 name: 'user_id',
-                label: 'Actor',
+                label: t('console.system.auditLog.actor', { defaultValue: 'Actor' }),
                 reference: 'sys_user',
-                placeholder: 'Any user',
+                placeholder: t('console.system.auditLog.anyUser', { defaultValue: 'Any user' }),
               }}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={fromDateId} className="text-xs">From</Label>
+            <Label htmlFor={fromDateId} className="text-xs">{t('console.system.auditLog.from', { defaultValue: 'From' })}</Label>
             <Input id={fromDateId} type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(0); }} className="h-9" />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={toDateId} className="text-xs">To</Label>
+            <Label htmlFor={toDateId} className="text-xs">{t('console.system.auditLog.to', { defaultValue: 'To' })}</Label>
             <Input id={toDateId} type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(0); }} className="h-9" />
           </div>
           {activeFilterCount > 0 && (
             <div className="md:col-span-5 flex justify-end">
               <Button variant="ghost" size="sm" onClick={resetFilters}>
                 <X className="h-4 w-4 mr-1" />
-                Clear filters ({activeFilterCount})
+                {t('console.system.auditLog.clearFilters', { defaultValue: 'Clear filters ({{n}})', n: activeFilterCount })}
               </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {error && (
+      {error !== null && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {error || t('console.system.auditLog.loadFailed', { defaultValue: 'Failed to load audit log' })}
+          </AlertDescription>
         </Alert>
       )}
 
@@ -561,11 +599,15 @@ export function AuditLogPage() {
             <div className="p-12">
               <Empty>
                 <Search className="h-8 w-8 text-muted-foreground mb-3" />
-                <EmptyTitle>No audit entries</EmptyTitle>
+                <EmptyTitle>{t('console.system.auditLog.emptyTitle', { defaultValue: 'No audit entries' })}</EmptyTitle>
                 <EmptyDescription>
                   {activeFilterCount > 0
-                    ? 'Try clearing filters or widening the date range.'
-                    : 'Events will appear here once tracked objects are modified.'}
+                    ? t('console.system.auditLog.emptyFiltered', {
+                        defaultValue: 'Try clearing filters or widening the date range.',
+                      })
+                    : t('console.system.auditLog.emptyUnfiltered', {
+                        defaultValue: 'Events will appear here once tracked objects are modified.',
+                      })}
                 </EmptyDescription>
               </Empty>
             </div>
@@ -573,11 +615,11 @@ export function AuditLogPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[180px]">Timestamp</TableHead>
-                  <TableHead className="w-[130px]">Action</TableHead>
-                  <TableHead>Object</TableHead>
-                  <TableHead>Record</TableHead>
-                  <TableHead>Actor</TableHead>
+                  <TableHead className="w-[180px]">{t('console.system.auditLog.timestamp', { defaultValue: 'Timestamp' })}</TableHead>
+                  <TableHead className="w-[130px]">{t('console.system.auditLog.action', { defaultValue: 'Action' })}</TableHead>
+                  <TableHead>{t('console.system.auditLog.object', { defaultValue: 'Object' })}</TableHead>
+                  <TableHead>{t('common.record', { defaultValue: 'Record' })}</TableHead>
+                  <TableHead>{t('console.system.auditLog.actor', { defaultValue: 'Actor' })}</TableHead>
                   <TableHead className="w-[130px]">IP</TableHead>
                 </TableRow>
               </TableHeader>
@@ -608,13 +650,17 @@ export function AuditLogPage() {
       {/* Pagination */}
       {(rows.length > 0 || page > 0) && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>Page {page + 1}{hasMore ? '' : ' · end'}</span>
+          <span>
+            {hasMore
+              ? t('console.system.auditLog.page', { defaultValue: 'Page {{page}}', page: page + 1 })
+              : t('console.system.auditLog.pageEnd', { defaultValue: 'Page {{page}} · end', page: page + 1 })}
+          </span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={page === 0 || loading} onClick={() => setPage((p) => Math.max(0, p - 1))}>
-              Previous
+              {t('common.previous', { defaultValue: 'Previous' })}
             </Button>
             <Button variant="outline" size="sm" disabled={!hasMore || loading} onClick={() => setPage((p) => p + 1)}>
-              Next
+              {t('common.next', { defaultValue: 'Next' })}
             </Button>
           </div>
         </div>
@@ -628,7 +674,7 @@ export function AuditLogPage() {
               <Badge variant={actionBadgeVariant(selected?.action)}>
                 {selected?.action || '—'}
               </Badge>
-              {selected?.object_name || 'Audit Event'}
+              {selected?.object_name || t('console.system.auditLog.eventFallback', { defaultValue: 'Audit Event' })}
             </SheetTitle>
             <SheetDescription>
               {selected?.id ? <span className="font-mono text-xs">{selected.id}</span> : null}
@@ -639,30 +685,30 @@ export function AuditLogPage() {
             <div className="mt-6 space-y-5">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <div className="text-xs text-muted-foreground">Timestamp</div>
+                  <div className="text-xs text-muted-foreground">{t('console.system.auditLog.timestamp', { defaultValue: 'Timestamp' })}</div>
                   <div className="font-mono">{formatDate(selected.created_at, displayLocale)}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">IP Address</div>
+                  <div className="text-xs text-muted-foreground">{t('console.system.auditLog.ipAddress', { defaultValue: 'IP Address' })}</div>
                   <div className="font-mono">{selected.ip_address || '—'}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Actor</div>
+                  <div className="text-xs text-muted-foreground">{t('console.system.auditLog.actor', { defaultValue: 'Actor' })}</div>
                   <ActorDetail face={actorOf(selected)} />
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Tenant</div>
+                  <div className="text-xs text-muted-foreground">{t('console.system.auditLog.tenant', { defaultValue: 'Tenant' })}</div>
                   <div className="font-mono break-all">{selected.tenant_id || '—'}</div>
                 </div>
                 <div className="col-span-2">
-                  <div className="text-xs text-muted-foreground">Target record</div>
+                  <div className="text-xs text-muted-foreground">{t('console.system.auditLog.targetRecord', { defaultValue: 'Target record' })}</div>
                   <div className="font-mono text-sm break-all">
                     {selected.object_name || '—'} / {selected.record_id || '—'}
                   </div>
                 </div>
                 {selected.user_agent && (
                   <div className="col-span-2">
-                    <div className="text-xs text-muted-foreground">User Agent</div>
+                    <div className="text-xs text-muted-foreground">{t('console.system.auditLog.userAgent', { defaultValue: 'User Agent' })}</div>
                     <div className="font-mono text-xs break-all">{selected.user_agent}</div>
                   </div>
                 )}
@@ -672,10 +718,10 @@ export function AuditLogPage() {
                 <>
                   <Separator />
                   <div className="space-y-3">
-                    <div className="text-sm font-medium">Change payload</div>
+                    <div className="text-sm font-medium">{t('console.system.auditLog.changePayload', { defaultValue: 'Change payload' })}</div>
                     {selected.old_value && (
                       <div>
-                        <div className="text-xs text-muted-foreground mb-1">Before</div>
+                        <div className="text-xs text-muted-foreground mb-1">{t('console.system.auditLog.before', { defaultValue: 'Before' })}</div>
                         <pre className="rounded-md bg-muted p-3 text-xs font-mono whitespace-pre-wrap max-h-64 overflow-auto">
                           {tryPrettyJson(selected.old_value)}
                         </pre>
@@ -683,7 +729,7 @@ export function AuditLogPage() {
                     )}
                     {selected.new_value && (
                       <div>
-                        <div className="text-xs text-muted-foreground mb-1">After</div>
+                        <div className="text-xs text-muted-foreground mb-1">{t('console.system.auditLog.after', { defaultValue: 'After' })}</div>
                         <pre className="rounded-md bg-muted p-3 text-xs font-mono whitespace-pre-wrap max-h-64 overflow-auto">
                           {tryPrettyJson(selected.new_value)}
                         </pre>
@@ -697,7 +743,7 @@ export function AuditLogPage() {
                 <>
                   <Separator />
                   <div>
-                    <div className="text-sm font-medium mb-2">Metadata</div>
+                    <div className="text-sm font-medium mb-2">{t('console.system.auditLog.metadata', { defaultValue: 'Metadata' })}</div>
                     <pre className="rounded-md bg-muted p-3 text-xs font-mono whitespace-pre-wrap max-h-48 overflow-auto">
                       {tryPrettyJson(selected.metadata)}
                     </pre>

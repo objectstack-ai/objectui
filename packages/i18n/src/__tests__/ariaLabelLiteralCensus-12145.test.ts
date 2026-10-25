@@ -182,7 +182,7 @@ interface Declared {
  */
 const EXEMPT: Declared[] = [
   {
-    file: 'packages/components/src/debug/DebugPanel.tsx',
+    file: 'packages/components/src/dev/DebugPanel.tsx',
     names: ['Developer Debug Panel', 'Close debug panel'],
     verdict: 'exempt',
     reason:

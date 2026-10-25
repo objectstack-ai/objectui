@@ -48,6 +48,7 @@ import { Bot, KeyRound, Copy, Check, Download, ShieldAlert } from 'lucide-react'
 import { readEnvelopeFailureText } from '@object-ui/app-shell';
 import { useObjectTranslation } from '@object-ui/i18n';
 
+import { SLOT, withSlots } from '../../lib/inlineSlots';
 import { renderObjectStackSkill } from './objectstack-skill';
 
 interface GeneratedKey {
@@ -67,7 +68,9 @@ function useCopy(): [boolean, (v: string) => void] {
   return [copied, copy];
 }
 
-function InlineCopy({ value, label }: { value: string; label?: string }) {
+/** `ariaLabel` is the button's whole translated name (objectui#13460), never glued from parts. */
+function InlineCopy({ value, ariaLabel }: { value: string; ariaLabel: string }) {
+  const { t } = useObjectTranslation();
   const [copied, copy] = useCopy();
   return (
     <Button
@@ -76,10 +79,10 @@ function InlineCopy({ value, label }: { value: string; label?: string }) {
       size="sm"
       className="h-7 gap-1.5 px-2 text-xs"
       onClick={() => copy(value)}
-      aria-label={`Copy ${label ?? 'value'}`}
+      aria-label={ariaLabel}
     >
       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-      {copied ? 'Copied' : 'Copy'}
+      {copied ? t('console.developer.integrations.copied', { defaultValue: 'Copied' }) : t('console.developer.integrations.copy', { defaultValue: 'Copy' })}
     </Button>
   );
 }
@@ -158,7 +161,13 @@ export function AgentConnectSection() {
         // `??`, not `||`: the helper answers `null` for a body carrying no
         // prose (never an empty string), and that `null` is exactly the signal
         // to state this caller's own fallback below.
-        throw new Error(readEnvelopeFailureText(json) ?? `Request failed (${res.status})`);
+        throw new Error(
+          readEnvelopeFailureText(json)
+            ?? t('console.developer.agentConnect.requestFailed', {
+              defaultValue: 'Request failed ({{status}})',
+              status: res.status,
+            }),
+        );
       }
       if (!data?.key) {
         // Reachability of this arm, measured rather than assumed: the mint
@@ -173,14 +182,20 @@ export function AgentConnectSection() {
         // absent from the sentence below -- quoting a 2xx here is what made
         // the old message read as a transport failure that never happened.
         throw new Error(
-          'The request succeeded but the response carried no API key. '
-            + 'Nothing failed in transit — inspect the response body of POST /api/v1/keys.',
+          t('console.developer.agentConnect.noKeyInResponse', {
+            defaultValue:
+              'The request succeeded but the response carried no API key. Nothing failed in transit — inspect the response body of {{route}}.',
+            route: 'POST /api/v1/keys',
+          }),
         );
       }
       setGenerated(data as GeneratedKey);
       setDialogOpen(true);
     } catch (e) {
-      setError((e as Error)?.message ?? 'Failed to generate key');
+      setError(
+        (e as Error)?.message
+          ?? t('console.developer.agentConnect.generateFailed', { defaultValue: 'Failed to generate key' }),
+      );
     } finally {
       setGenerating(false);
     }
@@ -204,25 +219,32 @@ export function AgentConnectSection() {
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-2">
-          <Bot className="size-4" /> Connect an AI agent (MCP)
+          <Bot className="size-4" /> {t('console.developer.agentConnect.title', { defaultValue: 'Connect an AI agent (MCP)' })}
         </CardTitle>
         <CardDescription className="text-xs">
-          Every app in this environment is an agent-ready toolset. Connect Claude, Cursor, Codex or
-          any MCP client — one connection covers all your apps (new ones appear automatically).
+          {t('console.developer.agentConnect.description', {
+            defaultValue:
+              'Every app in this environment is an agent-ready toolset. Connect Claude, Cursor, Codex or any MCP client — one connection covers all your apps (new ones appear automatically).',
+          })}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {/* MCP endpoint */}
         <div>
-          <div className="mb-1 text-xs font-medium text-muted-foreground">MCP endpoint</div>
+          <div className="mb-1 text-xs font-medium text-muted-foreground">{t('console.developer.agentConnect.endpoint', { defaultValue: 'MCP endpoint' })}</div>
           {mcpEnabled === false ? (
             <Alert>
               <ShieldAlert className="size-4" />
-              <AlertTitle>MCP is not enabled for this environment</AlertTitle>
+              <AlertTitle>{t('console.developer.agentConnect.disabledTitle', { defaultValue: 'MCP is not enabled for this environment' })}</AlertTitle>
               <AlertDescription className="text-xs">
-                Connecting agents is opt-in. An admin can enable it by setting{' '}
-                <code className="font-mono">OS_MCP_SERVER_ENABLED=true</code>. You can still
-                generate a key and download the skill below.
+                {withSlots(
+                  t('console.developer.agentConnect.disabledBody', {
+                    defaultValue:
+                      'Connecting agents is opt-in. An admin can enable it by setting {{flag}}. You can still generate a key and download the skill below.',
+                    flag: SLOT[0],
+                  }),
+                  [<code key="flag" className="font-mono">OS_MCP_SERVER_ENABLED=true</code>],
+                )}
               </AlertDescription>
             </Alert>
           ) : (
@@ -230,7 +252,10 @@ export function AgentConnectSection() {
               <code className="flex-1 truncate rounded bg-muted px-2 py-1.5 font-mono text-xs">
                 {effectiveUrl}
               </code>
-              <InlineCopy value={effectiveUrl} label="MCP URL" />
+              <InlineCopy
+                value={effectiveUrl}
+                ariaLabel={t('console.developer.agentConnect.copyMcpUrl', { defaultValue: 'Copy MCP URL' })}
+              />
             </div>
           )}
         </div>
@@ -238,13 +263,15 @@ export function AgentConnectSection() {
         {/* Generate key */}
         <div>
           <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            <KeyRound className="size-3.5" /> API key
+            <KeyRound className="size-3.5" /> {t('console.developer.agentConnect.apiKey', { defaultValue: 'API key' })}
           </div>
           <div className="flex items-center gap-2">
             <Input
               value={keyName}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setKeyName(e.target.value)}
-              placeholder="Key name (e.g. Claude desktop)"
+              placeholder={t('console.developer.agentConnect.keyNamePlaceholder', {
+                defaultValue: 'Key name (e.g. Claude desktop)',
+              })}
               className="h-8 max-w-xs text-sm"
             />
             <Button
@@ -253,7 +280,9 @@ export function AgentConnectSection() {
               onClick={() => setConfirmName(trimmedKeyName)}
               disabled={generating || !trimmedKeyName}
             >
-              {generating ? 'Generating…' : 'Generate key'}
+              {generating
+                ? t('console.developer.agentConnect.generating', { defaultValue: 'Generating…' })
+                : t('console.developer.agentConnect.generateKey', { defaultValue: 'Generate key' })}
             </Button>
           </div>
           <AlertDialog
@@ -284,35 +313,52 @@ export function AgentConnectSection() {
             </AlertDialogContent>
           </AlertDialog>
           <p className="mt-1 text-xs text-muted-foreground">
-            The key acts as you (your permissions + row-level security). Shown once — copy it
-            immediately. Revoke anytime from the API Keys list.
+            {t('console.developer.agentConnect.keyHint', {
+              defaultValue:
+                'The key acts as you (your permissions + row-level security). Shown once — copy it immediately. Revoke anytime from the API Keys list.',
+            })}
           </p>
           {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
         </div>
 
         {/* Skill */}
         <div>
-          <div className="mb-1 text-xs font-medium text-muted-foreground">Agent skill (portable)</div>
+          <div className="mb-1 text-xs font-medium text-muted-foreground">{t('console.developer.agentConnect.skillTitle', { defaultValue: 'Agent skill (portable)' })}</div>
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={downloadSkill}>
-              <Download className="size-4" /> Download SKILL.md
+              <Download className="size-4" /> {t('connectAgent.url.downloadSkill', { defaultValue: 'Download SKILL.md' })}
             </Button>
             <span className="text-xs text-muted-foreground">
-              Works with any skills-capable agent (Claude, Codex, Gemini, Cursor…).
+              {t('console.developer.agentConnect.skillHint', {
+                defaultValue: 'Works with any skills-capable agent (Claude, Codex, Gemini, Cursor…).',
+              })}
             </span>
           </div>
         </div>
 
         {/* Connect steps */}
         <div className="rounded-lg border bg-muted/30 p-3 text-xs leading-relaxed">
-          <div className="mb-1 font-medium">Connect in 3 steps</div>
+          <div className="mb-1 font-medium">{t('console.developer.agentConnect.stepsTitle', { defaultValue: 'Connect in 3 steps' })}</div>
           <ol className="list-decimal space-y-0.5 pl-4 text-muted-foreground">
-            <li>Add a remote MCP server pointing at the endpoint above.</li>
+            <li>{t('console.developer.agentConnect.step1', { defaultValue: 'Add a remote MCP server pointing at the endpoint above.' })}</li>
             <li>
-              Set the header <code className="font-mono">x-api-key: &lt;your key&gt;</code> (a
-              session Bearer is <em>not</em> an API key).
+              {withSlots(
+                t('console.developer.agentConnect.step2', {
+                  defaultValue: 'Set the header {{header}} (a session Bearer token is not an API key).',
+                  header: SLOT[0],
+                }),
+                [<code key="header" className="font-mono">x-api-key: &lt;your key&gt;</code>],
+              )}
             </li>
-            <li>Drop in <code className="font-mono">SKILL.md</code> so the agent knows how to drive your data.</li>
+            <li>
+              {withSlots(
+                t('console.developer.agentConnect.step3', {
+                  defaultValue: 'Drop in {{file}} so the agent knows how to drive your data.',
+                  file: SLOT[0],
+                }),
+                [<code key="file" className="font-mono">SKILL.md</code>],
+              )}
+            </li>
           </ol>
         </div>
       </CardContent>
@@ -322,10 +368,22 @@ export function AgentConnectSection() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <KeyRound className="size-4" /> Your new API key
+              <KeyRound className="size-4" /> {t('console.developer.agentConnect.newKeyTitle', { defaultValue: 'Your new API key' })}
             </DialogTitle>
             <DialogDescription>
-              Copy this now — for your security it will <strong>not be shown again</strong>.
+              {withSlots(
+                t('console.developer.agentConnect.newKeyDescription', {
+                  defaultValue: 'Copy this now — {{notice}}',
+                  notice: SLOT[0],
+                }),
+                [
+                  <strong key="notice">
+                    {t('console.developer.agentConnect.newKeyNotice', {
+                      defaultValue: 'for your security it will not be shown again.',
+                    })}
+                  </strong>,
+                ],
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3">
@@ -341,20 +399,26 @@ export function AgentConnectSection() {
                 onClick={() => generated && copyKey(generated.key)}
               >
                 {keyCopied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-                {keyCopied ? 'Copied' : 'Copy'}
+                {keyCopied ? t('console.developer.integrations.copied', { defaultValue: 'Copied' }) : t('console.developer.integrations.copy', { defaultValue: 'Copy' })}
               </Button>
             </div>
             <Alert>
               <ShieldAlert className="size-4" />
               <AlertDescription className="text-xs">
-                Send it as <code className="font-mono">x-api-key</code>. It carries your
-                permissions — store it like a password and revoke it if leaked.
+                {withSlots(
+                  t('console.developer.agentConnect.sendAs', {
+                    defaultValue:
+                      'Send it as {{header}}. It carries your permissions — store it like a password and revoke it if leaked.',
+                    header: SLOT[0],
+                  }),
+                  [<code key="header" className="font-mono">x-api-key</code>],
+                )}
               </AlertDescription>
             </Alert>
           </div>
           <DialogFooter>
             <Button type="button" onClick={() => setDialogOpen(false)}>
-              Done
+              {t('common.done', { defaultValue: 'Done' })}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -26,7 +26,7 @@ import * as React from 'react';
 import { I18nProvider, LocalizationProvider } from '@object-ui/i18n';
 import { DebugCollector } from '@object-ui/core';
 import { isMachineLocale, recordLocaleArguments } from '@object-ui/test-support';
-import { DebugPanel } from '../debug/DebugPanel';
+import { DebugPanel } from '../dev/DebugPanel';
 
 afterEach(() => {
   cleanup();

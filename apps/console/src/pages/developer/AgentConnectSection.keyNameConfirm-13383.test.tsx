@@ -20,7 +20,8 @@
  *
  * `fetch` is stubbed by path; `t` echoes the KEY (with the `name` option
  * appended when one is passed), as the Connect an Agent suite does, so the
- * assertions read which string the dialog asked for and with which name.
+ * assertions read which string the dialog asked for and with which name. The
+ * section's own chrome reads `console.developer.agentConnect.*` (objectui#13460).
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -78,10 +79,10 @@ afterEach(() => {
 async function renderSettled() {
   render(<AgentConnectSection />);
   await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-  return screen.getByPlaceholderText('Key name (e.g. Claude desktop)');
+  return screen.getByPlaceholderText('«console.developer.agentConnect.keyNamePlaceholder»');
 }
 
-const generateButton = () => screen.getByRole('button', { name: 'Generate key' });
+const generateButton = () => screen.getByRole('button', { name: '«console.developer.agentConnect.generateKey»' });
 
 describe('AgentConnectSection mints a key only under a chosen, confirmed name (objectui#13383)', () => {
   it('§1 a blank or whitespace-only name cannot mint', async () => {
@@ -127,7 +128,7 @@ describe('AgentConnectSection mints a key only under a chosen, confirmed name (o
     fireEvent.click(within(dialog).getByRole('button', { name: '«connectAgent.apiKey.mint»' }));
 
     await waitFor(() => expect(keyPosts()).toEqual([{ name: 'Claude desktop' }]));
-    const shown = await screen.findByRole('dialog', { name: /Your new API key/ });
+    const shown = await screen.findByRole('dialog', { name: /«console\.developer\.agentConnect\.newKeyTitle»/ });
     expect(within(shown).getByText(MINTED_KEY)).toBeInTheDocument();
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });

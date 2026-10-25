@@ -39,6 +39,7 @@ import {
   type RawAiMessageRow,
 } from '@object-ui/app-shell';
 import { ChatbotEnhanced } from '@object-ui/plugin-chatbot';
+import { useObjectTranslation } from '@object-ui/i18n';
 
 import {
   canSendSharePassword,
@@ -49,6 +50,20 @@ import {
   type ResolveErrorBody,
 } from './shared-record-shape';
 
+/**
+ * Why the link did not open. The server's own message is shown as it came;
+ * every other case is a code the page words in the visitor's language at
+ * render (objectui#13460), so the resolve callback needs no `t`.
+ */
+type ShareOpenFailure =
+  | { kind: 'message'; message: string }
+  | { kind: 'unsendable-password' }
+  | { kind: 'wrong-password' }
+  | { kind: 'status'; status: number }
+  | { kind: 'invalid' }
+  | { kind: 'expired' }
+  | { kind: 'unknown' };
+
 function resolveServerUrl(): string {
   const env = (import.meta as any).env ?? {};
   const explicit = (env.VITE_SERVER_URL as string | undefined) ?? '';
@@ -58,13 +73,14 @@ function resolveServerUrl(): string {
 }
 
 export default function SharedRecordPage() {
+  const { t } = useObjectTranslation();
   const { token } = useParams<{ token: string }>();
   const location = useLocation();
   const serverUrl = useMemo(() => resolveServerUrl(), []);
   const apiBase = `${serverUrl}/api/v1`;
 
   const [data, setData] = useState<ResolvedShare | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ShareOpenFailure | null>(null);
   const [loading, setLoading] = useState(true);
   const [gate, setGate] = useState<'password' | 'sign-in' | null>(null);
   const [password, setPassword] = useState('');
@@ -80,9 +96,7 @@ export default function SharedRecordPage() {
       if (pw && !canSendSharePassword(pw)) {
         // Stays on the prompt: the request is never built, so there is no
         // answer to show — only why nothing was sent.
-        setError(
-          "This password has characters that can't be sent, such as Chinese characters or emoji. Ask the link's owner to set a password without them.",
-        );
+        setError({ kind: 'unsendable-password' });
         return;
       }
       setLoading(true);
@@ -99,27 +113,29 @@ export default function SharedRecordPage() {
             setGate('sign-in');
           } else if (answer) {
             setGate('password');
-            setError(answer === 'wrong-password' ? 'Wrong password.' : null);
+            setError(answer === 'wrong-password' ? { kind: 'wrong-password' } : null);
           } else {
             setGate(null);
-            setError(body?.error?.message ?? `Failed to load (HTTP ${res.status}).`);
+            const message = body?.error?.message;
+            setError(message ? { kind: 'message', message } : { kind: 'status', status: res.status });
           }
           setLoading(false);
           return;
         }
         if (res.status === 404) {
-          setError('This link is invalid or no longer available.');
+          setError({ kind: 'invalid' });
           setLoading(false);
           return;
         }
         if (res.status === 410) {
-          setError('This link has expired or was revoked.');
+          setError({ kind: 'expired' });
           setLoading(false);
           return;
         }
         if (!res.ok) {
           const body = await res.json().catch(() => null);
-          setError(body?.error?.message ?? `Failed to load (HTTP ${res.status}).`);
+          const message = body?.error?.message;
+          setError(message ? { kind: 'message', message } : { kind: 'status', status: res.status });
           setLoading(false);
           return;
         }
@@ -129,7 +145,7 @@ export default function SharedRecordPage() {
         setData(resolved);
         setGate(null);
       } catch (e: any) {
-        setError(e?.message ?? 'Failed to load shared content.');
+        setError(e?.message ? { kind: 'message', message: e.message } : { kind: 'unknown' });
       } finally {
         setLoading(false);
       }
@@ -167,11 +183,35 @@ export default function SharedRecordPage() {
     [messages],
   );
 
+  const errorText = (() => {
+    switch (error?.kind) {
+      case undefined:
+        return null;
+      case 'message':
+        return error.message;
+      case 'unsendable-password':
+        return t('sharedRecord.passwordUnsendable', {
+          defaultValue:
+            "This password has characters that can't be sent, such as Chinese characters or emoji. Ask the link's owner to set a password without them.",
+        });
+      case 'wrong-password':
+        return t('sharedRecord.wrongPassword', { defaultValue: 'Wrong password.' });
+      case 'status':
+        return t('sharedRecord.loadFailedStatus', { defaultValue: 'Failed to load (HTTP {{status}}).', status: error.status });
+      case 'invalid':
+        return t('sharedRecord.invalidLink', { defaultValue: 'This link is invalid or no longer available.' });
+      case 'expired':
+        return t('sharedRecord.expiredLink', { defaultValue: 'This link has expired or was revoked.' });
+      case 'unknown':
+        return t('sharedRecord.loadFailed', { defaultValue: 'Failed to load shared content.' });
+    }
+  })();
+
   if (loading) {
     return (
       <div className="flex h-svh w-full items-center justify-center bg-background text-muted-foreground">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        Loading…
+        {t('common.loading', { defaultValue: 'Loading…' })}
       </div>
     );
   }
@@ -189,12 +229,12 @@ export default function SharedRecordPage() {
     return (
       <div className="mx-auto flex h-svh max-w-md flex-col items-center justify-center gap-4 px-4 text-center">
         <LogIn className="h-8 w-8 text-muted-foreground" />
-        <h1 className="text-lg font-semibold">Sign in required</h1>
+        <h1 className="text-lg font-semibold">{t('sharedRecord.signInTitle', { defaultValue: 'Sign in required' })}</h1>
         <p className="text-sm text-muted-foreground">
-          The owner shared this link with signed-in users only.
+          {t('sharedRecord.signInBody', { defaultValue: 'The owner shared this link with signed-in users only.' })}
         </p>
         <Button asChild size="sm">
-          <Link to={signInPath}>Sign in</Link>
+          <Link to={signInPath}>{t('sharedRecord.signIn', { defaultValue: 'Sign in' })}</Link>
         </Button>
       </div>
     );
@@ -204,9 +244,9 @@ export default function SharedRecordPage() {
     return (
       <div className="mx-auto flex h-svh max-w-md flex-col items-center justify-center gap-4 px-4 text-center">
         <Link2 className="h-8 w-8 text-muted-foreground" />
-        <h1 className="text-lg font-semibold">Password required</h1>
+        <h1 className="text-lg font-semibold">{t('sharedRecord.passwordTitle', { defaultValue: 'Password required' })}</h1>
         <p className="text-sm text-muted-foreground">
-          The owner protected this link with a password.
+          {t('sharedRecord.passwordBody', { defaultValue: 'The owner protected this link with a password.' })}
         </p>
         <form
           className="flex w-full flex-col gap-2"
@@ -216,7 +256,7 @@ export default function SharedRecordPage() {
           }}
         >
           <Label htmlFor="share-pw" className="sr-only">
-            Password
+            {t('sharedRecord.passwordLabel', { defaultValue: 'Password' })}
           </Label>
           <Input
             id="share-pw"
@@ -224,23 +264,23 @@ export default function SharedRecordPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoFocus
-            placeholder="Enter password"
+            placeholder={t('sharedRecord.passwordPlaceholder', { defaultValue: 'Enter password' })}
           />
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {errorText !== null && <p className="text-xs text-destructive">{errorText}</p>}
           <Button type="submit" size="sm">
-            Continue
+            {t('sharedRecord.continue', { defaultValue: 'Continue' })}
           </Button>
         </form>
       </div>
     );
   }
 
-  if (error) {
+  if (errorText !== null) {
     return (
       <div className="mx-auto flex h-svh max-w-md flex-col items-center justify-center gap-3 px-4 text-center">
         <AlertTriangle className="h-8 w-8 text-amber-500" />
-        <h1 className="text-lg font-semibold">Can't open this link</h1>
-        <p className="text-sm text-muted-foreground">{error}</p>
+        <h1 className="text-lg font-semibold">{t('sharedRecord.cannotOpen', { defaultValue: "Can't open this link" })}</h1>
+        <p className="text-sm text-muted-foreground">{errorText}</p>
       </div>
     );
   }
@@ -255,7 +295,7 @@ export default function SharedRecordPage() {
           <MessageSquare className="h-5 w-5 text-muted-foreground" />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-sm font-semibold">
-              {conv.title ?? 'Shared conversation'}
+              {conv.title ?? t('sharedRecord.sharedConversation', { defaultValue: 'Shared conversation' })}
             </h1>
             <p className="truncate text-[11px] text-muted-foreground">
               Read-only · Shared via ObjectStack
@@ -269,11 +309,11 @@ export default function SharedRecordPage() {
           {messages == null ? (
             <div className="flex flex-1 items-center justify-center py-12 text-sm text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Loading messages…
+              {t('sharedRecord.loadingMessages', { defaultValue: 'Loading messages…' })}
             </div>
           ) : messages.length === 0 ? (
             <p className="py-12 text-center text-sm text-muted-foreground">
-              This conversation has no messages yet.
+              {t('sharedRecord.noMessages', { defaultValue: 'This conversation has no messages yet.' })}
             </p>
           ) : (
             <ChatbotEnhanced
@@ -298,7 +338,7 @@ export default function SharedRecordPage() {
     <div className="mx-auto flex h-svh max-w-3xl flex-col bg-background">
       <header className="border-b px-4 py-3">
         <h1 className="text-sm font-semibold">
-          Shared {data.link.object_name}
+          {t('sharedRecord.sharedObject', { defaultValue: 'Shared {{object}}', object: data.link.object_name })}
         </h1>
       </header>
       <main className="flex-1 overflow-y-auto p-4">
@@ -307,7 +347,10 @@ export default function SharedRecordPage() {
         </pre>
         {data.redactedFields && data.redactedFields.length > 0 && (
           <p className="mt-2 text-[11px] text-muted-foreground">
-            Some fields are hidden by the owner: {data.redactedFields.join(', ')}
+            {t('sharedRecord.redactedFields', {
+              defaultValue: 'Some fields are hidden by the owner: {{fields}}',
+              fields: data.redactedFields.join(', '),
+            })}
           </p>
         )}
       </main>

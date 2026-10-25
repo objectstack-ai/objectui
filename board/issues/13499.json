@@ -1,0 +1,33 @@
+{
+  "number": 13499,
+  "kind": "pull_request",
+  "title": "fix(app-shell): readable option labels for unlabeled datasource enum selects (objectui#13353)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T04:13:19Z",
+  "updated_at": "2026-10-25T04:33:01Z",
+  "closed_at": "2026-10-25T04:32:59Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-25T04:32:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13499",
+  "body": "🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01XWGTsmqrtrt1Zqh1ioWqsT\n\nFixes #13353\n\n## What changed\n\n- `DatasourceResourcePage.tsx` (Setup → Datasources editor): a driver-config JSON Schema `enum` select rendered each raw value (`off`, `safe`) as its option text. The driver-config schema declares no per-option label (triage comment 6359343643: no carrier, no protocol change), so each option's text is now built from its raw value with Studio's existing `humanizeKey` (`metadata-admin/inspectors/json-schema-to-fields.ts`), the same helper `SchemaForm`'s enum selects already use. `off` → \"Off\", `safe` → \"Safe\", `read_only` → \"Read Only\", `read-write` → \"Read Write\", `fullSync` → \"Full Sync\". The `SelectItem` value, and therefore what the form saves, stays the raw enum member. No new helper written.\n- New test `DatasourceResourcePage.enumOptionLabels-13353.test.tsx`: an `autoMigrate` enum (`off | safe`, no labels) shows \"Off\" / \"Safe\"; snake, kebab and camel members read as words; choosing \"Safe\" and \"Full Sync\" then creating posts `config.autoMigrate: 'safe'` and `config.syncMode: 'fullSync'`.\n- `DatasourceResourcePage.selectPlaceholderLocale-11252.test.tsx`: its CONTROL case expected the closed trigger to read `remote`; it now reads `Remote`.\n- `.changeset/13353-datasource-enum-option-labels.md`: patch for `@object-ui/app-shell`. Clause-②: no. Metadata-protocol: none.\n\n## What I ran\n\n- Reproduced first: the new test file on unmodified code → 3 failed of 3 (`expected [ 'off', 'safe' ] to deeply equal [ 'Off', 'Safe' ]`, likewise for the mixed-case enum).\n- `pnpm exec vitest run packages/app-shell/src/views/metadata-admin/datasource/ packages/app-shell/src/views/metadata-admin/inspectors/json-schema-to-fields.test.ts` → 8 files, 71 tests passed (all seven `DatasourceResourcePage.*.test.tsx` files plus the `humanizeKey` tests).\n- The other tests naming the page or its module: `spec-symbol-parity.test.ts`, `ResourceHistoryPage.rollbackConfirm-13333.test.tsx`, `scripts/__tests__/spec-symbol-ledger-app-shell-7265.test.ts`, plus `product-neutral-renderer.ratchet.test.ts` → 4 files, 99 tests passed.\n- `pnpm turbo run type-check --filter=@object-ui/app-shell --continue` → 30 of 30 tasks successful.\n- `eslint` on the three touched source/test files → 0 errors, 2 warnings, both on lines this PR does not touch (`no-explicit-any` in the `api` helper, `set-state-in-effect` on the load effect).\n- `node scripts/check-changeset-presence.mjs` → pass; `node scripts/check-changeset-no-major.mjs` → pass; `pnpm check:new-line-citations` → 0 new citations.\n\n## NOT MEASURED\n\n- The whole `@object-ui/app-shell` suite and the full `pnpm test`: left to CI's sharded run. Locally only the test files that name the page or the helper were run, so a test elsewhere that asserts a datasource enum option's raw text would not have been seen locally.\n- No browser check against a live backend; the option text is read from the rendered Radix select in jsdom.\n- A declared option label (a future `oneOf`/`const`/`title` or similar carrier) is not read; that is a maintainer ruling, not this card.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n"
+}

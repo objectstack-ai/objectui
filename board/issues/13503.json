@@ -1,0 +1,37 @@
+{
+  "number": 13503,
+  "kind": "pull_request",
+  "title": "feat(console): second-pass i18n for Audit Log, Flow Runs, Agent Connect and share links",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "package: components",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T04:35:49Z",
+  "updated_at": "2026-10-25T05:11:58Z",
+  "closed_at": "2026-10-25T05:11:57Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-25T05:11:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13503",
+  "body": "Part of #13460\n\nClause-②: no\nMetadata-protocol: none\n\nClaim: comment 6393192822 (Seat: domain:ui#4).\n\n## What changed\n\nSecond pass of #13460, following the conventions of #13489: `useObjectTranslation()` with `t(key, { defaultValue })` where the inline default is the `en` value byte for byte, and `withSlots` for a sentence with an inline element. No new lint gate.\n\n- **System → Audit Log** (`AuditLogPage.tsx`) reads `console.system.auditLog.*`: the header, the presets row (a refused preset's reason is now a code, worded at render), the filters, the empty and error states, the table heads, the pagination and the detail drawer. `formatDate` is untouched (#13458 is waiting on a ruling).\n- **Developer → Flow Runs** (`FlowRunsPage.tsx`) reads `console.developer.flowRuns.*`. \"Click Run Flow\" and \"the Test Run panel\" name those controls by their translated labels, and \"Paused at screen\" puts the node name in a slot.\n- **Integrations → Connect an AI agent** (`AgentConnectSection.tsx`) reads `console.developer.agentConnect.*`. The disabled notice and the steps keep their inline code inside one translated sentence. Copy, Done and Download reuse existing keys.\n- **ShareDialog** (`packages/components`) reads `shareDialog.*`. The expiry and audience choices are literal `t()` calls built per render, so the dead-key and call-site gates read them. A failure keeps the server's message, or names the step that failed in the viewer's language.\n- **Public share landing `/s/:token`** (`SharedRecordPage.tsx`) reads `sharedRecord.*`. Failures are kept as codes and worded at render.\n- All ten packs carry the 135 new keys (25 + 24 + 36 + 30 + 20).\n- **Dev-only surfaces moved under `dev/`.** `apps/console/src/components/PerformanceDashboard.tsx` (no importers) moved to `apps/console/src/dev/`. `packages/components/src/debug/` moved to `packages/components/src/dev/`. The package index re-exports `./dev`, so its exports are unchanged.\n\n## Tests\n\n- New: `apps/console/src/pages/consolePagesLocale-secondPass-13460.test.tsx` renders the four console surfaces under zh through a real `I18nProvider`, reads its expectations from the pack, and checks that no `{{slot}}` or slot mark leaks. Each surface also has a provider-less English control.\n- New: `packages/components/src/__tests__/share-dialog-locale-13460.test.tsx` covers the ShareDialog chrome under zh, the `recordLabel` hole, and an English control.\n- Updated: `AgentConnectSection.keyNameConfirm-13383.test.tsx` queries the new echoed keys. `displayLocale-9909.test.tsx` and `ariaLabelLiteralCensus-12145.test.ts` follow the `debug/` to `dev/` move.\n\n## Verification\n\n- 32 affected test files under the verify lock: 32 passed, 223 tests passed (VERDICT 0).\n- `vitest run packages/i18n/`: 87 files, 1353 tests passed, 13 skipped.\n- `turbo run type-check` for console, components and i18n: 38 of 38 tasks passed.\n- `check-i18n-call-site-keys`, `check-i18n-en-drift`, `check-i18n-designer-table-parity`: pass. `check-i18n-dead-keys` lists none of the new keys.\n- `check-changeset-presence`, `check-changeset-no-major`, `check-changeset-claims`, `check-pending-changeset-literals`, `check:new-line-citations`: pass.\n- eslint on the touched files: 0 errors (warnings only).\n- NOT MEASURED: the full repo test suite, a browser run of the pages, and translation quality beyond the pack tests.\n\n## Acceptance notes: what is left for #13460\n\nThese are not in this PR:\n\n- data-table row titles ('Open record', 'Cancel changes', 'Save row')\n- ObjectView 'Loading chart…'\n- react-page messages\n- ResourceEditPage 'From type' / 'From name' / 'Path'\n- ConnectAgentWidget product names\n- the StudioDesignSurface placeholder\n- the console `*-preview.tsx` dev entries (not moved), and the copy inside `apps/console/src/dev/*`\n- Flow Runs client-capability diagnostics ('meta.getItems is not available on this client' and similar)\n- the ShareDialog audience and permission badges, which show raw enum values (enum labels belong to #13353)\n- the 'Agent key' name prefill\n\nThe brand lines \"Powered by ObjectStack\" and \"Read-only · Shared via ObjectStack\" on the share landing are left literal on purpose. `metadata-admin/datasource/**` (#13353) and the three `formatDate` helpers (#13458) are excluded as the claim asks.\n\nDeviation: commit 58af2ad ends with a harness-supplied `Co-Authored-By` trailer that names the model, not the model-free pair from AGENTS.md. History is not rewritten, because force-push is forbidden here. Please drop that line from the squash message when landing.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_018yk9f7S7q4BrEeWZGRcTKF\n"
+}

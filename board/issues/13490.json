@@ -2,9 +2,9 @@
   "number": 13490,
   "kind": "pull_request",
   "title": "fix(plugin-gantt, app-shell): refuse an invalid gantt block; designer spec derivations fail loudly",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
-  "draft": true,
+  "draft": false,
   "author": {
     "login": "objectstack-fleet[bot]",
     "id": 332303061,
@@ -21,11 +21,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-25T02:31:08Z",
-  "updated_at": "2026-10-25T02:32:55Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
-  "comments": 1,
+  "updated_at": "2026-10-25T04:17:54Z",
+  "closed_at": "2026-10-25T04:17:52Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-25T04:17:52Z",
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/13490",
   "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-elon-musk\"} -->\n_Requested by **Elon** · [project thread](https://claude.ai/code/project/chan_01WedDzV26nniwxv7jC88B9D?thread=cmsg_01WedDzV26nniwxv7jC88B9DHcWWbiJqPPiDYgiSMxhTQo)_\n\nFixes #13459\n\nClause-②: no\nMetadata-protocol: narrowed\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n## What changes\n\n**1. `ObjectGantt` refuses a `gantt` block that fails `GanttConfigSchema`** (`packages/plugin-gantt/src/ObjectGantt.tsx`).\nBefore: `safeParse` failure → `console.warn` → the unvalidated block was returned and drawn, so a misspelt or missing key still rendered a plausible chart. Now `getGanttConfig` returns `{ config: null, invalidBlock }` on that branch and the component renders a refusal (`role=\"alert\"`, `data-testid=\"gantt-invalid-config\"`) naming every parse issue by its path in the block, e.g. `gantt.endDateField: …`, `gantt: Unrecognized key: \"startField\"`. The console warning and the shadowed-flat-keys warning still fire. Unchanged: a valid block, the flat ObjectView / ListView spelling (still not parsed, as before), and the \"Gantt configuration required\" screen for a view with no binding.\n\n**2. The five designer spec derivations fail loudly** (`packages/app-shell/src/views/metadata-admin/{dashboard,package,page,report,view}-schema.ts`).\nThe ten `try { … } catch { console.warn(…) }` sites (seven `z.toJSONSchema` derivations, three form clones) and their `_…Failed` memo flags are removed. Their only input is the bundled `@objectstack/spec`, so a failed derivation is a build-time fact: it fails the tests beside these files, and at runtime it propagates to the route's `ErrorBoundary` (`console/AppContent.tsx`), which shows the error and reports it, instead of rendering a form silently missing fields. The getters' return types narrow from `JsonSchema | undefined` to `JsonSchema`. No runtime input reached those catches: the dashboard form's only runtime argument, `locale`, goes through `localizeMetadataForm`, which does not throw on an unknown locale.\n\n`tzShift.ts` (`timeZone` fallback) is out of scope per the claim (it waits on a spec-row decision).\n\n## Tests\n\nOn head `e26d1cd`:\n\n- New `packages/plugin-gantt/src/ObjectGantt.invalidBlockRefusal-13459.test.tsx` (4): an undeclared key and a missing required field are each refused with the path named and no chart; the console diagnostic stays; CONTROL: a valid block renders its tasks.\n- New `packages/app-shell/src/views/metadata-admin/spec-derivation-13459.test.ts` (14): each of the seven getters derives an object schema from the bundled spec, and each THROWS (and does not warn) when `z.toJSONSchema` throws. The failing `toJSONSchema` is a scoped `vi.doMock` + `doUnmock`: a first version used a hoisted `vi.mock`, which leaked into `view-schema.test.ts` in the same worker (3 failures, fixed in `a3b60c1`).\n- Ablation (each leg committed first, restored with `git checkout HEAD --`, `git diff HEAD` empty after): `ObjectGantt.tsx` reverted to `origin/main` → the three refusal cases fail, CONTROL passes; `view-schema.ts` reverted → the three `view-schema.*` throw cases fail, the rest pass.\n- `pnpm exec vitest run packages/plugin-gantt/` → Test Files 100 passed | 1 skipped (101), Tests 775 passed | 114 skipped.\n- App-shell, narrowed: the 88 test files that import a changed module or a component calling one (`git grep -lE` over the five module names and their callers `PackageFormDialog`, `*DefaultInspector`, `ViewColumnInspector`, `ViewVariantInspector`, `ReportConfigPanel`) → Test Files 88 passed (88), Tests 721 passed. Blind spot: a test reaching these modules through another import path is not in that set; CI's sharded `pnpm test` runs the whole package.\n- `type-check`: `@object-ui/plugin-gantt` exit 0, `@object-ui/app-shell` exit 0 (turbo, both `tsc --noEmit` and `tsconfig.test.json`).\n- Gates, local: `eslint --no-inline-config` on the touched files 0 errors; `check:new-line-citations`, `check:changeset-claims`, `check-changeset-no-major`, `check-changeset-presence`, `check:i18n-keys`, `check:vi-mock-specifiers`, `check:vi-mock-inherit`, `check:vi-mock-override-shape`, `check:control-bytes`, `check:test-path-roots` all exit 0. `check:readme-exports` NOT MEASURED (needs every package's dist; CI builds first).\n\n## Acceptance notes\n\n- The refusal copy is English, like the neighbouring \"Gantt configuration required\" refusal: both address the view's author. Localizing both would touch the ten locale packs, outside the claimed file surface.\n- `ObjectTimeline` still only warns on a failed `TimelineExtensionSchema.safeParse` (its refusal covers a missing date axis only). Same shape as this card's gantt half; not changed here (outside the claimed surface).\n- The `if (!specXForm || typeof specXForm !== 'object') return undefined` guards in the form getters remain: they are not catch-and-warn sites and the existing tests assert the forms are defined.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01AdaeVx4N1y9QsiBkJ31nfJ)_\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01AdaeVx4N1y9QsiBkJ31nfJ\n"

@@ -1,0 +1,30 @@
+{
+  "number": 13496,
+  "kind": "pull_request",
+  "title": "chore(deps): move .objectstack-sha to objectstack main 43edf90b56 (objectstack#25727)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T03:00:14Z",
+  "updated_at": "2026-10-25T03:58:36Z",
+  "closed_at": "2026-10-25T03:58:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-25T03:58:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13496",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-tesla\"} -->\n_Requested by **Tesla** · [project thread](https://claude.ai/code/project/chan_01AXsQkLFKRdQCqQ3RTr6Jao?thread=cmsg_01AXsQkLFKRdQCqQ3RTr6JaoL8sNsjGD2KCCE4QzojaRfw)_\n\nPart of objectstack-ai/objectstack#25727\nPart of objectstack-ai/objectstack#25677\n\nClause-②: no\nMetadata-protocol: none\n\n## What changes\n\nRound 1 of objectui-readiness 3: objectui compiles against objectstack `main` HEAD.\n\n- `.objectstack-sha` moves from `47af3dde42` (where objectui#13485 left it an hour ago) to `43edf90b56db8b47ad17684c145fb7fa8bf08583`, objectstack `main` HEAD read with `git ls-remote` at 01:52Z. That is 9 objectstack commits, 3 of them touching `packages/spec`: 888d686570 (approvals `excludeSubmitter` runtime), 769ac809c4 (ui/ wiring), f6ba1343ba (refuse `allowDelete: false` beside `modifyAllRecords: true`).\n- Measured from the card's starting pin `e649c2d91e`, the round covers 19 spec commits. The one compile break they bring (TranslationPreview TS1360, `positions` / `permissions`) and the i18n loader's group list landed with objectui#13485, which landed while this branch was in flight; this branch merged `main` and resolved every conflict to `main`'s version, so its net diff is the pin line alone.\n- The packed manifests in `.objectstack-pin/` are byte-identical to `main`'s (the zod `^4.6.6` floor already moved with objectui#13485). `pnpm-lock.yaml` is unchanged and `pnpm install --frozen-lockfile` exits 0.\n- No changeset: `node scripts/check-changeset-presence.mjs` reports no released source or published contract changed.\n\nPath: `scripts/bump-objectstack.sh --no-commit 43edf90b56db8b47ad17684c145fb7fa8bf08583` (reported \"on origin/main\"; built and packed the 7 packages), then `pnpm install`.\n\n## Verification (local, at the merged head)\n\n| Gate | Exit |\n|---|---|\n| `pnpm type-check` (81/81 turbo tasks, includes `@object-ui/app-shell#build`) | 0 |\n| `pnpm --filter @object-ui/app-shell build` | 0 |\n| `type-check:scripts`, `:e2e`, `:vitest-setup`, `:vitest-config`, `:coverage` | 0 each |\n| `check:spec-symbols`, `check:designer-field-key-parity`, `check:action-forward-parity`, `check:component-surface-parity`, `check:icon-record-names` | 0 each |\n| `check:installed-pin-claims`, `check:lockfile-integrity`, `check:lockfile-dedupe` | 0 each |\n| `check:i18n-keys`, `check:i18n-drift`, `check:i18n-dead-keys`, `check:i18n-designer-parity` | 0 each |\n| vitest: every test file naming `modifyAllRecords` or `excludeSubmitter`, `metadata-admin/previews/`, `packages/i18n/`, `apps/console/src/loadLanguage.test.tsx` (239 files) | 0 |\n\nThe full `pnpm test` (about 23,000 s of measured per-file time) is left to this PR's 16 CI shards; a 4-core container cannot run it inside one foreground window.\n\nTwo readings that are not this PR's:\n\n- `check:spec-floors` exits 1 with three findings (`@object-ui/auth` floor vs `MEMBERSHIP_ROLE_EXTERNAL`, `@object-ui/types` floor vs `navItemVisibleDataNeedsDataSource`, `@object-ui/cli` no artifact). The gate judges manifest ranges against published npm spec versions; both symbols already exist at `e649c2d91e`, and this PR moves no range. Its workflow runs on push and release, not on pull requests.\n- `check:eager-locale-catalogues` needs a built Console bundle (prerequisite not met locally); CI's performance-budget job runs it.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nSession: `https://claude.ai/code/session_01K1ngdG6x8wAt8cjeVx2cSk`\n"
+}

@@ -2,8 +2,8 @@
   "number": 13442,
   "kind": "issue",
   "title": "Bulk update on a 100-row list takes ~100 s: every per-row update refetches and re-renders the whole list, and bulkUpdate drops per-row errors so apps can't avoid the per-row path",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "baozhoutao",
@@ -14,7 +14,6 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p1"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-24T10:05:20Z",
-  "updated_at": "2026-10-24T17:54:24Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-25T04:01:53Z",
+  "closed_at": "2026-10-25T03:58:52Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13442",
   "body": "## Summary\n\nA list bulk action with `operation: 'update'` over 100 selected rows takes **~100 s** in the console. The server work for those 100 rows is only **~19 s**. About **80% of the wall time is main-thread long tasks** in the browser, caused by two problems that compound each other:\n\n1. **Every per-row `dataSource.update()` refetches and re-renders the whole bound list.** `ObjectStackAdapter.update()` emits `onMutation` for every row. `ListView` (and `ObjectView`) bump `refreshKey` on each event, so a 100-row bulk run produces roughly 100 refetches of the 100-row page (with all lookup `populate`s) and 100 full re-renders of the grid. `useBulkExecutor` awaits the rows one by one, so it can't send the next request until the main thread is free.\n2. **`bulkUpdate` throws away per-row results.** The server's `POST /data/:object/updateMany` (`continueOnError: true`) already runs hooks per row, isolates failures, and returns `results[].errors[].message` for each failed row. `ObjectStackAdapter.bulkUpdate()` reads only `succeeded`. The executor then reports a single synthetic error, `batch_0: N records failed in bulk update`, so the error CSV has no record ids or reasons. Apps that need per-row failure reasons (business-rule rejections shown to users) are pushed into `batchSize: 1`, and that path hits problem 1 at full cost.\n\nProblem 2 is why apps end up on the slow path, and problem 1 is what makes that path slow.\n\n## Measurements\n\nSetup: `@objectstack/*` 17.3.0, local dev server (SQLite), headless Chromium. A custom object has about 15 `beforeUpdate`/`afterUpdate` hooks. The list view has `pageSize: 100` and about 10 lookup columns. The bulk action is `{ operation: 'update', patch: { push_now: true }, batchSize: 1 }`. Select all 100 rows → run.\n\n| Scenario | 100 rows |\n|---|---|\n| Console bulk action, `batchSize: 1` (current) | **102–111 s**. 228 long tasks totalling 93 s (max 1.3 s). 100 PATCHes = 21.5 s of server time. **57 extra full-page list GETs.** The gaps between consecutive PATCHes add up to 87.6 s. |\n| Same 100 PATCHes sent serially with `fetch` from the same page (no `onMutation`) | **18.9 s** |\n| Console bulk action, `batchSize: 1`, with the `onMutation` refresh subscriptions in `ListView` / `ObjectView` stubbed out (via request interception) | **21.4 s**, 2 long tasks |\n| `POST updateMany` with `continueOnError: true`, 102 rows (2 invalid on purpose) | **2.4 s**. Hooks ran per row. Response has `succeeded: 100, failed: 2` and per-row `results[i].errors[0].message` with the business reason. |\n| Console bulk action with `batchSize: 100` | **4.1 s**. The dialog shows `batch_0: 2 records failed in bulk update`, and the error CSV has no record ids or reasons. |\n\nOn a production deployment (bigger pages, more columns, real network latency) the same action takes **~7 minutes per 100 rows (~4.2 s/row)**.\n\n## Code pointers (objectui `main` @ 7981384)\n\n- `packages/data-objectstack/src/index.ts`, `update()`: calls `emitMutation` per call.\n- `packages/data-objectstack/src/index.ts` ~L4386, `bulkUpdate()`: `return emitBulk(res.succeeded)`. `res.results[]` is ignored, and the same applies to `bulkDelete()`.\n- `packages/plugin-list/src/ListView.tsx` ~L1850: `onMutation` → `setRefreshKey(k => k + 1)` on every event, with no batching or deferral.\n- `packages/plugin-view/src/ObjectView.tsx` ~L1276: the same for non-`renderListView` views, plus `notifyDataChanged` per event.\n- `packages/plugin-grid/src/hooks/useBulkExecutor.ts` + `packages/core/src/actions/bulkFastPath.ts`: `perRow` goes through `dataSource.update()` for each row. When `bulkCall` resolves with a count below the batch size, the shortfall is reported as one `batch_${offset}` error.\n\nThe published `@objectstack/console@18.1.0` bundle has the same behaviour.\n\n## Suggested fix\n\n1. **Return per-row results from `bulkUpdate` / `bulkDelete`** and surface them in the executor. For example, `bulkUpdate` could return `{ succeeded, errors: [{ id, error }] }` built from `results[].errors[].message` (keeping the plain-number return for adapters without per-row results). `runBulkWithFastPath` / `useBulkExecutor` would then push those into `errors`, so Retry and \"Download error CSV\" work per record on the bulk path. With that in place, apps can drop `batchSize: 1` and 100 rows should take a few seconds.\n2. **Don't refresh bound views per row during a bulk run.** For example, let the executor run row writes with mutation events suppressed (a `silent`/`batch` option on `update`/`delete`, or a `dataSource.batchMutations(fn)` scope), then emit one mutation (or rely on the existing `RelatedCountStore.invalidate` + final refresh) when the run finishes. Alternatively, have `ListView` / `ObjectView` coalesce `onMutation` refreshes (debounce or `requestIdleCallback`). That would help any other code that writes many rows in a loop.\n\nEither change alone helps a lot: (1) removes the reason apps use `batchSize: 1`, and (2) makes the per-row path cost about what the server work costs. Both together also give per-row progress without the re-render storm.\n\n## Expected\n\n- 100-row bulk update/delete finishes in about the time of the server work, not 5× it.\n- Failed rows keep their own id and server error message in the result dialog and the error CSV, whatever the `batchSize`.\n\nDownstream report: steedos-labs/os-project-titanwind-ehr#1995"

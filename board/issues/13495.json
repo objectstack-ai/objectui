@@ -1,0 +1,50 @@
+{
+  "number": 13495,
+  "kind": "pull_request",
+  "title": "chore(packages): declare `sideEffects` on every published package (objectui#13464)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "dependencies",
+    "package: auth",
+    "package: cli",
+    "package: collaboration",
+    "package: create-plugin",
+    "package: mobile",
+    "package: permissions",
+    "package: providers",
+    "package: react",
+    "package: runner",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown",
+    "tests"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T02:54:51Z",
+  "updated_at": "2026-10-25T03:48:47Z",
+  "closed_at": "2026-10-25T03:48:45Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-25T03:48:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13495",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-elon-musk\"} -->\n_Requested by **Elon** · [project thread](https://claude.ai/code/project/chan_01WedDzV26nniwxv7jC88B9D?thread=cmsg_01WedDzV26nniwxv7jC88B9DDG54RD1DM5VMDEVmXdGkE6)_\n\nPart of #13464. This PR does the card's first task item (declare `sideEffects` on every published package). The longer-term item, explicit `register*()` so every package can say `false`, stays on the card for its own decision, so merging this should not close it.\n\nClause-②: no\nMetadata-protocol: none\n\n## What changes\n\n29 published manifests that had no `sideEffects` now declare one. `apps/console` is out of scope per the claim. Only the `sideEffects` field moves in each manifest.\n\n| Value | Packages | The read behind it |\n|---|---|---|\n| `false` | `react`, `auth`, `collaboration`, `data-objectstack`, `mobile`, `permissions`, `providers` | Every non-test module under `src/` scanned with the array gate's own `scanModule` (a superset of what any import reaches, lazy targets included): no registration, no bare import (CSS or otherwise), no global or `window` write. The only top-level statements are `X.displayName = 'X'` on a binding the same module declares: react 6, auth 1, mobile 1, permissions 1, the other three none. `collaboration`'s one top-level call, `createSafeTranslation(...)`, is a pure factory (read: it builds a closure and touches nothing outside). |\n| array | `plugin-calendar`, `plugin-charts`, `plugin-designer`, `plugin-detail`, `plugin-editor`, `plugin-form`, `plugin-gantt`, `plugin-kanban`, `plugin-list`, `plugin-map`, `plugin-markdown`, `plugin-report`, `plugin-timeline`, `plugin-tree`, `plugin-view` | Each array is exactly what `scripts/check-side-effects-array.mjs` derives: the entry forms plus every module that registers at load time, in both spellings. The gate passes on all 15 (plus the existing `app-shell` and `layout`). |\n| `true` | `plugin-ai`, `plugin-chatbot`, `plugin-dashboard`, `plugin-grid` | Each registers on import, and for each no array satisfies every guard: `plugin-ai` has no bundler alias to its source, so the consistency test reads its `src/index.tsx` as a phantom path; `plugin-chatbot`'s barrels are pure and register through `export *` from `./renderer`, so the consistency test refuses them as named entries while the array gate requires them; `plugin-dashboard` registers retired node types in a loop, so `check-sdui-registration-pins` cannot read the keys; `plugin-grid`'s `ObjectGrid` imports `hooks/useRecordCrudVerdicts` (top-level `subscribeDataChanges`), and the gate's reachability rule rejects that chain without naming `ObjectGrid`, which it would then call STALE. |\n| `true` | `cli`, `create-plugin`, `runner` | Executables: the `bin` entry (`cli`, `create-plugin`) or the app entry (`runner`'s `main.tsx`, `ReactDOM.createRoot(...)`) runs on load. Nothing bundles them as a library, so `true` is the honest, free answer. |\n\n### The consistency test\n\n`scripts/__tests__/side-effects-declaration-consistency.test.ts` changes in the two ways the amended claim allows:\n\n1. Its census by name grows to the new population of `false` and array packages, and the anti-vacuity floors move with it.\n2. Its scan learns the carve-out the array gate already makes as `local-binding-write`: `X.prop = ...` where `X` is declared in the same module and the right-hand side calls or constructs nothing. A new `describe` pins both directions: a function, class or const of the module is pure; an imported binding, a namespace import, `window` and `globalThis` writes, a right-hand side with a call or `new`, and an element write stay findings.\n\nReverse check, on `c16787a` with the carve-out line removed: `no sideEffects: false package has a load-time side effect` and the new pure-direction pin go red (`Tests 2 failed / 113 passed`); restored from `HEAD`, `git diff HEAD` empty.\n\n## Measured\n\nConsole production build (`pnpm turbo run build --filter='./packages/*'` then `pnpm --filter @object-ui/console build`, the same two steps as `performance-budget.yml`), `apps/console/dist/eager-closure.json`:\n\n| | head | eager closure, gzipped | eager / total chunks |\n|---|---|---|---|\n| before | `6f629a7` (main) | 3,106,386 B | 85 / 2291 |\n| after | `fcfc372` | 3,106,204 B | 85 / 2291 |\n\nA 182 B drop: no real saving for the console, which imports almost every package and whose arrays name each barrel. The gain is for external hosts that bundle only some `@object-ui/*` packages. No ceiling moves, as the claim asked. The build's other plugin lines (`declared-lazy-views`, `assert-types-zod-stays-lazy`) read the same before and after.\n\n`node scripts/check-sdui-registration-pins.mjs` on the `fcfc372` build: all 68 registrations the arrays promise are present in the built console.\n\n## Tests and gates (local, head `fcfc372` unless noted)\n\n- `pnpm exec vitest run scripts/__tests__/side-effects-declaration-consistency.test.ts scripts/__tests__/check-side-effects-array.test.ts scripts/__tests__/check-sdui-registration-pins.test.ts`: `Test Files 3 passed (3)`, `Tests 172 passed (172)`.\n- `node scripts/check-side-effects-array.mjs`: exit 0, 17 packages green.\n- `node scripts/check-eager-closure-budget.mjs`: exit 0 (3033.4 KB, budget 3496.0 KB).\n- On `c16787a` (before the `plugin-dashboard` switch): `pnpm exec vitest run --maxWorkers=2 scripts/` gave 1 failed of 5857, `check-sdui-registration-pins.test.ts` reading the dashboard loop as unreadable, which `fcfc372` fixes and the run above re-checks; `packages/vscode-extension` `export-to-react-preamble` and `app-shell` `tenancyPostureWall.parity` tests (the other two that read `sideEffects`): 9 passed.\n- `node scripts/check-changeset-presence.mjs`, `node scripts/check-changeset-no-major.mjs`, `node scripts/check-changeset-fixed.mjs`, `pnpm check:new-line-citations`, eslint on the changed test: exit 0 each.\n- NOT MEASURED locally: the full `pnpm test` matrix and `pnpm lint`, which CI runs.\n\n## Acceptance notes\n\n- The two `sideEffects` guards disagree about a pure barrel: `check-side-effects-array.mjs` requires every entry form in an array, and the consistency test refuses a named source entry with no load-time effect. That is why `plugin-chatbot` is `true` instead of an array. Not filed: it is a reading, with no consumer-visible defect today.\n- `plugin-grid`'s and `plugin-detail`'s top-level `subscribeDataChanges(...)` calls invalidate module-local caches. The gate counts them as registrations, which is the conservative reading.\n\n## Checklist\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\nSession: `https://claude.ai/code/session_01Q4K9dtZAX6vw67etsxBeuP`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01Q4K9dtZAX6vw67etsxBeuP\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01Q4K9dtZAX6vw67etsxBeuP)_\n"
+}

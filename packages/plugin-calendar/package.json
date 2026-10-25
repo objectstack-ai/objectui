@@ -16,6 +16,13 @@
   "main": "dist/index.umd.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": [
+    "./dist/calendar-view-renderer.js",
+    "./dist/index.js",
+    "./dist/index.umd.cjs",
+    "./src/calendar-view-renderer.tsx",
+    "./src/index.tsx"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

@@ -16,6 +16,13 @@
   "main": "dist/index.umd.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": [
+    "./dist/ObjectGallery.js",
+    "./dist/index.js",
+    "./dist/index.umd.cjs",
+    "./src/ObjectGallery.tsx",
+    "./src/index.tsx"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

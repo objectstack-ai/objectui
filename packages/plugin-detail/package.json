@@ -16,6 +16,13 @@
   "main": "dist/index.umd.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": [
+    "./dist/index.js",
+    "./dist/index.umd.cjs",
+    "./dist/useRecordEditable.js",
+    "./src/index.tsx",
+    "./src/useRecordEditable.ts"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

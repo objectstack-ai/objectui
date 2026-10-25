@@ -4,6 +4,31 @@ on:
   pull_request:
     branches: [main, develop]
 
+# ── Off until the objectstack cutover (objectui#13497) ─────────────────────────
+#
+# The job below carries `if: false`. Its last step enqueues with `gh pr merge
+# --auto` under GITHUB_TOKEN, and GitHub starts no workflow run for an event that
+# GITHUB_TOKEN caused. So the merge group it creates gets no `merge_group` runs,
+# the required checks never report on it, and the entry holds the head of the
+# merge queue until the queue's check timeout removes it, with every pull request
+# behind it waiting the whole time. Each Dependabot force-push re-ran this job and
+# re-enqueued, so the stall repeated. The measurements are on objectui#13497.
+#
+# This repository is archived when objectstack-ai/objectstack#25677 moves objectui
+# into objectstack, so the ruling on objectui#13497 took the cheaper fix: stop
+# enqueuing Dependabot pull requests from Actions. ⛔ No App or PAT secret was
+# added for an enqueue that runs, the queue timeout was not shortened, and no
+# required check was dropped.
+#
+# The whole job is off, not only its enqueue step: without the enqueue it would
+# still hold a runner for every Dependabot rebase in the cutover window, only to
+# approve a pull request that nothing enqueues. Everything else here is left as it
+# was. Until the cutover, nothing approves, enqueues or comments on a Dependabot
+# pull request; one lands only if someone enqueues it by hand once its checks are
+# green. To turn the job back on, give it back the condition `if: false` replaced,
+# `github.actor == 'dependabot[bot]'`, and fix the GITHUB_TOKEN enqueue first, or
+# the stall returns with it.
+
 # ── Why this workflow no longer enables auto-merge unconditionally (#4973) ────
 #
 # It used to run, for every semver-patch/minor bump and with nothing else asked:
@@ -82,7 +107,8 @@ concurrency:
 jobs:
   dependabot:
     runs-on: ubuntu-latest
-    if: ${{ github.actor == 'dependabot[bot]' }}
+    # Off until the objectstack cutover: see the header (objectui#13497).
+    if: false
     # The gate waits for the slowest check in the repository. Measured on #4959
     # the last required context reported 9m26s after the jobs started, so the
     # script's own deadline is 40 minutes (`GATE_TIMEOUT_SECONDS`) and the job is

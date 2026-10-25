@@ -37,17 +37,27 @@ export interface EmptySectionsFoldProps {
  * `DetailSection` folds by.
  */
 export function emptySectionsFoldCount(sections: DetailViewSection[], data: any): number {
-  let kept = 0;
-  let emptyFields = 0;
-  for (const section of sections) {
-    const fields = section.fields ?? [];
-    if (fields.length === 0) continue;
-    if (fields.some((field) => hasCellValue(data?.[field.name] ?? field.value))) return 0;
-    if (section.hideEmpty === true) continue;
-    kept += 1;
-    emptyFields += fields.length;
+  // This runs ABOVE every per-section error boundary in `DetailView`, so a
+  // malformed section must not throw from here and blank the whole body
+  // (objectui#8497): a section with no field array, or anything that throws
+  // while reading, turns the fold off, leaving each section to render, or to
+  // fail visibly, inside its own boundary.
+  try {
+    let kept = 0;
+    let emptyFields = 0;
+    for (const section of sections) {
+      if (!Array.isArray(section?.fields)) return 0;
+      const fields = section.fields;
+      if (fields.length === 0) continue;
+      if (fields.some((field) => hasCellValue(data?.[field?.name] ?? field?.value))) return 0;
+      if (section.hideEmpty === true) continue;
+      kept += 1;
+      emptyFields += fields.length;
+    }
+    return kept >= 2 ? emptyFields : 0;
+  } catch {
+    return 0;
   }
-  return kept >= 2 ? emptyFields : 0;
 }
 
 /**

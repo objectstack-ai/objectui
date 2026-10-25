@@ -288,3 +288,23 @@ describe('objectui#13386 — a body whose sections are all empty folds once more
     expect(emptySectionsFoldCount([narrative(), notes()], { next_step: '   ' })).toBe(6);
   });
 });
+
+describe('objectui#13386 — the body fold never blanks the body (objectui#8497)', () => {
+  it('a malformed section turns the fold off instead of throwing or hiding its failure', () => {
+    const exploding = {
+      title: 'Boom',
+      fields: [
+        {
+          name: 'boom_field',
+          get value(): never {
+            throw new Error('section-local failure');
+          },
+        },
+      ],
+    } as unknown as DetailViewSection;
+    expect(emptySectionsFoldCount([exploding, narrative(), notes()], {})).toBe(0);
+    expect(
+      emptySectionsFoldCount([{ title: 'Orphan' } as unknown as DetailViewSection, narrative(), notes()], {}),
+    ).toBe(0);
+  });
+});

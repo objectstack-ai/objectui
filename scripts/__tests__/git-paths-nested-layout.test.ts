@@ -16,7 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { revPath } from '../workspace-root.mjs';
-import { LOCALES, analyze, packPath, readPacks } from '../check-i18n-en-drift.mjs';
+import { LOCALES, analyze, packPath, readPacks, treeExistsAt } from '../check-i18n-en-drift.mjs';
 import { changedFiles } from '../check-changeset-presence.mjs';
 import { readBlobs, treeIndex } from '../check-changeset-claims.mjs';
 import { collisions } from '../check-changeset-overwrite.mjs';
@@ -73,6 +73,45 @@ function layout(prefix: string): { tree: string; base: string; head: string } {
   return { tree: path.join(repo, prefix), base, head };
 }
 
+describe('check:i18n-drift over the change that IMPORTS the tree (objectstack#25728)', () => {
+  it('reads an empty before side when the tree does not exist at the base, and still throws when only a pack is missing', () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'git-paths-import-'));
+    tempRoots.push(repo);
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
+    git('init', '-q', '-b', 'main');
+    git('config', 'user.email', 'gate@example.test');
+    git('config', 'user.name', 'gate');
+    const write = (files: Record<string, string>) => {
+      for (const [rel, contents] of Object.entries(files)) {
+        fs.mkdirSync(path.dirname(path.join(repo, rel)), { recursive: true });
+        fs.writeFileSync(path.join(repo, rel), contents);
+      }
+    };
+    write({ 'monorepo-own.txt': 'one\n' });
+    git('add', '-A');
+    git('commit', '-q', '-m', 'the monorepo before the import');
+    const preImport = git('rev-parse', 'HEAD');
+    write(Object.fromEntries(Object.entries(allPacks('Save')).map(([rel, body]) => [`ui/${rel}`, body])));
+    git('add', '-A');
+    git('commit', '-q', '-m', 'import ui/');
+    const imported = git('rev-parse', 'HEAD');
+    const tree = path.join(repo, 'ui');
+
+    expect(treeExistsAt(tree, preImport)).toBe(false);
+    const result = analyze(tree, { base: preImport, head: imported });
+    expect(result.treeAtBase).toBe(false);
+    expect(result.findings).toEqual([]);
+    expect(result.counters.addedEnKeys).toBe(1);
+
+    // The tree exists at the base but a pack does not: a broken input, never an empty side.
+    fs.rmSync(path.join(tree, packPath('ja')));
+    git('add', '-A');
+    git('commit', '-q', '-m', 'lose a pack');
+    const lost = git('rev-parse', 'HEAD');
+    expect(() => analyze(tree, { base: lost, head: imported })).toThrow(/cannot read/);
+  });
+});
+
 describe('revPath', () => {
   it('names a file at a revision relative to the cwd git runs in', () => {
     expect(revPath('HEAD', 'packages/i18n/src/locales/en.ts')).toBe('HEAD:./packages/i18n/src/locales/en.ts');
@@ -98,9 +137,13 @@ for (const [name, prefix] of [
     });
 
     it('check:i18n-drift reads the base packs and reaches its verdict (the run-4 red)', () => {
+      expect(treeExistsAt(tree, base)).toBe(true);
       expect(readPacks(tree, base).get('en')?.get('common.save')).toBe('Save');
       const result = analyze(tree, { base, head });
-      expect(JSON.stringify(result)).toContain('common.save');
+      expect(result.treeAtBase).toBe(true);
+      // en moved and none of the nine followers did: one finding naming all nine.
+      expect(result.counters.changedEnKeys).toBe(1);
+      expect(result.findings.map((f: { key: string; unfollowed: string[] }) => [f.key, f.unfollowed.length])).toEqual([['common.save', LOCALES.length - 1]]);
     });
 
     it('changed-file listings are relative to the tree and leave the monorepo’s own files out', () => {

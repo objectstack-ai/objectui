@@ -97,12 +97,12 @@ describe('green on main — the negative control', () => {
  * keys under one name. Built from the real lockfile by a transformation this file
  * asserts landed.
  */
-const PINNED_SPEC = "  '@objectstack/spec@file:.objectstack-pin/spec(ai@7.0.65(zod@4.6.7))':";
+const PINNED_SPEC = "  '@objectstack/spec@file:.objectstack-pin/spec(ai@7.0.118(zod@4.6.7))':";
 function sampleA(): string {
   expect(realLock, 'the pinned spec snapshot key moved — rebuild this sample before trusting it').toContain(PINNED_SPEC);
   return realLock.replace(
     PINNED_SPEC,
-    "  '@objectstack/spec@18.0.0-next.3(ai@7.0.65(zod@4.6.7))':\n    dependencies:\n      zod: 4.6.7\n" + PINNED_SPEC,
+    "  '@objectstack/spec@18.0.0-next.3(ai@7.0.118(zod@4.6.7))':\n    dependencies:\n      zod: 4.6.7\n" + PINNED_SPEC,
   );
 }
 
@@ -120,8 +120,8 @@ function sampleB(): string {
   let out = realLock;
   const forked = [
     PINNED_SPEC,
-    "  '@objectstack/formula@file:.objectstack-pin/formula(ai@7.0.65(zod@4.6.7))':",
-    "  ai@7.0.65(zod@4.6.7):",
+    "  '@objectstack/formula@file:.objectstack-pin/formula(ai@7.0.118(zod@4.6.7))':",
+    "  ai@7.0.118(zod@4.6.7):",
   ];
   for (const key of forked) {
     expect(out, `snapshot key moved: ${key}`).toContain(key);
@@ -137,13 +137,13 @@ describe('cause 1 — a registry @objectstack/* copy beside the pinned build (ob
 
   it('the sample really differs from the base (the mutation landed)', () => {
     expect(sampleA()).not.toEqual(realLock);
-    expect(sampleA()).toContain("'@objectstack/spec@18.0.0-next.3(ai@7.0.65(zod@4.6.7))':");
+    expect(sampleA()).toContain("'@objectstack/spec@18.0.0-next.3(ai@7.0.118(zod@4.6.7))':");
   });
 
   it('goes red, naming the second physical spec', () => {
     const spec = reading.duplicated.find((f) => f.name === '@objectstack/spec');
     expect(spec?.headCount).toBe(2);
-    expect(spec?.added).toEqual(['@objectstack/spec@18.0.0-next.3(ai@7.0.65(zod@4.6.7))']);
+    expect(spec?.added).toEqual(['@objectstack/spec@18.0.0-next.3(ai@7.0.118(zod@4.6.7))']);
   });
 
   it('⛔ no longer orders versions: the retired rule 1 reports nothing of its own', () => {

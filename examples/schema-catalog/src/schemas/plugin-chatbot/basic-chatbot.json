@@ -11,6 +11,6 @@
   "showTimestamp": false,
   "autoResponse": true,
   "autoResponseText": "Thank you for your message! This is an automated response.",
-  "autoResponseDelay": 1000,
+  "autoResponseDelayMs": 1000,
   "maxHeight": "400px"
 }

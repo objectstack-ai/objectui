@@ -863,7 +863,14 @@ export interface CarouselSchema extends BaseSchema {
   /**
    * Auto-play interval (ms)
    */
-  autoPlay?: number;
+  autoPlayMs?: number;
+  /**
+   * RENAMED to {@link CarouselSchema.autoPlayMs} (objectstack#25762, ADR-0087): a duration
+   * carries its unit in its key name, never only in its description. The
+   * value (milliseconds) is unchanged; the zod twin refuses this spelling by name.
+   * @deprecated Renamed to `autoPlayMs`.
+   */
+  autoPlay?: never;
   /**
    * Show navigation arrows
    * @default true
@@ -1496,7 +1503,14 @@ export interface ChatbotSchema extends BaseSchema {
    * Delay in milliseconds before the local auto-response is sent.
    * @default 1000
    */
-  autoResponseDelay?: number;
+  autoResponseDelayMs?: number;
+  /**
+   * RENAMED to {@link ChatbotSchema.autoResponseDelayMs} (objectstack#25762, ADR-0087): a duration
+   * carries its unit in its key name, never only in its description. The
+   * value (milliseconds) is unchanged; the zod twin refuses this spelling by name.
+   * @deprecated Renamed to `autoResponseDelayMs`.
+   */
+  autoResponseDelay?: never;
   /**
    * Called after a message is sent, in both API and local auto-response mode,
    * with the trimmed content and the full message list at that point.
@@ -1695,7 +1709,7 @@ export interface ChatbotSchema extends BaseSchema {
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
    * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
-   * `autoResponseDelay`, `autoResponseText`, `conversationId`, `headers`,
+   * `autoResponseDelayMs`, `autoResponseText`, `conversationId`, `headers`,
    * `maxHeight`, `messages`, `model`, `onError`, `onSend`,
    * `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`,
    * `systemPrompt`, `userAvatarFallback`, `userAvatarUrl` (in
@@ -1755,7 +1769,7 @@ export type ChatbotSharedKey =
   | 'assistantAvatarFallback'
   | 'autoResponse'
   | 'autoResponseText'
-  | 'autoResponseDelay'
+  | 'autoResponseDelayMs'
   | 'onSend';
 
 /**
@@ -1777,6 +1791,8 @@ export type ChatbotSharedKey =
  *   - the nineteen {@link ChatbotSharedKey} members every registration reads;
  *   - the `maxToolRoundtrips` retirement tombstone (objectui#5605), picked off
  *     {@link ChatbotSchema} so all three chat nodes refuse it with one declaration;
+ *   - the `autoResponseDelay` rename tombstone (objectstack#25762, now
+ *     `autoResponseDelayMs`), picked off {@link ChatbotSchema} the same way;
  *   - `maxHeight` and `processVisibility`, which `chatbot-enhanced` forwards to
  *     `<ChatbotEnhanced>` by name and `chatbot-floating` has no named read for
  *     (its panel is sized by `floatingConfig.panelHeight`; for the second,
@@ -1794,7 +1810,7 @@ export type ChatbotSharedKey =
  */
 export interface ChatbotEnhancedSchema
   extends BaseSchema,
-    Pick<ChatbotSchema, ChatbotSharedKey | 'maxToolRoundtrips' | 'maxHeight' | 'processVisibility'> {
+    Pick<ChatbotSchema, ChatbotSharedKey | 'maxToolRoundtrips' | 'autoResponseDelay' | 'maxHeight' | 'processVisibility'> {
   type: 'chatbot-enhanced';
   /**
    * Render assistant messages as markdown. Forwarded to `<ChatbotEnhanced>`'s
@@ -1847,7 +1863,7 @@ export interface ChatbotEnhancedSchema
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
    * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
-   * `autoResponseDelay`, `autoResponseText`, `conversationId`,
+   * `autoResponseDelayMs`, `autoResponseText`, `conversationId`,
    * `enableFileUpload`, `enableMarkdown`, `headers`, `maxHeight`,
    * `messages`, `model`, `onClear`, `onError`, `onSend`,
    * `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`,
@@ -1880,7 +1896,8 @@ export interface ChatbotEnhancedSchema
  * censused per key on the PR's base:
  *
  *   - the nineteen {@link ChatbotSharedKey} members;
- *   - the `maxToolRoundtrips` retirement tombstone (objectui#5605);
+ *   - the `maxToolRoundtrips` retirement tombstone (objectui#5605) and the
+ *     `autoResponseDelay` rename tombstone (objectstack#25762);
  *   - `enableMarkdown`, `enableFileUpload` and the `onClear` runtime slot,
  *     forwarded into the panel's `<ChatbotEnhanced>`;
  *   - `floatingConfig`, the trigger and panel geometry
@@ -1911,7 +1928,7 @@ export interface ChatbotEnhancedSchema
  */
 export interface ChatbotFloatingSchema
   extends BaseSchema,
-    Pick<ChatbotSchema, ChatbotSharedKey | 'maxToolRoundtrips'> {
+    Pick<ChatbotSchema, ChatbotSharedKey | 'maxToolRoundtrips' | 'autoResponseDelay'> {
   type: 'chatbot-floating';
   /**
    * Render assistant messages as markdown inside the panel. Forwarded to the
@@ -1969,7 +1986,7 @@ export interface ChatbotFloatingSchema
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
    * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
-   * `autoResponseDelay`, `autoResponseText`, `conversationId`,
+   * `autoResponseDelayMs`, `autoResponseText`, `conversationId`,
    * `enableFileUpload`, `enableMarkdown`, `floatingConfig`, `headers`,
    * `messages`, `model`, `onClear`, `onError`, `onSend`,
    * `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`,

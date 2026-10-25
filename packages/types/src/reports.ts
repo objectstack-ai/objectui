@@ -493,7 +493,15 @@ export interface ReportComponentSchema extends BaseSchema {
   /**
    * Auto-refresh interval (in seconds)
    */
-  refreshInterval?: number;
+  refreshIntervalSeconds?: number;
+
+  /**
+   * RENAMED to {@link ReportComponentSchema.refreshIntervalSeconds} (objectstack#25762, ADR-0087):
+   * a duration carries its unit in its key name, never only in its description.
+   * The value (seconds) is unchanged; the zod twin refuses this spelling by name.
+   * @deprecated Renamed to `refreshIntervalSeconds`.
+   */
+  refreshInterval?: never;
 
   /**
    * Loading state

@@ -13,7 +13,8 @@
  *
  * Before this file, `showTimestamp`, `userAvatarUrl`, `userAvatarFallback`,
  * `assistantAvatarUrl`, `assistantAvatarFallback`, `maxHeight`,
- * `autoResponse`, `autoResponseText`, `autoResponseDelay` and `onSend` lived
+ * `autoResponse`, `autoResponseText`, `autoResponseDelay` (renamed
+ * `autoResponseDelayMs` by objectstack#25762) and `onSend` lived
  * ONLY in an anonymous inline intersection at
  * `packages/plugin-chatbot/src/renderer.tsx`'s `chatbot` registration site —
  * nothing outside that one file could reference, validate, or document them.
@@ -78,12 +79,12 @@ describe('ChatbotSchema: the ten local-display/legacy keys are declared, not ano
       maxHeight: '500px',
       autoResponse: true,
       autoResponseText: 'Thanks!',
-      autoResponseDelay: 1000,
+      autoResponseDelayMs: 1000,
       onSend,
     };
 
     expect(node.showTimestamp).toBe(true);
-    expect(node.autoResponseDelay).toBe(1000);
+    expect(node.autoResponseDelayMs).toBe(1000);
     node.onSend?.('hello', baseMessages);
   });
 
@@ -91,10 +92,10 @@ describe('ChatbotSchema: the ten local-display/legacy keys are declared, not ano
     const node: ChatbotSchema = {
       type: 'chatbot',
       messages: baseMessages,
-      // @ts-expect-error `autoResponseDelay` is declared `number`; before this
+      // @ts-expect-error `autoResponseDelayMs` is declared `number`; before this
       // field was named, `[key: string]: any` on `BaseSchema` swallowed any
       // value at any unlisted key and this line type-checked.
-      autoResponseDelay: 'not-a-number',
+      autoResponseDelayMs: 'not-a-number',
     };
     // Runtime shape is unaffected by the type-level assertion above.
     expect(node.type).toBe('chatbot');
@@ -125,7 +126,7 @@ describe('ChatbotSchema: the ten local-display/legacy keys are declared, not ano
       maxHeight: '500px',
       autoResponse: true,
       autoResponseText: 'Thanks!',
-      autoResponseDelay: 1000,
+      autoResponseDelayMs: 1000,
     });
 
     expect(result.success).toBe(true);
@@ -152,14 +153,14 @@ describe('ChatbotSchema: the ten local-display/legacy keys are declared, not ano
     const result = ChatbotZodSchema.safeParse({
       type: 'chatbot',
       messages: [],
-      autoResponseDelay: 'not-a-number',
+      autoResponseDelayMs: 'not-a-number',
     });
 
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(
         result.error.issues.some(
-          (issue) => issue.path.join('.') === 'autoResponseDelay' && issue.code === 'invalid_type',
+          (issue) => issue.path.join('.') === 'autoResponseDelayMs' && issue.code === 'invalid_type',
         ),
       ).toBe(true);
     }
@@ -176,7 +177,7 @@ describe('ChatbotSchema: the ten local-display/legacy keys are declared, not ano
       'maxHeight',
       'autoResponse',
       'autoResponseText',
-      'autoResponseDelay',
+      'autoResponseDelayMs',
       'onSend',
     ]) {
       expect(shapeKeys).toContain(key);

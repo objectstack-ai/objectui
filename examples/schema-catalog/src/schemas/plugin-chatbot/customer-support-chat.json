@@ -30,7 +30,7 @@
   "assistantAvatarFallback": "SA",
   "showTimestamp": true,
   "autoResponse": true,
-  "autoResponseDelay": 1500,
+  "autoResponseDelayMs": 1500,
   "autoResponseText": "Let me check that for you...",
   "maxHeight": "500px"
 }

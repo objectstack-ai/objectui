@@ -23,7 +23,7 @@ import { ReportSchema as SpecReportSchema } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 import { ChartSchema } from './data-display.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
-import { handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
+import { durationKeyRenamedGuidance, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 
 /**
  * Report Export Format Schema
@@ -187,7 +187,8 @@ export const ReportComponentSchema = BaseSchema.extend({
   showExportButtons: z.boolean().optional().describe('Show export buttons'),
   showPrintButton: z.boolean().optional().describe('Show print button'),
   showScheduleButton: z.boolean().optional().describe('Show schedule button'),
-  refreshInterval: z.number().optional().describe('Auto-refresh interval (in seconds)'),
+  refreshIntervalSeconds: z.number().optional().describe('Auto-refresh interval (in seconds)'),
+  refreshInterval: retirementTombstone(durationKeyRenamedGuidance('refreshInterval', 'refreshIntervalSeconds', 'seconds')),
   loading: z.boolean().optional().describe('Loading state'),
   data: z.array(z.any()).optional().describe('Report data'),
   // objectui#6152 round 3 — declared on the interface and never mirrored here. READ:

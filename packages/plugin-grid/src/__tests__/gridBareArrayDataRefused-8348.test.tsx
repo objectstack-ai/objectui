@@ -76,6 +76,9 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+// Module scope as well as where a test awaits it below: the cold transform is paid
+// during collection, which no test or hook timeout clocks (AGENTS.md, flaky-test discipline).
+import '@objectstack/spec/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';

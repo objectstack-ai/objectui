@@ -35,6 +35,9 @@
 
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+// Module scope as well as in the `vi.mock` factory below: the cold transform is paid
+// during collection, which no test or hook timeout clocks (AGENTS.md, flaky-test discipline).
+import '@object-ui/react';
 import { render, cleanup, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { createI18n, I18nProvider } from '@object-ui/i18n';

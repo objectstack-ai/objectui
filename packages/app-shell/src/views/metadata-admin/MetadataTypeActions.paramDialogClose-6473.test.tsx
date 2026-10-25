@@ -67,6 +67,9 @@ import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+// Module scope as well as where a test awaits it below: the cold transform is paid
+// during collection, which no test or hook timeout clocks (AGENTS.md, flaky-test discipline).
+import '@object-ui/components';
 import { render, screen, act, cleanup, fireEvent } from '@testing-library/react';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({

@@ -98,7 +98,7 @@ const TreeNodeComponent = ({
             {nodeBody}
           </button>
         ) : (
-          <span className="flex min-w-0 flex-1 items-center">{nodeBody}</span>
+          nodeBody
         )}
       </div>
 

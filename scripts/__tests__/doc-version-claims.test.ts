@@ -1099,12 +1099,6 @@ const KNOWN_CLAIMS: KnownClaim[] = [
     why: 'A capability floor for RTL logical properties ("requires v3.3+ or v4"), not a claim about the version shipped here. Satisfied by the ^4.x this repo uses, but nothing can check it.',
   },
   {
-    file: 'content/docs/guide/troubleshooting.md',
-    claim: 'React 19',
-    kind: 'unanchored',
-    why: 'Consistent with the ^19.0.0 peer ranges (narrowed from ^18.0.0 || ^19.0.0 in objectui#13465, which rewrote this sentence from "React 18+"), but stated repo-wide with no per-package anchor, so no gate can tell when it stops being true.',
-  },
-  {
     file: 'content/docs/plugins/plugin-markdown.mdx',
     claim: 'react | 18.2.0',
     kind: 'sample',
@@ -1155,15 +1149,9 @@ const KNOWN_CLAIMS: KnownClaim[] = [
   // the measurement and for why two of these blocks anchor and one does not.
   {
     file: 'skills/objectui/SKILL.md',
-    claim: 'React 19',
-    kind: 'unanchored',
-    why: 'The Tech Stack line this file mirrors verbatim from AGENTS.md section 2 ("React 19 (Hooks), TypeScript 5.0+ (Strict)"); both copies read "React 18+" until objectui#13465 narrowed the peer ranges and moved them together. Consistent with the ^19.0.0 peer ranges, but stated repo-wide with no per-package anchor - the same claim, the same class and the same reason as the content/docs/guide/troubleshooting.md entry above.',
-  },
-  {
-    file: 'skills/objectui/SKILL.md',
     claim: 'TypeScript 5.0',
     kind: 'unanchored',
-    why: 'The second half of that same mirrored sentence, and a FLOOR ("5.0+") rather than a statement of what this repo builds with - 40 manifests declare typescript ^6.0.3, which satisfies it, and would still satisfy it after another major. Deliberately not "corrected" to 6.0 here: the sentence is copied from AGENTS.md section 2, and editing the skills copy alone would desync the two agent-facing texts. What this gate cannot measure, stated so it is not mistaken for checked: whether 5.0 is still a true floor for a CONSUMER, given the published declarations are emitted by TypeScript 6.',
+    why: 'The second half of the Tech Stack sentence this file mirrors verbatim from AGENTS.md section 2, and a FLOOR ("5.0+") rather than a statement of what this repo builds with - 40 manifests declare typescript ^6.0.3, which satisfies it, and would still satisfy it after another major. Deliberately not "corrected" to 6.0 here: the sentence is copied from AGENTS.md section 2, and editing the skills copy alone would desync the two agent-facing texts. What this gate cannot measure, stated so it is not mistaken for checked: whether 5.0 is still a true floor for a CONSUMER, given the published declarations are emitted by TypeScript 6.',
   },
   {
     file: 'skills/objectui/guides/plugin-development.md',

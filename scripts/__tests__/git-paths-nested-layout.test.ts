@@ -105,7 +105,8 @@ for (const [name, prefix] of [
 
     it('changed-file listings are relative to the tree and leave the monorepo’s own files out', () => {
       const want = ['.changeset/keep.md', packPath('en')].sort();
-      expect(changedFiles(tree, { base, head }).sort()).toEqual(want);
+      // The working tree is the gate's default "after" side; it equals `head` here.
+      expect(changedFiles(tree, { base }).sort()).toEqual(want);
       expect(affectedChangedFiles(tree, base, head).sort()).toEqual(want);
     });
 
@@ -117,8 +118,11 @@ for (const [name, prefix] of [
       expect(readBlobs(tree, head, ['packages/a/package.json']).get('packages/a/package.json')).toContain('@object-ui/a');
     });
 
-    it('check:changeset-overwrite sees the edited changeset at its base', () => {
-      expect(JSON.stringify(collisions(tree, { base, head }))).toContain('keep.md');
+    it('check:changeset-overwrite reads the edited changeset at its base and in the working tree', () => {
+      const { modified } = collisions(tree, { base });
+      expect(modified.map((m: { file: string; before: unknown[]; after: unknown[]; lost: string[] }) => [m.file, m.before.length, m.after.length, m.lost])).toEqual([
+        ['.changeset/keep.md', 1, 1, []],
+      ]);
     });
   });
 }

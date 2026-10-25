@@ -89,12 +89,13 @@ Opt-in platform packages (auth, i18n, mobile, realtime):
 }
 ```
 
-Embedding shell + provider stack into a third-party app:
+Embedding the shell into a third-party app (the theme and data-source providers come
+from `@object-ui/react`):
 <!-- os:check -->
 ```json
 {
   "@object-ui/app-shell": "latest",
-  "@object-ui/providers": "latest"
+  "@object-ui/react": "latest"
 }
 ```
 
@@ -236,23 +237,26 @@ import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 </SchemaRendererProvider>
 ```
 
-### `@object-ui/providers` — reusable context stack
+### Context providers
 
-Framework-agnostic providers without console-specific dependencies:
+The provider stack for a third-party app comes from the packages that read it:
 
-- `DataSourceProvider` / `useDataSource` — generic data source binding.
-- `MetadataProvider` / `useMetadata` — apps / objects / dashboards / pages metadata.
-- `ThemeProvider` / `useTheme` — light/dark/system theming wired to Shadcn variables.
+- `SchemaRendererProvider` (`@object-ui/react`) — the ambient data source; pass the
+  adapter as its `dataSource` prop.
+- `ThemeProvider` / `useTheme` (`@object-ui/react`) — theme documents and the
+  `auto` / `light` / `dark` mode.
+- `MetadataProvider` / `useMetadata` (`@object-ui/app-shell`) — apps / objects /
+  dashboards / pages metadata from the API.
+- `UploadProvider` / `useUpload` (`@object-ui/providers`) — the upload adapter the
+  file and image fields upload through.
 
 ```tsx
-import { DataSourceProvider, MetadataProvider, ThemeProvider } from '@object-ui/providers';
+import { SchemaRendererProvider, ThemeProvider } from '@object-ui/react';
 
-<ThemeProvider>
-  <DataSourceProvider dataSource={myDataSource}>
-    <MetadataProvider metadata={myMetadata}>
-      <App />
-    </MetadataProvider>
-  </DataSourceProvider>
+<ThemeProvider defaultMode="auto">
+  <SchemaRendererProvider dataSource={myDataSource}>
+    <App />
+  </SchemaRendererProvider>
 </ThemeProvider>
 ```
 
@@ -290,23 +294,21 @@ takes no `objectName` prop. Its props are the exported `ConsoleObjectViewProps` 
 mount from the "ObjectView" section of `packages/app-shell/README.md`: that block is
 the one `pnpm check:doc-snippets` compiles, and this guide does not restate it.
 
-### `@object-ui/runner` — universal runtime
+### Running a schema as a standalone app
 
-Standalone runtime + dev server with `plugin-charts` and `plugin-kanban`
-pre-registered, for running a schema as a one-off app with no project
-scaffolding. Usually reached through the `objectui dev` CLI, which wraps the
-same renderer; no app in this repo's `apps/` or `examples/` imports it directly.
+Use the `objectui dev` CLI (`@object-ui/cli`). The repository's `packages/runner` is
+a private workspace demo app, not a published package.
 
 ### Decision matrix
 
 | Need | Use |
 |------|-----|
 | Bare renderer in existing app | `@object-ui/react` |
-| Need shared providers (data/metadata/theme) | + `@object-ui/providers` |
+| Need the data-source / theme providers | `SchemaRendererProvider`, `ThemeProvider` from `@object-ui/react` |
+| Need file / image uploads | + `@object-ui/providers` (`UploadProvider`) |
 | Need shell + object/dashboard/page/record views | + `@object-ui/app-shell` |
 | Need full admin console (sidebar, system hub, navigation) | study `apps/console` patterns |
 | Need a CLI-driven dev server | `@object-ui/cli` (`objectui dev`) |
-| Need a standalone runtime bundle | `@object-ui/runner` |
 
 ## Deployment
 

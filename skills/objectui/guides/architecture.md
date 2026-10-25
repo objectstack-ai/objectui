@@ -9,8 +9,8 @@ integration package to install. Day-to-day schema authoring is
 
 ## Choosing an integration package
 
-- **Embedding ObjectUI into a third-party React app with your own router/shell?** → use `@object-ui/app-shell` + `@object-ui/providers`.
-- **Running a schema as a standalone app?** → use `@object-ui/runner` or the `objectui` CLI.
+- **Embedding ObjectUI into a third-party React app with your own router/shell?** → use `@object-ui/app-shell` + `@object-ui/react` (`SchemaRendererProvider`, `ThemeProvider`).
+- **Running a schema as a standalone app?** → use the `objectui` CLI (`objectui dev`).
 - **Custom rendering only (no shell)?** → use `@object-ui/react` (`SchemaRenderer`) directly.
 
 ## The JSON Protocol (The "DNA")

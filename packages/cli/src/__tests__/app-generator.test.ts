@@ -310,7 +310,7 @@ function rootRangeOf(name: string): string | undefined {
  * Ranges every non-root in-repo manifest declares for `name`, keyed by range.
  *
  * `peerDependencies` are excluded deliberately: a peer says what a library
- * ACCEPTS (`react` at `^18.0.0 || ^19.0.0`, `react-router-dom` at
+ * ACCEPTS (`react` at `^19.0.0`, `react-router-dom` at
  * `^6.0.0 || ^7.0.0`), which is a different fact from the single version this
  * repo installs and tests with — and a generated app has to name the latter.
  */

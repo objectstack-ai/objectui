@@ -2,7 +2,7 @@
 
 **Reusable Context Providers for ObjectUI**
 
-A collection of framework-agnostic React context providers that can be used by third-party systems without console dependencies.
+React context providers for ObjectUI applications that third-party systems can use without console dependencies — today, the upload adapter context.
 
 ## Installation
 
@@ -14,97 +14,43 @@ pnpm add @object-ui/providers
 
 Every example below compiles against this package's built types. The values your
 own app supplies are written as `declare const` stand-ins so each block stands
-alone, and each stand-in is typed from the prop it is passed to — so the bound
-the example teaches is the bound the package actually declares.
+alone.
 
-### DataSourceProvider
+### UploadProvider
 
-Generic data source context that decouples ObjectUI from ObjectStack.
-
-```tsx
-import type { ReactNode } from 'react';
-import { DataSourceProvider, type DataSourceProviderProps } from '@object-ui/providers';
-
-// `DataSourceProviderProps['dataSource']` is declared `any` today, so this
-// stand-in inherits `any`: the compiler checks nothing about the adapter's
-// shape here (objectui#8160, objectui#7912 track that laundering).
-declare const myCustomDataSource: DataSourceProviderProps['dataSource'];
-declare const App: () => ReactNode;
-
-<DataSourceProvider dataSource={myCustomDataSource}>
-  <App />
-</DataSourceProvider>
-```
-
-### MetadataProvider
-
-Schema/metadata management for objects, fields, and views.
+The ambient upload adapter the `@object-ui/fields` file, image and avatar widgets
+upload through (`useUpload()` reads it). Without a provider they fall back to
+`createObjectUrlAdapter()`, which persists nothing and is a no-crash default, not
+an upload destination.
 
 ```tsx
 import type { ReactNode } from 'react';
-import { MetadataProvider, type MetadataProviderProps } from '@object-ui/providers';
-
-// `MetadataProviderProps['metadata']` is declared `any` today — same bound as
-// `dataSource` above, so nothing about this object's shape is checked here.
-declare const myMetadata: MetadataProviderProps['metadata'];
-declare const App: () => ReactNode;
-
-<MetadataProvider metadata={myMetadata}>
-  <App />
-</MetadataProvider>
-```
-
-### ThemeProvider
-
-Theme management with system theme detection.
-
-`defaultTheme` takes a `ThemePreference` (`auto | light | dark | system`); both
-props are optional.
-
-```tsx
-import type { ReactNode } from 'react';
-import { ThemeProvider } from '@object-ui/providers';
+import { UploadProvider, createObjectStackUploadAdapter } from '@object-ui/providers';
 
 declare const App: () => ReactNode;
 
-<ThemeProvider defaultTheme="system" storageKey="my-app-theme">
+const adapter = createObjectStackUploadAdapter({ baseUrl: 'https://api.example.com' });
+
+<UploadProvider adapter={adapter}>
   <App />
-</ThemeProvider>
+</UploadProvider>
 ```
 
-## Usage Example
+`createS3Adapter` and `createAzureBlobAdapter` build adapters for presigned
+S3 and Azure Blob uploads; any object with a `name` and an `upload(file, opts)`
+method is an `UploadAdapter`.
 
-`DataSourceProvider` and `MetadataProvider` both declare `children` as required,
-so each one needs a real element inside it — a placeholder comment is not a
-child.
+## Retired providers
 
-```tsx
-import type { ReactNode } from 'react';
-import {
-  DataSourceProvider,
-  MetadataProvider,
-  ThemeProvider,
-  type DataSourceProviderProps,
-  type MetadataProviderProps,
-} from '@object-ui/providers';
+`DataSourceProvider` / `useDataSource`, `MetadataProvider` / `useMetadata` and
+`ThemeProvider` / `useTheme` are no longer exported from this package. Use the
+ones the rest of ObjectUI reads instead:
 
-declare const myDataSource: DataSourceProviderProps['dataSource'];
-declare const myMetadata: MetadataProviderProps['metadata'];
-// Your own component tree goes here.
-declare const AppContent: () => ReactNode;
-
-function App() {
-  return (
-    <ThemeProvider>
-      <DataSourceProvider dataSource={myDataSource}>
-        <MetadataProvider metadata={myMetadata}>
-          <AppContent />
-        </MetadataProvider>
-      </DataSourceProvider>
-    </ThemeProvider>
-  );
-}
-```
+- the data source: `SchemaRendererProvider` (its `dataSource` prop) from
+  `@object-ui/react`;
+- metadata: `MetadataProvider` / `useMetadata` from `@object-ui/app-shell`;
+- theme: `ThemeProvider` / `useTheme` from `@object-ui/react` (`defaultMode`
+  takes `auto | light | dark`; the old `system` spelling is `auto`).
 
 ## Links
 

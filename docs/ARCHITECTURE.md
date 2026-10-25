@@ -31,16 +31,18 @@ This document describes the refactored architecture that enables third-party sys
 
 ### @object-ui/providers
 
-**Purpose**: Reusable context providers
+**Purpose**: The upload adapter context
 
 **Exports**:
-- `DataSourceProvider` - Generic data source context
-- `MetadataProvider` - Schema/metadata management
-- `ThemeProvider` - Theme management
+- `UploadProvider` / `useUpload` - The ambient upload adapter the file and image fields upload through
+- `createObjectStackUploadAdapter`, `createS3Adapter`, `createAzureBlobAdapter`, `createObjectUrlAdapter`
+
+Its former `DataSourceProvider`, `MetadataProvider` and `ThemeProvider` retired
+(objectui#13453). The data source is `SchemaRendererProvider` and the theme is
+`ThemeProvider`, both from `@object-ui/react`; metadata is `MetadataProvider` from
+`@object-ui/app-shell`.
 
 **Dependencies**: `@object-ui/types`
-
-**Bundle Size**: ~10KB
 
 ## Architecture Diagram
 
@@ -64,15 +66,10 @@ This document describes the refactored architecture that enables third-party sys
 └────────────────┬────────────────────────┘
                  │
 ┌────────────────┴────────────────────────┐
-│  @object-ui/providers                   │
-│  - DataSourceProvider                   │
-│  - MetadataProvider                     │
-│  - ThemeProvider                        │
-└────────────────┬────────────────────────┘
-                 │
-┌────────────────┴────────────────────────┐
 │  @object-ui/react                       │
 │  - SchemaRenderer                       │
+│  - SchemaRendererProvider (data source) │
+│  - ThemeProvider                        │
 │  - useActionRunner                      │
 │  - Component Registry                   │
 └────────────────┬────────────────────────┘
@@ -115,10 +112,9 @@ apps/console (500KB+)
 ├── Page Rendering
 └── Form Rendering
 
-@object-ui/providers (10KB)
-├── Generic DataSource
-├── Metadata Management
-└── Theme System
+@object-ui/react
+├── SchemaRendererProvider (generic DataSource)
+└── ThemeProvider
 
 Third-Party App
 ├── Custom Routing
@@ -162,32 +158,30 @@ Third-Party App
 import { AppShell } from '@object-ui/app-shell';
 import type { MinimalAppShellProps } from '@object-ui/app-shell';
 import { ObjectView } from '@object-ui/plugin-view';
-import { DataSourceProvider, useDataSource } from '@object-ui/providers';
-import type { DataSourceProviderProps } from '@object-ui/providers';
+import { SchemaRendererProvider } from '@object-ui/react';
+import type { DataSource } from '@object-ui/types';
 
 // The two things you bring. Both are typed from the surface these packages
 // ship, so this snippet compiles on its own: `myAPI` is your backend adapter
-// (the "Custom Data Source Interface" section below is the shape it needs at
-// runtime — `DataSourceProvider` declares the prop `any`, so the annotation
-// records where the value goes rather than checking it), and `MySidebar` is
-// your own component, returning whatever `AppShell` accepts for `sidebar`.
-declare const myAPI: DataSourceProviderProps['dataSource'];
+// (the "Custom Data Source Interface" section below is the shape it needs),
+// and `MySidebar` is your own component, returning whatever `AppShell`
+// accepts for `sidebar`.
+declare const myAPI: DataSource;
 declare function MySidebar(): MinimalAppShellProps['sidebar'];
 
 function MyConsole() {
   return (
-    <DataSourceProvider dataSource={myAPI}>
+    <SchemaRendererProvider dataSource={myAPI}>
       <AppShell sidebar={<MySidebar />}>
         <ContactList />
       </AppShell>
-    </DataSourceProvider>
+    </SchemaRendererProvider>
   );
 }
 
 function ContactList() {
-  const dataSource = useDataSource();
   return (
-    <ObjectView schema={{ type: 'object-view', objectName: 'contact' }} dataSource={dataSource} />
+    <ObjectView schema={{ type: 'object-view', objectName: 'contact' }} dataSource={myAPI} />
   );
 }
 ```
@@ -198,8 +192,8 @@ Both files below open with `'use client'`. Under the Next.js App Router every
 module under `app/` is a **server** component by default, and the `@object-ui/*`
 packages carry no `'use client'` banner of their own — so the client boundary has
 to be declared here, in the files that import them. Without the directive the
-layout's React context providers and the page's `useDataSource()` hook are both
-asked to run on the server, where neither exists.
+layout's React context providers and the page's client view are both asked to
+run on the server, where neither exists.
 
 `app/layout.tsx`:
 
@@ -208,7 +202,7 @@ asked to run on the server, where neither exists.
 
 import { AppShell } from '@object-ui/app-shell';
 import type { MinimalAppShellProps } from '@object-ui/app-shell';
-import { ThemeProvider } from '@object-ui/providers';
+import { ThemeProvider } from '@object-ui/react';
 
 export default function RootLayout({ children }: { children: MinimalAppShellProps['children'] }) {
   return (
@@ -225,11 +219,13 @@ export default function RootLayout({ children }: { children: MinimalAppShellProp
 'use client';
 
 import { ObjectView } from '@object-ui/plugin-view';
-import { useDataSource } from '@object-ui/providers';
+import type { DataSource } from '@object-ui/types';
+
+// Your backend adapter, imported from your own module.
+declare const myAPI: DataSource;
 
 export default function Page({ params }: { params: { object: string } }) {
-  const dataSource = useDataSource();
-  return <ObjectView schema={{ type: 'object-view', objectName: params.object }} dataSource={dataSource} />;
+  return <ObjectView schema={{ type: 'object-view', objectName: params.object }} dataSource={myAPI} />;
 }
 ```
 
@@ -237,12 +233,12 @@ export default function Page({ params }: { params: { object: string } }) {
 
 ```tsx
 import { ObjectView } from '@object-ui/plugin-view';
-import { DataSourceProvider, useDataSource } from '@object-ui/providers';
-import type { DataSourceProviderProps } from '@object-ui/providers';
+import { SchemaRendererProvider } from '@object-ui/react';
+import type { DataSource } from '@object-ui/types';
 
 // Your backend adapter, as in Example 1 — declared here because every block on
 // this page compiles on its own.
-declare const myAPI: DataSourceProviderProps['dataSource'];
+declare const myAPI: DataSource;
 
 function MyExistingApp() {
   return (
@@ -250,9 +246,9 @@ function MyExistingApp() {
       <header>My App Header</header>
 
       {/* Embed ObjectUI widget */}
-      <DataSourceProvider dataSource={myAPI}>
+      <SchemaRendererProvider dataSource={myAPI}>
         <ContactWidget />
-      </DataSourceProvider>
+      </SchemaRendererProvider>
 
       <footer>My App Footer</footer>
     </div>
@@ -260,8 +256,7 @@ function MyExistingApp() {
 }
 
 function ContactWidget() {
-  const dataSource = useDataSource();
-  return <ObjectView schema={{ type: 'object-view', objectName: 'contact' }} dataSource={dataSource} />;
+  return <ObjectView schema={{ type: 'object-view', objectName: 'contact' }} dataSource={myAPI} />;
 }
 ```
 

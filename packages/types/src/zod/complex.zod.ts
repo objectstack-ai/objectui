@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { aliasKeyRefusal, handlerKeyRefusal, retiredNodeType, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, durationKeyRenamedGuidance, handlerKeyRefusal, retiredNodeType, retirementTombstone } from './tombstone.zod.js';
 import {
   ChartTypeSchema as SpecChartTypeSchema,
   checkDashboardWidgetChartMeasureArity,
@@ -740,7 +740,8 @@ export const CarouselSchema = BaseSchema.extend({
     .describe("Scroll axis — `orientation={schema.orientation || 'horizontal'}` (objectui#6150)"),
   // Applied at renderers/complex/carousel.tsx:30 as `className={schema.itemClassName}` on every CarouselItem.
   itemClassName: z.string().optional().describe('Per-slide Tailwind classes, applied to every carousel item (objectui#6150)'),
-  autoPlay: z.number().optional().describe('Auto-play interval (ms)'),
+  autoPlayMs: z.number().optional().describe('Auto-play interval (ms)'),
+  autoPlay: retirementTombstone(durationKeyRenamedGuidance('autoPlay', 'autoPlayMs', 'milliseconds')),
   showArrows: z.boolean().optional().describe('Show navigation arrows'),
   showDots: z.boolean().optional().describe('Show navigation dots'),
   loop: z.boolean().optional().describe('Enable infinite loop'),
@@ -941,7 +942,8 @@ export const ChatbotSchema = BaseSchema.extend({
   maxHeight: z.string().optional().describe('Maximum height of the chat message container (CSS value)'),
   autoResponse: z.boolean().optional().describe('Enable local auto-response (demo/playground) mode'),
   autoResponseText: z.string().optional().describe('Text of the local auto-response'),
-  autoResponseDelay: z.number().optional().describe('Delay in milliseconds before the local auto-response is sent'),
+  autoResponseDelayMs: z.number().optional().describe('Delay in milliseconds before the local auto-response is sent'),
+  autoResponseDelay: retirementTombstone(durationKeyRenamedGuidance('autoResponseDelay', 'autoResponseDelayMs', 'milliseconds')),
   onSend: handlerKeyRefusal('onSend', 'runtime-slot', 'Called after a message is sent, in both API and local auto-response mode'),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `chatbot` reads NEITHER content channel: measured with the '
@@ -949,7 +951,7 @@ export const ChatbotSchema = BaseSchema.extend({
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
-    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `headers`, `maxHeight`, '
+    + '`autoResponseDelayMs`, `autoResponseText`, `conversationId`, `headers`, `maxHeight`, '
     + '`messages`, `model`, `onError`, `onSend`, `placeholder`, `requestBody`, '
     + '`showTimestamp`, `streamingEnabled`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
   ),
@@ -994,7 +996,7 @@ const ChatbotSharedMirrorShape = ChatbotSchema.pick({
   assistantAvatarFallback: true,
   autoResponse: true,
   autoResponseText: true,
-  autoResponseDelay: true,
+  autoResponseDelayMs: true,
   onSend: true,
 }).shape;
 
@@ -1017,6 +1019,7 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
   type: z.literal('chatbot-enhanced'),
   ...ChatbotSharedMirrorShape,
   maxToolRoundtrips: ChatbotSchema.shape.maxToolRoundtrips,
+  autoResponseDelay: ChatbotSchema.shape.autoResponseDelay,
   maxHeight: ChatbotSchema.shape.maxHeight,
   processVisibility: ChatbotSchema.shape.processVisibility,
   enableMarkdown: chatbotEnableMarkdownArm(),
@@ -1038,7 +1041,7 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
-    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`autoResponseDelayMs`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
     + '`headers`, `maxHeight`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`, '
     + '`streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
@@ -1049,7 +1052,7 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
-    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`autoResponseDelayMs`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
     + '`headers`, `maxHeight`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`, '
     + '`streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
@@ -1116,6 +1119,7 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
   type: z.literal('chatbot-floating'),
   ...ChatbotSharedMirrorShape,
   maxToolRoundtrips: ChatbotSchema.shape.maxToolRoundtrips,
+  autoResponseDelay: ChatbotSchema.shape.autoResponseDelay,
   enableMarkdown: chatbotEnableMarkdownArm(),
   enableFileUpload: chatbotEnableFileUploadArm(),
   onClear: chatbotOnClearArm(),
@@ -1135,7 +1139,7 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
-    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`autoResponseDelayMs`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
     + '`floatingConfig`, `headers`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`, `systemPrompt`, '
     + '`userAvatarFallback`, `userAvatarUrl`.',
@@ -1146,7 +1150,7 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
-    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`autoResponseDelayMs`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
     + '`floatingConfig`, `headers`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`, `systemPrompt`, '
     + '`userAvatarFallback`, `userAvatarUrl`.',

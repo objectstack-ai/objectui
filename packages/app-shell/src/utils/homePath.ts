@@ -6,7 +6,7 @@
  * Two different screens have both called themselves the console's home:
  *
  *   - `/home`, the multi-app workspace launcher ("Build an app", "Start from a
- *     template", "Your apps"). Under ADR-0075 that is the ENVIRONMENT layer's
+ *     template", "Your apps"). Under ObjectUI ADR-0075 that is the ENVIRONMENT layer's
  *     home: its cards act on the environment the SPA is attached to.
  *   - `/apps/<app>`, the landing an App DECLARES with `isDefault: true`. The
  *     landing page WITHIN that app is its first navigation item (spec 17.0.0
@@ -46,7 +46,7 @@
 
 /**
  * The multi-app workspace launcher — the environment layer's own home
- * (ADR-0075). The fallback whenever no App declares a landing, which is every
+ * (ObjectUI ADR-0075). The fallback whenever no App declares a landing, which is every
  * ordinary environment and therefore the unchanged status quo.
  */
 export const HOME_LAUNCHER_PATH = '/home';

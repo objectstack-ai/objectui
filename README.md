@@ -56,7 +56,7 @@ Pick the path that matches where you are starting from:
 | You want to… | Start here | Install |
 |---|---|---|
 | Render a JSON schema inside your React app | [`examples/hello-world`](examples/hello-world) | `@object-ui/react @object-ui/components` |
-| Embed views in an existing app, against **your own** backend | [`examples/byo-backend-console`](examples/byo-backend-console) | `@object-ui/app-shell @object-ui/plugin-view @object-ui/providers` |
+| Embed views in an existing app, against **your own** backend | [`examples/byo-backend-console`](examples/byo-backend-console) | `@object-ui/app-shell @object-ui/plugin-view @object-ui/react` |
 | Stand up a complete console on an **ObjectStack** backend | [`examples/console-starter`](examples/console-starter) | fork the example |
 | Build a UI from a JSON file, no React code at all | [`@object-ui/cli`](packages/cli) | `npm install -g @object-ui/cli` |
 
@@ -120,14 +120,14 @@ nothing thrown and one line on the console.
 Use the shell and views without the full console infrastructure — your routing, your auth, your API:
 
 ```bash
-npm install @object-ui/app-shell @object-ui/plugin-view @object-ui/providers
+npm install @object-ui/app-shell @object-ui/plugin-view @object-ui/react
 ```
 
 ```tsx
 import type { FC } from 'react';
 import { AppShell } from '@object-ui/app-shell';
 import { ObjectView } from '@object-ui/plugin-view';
-import { ThemeProvider, DataSourceProvider, useDataSource } from '@object-ui/providers';
+import { ThemeProvider, SchemaRendererProvider } from '@object-ui/react';
 import type { DataSource } from '@object-ui/types';
 
 // The two pieces you bring: the backend adapter you implement (see "Custom
@@ -138,19 +138,18 @@ declare const MySidebar: FC;
 function MyConsole() {
   return (
     <ThemeProvider>
-      <DataSourceProvider dataSource={myAPI}>
+      <SchemaRendererProvider dataSource={myAPI}>
         <AppShell sidebar={<MySidebar />}>
           <ContactList />
         </AppShell>
-      </DataSourceProvider>
+      </SchemaRendererProvider>
     </ThemeProvider>
   );
 }
 
 function ContactList() {
-  const dataSource = useDataSource();
   return (
-    <ObjectView schema={{ type: 'object-view', objectName: 'contact' }} dataSource={dataSource} />
+    <ObjectView schema={{ type: 'object-view', objectName: 'contact' }} dataSource={myAPI} />
   );
 }
 ```
@@ -380,7 +379,7 @@ Grouped by dependency weight — atoms and fields stay light, heavy widgets live
 | Package | Description |
 |---------|-------------|
 | **[@object-ui/app-shell](./packages/app-shell)** | Minimal application shell — the base of every console |
-| **[@object-ui/providers](./packages/providers)** | Theme, data-source, and other reusable context providers |
+| **[@object-ui/providers](./packages/providers)** | The upload adapter context the file and image fields upload through |
 | **[@object-ui/auth](./packages/auth)** | `AuthProvider`, `useAuth`, `AuthGuard`, sign-in forms |
 | **[@object-ui/permissions](./packages/permissions)** | Object / field / row-level permission guards and hooks |
 | **[@object-ui/i18n](./packages/i18n)** | Language packs, RTL layout, date and currency formatting |

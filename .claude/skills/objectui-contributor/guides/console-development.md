@@ -404,11 +404,10 @@ prefix across the table.
 | `FavoritesProvider` | `packages/app-shell/src/context/FavoritesProvider.tsx` | User's starred/pinned items |
 | `ExpressionProvider` | `packages/app-shell/src/providers/ExpressionProvider.tsx` | Expression evaluator instance |
 
-`MetadataProvider` is the one name with two hits in the repo. The console's is the
-app-shell file above — it is what `ConsoleShell` / `ConnectedShell` mount and what
-`@object-ui/app-shell` re-exports. `packages/providers/src/MetadataProvider.tsx` is an
-unrelated, much smaller generic provider (static metadata or one fetch); nothing in the
-console path uses it.
+`MetadataProvider` is the app-shell file above — it is what `ConsoleShell` /
+`ConnectedShell` mount and what `@object-ui/app-shell` re-exports. `@object-ui/providers`
+used to publish an unrelated generic provider under the same name; it retired in
+objectui#13453, so the app-shell one is the only `MetadataProvider` left.
 
 ## Key hooks
 

@@ -100,7 +100,7 @@ export function resolveLandingPath(apps: readonly LandingApp[] | null | undefine
   //    .resolveLandingRoute`), which for Setup is `dashboard/system_overview`.
   //
   //    "The only app I can see is Setup" means the environment has no product
-  //    apps yet — and under ADR-0075 the environment layer's home is the
+  //    apps yet — and under ObjectUI ADR-0075 the environment layer's home is the
   //    environment's own responsibility, which is `/home` (build with AI, start
   //    from a template, Your apps). Rule 1 is deliberately left alone: a
   //    deployment that genuinely wants Setup as its first screen DECLARES it

@@ -17,7 +17,7 @@ import { renderChildren, renderTriggerSlot } from '../../lib/utils';
 
 ComponentRegistry.register('hover-card', 
   ({ schema, className, ...props }: { schema: HoverCardSchema; className?: string; [key: string]: any }) => (
-    <HoverCard openDelay={schema.openDelay} closeDelay={schema.closeDelay} {...props}>
+    <HoverCard openDelay={schema.openDelayMs} closeDelay={schema.closeDelayMs} {...props}>
       {renderTriggerSlot(HoverCardTrigger, schema.trigger)}
       <HoverCardContent align={schema.align} side={schema.side} className={className}>
          {renderChildren(schema.content)}
@@ -28,8 +28,8 @@ ComponentRegistry.register('hover-card',
     namespace: 'ui',
     label: 'Hover Card',
     inputs: [
-       { name: 'openDelay', type: 'number' },
-        { name: 'closeDelay', type: 'number' },
+       { name: 'openDelayMs', type: 'number' },
+        { name: 'closeDelayMs', type: 'number' },
          { name: 'side', type: 'enum', enum: ['top', 'right', 'bottom', 'left'] },
       { name: 'align', type: 'enum', enum: ['start', 'center', 'end'] },
        { 

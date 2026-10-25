@@ -10,7 +10,7 @@ This example demonstrates how third-party systems can integrate ObjectUI compone
 - ✅ Custom data adapter (mock REST API, not ObjectStack)
 - ✅ Using `@object-ui/app-shell` for the page shell
 - ✅ Using `@object-ui/plugin-view` for object views (`ObjectView`)
-- ✅ Using `@object-ui/providers` for context
+- ✅ Using `@object-ui/react` for the theme and the ambient data source
 - ✅ No console dependencies
 - ✅ ~100 lines of integration code
 
@@ -65,18 +65,18 @@ object view:
 import { Routes, Route, useParams } from 'react-router-dom';
 import { AppShell } from '@object-ui/app-shell';
 import { ObjectView } from '@object-ui/plugin-view';
-import { ThemeProvider, DataSourceProvider } from '@object-ui/providers';
+import { ThemeProvider, SchemaRendererProvider } from '@object-ui/react';
 
 function App() {
   return (
     <ThemeProvider>
-      <DataSourceProvider dataSource={mockDataSource}>
+      <SchemaRendererProvider dataSource={mockDataSource}>
         <AppShell sidebar={<MySidebar />}>
           <Routes>
             <Route path="/:objectName" element={<ObjectPage />} />
           </Routes>
         </AppShell>
-      </DataSourceProvider>
+      </SchemaRendererProvider>
     </ThemeProvider>
   );
 }
@@ -101,7 +101,7 @@ function ObjectPage() {
 Full control over routes - no predefined structure:
 
 ```tsx
-import { useDataSource } from '@object-ui/providers';
+import { mockDataSource } from './mockDataSource';
 
 function AppRoutes() {
   return (
@@ -114,15 +114,13 @@ function AppRoutes() {
   );
 }
 
-// One small component per object. Inside `DataSourceProvider`, `useDataSource()`
-// supplies the data source that `ObjectView` requires.
+// One small component per object. `ObjectView` requires its `dataSource`
+// prop, so pass your adapter in.
 function ObjectListPage({ objectName }: { objectName: string }) {
-  const dataSource = useDataSource();
-
   return (
     <ObjectView
       schema={{ type: 'object-view', objectName }}
-      dataSource={dataSource}
+      dataSource={mockDataSource}
     />
   );
 }
@@ -143,11 +141,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 // app/[object]/page.tsx
 'use client';
 import { ObjectView } from '@object-ui/plugin-view';
-import { useDataSource } from '@object-ui/providers';
+import { dataSource } from '../../lib/dataSource'; // your adapter
 
 export default function ObjectPage({ params }: { params: { object: string } }) {
-  const dataSource = useDataSource();
-
   return (
     <ObjectView
       schema={{ type: 'object-view', objectName: params.object }}
@@ -182,11 +178,11 @@ function App() {
   }
 
   return (
-    <DataSourceProvider dataSource={myDataSource}>
+    <SchemaRendererProvider dataSource={myDataSource}>
       <AppShell sidebar={<Sidebar onLogout={logout} />}>
         {/* ... */}
       </AppShell>
-    </DataSourceProvider>
+    </SchemaRendererProvider>
   );
 }
 ```

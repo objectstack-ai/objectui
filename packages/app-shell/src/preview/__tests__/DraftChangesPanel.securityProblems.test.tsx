@@ -36,6 +36,11 @@ vi.mock('@object-ui/i18n', async (importOriginal) => {
 });
 
 import { DraftChangesPanel } from '../DraftChangesPanel';
+// Warm the lint package at module scope: `securityPostureLint` loads it with a
+// function-body `import('@objectstack/lint')`, and that first transform must not
+// be paid inside a 1000 ms `findBy` window (AGENTS.md, test discipline). Same
+// specifier, so the component's own dynamic import resolves from the cache.
+import '@objectstack/lint';
 
 afterEach(() => {
   vi.restoreAllMocks();

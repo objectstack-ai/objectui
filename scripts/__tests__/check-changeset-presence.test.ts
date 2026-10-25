@@ -442,19 +442,22 @@ describe("the population is a package's PUBLISHED, EXECUTABLE source — not `sr
     expect(isPublishedSource('tsconfig.json', consoleLike)).toBe(false);
   });
 
-  it('answers THIS repository the same way — the three files the widening adds, and no fourth', () => {
+  it('answers THIS repository the same way — the two files the widening adds, and no third', () => {
     // Read against the real tree rather than a fixture, because the fixture
     // cannot show that the rule stayed narrow across 40 released packages. The
     // assertion is per-file rather than a count, so it stays decidable as the
-    // tree grows.
+    // tree grows. `packages/runner/index.html` was the third until
+    // objectui#13453 made `@object-ui/runner` private and took it out of the
+    // release: an unreleased package's entry is not guarded, so it moved to the
+    // second list.
     const packages = discoverPackages(repoRoot, readReleaseConfig(repoRoot));
     const guardedFiles = (paths: string[]): string[] =>
       classifyChangedPaths(paths, packages).guarded.map((entry: { file: string }) => entry.file);
 
     expect(
-      guardedFiles(['apps/console/index.html', 'apps/console/plugin.ts', 'packages/runner/index.html']),
+      guardedFiles(['apps/console/index.html', 'apps/console/plugin.ts']),
       'the shipped, executable files outside src/ that objectui#5733 measured as unguarded',
-    ).toEqual(['apps/console/index.html', 'apps/console/plugin.ts', 'packages/runner/index.html']);
+    ).toEqual(['apps/console/index.html', 'apps/console/plugin.ts']);
 
     expect(
       guardedFiles([
@@ -465,6 +468,7 @@ describe("the population is a package's PUBLISHED, EXECUTABLE source — not `sr
         'apps/console/vite.config.ts',
         'packages/plugin-grid/demo/index.html',
         'packages/runner/tsconfig.json',
+        'packages/runner/index.html',
       ]),
       'the widening is not a blanket over the package directory',
     ).toEqual([]);

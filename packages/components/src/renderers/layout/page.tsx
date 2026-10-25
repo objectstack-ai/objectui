@@ -25,7 +25,7 @@ import {
   resolveInlineAriaProps,
 } from '@object-ui/react';
 import { ComponentRegistry, toDomProps } from '@object-ui/core';
-import { useDisplayLocale } from '@object-ui/i18n';
+import { pickLocalized, useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import { compile, manifestFromConfigs, type Diagnostic } from '@object-ui/sdui-parser';
 import { PAGE_TEMPLATE_SLOTS, type PageTemplate } from '@objectstack/spec/ui';
 import { ReactKindPage } from './react-page';
@@ -744,7 +744,15 @@ export const PageRenderer: React.FC<{
   // Spec PageSchema declares `label` (required); `title` is the objectui
   // spelling. Dual-read so a spec-authored page still renders its header
   // (framework#1878 §3 naming-drift recheck).
-  const pageTitle = schema.title ?? (schema as any).label;
+  //
+  // `label` and `description` are the spec's `string | I18nLabel`, so an
+  // inline locale map (`{ en, 'zh-CN' }`) is valid metadata. Drawn raw, React
+  // refused the object and the page went blank (objectui#13488). Both resolve
+  // to the viewer's language through `pickLocalized`, as `page:header`
+  // resolves its own title; a plain string passes through unchanged.
+  const { language } = useObjectTranslation();
+  const pageTitle = pickLocalized(schema.title ?? (schema as any).label, language);
+  const pageDescription = pickLocalized(schema.description, language);
 
   // What may become an attribute on the wrapper <div>, and nothing else.
   //
@@ -905,7 +913,7 @@ export const PageRenderer: React.FC<{
   const showPageTitle = !!pageTitle && !headerOwnsTitle;
   // The description is the page's own prose, not a duplicate of the header's
   // `subtitle`, so delegating the heading does not delete it.
-  const showPageDescription = !!schema.description && pageType !== 'record';
+  const showPageDescription = !!pageDescription && pageType !== 'record';
   // When the header owns the title, it draws the description too, under the
   // title (objectui#12624). Drawn here it sat above the regions, so above the
   // title the header draws inside them.
@@ -945,13 +953,13 @@ export const PageRenderer: React.FC<{
               </h1>
             )}
             {drawDescriptionHere && (
-              <p className="text-muted-foreground">{schema.description}</p>
+              <p className="text-muted-foreground">{pageDescription}</p>
             )}
           </div>
         )}
 
         {/* Page body — type-specific layout */}
-        <PageDescriptionContext.Provider value={headerDrawsDescription ? schema.description : null}>
+        <PageDescriptionContext.Provider value={headerDrawsDescription ? pageDescription : null}>
           <PageWidthProvider store={pageWidthStore}>{layoutElement}</PageWidthProvider>
         </PageDescriptionContext.Provider>
       </div>

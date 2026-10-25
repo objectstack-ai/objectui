@@ -154,8 +154,9 @@ export interface ChatbotEnhancedMessage {
 
 /**
  * A chart lifted from a `data-chart` stream part. Mirrors the `schema` prop of
- * the SDUI `<chart>` renderer (plugin-charts `ChartRenderer`), so it can be
- * fed straight into `<SchemaRenderer schema={{ type: 'chart', ...chart }} />`.
+ * the SDUI `<chart>` renderer (plugin-charts `ChartRenderer`), so its chart
+ * keys can be fed straight into `<SchemaRenderer schema={{ type: 'chart', … }} />`;
+ * `textOffset` is the one key that places the chart in the bubble instead.
  */
 export interface ChatChart {
   chartType?:
@@ -176,6 +177,16 @@ export interface ChatChart {
   xAxisKey?: string;
   /** One entry per plotted measure. `dataKey` is the row column to read. */
   series: Array<{ dataKey: string; label?: string }>;
+  /**
+   * Where the chart sits in the answer: how many characters of the message's
+   * `content` the stream produced before it (objectui#13492). The bubble
+   * renders the text up to that point, then the chart, then the rest, so a
+   * chart the model drew before writing its analysis shows first. Absent, or
+   * past the end of `content`, the chart renders after all the text.
+   * `mapMessages` sets it from the part order; it is a placement key and never
+   * reaches the `<chart>` schema.
+   */
+  textOffset?: number;
 }
 
 /**
@@ -1709,6 +1720,89 @@ function getToolStateRank(state: ToolSummaryState): number {
  */
 function isToolCallPlaceholder(content: string): boolean {
   return /^\((?:called [^)]*|tool call|no content)\)$/.test(content.trim());
+}
+
+/** One run of an assistant answer: a slice of its text, or the charts drawn at one point. */
+type AnswerBlock =
+  | { kind: 'text'; text: string }
+  | { kind: 'charts'; charts: ChatChart[] };
+
+/**
+ * objectui#13492 — an assistant answer in the order the stream produced it:
+ * the text up to each chart's `textOffset`, the chart, then the text after.
+ * The mapper used to flatten every text part into one `content` and every
+ * `data-chart` part into one trailing `charts[]` block, so a chart the model
+ * drew first still landed below six paragraphs of analysis.
+ *
+ * A chart without an offset (a host-built message, the legacy string-content
+ * shape) or with one past the text's end trails all of it, which is exactly
+ * the old layout. Charts at the same offset share one block, and a slice that
+ * is only whitespace is dropped rather than painted as an empty answer box.
+ */
+function layoutAnswer(content: string, charts: ChatChart[] | undefined): AnswerBlock[] {
+  const placed = (charts ?? [])
+    .map((chart, order) => ({
+      chart,
+      order,
+      at:
+        typeof chart.textOffset === 'number' && Number.isFinite(chart.textOffset)
+          ? Math.min(Math.max(chart.textOffset, 0), content.length)
+          : content.length,
+    }))
+    .sort((a, b) => a.at - b.at || a.order - b.order);
+  const blocks: AnswerBlock[] = [];
+  let cursor = 0;
+  for (const { chart, at } of placed) {
+    if (at > cursor) {
+      const text = content.slice(cursor, at);
+      if (text.trim().length > 0) blocks.push({ kind: 'text', text });
+      cursor = at;
+    }
+    const last = blocks[blocks.length - 1];
+    if (last?.kind === 'charts') last.charts.push(chart);
+    else blocks.push({ kind: 'charts', charts: [chart] });
+  }
+  const rest = content.slice(cursor);
+  if (rest.trim().length > 0) blocks.push({ kind: 'text', text: rest });
+  return blocks;
+}
+
+/** The charts drawn at one point of an assistant answer, each through the SDUI `<chart>`. */
+function AnswerCharts({ charts }: { charts: ChatChart[] }) {
+  return (
+    <div className="mt-2 flex flex-col gap-3" data-testid="chat-charts">
+      {charts.map((chart, i) => (
+        <div
+          key={i}
+          className="rounded-lg border bg-background p-3"
+          // The chat bubble is `w-fit` (shrinks to content) while the
+          // SDUI chart's ResponsiveContainer is `width:100%` — a
+          // circular dependency. We give the chart a DEFINITE width
+          // sized to the viewport (NOT the shrink-to-fit parent, which
+          // would re-introduce the cycle) so recharts always measures a
+          // stable, non-zero width and renders. Height comes from the
+          // ChartContainer itself (h-[350px] / min-h 280).
+          style={{ width: 'min(520px, 80vw)' }}
+          data-testid="chat-chart"
+        >
+          {chart.title ? (
+            <div className="mb-2 text-sm font-medium text-foreground">
+              {chart.title}
+            </div>
+          ) : null}
+          <SchemaRenderer
+            schema={{
+              type: 'chart',
+              chartType: chart.chartType ?? 'bar',
+              data: chart.data,
+              xAxisKey: chart.xAxisKey,
+              series: chart.series,
+            } as never}
+          />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -4078,6 +4172,14 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                   detailedTools.length > 0 ||
                   Boolean(buildProgress) ||
                   Boolean(blueprintProgress);
+                // objectui#13492 — the answer body in stream order; the
+                // streaming cursor rides the last text run, where it sat when
+                // the charts always trailed the text.
+                const answerBlocks = isUser ? undefined : layoutAnswer(message.content, message.charts);
+                let lastTextBlock = -1;
+                answerBlocks?.forEach((block, i) => {
+                  if (block.kind === 'text') lastTextBlock = i;
+                });
                 return (
                   <Message key={message.id} from={formatMessageProps(message.role)}>
                     <div
@@ -4169,18 +4271,10 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                         ) : null
                       ) : isEmptyAssistantStreaming ? (
                         <ThinkingDots />
-                      ) : hasVisibleProse ? (
-                        // objectui#13032 — a long answer folds only once its
-                        // stream has ended; the streaming flag tells it when.
-                        // objectui#13037 — a record link in the answer opens
-                        // the record through the same host opener as the
-                        // `open_record` card.
-                        <RecordLinkContext.Provider value={onOpenRecord ?? null}>
-                          <MessageResponse isAnimating={Boolean(message.streaming)}>
-                            {message.content}
-                          </MessageResponse>
-                        </RecordLinkContext.Provider>
-                      ) : !message.streaming && !showsActivity && isToolCallPlaceholder(message.content) ? (
+                      ) : !hasVisibleProse &&
+                        !message.streaming &&
+                        !showsActivity &&
+                        isToolCallPlaceholder(message.content) ? (
                         // #772: a re-hydrated tool-call-only turn is persisted with
                         // an internal placeholder ("(called todo_write,
                         // propose_blueprint)"); render a quiet localized activity
@@ -4194,45 +4288,36 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                           {L.agentActivity}
                         </span>
                       ) : null}
-                      {message.streaming && hasVisibleProse ? (
-                        <span
-                          aria-hidden
-                          className="ml-0.5 inline-block w-[2px] h-4 align-middle bg-current animate-pulse"
-                        />
-                      ) : null}
-                      {!isUser && (message.charts?.length ?? 0) > 0 ? (
-                        <div className="mt-2 flex flex-col gap-3" data-testid="chat-charts">
-                          {message.charts!.map((chart, i) => (
-                            <div
-                              key={i}
-                              className="rounded-lg border bg-background p-3"
-                              // The chat bubble is `w-fit` (shrinks to content) while the
-                              // SDUI chart's ResponsiveContainer is `width:100%` — a
-                              // circular dependency. We give the chart a DEFINITE width
-                              // sized to the viewport (NOT the shrink-to-fit parent, which
-                              // would re-introduce the cycle) so recharts always measures a
-                              // stable, non-zero width and renders. Height comes from the
-                              // ChartContainer itself (h-[350px] / min-h 280).
-                              style={{ width: 'min(520px, 80vw)' }}
-                              data-testid="chat-chart"
-                            >
-                              {chart.title ? (
-                                <div className="mb-2 text-sm font-medium text-foreground">
-                                  {chart.title}
-                                </div>
-                              ) : null}
-                              <SchemaRenderer
-                                schema={{
-                                  type: 'chart',
-                                  chartType: chart.chartType ?? 'bar',
-                                  data: chart.data,
-                                  xAxisKey: chart.xAxisKey,
-                                  series: chart.series,
-                                } as never}
-                              />
-                            </div>
-                          ))}
-                        </div>
+                      {answerBlocks ? (
+                        // objectui#13492 — the answer's text and charts in
+                        // stream order (see `layoutAnswer`). A turn with no
+                        // showable prose still draws its charts here, so a
+                        // chart drawn before the first word keeps its place
+                        // (and its mounted chart) once the text arrives.
+                        // objectui#13032 — a long answer folds only once its
+                        // stream has ended; the streaming flag tells it when.
+                        // objectui#13037 — a record link in the answer opens
+                        // the record through the same host opener as the
+                        // `open_record` card.
+                        <RecordLinkContext.Provider value={onOpenRecord ?? null}>
+                          {answerBlocks.map((block, i) =>
+                            block.kind === 'charts' ? (
+                              <AnswerCharts key={i} charts={block.charts} />
+                            ) : hasVisibleProse ? (
+                              <React.Fragment key={i}>
+                                <MessageResponse isAnimating={Boolean(message.streaming)}>
+                                  {block.text}
+                                </MessageResponse>
+                                {message.streaming && i === lastTextBlock ? (
+                                  <span
+                                    aria-hidden
+                                    className="ml-0.5 inline-block w-[2px] h-4 align-middle bg-current animate-pulse"
+                                  />
+                                ) : null}
+                              </React.Fragment>
+                            ) : null,
+                          )}
+                        </RecordLinkContext.Provider>
                       ) : null}
                       {!isUser && sources.length > 0 ? (
                         <Sources>

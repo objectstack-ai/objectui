@@ -358,6 +358,8 @@ describe('uiMessageToChatMessage', () => {
         { status: 'won', count: 5 },
         { status: 'lost', count: 2 },
       ],
+      // objectui#13492 — the chart arrived after the whole text.
+      textOffset: 'Here is the breakdown:'.length,
     });
   });
 

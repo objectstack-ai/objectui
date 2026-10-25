@@ -1357,10 +1357,22 @@ function extractBlueprintProgress(parts: AnyPart[]): ChatBlueprintProgress | und
  * answer may carry several — we keep them all, in arrival order. Each part's
  * `data` already matches the SDUI `<chart>` schema; we defensively narrow it
  * so a malformed payload is dropped rather than rendered broken.
+ *
+ * objectui#13492 — each chart also records where it arrived among the text
+ * parts (`textOffset`: the length of the text {@link extractText} joined
+ * before it), so the bubble can render a chart the model drew first above the
+ * analysis it wrote after, instead of below all of it. Only when the content
+ * IS that join (`anchored`): a legacy string `content` is not built from the
+ * parts, so an offset into it would point nowhere and the charts trail it.
  */
-function extractCharts(parts: AnyPart[]): ChatChart[] | undefined {
+function extractCharts(parts: AnyPart[], opts: { anchored: boolean }): ChatChart[] | undefined {
   const charts: ChatChart[] = [];
+  let textOffset = 0;
   for (const p of parts) {
+    if (p.type === 'text') {
+      textOffset += (p.text ?? '').length;
+      continue;
+    }
     if (p.type !== 'data-chart') continue;
     const d = p.data;
     if (!d || typeof d !== 'object') continue;
@@ -1382,6 +1394,7 @@ function extractCharts(parts: AnyPart[]): ChatChart[] | undefined {
       data,
       ...(typeof c.xAxisKey === 'string' ? { xAxisKey: c.xAxisKey } : {}),
       series,
+      ...(opts.anchored ? { textOffset } : {}),
     });
   }
   return charts.length > 0 ? charts : undefined;
@@ -1431,7 +1444,7 @@ export function uiMessageToChatMessage(
     // part like buildProgress. No persisted fallback needed: the `proposedPlan`
     // card (from the persisted tool result) is the post-reload record.
     blueprintProgress: extractBlueprintProgress(parts),
-    charts: extractCharts(parts),
+    charts: extractCharts(parts, { anchored: typeof msg.content !== 'string' }),
     streaming: opts.streaming,
   };
 }

@@ -1,0 +1,32 @@
+{
+  "number": 13488,
+  "kind": "issue",
+  "title": "App page route goes blank (React error #31) when a page's label is the spec's inline locale map (I18nLabel { zh-CN, en })",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T01:44:25Z",
+  "updated_at": "2026-10-25T02:02:50Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/13488",
+  "body": "Category: ① defect with reach. An app that gives a page an inline-locale `label` (`PageSchema.label` is `string | I18nLabel`) can blank that page's route for every viewer: the app header renders the map as a React child.\n\n**Business reason:** apps translate page names the same way they translate reports (objectui#13470). Today the page breaks instead of showing the name in the viewer's language, so the only workaround is a single-language label.\n\n**Who acts:** the `domain:ui` seat (app-shell `AppHeader`). This is the page-route twin of objectui#13470, whose PR objectui#13487 fixes the report branch of the same header.\n\n**Dedupe:** searched objectui for \"page label inline locale map React error 31 AppHeader page title I18nLabel blank\" (25 hits, all closed or other surfaces: #13470 report, #13380 public form, #11158 Studio nav rail, #11299 nav entry, #12358 grid column) and objectstack for \"page label locale map crash\" (0). No card names the page route.\n\n## Reach\n\nMeasured once by the objectui#13470 card session (report comment on objectui#13470, `out_of_scope_findings`). It mounted the real `AppHeader` at `/apps/srm/page/welcome` with the real `useObjectLabel`, and set that page's label to `{ 'zh-CN': …, en: … }`. Result: `Objects are not valid as a React child (found: object with keys {zh-CN, en})`. The probe was a test harness and was not committed; the page has not been measured in a running console yet.\n\n## Where\n\n`packages/app-shell/src/layout/AppHeader.tsx` on main `c85408f`, page branch: `const fallback = pageDef?.label || humanizeSlug(pageName); routeTitle = pageLabel({ name: pageName, label: fallback });`. `pageLabel` returns a fallback it cannot translate untouched, so a map reaches the render. The report branch had the same shape, and objectui#13487 resolves it with `metadataText` in the viewer's language.\n\n## Expected\n\nThe page title resolves to the viewer's locale (en and zh-CN), as object, field and (after objectui#13487) report labels do. A plain-string label keeps today's output. Check the page's own heading and any other surface that prints `pageDef.label` raw in the same PR.\n\nFiled by the `domain:ui` seat 4 session `session_01XWGTsmqrtrt1Zqh1ioWqsT` from the card session's report."
+}

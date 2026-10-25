@@ -1,0 +1,35 @@
+{
+  "number": 13480,
+  "kind": "pull_request",
+  "title": "fix(plugin-calendar): show the lookup display name for a lookup titleField",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T00:40:07Z",
+  "updated_at": "2026-10-25T02:06:19Z",
+  "closed_at": "2026-10-25T02:06:17Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-25T02:06:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13480",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-elon-musk\"} -->\n_Requested by **Elon** · [project thread](https://claude.ai/code/project/chan_01WedDzV26nniwxv7jC88B9D?thread=cmsg_01WedDzV26nniwxv7jC88B9D2bmCsjnmZkrozUjaCZ8Xgr)_\n\nFixes #13471\n\nClause-②: no\nMetadata-protocol: none\n\n## What changed\n\n`ObjectCalendar` resolved the author's `calendar.titleField` itself (`String(record[titleField])` for any truthy value), so a lookup, which arrives expanded as an object, printed the literal `[object Object]` on every event. The title now goes to `getRecordDisplayName(objectSchema, record, { titleField })`, which takes the field as its explicit rung (ADR-0079) and already reduces an expanded reference to its display name. Same fix family as objectui#12188 and objectui#8464.\n\nPrecedence is unchanged: the explicit `titleField` wins when it yields a value, otherwise the object-level ladder (`nameField`, `titleFormat`, type-aware derivation, `Record #id`) runs as before. The change is the one function body in `packages/plugin-calendar/src/ObjectCalendar.tsx`, plus a new test and a changeset.\n\n## Acceptance notes\n\n- Mechanism check: the PM hypothesis held on `origin/main` (cd70b78). `resolveTitle` returned `String(v)` for an object value. No new fallback or alias was added in the renderer; the existing core resolver is the single authority (AGENTS.md #0.1).\n- Pin: `packages/plugin-calendar/src/__tests__/ObjectCalendar.lookupTitleField-13471.test.tsx` covers an expanded `{ _id, name }` and `{ id, name }` lookup (shows the name), a raw id string (unchanged), and an expanded object with no usable name or a null value (never `[object Object]`, falls through to `nameField`).\n- Reverse verification (fix committed first, then `ObjectCalendar.tsx` checked out from the base commit with a restore trap): 2 of 3 tests red on the base source (expanded name, no-usable-name), the raw-id test green on both sides as intended. After restore `git diff HEAD` was empty and the implementation line was present.\n- Local gates on head 9e316d4, all exit 0: vitest `packages/plugin-calendar/` from the repo root (64 files passed, 465 tests passed, 95 skipped); `pnpm --filter @object-ui/plugin-calendar run type-check` (the test tsconfig lists the new test file) after building the workspace dependency closure; `pnpm --filter @object-ui/plugin-calendar run lint` (0 errors, warnings pre-existing); `node scripts/check-changeset-presence.mjs`; `pnpm run changeset:check`; `node scripts/check-changeset-claims.mjs`; `pnpm run check:new-line-citations` (0 new citations).\n- Behaviour note: a numeric `0` or boolean `false` titleField value used to fall through to the object-level title (falsy); the shared resolver counts it as a value and prints it. Not a real-world title case; noted for completeness.\n- Not measured: a live browser check against the hotsrm audit calendar; CI covers the full suite.\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

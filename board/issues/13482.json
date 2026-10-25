@@ -1,0 +1,35 @@
+{
+  "number": 13482,
+  "kind": "pull_request",
+  "title": "feat(core): show a holeless confirmText / successMessage as written (objectui#13476)",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: app-shell",
+    "package: core",
+    "package: react",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T00:54:17Z",
+  "updated_at": "2026-10-25T01:39:42Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13482",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-elon-musk\"} -->\n_Requested by **Elon** · [project thread](https://claude.ai/code/project/chan_01WedDzV26nniwxv7jC88B9D?thread=cmsg_01WedDzV26nniwxv7jC88B9DYL5YEa1zRjoXpJH1JbeMbZ)_\n\nFixes #13476\n\nClause-②: no\nMetadata-protocol: narrowed\n\n## Summary\n\nobjectui#13367 kept one transitional reading in `ActionRunner`: a `confirmText` or `successMessage` sentence with no `{{ }}` hole still had its `${…}` tokens filled. This PR removes both branches, so a holeless sentence is shown exactly as written, the same as any other copy with no hole. It is the objectui half of objectstack-ai/objectstack#25702; objectstack-ai/objectstack#25709 (warning to error, delete `ACTION_COPY_DOLLAR_TRANSITION_ROOTS`) waits for objectstack's `.objectui-sha` to carry this merge.\n\n## Changes\n\n- `confirmMessage`: the `!hasTemplateHoles(text)` branch returns `text` instead of `templates.evaluate(text)`. The method no longer takes the evaluator; the param dialog's `interpolate` (still the `${…}` evaluator, out of scope) now builds it right where it is used.\n- `composeSuccessMessage`: a holeless `successMessage` returns `successCopy` instead of running `substituteScopeTokens`.\n- Docblocks updated: `ActionDef.confirmText`, `ActionDef.successMessage`, the `RUNNER_TEXT` note, `composeSuccessMessage`, `confirmMessage`, `templateEvaluatorFor`, `interpolateTarget`'s note and `substituteScopeTokens` (the grammar's one toast caller is now `outcomeMessages`), plus `hasTemplateHoles` in `actionCopyTemplate.ts`.\n- Docs: `content/docs/core/enhanced-actions.mdx` \"Post-success behaviour\" now says `outcomeMessages` reads `${result.*}` and `successMessage` reads `{{ result.* }}` / `{{ record.* }}`; the complex-action example's `confirmText` uses a `{{ record.customer_name }}` hole.\n- Changeset `.changeset/13476-holeless-action-copy.md`: `@object-ui/core` minor (a narrowing; objectui marks breaking changes `minor`).\n\n**Untouched, per the card:** `outcomeMessages` keeps its `${result.*}` reading through `substituteScopeTokens`; `errorMessage` is still shown as written.\n\nThe claim's file surface was amended by the seat (card comment 6391456644) for `actionCopyTemplate.ts`, the docs page, and the app-shell test. Two more test files outside it also drove the old reading end to end and are converted here: `packages/plugin-grid/src/__tests__/rowActionRecordHole-12967.test.tsx` and `packages/app-shell/src/views/ObjectView.toolbarScriptSelection-12331.test.tsx`, plus `packages/react/src/hooks/__tests__/useActionTextLocalizer.outcomeMessages-11344.test.tsx`.\n\n## Tests\n\nEvery fixture that fed the runner a holeless `${…}` `confirmText` / `successMessage` now authors the `{{ }}` hole the runner reads, and three rows pin the new behaviour:\n\n- `ActionRunner.copyTemplate-13367`: \"a `${…}` token in a sentence with no hole is text, not an expression\" (header door and row door), and \"a `${result.*}` token in a sentence with no hole is text, not filled\".\n- `ActionRunner.outcomeMessages-11344`: \"rung 2 — a `${result.*}` token in a successMessage with no hole is text\". The \"reads the `result` scope only\" row moves to an `outcomeMessages` entry, the one toast rung that still uses the `${…}` grammar.\n- `ActionRunner.rowRecordTemplates-12967`: the row-less control now reads `Pause ?` (an unbound `{{ record.* }}` root prints empty) where the evaluator left `${record.display_name}` raw.\n\nRuns, at head `55dfcfd`, from the repo root:\n\n- `pnpm exec vitest run packages/core/src/actions/`: 41 files, 625 tests passed.\n- Converted and neighbouring suites (app-shell invite feedback, toolbar script selection, `onSuccess.navigate` hosts, param-dialog record holes, `consoleServerAction`, components `renderers/action/`, element-button i18n copy, plugin-grid row-action record hole, console registry parity, react `hooks/`, app-shell `hooks/__tests__/`, record-alert, ListView). The first sweep (44 files, 968 tests) failed 3 rows in `rowActionRecordHole-12967` and `toolbarScriptSelection-12331`, which still authored `${…}`; after converting them, those 2 files pass (11 tests). The second sweep: 120 files, 1233 tests passed.\n- `pnpm --filter @object-ui/core type-check`: exit 0, after building the core dependency closure.\n\n**Ablation** (commit first, then mutate, trap-restored): with `ActionRunner.ts` reverted to `origin/main`, the three new rows fail (`Tests 3 failed | 45 passed (48)`); restored, `git diff HEAD` is empty and the blob hash matches HEAD.\n\n## Gates (local subset)\n\n- `check:new-line-citations`, `check:control-bytes`, `check:doc-fences`, `check:doc-types`, `check:changeset-claims`, `check:pending-changeset-literals`, `check:action-forward-parity`: exit 0.\n- `node scripts/check-changeset-presence.mjs`: passes, 1 changeset declared.\n- NOT MEASURED locally: `check:doc-snippets` and `check:doc-examples` (exit 2, precondition: the doc-snippet build closure is not built here). CI runs both; the docs edit changes one string literal inside a typed snippet.\n- Full `pnpm test` and `pnpm lint` are CI's.\n\n## Acceptance notes\n\n- No in-tree producer authors the holeless `${…}` shape: no non-test `confirmText` / `successMessage` in this repo carries `${`, and objectstack's measurement (card) found none in examples, `platform-objects`, `plugin-approvals` or HotCRM.\n- Fixtures left as `${…}` on purpose: `element-button-i18nCopy-12757` and `action-outcomeMessages-forward-11344` (components) only pin that copy reaches the runner unchanged, or never reach rung 2; the react localizer's `outcomeMessages` fixtures are rung 1, which keeps `${result.*}`.\n- `ActionParamDialog.tsx`'s `interpolate` docblock still says it fills `${...}` \"in the template scope the runner reads `confirmText` in\". The record binding is still shared; the dialect differs now. Carrier: none, noted only.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01P5j5dvWsBeNZNp2qLwwRqH)_\n"
+}

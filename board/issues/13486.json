@@ -1,0 +1,39 @@
+{
+  "number": 13486,
+  "kind": "pull_request",
+  "title": "fix(plugin-list,plugin-map,plugin-timeline): record preview overlay mounts RecordDetailPanel",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "package: core",
+    "package: react",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T01:34:13Z",
+  "updated_at": "2026-10-25T02:18:33Z",
+  "closed_at": "2026-10-25T02:18:32Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-25T02:18:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13486",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-elon-musk\"} -->\n_Requested by **Elon** · [project thread](https://claude.ai/code/project/chan_01WedDzV26nniwxv7jC88B9D?thread=cmsg_01WedDzV26nniwxv7jC88B9DCGwwEawzsvTN8uZT5wRTP8)_\n\nPart of #13458 — the overlay fix (the card's deliverable) and two of its helper collapses land here; the verdict-cache merge and the `formatDate` collapse are stopped and reported below, so #13458 remains open for them.\n\nClause-②: no\nMetadata-protocol: none\n\n## What changed\n\n- **Record preview overlay** — `ListView`, `ObjectGallery` (plugin-list), `ObjectMap` (plugin-map) and `ObjectTimeline` (plugin-timeline) now mount `RecordDetailPanel` from `@object-ui/plugin-detail` inside their `NavigationOverlay`, as `ObjectGrid`, `ObjectTree`, `ObjectKanban`, `ObjectCalendar` and `ObjectGantt` already do. The record reads with declared labels, typed widgets and the object's field order, and `hidden` fields stay hidden. Read-only, as on the grid and the tree (capability is handler presence; these views hand the panel no write path). A row with no object name or no string/number id keeps the plain key/value reading, as the tree's and grid's fallbacks do. `plugin-list`, `plugin-map` and `plugin-timeline` gain the `@object-ui/plugin-detail` edge the five other plugins carry (`package.json` + `pnpm-lock.yaml`).\n- **`GANTT_CONFIG_SPELLING`** — one copy, exported from `@object-ui/core` (`utils/gantt-config-spelling.ts`); `ListView` and `ObjectView` import it. Neither package depends on the other, so core is the lower layer both reach. Byte-identical table; no behaviour change.\n- **`isSameAuthoredFilter`** — exported from `@object-ui/react` (`useResolvedFilter.ts`); `ObjectGrid` drops its byte-identical copy (and its private `isPlainFilterObject` / depth constant) and imports it.\n- **`isPlainObject`** — added to `@object-ui/core` with the majority reading (`typeof === 'object'`, non-null, not an array). Per the claim, locals are replaced only in files this PR already touches; none of them carries one, so no local is replaced here.\n- Docs: `packages/plugin-detail/README.md` (the renderer list) and `content/docs/guide/user-state-persistence.md` (the overlay authoring note). Changeset `.changeset/13458-record-preview-panel.md` (patch).\n\n## Stopped and reported (not mechanical)\n\n- **Verdict cache merge** (`plugin-detail/src/useRecordEditable.ts` vs `plugin-grid/src/hooks/useRecordCrudVerdicts.ts`): the two are not copies of one behaviour. The detail cache asks one record per `POST` (`body.recordId`, answer `record.visible`) and stales a whole probe; the grid cache batches (`body.recordIds`, answer `records[i]`, echoed id checked), stales and re-checks per row, and keys pending entries per row on a `Promise<void>`. One shared map would also make a grid row's verdict the record page's synchronous initial state and the reverse — a behaviour change. Not touched; the seat's call.\n- **`formatDate` → `formatDateTime`** (AuditLogPage, ApprovalsInboxPage, RecordApprovalsPanel): the local is `new Date(s).toLocaleString(locale)` (\"3/4/2020, 3:30:00 PM\"); `@object-ui/i18n`'s `formatDateTime` medium style drops seconds and spells the month (\"Mar 4, 2020, 3:30 PM\"), and no style reproduces the current face. `consoleFaces.displayLocale-9909.test.tsx` pins the current face (`/3\\/4\\/2020, 3:30:00\\sPM/`, `/4\\.3\\.2020, 15:30:00/`). A visible format change on an audit timestamp is not mechanical. Not touched.\n\n## Tests\n\n- New: `packages/plugin-list/src/__tests__/recordPreviewPanel-13458.test.tsx` (ListView + ObjectGallery + the no-object fallback), `packages/plugin-map/src/__tests__/recordPreviewPanel-13458.test.tsx`, `packages/plugin-timeline/src/__tests__/recordPreviewPanel-13458.test.tsx`, `packages/core/src/utils/__tests__/is-plain-object.test.ts`.\n- Reverse check (one-off, at 34f867e): restoring the four overlay files from `cd70b78` turned the four panel rows red (`Tests 4 failed | 1 passed (5)`; the fallback row passes both ways, as intended); restored, green.\n- `pnpm exec vitest run packages/plugin-list/ packages/plugin-map/ packages/plugin-timeline/` plus `useResolvedFilter.test.tsx`, `ObjectGrid.filterContextTokens-10607.test.tsx`, `ObjectView.readersRetired-6152.test.tsx`, `ObjectView.namedViewProtocolKeys-8980.test.tsx`, `packages/core/src/utils/` → `Test Files 357 passed (357)`, `Tests 4445 passed | 37 skipped (4482)`.\n- `pnpm turbo run type-check` over core, react, plugin-grid, plugin-list, plugin-map, plugin-timeline, plugin-view → `24 successful, 24 total`.\n\n## Gates run locally\n\n`check:phantom-deps`, `check:unused-deps`, `check:new-line-citations`, `check:lockfile-integrity`, `check:lockfile-dedupe`, `check:changeset-claims`, `check:pending-changeset-literals`, `check:self-import`, `check:control-bytes`, `check:unreferenced-sources`: exit 0. `eslint` over the changed `.ts`/`.tsx`: 0 errors (warnings pre-existing). NOT MEASURED: `check:readme-exports`, reason: it needs every package's `dist` built (the run named unbuilt plugin-calendar / plugin-gantt / plugin-kanban type entries, none touched here); CI builds first.\n\n## Acceptance notes\n\n- `RecordDetailPanel.tsx`'s own docblock still says \"all five list-type renderers\"; left alone because the claim keeps `RecordDetailPanel` internals with objectui#13386. The README now lists all nine.\n- The four overlays' raw-dump fallback is still four inline copies (now reached only by rows without an object name or id); the tree and grid carry their own variants. No shared fallback was introduced.\n- `FLAT_MAP_CONFIG_SPELLING` and `pickFlatMapConfig` are also duplicated between `ListView.tsx` and `ObjectView.tsx`; not named by the card, so left as they are. Carrier: none.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01NPcF7MHudqXa2mJPbTDAeU\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 13483,
+  "kind": "pull_request",
+  "title": "feat(plugin-detail): fold a kept all-empty record section, and an all-empty body (objectui#13386)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T00:54:18Z",
+  "updated_at": "2026-10-25T02:08:46Z",
+  "closed_at": "2026-10-25T02:08:45Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-25T02:08:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13483",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-elon-musk\"} -->\n_Requested by **Elon** · [project thread](https://claude.ai/code/project/chan_01WedDzV26nniwxv7jC88B9D?thread=cmsg_01WedDzV26nniwxv7jC88B9D3jMyxwR7kHLu9j9TjYFimf)_\n\nFixes #13386\nFixes #12618\n\nSeat: domain:ui#4 · card thread `session_01AqaieDWuDnBRyh3u8epGx6` · claim 6391455338\nRuling-ref: 6369306878 (batch #7 item 4, letter C)\nClause-②: no · Metadata-protocol: semantic (the spec side landed as objectstack-ai/objectstack#25612)\n\n## What changes\n\nRuling C: in read-only mode an all-empty section that the page keeps draws its heading plus ONE \"Show N empty fields\" row, the same toggle a partly-filled section uses, instead of one em-dash row per field. Edit mode is unchanged, and a body whose sections are all empty folds once more (item 2 of #12618).\n\n| Where | Before | After |\n|---|---|---|\n| `DetailSection`, all-empty section kept (`hideEmpty: false`, or omitted where no default resolves it), read-only | heading + one `No value` row per field | heading + one \"Show N empty fields\" row; the toggle reveals the rows and \"Hide empty fields\" folds them back |\n| same, edit mode | every field an editable row | unchanged |\n| same, print page | every row prints | unchanged: every row prints, no toggle (#12717) |\n| `hideEmpty: true` all-empty section | renders nothing | unchanged |\n| partly-filled section | heuristic fold (#7129 Q2-C) | unchanged |\n| detail body (`DetailView` sections) where every section is empty and at least two are kept | one folded section after another | ONE \"Show N empty fields\" row for the body (new `EmptySectionsFold`); revealing it draws each section folded on its own |\n\nNo key, shape or default moved, and no new i18n key: both rows reuse `detail.showEmptyFields` / `detail.hideEmptyFields`. The `hideEmpty` descriptions in `@object-ui/types` (`DetailViewSection`, `RecordDetailsSection`, the zod mirror) and the two `@object-ui/plugin-detail` registration texts now say what a kept section draws.\n\n## Readings taken (for the seat's review)\n\n1. **\"Kept\" includes an omitted key where no default resolves it.** The ruling names `hideEmpty: false`. On `detail-view`, the `detail-section` node and the `record:details` direct-`fields` fallback, omitted already meant the same as `false` (keep), and their descriptions said so. The fold keeps them equal, so the test is \"kept\" (`!hideAllEmptySection`), not `=== false`. On `record:details` authored sections nothing changes for an omitted key: it still resolves `?? true` and hides.\n2. **Copy.** The ruling's 「N 个空字段 · 展开」 is described as \"the same fold the mixed sections use\", so the row is that fold's existing copy: `Show 4 empty fields` (en), `显示 4 个空字段` (zh). No new string.\n3. **Body fold threshold.** The body folds only when every section that draws anything is all-empty AND at least two are kept: one kept section is already one row, so folding it again would only drop its heading. Section groups (`sectionGroups`) turn the body fold off, as they draw fields of their own beside the sections. A malformed section (no field array, or a read that throws) turns it off too, so each section still renders or fails inside its own boundary (#8497).\n\n## Tests\n\n- New: `packages/plugin-detail/src/__tests__/DetailSection.allEmptyFold-13386.test.tsx` — the 「交易说明」 fixture: heading + one \"Show 4 empty fields\" row and no em-dash; reveal and fold back; untitled section; `hideEmpty: true` control; edit mode draws four textboxes and no fold; print page prints four rows; mixed sections (small and large) unchanged; body fold counts 8 over three sections, reveals each section folded, folds back; controls for a filled field anywhere, a single kept section, edit mode and print page; `emptySectionsFoldCount` rules including malformed sections.\n- Reverse check: with `DetailSection.tsx` at base, 6 of the new file's cases go red (the edit-mode, print, mixed and count cases stay green, as they pin unchanged behaviour).\n- Updated pins that read an all-empty kept section's rows, now through the fold: `record-details.hideEmptyRetired-7129` 4/4(b), `record-details.emptySectionDefault` (`false` keeps; direct-`fields` fallback), `detailSectionAuthoredHideEmpty-10485`, the AMPLIFICATION cases of `DetailSection.emptyArray-8474` and `DetailSection.emptinessAuthority-8376` (now: the fold counts all four rows, so the empty value is not counted as filled), `inlineCredentialGate` (`signature`'s empty sample reveals the fold before reading the pencil), `record-details.unresolvedIdentityFailClosed-9054` (the legacy `fieldName` entry survives as \"Show 1 empty field\").\n\n## Verification (local)\n\n- `pnpm exec vitest run packages/plugin-detail/ packages/types/` — green after the pin updates (the first full run surfaced the six pins above; their files re-run green: 132 passed).\n- `pnpm --filter @object-ui/plugin-detail type-check`, `pnpm --filter @object-ui/types type-check` — clean.\n- `pnpm --filter @object-ui/plugin-detail lint` — 0 errors.\n- `check:new-line-citations` 0 new · `check:doc-json` · `check:doc-fences` · `check:control-bytes` · `check:i18n-keys` · `check-changeset-presence` — pass.\n- `node scripts/check-governed-queue-guard.mjs --test <diff>` — NOT GOVERNED.\n- NOT MEASURED: `check:doc-snippets` / `check:doc-examples` (need the whole build; CI runs them). NOT MEASURED: screenshots of the HotCRM opportunity record at 1280 px (#12618 acceptance 2), reason: no HotCRM console stack in this container; the 「交易说明」 case is pinned in the DOM test above.\n\n## Acceptance notes\n\n- The `hideEmpty` describe text on the installed spec pin still carries the pre-#25612 wording; the next pin move picks up the ruled text. Nothing here reads that prose.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01AqaieDWuDnBRyh3u8epGx6\n"
+}

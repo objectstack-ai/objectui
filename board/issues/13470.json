@@ -2,8 +2,8 @@
   "number": 13470,
   "kind": "issue",
   "title": "Report page goes blank (React error #31) when a report's label or description is the spec's inline locale map (I18nLabel { zh-CN, en })",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:reports",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p1"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-24T15:58:48Z",
-  "updated_at": "2026-10-24T17:00:43Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-25T02:13:45Z",
+  "closed_at": "2026-10-25T02:08:46Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/13470",
   "body": "Category: ① defect with reach — every app that gives a report an inline-locale `label`/`description` (the only way to translate a report: the translation bundle has no `reports` group) gets a blank report page for every viewer.\n\nWho acts: objectui maintainer seat (app-shell `ReportView`).\n\nDedupe: searched objectui + objectstack for \"report label locale map React error 31 / I18nLabel report crash\" — 0 hits on reports; 22 hits in the same family (closed: objectui#13380 public form, objectui#11158 Studio nav rail, objectui#10847 dashboard designer widget title, objectui#10993 form submitText). `ReportView` was not covered by any of them.\n\n## Repro\n\n- `@objectstack/spec` / runtime 18.0.0, console from the same release.\n- Report metadata (valid under `ReportSchema`, whose `label` is `string | I18nLabel`):\n\n```ts\ndefineReport({\n  name: 'srm_delivery_scorecard',\n  label: { 'zh-CN': '供应商交付与质量（按期间）', en: 'Supplier Delivery and Quality by Period' },\n  description: { 'zh-CN': '…', en: '…' },\n  type: 'summary',\n  dataset: 'srm_delivery_metrics',\n  rows: ['period', 'supplier'],\n  values: ['line_count', 'otd_rate'],\n})\n```\n\n- Open `/_console/apps/<app>/report/srm_delivery_scorecard` as any user.\n\n## Actual\n\nWhole page is blank; console: `Minified React error #31 … object with keys {zh-CN, en}`.\n\n## Expected\n\nThe label and description resolve to the viewer's locale, like object/field labels do.\n\n## Where\n\n`packages/app-shell/src/views/ReportView.tsx` renders `{previewReport.title || previewReport.label || 'Report Viewer'}` and `{previewReport.description}` raw (still so on main). The report lists (`全部报表`, nav) may need the same resolution.\n\n## Downstream\n\nobjectstack-ai/hotsrm works around it by using a plain Chinese label (English lost for this report) until this is fixed.\n\nFiled from Claude session session_01E7UNrUkwEKDrg7BXnKF5LU (hotsrm v0.4 browser acceptance)."

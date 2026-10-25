@@ -1,0 +1,35 @@
+{
+  "number": 13484,
+  "kind": "pull_request",
+  "title": "tooling(objectui-readiness 2): readers of pnpm-workspace.yaml, turbo.json, pnpm-lock.yaml and the root manifest resolve the workspace root upward (objectstack#25723)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "package: cli",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T00:54:37Z",
+  "updated_at": "2026-10-25T01:37:36Z",
+  "closed_at": "2026-10-25T01:37:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-25T01:37:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13484",
+  "body": "Part of objectstack-ai/objectstack#25723 (sub-issue 2b of objectstack-ai/objectstack#25677, the objectui → objectstack `ui/` merge). Follow-up of #13472.\n\n## What\nAdds `scripts/workspace-root.mjs` (Node builtins only, importable before `pnpm install`) and its `.d.mts` twin: `workspaceRoot()`, `workspaceGlobs()`, `lockfilePath()`, `rootManifest()`, `uiTurboConfigPath()`, `uiScopedTurboConfig()`. Every reader of `pnpm-workspace.yaml`, `pnpm-lock.yaml`, the root `package.json` and `turbo.json` under `scripts/`, `scripts/__tests__/`, two package tests and the five e2e specs resolves those files through it. The three ad-hoc `packages:` parsers are unified (union of their refusals). `check-ui-root-lookups` learns the `marker-walk` shape that let the e2e `REPO_ROOT` IIFEs escape #13472, with self-test cases. Standalone behaviour is byte-identical: every helper branch is the identity when `<uiRoot>/pnpm-workspace.yaml` exists.\n\n## Why\nOnce objectui is `ui/` of the objectstack monorepo, the workspace root, lockfile and overrides live one directory up and `turbo.json` is parked as `turbo.objectui.json` (a nested turbo.json must `extends` the root). Readers that assumed those files at `uiRoot()` fail with ENOENT (measured on the verification PR objectstack-ai/objectstack#25718: Type Check UI at `check:side-effects-array`, Build & E2E UI at the first e2e spec, 15 of 16 Test UI shards) or walk up to the wrong root (five e2e specs). This PR makes them layout-aware ahead of the import.\n\n## Verification\n| command | standalone | merged layout (`ui/` in objectstack, scratch copy of the verification tree) |\n|---|---|---|\n| `pnpm check:ui-root-lookups` / `--self-test` | 0 / 0 (17 cases) | 0 |\n| `pnpm exec vitest run scripts/__tests__` | 0 (195 files, 5772 tests) | card's failing files + every touched test: all reader reds green; 10 remaining reds are the spec-pin gates (spec is `workspace:` post-import), the QUICK_REFERENCE script list, the vendor-chunk arm, one dom test — none a root-file read, all carried on objectstack#25697 |\n| `pnpm --filter @object-ui/cli test` | 0 (415) | `workspace-vite.test.ts` green |\n| `pnpm check:side-effects-array` | 0 | 0 |\n| `pnpm check:docs-route-closure` | 0 | 0 |\n| `pnpm check:lockfile-dedupe` / `check:lockfile-integrity` / `check:installed-pin-claims` | 0 / 0 / 0 | n/a (the pin gates presuppose the pin) |\n| `pnpm type-check:scripts` / `type-check:e2e` | 0 / 0 | 0 / 0 |\n| `pnpm lint:coverage`, `lint:root`, the pre-push gate list | 0 | — |\n| `playwright test --list --project=chromium` | 0 (78 tests) | 0 (78 tests, 0 ENOENT) |\n\nThe same patch is on the verification branch as objectstack commit 1cade6932a (run 3 of objectstack-ai/objectstack#25718).\n\n## Landing\nTooling and tests only; no product code (`packages/cli/src/utils/workspace-vite.ts`, `app-generator.ts` unchanged); no governed surface touched. Changeset `.changeset/25723-workspace-root-readers.md` with empty frontmatter — present because two package test files under `src/` changed; releases nothing. Draft until CI is green; then the epic PM asks for review.\n\nClause-②: no\nMetadata-protocol: none\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01RSDL3SFtJaKzcymvCD8RsU\n"
+}

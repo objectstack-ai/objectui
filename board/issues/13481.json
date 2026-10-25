@@ -1,0 +1,55 @@
+{
+  "number": 13481,
+  "kind": "pull_request",
+  "title": "chore(deps): narrow the React peer range to ^19.0.0 (objectui#13465)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "package: app-shell",
+    "package: auth",
+    "package: cli",
+    "package: collaboration",
+    "package: components",
+    "package: create-plugin",
+    "package: fields",
+    "package: i18n",
+    "package: layout",
+    "package: mobile",
+    "package: permissions",
+    "package: providers",
+    "package: react",
+    "package: react-runtime",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown",
+    "tests"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T00:44:02Z",
+  "updated_at": "2026-10-25T02:18:34Z",
+  "closed_at": "2026-10-25T02:18:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-10-25T02:18:32Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13481",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-elon-musk\"} -->\n_Requested by **Elon** · [project thread](https://claude.ai/code/project/chan_01WedDzV26nniwxv7jC88B9D?thread=cmsg_01WedDzV26nniwxv7jC88B9D7MWhuS4kuhvDQHJjWfeGnM)_\n\nFixes #13465\n\nClause-②: no\nMetadata-protocol: none\n\n## 维护者速读(草稿)\n\n- **改了什么:** 所有向宿主要 React 的 objectui 包,把 `react` / `react-dom` 的 peer 依赖从 `^18.0.0 || ^19.0.0` 收窄到 `^19.0.0`(实测 31 个包、56 条声明;卡上写的 33 个是旧计数)。AGENTS.md §2 和技能里的同一句「React 18+」改成「React 19」;脚手架 create-plugin 生成的新插件同样只声明 19。\n- **为什么改:** 我们对外承诺能跑在 React 18 上,但仓里从没装过、测过 React 18。按你的裁决 A:只卖我们测过的。\n- **风险与代价(含回滚):** 还停留在 React 18 的宿主,装下一版时会收到 peer 依赖警告或被拒装,需要先升级到 React 19。目前没有已知的 React 18 用户(未实测 npm 下游)。每个包一个 minor changeset 并写明 breaking,不动 major。回滚 = revert 本 PR。\n- **席位意见:**\n- **你要做的(一个动作):**\n\n## What changed\n\n- **31 manifests, 56 peer declarations** (31 `react` + 25 `react-dom`) now read `^19.0.0`. Derived by any spelling on `cd70b78`: no other React peer spelling and no `@types/react` peer exists in the workspace.\n- **Pins that hold the range, moved with it** (each would go red otherwise):\n  - `react-peer-range-norm-3741.test.ts`: `REACT_PEER_NORM` is now `^19.0.0`, with a docblock paragraph saying why the 18 arm went.\n  - `doc-version-claims.test.ts`: the 12 package README peer lines are asserted verbatim against their manifests, so the READMEs move; ledger keys follow (`PEER_19`, the react-runtime prose line, the two plugin-skeleton samples). The two `React 18+` unanchored entries are deleted: \"React 19\" carries no version token the scan records, and the ratchet refuses an entry that outlives its claim.\n  - `QUICK_REFERENCE.md`: the React row reads `19.x`; `quick-reference-current-release-4143.test.ts` derives it from the peer majors.\n- **`AGENTS.md` §2** (governed): \"React 18+ (Hooks)\" → \"React 19 (Hooks)\", per the ruling.\n- **`skills/**` (published skills face), two files, net line delta 0, rewrite in place:**\n  - `skills/objectui/SKILL.md`: the Tech Stack line is the verbatim mirror of AGENTS.md §2 (the doc-version-claims ledger states it is), so it moves with §2 to keep the two agent-facing texts in sync.\n  - `skills/objectui/guides/plugin-development.md`: the plugin skeleton's `peerDependencies` now say `^19.0.0`. A plugin built on `@object-ui/*` packages that only accept React 19 cannot honestly offer React 18 to its host; same change as the create-plugin generator below.\n- **`@object-ui/create-plugin`**: a generated plugin's peers are `^19.0.0` (user-visible, own minor changeset). The hand-written skeleton in `content/docs/guide/plugins.md` moves the same way.\n- **Prose and comments that cited the old range:** `content/docs/guide/troubleshooting.md`, two \"Built with React 18+\" lines in `packages/components` docs, and comment-only edits in `useGlobalUndo` (`@object-ui/react`), `inline-markdown` (`@object-ui/components`), and `scaffold-dependencies` plus its test (`@object-ui/cli`; no release needed for a comment, the gate is satisfied by the other changesets).\n- **32 changesets**, `.changeset/13465-react-peer-*.md`: one `minor` per package with a **Breaking** note (no `major`, per 版本号策略).\n- `pnpm-lock.yaml` is unchanged: workspace importers do not record peer ranges, and `pnpm install --frozen-lockfile` passed on the narrowed manifests.\n\n## Gates run locally (head `08400c4`)\n\n```\npnpm exec vitest run scripts/ packages/create-plugin/ packages/cli/ :: exit 0   (227 files passed, 2 skipped; 6209 tests)\nnode scripts/sync-quick-reference-release.mjs --check :: exit 0\nnode scripts/check-changeset-presence.mjs :: exit 0\nnode scripts/check-changeset-no-major.mjs :: exit 0\npnpm check:new-line-citations :: exit 0\npnpm exec eslint (the 7 changed .ts/.tsx files, listed by git diff --name-only) :: exit 0\n```\n\n## Acceptance notes\n\n- Not done, out of scope: no runtime code changes here. Code that exists only to keep React 18 working, if any, was not searched for; it is a possible cleanup, not a defect. `dropped — no defect`.\n- The peer narrowing of a published range owes a contract-review-tier review before the queue (claim 6391446264); the skills/** hunk owes the same (seat comment 6391465213).\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01Erxd3BYXhV2mQMatxGZ9yg\n"
+}

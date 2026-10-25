@@ -1,0 +1,33 @@
+{
+  "number": 13489,
+  "kind": "pull_request",
+  "title": "fix(console, app-shell): localise API Console, Public Forms, Integrations, AI Approvals and the datasource page (objectui#13460)",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T02:29:45Z",
+  "updated_at": "2026-10-25T02:31:06Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13489",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-elon-musk\"} -->\n_Requested by **Elon** · [project thread](https://claude.ai/code/project/chan_01WedDzV26nniwxv7jC88B9D?thread=cmsg_01WedDzV26nniwxv7jC88B9DTZuga4rm1n3SpVeS6ojvFA)_\n\nPart of #13460\nClause-②: no\nMetadata-protocol: none\n\nClaim: objectui#13460 comment 6392274945, amended by comment 6392316827 (file surface adds `packages/app-shell/src/views/metadata-admin/i18n.ts`). Seat: `domain:ui#4`.\n\n## What changed\n\nFour routed console pages imported nothing from `@object-ui/i18n`, and the Studio datasource page drew its copy as English literals, so a zh / ja / ar operator got English on these screens.\n\n- **Developer → API Console** (`ApiConsolePage.tsx`), **Developer → Public Forms** (`PublicFormsPage.tsx`), **Developer → Integrations & APIs** (`IntegrationsPage.tsx`) and **System → AI Approvals** (`AiPendingActionsPage.tsx`) read `console.developer.apiConsole.*`, `console.developer.publicForms.*`, `console.developer.integrations.*` and `console.system.aiApprovals.*` through `useObjectTranslation`. 108 new keys, translated in all ten packs (no English copies). Cancel / Save / Refresh / Actions reuse `common.*`. Each call carries the `en` value as its inline `defaultValue` (held byte-identical by `pnpm check:i18n-keys`), so a provider-less mount and every existing English test read exactly what they read before.\n- A sentence with an inline element (a bold action name, a `<code>` key) is ONE translated string: the element's `{{slot}}` is filled with a private-use mark and the sentence is split on it, so each language places the element (ja and ko put the action after its object). Helper: `apps/console/src/lib/inlineSlots.tsx` (`withSlots`), the same technique as `element:metadata_viewer`'s chips (objectui#12910).\n- Aria names that used to be glued as `` `Copy ${label}` `` are whole translated keys (`copyBaseUrl`, `copySample`); toasts likewise (`copiedUrl`, `copiedIframe`, `copiedReact`).\n- **Setup → Datasources** (`DatasourceResourcePage.tsx`) reads 55 new `engine.datasource.*` rows in the Studio table (`metadata-admin/i18n.ts`, en-US + zh-CN). That page already read `engine.*`, and `packages/i18n/README.md` § \"Scope — the engine.* carve-out\" keeps that namespace out of the ten packs. Covered: heading, toolbar, empty state (action slot), status chips, row actions, the create/edit dialog including the Schema mode options, the sync dialog, and the toasts. The driver config schema's enum option values are untouched (objectui#13353).\n- Left as written on purpose: the cURL / iframe / React snippets (code), HTTP verbs, paths and status codes, example slugs and paths in placeholders (`contact-us`, `/thanks`, `my_database`, `/api/v1/...`), server messages, and the redirect refusal (the spec's own prose).\n- Typography: three new English values spell the ellipsis U+2026 (`Search endpoints…`, `Discovering APIs…`, `Sending request…`; they were `...`), because `ellipsis-glyph-3878` holds every pack value to it.\n\n## Tests\n\n- `apps/console/src/pages/developer/consolePagesLocale-13460.test.tsx` (new): under zh each page draws its heading and copy from the zh pack (guarded as real Han-script rows, not English copies); the three slotted sentences render with the element where the zh string puts it and no `{{` or slot mark leaks; control: with no provider each page still reads its English.\n- `packages/app-shell/src/views/metadata-admin/datasource/DatasourceResourcePage.locale-13460.test.tsx` (new): zh heading, empty state with its action slot, status chip, row actions and the create dialog read the zh rows; en control.\n- `DatasourceResourcePage.selectPlaceholderLocale-11252.test.tsx`: finds the New datasource button by its locale's row (the button is now translated). `ApiConsolePage.requestPreset-10591.test.tsx`: the `Sending request…` glyph.\n\n## Verification (local, objectui `main` `c85408f` + this branch)\n\n- `turbo run type-check` for `@object-ui/console`, `@object-ui/app-shell`, `@object-ui/i18n` (38 tasks incl. deps): pass.\n- `vitest run packages/i18n/`: 87 files, 1353 passed.\n- `vitest run` over every test file importing the five pages, `inlineSlots`, or reading the Studio table's source (32 files): 559 passed.\n- `node scripts/check-i18n-call-site-keys.mjs`, `check-i18n-en-drift.mjs`, `check-i18n-dead-keys.mjs`, `check-i18n-designer-table-parity.mjs`: exit 0.\n- `eslint` on the touched sources: 0 errors, and the same warning set as `main` (no new findings).\n- `check-changeset-presence.mjs`, `check-changeset-no-major.mjs`, `check:new-line-citations`: pass.\n- NOT MEASURED locally, left to CI: the sharded full `pnpm test`; `check:eager-closure` (the eager `en` catalogue grows by the new keys; `i18n-locale-en` ceiling is in `scripts/check-eager-closure-budget.mjs`); `check:readme-exports` (needs every dist).\n\n## Acceptance notes\n\n- Out of this PR by the claim, left on the card: objectui#13353 (enum option labels), moving dev-only surfaces under `dev/`, and the remaining literals on other surfaces (`AuditLogPage`, `FlowRunsPage`, `ShareDialog`, …).\n- The Studio table covers en + zh only (the carve-out), so the datasource page renders English in the other eight languages, as every other Studio screen does.\n- Overlap: the objectui#13461 card thread may add keys to the same ten packs; whichever lands second merges `main`.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01QY7vnZv639mvLbooY6nBKU\n"
+}

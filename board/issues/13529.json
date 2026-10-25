@@ -1,0 +1,34 @@
+{
+  "number": 13529,
+  "kind": "pull_request",
+  "title": "docs(patches): link the radix focus-scope patch to radix-ui/primitives#4226 (objectui#13466)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T13:30:54Z",
+  "updated_at": "2026-10-25T13:55:15Z",
+  "closed_at": "2026-10-25T13:55:13Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-25T13:55:13Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13529",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-elon-musk\"} -->\n_Requested by **Elon** · [project thread](https://claude.ai/code/project/chan_01WedDzV26nniwxv7jC88B9D?thread=cmsg_01WedDzV26nniwxv7jC88B9DKJWNXtUcpBxinVEpnKRxYK)_\n\nRefs #13466 (red branch of the claim, comment 6392490658).\n\n## What\n\n`patches/README.md` only. The `@radix-ui/react-focus-scope` patch stays; its README entry now has:\n\n- **Upstream:** radix-ui/primitives#4226 (same root cause, found by comment 6395691379 on #13466), with the closed radix-ui/primitives#4148 as related.\n- **Last measured:** 2026-10-25, stock `1.3.1` with the patch removed, race case red (1 failed / 2 passed).\n- **Remove when:** radix-ui/primitives#4226 is fixed in a released `@radix-ui/react-focus-scope` and the regression test is green on that release with the patch removed. The old condition named no upstream item, so nothing outside could trigger it.\n\n## Measurement (worktree off `main` `6f629a7`)\n\n| Setup | `dialog-popover-focus-scope.test.tsx` |\n|---|---|\n| patched `1.1.16` (lockfile as on main) | 3 passed |\n| stock `1.3.1`: `patchedDependencies` removed, `pnpm.overrides` pinned to `1.3.1`; resolution from `@radix-ui/react-dialog`'s directory confirmed to land on `1.3.1` | 1 failed / 2 passed. The failing test is \"a re-run of the trapped scope effect must not evict it — the popover still pauses the dialog trap\": `document.activeElement` is the dialog's button, not the popover input |\n\nThe source of `1.3.1` and of `1.3.2-rc.1791984254107` still schedules `focusScopesStack.remove(focusScope)` in a `setTimeout` that nothing cancels. The measurement edits were reverted; this PR does not touch `package.json` or the lockfile.\n\nNot read directly: radix-ui/primitives#4226 itself (this session has no access to that repo). The link and its description come from comment 6395691379 on #13466.\n\n## Gates run locally\n\n- `node scripts/check-changeset-presence.mjs`: exit 0, no changeset owed (no released package changed)\n- `pnpm check:new-line-citations`: exit 0\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_0196W5VLn6ZrtibyAZrR8oiK"
+}

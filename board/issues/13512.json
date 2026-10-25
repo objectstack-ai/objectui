@@ -1,0 +1,37 @@
+{
+  "number": 13512,
+  "kind": "pull_request",
+  "title": "chore(deps): objectui-readiness 3 round 2 — pin objectstack 5874d25302, one ai copy, merged-tree gate fixes (objectstack#25727)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: app-shell",
+    "package: auth",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T09:48:21Z",
+  "updated_at": "2026-10-25T10:37:13Z",
+  "closed_at": "2026-10-25T10:37:12Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-25T10:37:12Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13512",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-tesla\"} -->\n_Requested by **Tesla** · [project thread](https://claude.ai/code/project/chan_01AXsQkLFKRdQCqQ3RTr6Jao?thread=cmsg_01AXsQkLFKRdQCqQ3RTr6JaoL8sNsjGD2KCCE4QzojaRfw)_\n\nPart of objectstack-ai/objectstack#25727\nPart of objectstack-ai/objectstack#25677\n\nClause-②: no\nMetadata-protocol: none\n\n## What changes\n\nRound 2 (a) of objectui-readiness 3: the non-governed items the merged objectstack tree's verify runs found in `ui/`.\n\n- **Pin.** `.objectstack-sha` moves from `43edf90b56` to objectstack `main` `5874d25302cbb80db675eddf1b69198073fbe2a9` (`git ls-remote`, 09:15Z): 20 commits, none under `packages/spec`. `scripts/bump-objectstack.sh --no-commit` reported \"on origin/main\"; the packed manifests in `.objectstack-pin/` do not move.\n- **One `ai`.** `packages/plugin-chatbot` pins `@ai-sdk/react` to `4.0.121` and `ai` to `7.0.118`, the `ai` that `@ai-sdk/react` 4.0.121 pins (and the one `@objectstack/spec` carries in the merged tree). Measured standalone: with `ai` at `^7.0.118` the caret resolves 7.0.153, the lockfile holds both, and `@object-ui/plugin-chatbot#type-check` fails TS2322 in `useObjectChat.ts` (`DefaultChatTransport` vs `ChatTransport`); with `7.0.118` exact it is green. `pnpm-lock.yaml` is re-resolved from `main`'s, so it holds one `ai@7.0.118`.\n- **better-auth.** `packages/auth` pins `better-auth` to `1.7.12`.\n- **Skills catalog boundary.** `packages/plugin-dashboard/SKILL.md` gains frontmatter with `metadata: internal: true`, which the merged repo's create-objectstack test requires of every SKILL.md outside `skills/`. The two `.claude/skills` files go in a separate governed PR.\n- **ADR anchors.** The ADR-0075 citations in console and app-shell source and tests read `ObjectUI ADR-0075`, so the merged repo's ADR-anchor gate does not resolve them against objectstack's ADRs. CHANGELOG lines are published history and stay as they are (AGENTS.md rule 11); the epic seat ledgers them objectstack-side. The docs-build-trigger fixture path drops its `ADR-` prefix (`docs/adr/9999-example.md`).\n- **Clocked import.** `DraftChangesPanel.securityProblems.test.tsx` imports `@objectstack/lint` at module scope, the remedy AGENTS.md's test discipline prescribes, so the panel's function-body `import('@objectstack/lint')` does not pay its first transform inside the 1000 ms `findBy` window. `securityPostureLint.ts` is unchanged.\n- **Changeset** `25727-round2-dependency-pins.md`: `@object-ui/plugin-chatbot` and `@object-ui/auth` patch.\n\n## Verification (local)\n\n| Gate | Exit |\n|---|---|\n| `pnpm install --frozen-lockfile` | 0 |\n| `pnpm type-check` (81/81 turbo tasks) | 0 |\n| vitest: the 5 touched test files + `packages/plugin-chatbot/` + `packages/auth/` (121 files) | 0 |\n| `check:spec-symbols`, `check:installed-pin-claims`, `check:lockfile-integrity`, `check:lockfile-dedupe`, `check:phantom-deps`, `check:unused-deps` | 0 each |\n| `check:changeset-claims`, `check:pending-changeset-literals`, `changeset:check`, `check:new-line-citations` | 0 each |\n| `check:skills-paths`, `check:skill-examples`, `check:skill-eval-tokens`, `check:shell-escape-residue`, `check:control-bytes`, `check:doc-json` | 0 each |\n| `check:test-path-roots`, `check:i18n-keys`, `check:designer-field-key-parity`, `type-check:scripts`, `lint:root`, eslint over the touched files | 0 each |\n| `node scripts/check-governed-queue-guard.mjs --test` over the diff | NOT GOVERNED |\n\nThe whole `scripts/__tests__` suite and the full `pnpm test` run on this PR's CI shards.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nSession: `https://claude.ai/code/session_01K1ngdG6x8wAt8cjeVx2cSk`\n"
+}

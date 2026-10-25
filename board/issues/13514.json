@@ -1,0 +1,30 @@
+{
+  "number": 13514,
+  "kind": "pull_request",
+  "title": "chore(skills): mark the two repo-internal .claude skills metadata.internal (objectstack#25727)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-25T10:40:00Z",
+  "updated_at": "2026-10-25T13:04:57Z",
+  "closed_at": "2026-10-25T13:04:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-10-25T13:04:56Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13514",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-tesla\"} -->\n_Requested by **Tesla** · [project thread](https://claude.ai/code/project/chan_01AXsQkLFKRdQCqQ3RTr6Jao?thread=cmsg_01AXsQkLFKRdQCqQ3RTr6JaoL8sNsjGD2KCCE4QzojaRfw)_\n\nPart of objectstack-ai/objectstack#25727\nPart of objectstack-ai/objectstack#25677\n\nClause-②: no\nMetadata-protocol: none\n\n⛔ **Governed surface (`.claude/**`).** This PR stays a draft until an APPROVED review from an authorized approver (os-zhuang or hotlong) is on record; the merge-queue leg of the Governed Surface Queue Guard refuses it otherwise. No agent seat approves it.\n\n## What changes\n\nRound 2 (b) of objectui-readiness 3. `.claude/skills/objectui-contributor/SKILL.md` and `.claude/skills/verify/SKILL.md` gain `metadata: internal: true` in their frontmatter, with a comment saying why. The merged objectstack repo's create-objectstack test (\"skills catalog boundary\") requires that marker on every SKILL.md outside the published `skills/` catalog, so a repo-root `npx skills add` never offers these repo-internal skills to customers. Both stay internal (Tesla's decision D, 2026-10-25). `skills/objectui/SKILL.md` is not touched: it moves into objectstack's root `skills/` catalog in the cutover commit. `packages/plugin-dashboard/SKILL.md` got the same marker in objectui#13512.\n\nFrontmatter only: +8 lines, no instruction text changes.\n\n## Verification (local)\n\n| Gate | Exit / verdict |\n|---|---|\n| `node scripts/check-governed-queue-guard.mjs --test` over the diff | GOVERNED (`.claude/**` x2) |\n| `node scripts/check-changeset-presence.mjs` | no changeset owed |\n| `check:skills-paths`, `check:skill-examples`, `check:skill-eval-tokens`, `check:control-bytes`, `check:shell-escape-residue`, `check:new-line-citations`, `check:lint-rule-coverage` | 0 each |\n| vitest: the 6 `scripts/__tests__` files that read `.claude/skills` or SKILL.md | 0 (305 tests) |\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nSession: `https://claude.ai/code/session_01K1ngdG6x8wAt8cjeVx2cSk`\n"
+}

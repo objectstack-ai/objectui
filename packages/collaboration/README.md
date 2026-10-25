@@ -1,10 +1,9 @@
 # @object-ui/collaboration
 
-Real-time collaboration for Object UI — live cursors, presence tracking, comment threads, and conflict resolution.
+Real-time collaboration for Object UI — presence tracking, comment threads, and conflict resolution.
 
 ## Features
 
-- 🖱️ **Live Cursors** - Display remote user cursors in real time with `LiveCursors`
 - 👥 **Presence Avatars** - Show active users with `PresenceAvatars`
 - 💬 **Comment Threads** - Threaded comments with @mentions via `CommentThread`
 - 🔄 **Realtime Subscriptions** - WebSocket data subscriptions with `useRealtimeSubscription`
@@ -27,7 +26,6 @@ npm install @object-ui/collaboration
 import {
   usePresence,
   useRealtimeSubscription,
-  LiveCursors,
   PresenceAvatars,
   CommentThread,
   type Comment,
@@ -50,7 +48,6 @@ function CollaborativeEditor() {
   return (
     <div data-connection={connectionState}>
       <PresenceAvatars users={users} />
-      <LiveCursors users={users} />
       <div onMouseMove={(event) => updateCursor({ x: event.clientX, y: event.clientY })}>
         {lastMessage ? lastMessage.channel : 'waiting for updates'}
       </div>
@@ -99,18 +96,6 @@ user's id, optionally their name:
 import { useConflictResolution } from '@object-ui/collaboration';
 
 const { versions, conflicts, resolveConflict } = useConflictResolution('user-1', 'Alice');
-```
-
-### LiveCursors
-
-Displays remote user cursors on the page:
-
-```tsx
-import { LiveCursors, type PresenceUser } from '@object-ui/collaboration';
-
-declare const presenceUsers: PresenceUser[];
-
-const cursors = <LiveCursors users={presenceUsers} />;
 ```
 
 ### PresenceAvatars

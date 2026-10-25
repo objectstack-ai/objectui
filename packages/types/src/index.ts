@@ -1335,10 +1335,9 @@ export type {
 // parsed before the retirement parses byte-for-byte the same after it, and the
 // re-exports below were type-only surface with no runtime half to lose.
 //
-// The `DndConfig` / `KeyboardShortcut` names still live in this repo as LOCAL
-// declarations in `@object-ui/core`'s `DndProtocol.ts` / `KeyboardProtocol.ts`.
-// Those never imported the spec — the collision is a naming coincidence, not a
-// coupling, and they are deliberately untouched (objectui#3363).
+// The `DndConfig` / `KeyboardShortcut` names lived on for a while as LOCAL
+// declarations in `@object-ui/core`'s `DndProtocol.ts` / `KeyboardProtocol.ts`;
+// those bridges had no importer and retired in objectui#13453.
 
 // ============================================================================
 // v2.0.7 Spec UI Types — Notifications

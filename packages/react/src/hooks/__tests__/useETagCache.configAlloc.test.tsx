@@ -8,8 +8,9 @@
  *
  * `useRef` evaluates that argument on EVERY render and keeps only the first
  * result, so every later render allocated a five-key object that was thrown
- * away. It is the same shape PR objectui#6796 repaired in `useSchemaPersistence`
- * (`useRef(createLocalStorageAdapter())`), with one difference that is the whole
+ * away. It is the same shape PR objectui#6796 repaired in the since-retired
+ * `useSchemaPersistence` (`useRef(createLocalStorageAdapter())`), with one
+ * difference that is the whole
  * reason this needed its own card: clearing that one's `react-hooks/refs`
  * warning REQUIRED the change, and clearing this one's did not — so the lint
  * rule structurally cannot see this half of the class, and only a test can.

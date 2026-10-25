@@ -213,8 +213,8 @@ export function useETagCache(userConfig: ETagCacheConfig = {}): ETagCacheResult 
   // places that consume it. `useRef({ ... })` evaluates its argument on EVERY
   // render and keeps only the first result, so every later render allocated a
   // five-key object that was thrown away (objectui#6817) — the same shape PR
-  // objectui#6796 repaired in `useSchemaPersistence`. Its identity is
-  // unobservable from outside the hook: the ref is private and every reader
+  // objectui#6796 repaired in the since-retired `useSchemaPersistence`. Its
+  // identity is unobservable from outside the hook: the ref is private and every reader
   // only reads fields off `.current`, so a memo React chooses to discard is
   // harmless — it rebuilds an equal object, which is what every render used
   // to do unconditionally.

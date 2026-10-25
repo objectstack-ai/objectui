@@ -29,8 +29,8 @@
  * The TS interface face cannot be pinned at runtime (types are erased) and is
  * covered by `tsc`: `packages/types` type-checks, and no `CRUDSchema` import
  * survives anywhere in the workspace. The validator face is pinned in
- * `@object-ui/core`'s `schema-validator.test.ts`, and the builder face in its
- * `schema-builder.test.ts`.
+ * `@object-ui/core`'s `schema-validator.test.ts`. (The builder face went with
+ * core's `schema-builder`, retired in objectui#13453.)
  */
 import { describe, it, expect } from 'vitest';
 

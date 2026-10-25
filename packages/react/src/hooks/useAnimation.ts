@@ -105,9 +105,9 @@ function normalizePreset(preset: string): string {
 }
 
 // Keyed by the SPEC spellings (`ui/animation.zod.ts`). Class values for the
-// shared presets are unchanged; `rotate`/`flip` follow `usePageTransition`'s
-// enter classes (spin-in / fade+zoom), the sibling hook that always carried
-// the full spec vocabulary.
+// shared presets are unchanged; `rotate`/`flip` follow the enter classes
+// (spin-in / fade+zoom) of the since-retired `usePageTransition`, the sibling
+// hook that always carried the full spec vocabulary.
 const EASING_MAP: Record<string, string> = {
   linear: 'linear',
   ease: 'ease',

@@ -978,12 +978,6 @@ export const UNGATED_EXAMPLES = {
     reason:
       'usage fragment: references `Dashboard`, `analytics`, which the example never declares',
   },
-  'packages/react/src/hooks/useSchemaPersistence.ts useSchemaPersistence #1': {
-    card: null,
-    codes: [2304, 2451, 7006],
-    reason:
-      'usage fragment: references `SchemaPersistenceAdapter`, `pageSchema`, which the example never declares, so what depends on them is judged unbound',
-  },
   'packages/react/src/hooks/useSettledSchema.ts useSettledSchema #1': {
     card: null,
     codes: [2304],

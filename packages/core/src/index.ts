@@ -14,7 +14,8 @@ export * from './registry/PluginSystem.js';
 export * from './registry/PluginScopeImpl.js';
 export * from './registry/WidgetRegistry.js';
 export * from './validation/index.js';
-export * from './builder/schema-builder.js';
+// `builder/schema-builder` (the `form()` / `button()` / `FormBuilder` fluent
+// builders) retired in objectui#13453: nothing outside its own test imported it.
 // The DOM pass-through whitelist of the SDUI widget prop contract
 // (objectui#4425 phase 2): a registered widget's host element receives only
 // what `toDomProps` passes — everything else is consumed or dropped.
@@ -71,7 +72,10 @@ export * from './utils/debug-collector.js';
 export * from './utils/freeze-schema.js';
 // The shared key/value-bag check (objectui#13458); locals switch to it when touched.
 export * from './utils/is-plain-object.js';
-export * from './protocols/index.js';
+// `protocols/` retired whole in objectui#13453. Its three remaining bridges —
+// `DndProtocol`, `KeyboardProtocol`, `SharingProtocol` — re-homed vocabulary
+// the spec had already deleted, and had zero importers in this repo, the same
+// disposition `NotificationProtocol` and `ResponsiveProtocol` got before them.
 export * from './styling/scoped-styles.js';
 export * from './runtime/capabilities.js';
 

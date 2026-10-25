@@ -14,7 +14,6 @@
  * - usePresence hook for live cursor and presence tracking
  * - useConflictResolution hook for version history and conflict management
  * - CommentThread component for threaded comments with @mentions
- * - LiveCursors component for displaying remote user cursors
  * - PresenceAvatars component for showing active user avatars
  *
  * @packageDocumentation
@@ -75,11 +74,6 @@ export {
   type CommentSearchConfig,
   type CommentSearchReturn,
 } from './useCommentSearch.js';
-
-export {
-  LiveCursors,
-  type LiveCursorsProps,
-} from './LiveCursors.js';
 
 export {
   PresenceAvatars,

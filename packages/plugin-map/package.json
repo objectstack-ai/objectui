@@ -34,6 +34,7 @@
     "@object-ui/components": "workspace:*",
     "@object-ui/core": "workspace:*",
     "@object-ui/permissions": "workspace:*",
+    "@object-ui/plugin-detail": "workspace:*",
     "@object-ui/react": "workspace:*",
     "@object-ui/types": "workspace:*",
     "maplibre-gl": "^6.4.1",

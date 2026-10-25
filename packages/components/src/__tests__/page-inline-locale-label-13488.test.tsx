@@ -33,6 +33,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { ActionProvider, SchemaRenderer } from '@object-ui/react';
 import { I18nProvider } from '@object-ui/i18n';
+import type { DeclaredNode } from '@object-ui/types';
 // Module scope, not a hook: registers PageRenderer (`app`/`home`/`record`/…)
 // and `page:header` (AGENTS.md §测试纪律).
 import '../renderers';
@@ -50,19 +51,23 @@ const PLAIN = { label: 'Welcome', description: 'Shown to suppliers first.' };
 type Lang = 'en' | 'zh-CN';
 const pick = (map: Record<string, string>, lang: Lang) => (lang === 'zh-CN' ? map['zh-CN'] : map.en);
 
-/** An `app` page: not a record page, so it draws its own heading. */
-function appPage(fields: Record<string, unknown>, regions: unknown[] = []) {
-  return { type: 'app', pageType: 'app', name: 'welcome', regions, ...fields } as any;
+/**
+ * An `app` page: not a record page, so it draws its own heading. Its label and
+ * description arrive as data (a served document), so the literal is cast once
+ * here rather than typed against the authoring face.
+ */
+function appPage(fields: Record<string, unknown>, regions: unknown[] = []): DeclaredNode {
+  return { type: 'app', pageType: 'app', name: 'welcome', regions, ...fields } as unknown as DeclaredNode;
 }
 
 /** A header region with a titled `page:header`: the header owns the h1 and draws the description. */
 const TITLED_HEADER_REGION = [{ name: 'header', components: [{ type: 'page:header', properties: { title: HEADER_TITLE } }] }];
 
-function renderPage(schema: unknown, lang: Lang) {
+function renderPage(schema: DeclaredNode, lang: Lang) {
   return render(
     <I18nProvider config={{ defaultLanguage: lang, detectBrowserLanguage: false }} persistLanguage={false}>
       <ActionProvider>
-        <SchemaRenderer schema={schema as any} />
+        <SchemaRenderer schema={schema} />
       </ActionProvider>
     </I18nProvider>,
   );

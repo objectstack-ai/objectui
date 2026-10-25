@@ -426,8 +426,9 @@ The record overlay's **payload**, with no shell of its own: one
 `InlineEditSaveBar`, and the `objectSchema` → typed-field derivation that feeds
 them.
 
-All five list-type renderers (`ObjectGrid`, `ObjectTree`, `ObjectGantt`,
-`ObjectKanban`, `ObjectCalendar`) mount this component through
+Every list-type renderer (`ObjectGrid`, `ObjectTree`, `ObjectGantt`,
+`ObjectKanban`, `ObjectCalendar`, and since objectui#13458 `ListView`,
+`ObjectGallery`, `ObjectMap`, `ObjectTimeline`) mounts this component through
 `NavigationOverlay` from `@object-ui/components`, so an authored
 `navigation.mode` of `drawer` / `modal` / `split` / `popover` means the same
 thing on every view type (objectui#9299). ⛔ Do not re-wrap it in a shell of

@@ -125,7 +125,9 @@ export type {
   ConcurrentUpdateConflict,
   ConcurrentUpdateDialogProps,
 } from './ConcurrentUpdateDialog';
-export { useRecordEditable, __clearRecordEditableCache } from './useRecordEditable';
+// `__clearRecordEditableCache` is test-only and stays off the barrel
+// (objectui#13453); tests import it from `useRecordEditable` directly.
+export { useRecordEditable } from './useRecordEditable';
 export type { RecordOperation } from './useRecordEditable';
 export { SectionGroup } from './SectionGroup';
 export { HeaderHighlight } from './HeaderHighlight';

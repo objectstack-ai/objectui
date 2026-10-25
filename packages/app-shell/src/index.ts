@@ -209,7 +209,8 @@ export {
   // objectui#5522. (Replaces `isClientErrorReportingAllowed`, removed with the
   // permission boolean it read — objectstack#12681.)
   getClientErrorReporting,
-  resetRuntimeConfigForTesting,
+  // `resetRuntimeConfigForTesting` is test-only and stays off the barrel
+  // (objectui#13453); tests import it from `runtime-config` directly.
 } from './runtime-config.js';
 export type {
   AppShellRuntimeConfig,

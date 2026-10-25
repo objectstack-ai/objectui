@@ -64,7 +64,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { MetadataCtx } from '@object-ui/react';
-import { resetRetiredSortSpellingReports } from '@object-ui/core';
+import { resetRetiredSortSpellingReports } from '../../../core/src/utils/sort-query';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),

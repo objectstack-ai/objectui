@@ -43,7 +43,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import { resetRetiredSortSpellingReports } from '@object-ui/core';
+import { resetRetiredSortSpellingReports } from '../../../core/src/utils/sort-query';
 // Registers `object-grid` and its `view:grid` alias.
 import '../index';
 

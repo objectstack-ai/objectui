@@ -26,9 +26,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   initRuntimeConfig,
   getRuntimeConfig,
-  resetRuntimeConfigForTesting,
 } from '@object-ui/app-shell';
-import { resetInflightGetsForTesting } from '@object-ui/types';
+import { resetRuntimeConfigForTesting } from '../../../../packages/app-shell/src/runtime-config';
+import { resetInflightGetsForTesting } from '../../../../packages/types/src/http-inflight';
 
 /** The `/api/v1/runtime/config` answer, as the server sends it. */
 const CONFIG_BODY = {

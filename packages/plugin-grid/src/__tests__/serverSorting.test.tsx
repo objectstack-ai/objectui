@@ -22,7 +22,7 @@ import React from 'react';
 
 import { ObjectGrid, parseSchemaSort } from '../ObjectGrid';
 import { registerAllFields } from '@object-ui/fields';
-import { resetRetiredSortSpellingReports } from '@object-ui/core';
+import { resetRetiredSortSpellingReports } from '../../../core/src/utils/sort-query';
 import { ActionProvider } from '@object-ui/react';
 
 registerAllFields();

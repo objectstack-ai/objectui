@@ -67,7 +67,7 @@ vi.mock('./MetadataInspector', () => ({
 }));
 
 import { MetadataCtx } from '@object-ui/react';
-import { __clearRecordEditableCache } from '@object-ui/plugin-detail';
+import { __clearRecordEditableCache } from '../../../plugin-detail/src/useRecordEditable';
 import { RecordDetailView } from './RecordDetailView';
 
 const OBJECT_NAME = 'os_13045_env';

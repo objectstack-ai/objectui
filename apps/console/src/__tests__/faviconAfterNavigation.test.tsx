@@ -41,9 +41,9 @@ import { AppShell } from '@object-ui/layout';
 import {
   getFaviconUrl,
   initRuntimeConfig,
-  resetRuntimeConfigForTesting,
 } from '@object-ui/app-shell';
-import { resetInflightGetsForTesting } from '@object-ui/types';
+import { resetRuntimeConfigForTesting } from '../../../../packages/app-shell/src/runtime-config';
+import { resetInflightGetsForTesting } from '../../../../packages/types/src/http-inflight';
 import { FaviconSync } from '../components/FaviconSync';
 
 /** What an operator configures as `branding.faviconUrl` on the runtime. */

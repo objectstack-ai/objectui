@@ -61,7 +61,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { resetRetiredSortSpellingReports } from '@object-ui/core';
+import { resetRetiredSortSpellingReports } from '../../../../core/src/utils/sort-query';
 import { deriveRelatedLists } from '../deriveRelatedLists';
 
 const PARENT = { name: 'task_version', label: 'Task Version', fields: {} };

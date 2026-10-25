@@ -1590,5 +1590,6 @@ export {
     INFLIGHT_GET_REGISTRY_KEY,
     inflightGetKey,
     sharedGetJson,
-    resetInflightGetsForTesting,
+    // `resetInflightGetsForTesting` is test-only and stays off the barrel
+    // (objectui#13453); tests import it from `http-inflight` directly.
 } from './http-inflight.js';

@@ -86,7 +86,7 @@ import { join } from 'node:path';
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { ActionProvider, SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import { resetRetiredSortSpellingReports } from '@object-ui/core';
+import { resetRetiredSortSpellingReports } from '../../../core/src/utils/sort-query';
 import { registerAllFields } from '@object-ui/fields';
 import { ObjectGrid, parseSchemaSort } from '../ObjectGrid';
 // Registers `object-grid` and its `view:grid` alias.

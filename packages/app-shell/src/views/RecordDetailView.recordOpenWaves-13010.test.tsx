@@ -47,7 +47,7 @@ vi.mock('sonner', () => ({
 import { MetadataCtx } from '@object-ui/react';
 import { RelatedCountStore } from '@object-ui/components';
 import { ObjectStackAdapter } from '@object-ui/data-objectstack';
-import { __clearRecordEditableCache } from '@object-ui/plugin-detail';
+import { __clearRecordEditableCache } from '../../../plugin-detail/src/useRecordEditable';
 import { __resetRecordApprovalsStore } from '../hooks/useRecordApprovals';
 import { RecordDetailView } from './RecordDetailView';
 // Registers `record:attachments`, which the package entry registers in the console.

@@ -70,7 +70,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
-import { convertSortToQueryParams, resetRetiredSortSpellingReports } from '@object-ui/core';
+import { convertSortToQueryParams } from '@object-ui/core';
+import { resetRetiredSortSpellingReports } from '../../../core/src/utils/sort-query';
 import { ObjectView } from '../ObjectView';
 import type { ObjectViewSchema } from '@object-ui/types';
 

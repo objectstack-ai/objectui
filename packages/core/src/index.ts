@@ -53,9 +53,29 @@ export * from './utils/unmaterialized-fields.js';
 // because a consumer that reaches for one must be able to see the other and
 // know which one the platform actually served.
 export * from './utils/column-sortability.js';
-export * from './utils/column-identity.js';
+// Named, not `export *`: the module's `reset*` helper is test-only and stays off
+// the public barrel (objectui#13453); in-repo tests import it from the module.
+export {
+  CANONICAL_COLUMN_IDENTITY_KEY,
+  LEGACY_COLUMN_IDENTITY_KEYS,
+  TABLE_ADAPTER_COLUMN_KEY,
+  columnIdentity,
+  hasConflictingColumnIdentity,
+  normalizeColumnIdentity,
+  normalizeColumnIdentities,
+  CANONICAL_COLUMN_LABEL_KEY,
+  TABLE_ADAPTER_HEADER_KEY,
+  columnHeader,
+} from './utils/column-identity.js';
 export * from './utils/sort-values.js';
-export * from './utils/sort-query.js';
+// Named, not `export *`: the module's `reset*` helper is test-only and stays off
+// the public barrel (objectui#13453); in-repo tests import it from the module.
+export {
+  type QuerySortEntry,
+  type NormalizedSortEntry,
+  normalizeSortEntries,
+  convertSortToQueryParams,
+} from './utils/sort-query.js';
 export * from './utils/resolve-view-id.js';
 // The list view `gantt` block's flat spelling, one copy below both lowerings
 // (`plugin-list`'s `ListView`, `plugin-view`'s `ObjectView`), objectui#13458.
@@ -93,7 +113,18 @@ export * from './utils/date-macros.js';
 // plus `resolveFilterPlaceholders`, the single entry point every surface
 // should call so no vocabulary is silently skipped (objectstack-ai/objectstack#3574).
 export * from './utils/filter-tokens.js';
-export * from './utils/dashboard-filters.js';
+// Named, not `export *`: the module's `reset*` helper is test-only and stays off
+// the public barrel (objectui#13453); in-repo tests import it from the module.
+export {
+  DATE_RANGE_FILTER_NAME,
+  type DashboardFilterDef,
+  type DateRangeValue,
+  DATE_RANGE_PRESETS,
+  resolveDashboardFilterDefs,
+  dashboardFilterVariableDefs,
+  buildFilterCondition,
+  buildWidgetScopedFilter,
+} from './utils/dashboard-filters.js';
 export * from './utils/merge-filters.js';
 export * from './utils/compare-to.js';
 export * from './utils/chart-series.js';
@@ -142,7 +173,12 @@ export * from './utils/record-title.js';
 // instead of each guessing at the raw stored value.
 export * from './utils/record-color.js';
 export * from './utils/export-filename.js';
-export * from './utils/reference-keys.js';
+// Named, not `export *`: the module's `reset*` helper is test-only and stays off
+// the public barrel (objectui#13453); in-repo tests import it from the module.
+export {
+  normalizeFieldReferenceKeys,
+  normalizeSchemaReferenceKeys,
+} from './utils/reference-keys.js';
 // Binds a fetched record into an expression scope the way the SERVER binds it
 // (a relation is its foreign key, never the expanded record) — see
 // `toPredicateRecord` for why an unnormalized one gives the same predicate

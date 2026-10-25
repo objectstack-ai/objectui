@@ -84,7 +84,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import { __clearRecordEditableCache } from '@object-ui/plugin-detail';
+import { __clearRecordEditableCache } from '../../plugin-detail/src/useRecordEditable';
 // Module scope: the registration side effect this file renders through
 // (AGENTS.md 测试纪律 — never inside a hook).
 import './index';

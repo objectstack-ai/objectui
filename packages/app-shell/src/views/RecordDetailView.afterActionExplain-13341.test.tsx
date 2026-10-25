@@ -57,7 +57,7 @@ vi.mock('sonner', () => ({
 
 import { MetadataCtx, useMutationInvalidationBridge, notifyDataChanged } from '@object-ui/react';
 import { ObjectStackAdapter } from '@object-ui/data-objectstack';
-import { __clearRecordEditableCache } from '@object-ui/plugin-detail';
+import { __clearRecordEditableCache } from '../../../plugin-detail/src/useRecordEditable';
 import { RecordDetailView } from './RecordDetailView';
 
 const BASE = 'http://test.local';

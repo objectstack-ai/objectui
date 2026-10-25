@@ -1,5 +1,29 @@
 # @object-ui/console
 
+## 18.2.0
+
+### Patch Changes
+
+- d0c9650: Clause-②: no
+  Metadata-protocol: none
+  
+  fix(console, app-shell): four routed console pages and the Studio datasource page speak the session's language instead of hard-coded English (objectui#13460).
+  
+  - Developer → API Console, Developer → Public Forms, Developer → Integrations & APIs and System → AI Approvals read their copy from new `console.developer.apiConsole.*`, `console.developer.publicForms.*`, `console.developer.integrations.*` and `console.system.aiApprovals.*` keys, translated in all ten locale packs. Sentences with an inline bold action or `<code>` key are one translated string each, so every language places the element itself.
+  - Setup → Datasources reads its copy from new `engine.datasource.*` rows in the Studio table (en-US and zh-CN, the `engine.*` carve-out). The driver config form's enum option values are unchanged.
+  - English renders exactly as before, with or without an i18n provider. Code samples, verbs, paths, example slugs and server messages stay as written.
+- 5399bbc: Clause-②: no
+  Metadata-protocol: none
+  
+  More console surfaces now speak the session's language (objectui#13460, second pass). System → Audit Log, Developer → Flow Runs, the Integrations page's "Connect an AI agent" card, the share-link dialog and the public `/s/:token` share landing drew their copy as English literals. They now read `console.system.auditLog.*`, `console.developer.flowRuns.*`, `console.developer.agentConnect.*`, `shareDialog.*` and `sharedRecord.*`, each with an `en` inline default and a row in all ten packs. A sentence that names another control names it by that control's translated label, and a sentence with inline code is one translated string. Error states are kept as codes and worded at render.
+  
+  The dev-only surfaces moved under `dev/`: `PerformanceDashboard` to `apps/console/src/dev/`, and the components package's `debug/` folder (the `DebugPanel`) to `dev/`. The package's exports are unchanged.
+- cd70b78: Clause-②: no
+  Metadata-protocol: none
+  
+  One react line: every manifest that pins `react` / `react-dom` now pins 19.3.0, and every `@types/react` / `@types/react-dom` pin is 19.3.0, matching the root `pnpm.overrides`. The objectstack monorepo's `@objectstack/client-react` requires react `^19.3.0`, and a second `@types/react` copy broke `@object-ui/plugin-view`'s declaration build in the merged tree. The CLI's scaffold (`REACT_RANGE` and the shared dev-dependency map in `scaffold-dependencies.ts`) quotes the same pins, as its anchor test requires.
+- @object-ui/sdui-parser@18.2.0
+
 ## 18.1.0
 
 ### Patch Changes

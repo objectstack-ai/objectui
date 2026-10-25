@@ -125,7 +125,7 @@ release path runs the sync itself: `changeset:version` bumps every manifest and 
 this block in the same commit, so a release can no longer leave the block a version
 behind (objectui#5394 — that had happened once per release, three times).
 
-- **Version:** 18.1.0 (the version every `@object-ui/*` manifest carries — they are one
+- **Version:** 18.2.0 (the version every `@object-ui/*` manifest carries — they are one
   `fixed` group in `.changeset/config.json`, so a release moves all of them together)
 - **Spec:** `@objectstack/spec` ^18.0.0-next.1 (declared by the root `package.json` and by
   `apps/console/package.json`)

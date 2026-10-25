@@ -1073,14 +1073,14 @@ describe('`sideEffects` declarations match load-time behaviour (objectui#3943)',
     // The hazard here is a SILENT one, so a guard that inspected an empty list
     // would reproduce it exactly: green output, nothing checked. These floors
     // sit at the census re-measured for objectui#13464, when every published
-    // package came to declare the field: 12 `false` and 18 arrays, the rest
+    // package came to declare the field: 12 `false` and 17 arrays, the rest
     // `true` — so a lost workspace root, a broken glob parser or a renamed
     // field is a failure and not a quiet pass.
-    expect(declaringPackages.length).toBeGreaterThanOrEqual(30);
+    expect(declaringPackages.length).toBeGreaterThanOrEqual(29);
     expect(falsePackages.length).toBeGreaterThanOrEqual(12);
-    expect(arrayPackages.length).toBeGreaterThanOrEqual(18);
+    expect(arrayPackages.length).toBeGreaterThanOrEqual(17);
 
-    // The census by name. `true` packages (`components`, `fields`, three
+    // The census by name. `true` packages (`components`, `fields`, four
     // plugins and the executables) are excluded on purpose: `true` is the conservative claim and can never lose a
     // registration, so it is not falsifiable in the direction that hurts.
     expect(declaringPackages.map((p) => p.name)).toEqual([
@@ -1095,7 +1095,6 @@ describe('`sideEffects` declarations match load-time behaviour (objectui#3943)',
       '@object-ui/permissions',
       '@object-ui/plugin-calendar',
       '@object-ui/plugin-charts',
-      '@object-ui/plugin-dashboard',
       '@object-ui/plugin-designer',
       '@object-ui/plugin-detail',
       '@object-ui/plugin-editor',

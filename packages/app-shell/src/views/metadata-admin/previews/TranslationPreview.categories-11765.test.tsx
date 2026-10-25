@@ -58,6 +58,8 @@ const ONE_ENTRY: Record<string, { data: Record<string, unknown>; key: string; ro
   },
   pages: { data: { home: { label: 'Accueil' } }, key: 'home', row: () => keys(1) },
   flows: { data: { onboarding: { label: 'Intégration' } }, key: 'onboarding', row: () => keys(1) },
+  positions: { data: { sales_manager: { label: 'Responsable des ventes' } }, key: 'sales_manager', row: () => keys(1) },
+  permissions: { data: { sales_user: { label: 'Commercial' } }, key: 'sales_user', row: () => keys(1) },
   metadataForms: { data: { object: { label: 'Objet' } }, key: 'object', row: () => keys(1) },
   // `settingsCommon` is one strict object, not a record of author-named nodes:
   // its members (`sourceLabels`) are what the card counts and samples.

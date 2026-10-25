@@ -10,7 +10,7 @@
  * cloud's control plane lands a signed-in customer on the app declared with
  * `isDefault` (`cloud_control` → its Welcome page). The chrome did not follow:
  * the top-bar logo, both sidebar Home rows and the app-switcher Home entry each
- * hard-coded `/home`, the ENVIRONMENT layer's launcher (ADR-0075). One click on
+ * hard-coded `/home`, the ENVIRONMENT layer's launcher (ObjectUI ADR-0075). One click on
  * the logo therefore left the control plane's guided welcome for a screen whose
  * "Build an app" / "Start from a template" cards act on an environment the
  * control plane does not have, and whose "Your apps" tiles are the control

@@ -355,7 +355,7 @@ export function ApiConsolePage() {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder={t('console.developer.apiConsole.searchPlaceholder', { defaultValue: 'Search endpoints...' })}
+              placeholder={t('console.developer.apiConsole.searchPlaceholder', { defaultValue: 'Search endpoints…' })}
               className="w-full rounded-md border bg-background pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
@@ -365,7 +365,7 @@ export function ApiConsolePage() {
           {discovering ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              {t('console.developer.apiConsole.discovering', { defaultValue: 'Discovering APIs...' })}
+              {t('console.developer.apiConsole.discovering', { defaultValue: 'Discovering APIs…' })}
             </div>
           ) : filteredGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground text-sm">
@@ -528,7 +528,7 @@ export function ApiConsolePage() {
           {loading && (
             <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              {t('console.developer.apiConsole.sending', { defaultValue: 'Sending request...' })}
+              {t('console.developer.apiConsole.sending', { defaultValue: 'Sending request…' })}
             </div>
           )}
 

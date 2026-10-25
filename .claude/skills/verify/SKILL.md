@@ -2,6 +2,10 @@
 name: verify
 description: Verify metadata-admin designer (previews) changes end-to-end in a real browser without a backend, via the console preview gallery.
 user-invocable: false
+metadata:
+  # Hides this skill from `npx skills add` discovery: every SKILL.md outside the
+  # published `skills/` catalog carries this marker.
+  internal: true
 ---
 
 # Verifying metadata-admin designer changes (no backend needed)

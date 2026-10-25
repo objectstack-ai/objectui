@@ -2,6 +2,10 @@
 name: objectui-contributor
 description: Repo-internal rules for contributors editing THIS monorepo — the Console reference app (`apps/console`, `@object-ui/app-shell`) and the Shadcn-synced primitives under `packages/components/src/ui/`. Use when working on this repository's own source, not when authoring an app with the published `@object-ui/*` packages.
 user-invocable: false
+metadata:
+  # Hides this skill from `npx skills add` discovery: every SKILL.md outside the
+  # published `skills/` catalog carries this marker.
+  internal: true
 ---
 
 # ObjectUI contributor rules (this repository only)

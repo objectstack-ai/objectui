@@ -40,7 +40,10 @@
  *       the bare `ui` entry is the objectui root itself and is dropped. So the
  *       globs are relative to `uiRoot()` in both layouts.
  *   (c) `lockfilePath()` and `rootManifestPath()` / `rootManifest()` follow the
- *       same root.
+ *       same root, and so does `virtualStorePath()`, pnpm's `node_modules/.pnpm`:
+ *       under the monorepo `<uiRoot>/node_modules` holds only the symlinks of
+ *       the objectui root package's own declared dependencies, and the store
+ *       every installed copy lives in is the workspace root's (objectstack#25733).
  *   (d) `turboConfigPath()` is the nearest `turbo.json` upward (what turbo
  *       hashes from); `uiTurboConfigPath()` is objectui's OWN task declaration,
  *       `turbo.json` at `uiRoot()` or the parked `turbo.objectui.json`; and
@@ -113,6 +116,8 @@ export const TURBO_CONFIG = 'turbo.json';
 /** Where the cutover parks objectui's own `turbo.json` (a nested one must `extends` the root). */
 export const PARKED_TURBO_CONFIG = 'turbo.objectui.json';
 export const TURBO_ROOT_PREFIX = '$TURBO_ROOT$/';
+/** pnpm's virtual store directory, inside the workspace root's `node_modules`. */
+export const VIRTUAL_STORE = '.pnpm';
 
 /**
  * The directory whose `pnpm-workspace.yaml` governs the objectui tree: `root`
@@ -197,6 +202,20 @@ export function rootManifestPath(root = uiRoot()) {
  */
 export function rootManifest(root = uiRoot()) {
   return JSON.parse(fs.readFileSync(rootManifestPath(root), 'utf8'));
+}
+
+/**
+ * pnpm's virtual store at the workspace root: one directory per installed
+ * (package, version, peer-set), named with `/` spelled `+`. A reader asking
+ * "is this package installed ANYWHERE in the workspace" looks here; the
+ * objectui root's own `node_modules` answers only for what its manifest
+ * declares, and in the monorepo it has no `.pnpm` at all.
+ *
+ * @param {string} [root]
+ * @returns {string}
+ */
+export function virtualStorePath(root = uiRoot()) {
+  return path.join(workspaceRoot(root), 'node_modules', VIRTUAL_STORE);
 }
 
 /**

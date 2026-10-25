@@ -43,10 +43,12 @@
  *            with `try/catch` for the probe. This shape escaped the first
  *            migration (objectstack#25685) and found the objectstack root from
  *            five e2e specs on the merged tree (objectstack#25723);
- *   - SILENT a `readFileSync` of `pnpm-workspace.yaml` outside such a loop:
- *            that reads the workspace's package globs as DATA from a root
- *            already known -- `scripts/workspace-root.mjs` is where that root
- *            is decided;
+ *   - SILENT a `readFileSync` of `pnpm-workspace.yaml` outside such a loop,
+ *            from a root that is NOT the objectui tree (a fixture, a root
+ *            handed in): that reads the workspace's package globs as DATA from
+ *            a root already known -- `scripts/workspace-root.mjs` is where that
+ *            root is decided. Joined to the objectui tree itself it is the
+ *            next section's finding;
  *   - SILENT a `.git` entry in a directory skip-list, a fixture that WRITES a
  *            `pnpm-workspace.yaml`, and any mention inside a comment.
  *
@@ -83,6 +85,38 @@
  * git run with a cwd other than the tree (so `./` resolves elsewhere) are out
  * of its reach; the idiom in `scripts/workspace-root.mjs` is the rule, this is
  * its tripwire.
+ *
+ * ## The workspace's own files, joined to the objectui tree (objectstack#25733)
+ *
+ * Standalone the objectui tree IS the pnpm workspace root; under the monorepo
+ * the workspace root is one level up, and two of its files are only there:
+ * `pnpm-workspace.yaml`, and pnpm's virtual store `node_modules/.pnpm` (the
+ * tree's own `node_modules` holds only the symlinks of its manifest's
+ * dependencies). `scripts/workspace-root.mjs` answers where they are
+ * (`workspaceManifestPath()`, `virtualStorePath()`):
+ *
+ *   - FIRES  `workspace-file-at-ui-root`: a `join` / `resolve` call, or a
+ *            template led by a substitution, whose path names
+ *            `pnpm-workspace.yaml` or `node_modules/.pnpm` directly below the
+ *            OBJECTUI TREE -- a root derived from `uiRoot()`, `UI_ROOT`, or
+ *            this file's own location (`import.meta.url`, `__dirname`,
+ *            `import.meta.dirname`) stepped back up to the tree with
+ *            `dirname` / `..`, through `const` bindings and parameter
+ *            defaults (never a `let`, which a walk reassigns). Judged where the path first names the file, so a join
+ *            built on that join is not a second finding;
+ *   - SILENT the same files under a root the detector cannot derive (a
+ *            fixture directory, a parameter with no default, the cwd), under
+ *            `workspaceRoot()` / `virtualStorePath()` themselves, a climb that
+ *            stops above or below the tree, a module-id STRING that merely
+ *            contains `/node_modules/.pnpm/`, and every other `node_modules`
+ *            path under the tree: `<tree>/node_modules/<name>` is the tree's
+ *            own declared dependency, present in both layouts.
+ *
+ * ⚠️ The bound, said per AGENTS.md #9: a root this detector cannot derive is
+ * out of its reach, and so is the half of the class that is not a path: a
+ * test that TREATS the tree as the workspace root (passes it as the cwd of a
+ * workspace-root predicate, or reads a sibling directory as the framework's)
+ * joins nothing. Those are held by their own fixture-layout tests.
  *
  * ## The allowlist is a ledger, not a bypass
  *
@@ -145,13 +179,23 @@ const HOLE = '\u0001';
 const ROOT_REV_PATH = /^[^\s:\-][^\s:]*:(?!\.\/)[^\s]/;
 
 /**
+ * The workspace's own files, as path segments below the directory that holds
+ * them: they sit at the WORKSPACE root, which under the monorepo is one level
+ * above the objectui tree (objectstack#25733). `scripts/workspace-root.mjs`
+ * answers where (`workspaceManifestPath()`, `virtualStorePath()`).
+ */
+const WORKSPACE_ROOT_FILES = [['pnpm-workspace.yaml'], ['node_modules', '.pnpm']];
+/** A path segment the detector cannot read statically (a name, a call). */
+const DYNAMIC = '\u0002';
+
+/**
  * Files that carry a probe this gate recognises and that is NOT a repo-root
  * lookup. Path → reason. A path listed here that carries no hit is stale.
  */
 export const ALLOWLIST = new Map([
   [
     'scripts/workspace-root.mjs',
-    "decides the WORKSPACE root for every reader of pnpm-workspace.yaml / pnpm-lock.yaml / the root manifest: one probe at `uiRoot()` and one at its parent, anchored on ui-root.mjs -- never a walk, never the cwd (objectstack#25723)",
+    "decides the WORKSPACE root for every reader of pnpm-workspace.yaml / pnpm-lock.yaml / the root manifest / the .pnpm store: one probe at `uiRoot()` and one at its parent, anchored on ui-root.mjs -- never a walk, never the cwd (objectstack#25723, objectstack#25733)",
   ],
   [
     'scripts/objectstack-pin.mjs',
@@ -165,14 +209,13 @@ export const ALLOWLIST = new Map([
     'scripts/check-governed-queue-guard.mjs',
     "its subject is the REPOSITORY's governed surfaces (`AGENTS.md`, `.github/workflows/**`, ... at the git root), so its `diff-tree --name-only` reads root-relative paths on purpose; under the monorepo the governed register is objectstack's own (objectstack#25712)",
   ],
-  ['packages/cli/src/utils/app-generator.ts', "asks whether the USER's cwd is a pnpm workspace to choose the scaffold shape -- product behaviour, not a repo-root lookup"],
   ['packages/cli/src/utils/workspace-vite.ts', "asks whether the USER's cwd is a pnpm workspace before reading its globs -- product behaviour, not a repo-root lookup"],
   ['packages/cli/src/__tests__/app-generator.test.ts', 'mirrors the generator\'s own cwd predicate to compute the expected scaffold shape'],
 ]);
 
 // Cheap pre-filter: a file that spells none of these cannot carry a hit. It is
 // a SPEED filter only; every file that mentions one is parsed in full.
-const PREFILTER = /\.git['"`]|pnpm-workspace\.yaml|--show-toplevel|--git-common-dir|find-up|findUp|['"`](?:show|cat-file|diff|diff-tree|diff-index|log|whatchanged|ls-files|ls-tree|grep)['"`]|['"`]git /;
+const PREFILTER = /\.git['"`]|pnpm-workspace\.yaml|\.pnpm|--show-toplevel|--git-common-dir|find-up|findUp|['"`](?:show|cat-file|diff|diff-tree|diff-index|log|whatchanged|ls-files|ls-tree|grep)['"`]|['"`]git /;
 
 function calleeName(node) {
   const e = node.expression;
@@ -285,6 +328,102 @@ function isGitCallee(call) {
   return typeof name === 'string' && /git/i.test(name);
 }
 
+/** The text a node denotes when it is a string, followed through `const` bindings; `null` otherwise. */
+function staticText(node, binds, depth = 0) {
+  if (!node || depth > 4) return null;
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+  if (ts.isIdentifier(node) && binds.has(node.text)) return staticText(binds.get(node.text), binds, depth + 1);
+  return null;
+}
+
+/**
+ * What an identifier names where it is USED: the nearest enclosing function's
+ * parameter of that name (its default, or `null` when it has none -- a value
+ * handed in is not a known root), else the file's first `const`/`let` of it.
+ */
+function bindingAt(id, binds) {
+  for (let n = id.parent; n; n = n.parent) {
+    if (!ts.isFunctionLike(n) || !n.parameters) continue;
+    for (const param of n.parameters) {
+      if (ts.isIdentifier(param.name) && param.name.text === id.text) return param.initializer ?? null;
+    }
+  }
+  return binds.get(id.text) ?? null;
+}
+
+const isImportMeta = (node) => ts.isMetaProperty(node) && node.keywordToken === ts.SyntaxKind.ImportKeyword && node.name.text === 'meta';
+const isImportMetaUrl = (node) => ts.isPropertyAccessExpression(node) && isImportMeta(node.expression) && node.name.text === 'url';
+
+/** `segments` with `text`'s path segments appended, `..` stepping back. */
+function appendSegments(segments, text) {
+  const out = [...segments];
+  for (const seg of text.split(/[\\/]+/)) {
+    if (!seg || seg === '.') continue;
+    if (seg === '..' && out.length && out[out.length - 1] !== '..' && out[out.length - 1] !== DYNAMIC) out.pop();
+    else out.push(seg);
+  }
+  return out;
+}
+
+/**
+ * The path a node names, as segments below the OBJECTUI ROOT -- `[]` for the
+ * root itself -- when it is derived from a place this file knows: `uiRoot()`,
+ * `UI_ROOT`, or this file's own location (`import.meta.url`, `__dirname`,
+ * `import.meta.dirname`) stepped with `dirname` / `join` / `resolve`. `null`
+ * for anything else: a parameter with no default, a fixture directory, the
+ * cwd, and `workspaceRoot()` / `virtualStorePath()`, which ARE the answer.
+ *
+ * @param {ts.Node} node
+ * @param {{ binds: Map<string, ts.Node>, filePath: string[] }} ctx `filePath`: this file's segments below the root
+ * @returns {string[] | null}
+ */
+function rootPath(node, ctx, hops = 0) {
+  if (!node || hops > 8) return null;
+  if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isNonNullExpression(node)) return rootPath(node.expression, ctx, hops + 1);
+  if (ts.isIdentifier(node)) {
+    const init = bindingAt(node, ctx.binds);
+    // A `let` may be reassigned (a walk's cursor), so only a `const` or a
+    // parameter default is read as the place it was set to.
+    const list = init && ts.isVariableDeclaration(init.parent) ? init.parent.parent : null;
+    if (list && ts.isVariableDeclarationList(list) && !(list.flags & ts.NodeFlags.Const)) return null;
+    if (init) return rootPath(init, ctx, hops + 1);
+    if (ctx.binds.has(node.text)) return null;
+    if (node.text === '__dirname') return ctx.filePath.slice(0, -1);
+    if (node.text === '__filename') return ctx.filePath;
+    if (node.text === 'UI_ROOT') return [];
+    return null;
+  }
+  if (ts.isPropertyAccessExpression(node) && isImportMeta(node.expression)) {
+    if (node.name.text === 'dirname') return ctx.filePath.slice(0, -1);
+    if (node.name.text === 'filename') return ctx.filePath;
+    return null;
+  }
+  if (!ts.isCallExpression(node)) return null;
+  const name = calleeName(node);
+  const args = node.arguments;
+  if (name === 'uiRoot' && args.length === 0) return [];
+  if (name === 'fileURLToPath' && args.length === 1 && isImportMetaUrl(args[0])) return ctx.filePath;
+  if (name === 'dirname' && args.length === 1) {
+    const inner = rootPath(args[0], ctx, hops + 1);
+    return inner ? appendSegments(inner, '..') : null;
+  }
+  if (PATH_COMBINERS.has(name) && args.length >= 1) {
+    let out = rootPath(args[0], ctx, hops + 1);
+    if (!out) return null;
+    for (const arg of args.slice(1)) {
+      const text = staticText(arg, ctx.binds);
+      if (text === null) return [...out, DYNAMIC];
+      out = appendSegments(out, text);
+    }
+    return out;
+  }
+  return null;
+}
+
+/** Whether segments below the objectui root name one of the workspace's own files. */
+const namesWorkspaceRootFile = (segments) =>
+  Array.isArray(segments) && WORKSPACE_ROOT_FILES.some((target) => target.every((seg, i) => segments[i] === seg));
+
 const isLoop = (node) => ts.isForStatement(node) || ts.isWhileStatement(node) || ts.isDoStatement(node) || ts.isForOfStatement(node) || ts.isForInStatement(node);
 
 /**
@@ -292,12 +431,13 @@ const isLoop = (node) => ts.isForStatement(node) || ts.isWhileStatement(node) ||
  *
  * @param {string} file  Path used for reporting and for the script kind.
  * @param {string} text
- * @returns {{ line: number, shape: 'marker-probe' | 'marker-walk' | 'git-toplevel' | 'find-up' | 'git-rev-path' | 'git-root-listing', text: string }[]}
+ * @returns {{ line: number, shape: 'marker-probe' | 'marker-walk' | 'git-toplevel' | 'find-up' | 'git-rev-path' | 'git-root-listing' | 'workspace-file-at-ui-root', text: string }[]}
  */
 export function lookupsIn(file, text) {
   const kind = /\.tsx$/.test(file) ? ts.ScriptKind.TSX : /\.[cm]?js$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
   const src = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
   const binds = bindingsOf(src);
+  const pathCtx = { binds, filePath: file.split(/[\\/]/).filter(Boolean) };
   const hits = [];
   const seen = new Set();
   const record = (node, shape) => {
@@ -360,6 +500,19 @@ export function lookupsIn(file, text) {
       if (isGitCallee(node)) judgeArgv(node, node.arguments, null, 2);
     }
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)) judgeCommand(node);
+    // A workspace root file joined to the objectui root (objectstack#25733):
+    // judged where the path FIRST names it, so a join built on that join is
+    // not a second finding.
+    if (ts.isCallExpression(node) && PATH_COMBINERS.has(calleeName(node)) && node.arguments.length > 1) {
+      if (namesWorkspaceRootFile(rootPath(node, pathCtx)) && !namesWorkspaceRootFile(rootPath(node.arguments[0], pathCtx))) {
+        record(node, 'workspace-file-at-ui-root');
+      }
+    } else if (ts.isTemplateExpression(node) && node.head.text === '' && node.templateSpans.length > 0) {
+      const base = rootPath(node.templateSpans[0].expression, pathCtx);
+      if (base && !namesWorkspaceRootFile(base) && namesWorkspaceRootFile(appendSegments(base, node.templateSpans[0].literal.text))) {
+        record(node, 'workspace-file-at-ui-root');
+      }
+    }
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text === 'find-up') {
       record(node, 'find-up');
     } else if (ts.isCallExpression(node)) {
@@ -475,6 +628,29 @@ export function selfTest() {
   run('pathspec magic, not a revision', `${head}git(root, ['ls-files', '--others', '--', ':(glob).changeset/*.md']);\ngit(root, ['diff', '--relative', '--name-only', base, '--', ':(glob).changeset/*.md']);`, 'silent', 'scripts/x.mjs');
   run('a `<file>:<line>` diagnostic outside any git argv', `const where = \`\${file}:\${line}\`;\nconsole.log(['show', where].join(' '));`, 'silent', 'scripts/x.mjs');
   run('a list that only looks like an argv', `const ROWS = [['status', 'Aggregate closure ceiling'], ['log', 'info', 'warn']];`, 'silent', 'scripts/x.mjs');
+  // ── The workspace's own files, joined to the objectui tree (objectstack#25733) ──
+  const fileRoot = "import { dirname, join, resolve } from 'node:path';\nimport { fileURLToPath } from 'node:url';\n";
+  // FIRES
+  run('the store joined to `uiRoot()`', `import { uiRoot } from './ui-root.mjs';\n${fileRoot}const store = join(uiRoot(), 'node_modules', '.pnpm');`, 'fires', 'scripts/x.mjs');
+  run(
+    'the store under a parameter whose default climbs from this file to the tree (the check-doc-snippet-types probe)',
+    `${fileRoot}const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');\nexport function findCopy(root = repoRoot, name = '') {\n  return join(root, 'node_modules', '.pnpm', name);\n}`,
+    'fires',
+    'scripts/x.mjs',
+  );
+  run('one literal naming the store under a four-level climb from a package test', `${fileRoot}const REPO_ROOT = resolve(__dirname, '../../../..');\nconst copy = join(REPO_ROOT, 'node_modules/.pnpm/vitest@4.1.10/node_modules/vitest');`, 'fires', 'packages/cli/src/__tests__/x.test.ts');
+  run('pnpm-workspace.yaml read as data from the tree', `import { readFileSync } from 'node:fs';\nimport { uiRoot } from './ui-root.mjs';\n${fileRoot}const yaml = readFileSync(join(uiRoot(), 'pnpm-workspace.yaml'), 'utf8');`, 'fires', 'scripts/x.mjs');
+  run('a climb and the marker in one call, from `import.meta.dirname`', `${fileRoot}const file = resolve(import.meta.dirname, '../..', 'pnpm-workspace.yaml');`, 'fires', 'apps/console/x.ts');
+  run('a template led by the tree', `import { uiRoot } from './ui-root.mjs';\nconst store = \`\${uiRoot()}/node_modules/.pnpm\`;`, 'fires', 'scripts/x.mjs');
+  run('the marker through a `const` name', `import { uiRoot } from './ui-root.mjs';\n${fileRoot}const MANIFEST = 'pnpm-workspace.yaml';\nconst file = join(uiRoot(), MANIFEST);`, 'fires', 'scripts/x.mjs');
+  // SILENT
+  run('the helpers themselves', `import { virtualStorePath, workspaceManifestPath, workspaceRoot } from './workspace-root.mjs';\n${fileRoot}const a = virtualStorePath();\nconst b = join(workspaceRoot(), 'node_modules', '.pnpm');\nconst c = workspaceManifestPath();`, 'silent', 'scripts/x.mjs');
+  run('a store laid out in a fixture directory', `import { mkdtempSync } from 'node:fs';\nimport os from 'node:os';\n${fileRoot}const root = mkdtempSync(join(os.tmpdir(), 'fx-'));\nconst store = join(root, 'node_modules/.pnpm/x@1.0.0/node_modules/x');`, 'silent', 'scripts/__tests__/x.test.ts');
+  run('a parameter with no default', `${fileRoot}export function storeOf(root) {\n  return join(root, 'node_modules', '.pnpm');\n}`, 'silent', 'scripts/x.mjs');
+  run('a climb that stops below the tree', `${fileRoot}const scriptsDir = resolve(__dirname, '..');\nconst store = join(scriptsDir, 'node_modules', '.pnpm');`, 'silent', 'scripts/__tests__/x.test.ts');
+  run('the tree\'s own declared dependencies under its node_modules', `import { uiRoot } from './ui-root.mjs';\n${fileRoot}const turbo = join(uiRoot(), 'node_modules/.bin/turbo');\nconst vitest = join(uiRoot(), 'node_modules', 'vitest');`, 'silent', 'scripts/x.mjs');
+  run('a module-id string that contains the store', `const STORE_SPEC = '/w/node_modules/.pnpm/@objectstack+spec@18.1.0/node_modules/@objectstack/spec/dist/index.mjs';`, 'silent', 'scripts/__tests__/x.test.ts');
+  run('a join built on a join that already named the store is one finding', `import { uiRoot } from './ui-root.mjs';\n${fileRoot}const entry = join(join(uiRoot(), 'node_modules', '.pnpm'), 'x@1.0.0');`, 'fires', 'scripts/x.mjs');
   return cases;
 }
 
@@ -508,7 +684,8 @@ function main(argv) {
       `\n✗ check-ui-root-lookups: ${offending.length} repo-root lookup(s) outside ${HELPER}` +
         `${result.stale.length ? ` and ${result.stale.length} stale allowlist entr${result.stale.length === 1 ? 'y' : 'ies'}` : ''}.\n` +
         `  Standalone these find the objectui root; inside the objectstack monorepo (\`ui/\`) they find the OBJECTSTACK root.\n` +
-        `  Import { uiRoot } from scripts/ui-root.mjs instead -- it resolves the tree from its own location in both layouts.`,
+        `  Import { uiRoot } from scripts/ui-root.mjs instead -- it resolves the tree from its own location in both layouts.\n` +
+        `  The workspace's own files (pnpm-workspace.yaml, node_modules/.pnpm) come from scripts/workspace-root.mjs.`,
     );
     return 1;
   }

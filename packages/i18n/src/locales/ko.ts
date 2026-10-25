@@ -62,6 +62,9 @@ const ko = {
     noRecords: '레코드를 찾을 수 없습니다',
   },
   common: {
+    // objectui#13461 — a disclosure toggle's name (the tree-view node toggle).
+    expand: '펼치기',
+    collapse: '접기',
     addToFavorites: "즐겨찾기에 추가",
     removeFromFavorites: "즐겨찾기에서 제거",
     loading: "로딩 중…",
@@ -127,6 +130,9 @@ const ko = {
       helpMultiValue: '결정 출력으로 플로우에 전달됩니다. 여러 값은 쉼표로 구분하세요.',
     },
     resultDialog: {
+      // objectui#13461 — the secret block's reveal toggle, an icon-only button.
+      showValue: '값 표시',
+      hideValue: '값 숨기기',
       defaultTitle: '이 값을 지금 저장하세요',
       acknowledge: '저장했습니다',
       copyAll: '모두 복사',
@@ -232,6 +238,20 @@ const ko = {
     },
   },
   fields: {
+    // objectui#13461 — names for icon-only buttons in the field widgets.
+    masterDetail: {
+      view: '{{name}} 열기',
+      remove: '{{name}} 제거',
+    },
+    password: {
+      show: '비밀번호 표시',
+      hide: '비밀번호 숨기기',
+    },
+    qrCode: {
+      copy: '값 복사',
+      show: 'QR 코드 표시',
+      hide: 'QR 코드 숨기기',
+    },
     image: {
       upload: "이미지 업로드",
       addMore: "이미지 더 추가",
@@ -2967,6 +2987,8 @@ const ko = {
     forecastSoon: "예측 보기가 곧 출시됩니다",
   },
   user: {
+    // objectui#13461 — the top bar's avatar button, which holds only the avatar.
+    accountMenu: '계정 메뉴',
     profile: "프로필",
     settings: "설정",
     logout: "로그아웃",
@@ -3391,6 +3413,9 @@ const ko = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    // objectui#13461 — the composer's send button and the scroll-to-latest button.
+    sendMessage: '메시지 보내기',
+    scrollToBottom: '최신 메시지로 스크롤',
     answer: {
       showFull: '전체 답변 보기',
       collapse: '접기',

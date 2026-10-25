@@ -2545,6 +2545,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.rls.checkPlaceholder': 'optional — defaults to USING',
   'perm.rls.empty': 'No row-level policies.',
   'perm.rls.add': 'Add policy',
+  'perm.rls.remove': 'Remove policy',
   'perm.rls.nameNeeded': 'Give the policy a name to save it.',
   'perm.rls.nameRefused': 'Not saved. Policy name, on row {row}: {problem}',
   // CEL authoring safety for RLS predicates (objectui#2413).
@@ -2583,6 +2584,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.tabs.help': 'Per-tab visibility for holders of this set.',
   'perm.tabs.empty': 'No tab overrides.',
   'perm.tabs.add': 'Add tab',
+  'perm.tabs.remove': 'Remove tab',
   'perm.tabs.vis.visible': 'Visible',
   'perm.tabs.vis.hidden': 'Hidden',
   'perm.tabs.vis.default_on': 'Default on',
@@ -6091,6 +6093,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.rls.checkPlaceholder': '可选 — 默认同 USING',
   'perm.rls.empty': '暂无行级策略。',
   'perm.rls.add': '新增策略',
+  'perm.rls.remove': '移除策略',
   'perm.rls.nameNeeded': '为策略填写名称后即可保存。',
   'perm.rls.nameRefused': '未保存。第 {row} 行的策略名称：{problem}',
   // 行级安全 CEL 编写安全 (objectui#2413)。
@@ -6127,6 +6130,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.tabs.help': '为此权限集持有者设置各标签页的可见性。',
   'perm.tabs.empty': '暂无标签页覆盖。',
   'perm.tabs.add': '新增标签页',
+  'perm.tabs.remove': '移除标签页',
   'perm.tabs.vis.visible': '可见',
   'perm.tabs.vis.hidden': '隐藏',
   'perm.tabs.vis.default_on': '默认开启',

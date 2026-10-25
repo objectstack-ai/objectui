@@ -69,6 +69,9 @@ const ar = {
     noRecords: 'لا توجد سجلات',
   },
   common: {
+    // objectui#13461 — a disclosure toggle's name (the tree-view node toggle).
+    expand: 'توسيع',
+    collapse: 'طي',
     addToFavorites: "إضافة إلى المفضلة",
     removeFromFavorites: "إزالة من المفضلة",
     loading: "جارٍ التحميل…",
@@ -141,6 +144,9 @@ const ar = {
       helpMultiValue: 'يُمرَّر إلى التدفق كمخرج للقرار. افصل بين القيم المتعددة بفواصل.',
     },
     resultDialog: {
+      // objectui#13461 — the secret block's reveal toggle, an icon-only button.
+      showValue: 'إظهار القيمة',
+      hideValue: 'إخفاء القيمة',
       defaultTitle: 'احفظ هذه القيمة الآن',
       acknowledge: 'لقد حفظتها',
       copyAll: 'نسخ الكل',
@@ -246,6 +252,20 @@ const ar = {
     },
   },
   fields: {
+    // objectui#13461 — names for icon-only buttons in the field widgets.
+    masterDetail: {
+      view: 'فتح {{name}}',
+      remove: 'إزالة {{name}}',
+    },
+    password: {
+      show: 'إظهار كلمة المرور',
+      hide: 'إخفاء كلمة المرور',
+    },
+    qrCode: {
+      copy: 'نسخ القيمة',
+      show: 'إظهار رمز QR',
+      hide: 'إخفاء رمز QR',
+    },
     image: {
       upload: "رفع صورة",
       addMore: "إضافة المزيد من الصور",
@@ -3197,6 +3217,8 @@ const ar = {
     forecastSoon: "عرض التوقعات قادم قريباً",
   },
   user: {
+    // objectui#13461 — the top bar's avatar button, which holds only the avatar.
+    accountMenu: 'قائمة الحساب',
     profile: "الملف الشخصي",
     settings: "الإعدادات",
     logout: "تسجيل الخروج",
@@ -3657,6 +3679,9 @@ const ar = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    // objectui#13461 — the composer's send button and the scroll-to-latest button.
+    sendMessage: 'إرسال الرسالة',
+    scrollToBottom: 'الانتقال إلى أحدث رسالة',
     answer: {
       showFull: 'عرض الإجابة كاملة',
       collapse: 'طي',

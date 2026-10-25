@@ -1189,7 +1189,12 @@ export function AppHeader({
         <div data-topbar-group className="flex items-center gap-0.5 shrink-0">        {/* User Profile + Organization switcher */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 rounded-full"
+              aria-label={t('user.accountMenu', { defaultValue: 'Account menu' })}
+            >
               <Avatar className="h-7 w-7 rounded-full">
                 <AvatarImage src={user?.image} alt={user?.name ?? 'User'} />
                 <AvatarFallback className="rounded-full bg-primary text-primary-foreground text-xs">

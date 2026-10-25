@@ -63,6 +63,9 @@ const es = {
     noRecords: 'No se encontraron registros',
   },
   common: {
+    // objectui#13461 — a disclosure toggle's name (the tree-view node toggle).
+    expand: 'Expandir',
+    collapse: 'Contraer',
     addToFavorites: "Añadir a favoritos",
     removeFromFavorites: "Quitar de favoritos",
     loading: "Cargando…",
@@ -129,6 +132,9 @@ const es = {
       helpMultiValue: 'Se transfiere al flujo como salida de la decisión. Separe varios valores con comas.',
     },
     resultDialog: {
+      // objectui#13461 — the secret block's reveal toggle, an icon-only button.
+      showValue: 'Mostrar valor',
+      hideValue: 'Ocultar valor',
       defaultTitle: 'Guarda este valor ahora',
       acknowledge: 'Lo he guardado',
       copyAll: 'Copiar todo',
@@ -239,6 +245,20 @@ const es = {
     },
   },
   fields: {
+    // objectui#13461 — names for icon-only buttons in the field widgets.
+    masterDetail: {
+      view: 'Abrir {{name}}',
+      remove: 'Quitar {{name}}',
+    },
+    password: {
+      show: 'Mostrar contraseña',
+      hide: 'Ocultar contraseña',
+    },
+    qrCode: {
+      copy: 'Copiar valor',
+      show: 'Mostrar código QR',
+      hide: 'Ocultar código QR',
+    },
     image: {
       upload: "Subir imagen",
       addMore: "Añadir más imágenes",
@@ -3026,6 +3046,8 @@ const es = {
     forecastSoon: "La vista de pronóstico llegará pronto",
   },
   user: {
+    // objectui#13461 — the top bar's avatar button, which holds only the avatar.
+    accountMenu: 'Menú de la cuenta',
     profile: "Perfil",
     settings: "Configuración",
     logout: "Cerrar sesión",
@@ -3459,6 +3481,9 @@ const es = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    // objectui#13461 — the composer's send button and the scroll-to-latest button.
+    sendMessage: 'Enviar mensaje',
+    scrollToBottom: 'Ir al último mensaje',
     answer: {
       showFull: 'Mostrar respuesta completa',
       collapse: 'Contraer',

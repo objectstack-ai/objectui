@@ -63,6 +63,9 @@ const fr = {
     noRecords: 'Aucun enregistrement trouvé',
   },
   common: {
+    // objectui#13461 — a disclosure toggle's name (the tree-view node toggle).
+    expand: 'Développer',
+    collapse: 'Réduire',
     addToFavorites: "Ajouter aux favoris",
     removeFromFavorites: "Retirer des favoris",
     loading: "Chargement…",
@@ -129,6 +132,9 @@ const fr = {
       helpMultiValue: 'Transmis au flux comme sortie de décision. Séparez les valeurs multiples par des virgules.',
     },
     resultDialog: {
+      // objectui#13461 — the secret block's reveal toggle, an icon-only button.
+      showValue: 'Afficher la valeur',
+      hideValue: 'Masquer la valeur',
       defaultTitle: 'Enregistrez cette valeur maintenant',
       acknowledge: 'Je l\'ai enregistrée',
       copyAll: 'Tout copier',
@@ -234,6 +240,20 @@ const fr = {
     },
   },
   fields: {
+    // objectui#13461 — names for icon-only buttons in the field widgets.
+    masterDetail: {
+      view: 'Ouvrir {{name}}',
+      remove: 'Supprimer {{name}}',
+    },
+    password: {
+      show: 'Afficher le mot de passe',
+      hide: 'Masquer le mot de passe',
+    },
+    qrCode: {
+      copy: 'Copier la valeur',
+      show: 'Afficher le code QR',
+      hide: 'Masquer le code QR',
+    },
     image: {
       upload: "Téléverser une image",
       addMore: "Ajouter d'autres images",
@@ -3022,6 +3042,8 @@ const fr = {
     forecastSoon: "La vue de prévision arrive bientôt",
   },
   user: {
+    // objectui#13461 — the top bar's avatar button, which holds only the avatar.
+    accountMenu: 'Menu du compte',
     profile: "Profil",
     settings: "Paramètres",
     logout: "Se déconnecter",
@@ -3455,6 +3477,9 @@ const fr = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    // objectui#13461 — the composer's send button and the scroll-to-latest button.
+    sendMessage: 'Envoyer le message',
+    scrollToBottom: 'Aller au dernier message',
     answer: {
       showFull: 'Afficher toute la réponse',
       collapse: 'Réduire',

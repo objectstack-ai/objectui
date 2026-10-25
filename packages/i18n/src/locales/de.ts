@@ -62,6 +62,9 @@ const de = {
     noRecords: 'Keine Datensätze gefunden',
   },
   common: {
+    // objectui#13461 — a disclosure toggle's name (the tree-view node toggle).
+    expand: 'Erweitern',
+    collapse: 'Einklappen',
     addToFavorites: "Zu Favoriten hinzufügen",
     removeFromFavorites: "Aus Favoriten entfernen",
     loading: "Wird geladen…",
@@ -127,6 +130,9 @@ const de = {
       helpMultiValue: 'Wird dem Flow als Entscheidungsausgabe übergeben. Mehrere Werte durch Komma trennen.',
     },
     resultDialog: {
+      // objectui#13461 — the secret block's reveal toggle, an icon-only button.
+      showValue: 'Wert anzeigen',
+      hideValue: 'Wert verbergen',
       defaultTitle: 'Diesen Wert jetzt speichern',
       acknowledge: 'Ich habe ihn gespeichert',
       copyAll: 'Alle kopieren',
@@ -232,6 +238,20 @@ const de = {
     },
   },
   fields: {
+    // objectui#13461 — names for icon-only buttons in the field widgets.
+    masterDetail: {
+      view: '{{name}} öffnen',
+      remove: '{{name}} entfernen',
+    },
+    password: {
+      show: 'Passwort anzeigen',
+      hide: 'Passwort verbergen',
+    },
+    qrCode: {
+      copy: 'Wert kopieren',
+      show: 'QR-Code anzeigen',
+      hide: 'QR-Code verbergen',
+    },
     image: {
       upload: "Bild hochladen",
       addMore: "Weitere Bilder hinzufügen",
@@ -2968,6 +2988,8 @@ const de = {
     forecastSoon: "Prognoseansicht kommt bald",
   },
   user: {
+    // objectui#13461 — the top bar's avatar button, which holds only the avatar.
+    accountMenu: 'Kontomenü',
     profile: "Profil",
     settings: "Einstellungen",
     logout: "Abmelden",
@@ -3392,6 +3414,9 @@ const de = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    // objectui#13461 — the composer's send button and the scroll-to-latest button.
+    sendMessage: 'Nachricht senden',
+    scrollToBottom: 'Zur neuesten Nachricht scrollen',
     answer: {
       showFull: 'Ganze Antwort anzeigen',
       collapse: 'Einklappen',

@@ -63,6 +63,9 @@ const pt = {
     noRecords: 'Nenhum registro encontrado',
   },
   common: {
+    // objectui#13461 — a disclosure toggle's name (the tree-view node toggle).
+    expand: 'Expandir',
+    collapse: 'Recolher',
     addToFavorites: "Adicionar aos favoritos",
     removeFromFavorites: "Remover dos favoritos",
     loading: "Carregando…",
@@ -129,6 +132,9 @@ const pt = {
       helpMultiValue: 'Entregue ao fluxo como saída da decisão. Separe vários valores por vírgulas.',
     },
     resultDialog: {
+      // objectui#13461 — the secret block's reveal toggle, an icon-only button.
+      showValue: 'Mostrar valor',
+      hideValue: 'Ocultar valor',
       defaultTitle: 'Guarde este valor agora',
       acknowledge: 'Eu o salvei',
       copyAll: 'Copiar tudo',
@@ -234,6 +240,20 @@ const pt = {
     },
   },
   fields: {
+    // objectui#13461 — names for icon-only buttons in the field widgets.
+    masterDetail: {
+      view: 'Abrir {{name}}',
+      remove: 'Remover {{name}}',
+    },
+    password: {
+      show: 'Mostrar senha',
+      hide: 'Ocultar senha',
+    },
+    qrCode: {
+      copy: 'Copiar valor',
+      show: 'Mostrar código QR',
+      hide: 'Ocultar código QR',
+    },
     image: {
       upload: "Enviar imagem",
       addMore: "Adicionar mais imagens",
@@ -3021,6 +3041,8 @@ const pt = {
     forecastSoon: "A exibição de previsão está chegando em breve",
   },
   user: {
+    // objectui#13461 — the top bar's avatar button, which holds only the avatar.
+    accountMenu: 'Menu da conta',
     profile: "Perfil",
     settings: "Configurações",
     logout: "Sair",
@@ -3454,6 +3476,9 @@ const pt = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    // objectui#13461 — the composer's send button and the scroll-to-latest button.
+    sendMessage: 'Enviar mensagem',
+    scrollToBottom: 'Ir para a mensagem mais recente',
     answer: {
       showFull: 'Mostrar resposta completa',
       collapse: 'Recolher',

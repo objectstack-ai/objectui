@@ -62,6 +62,9 @@ const ja = {
     noRecords: 'レコードが見つかりません',
   },
   common: {
+    // objectui#13461 — a disclosure toggle's name (the tree-view node toggle).
+    expand: '展開',
+    collapse: '折りたたむ',
     addToFavorites: "お気に入りに追加",
     removeFromFavorites: "お気に入りから削除",
     loading: "読み込み中…",
@@ -127,6 +130,9 @@ const ja = {
       helpMultiValue: '決定の出力としてフローに渡されます。複数の値はカンマで区切ってください。',
     },
     resultDialog: {
+      // objectui#13461 — the secret block's reveal toggle, an icon-only button.
+      showValue: '値を表示',
+      hideValue: '値を非表示',
       defaultTitle: 'この値を今すぐ保存してください',
       acknowledge: '保存しました',
       copyAll: 'すべてコピー',
@@ -232,6 +238,20 @@ const ja = {
     },
   },
   fields: {
+    // objectui#13461 — names for icon-only buttons in the field widgets.
+    masterDetail: {
+      view: '{{name}} を開く',
+      remove: '{{name}} を削除',
+    },
+    password: {
+      show: 'パスワードを表示',
+      hide: 'パスワードを非表示',
+    },
+    qrCode: {
+      copy: '値をコピー',
+      show: 'QR コードを表示',
+      hide: 'QR コードを非表示',
+    },
     image: {
       upload: "画像をアップロード",
       addMore: "画像を追加",
@@ -2970,6 +2990,8 @@ const ja = {
     forecastSoon: "予測ビューは近日公開予定",
   },
   user: {
+    // objectui#13461 — the top bar's avatar button, which holds only the avatar.
+    accountMenu: 'アカウントメニュー',
     profile: "プロフィール",
     settings: "設定",
     logout: "ログアウト",
@@ -3394,6 +3416,9 @@ const ja = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    // objectui#13461 — the composer's send button and the scroll-to-latest button.
+    sendMessage: 'メッセージを送信',
+    scrollToBottom: '最新のメッセージまでスクロール',
     answer: {
       showFull: '全文を表示',
       collapse: '折りたたむ',

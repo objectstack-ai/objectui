@@ -64,6 +64,9 @@ const ru = {
     noRecords: 'Записи не найдены',
   },
   common: {
+    // objectui#13461 — a disclosure toggle's name (the tree-view node toggle).
+    expand: 'Развернуть',
+    collapse: 'Свернуть',
     addToFavorites: "Добавить в избранное",
     removeFromFavorites: "Удалить из избранного",
     loading: "Загрузка…",
@@ -134,6 +137,9 @@ const ru = {
       helpMultiValue: 'Передаётся в поток как результат решения. Несколько значений разделяйте запятыми.',
     },
     resultDialog: {
+      // objectui#13461 — the secret block's reveal toggle, an icon-only button.
+      showValue: 'Показать значение',
+      hideValue: 'Скрыть значение',
       defaultTitle: 'Сохраните это значение сейчас',
       acknowledge: 'Я сохранил(а) это',
       copyAll: 'Копировать всё',
@@ -239,6 +245,20 @@ const ru = {
     },
   },
   fields: {
+    // objectui#13461 — names for icon-only buttons in the field widgets.
+    masterDetail: {
+      view: 'Открыть {{name}}',
+      remove: 'Удалить {{name}}',
+    },
+    password: {
+      show: 'Показать пароль',
+      hide: 'Скрыть пароль',
+    },
+    qrCode: {
+      copy: 'Копировать значение',
+      show: 'Показать QR-код',
+      hide: 'Скрыть QR-код',
+    },
     image: {
       upload: "Загрузить изображение",
       addMore: "Добавить ещё изображения",
@@ -3093,6 +3113,8 @@ const ru = {
     forecastSoon: "Прогнозное представление скоро будет",
   },
   user: {
+    // objectui#13461 — the top bar's avatar button, which holds only the avatar.
+    accountMenu: 'Меню аккаунта',
     profile: "Профиль",
     settings: "Настройки",
     logout: "Выйти",
@@ -3535,6 +3557,9 @@ const ru = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    // objectui#13461 — the composer's send button and the scroll-to-latest button.
+    sendMessage: 'Отправить сообщение',
+    scrollToBottom: 'Перейти к последнему сообщению',
     answer: {
       showFull: 'Показать ответ полностью',
       collapse: 'Свернуть',

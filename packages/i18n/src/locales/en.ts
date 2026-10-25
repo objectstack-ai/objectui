@@ -68,6 +68,9 @@ const en = {
     retry: 'Retry',
   },
   common: {
+    // objectui#13461 — a disclosure toggle's name (the tree-view node toggle).
+    expand: 'Expand',
+    collapse: 'Collapse',
     loading: 'Loading…',
     save: 'Save',
     // The SHARED "throw away the unsaved draft" verb, read by
@@ -144,6 +147,9 @@ const en = {
       helpMultiValue: 'Handed to the flow as a decision output. Comma-separate multiple values.',
     },
     resultDialog: {
+      // objectui#13461 — the secret block's reveal toggle, an icon-only button.
+      showValue: 'Show value',
+      hideValue: 'Hide value',
       defaultTitle: 'Save this value now',
       acknowledge: 'I have saved this',
       copyAll: 'Copy all',
@@ -348,6 +354,20 @@ const en = {
     },
   },
   fields: {
+    // objectui#13461 — names for icon-only buttons in the field widgets.
+    masterDetail: {
+      view: 'Open {{name}}',
+      remove: 'Remove {{name}}',
+    },
+    password: {
+      show: 'Show password',
+      hide: 'Hide password',
+    },
+    qrCode: {
+      copy: 'Copy value',
+      show: 'Show QR code',
+      hide: 'Hide QR code',
+    },
     relativeDate: {
       overdue: 'Overdue {{count}}d',
       overdue_one: 'Overdue {{count}}d',
@@ -3689,6 +3709,8 @@ const en = {
     forecastSoon: 'Forecast view coming soon',
   },
   user: {
+    // objectui#13461 — the top bar's avatar button, which holds only the avatar.
+    accountMenu: 'Account menu',
     profile: 'Profile',
     settings: 'Settings',
     logout: 'Log out',
@@ -4131,6 +4153,9 @@ const en = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    // objectui#13461 — the composer's send button and the scroll-to-latest button.
+    sendMessage: 'Send message',
+    scrollToBottom: 'Scroll to the latest message',
     answer: {
       showFull: 'Show full answer',
       collapse: 'Collapse',

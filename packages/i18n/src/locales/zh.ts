@@ -67,6 +67,9 @@ const zh = {
     retry: '重试',
   },
   common: {
+    // objectui#13461 — a disclosure toggle's name (the tree-view node toggle).
+    expand: '展开',
+    collapse: '收起',
     loading: '加载中…',
     save: '保存',
     discard: '放弃',
@@ -132,6 +135,9 @@ const zh = {
       helpMultiValue: '作为决策输出传递给流程。多个值请用逗号分隔。',
     },
     resultDialog: {
+      // objectui#13461 — the secret block's reveal toggle, an icon-only button.
+      showValue: '显示值',
+      hideValue: '隐藏值',
       defaultTitle: '请立即保存此值',
       acknowledge: '我已保存',
       copyAll: '全部复制',
@@ -238,6 +244,20 @@ const zh = {
     },
   },
   fields: {
+    // objectui#13461 — names for icon-only buttons in the field widgets.
+    masterDetail: {
+      view: '打开 {{name}}',
+      remove: '移除 {{name}}',
+    },
+    password: {
+      show: '显示密码',
+      hide: '隐藏密码',
+    },
+    qrCode: {
+      copy: '复制值',
+      show: '显示二维码',
+      hide: '隐藏二维码',
+    },
     relativeDate: {
       overdue: '逾期 {{count}} 天',
       overdue_one: '逾期 {{count}} 天',
@@ -3175,6 +3195,8 @@ const zh = {
     forecastSoon: '预测视图即将上线',
   },
   user: {
+    // objectui#13461 — the top bar's avatar button, which holds only the avatar.
+    accountMenu: '账户菜单',
     profile: '个人资料',
     settings: '设置',
     logout: '注销',
@@ -3572,6 +3594,9 @@ const zh = {
   // pin advances, `chatbotToolLabels-locale-parity-7481` starts checking them
   // against the registry instead of against its own hand-held list.
   chatbot: {
+    // objectui#13461 — the composer's send button and the scroll-to-latest button.
+    sendMessage: '发送消息',
+    scrollToBottom: '滚动到最新消息',
     answer: {
       showFull: '展开全文',
       collapse: '收起',

@@ -110,7 +110,8 @@ describe('objectui#11252 — an unset driver-config enum reads Studio\'s `engine
 
   it('CONTROL — an enum with a declared default renders its value, not the placeholder', async () => {
     const trigger = await openModeSelect('zh-CN', tursoDriver({ default: 'remote' }));
-    expect(trigger).toHaveTextContent('remote');
+    // The option text is built from the raw value since objectui#13353.
+    expect(trigger).toHaveTextContent('Remote');
     expect(trigger).not.toHaveTextContent(t('engine.form.selectEllipsis', 'zh-CN'));
   });
 });

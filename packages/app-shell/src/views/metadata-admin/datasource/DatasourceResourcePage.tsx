@@ -82,6 +82,7 @@ import {
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { useMetadataClient } from '../useMetadata.js';
 import { t, tFormat, useMetadataLocale, type SupportedLocale } from '../i18n.js';
+import { humanizeKey } from '../inspectors/json-schema-to-fields.js';
 // objectui#7265 — this page used to re-describe the introspection row as a
 // module-local `interface RemoteTable { name; schema?; columnCount? }`. It is
 // the SAME wire shape `GET /datasources/:name/remote-tables` returns, and the
@@ -237,8 +238,9 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
   const metaClient = useMetadataClient();
   // objectui#13460 — the page's copy is `engine.datasource.*` in the Studio
   // table (en-US + zh-CN, the `engine.*` carve-out in `packages/i18n/README.md`).
-  // Author data (names, driver labels and descriptions, server messages) and the
-  // driver config schema's enum option values (objectui#13353) stay as served.
+  // Author data (names, driver labels and descriptions, server messages) stays
+  // as served; an enum option's text is built from its value (objectui#13353,
+  // `renderField`).
   const locale = useMetadataLocale();
   /** The locale the memoised loaders below read at call time, so a language switch does not refetch. */
   const localeRef = React.useRef(locale);
@@ -586,13 +588,18 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
       // An unset enum (Turso's optional `mode`, say) shows Studio's own
       // `engine.form.selectEllipsis`, the word `SchemaForm`'s enum selects
       // show, in the designer's locale (objectui#11252).
+      // objectui#13353 — the driver-config schema declares no per-option label,
+      // so each option's text is built from its raw value with `humanizeKey`,
+      // the helper `SchemaForm`'s enum selects use (`off` → "Off",
+      // `read_only` → "Read Only", `fullSync` → "Full Sync"). The value the
+      // form saves stays the raw enum member.
       return (
         <div key={key} className="space-y-1">
           <Label className="text-xs">{label}{required ? ' *' : ''}</Label>
           <Select value={value != null ? String(value) : ''} onValueChange={(v) => setConfigValue(key, v)}>
             <SelectTrigger><SelectValue placeholder={t('engine.form.selectEllipsis', locale)} /></SelectTrigger>
             <SelectContent>
-              {prop.enum.map((opt) => <SelectItem key={String(opt)} value={String(opt)}>{String(opt)}</SelectItem>)}
+              {prop.enum.map((opt) => <SelectItem key={String(opt)} value={String(opt)}>{humanizeKey(String(opt))}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

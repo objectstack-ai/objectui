@@ -6535,7 +6535,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             // Read-only, as on the grid and the tree: capability is handler
             // presence, and this view hands the panel no write path.
             const recordId = record.id ?? record._id;
-            if (schema.objectName && recordId != null) {
+            if (schema.objectName && (typeof recordId === 'string' || typeof recordId === 'number')) {
               return (
                 <div className="px-6 pt-6 pb-6">
                   <RecordDetailPanel

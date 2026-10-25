@@ -1612,7 +1612,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
             // Read-only, as on the grid and the tree: capability is handler
             // presence, and this view hands the panel no write path.
             const recordId = record.id ?? record._id;
-            if (recordSourceObjectName && recordId != null) {
+            if (recordSourceObjectName && (typeof recordId === 'string' || typeof recordId === 'number')) {
               return (
                 <div className="px-6 pt-6 pb-6">
                   <RecordDetailPanel

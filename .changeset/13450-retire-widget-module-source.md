@@ -19,5 +19,5 @@ One-line fix: replace each `{ type: 'module', url }` with `{ type: 'inline', com
 
 Remote widgets as a product capability would be a new contract (a signed manifest and an allow-listed origin, decided in `@objectstack/spec`). This release does not add one.
 
-Clause-②: no
+Clause-②: no (narrowing)
 Metadata-protocol: narrowed

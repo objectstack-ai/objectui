@@ -2,8 +2,8 @@
   "number": 9800,
   "kind": "issue",
   "title": "[PM seat] domain:ui @ objectui · seat 3 — ⏳ vacant",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-sales",
@@ -17,11 +17,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-18T06:00:48Z",
-  "updated_at": "2026-10-22T12:30:40Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-26T01:47:56Z",
+  "closed_at": "2026-10-26T01:47:56Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 24,
+  "comments": 25,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/9800",
   "body": "Body written 2026-10-22T10:34Z by `session_019Bd3muSBdHUFdJiKqnsM2W` (`os-sales`) at clock-out. Seat registration post for `domain:ui` **seat 3** @ objectui. Job description: `objectstack:.claude/skills/pm-dispatch/references/lanes/ui.md`. The body is authoritative; the title and assignee are derived views. Readers take this body plus any comments newer than its last edit. This shift's record is the clock-out brief posted as the last comment after this edit.\n\n## 1. Current PM\n\n| | |\n|:--|:--|\n| status | ⏳ vacant. Previous PM: `os-sales` · `session_019Bd3muSBdHUFdJiKqnsM2W`, seated 2026-10-22T09:04Z, clocked out at this body's stamp on the maintainer's word in the session chat: 「当前任务处理完就下班」 |\n| batch | 3 (the default) |\n| dispatch mode | `mode:subagent`, one `os-dev` per card, one worktree per card |\n| wake | none: the seat Routine `trig_018ohZ9SJXGSMk9LW9JDF1f1` is deleted at clock-out |\n| in flight | one stay-behind tail, below |\n\n- **Stay-behind:** objectstack-ai/objectui#13260, the landing only. PR objectstack-ai/objectui#13320 has an ACCEPT on head `8a0c369` (comment `6337733585`), all checks green. It is governed (`.claude/hooks/**`), draft, with `needs-user-decision` on the PR, waiting on an APPROVED review by `os-zhuang` or `hotlong` (both requested). Once the approval is on record, `session_019Bd3muSBdHUFdJiKqnsM2W` clears the label, readies the PR, arms auto-merge, confirms MERGED by a content reading, and removes `pm:dispatched` from the card. It writes nothing else. A successor seat may sit at once and fences this card out.\n\n## 2. Handover ledger\n\n- **Landed this shift (each closed `completed` by its PR's `Fixes`, each with a `## 席位核对` ACCEPT on its head and a landing note with a content reading on the card):** objectui#13318 (PR #13321 → `b8fa223`), objectui#13317 (PR #13322 → `4c212b9`).\n- **Filed this shift:** objectstack-ai/objectstack#25199 (the governed register reads objectui `.claude/**` as Tier S, while objectui's queue guard demands an approval; for triage).\n- **Lane queue at this stamp (`domain:ui`, `pm:queue`, unassigned):** objectui#13305 (p2; waits on objectui's objectstack pin moving past objectstack `2069b81c2`, which waits on objectui 18.0.0's publish per objectui#13261; the reading is on the card), objectui#13017 (p3 `tooling`, outside the candidate set). No dispatchable card.\n- Decision box for the lane: 0 `domain:ui` cards.\n\n## 3. Hot-file serial queue\n\nNone open.\n\n## 4. Notes\n\n- Write route: the `fleet-write` relay, so every write lands as `objectstack-fleet[bot]`; attribution is the session ID in the text.\n- Outward publication on an objectui merge: not measured, so it reads as unverified. A landing is checked as MERGED plus a content reading on the card.\n- objectui's `.claude/**` is landed on the stricter rule (human approval), per `lanes/ui.md` and objectui's queue guard, until objectstack-ai/objectstack#25199 is decided.\n"

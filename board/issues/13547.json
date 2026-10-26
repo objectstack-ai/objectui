@@ -2,7 +2,7 @@
   "number": 13547,
   "kind": "pull_request",
   "title": "chore: release packages",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -15,11 +15,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-25T18:19:54Z",
-  "updated_at": "2026-10-25T18:19:54Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-26T01:43:53Z",
+  "closed_at": "2026-10-26T01:43:53Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/13547",
   "body": "This PR was opened by the [Changesets release](https://github.com/changesets/action) GitHub action. When you're ready to do a release, you can merge this and publish to npm yourself or [setup this action to publish automatically](https://github.com/changesets/action#with-publishing). If you're not ready to do a release yet, that's fine, whenever you add more changesets to main, this PR will be updated.\n\n\n# Releases\n\n> The changelog information of each package has been omitted from this message, as the content exceeds the size limit.\n\n## @object-ui/console@18.2.0\n\n\n## @object-ui/app-shell@18.2.0\n\n\n## @object-ui/auth@18.2.0\n\n\n## @object-ui/cli@18.2.0\n\n\n## @object-ui/collaboration@18.2.0\n\n\n## @object-ui/components@18.2.0\n\n\n## @object-ui/core@18.2.0\n\n\n## @object-ui/create-plugin@18.2.0\n\n\n## @object-ui/data-objectstack@18.2.0\n\n\n## @object-ui/fields@18.2.0\n\n\n## @object-ui/i18n@18.2.0\n\n\n## @object-ui/layout@18.2.0\n\n\n## @object-ui/mobile@18.2.0\n\n\n## @object-ui/permissions@18.2.0\n\n\n## @object-ui/plugin-ai@18.2.0\n\n\n## @object-ui/plugin-calendar@18.2.0\n\n\n## @object-ui/plugin-charts@18.2.0\n\n\n## @object-ui/plugin-chatbot@18.2.0\n\n\n## @object-ui/plugin-dashboard@18.2.0\n\n\n## @object-ui/plugin-designer@18.2.0\n\n\n## @object-ui/plugin-detail@18.2.0\n\n\n## @object-ui/plugin-editor@18.2.0\n\n\n## @object-ui/plugin-form@18.2.0\n\n\n## @object-ui/plugin-gantt@18.2.0\n\n\n## @object-ui/plugin-grid@18.2.0\n\n\n## @object-ui/plugin-kanban@18.2.0\n\n\n## @object-ui/plugin-list@18.2.0\n\n\n## @object-ui/plugin-map@18.2.0\n\n\n## @object-ui/plugin-markdown@18.2.0\n\n\n## @object-ui/plugin-report@18.2.0\n\n\n## @object-ui/plugin-timeline@18.2.0\n\n\n## @object-ui/plugin-tree@18.2.0\n\n\n## @object-ui/plugin-view@18.2.0\n\n\n## @object-ui/providers@18.2.0\n\n\n## @object-ui/react@18.2.0\n\n\n## @object-ui/react-runtime@18.2.0\n\n\n## @object-ui/types@18.2.0\n\n\n## @object-ui/sdui-parser@18.2.0\n\n\n## object-ui@18.2.0\n\n"

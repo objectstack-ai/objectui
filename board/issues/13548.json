@@ -1,0 +1,30 @@
+{
+  "number": 13548,
+  "kind": "pull_request",
+  "title": "docs(readme): migration notice — Object UI now lives in objectstack ui/, this repository is archived",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-26T01:54:40Z",
+  "updated_at": "2026-10-26T01:54:49Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/13548",
+  "body": "<!-- claude-projects-attribution: {\"github_login\":\"os-tesla\"} -->\n_Requested by **Tesla** · [project thread](https://claude.ai/code/project/chan_01AXsQkLFKRdQCqQ3RTr6Jao?thread=cmsg_01AXsQkLFKRdQCqQ3RTr6JaoP5hmR9s2hEkJ3JQG52fKxW)_\n\nPart of objectstack#25854 (step 4) · epic objectstack#25677.\n\n## What\n\nThe README now opens with the migration notice (+20 lines, nothing else changed):\n\n- the code lives in objectstack-ai/objectstack `ui/`, imported from this repository's last `main` commit `9e1fe03286` by objectstack#25825;\n- the history before the import stays here: objectstack took the tree as one squashed commit, and the maintainer ruled content-only (ruling 31 = A, 2026-10-26), so this repository is archived and never deleted;\n- porting an unmerged branch: `git format-patch 9e1fe03286..<branch> --stdout`, then `git am --directory=ui` in objectstack;\n- issues were transferred to objectstack (label `domain:ui`) and their old links redirect;\n- `@object-ui/*` keeps its names and publishes from objectstack's release lane at the same version as `@objectstack/*`, starting with 18.2.0.\n\nThe notice text was approved on the card by the epic PM before this PR opened.\n\n## Merge\n\nThis is the last PR into objectui `main`, which has been frozen since 2026-10-25 15:40Z. The freeze lifts for this one PR, and **the maintainer merges it** before clicking Archive (Settings → Danger Zone → **Archive**, not delete).\n\n## Checks run\n\n- `node scripts/check-changeset-presence.mjs`: no changeset owed (README only, no published source).\n- Links: every objectstack target (`tree/main/ui`, `CONTRIBUTING.md`, `ui/CONTRIBUTING.md`) exists on objectstack `main` `e167956e3f`.\n\n## Template\n\n- [x] Adds no product-specific widget, dialog, hook or string (README only)\n\nClause-②: no · Metadata-protocol: none\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01Wwz2JyPTr96nthSEqTzvw5\n"
+}

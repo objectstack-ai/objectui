@@ -1,5 +1,165 @@
 # @object-ui/app-shell — Changelog
 
+## 18.2.0
+
+### Minor Changes
+
+- 0063f22: Clause-②: no
+  Metadata-protocol: none
+  
+  **Breaking:** test-only reset helpers are no longer on the package roots (objectui#13453): `resetRuntimeConfigForTesting` (`@object-ui/app-shell`), `resetInflightGetsForTesting` (`@object-ui/types`) and `__clearRecordEditableCache` (`@object-ui/plugin-detail`). They reset module state between tests and had no other reader. Declared `minor` per the version-alignment policy (a changeset never declares `major`).
+- 6f629a7: Clause-②: no
+  Metadata-protocol: none
+  
+  **Breaking:** React 18 is no longer a supported host. `peerDependencies.react` and `peerDependencies.react-dom` now read `^19.0.0` (was `^18.0.0 || ^19.0.0`). Nothing in this repository ever installed or tested React 18, so the old range was a promise without a test behind it; a React 18 host now gets a peer-dependency warning or refusal at install time instead of an untested runtime. Declared `minor` per the version-alignment policy (a changeset never declares `major`). Upgrade the host to React 19 (objectui#13465).
+- 3b7b040: The `react-pages` capability (`kind: 'react'` pages, whose source runs in the application with no sandbox) now defaults to **off** in `@object-ui/core`. A host turns it on explicitly. This changes a published default; it is marked `minor` under this repository's version policy.
+  
+  - **ObjectStack deployments.** The server decides: with `OS_PAGE_REACT_ENABLED=true` it writes the enable global (`window.__OBJECTUI_CAPABILITIES__`) into the Console document, and otherwise the disable global. A server older than that writes only the disable global, and only when the deployment set `OS_PAGE_REACT=off`, so on such a server react pages stay off until it is upgraded.
+  - **A host that embeds the renderer.** FROM: react pages ran unless the host called `disableCapability('react-pages')`. TO: they run only after the host calls `enableCapability('react-pages')` (or sets the enable global before the bundle runs).
+  - **While off**, a react page renders the "React pages are disabled on this deployment" notice, which now names `OS_PAGE_REACT_ENABLED=true` as the switch, and the Studio's new-page dialog offers only the `html` kind. `kind: 'html'` pages are unaffected.
+  
+  Clause-②: no
+  Metadata-protocol: none
+
+### Patch Changes
+
+- ebd20ec: fix(app-shell): readable option labels for unlabeled datasource enum selects (objectui#13353)
+  
+  Setup → Datasources: a driver-config JSON Schema `enum` select showed each raw value (`off`, `safe`) as its option text. The driver-config schema declares no per-option label, so each option's text is now built from its raw value with Studio's `humanizeKey`, the helper `SchemaForm`'s enum selects already use (`off` → "Off", `read_only` → "Read Only", `fullSync` → "Full Sync"). The value the form saves stays the raw enum member.
+  
+  Clause-②: no
+  Metadata-protocol: none
+- 320ec35: Clause-②: no
+  Metadata-protocol: narrowed
+  
+  An invalid `gantt` block is refused instead of drawn (objectui#13459). `ObjectGantt` used to log `Invalid gantt configuration` and render the block anyway, so a block with a misspelt or missing key still drew a chart. It now renders a refusal that names each `GanttConfigSchema` issue by its path in the block (`gantt.endDateField: …`); a valid block and the flat ObjectView / ListView spelling render as before.
+  
+  The Studio designers' spec derivations (`dashboard`, `package`, `page`, `report` and `view` schemas in `metadata-admin`) no longer catch a failed derivation and return `undefined`, which rendered a designer form silently missing fields. Their only input is the bundled spec, so a failure is a build-time fact that fails their tests; at runtime it reaches the route's error boundary.
+- d0c9650: Clause-②: no
+  Metadata-protocol: none
+  
+  fix(console, app-shell): four routed console pages and the Studio datasource page speak the session's language instead of hard-coded English (objectui#13460).
+  
+  - Developer → API Console, Developer → Public Forms, Developer → Integrations & APIs and System → AI Approvals read their copy from new `console.developer.apiConsole.*`, `console.developer.publicForms.*`, `console.developer.integrations.*` and `console.system.aiApprovals.*` keys, translated in all ten locale packs. Sentences with an inline bold action or `<code>` key are one translated string each, so every language places the element itself.
+  - Setup → Datasources reads its copy from new `engine.datasource.*` rows in the Studio table (en-US and zh-CN, the `engine.*` carve-out). The driver config form's enum option values are unchanged.
+  - English renders exactly as before, with or without an i18n provider. Code samples, verbs, paths, example slugs and server messages stay as written.
+- 4aa90ba: Icon-only buttons in the console now have an accessible name, and the clickable `div` / `span` controls the console drew are real buttons a keyboard can reach (objectui#13461).
+  
+  Clause-②: no
+  Metadata-protocol: none
+  
+  - Named, in every shipped language: the AI canvas's close button, the secret value's show / hide toggle in the action result dialog, the permission set editor's remove-policy and remove-tab buttons, the metadata history page's refresh button, the sort builder's remove button, the `file-upload` renderer's remove buttons, the file, master-detail, password and QR-code field widgets' icon buttons, the chat composer's send button, the chat's scroll-to-latest button, and the top bar's avatar button ("Account menu").
+  - The organization picker's "Manage" link is its own button beside the card, not a clickable `span` inside the card's button, so it can be tabbed to and is no longer read as part of the card's name.
+  - A flow canvas branch label selects its edge with Enter or Space when the edge is selectable.
+  - `tree-view`: the expand toggle is named ("Expand" / "Collapse") and reports `aria-expanded`; a node is a button only when the host passes `onNodeClick`, instead of a clickable row wrapped round the toggle.
+  - `file-upload`: the dropzone opens the file picker with Enter or Space.
+  - The app preview's read-only navigation list no longer carries a click handler that could never fire.
+  - New pack keys: `common.expand`, `common.collapse`, `user.accountMenu`, `actions.resultDialog.showValue` / `hideValue`, `fields.masterDetail.view` / `remove`, `fields.password.show` / `hide`, `fields.qrCode.copy` / `show` / `hide`, `chatbot.sendMessage`, `chatbot.scrollToBottom`.
+- 23e912e: Clause-②: no
+  Metadata-protocol: none
+  
+  A report whose `label` or `description` is an inline locale map (`{ en, 'zh-CN' }`) now opens, and shows both in the viewer's language (objectui#13470).
+  
+  `@objectstack/spec` types both keys as `I18nLabel`, so the map is valid metadata and is served unchanged, but the report page drew it straight into its heading, the line under it and the report's crumb in the app bar: React refused the object (error #31) and the page was blank for every viewer. A drill on the whole report titled its drawer `[object Object]`. Each of these now resolves the map to the viewer's language with the reader the app's report index already names a report with. A plain-string label or description draws exactly as before.
+- 5698ec7: Clause-②: no
+  Metadata-protocol: none
+  
+  A permission set's Assigned users list now names the position a person holds the set through by the position's label, in the viewer's language, instead of its machine name (objectui#13477).
+  
+  The "via position" chip drew the `position` column of the holder's `sys_user_position` row, the machine name, although the section had already listed the registry's position definitions to find the positions that distribute the set, and that list carries each definition's label as the server localizes it. The chip now reads the label from that list and keeps the name on its tooltip, as the access explainer's position chips do. A position whose definition has no label still reads by its name.
+- b41ed7f: Clause-②: yes
+  Metadata-protocol: none
+  
+  The metadata designer's translation preview draws the `positions` and `permissions` groups that `@objectstack/spec` now declares on a translation bundle, each with its own card, count and sample, and counts them in the coverage bar. Before, the preview did not type-check against that spec, and a bundle that translated only position or permission-set labels read as empty.
+  
+  `isSpecTranslationData` recognises a served translation document by those two groups as well, so a bundle that translates only positions or permission sets is namespaced under `app` like any other spec bundle instead of being returned untransformed.
+- db9af10: Clause-②: no
+  Metadata-protocol: none
+  
+  A page whose `label` or `description` is an inline locale map (`{ en, 'zh-CN' }`) now opens, and shows both in the viewer's language (objectui#13488). A dashboard whose `label` is one no longer blanks its route through the app bar.
+  
+  `@objectstack/spec` types a page's `label` and `description`, and a dashboard's `label`, as `I18nLabel`, so the map is valid metadata and is served unchanged. The page drew it straight into its own heading, the line under it, and the description a titled `page:header` draws, and the app bar drew a page's or a dashboard's label as the phone bar's title: React refused the object (error #31) and the route was blank for every viewer. Each of these now resolves the map to the viewer's language. A plain-string label or description draws exactly as before.
+- cd70b78: Clause-②: no
+  Metadata-protocol: none
+  
+  One react line: every manifest that pins `react` / `react-dom` now pins 19.3.0, and every `@types/react` / `@types/react-dom` pin is 19.3.0, matching the root `pnpm.overrides`. The objectstack monorepo's `@objectstack/client-react` requires react `^19.3.0`, and a second `@types/react` copy broke `@object-ui/plugin-view`'s declaration build in the merged tree. The CLI's scaffold (`REACT_RANGE` and the shared dev-dependency map in `scaffold-dependencies.ts`) quotes the same pins, as its anchor test requires.
+- cd70b78: Clause-②: no
+  Metadata-protocol: none
+  
+  One zod range: `@object-ui/app-shell`, `@object-ui/components`, `@object-ui/types` and `@object-ui/plugin-timeline` declare `zod` as `^4.6.5`, the range the objectstack monorepo declares, so the merged lockfile resolves one zod rather than two. The console bundle already carried a single copy; what changes is the declared floor.
+- Updated dependencies [d12c615]
+- Updated dependencies [46c56ee]
+- Updated dependencies [ee4f1ef]
+- Updated dependencies [610d9ef]
+- Updated dependencies [899f381]
+- Updated dependencies [0063f22]
+- Updated dependencies [0063f22]
+- Updated dependencies [699156a]
+- Updated dependencies [0063f22]
+- Updated dependencies [0063f22]
+- Updated dependencies [96c3649]
+- Updated dependencies [d0c9650]
+- Updated dependencies [5399bbc]
+- Updated dependencies [4aa90ba]
+- Updated dependencies [85b6a48]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [ee7e3a6]
+- Updated dependencies [84ce59c]
+- Updated dependencies [b41ed7f]
+- Updated dependencies [db9af10]
+- Updated dependencies [76c560e]
+- Updated dependencies [cd70b78]
+- Updated dependencies [cd70b78]
+- Updated dependencies [be64bf6]
+- Updated dependencies [1212e3e]
+- Updated dependencies [3b7b040]
+  - @object-ui/plugin-chatbot@18.2.0
+  - @object-ui/plugin-detail@18.2.0
+  - @object-ui/types@18.2.0
+  - @object-ui/core@18.2.0
+  - @object-ui/data-objectstack@18.2.0
+  - @object-ui/plugin-grid@18.2.0
+  - @object-ui/components@18.2.0
+  - @object-ui/collaboration@18.2.0
+  - @object-ui/providers@18.2.0
+  - @object-ui/react@18.2.0
+  - @object-ui/plugin-list@18.2.0
+  - @object-ui/plugin-view@18.2.0
+  - @object-ui/i18n@18.2.0
+  - @object-ui/fields@18.2.0
+  - @object-ui/auth@18.2.0
+  - @object-ui/permissions@18.2.0
+  - @object-ui/plugin-calendar@18.2.0
+  - @object-ui/plugin-charts@18.2.0
+  - @object-ui/plugin-dashboard@18.2.0
+  - @object-ui/plugin-designer@18.2.0
+  - @object-ui/plugin-editor@18.2.0
+  - @object-ui/plugin-form@18.2.0
+  - @object-ui/plugin-kanban@18.2.0
+  - @object-ui/plugin-report@18.2.0
+  - @object-ui/layout@18.2.0
+
 ## 18.1.0
 
 ### Minor Changes

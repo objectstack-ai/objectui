@@ -1,5 +1,90 @@
 # @object-ui/types
 
+## 18.2.0
+
+### Minor Changes
+
+- ee4f1ef: Clause-②: yes
+  Metadata-protocol: none
+  
+  A list bulk action keeps each failed record's id and the server's reason, and a bulk run refreshes the bound list once instead of once per row (objectui#13442).
+  
+  A 100-row bulk update took about 100 s in the console for about 19 s of server work. `bulkUpdate` read only the server's `succeeded` count, so a partial failure reached the result dialog and the error CSV as one `batch_0: N records failed` entry with no record id or reason. Apps that needed the reason ran `batchSize: 1`, and on that per-row path every write refetched and re-rendered the whole list.
+  
+  - `DataSource.bulkUpdate` / `bulkDelete` (`@object-ui/types`) may now resolve to a `BulkWriteResult`, `{ succeeded, errors: [{ id, error }] }`, as well as to a plain count. Both new types are exported. An adapter that returns a number keeps working unchanged. A caller that reads the result must now handle both shapes; the bulk executor does.
+  - `ObjectStackAdapter.bulkUpdate` / `bulkDelete` (`@object-ui/data-objectstack`) resolve to a `BulkWriteResult` built from the `results[].errors[]` that `updateMany` / `deleteMany` already answer, and the per-id fallback loop keeps each row's reason instead of discarding it. Breaking for direct callers: these two methods used to resolve to a number. Code that calls them directly and reads the result as a count must read `.succeeded`.
+  - `executeBulkBatch` (`@object-ui/core`) reports each failure the bulk call names under its own id and reason. Only failures it does not name still fold into one `batch_${offset}` entry. So the result dialog, the error CSV and Retry work per record whatever the `batchSize`, and Undo skips the failed rows.
+  - New optional `DataSource.batchMutationEvents(work)`: runs `work` with `onMutation` events held, then delivers them when it settles, one per resource and mutation type. `ObjectStackAdapter` implements it. `useBulkExecutor` (`@object-ui/plugin-grid`) runs each bulk run and each undo inside it, so ListView, ObjectView, kanban, calendar and the console's invalidation bridge refetch once per run, not once per row. The executor's `dataSource` face gains the matching optional member.
+- 610d9ef: The raw-HTML `html` node type is retired (objectui#13449). Its renderer wrote the authored `html` string into the page through `dangerouslySetInnerHTML` with no sanitiser, so anyone who could write metadata could put script-bearing markup in front of every viewer — a `kind: 'html'` page included, which compiled an `html` tag carrying an `html` attribute with no diagnostic. `@objectstack/spec` declares no `html` component, so it is removed rather than sanitised, at once, with no deprecation alias. This is breaking for a page that still names it; it is marked `minor` under this repository's version policy.
+  
+  - **SDUI node `html`**, also registered as `ui:html`. FROM: `@object-ui/components` registered both keys. TO: neither is registered. A JSON node that still names it draws the unknown-component panel, a `kind: 'html'` page that writes the tag fails to compile with `forbidden-tag` and `unknown-component`, and `objectui check` no longer counts either key among the known component types.
+  - **Public block `html`** in `PUBLIC_BLOCKS` (`@object-ui/core`). FROM: listed as the curated tier's escape hatch, so `getPublicConfigs()` and the published `sdui.manifest.json` carried it. TO: not listed, so neither names it.
+  - **Schema `HtmlSchema`** in `@object-ui/types`: the TypeScript interface from the package entry, with its `DataDisplaySchema` member and its `SchemaRegistry` row (so `ComponentType` no longer offers `'html'`), and the zod arm from `@object-ui/types/zod`. FROM: exported, and a `type: "html"` node validated against the arm. TO: there is no such export, so importing it fails to compile. `DataDisplaySchema` keeps a refusal arm for the literal, which is not exported, so `objectui validate` refuses a `type: "html"` node BY NAME at `type`, and the message names the remedy.
+  
+  The `html` FIELD type (`HtmlFieldMetadata`, drawn by `field:html`) is a different layer and stays: its value displays through the sanitised fields path.
+  
+  Fix for a page that still names it: in place of `{ "type": "html", "html": "…" }`, declare rich text a user edits as an `html` or `richtext` field on the object, whose value renders sanitised, and write authored page copy as a `kind: 'html'` page.
+  
+  Clause-②: no (narrowing)
+  Metadata-protocol: narrowed
+- 899f381: **BREAKING:** the `module` widget source is retired. `WidgetRegistry` no longer loads a widget's code from a URL at runtime (objectui#13450).
+  
+  `RuntimeWidgetSource` had a `module` member, `{ type: 'module', url, exportName? }`, and `WidgetRegistry.load()` resolved it with a dynamic `import()` built through the Function constructor so that bundlers could not see it. That is the runtime dynamic import AGENTS.md commandment #6 forbids ("No `eval()` / runtime dynamic imports to load components"), and it also needs `unsafe-eval` under a strict Content Security Policy. The member, its `WidgetSourceModule` interface and the loader arm are removed. `RuntimeWidgetSource` is now `WidgetSourceInline | WidgetSourceRegistry`.
+  
+  An old manifest is refused loudly, not skipped. In TypeScript, `type: 'module'` no longer type-checks, and importing `WidgetSourceModule` is `TS2305`. A manifest that reaches `WidgetRegistry.load()` untyped (plain JavaScript, a cast, or an older `@object-ui/types`) is rejected before anything is fetched. The rejection names the retired `module` source and both replacements, `load()` emits `widget:error`, and `loadAll()` reports the error for that widget. Any other unknown source type is rejected the same way, and the message lists the supported types.
+  
+  Migration, FROM → TO:
+  
+  - FROM `source: { type: 'module', url: '/widgets/chart.js', exportName: 'Chart' }`
+  - TO `import { Chart } from './widgets/chart';` and then `source: { type: 'inline', component: Chart }`. The component is imported at build time, so the bundler sees it.
+  - OR register the component once with the component registry (`ComponentRegistry.register('chart', Chart)`) and declare `source: { type: 'registry', registryKey: 'chart' }`.
+  
+  One-line fix: replace each `{ type: 'module', url }` with `{ type: 'inline', component }`, where `component` is imported at build time.
+  
+  Remote widgets as a product capability would be a new contract (a signed manifest and an allow-listed origin, decided in `@objectstack/spec`). This release does not add one.
+  
+  Clause-②: no (narrowing)
+  Metadata-protocol: narrowed
+- 0063f22: Clause-②: no
+  Metadata-protocol: none
+  
+  **Breaking:** test-only reset helpers are no longer on the package roots (objectui#13453): `resetRuntimeConfigForTesting` (`@object-ui/app-shell`), `resetInflightGetsForTesting` (`@object-ui/types`) and `__clearRecordEditableCache` (`@object-ui/plugin-detail`). They reset module state between tests and had no other reader. Declared `minor` per the version-alignment policy (a changeset never declares `major`).
+- 1212e3e: Clause-②: yes
+  Metadata-protocol: added
+  
+  Nine duration keys now carry their unit in their name (objectstack#25762). Each one said its unit only in its description, so `timeout: 300` read as either milliseconds or seconds. After objectui merges into objectstack, `@objectstack/spec`'s `check:duration-unit-keys` judges these schemas too, and the maintainer chose to rename the keys rather than exempt them. The renames follow objectstack's own (`…Ms` / `…Seconds`, the unit each description already stated). The value and its unit do not change, only the key name. This is breaking for a document that still writes an old name; it is marked `minor` under this repository's version policy.
+  
+  | Node / schema | FROM | TO | Unit |
+  |---|---|---|---|
+  | `carousel` (`CarouselSchema`) | `autoPlay` | `autoPlayMs` | milliseconds |
+  | `chatbot`, `chatbot-enhanced`, `chatbot-floating` | `autoResponseDelay` | `autoResponseDelayMs` | milliseconds |
+  | `ActionSchema` | `timeout` | `timeoutMs` | milliseconds |
+  | `ActionSchema.retry` | `delay` | `delayMs` | milliseconds |
+  | `toast` (`ToastSchema`) | `duration` | `durationMs` | milliseconds |
+  | `tooltip` (`TooltipSchema`) | `delayDuration` | `delayDurationMs` | milliseconds |
+  | `hover-card` (`HoverCardSchema`) | `openDelay` | `openDelayMs` | milliseconds |
+  | `hover-card` (`HoverCardSchema`) | `closeDelay` | `closeDelayMs` | milliseconds |
+  | `report` (`ReportComponentSchema`) | `refreshInterval` | `refreshIntervalSeconds` | seconds |
+  
+  What an author sees with an old name:
+  
+  - **zod (`@object-ui/types/zod`).** The old key is still declared, as a tombstone, so it is refused at its own path with code `invalid_type`. The message names the new key: "`timeout` is now `timeoutMs` … the value (milliseconds) is unchanged." Without the tombstone, `.passthrough()` would keep the value and nothing would read it.
+  - **TypeScript.** The old member is `?: never` with `@deprecated`, so a typed literal that writes it fails to compile.
+  - **Renderers.** `toast`, `tooltip`, `hover-card`, the three chatbot registrations and `ReportViewer` read the new key. Their registration `inputs` and `defaultProps` use the new name too. The `useObjectChat` hook option `autoResponseDelay` is a programmatic API, not a schema key, and keeps its name.
+  
+  objectui has no conversion registry: ADR-0087's D2 table lives in `@objectstack/spec`. The conversion is this table plus the refusal message. To migrate, rename each key as the table shows and keep the value.
+
+### Patch Changes
+
+- 46c56ee: Clause-②: no
+  Metadata-protocol: semantic
+  
+  A record section whose fields are all empty, and that the page keeps (`hideEmpty: false`), now draws its heading plus one "Show N empty fields" row in read-only mode, the same fold a partly-filled section uses, instead of a placeholder row per field. Edit mode still draws every field as an editable row, and a print page still prints every row. When every section of a detail body is empty and at least two are kept, the body draws one "Show N empty fields" row for all of them (objectui#13386, objectui#12618).
+- cd70b78: Clause-②: no
+  Metadata-protocol: none
+  
+  One zod range: `@object-ui/app-shell`, `@object-ui/components`, `@object-ui/types` and `@object-ui/plugin-timeline` declare `zod` as `^4.6.5`, the range the objectstack monorepo declares, so the merged lockfile resolves one zod rather than two. The console bundle already carried a single copy; what changes is the declared floor.
+
 ## 18.1.0
 
 ### Minor Changes

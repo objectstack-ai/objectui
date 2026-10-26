@@ -1,5 +1,39 @@
 # @object-ui/providers — Changelog
 
+## 18.2.0
+
+### Minor Changes
+
+- 699156a: Clause-②: no
+  Metadata-protocol: none
+  
+  **Breaking:** removed `DataSourceProvider` / `useDataSource`, `MetadataProvider` / `useMetadata`, `ThemeProvider` / `useTheme` and the types `DataSourceProviderProps`, `MetadataProviderProps`, `ThemePreferenceProviderProps`, `ThemePreference` (objectui#13453). They duplicated names other ObjectUI packages publish with different implementations. Declared `minor` per the version-alignment policy (a changeset never declares `major`). `UploadProvider`, `useUpload` and the upload adapters are unchanged.
+  
+  Migration: wrap the tree in `SchemaRendererProvider` from `@object-ui/react` (its `dataSource` prop) instead of `DataSourceProvider`, and pass the adapter to views as before; use `ThemeProvider` / `useTheme` from `@object-ui/react` (`defaultMode`, where the old `system` is `auto`; add `persist` to keep the choice in `localStorage`); use `MetadataProvider` / `useMetadata` from `@object-ui/app-shell`.
+- 6f629a7: Clause-②: no
+  Metadata-protocol: none
+  
+  **Breaking:** React 18 is no longer a supported host. `peerDependencies.react` and `peerDependencies.react-dom` now read `^19.0.0` (was `^18.0.0 || ^19.0.0`). Nothing in this repository ever installed or tested React 18, so the old range was a promise without a test behind it; a React 18 host now gets a peer-dependency warning or refusal at install time instead of an untested runtime. Declared `minor` per the version-alignment policy (a changeset never declares `major`). Upgrade the host to React 19 (objectui#13465).
+
+### Patch Changes
+
+- 85b6a48: Clause-②: no
+  Metadata-protocol: none
+  
+  Every published package now declares `sideEffects`, so a host that bundles `@object-ui/*` can tree-shake the ones that do nothing on import. `@object-ui/react`, `auth`, `collaboration`, `data-objectstack`, `mobile`, `permissions` and `providers` declare `false`: no module in them registers, imports CSS or writes a global when it loads. Every `plugin-*` package except `plugin-ai`, `plugin-chatbot`, `plugin-dashboard` and `plugin-grid` declares an array naming exactly its entry forms and the modules that register components at load time, so `import '@object-ui/plugin-x'` still registers everything it did before. `plugin-ai`, `plugin-chatbot`, `plugin-dashboard`, `plugin-grid`, `cli`, `create-plugin` and `runner` declare `true` (objectui#13464).
+- cd70b78: Clause-②: no
+  Metadata-protocol: none
+  
+  One react line: every manifest that pins `react` / `react-dom` now pins 19.3.0, and every `@types/react` / `@types/react-dom` pin is 19.3.0, matching the root `pnpm.overrides`. The objectstack monorepo's `@objectstack/client-react` requires react `^19.3.0`, and a second `@types/react` copy broke `@object-ui/plugin-view`'s declaration build in the merged tree. The CLI's scaffold (`REACT_RANGE` and the shared dev-dependency map in `scaffold-dependencies.ts`) quotes the same pins, as its anchor test requires.
+- Updated dependencies [46c56ee]
+- Updated dependencies [ee4f1ef]
+- Updated dependencies [610d9ef]
+- Updated dependencies [899f381]
+- Updated dependencies [0063f22]
+- Updated dependencies [cd70b78]
+- Updated dependencies [1212e3e]
+  - @object-ui/types@18.2.0
+
 ## 18.1.0
 
 ### Patch Changes

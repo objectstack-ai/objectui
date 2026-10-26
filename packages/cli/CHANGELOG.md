@@ -1,5 +1,53 @@
 # @object-ui/cli
 
+## 18.2.0
+
+### Minor Changes
+
+- 610d9ef: The raw-HTML `html` node type is retired (objectui#13449). Its renderer wrote the authored `html` string into the page through `dangerouslySetInnerHTML` with no sanitiser, so anyone who could write metadata could put script-bearing markup in front of every viewer — a `kind: 'html'` page included, which compiled an `html` tag carrying an `html` attribute with no diagnostic. `@objectstack/spec` declares no `html` component, so it is removed rather than sanitised, at once, with no deprecation alias. This is breaking for a page that still names it; it is marked `minor` under this repository's version policy.
+  
+  - **SDUI node `html`**, also registered as `ui:html`. FROM: `@object-ui/components` registered both keys. TO: neither is registered. A JSON node that still names it draws the unknown-component panel, a `kind: 'html'` page that writes the tag fails to compile with `forbidden-tag` and `unknown-component`, and `objectui check` no longer counts either key among the known component types.
+  - **Public block `html`** in `PUBLIC_BLOCKS` (`@object-ui/core`). FROM: listed as the curated tier's escape hatch, so `getPublicConfigs()` and the published `sdui.manifest.json` carried it. TO: not listed, so neither names it.
+  - **Schema `HtmlSchema`** in `@object-ui/types`: the TypeScript interface from the package entry, with its `DataDisplaySchema` member and its `SchemaRegistry` row (so `ComponentType` no longer offers `'html'`), and the zod arm from `@object-ui/types/zod`. FROM: exported, and a `type: "html"` node validated against the arm. TO: there is no such export, so importing it fails to compile. `DataDisplaySchema` keeps a refusal arm for the literal, which is not exported, so `objectui validate` refuses a `type: "html"` node BY NAME at `type`, and the message names the remedy.
+  
+  The `html` FIELD type (`HtmlFieldMetadata`, drawn by `field:html`) is a different layer and stays: its value displays through the sanitised fields path.
+  
+  Fix for a page that still names it: in place of `{ "type": "html", "html": "…" }`, declare rich text a user edits as an `html` or `richtext` field on the object, whose value renders sanitised, and write authored page copy as a `kind: 'html'` page.
+  
+  Clause-②: no (narrowing)
+  Metadata-protocol: narrowed
+
+### Patch Changes
+
+- 85b6a48: Clause-②: no
+  Metadata-protocol: none
+  
+  Every published package now declares `sideEffects`, so a host that bundles `@object-ui/*` can tree-shake the ones that do nothing on import. `@object-ui/react`, `auth`, `collaboration`, `data-objectstack`, `mobile`, `permissions` and `providers` declare `false`: no module in them registers, imports CSS or writes a global when it loads. Every `plugin-*` package except `plugin-ai`, `plugin-chatbot`, `plugin-dashboard` and `plugin-grid` declares an array naming exactly its entry forms and the modules that register components at load time, so `import '@object-ui/plugin-x'` still registers everything it did before. `plugin-ai`, `plugin-chatbot`, `plugin-dashboard`, `plugin-grid`, `cli`, `create-plugin` and `runner` declare `true` (objectui#13464).
+- cd70b78: Clause-②: no
+  Metadata-protocol: none
+  
+  One react line: every manifest that pins `react` / `react-dom` now pins 19.3.0, and every `@types/react` / `@types/react-dom` pin is 19.3.0, matching the root `pnpm.overrides`. The objectstack monorepo's `@objectstack/client-react` requires react `^19.3.0`, and a second `@types/react` copy broke `@object-ui/plugin-view`'s declaration build in the merged tree. The CLI's scaffold (`REACT_RANGE` and the shared dev-dependency map in `scaffold-dependencies.ts`) quotes the same pins, as its anchor test requires.
+- Updated dependencies [46c56ee]
+- Updated dependencies [ee4f1ef]
+- Updated dependencies [610d9ef]
+- Updated dependencies [899f381]
+- Updated dependencies [0063f22]
+- Updated dependencies [0063f22]
+- Updated dependencies [96c3649]
+- Updated dependencies [5399bbc]
+- Updated dependencies [4aa90ba]
+- Updated dependencies [85b6a48]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [db9af10]
+- Updated dependencies [cd70b78]
+- Updated dependencies [cd70b78]
+- Updated dependencies [1212e3e]
+- Updated dependencies [3b7b040]
+  - @object-ui/types@18.2.0
+  - @object-ui/components@18.2.0
+  - @object-ui/react@18.2.0
+
 ## 18.1.0
 
 ### Patch Changes

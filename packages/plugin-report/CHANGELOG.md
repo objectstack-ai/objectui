@@ -1,5 +1,78 @@
 # @object-ui/plugin-report
 
+## 18.2.0
+
+### Minor Changes
+
+- 6f629a7: Clause-②: no
+  Metadata-protocol: none
+  
+  **Breaking:** React 18 is no longer a supported host. `peerDependencies.react` and `peerDependencies.react-dom` now read `^19.0.0` (was `^18.0.0 || ^19.0.0`). Nothing in this repository ever installed or tested React 18, so the old range was a promise without a test behind it; a React 18 host now gets a peer-dependency warning or refusal at install time instead of an untested runtime. Declared `minor` per the version-alignment policy (a changeset never declares `major`). Upgrade the host to React 19 (objectui#13465).
+- 1212e3e: Clause-②: yes
+  Metadata-protocol: added
+  
+  Nine duration keys now carry their unit in their name (objectstack#25762). Each one said its unit only in its description, so `timeout: 300` read as either milliseconds or seconds. After objectui merges into objectstack, `@objectstack/spec`'s `check:duration-unit-keys` judges these schemas too, and the maintainer chose to rename the keys rather than exempt them. The renames follow objectstack's own (`…Ms` / `…Seconds`, the unit each description already stated). The value and its unit do not change, only the key name. This is breaking for a document that still writes an old name; it is marked `minor` under this repository's version policy.
+  
+  | Node / schema | FROM | TO | Unit |
+  |---|---|---|---|
+  | `carousel` (`CarouselSchema`) | `autoPlay` | `autoPlayMs` | milliseconds |
+  | `chatbot`, `chatbot-enhanced`, `chatbot-floating` | `autoResponseDelay` | `autoResponseDelayMs` | milliseconds |
+  | `ActionSchema` | `timeout` | `timeoutMs` | milliseconds |
+  | `ActionSchema.retry` | `delay` | `delayMs` | milliseconds |
+  | `toast` (`ToastSchema`) | `duration` | `durationMs` | milliseconds |
+  | `tooltip` (`TooltipSchema`) | `delayDuration` | `delayDurationMs` | milliseconds |
+  | `hover-card` (`HoverCardSchema`) | `openDelay` | `openDelayMs` | milliseconds |
+  | `hover-card` (`HoverCardSchema`) | `closeDelay` | `closeDelayMs` | milliseconds |
+  | `report` (`ReportComponentSchema`) | `refreshInterval` | `refreshIntervalSeconds` | seconds |
+  
+  What an author sees with an old name:
+  
+  - **zod (`@object-ui/types/zod`).** The old key is still declared, as a tombstone, so it is refused at its own path with code `invalid_type`. The message names the new key: "`timeout` is now `timeoutMs` … the value (milliseconds) is unchanged." Without the tombstone, `.passthrough()` would keep the value and nothing would read it.
+  - **TypeScript.** The old member is `?: never` with `@deprecated`, so a typed literal that writes it fails to compile.
+  - **Renderers.** `toast`, `tooltip`, `hover-card`, the three chatbot registrations and `ReportViewer` read the new key. Their registration `inputs` and `defaultProps` use the new name too. The `useObjectChat` hook option `autoResponseDelay` is a programmatic API, not a schema key, and keeps its name.
+  
+  objectui has no conversion registry: ADR-0087's D2 table lives in `@objectstack/spec`. The conversion is this table plus the refusal message. To migrate, rename each key as the table shows and keep the value.
+
+### Patch Changes
+
+- 85b6a48: Clause-②: no
+  Metadata-protocol: none
+  
+  Every published package now declares `sideEffects`, so a host that bundles `@object-ui/*` can tree-shake the ones that do nothing on import. `@object-ui/react`, `auth`, `collaboration`, `data-objectstack`, `mobile`, `permissions` and `providers` declare `false`: no module in them registers, imports CSS or writes a global when it loads. Every `plugin-*` package except `plugin-ai`, `plugin-chatbot`, `plugin-dashboard` and `plugin-grid` declares an array naming exactly its entry forms and the modules that register components at load time, so `import '@object-ui/plugin-x'` still registers everything it did before. `plugin-ai`, `plugin-chatbot`, `plugin-dashboard`, `plugin-grid`, `cli`, `create-plugin` and `runner` declare `true` (objectui#13464).
+- cd70b78: Clause-②: no
+  Metadata-protocol: none
+  
+  One react line: every manifest that pins `react` / `react-dom` now pins 19.3.0, and every `@types/react` / `@types/react-dom` pin is 19.3.0, matching the root `pnpm.overrides`. The objectstack monorepo's `@objectstack/client-react` requires react `^19.3.0`, and a second `@types/react` copy broke `@object-ui/plugin-view`'s declaration build in the merged tree. The CLI's scaffold (`REACT_RANGE` and the shared dev-dependency map in `scaffold-dependencies.ts`) quotes the same pins, as its anchor test requires.
+- Updated dependencies [46c56ee]
+- Updated dependencies [ee4f1ef]
+- Updated dependencies [610d9ef]
+- Updated dependencies [899f381]
+- Updated dependencies [0063f22]
+- Updated dependencies [0063f22]
+- Updated dependencies [0063f22]
+- Updated dependencies [96c3649]
+- Updated dependencies [d0c9650]
+- Updated dependencies [5399bbc]
+- Updated dependencies [4aa90ba]
+- Updated dependencies [85b6a48]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [84ce59c]
+- Updated dependencies [b41ed7f]
+- Updated dependencies [db9af10]
+- Updated dependencies [cd70b78]
+- Updated dependencies [cd70b78]
+- Updated dependencies [1212e3e]
+- Updated dependencies [3b7b040]
+  - @object-ui/types@18.2.0
+  - @object-ui/core@18.2.0
+  - @object-ui/components@18.2.0
+  - @object-ui/react@18.2.0
+  - @object-ui/i18n@18.2.0
+  - @object-ui/fields@18.2.0
+
 ## 18.1.0
 
 ### Patch Changes

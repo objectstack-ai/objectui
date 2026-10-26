@@ -1,5 +1,52 @@
 # @object-ui/plugin-form
 
+## 18.2.0
+
+### Minor Changes
+
+- 6f629a7: Clause-②: no
+  Metadata-protocol: none
+  
+  **Breaking:** React 18 is no longer a supported host. `peerDependencies.react` and `peerDependencies.react-dom` now read `^19.0.0` (was `^18.0.0 || ^19.0.0`). Nothing in this repository ever installed or tested React 18, so the old range was a promise without a test behind it; a React 18 host now gets a peer-dependency warning or refusal at install time instead of an untested runtime. Declared `minor` per the version-alignment policy (a changeset never declares `major`). Upgrade the host to React 19 (objectui#13465).
+
+### Patch Changes
+
+- 85b6a48: Clause-②: no
+  Metadata-protocol: none
+  
+  Every published package now declares `sideEffects`, so a host that bundles `@object-ui/*` can tree-shake the ones that do nothing on import. `@object-ui/react`, `auth`, `collaboration`, `data-objectstack`, `mobile`, `permissions` and `providers` declare `false`: no module in them registers, imports CSS or writes a global when it loads. Every `plugin-*` package except `plugin-ai`, `plugin-chatbot`, `plugin-dashboard` and `plugin-grid` declares an array naming exactly its entry forms and the modules that register components at load time, so `import '@object-ui/plugin-x'` still registers everything it did before. `plugin-ai`, `plugin-chatbot`, `plugin-dashboard`, `plugin-grid`, `cli`, `create-plugin` and `runner` declare `true` (objectui#13464).
+- Updated dependencies [46c56ee]
+- Updated dependencies [ee4f1ef]
+- Updated dependencies [610d9ef]
+- Updated dependencies [899f381]
+- Updated dependencies [0063f22]
+- Updated dependencies [0063f22]
+- Updated dependencies [0063f22]
+- Updated dependencies [96c3649]
+- Updated dependencies [d0c9650]
+- Updated dependencies [5399bbc]
+- Updated dependencies [4aa90ba]
+- Updated dependencies [85b6a48]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [84ce59c]
+- Updated dependencies [b41ed7f]
+- Updated dependencies [db9af10]
+- Updated dependencies [cd70b78]
+- Updated dependencies [cd70b78]
+- Updated dependencies [1212e3e]
+- Updated dependencies [3b7b040]
+  - @object-ui/types@18.2.0
+  - @object-ui/core@18.2.0
+  - @object-ui/components@18.2.0
+  - @object-ui/react@18.2.0
+  - @object-ui/i18n@18.2.0
+  - @object-ui/fields@18.2.0
+  - @object-ui/permissions@18.2.0
+
 ## 18.1.0
 
 ### Patch Changes

@@ -1,5 +1,61 @@
 # @object-ui/i18n
 
+## 18.2.0
+
+### Minor Changes
+
+- 6f629a7: Clause-②: no
+  Metadata-protocol: none
+  
+  **Breaking:** React 18 is no longer a supported host. `peerDependencies.react` now reads `^19.0.0` (was `^18.0.0 || ^19.0.0`). Nothing in this repository ever installed or tested React 18, so the old range was a promise without a test behind it; a React 18 host now gets a peer-dependency warning or refusal at install time instead of an untested runtime. Declared `minor` per the version-alignment policy (a changeset never declares `major`). Upgrade the host to React 19 (objectui#13465).
+
+### Patch Changes
+
+- d0c9650: Clause-②: no
+  Metadata-protocol: none
+  
+  fix(console, app-shell): four routed console pages and the Studio datasource page speak the session's language instead of hard-coded English (objectui#13460).
+  
+  - Developer → API Console, Developer → Public Forms, Developer → Integrations & APIs and System → AI Approvals read their copy from new `console.developer.apiConsole.*`, `console.developer.publicForms.*`, `console.developer.integrations.*` and `console.system.aiApprovals.*` keys, translated in all ten locale packs. Sentences with an inline bold action or `<code>` key are one translated string each, so every language places the element itself.
+  - Setup → Datasources reads its copy from new `engine.datasource.*` rows in the Studio table (en-US and zh-CN, the `engine.*` carve-out). The driver config form's enum option values are unchanged.
+  - English renders exactly as before, with or without an i18n provider. Code samples, verbs, paths, example slugs and server messages stay as written.
+- 5399bbc: Clause-②: no
+  Metadata-protocol: none
+  
+  More console surfaces now speak the session's language (objectui#13460, second pass). System → Audit Log, Developer → Flow Runs, the Integrations page's "Connect an AI agent" card, the share-link dialog and the public `/s/:token` share landing drew their copy as English literals. They now read `console.system.auditLog.*`, `console.developer.flowRuns.*`, `console.developer.agentConnect.*`, `shareDialog.*` and `sharedRecord.*`, each with an `en` inline default and a row in all ten packs. A sentence that names another control names it by that control's translated label, and a sentence with inline code is one translated string. Error states are kept as codes and worded at render.
+  
+  The dev-only surfaces moved under `dev/`: `PerformanceDashboard` to `apps/console/src/dev/`, and the components package's `debug/` folder (the `DebugPanel`) to `dev/`. The package's exports are unchanged.
+- 4aa90ba: Icon-only buttons in the console now have an accessible name, and the clickable `div` / `span` controls the console drew are real buttons a keyboard can reach (objectui#13461).
+  
+  Clause-②: no
+  Metadata-protocol: none
+  
+  - Named, in every shipped language: the AI canvas's close button, the secret value's show / hide toggle in the action result dialog, the permission set editor's remove-policy and remove-tab buttons, the metadata history page's refresh button, the sort builder's remove button, the `file-upload` renderer's remove buttons, the file, master-detail, password and QR-code field widgets' icon buttons, the chat composer's send button, the chat's scroll-to-latest button, and the top bar's avatar button ("Account menu").
+  - The organization picker's "Manage" link is its own button beside the card, not a clickable `span` inside the card's button, so it can be tabbed to and is no longer read as part of the card's name.
+  - A flow canvas branch label selects its edge with Enter or Space when the edge is selectable.
+  - `tree-view`: the expand toggle is named ("Expand" / "Collapse") and reports `aria-expanded`; a node is a button only when the host passes `onNodeClick`, instead of a clickable row wrapped round the toggle.
+  - `file-upload`: the dropzone opens the file picker with Enter or Space.
+  - The app preview's read-only navigation list no longer carries a click handler that could never fire.
+  - New pack keys: `common.expand`, `common.collapse`, `user.accountMenu`, `actions.resultDialog.showValue` / `hideValue`, `fields.masterDetail.view` / `remove`, `fields.password.show` / `hide`, `fields.qrCode.copy` / `show` / `hide`, `chatbot.sendMessage`, `chatbot.scrollToBottom`.
+- b41ed7f: Clause-②: yes
+  Metadata-protocol: none
+  
+  The metadata designer's translation preview draws the `positions` and `permissions` groups that `@objectstack/spec` now declares on a translation bundle, each with its own card, count and sample, and counts them in the coverage bar. Before, the preview did not type-check against that spec, and a bundle that translated only position or permission-set labels read as empty.
+  
+  `isSpecTranslationData` recognises a served translation document by those two groups as well, so a bundle that translates only positions or permission sets is namespaced under `app` like any other spec bundle instead of being returned untransformed.
+- cd70b78: Clause-②: no
+  Metadata-protocol: none
+  
+  One react line: every manifest that pins `react` / `react-dom` now pins 19.3.0, and every `@types/react` / `@types/react-dom` pin is 19.3.0, matching the root `pnpm.overrides`. The objectstack monorepo's `@objectstack/client-react` requires react `^19.3.0`, and a second `@types/react` copy broke `@object-ui/plugin-view`'s declaration build in the merged tree. The CLI's scaffold (`REACT_RANGE` and the shared dev-dependency map in `scaffold-dependencies.ts`) quotes the same pins, as its anchor test requires.
+- Updated dependencies [ee4f1ef]
+- Updated dependencies [610d9ef]
+- Updated dependencies [899f381]
+- Updated dependencies [0063f22]
+- Updated dependencies [96c3649]
+- Updated dependencies [84ce59c]
+- Updated dependencies [3b7b040]
+  - @object-ui/core@18.2.0
+
 ## 18.1.0
 
 ### Patch Changes

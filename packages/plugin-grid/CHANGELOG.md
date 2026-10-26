@@ -1,5 +1,73 @@
 # @object-ui/plugin-grid
 
+## 18.2.0
+
+### Minor Changes
+
+- ee4f1ef: Clause-②: yes
+  Metadata-protocol: none
+  
+  A list bulk action keeps each failed record's id and the server's reason, and a bulk run refreshes the bound list once instead of once per row (objectui#13442).
+  
+  A 100-row bulk update took about 100 s in the console for about 19 s of server work. `bulkUpdate` read only the server's `succeeded` count, so a partial failure reached the result dialog and the error CSV as one `batch_0: N records failed` entry with no record id or reason. Apps that needed the reason ran `batchSize: 1`, and on that per-row path every write refetched and re-rendered the whole list.
+  
+  - `DataSource.bulkUpdate` / `bulkDelete` (`@object-ui/types`) may now resolve to a `BulkWriteResult`, `{ succeeded, errors: [{ id, error }] }`, as well as to a plain count. Both new types are exported. An adapter that returns a number keeps working unchanged. A caller that reads the result must now handle both shapes; the bulk executor does.
+  - `ObjectStackAdapter.bulkUpdate` / `bulkDelete` (`@object-ui/data-objectstack`) resolve to a `BulkWriteResult` built from the `results[].errors[]` that `updateMany` / `deleteMany` already answer, and the per-id fallback loop keeps each row's reason instead of discarding it. Breaking for direct callers: these two methods used to resolve to a number. Code that calls them directly and reads the result as a count must read `.succeeded`.
+  - `executeBulkBatch` (`@object-ui/core`) reports each failure the bulk call names under its own id and reason. Only failures it does not name still fold into one `batch_${offset}` entry. So the result dialog, the error CSV and Retry work per record whatever the `batchSize`, and Undo skips the failed rows.
+  - New optional `DataSource.batchMutationEvents(work)`: runs `work` with `onMutation` events held, then delivers them when it settles, one per resource and mutation type. `ObjectStackAdapter` implements it. `useBulkExecutor` (`@object-ui/plugin-grid`) runs each bulk run and each undo inside it, so ListView, ObjectView, kanban, calendar and the console's invalidation bridge refetch once per run, not once per row. The executor's `dataSource` face gains the matching optional member.
+- 6f629a7: Clause-②: no
+  Metadata-protocol: none
+  
+  **Breaking:** React 18 is no longer a supported host. `peerDependencies.react` and `peerDependencies.react-dom` now read `^19.0.0` (was `^18.0.0 || ^19.0.0`). Nothing in this repository ever installed or tested React 18, so the old range was a promise without a test behind it; a React 18 host now gets a peer-dependency warning or refusal at install time instead of an untested runtime. Declared `minor` per the version-alignment policy (a changeset never declares `major`). Upgrade the host to React 19 (objectui#13465).
+
+### Patch Changes
+
+- 96c3649: Clause-②: no
+  Metadata-protocol: none
+  
+  The record overlay opened from a list, gallery, map or timeline view now mounts `RecordDetailPanel` from `@object-ui/plugin-detail`, as the grid, tree, kanban, calendar and gantt overlays already did, in place of a raw dump of the record's keys and values. A record previewed from any view reads with the object's declared labels and typed values, and without its `hidden` fields. The panel is read-only there, as on the grid and the tree; a row with no object name or id keeps the plain reading.
+  
+  Drifted copies folded: `GANTT_CONFIG_SPELLING` is exported once from `@object-ui/core` (used by `ListView` and `ObjectView`); `isSameAuthoredFilter` is exported from `@object-ui/react` and `ObjectGrid` drops its copy; `@object-ui/core` exports `isPlainObject` (a non-null, non-array object) for private copies to switch to when their file is next touched.
+- 85b6a48: Clause-②: no
+  Metadata-protocol: none
+  
+  Every published package now declares `sideEffects`, so a host that bundles `@object-ui/*` can tree-shake the ones that do nothing on import. `@object-ui/react`, `auth`, `collaboration`, `data-objectstack`, `mobile`, `permissions` and `providers` declare `false`: no module in them registers, imports CSS or writes a global when it loads. Every `plugin-*` package except `plugin-ai`, `plugin-chatbot`, `plugin-dashboard` and `plugin-grid` declares an array naming exactly its entry forms and the modules that register components at load time, so `import '@object-ui/plugin-x'` still registers everything it did before. `plugin-ai`, `plugin-chatbot`, `plugin-dashboard`, `plugin-grid`, `cli`, `create-plugin` and `runner` declare `true` (objectui#13464).
+- Updated dependencies [46c56ee]
+- Updated dependencies [ee4f1ef]
+- Updated dependencies [610d9ef]
+- Updated dependencies [899f381]
+- Updated dependencies [0063f22]
+- Updated dependencies [0063f22]
+- Updated dependencies [0063f22]
+- Updated dependencies [96c3649]
+- Updated dependencies [d0c9650]
+- Updated dependencies [5399bbc]
+- Updated dependencies [4aa90ba]
+- Updated dependencies [85b6a48]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [84ce59c]
+- Updated dependencies [b41ed7f]
+- Updated dependencies [db9af10]
+- Updated dependencies [cd70b78]
+- Updated dependencies [cd70b78]
+- Updated dependencies [1212e3e]
+- Updated dependencies [3b7b040]
+  - @object-ui/plugin-detail@18.2.0
+  - @object-ui/types@18.2.0
+  - @object-ui/core@18.2.0
+  - @object-ui/components@18.2.0
+  - @object-ui/react@18.2.0
+  - @object-ui/i18n@18.2.0
+  - @object-ui/fields@18.2.0
+  - @object-ui/mobile@18.2.0
+  - @object-ui/permissions@18.2.0
+
 ## 18.1.0
 
 ### Minor Changes

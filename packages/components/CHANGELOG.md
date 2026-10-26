@@ -1,5 +1,120 @@
 # @object-ui/components
 
+## 18.2.0
+
+### Minor Changes
+
+- 610d9ef: The raw-HTML `html` node type is retired (objectui#13449). Its renderer wrote the authored `html` string into the page through `dangerouslySetInnerHTML` with no sanitiser, so anyone who could write metadata could put script-bearing markup in front of every viewer — a `kind: 'html'` page included, which compiled an `html` tag carrying an `html` attribute with no diagnostic. `@objectstack/spec` declares no `html` component, so it is removed rather than sanitised, at once, with no deprecation alias. This is breaking for a page that still names it; it is marked `minor` under this repository's version policy.
+  
+  - **SDUI node `html`**, also registered as `ui:html`. FROM: `@object-ui/components` registered both keys. TO: neither is registered. A JSON node that still names it draws the unknown-component panel, a `kind: 'html'` page that writes the tag fails to compile with `forbidden-tag` and `unknown-component`, and `objectui check` no longer counts either key among the known component types.
+  - **Public block `html`** in `PUBLIC_BLOCKS` (`@object-ui/core`). FROM: listed as the curated tier's escape hatch, so `getPublicConfigs()` and the published `sdui.manifest.json` carried it. TO: not listed, so neither names it.
+  - **Schema `HtmlSchema`** in `@object-ui/types`: the TypeScript interface from the package entry, with its `DataDisplaySchema` member and its `SchemaRegistry` row (so `ComponentType` no longer offers `'html'`), and the zod arm from `@object-ui/types/zod`. FROM: exported, and a `type: "html"` node validated against the arm. TO: there is no such export, so importing it fails to compile. `DataDisplaySchema` keeps a refusal arm for the literal, which is not exported, so `objectui validate` refuses a `type: "html"` node BY NAME at `type`, and the message names the remedy.
+  
+  The `html` FIELD type (`HtmlFieldMetadata`, drawn by `field:html`) is a different layer and stays: its value displays through the sanitised fields path.
+  
+  Fix for a page that still names it: in place of `{ "type": "html", "html": "…" }`, declare rich text a user edits as an `html` or `richtext` field on the object, whose value renders sanitised, and write authored page copy as a `kind: 'html'` page.
+  
+  Clause-②: no (narrowing)
+  Metadata-protocol: narrowed
+- 6f629a7: Clause-②: no
+  Metadata-protocol: none
+  
+  **Breaking:** React 18 is no longer a supported host. `peerDependencies.react` and `peerDependencies.react-dom` now read `^19.0.0` (was `^18.0.0 || ^19.0.0`). Nothing in this repository ever installed or tested React 18, so the old range was a promise without a test behind it; a React 18 host now gets a peer-dependency warning or refusal at install time instead of an untested runtime. Declared `minor` per the version-alignment policy (a changeset never declares `major`). Upgrade the host to React 19 (objectui#13465).
+- 1212e3e: Clause-②: yes
+  Metadata-protocol: added
+  
+  Nine duration keys now carry their unit in their name (objectstack#25762). Each one said its unit only in its description, so `timeout: 300` read as either milliseconds or seconds. After objectui merges into objectstack, `@objectstack/spec`'s `check:duration-unit-keys` judges these schemas too, and the maintainer chose to rename the keys rather than exempt them. The renames follow objectstack's own (`…Ms` / `…Seconds`, the unit each description already stated). The value and its unit do not change, only the key name. This is breaking for a document that still writes an old name; it is marked `minor` under this repository's version policy.
+  
+  | Node / schema | FROM | TO | Unit |
+  |---|---|---|---|
+  | `carousel` (`CarouselSchema`) | `autoPlay` | `autoPlayMs` | milliseconds |
+  | `chatbot`, `chatbot-enhanced`, `chatbot-floating` | `autoResponseDelay` | `autoResponseDelayMs` | milliseconds |
+  | `ActionSchema` | `timeout` | `timeoutMs` | milliseconds |
+  | `ActionSchema.retry` | `delay` | `delayMs` | milliseconds |
+  | `toast` (`ToastSchema`) | `duration` | `durationMs` | milliseconds |
+  | `tooltip` (`TooltipSchema`) | `delayDuration` | `delayDurationMs` | milliseconds |
+  | `hover-card` (`HoverCardSchema`) | `openDelay` | `openDelayMs` | milliseconds |
+  | `hover-card` (`HoverCardSchema`) | `closeDelay` | `closeDelayMs` | milliseconds |
+  | `report` (`ReportComponentSchema`) | `refreshInterval` | `refreshIntervalSeconds` | seconds |
+  
+  What an author sees with an old name:
+  
+  - **zod (`@object-ui/types/zod`).** The old key is still declared, as a tombstone, so it is refused at its own path with code `invalid_type`. The message names the new key: "`timeout` is now `timeoutMs` … the value (milliseconds) is unchanged." Without the tombstone, `.passthrough()` would keep the value and nothing would read it.
+  - **TypeScript.** The old member is `?: never` with `@deprecated`, so a typed literal that writes it fails to compile.
+  - **Renderers.** `toast`, `tooltip`, `hover-card`, the three chatbot registrations and `ReportViewer` read the new key. Their registration `inputs` and `defaultProps` use the new name too. The `useObjectChat` hook option `autoResponseDelay` is a programmatic API, not a schema key, and keeps its name.
+  
+  objectui has no conversion registry: ADR-0087's D2 table lives in `@objectstack/spec`. The conversion is this table plus the refusal message. To migrate, rename each key as the table shows and keep the value.
+- 3b7b040: The `react-pages` capability (`kind: 'react'` pages, whose source runs in the application with no sandbox) now defaults to **off** in `@object-ui/core`. A host turns it on explicitly. This changes a published default; it is marked `minor` under this repository's version policy.
+  
+  - **ObjectStack deployments.** The server decides: with `OS_PAGE_REACT_ENABLED=true` it writes the enable global (`window.__OBJECTUI_CAPABILITIES__`) into the Console document, and otherwise the disable global. A server older than that writes only the disable global, and only when the deployment set `OS_PAGE_REACT=off`, so on such a server react pages stay off until it is upgraded.
+  - **A host that embeds the renderer.** FROM: react pages ran unless the host called `disableCapability('react-pages')`. TO: they run only after the host calls `enableCapability('react-pages')` (or sets the enable global before the bundle runs).
+  - **While off**, a react page renders the "React pages are disabled on this deployment" notice, which now names `OS_PAGE_REACT_ENABLED=true` as the switch, and the Studio's new-page dialog offers only the `html` kind. `kind: 'html'` pages are unaffected.
+  
+  Clause-②: no
+  Metadata-protocol: none
+
+### Patch Changes
+
+- 5399bbc: Clause-②: no
+  Metadata-protocol: none
+  
+  More console surfaces now speak the session's language (objectui#13460, second pass). System → Audit Log, Developer → Flow Runs, the Integrations page's "Connect an AI agent" card, the share-link dialog and the public `/s/:token` share landing drew their copy as English literals. They now read `console.system.auditLog.*`, `console.developer.flowRuns.*`, `console.developer.agentConnect.*`, `shareDialog.*` and `sharedRecord.*`, each with an `en` inline default and a row in all ten packs. A sentence that names another control names it by that control's translated label, and a sentence with inline code is one translated string. Error states are kept as codes and worded at render.
+  
+  The dev-only surfaces moved under `dev/`: `PerformanceDashboard` to `apps/console/src/dev/`, and the components package's `debug/` folder (the `DebugPanel`) to `dev/`. The package's exports are unchanged.
+- 4aa90ba: Icon-only buttons in the console now have an accessible name, and the clickable `div` / `span` controls the console drew are real buttons a keyboard can reach (objectui#13461).
+  
+  Clause-②: no
+  Metadata-protocol: none
+  
+  - Named, in every shipped language: the AI canvas's close button, the secret value's show / hide toggle in the action result dialog, the permission set editor's remove-policy and remove-tab buttons, the metadata history page's refresh button, the sort builder's remove button, the `file-upload` renderer's remove buttons, the file, master-detail, password and QR-code field widgets' icon buttons, the chat composer's send button, the chat's scroll-to-latest button, and the top bar's avatar button ("Account menu").
+  - The organization picker's "Manage" link is its own button beside the card, not a clickable `span` inside the card's button, so it can be tabbed to and is no longer read as part of the card's name.
+  - A flow canvas branch label selects its edge with Enter or Space when the edge is selectable.
+  - `tree-view`: the expand toggle is named ("Expand" / "Collapse") and reports `aria-expanded`; a node is a button only when the host passes `onNodeClick`, instead of a clickable row wrapped round the toggle.
+  - `file-upload`: the dropzone opens the file picker with Enter or Space.
+  - The app preview's read-only navigation list no longer carries a click handler that could never fire.
+  - New pack keys: `common.expand`, `common.collapse`, `user.accountMenu`, `actions.resultDialog.showValue` / `hideValue`, `fields.masterDetail.view` / `remove`, `fields.password.show` / `hide`, `fields.qrCode.copy` / `show` / `hide`, `chatbot.sendMessage`, `chatbot.scrollToBottom`.
+- db9af10: Clause-②: no
+  Metadata-protocol: none
+  
+  A page whose `label` or `description` is an inline locale map (`{ en, 'zh-CN' }`) now opens, and shows both in the viewer's language (objectui#13488). A dashboard whose `label` is one no longer blanks its route through the app bar.
+  
+  `@objectstack/spec` types a page's `label` and `description`, and a dashboard's `label`, as `I18nLabel`, so the map is valid metadata and is served unchanged. The page drew it straight into its own heading, the line under it, and the description a titled `page:header` draws, and the app bar drew a page's or a dashboard's label as the phone bar's title: React refused the object (error #31) and the route was blank for every viewer. Each of these now resolves the map to the viewer's language. A plain-string label or description draws exactly as before.
+- cd70b78: Clause-②: no
+  Metadata-protocol: none
+  
+  One react line: every manifest that pins `react` / `react-dom` now pins 19.3.0, and every `@types/react` / `@types/react-dom` pin is 19.3.0, matching the root `pnpm.overrides`. The objectstack monorepo's `@objectstack/client-react` requires react `^19.3.0`, and a second `@types/react` copy broke `@object-ui/plugin-view`'s declaration build in the merged tree. The CLI's scaffold (`REACT_RANGE` and the shared dev-dependency map in `scaffold-dependencies.ts`) quotes the same pins, as its anchor test requires.
+- cd70b78: Clause-②: no
+  Metadata-protocol: none
+  
+  One zod range: `@object-ui/app-shell`, `@object-ui/components`, `@object-ui/types` and `@object-ui/plugin-timeline` declare `zod` as `^4.6.5`, the range the objectstack monorepo declares, so the merged lockfile resolves one zod rather than two. The console bundle already carried a single copy; what changes is the declared floor.
+- Updated dependencies [46c56ee]
+- Updated dependencies [ee4f1ef]
+- Updated dependencies [610d9ef]
+- Updated dependencies [899f381]
+- Updated dependencies [0063f22]
+- Updated dependencies [0063f22]
+- Updated dependencies [0063f22]
+- Updated dependencies [96c3649]
+- Updated dependencies [d0c9650]
+- Updated dependencies [5399bbc]
+- Updated dependencies [4aa90ba]
+- Updated dependencies [85b6a48]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [84ce59c]
+- Updated dependencies [b41ed7f]
+- Updated dependencies [cd70b78]
+- Updated dependencies [cd70b78]
+- Updated dependencies [1212e3e]
+- Updated dependencies [3b7b040]
+  - @object-ui/types@18.2.0
+  - @object-ui/core@18.2.0
+  - @object-ui/react@18.2.0
+  - @object-ui/i18n@18.2.0
+  - @object-ui/react-runtime@18.2.0
+  - @object-ui/sdui-parser@18.2.0
+
 ## 18.1.0
 
 ### Minor Changes

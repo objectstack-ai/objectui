@@ -1,5 +1,94 @@
 # @object-ui/core
 
+## 18.2.0
+
+### Minor Changes
+
+- ee4f1ef: Clause-②: yes
+  Metadata-protocol: none
+  
+  A list bulk action keeps each failed record's id and the server's reason, and a bulk run refreshes the bound list once instead of once per row (objectui#13442).
+  
+  A 100-row bulk update took about 100 s in the console for about 19 s of server work. `bulkUpdate` read only the server's `succeeded` count, so a partial failure reached the result dialog and the error CSV as one `batch_0: N records failed` entry with no record id or reason. Apps that needed the reason ran `batchSize: 1`, and on that per-row path every write refetched and re-rendered the whole list.
+  
+  - `DataSource.bulkUpdate` / `bulkDelete` (`@object-ui/types`) may now resolve to a `BulkWriteResult`, `{ succeeded, errors: [{ id, error }] }`, as well as to a plain count. Both new types are exported. An adapter that returns a number keeps working unchanged. A caller that reads the result must now handle both shapes; the bulk executor does.
+  - `ObjectStackAdapter.bulkUpdate` / `bulkDelete` (`@object-ui/data-objectstack`) resolve to a `BulkWriteResult` built from the `results[].errors[]` that `updateMany` / `deleteMany` already answer, and the per-id fallback loop keeps each row's reason instead of discarding it. Breaking for direct callers: these two methods used to resolve to a number. Code that calls them directly and reads the result as a count must read `.succeeded`.
+  - `executeBulkBatch` (`@object-ui/core`) reports each failure the bulk call names under its own id and reason. Only failures it does not name still fold into one `batch_${offset}` entry. So the result dialog, the error CSV and Retry work per record whatever the `batchSize`, and Undo skips the failed rows.
+  - New optional `DataSource.batchMutationEvents(work)`: runs `work` with `onMutation` events held, then delivers them when it settles, one per resource and mutation type. `ObjectStackAdapter` implements it. `useBulkExecutor` (`@object-ui/plugin-grid`) runs each bulk run and each undo inside it, so ListView, ObjectView, kanban, calendar and the console's invalidation bridge refetch once per run, not once per row. The executor's `dataSource` face gains the matching optional member.
+- 610d9ef: The raw-HTML `html` node type is retired (objectui#13449). Its renderer wrote the authored `html` string into the page through `dangerouslySetInnerHTML` with no sanitiser, so anyone who could write metadata could put script-bearing markup in front of every viewer — a `kind: 'html'` page included, which compiled an `html` tag carrying an `html` attribute with no diagnostic. `@objectstack/spec` declares no `html` component, so it is removed rather than sanitised, at once, with no deprecation alias. This is breaking for a page that still names it; it is marked `minor` under this repository's version policy.
+  
+  - **SDUI node `html`**, also registered as `ui:html`. FROM: `@object-ui/components` registered both keys. TO: neither is registered. A JSON node that still names it draws the unknown-component panel, a `kind: 'html'` page that writes the tag fails to compile with `forbidden-tag` and `unknown-component`, and `objectui check` no longer counts either key among the known component types.
+  - **Public block `html`** in `PUBLIC_BLOCKS` (`@object-ui/core`). FROM: listed as the curated tier's escape hatch, so `getPublicConfigs()` and the published `sdui.manifest.json` carried it. TO: not listed, so neither names it.
+  - **Schema `HtmlSchema`** in `@object-ui/types`: the TypeScript interface from the package entry, with its `DataDisplaySchema` member and its `SchemaRegistry` row (so `ComponentType` no longer offers `'html'`), and the zod arm from `@object-ui/types/zod`. FROM: exported, and a `type: "html"` node validated against the arm. TO: there is no such export, so importing it fails to compile. `DataDisplaySchema` keeps a refusal arm for the literal, which is not exported, so `objectui validate` refuses a `type: "html"` node BY NAME at `type`, and the message names the remedy.
+  
+  The `html` FIELD type (`HtmlFieldMetadata`, drawn by `field:html`) is a different layer and stays: its value displays through the sanitised fields path.
+  
+  Fix for a page that still names it: in place of `{ "type": "html", "html": "…" }`, declare rich text a user edits as an `html` or `richtext` field on the object, whose value renders sanitised, and write authored page copy as a `kind: 'html'` page.
+  
+  Clause-②: no (narrowing)
+  Metadata-protocol: narrowed
+- 899f381: **BREAKING:** the `module` widget source is retired. `WidgetRegistry` no longer loads a widget's code from a URL at runtime (objectui#13450).
+  
+  `RuntimeWidgetSource` had a `module` member, `{ type: 'module', url, exportName? }`, and `WidgetRegistry.load()` resolved it with a dynamic `import()` built through the Function constructor so that bundlers could not see it. That is the runtime dynamic import AGENTS.md commandment #6 forbids ("No `eval()` / runtime dynamic imports to load components"), and it also needs `unsafe-eval` under a strict Content Security Policy. The member, its `WidgetSourceModule` interface and the loader arm are removed. `RuntimeWidgetSource` is now `WidgetSourceInline | WidgetSourceRegistry`.
+  
+  An old manifest is refused loudly, not skipped. In TypeScript, `type: 'module'` no longer type-checks, and importing `WidgetSourceModule` is `TS2305`. A manifest that reaches `WidgetRegistry.load()` untyped (plain JavaScript, a cast, or an older `@object-ui/types`) is rejected before anything is fetched. The rejection names the retired `module` source and both replacements, `load()` emits `widget:error`, and `loadAll()` reports the error for that widget. Any other unknown source type is rejected the same way, and the message lists the supported types.
+  
+  Migration, FROM → TO:
+  
+  - FROM `source: { type: 'module', url: '/widgets/chart.js', exportName: 'Chart' }`
+  - TO `import { Chart } from './widgets/chart';` and then `source: { type: 'inline', component: Chart }`. The component is imported at build time, so the bundler sees it.
+  - OR register the component once with the component registry (`ComponentRegistry.register('chart', Chart)`) and declare `source: { type: 'registry', registryKey: 'chart' }`.
+  
+  One-line fix: replace each `{ type: 'module', url }` with `{ type: 'inline', component }`, where `component` is imported at build time.
+  
+  Remote widgets as a product capability would be a new contract (a signed manifest and an allow-listed origin, decided in `@objectstack/spec`). This release does not add one.
+  
+  Clause-②: no (narrowing)
+  Metadata-protocol: narrowed
+- 0063f22: Clause-②: no
+  Metadata-protocol: none
+  
+  **Breaking:** removed exports with no reader (objectui#13453). Declared `minor` per the version-alignment policy (a changeset never declares `major`).
+  
+  - The fluent schema builders from `builder/schema-builder`: `form`, `button`, `input`, `card`, `grid`, `flex` and the `FormBuilder`, `ButtonBuilder`, `InputBuilder`, `CardBuilder`, `GridBuilder`, `FlexBuilder` classes. Write the schema object literally instead.
+  - The three protocol bridges, `DndProtocol`, `KeyboardProtocol` and `SharingProtocol`: `resolveDndConfig`, `createDragItemProps`, `createDropZoneProps`, `resolveDragConstraints`, `resolveKeyboardConfig`, `parseShortcutKey`, `matchesShortcut`, `createFocusTrapConfig`, `resolveSharingConfig`, `resolveEmbedConfig`, `generateEmbedCode`, `validateSharingConfig` and their types (`DndConfig`, `DragItem`, `DropZone`, `KeyboardShortcut`, `FocusTrapConfig`, `KeyboardNavigationConfig` and the rest). The spec vocabulary they bridged was already deleted upstream; no replacement.
+  - The test-only helpers `resetColumnIdentityWarnings`, `resetRetiredSortSpellingReports`, `resetDashboardFilterWarnings` and `resetReferenceKeyWarnings` are no longer on the package root. They reset module state for tests and had no other reader.
+- 84ce59c: Clause-②: no
+  Metadata-protocol: narrowed
+  
+  An action's `confirmText` or `successMessage` with no `{{ }}` hole is now shown exactly as written (objectui#13476).
+  
+  objectui#13367 kept one transitional reading: a sentence with no `{{ }}` hole still had its `${…}` tokens filled, `${record.*}` in the confirm dialog and `${result.*}` in the success toast. That reading is gone. A `${…}` token in either text is now plain text, the same as in any other copy with no hole. To put a value into the sentence, write a `{{ }}` hole: `Archive {{ record.name }}?`, `Invitation sent to {{ result.email }}`.
+  
+  No in-tree producer writes the holeless `${…}` shape. objectstack's measurement of its examples, `platform-objects`, `plugin-approvals` and HotCRM found none. objectstack's lint already warns on the shape and refuses every other `${…}` token in this copy (objectstack#25702). The paired objectstack card turns the warning into an error once its objectui pin carries this change.
+  
+  `outcomeMessages` entries are unchanged: they still fill `${result.*}`. `errorMessage` is unchanged: it is shown as written.
+- 3b7b040: The `react-pages` capability (`kind: 'react'` pages, whose source runs in the application with no sandbox) now defaults to **off** in `@object-ui/core`. A host turns it on explicitly. This changes a published default; it is marked `minor` under this repository's version policy.
+  
+  - **ObjectStack deployments.** The server decides: with `OS_PAGE_REACT_ENABLED=true` it writes the enable global (`window.__OBJECTUI_CAPABILITIES__`) into the Console document, and otherwise the disable global. A server older than that writes only the disable global, and only when the deployment set `OS_PAGE_REACT=off`, so on such a server react pages stay off until it is upgraded.
+  - **A host that embeds the renderer.** FROM: react pages ran unless the host called `disableCapability('react-pages')`. TO: they run only after the host calls `enableCapability('react-pages')` (or sets the enable global before the bundle runs).
+  - **While off**, a react page renders the "React pages are disabled on this deployment" notice, which now names `OS_PAGE_REACT_ENABLED=true` as the switch, and the Studio's new-page dialog offers only the `html` kind. `kind: 'html'` pages are unaffected.
+  
+  Clause-②: no
+  Metadata-protocol: none
+
+### Patch Changes
+
+- 96c3649: Clause-②: no
+  Metadata-protocol: none
+  
+  The record overlay opened from a list, gallery, map or timeline view now mounts `RecordDetailPanel` from `@object-ui/plugin-detail`, as the grid, tree, kanban, calendar and gantt overlays already did, in place of a raw dump of the record's keys and values. A record previewed from any view reads with the object's declared labels and typed values, and without its `hidden` fields. The panel is read-only there, as on the grid and the tree; a row with no object name or id keeps the plain reading.
+  
+  Drifted copies folded: `GANTT_CONFIG_SPELLING` is exported once from `@object-ui/core` (used by `ListView` and `ObjectView`); `isSameAuthoredFilter` is exported from `@object-ui/react` and `ObjectGrid` drops its copy; `@object-ui/core` exports `isPlainObject` (a non-null, non-array object) for private copies to switch to when their file is next touched.
+- Updated dependencies [46c56ee]
+- Updated dependencies [ee4f1ef]
+- Updated dependencies [610d9ef]
+- Updated dependencies [899f381]
+- Updated dependencies [0063f22]
+- Updated dependencies [cd70b78]
+- Updated dependencies [1212e3e]
+  - @object-ui/types@18.2.0
+
 ## 18.1.0
 
 ### Minor Changes

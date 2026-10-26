@@ -1,5 +1,21 @@
 # @object-ui/create-plugin
 
+## 18.2.0
+
+### Minor Changes
+
+- 6f629a7: Clause-②: no
+  Metadata-protocol: none
+  
+  **Breaking:** a generated plugin's `package.json` now declares `react` and `react-dom` peers as `^19.0.0` (was `^18.0.0 || ^19.0.0`), matching the React 19-only peer range every `@object-ui/*` package now declares. Plugins already generated are unchanged; their authors may narrow the range the same way. Declared `minor` per the version-alignment policy (objectui#13465).
+
+### Patch Changes
+
+- 85b6a48: Clause-②: no
+  Metadata-protocol: none
+  
+  Every published package now declares `sideEffects`, so a host that bundles `@object-ui/*` can tree-shake the ones that do nothing on import. `@object-ui/react`, `auth`, `collaboration`, `data-objectstack`, `mobile`, `permissions` and `providers` declare `false`: no module in them registers, imports CSS or writes a global when it loads. Every `plugin-*` package except `plugin-ai`, `plugin-chatbot`, `plugin-dashboard` and `plugin-grid` declares an array naming exactly its entry forms and the modules that register components at load time, so `import '@object-ui/plugin-x'` still registers everything it did before. `plugin-ai`, `plugin-chatbot`, `plugin-dashboard`, `plugin-grid`, `cli`, `create-plugin` and `runner` declare `true` (objectui#13464).
+
 ## 18.1.0
 
 ## 18.0.0

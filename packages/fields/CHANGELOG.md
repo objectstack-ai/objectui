@@ -1,5 +1,65 @@
 # @object-ui/fields
 
+## 18.2.0
+
+### Minor Changes
+
+- 6f629a7: Clause-②: no
+  Metadata-protocol: none
+  
+  **Breaking:** React 18 is no longer a supported host. `peerDependencies.react` and `peerDependencies.react-dom` now read `^19.0.0` (was `^18.0.0 || ^19.0.0`). Nothing in this repository ever installed or tested React 18, so the old range was a promise without a test behind it; a React 18 host now gets a peer-dependency warning or refusal at install time instead of an untested runtime. Declared `minor` per the version-alignment policy (a changeset never declares `major`). Upgrade the host to React 19 (objectui#13465).
+
+### Patch Changes
+
+- 4aa90ba: Icon-only buttons in the console now have an accessible name, and the clickable `div` / `span` controls the console drew are real buttons a keyboard can reach (objectui#13461).
+  
+  Clause-②: no
+  Metadata-protocol: none
+  
+  - Named, in every shipped language: the AI canvas's close button, the secret value's show / hide toggle in the action result dialog, the permission set editor's remove-policy and remove-tab buttons, the metadata history page's refresh button, the sort builder's remove button, the `file-upload` renderer's remove buttons, the file, master-detail, password and QR-code field widgets' icon buttons, the chat composer's send button, the chat's scroll-to-latest button, and the top bar's avatar button ("Account menu").
+  - The organization picker's "Manage" link is its own button beside the card, not a clickable `span` inside the card's button, so it can be tabbed to and is no longer read as part of the card's name.
+  - A flow canvas branch label selects its edge with Enter or Space when the edge is selectable.
+  - `tree-view`: the expand toggle is named ("Expand" / "Collapse") and reports `aria-expanded`; a node is a button only when the host passes `onNodeClick`, instead of a clickable row wrapped round the toggle.
+  - `file-upload`: the dropzone opens the file picker with Enter or Space.
+  - The app preview's read-only navigation list no longer carries a click handler that could never fire.
+  - New pack keys: `common.expand`, `common.collapse`, `user.accountMenu`, `actions.resultDialog.showValue` / `hideValue`, `fields.masterDetail.view` / `remove`, `fields.password.show` / `hide`, `fields.qrCode.copy` / `show` / `hide`, `chatbot.sendMessage`, `chatbot.scrollToBottom`.
+- cd70b78: Clause-②: no
+  Metadata-protocol: none
+  
+  One react line: every manifest that pins `react` / `react-dom` now pins 19.3.0, and every `@types/react` / `@types/react-dom` pin is 19.3.0, matching the root `pnpm.overrides`. The objectstack monorepo's `@objectstack/client-react` requires react `^19.3.0`, and a second `@types/react` copy broke `@object-ui/plugin-view`'s declaration build in the merged tree. The CLI's scaffold (`REACT_RANGE` and the shared dev-dependency map in `scaffold-dependencies.ts`) quotes the same pins, as its anchor test requires.
+- Updated dependencies [46c56ee]
+- Updated dependencies [ee4f1ef]
+- Updated dependencies [610d9ef]
+- Updated dependencies [899f381]
+- Updated dependencies [0063f22]
+- Updated dependencies [699156a]
+- Updated dependencies [0063f22]
+- Updated dependencies [0063f22]
+- Updated dependencies [96c3649]
+- Updated dependencies [d0c9650]
+- Updated dependencies [5399bbc]
+- Updated dependencies [4aa90ba]
+- Updated dependencies [85b6a48]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [6f629a7]
+- Updated dependencies [84ce59c]
+- Updated dependencies [b41ed7f]
+- Updated dependencies [db9af10]
+- Updated dependencies [cd70b78]
+- Updated dependencies [cd70b78]
+- Updated dependencies [1212e3e]
+- Updated dependencies [3b7b040]
+  - @object-ui/types@18.2.0
+  - @object-ui/core@18.2.0
+  - @object-ui/components@18.2.0
+  - @object-ui/providers@18.2.0
+  - @object-ui/react@18.2.0
+  - @object-ui/i18n@18.2.0
+  - @object-ui/permissions@18.2.0
+
 ## 18.1.0
 
 ### Patch Changes

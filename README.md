@@ -1,3 +1,23 @@
+> [!IMPORTANT]
+> **Object UI has moved into the ObjectStack repository, and this repository is archived (read-only).**
+>
+> - **The code** now lives in [`objectstack-ai/objectstack`, directory `ui/`](https://github.com/objectstack-ai/objectstack/tree/main/ui). It was imported from this repository's final `main` commit, [`9e1fe03286`](https://github.com/objectstack-ai/objectui/commit/9e1fe032866965c7cb0460cff2b6af09350236b7), by objectstack#25825. Every change after that commit happens there.
+> - **The history** up to `9e1fe03286` stays here, in this archived repository. The import landed in objectstack as a single squashed commit, so for `git log` / `git blame` of anything older, use this repository.
+> - **Porting an unmerged branch:** rebase it onto `9e1fe03286` here, then replay it into the objectstack tree with its authorship kept:
+>
+>   ```bash
+>   # in a clone of objectstack-ai/objectui
+>   git format-patch 9e1fe03286..my-branch --stdout > my-branch.patch
+>   # in a clone of objectstack-ai/objectstack
+>   git am --directory=ui my-branch.patch
+>   ```
+>
+> - **Issues** were transferred to [objectstack-ai/objectstack](https://github.com/objectstack-ai/objectstack/issues?q=label%3Adomain%3Aui) (label `domain:ui`). Old issue links redirect to their new address. File new UI issues there.
+> - **npm packages** do not change name. `@object-ui/*` keeps publishing from objectstack's release lane, always at the same version as `@objectstack/*`, starting with 18.2.0.
+> - **Contributing:** see objectstack's [`CONTRIBUTING.md`](https://github.com/objectstack-ai/objectstack/blob/main/CONTRIBUTING.md); the UI workspace's own guide is [`ui/CONTRIBUTING.md`](https://github.com/objectstack-ai/objectstack/blob/main/ui/CONTRIBUTING.md).
+>
+> The rest of this README is kept as it read at `9e1fe03286`; paths in it are relative to this repository (in objectstack, prefix them with `ui/`).
+
 <div align="center">
 
 # Object UI
